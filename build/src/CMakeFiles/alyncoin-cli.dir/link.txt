@@ -1,0 +1,1 @@
+/usr/bin/c++ "CMakeFiles/alyncoin-cli.dir/cli.cpp.o" -o ../alyncoin-cli   -L/usr/lib/gcc/x86_64-linux-gnu/10  libalyncoin_lib.a /usr/lib/x86_64-linux-gnu/libcrypto.so -ljsoncpp -lpthread -lcrypto -lrocksdb /usr/lib/x86_64-linux-gnu/libprotobuf.so 

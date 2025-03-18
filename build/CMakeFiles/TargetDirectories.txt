@@ -1,0 +1,7 @@
+/root/AlynCoin/build/CMakeFiles/edit_cache.dir
+/root/AlynCoin/build/CMakeFiles/rebuild_cache.dir
+/root/AlynCoin/build/src/CMakeFiles/alyncoin_lib.dir
+/root/AlynCoin/build/src/CMakeFiles/alyncoin.dir
+/root/AlynCoin/build/src/CMakeFiles/alyncoin-cli.dir
+/root/AlynCoin/build/src/CMakeFiles/edit_cache.dir
+/root/AlynCoin/build/src/CMakeFiles/rebuild_cache.dir
