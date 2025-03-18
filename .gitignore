@@ -1,1 +1,15 @@
 build/
+data/
+*.log
+*.db
+*.o
+*.a
+*.so
+*.out
+wallet.dat
+*.bin
+CMakeFiles/
+CMakeCache.txt
+Makefile
+cmake_install.cmake
+build/

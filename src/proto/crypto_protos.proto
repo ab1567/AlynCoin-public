@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package alyncoin;
+
+message CryptoKeysProto {
+    string private_key = 1;  // ✅ Use string for easier handling
+    string public_key = 2;
+}
+
+message SignatureProto {
+    string signature = 1;
+}
+
+message AddressProto {
+    string miner_address = 1;
+}

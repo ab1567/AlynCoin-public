@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package alyncoin;
+
+import "transaction_protos.proto";
+
+message BlockProto {
+    int32 index = 1;
+    string previous_hash = 2;
+    repeated TransactionProto transactions = 3;
+    string hash = 4;
+    string miner_address = 5;
+    uint64 nonce = 6;
+    uint64 timestamp = 7;
+    int32 difficulty = 8;
+    string block_signature = 9;
+    string keccak_hash = 10;  
+}

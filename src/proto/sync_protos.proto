@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package alyncoin;
+
+message SyncRequestProto {
+    string request_type = 1;
+    int32 block_height = 2;  // ✅ Added block height for efficient sync
+}
+
+message SyncResponseProto {
+    string status = 1;
+    string data = 2;
+}
+
+// ✅ Ensure BlockRequestProto is properly defined
+message BlockRequestProto {
+    string request_type = 1;
+    int32 block_index = 2;
+}
+
+// ✅ Ensure BlockchainSyncProto is properly defined
+message BlockchainSyncProto {
+    string request_type = 1;
+}

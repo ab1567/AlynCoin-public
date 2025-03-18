@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package alyncoin;
+
+import "block_protos.proto";
+import "transaction_protos.proto";
+
+message MainProto {
+    repeated BlockProto blocks = 1;
+    repeated TransactionProto transactions = 2;
+}

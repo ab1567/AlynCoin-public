@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package alyncoin;
+
+message TransactionProto {
+    string sender = 1;
+    string recipient = 2;
+    double amount = 3;
+    string signature = 4;
+    uint64 timestamp = 5;
+
+    // ✅ Optional fields to avoid errors when checking `has_*`
+    optional bool has_sender = 6;
+    optional bool has_recipient = 7;
+    optional bool has_amount = 8;
+    optional bool has_signature = 9;
+    optional bool has_timestamp = 10;
+}

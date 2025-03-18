@@ -1,0 +1,707 @@
+#include "blockchain.h"
+#include "blake3.h"
+#include "json/json.h"
+#include <iomanip>
+#include <iostream>
+#include <fstream>
+#include <thread>
+#include <chrono>
+#include <mutex>
+#include <algorithm>
+#include <atomic>
+#include "transaction.h"
+#include "crypto_utils.h"
+#include <locale>
+#include "network.h"
+#include <sys/stat.h>
+#include <filesystem>
+#include <rocksdb/db.h>
+
+// Global mutex for blockchain safety
+std::mutex blockchainMutex;
+std::atomic<bool> Blockchain::isMining{false};
+
+// ✅ **Destructor: Close RocksDB**
+Blockchain::~Blockchain() {
+    delete db;  // ✅ Clean up RocksDB
+}
+// ✅ **Constructor: Open RocksDB**
+Blockchain::Blockchain(unsigned short port) : difficulty(4), miningReward(10.0) {
+    network = new Network(port);
+
+    // ✅ Open RocksDB
+    rocksdb::Options options;
+    options.create_if_missing = true;
+    rocksdb::Status status = rocksdb::DB::Open(options, "data/blockchain_db", &db);
+    
+    if (!status.ok()) {
+        std::cerr << "❌ Error opening RocksDB: " << status.ToString() << std::endl;
+        exit(1);
+    }
+
+    loadFromDB(); // ✅ Load blockchain from RocksDB
+    loadTransactionsFromDB();
+}
+
+// ✅ **Validate a Transaction**
+bool Blockchain::isTransactionValid(const Transaction& tx) const {
+    std::string senderLower = tx.getSender();
+    std::transform(senderLower.begin(), senderLower.end(), senderLower.begin(), ::tolower);
+    
+    std::string publicKeyPath = "keys/" + senderLower + "_public.pem";
+
+    // **Check if public key exists before proceeding**
+    std::ifstream pubKeyFile(publicKeyPath);
+    if (!pubKeyFile.good()) {
+        std::cerr << "❌ Error: Public key file not found: " << publicKeyPath << "! Retrying...\n";
+        Crypto::generateKeysForUser(senderLower);  // Attempt to regenerate keys
+
+        // **Wait briefly to ensure key is saved**
+        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
+        // **Re-check the file after generation**
+        pubKeyFile.open(publicKeyPath);
+        if (!pubKeyFile.good()) {
+            std::cerr << "❌ Critical Error: Failed to generate or load public key for " << senderLower << "!\n";
+            return false;
+        }
+    }
+
+    std::string transactionHash = tx.calculateHash();
+    std::cerr << "🔍 [DEBUG] Transaction Hash (Expected for Verification): " << transactionHash << std::endl;
+ 
+   return Crypto::verifyMessage(publicKeyPath, tx.getSignature(), transactionHash);
+}
+
+// ✅ Create the Genesis Block Properly
+void Blockchain::createGenesisBlock() {
+    std::cerr << "⚠️ Blockchain empty! Creating Genesis Block..." << std::endl;
+
+    Transaction genesisTx("System", "Genesis", 0.0, "GENESIS_SIGNATURE");
+    genesisTx.signTransaction("keys/system_private.pem");  // ✅ Ensure it has a valid signature
+
+    std::vector<Transaction> genesisTransactions = {genesisTx};
+
+    Block genesisBlock(0, "00000000000000000000000000000000", genesisTransactions, "System", 4);
+    genesisBlock.mineBlock(4);
+
+    chain.push_back(genesisBlock);
+    saveToFile();
+
+    std::cout << "✅ Genesis Block Created! Hash: " << genesisBlock.getHash() << std::endl;
+}
+// ✅ Adds block, applies smart burn, and broadcasts to peers
+void Blockchain::addBlock(const Block& block) {
+    std::lock_guard<std::mutex> lock(blockchainMutex);
+
+    if (block.isValid(chain.back().getHash())) {
+        chain.push_back(block);
+        saveToFile();
+        std::cout << "✅ Block added successfully!\n";
+
+        // 📡 **Broadcast new block to all peers**
+        if (network) {
+            Json::StreamWriterBuilder writer;
+            std::string blockData = R"({"type": "new_block", "data": )" + Json::writeString(writer, block.toJSON()) + "}";
+
+            for (const std::string& peer : network->getPeers()) {
+                network->sendData(peer, blockData);
+            }
+
+            std::cout << "📡 Broadcasted new block to peers.\n";
+        }
+    } else {
+        std::cerr << "❌ Invalid block! Rejected.\n";
+    }
+}
+// ✅ Adjust mining difficulty dynamically
+void Blockchain::adjustDifficulty() {
+    if (chain.size() < 10) return; // Ensure we have enough data for adjustment
+
+    const int difficultyWindow = 10; // Check last 10 blocks
+    std::vector<uint64_t> timestamps;
+    for (int i = chain.size() - difficultyWindow; i < chain.size(); i++) {
+        timestamps.push_back(chain[i].getTimestamp());
+    }
+
+    if (timestamps.size() < 2) return; // Not enough data
+
+    double avgBlockTime = (timestamps.back() - timestamps.front()) / (difficultyWindow - 1);
+
+    // Expected block time (target: 30 seconds per block)
+    double targetTime = 30.0;
+
+    // Dynamic difficulty update based on mining speed
+    if (avgBlockTime < targetTime * 0.8) { // Blocks mined too fast
+        difficulty = std::min(difficulty + 1, 8);
+        std::cout << "⚡ Increasing difficulty to: " << difficulty << " (Blocks mined too fast)\n";
+    } else if (avgBlockTime > targetTime * 1.2) { // Blocks mined too slow
+        difficulty = std::max(difficulty - 1, 4);
+        std::cout << "🐢 Reducing difficulty to: " << difficulty << " (Blocks mined too slow)\n";
+    } else {
+        std::cout << "✅ Difficulty remains the same: " << difficulty << std::endl;
+    }
+}
+
+// ✅ **Singleton Instance**
+Blockchain& Blockchain::getInstance(unsigned short port) {
+    static Blockchain instance(port);  // ✅ Ensure only one instance
+    return instance;
+}
+//
+const std::vector<Block>& Blockchain::getChain() const {
+    return chain;
+}
+//
+void Blockchain::clearPendingTransactions() {
+    std::lock_guard<std::mutex> lock(blockchainMutex);
+    pendingTransactions.clear();
+
+    // ✅ Ensure transactions file is emptied
+    std::ofstream outFile("data/transactions.json", std::ios::trunc);
+    outFile << "[]";  // Empty JSON array
+    outFile.close();
+
+    std::cout << "🚨 Cleared all pending transactions after mining.\n";
+}
+
+// ✅ Helper function to check if a file exists
+bool fileExists(const std::string& filename) {
+    struct stat buffer;
+    return (stat(filename.c_str(), &buffer) == 0);
+}
+
+// ✅ **Destructor**
+Blockchain::~Blockchain() {
+    delete network;  // ✅ Prevent memory leaks
+}
+
+// ✅ **Check for pending transactions**
+bool Blockchain::hasPendingTransactions() const {
+    return !pendingTransactions.empty();  // ✅ Only checks, does not modify!
+}
+
+// ✅ Mine pending transactions and dynamically adjust difficulty
+Block Blockchain::minePendingTransactions(const std::string& minerAddress) {
+    std::lock_guard<std::mutex> lock(blockchainMutex);
+
+    if (pendingTransactions.empty()) {
+        std::cerr << "⚠️ No transactions to mine!" << std::endl;
+        return Block(getLatestBlock().getIndex() + 1, getLatestBlock().getHash(), std::vector<Transaction>(), minerAddress, difficulty);
+    }
+
+    std::cout << "⏳ Pending Transactions: " << pendingTransactions.size() << std::endl;
+
+    // ✅ Remove Invalid Transactions
+    std::vector<Transaction> validTransactions;
+    for (const auto& tx : pendingTransactions) {
+        if (isTransactionValid(tx)) {
+            validTransactions.push_back(tx);
+        } else {
+            std::cerr << "❌ Skipping invalid transaction!" << std::endl;
+        }
+    }
+
+    if (validTransactions.empty()) {
+        std::cerr << "⚠️ No valid transactions to mine. Aborting mining process!" << std::endl;
+        return Block();
+    }
+
+    // ✅ **Adjust difficulty dynamically before mining**
+    adjustDifficulty();
+
+    Block newBlock(getLatestBlock().getIndex() + 1, getLatestBlock().getHash(), validTransactions, minerAddress, difficulty);
+
+    std::cout << "⏳ Mining Block: " << newBlock.getIndex() << " with difficulty: " << difficulty << std::endl;
+    newBlock.mineBlock(difficulty);
+
+    if (newBlock.getHash().empty()) {
+        std::cerr << "❌ Mining failed. No valid hash generated." << std::endl;
+        return newBlock;
+    }
+
+    // ✅ Clear Pending Transactions **AFTER** Adding Block
+    addBlock(newBlock);
+    clearPendingTransactions();
+    saveToFile();
+
+    std::cout << "✅ Block mined successfully: " << newBlock.getHash() << std::endl;
+    return newBlock;
+}
+
+
+// 
+void Blockchain::clearTransactionsAfterMining() {
+    std::cout << "🚨 Clearing pending transactions! Size before clearing: " 
+              << pendingTransactions.size() << std::endl;
+    pendingTransactions.clear();
+}
+
+// ✅ **Sync Blockchain**
+void Blockchain::syncChain(const Json::Value& jsonData) {
+    std::vector<Block> newChain;
+    for (const auto& blockJson : jsonData["chain"]) {
+        Block newBlock;
+        newBlock.fromJSON(blockJson);
+        newChain.push_back(newBlock);
+    }
+    if (newChain.size() > chain.size()) {
+        chain = newChain;
+        saveToFile();
+        std::cout << "✅ Blockchain successfully synchronized!" << std::endl;
+    }
+}
+
+// ✅ **Start Mining**
+void Blockchain::startMining(const std::string& minerAddress) {
+    if (isMining.load()) {
+        std::cout << "⚠️ Mining is already running!" << std::endl;
+        return;
+    }
+
+    isMining.store(true);
+
+    std::thread([this, minerAddress]() {
+        while (isMining.load()) {
+            reloadBlockchainState();
+            if (pendingTransactions.empty()) {
+                std::cout << "⏳ No transactions to mine. Waiting...\n";
+                std::this_thread::sleep_for(std::chrono::seconds(5));
+                continue;
+            }
+
+            Block newBlock = minePendingTransactions(minerAddress);
+            addBlock(newBlock);
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+        }
+    }).detach();
+}
+
+// ✅ **Stop Mining**
+void Blockchain::stopMining() {
+    isMining.store(false);
+    std::cout << "⛔ Mining stopped!\n";
+}
+
+// ✅ **Reload Blockchain State**
+void Blockchain::reloadBlockchainState() {
+    loadFromFile();
+    loadTransactionsFromDisk();
+    std::cout << "✅ Blockchain and transactions reloaded!\n";
+}
+
+// ✅ **Print Blockchain**
+void Blockchain::printBlockchain() const {
+    for (const auto& block : chain) {
+        std::cout << block.toJSON() << std::endl; // No .toStyledString()
+    }
+}
+
+    // ✅ **Show pending transactions (before they are mined)**
+void Blockchain::printPendingTransactions() {
+    if (!pendingTransactions.empty()) {
+        std::cout << "✅ Pending transactions available.\n";
+    } else {
+        std::cout << "✅ No pending transactions.\n";
+    }
+}
+
+// ✅ **Add a new transaction**
+void Blockchain::addTransaction(const Transaction& tx) {
+    std::lock_guard<std::mutex> lock(blockchainMutex);
+
+    if (!isTransactionValid(tx)) {
+        std::cerr << "❌ Invalid transaction! Not adding." << std::endl;
+        return;
+    }
+
+    pendingTransactions.push_back(tx);
+    saveTransactionsToDisk();
+
+    std::cout << "✅ Transaction added successfully! Total pending: " << pendingTransactions.size() << std::endl;
+
+    // 📡 **Broadcast Transaction Immediately**
+    if (network) {
+        Json::StreamWriterBuilder writer;
+        std::string txData = R"({"type": "new_transaction", "data": )" + Json::writeString(writer, tx.toJSON()) + "}";
+
+        for (const std::string& peer : network->getPeers()) {
+            network->sendData(peer, txData);
+        }
+
+        std::cout << "📡 Transaction broadcasted to peers!\n";
+    }
+}
+
+// ✅ **Get balance of a public key**
+double Blockchain::getBalance(const std::string& publicKey) const {
+    double balance = 0;
+    for (const Block& block : chain) {
+        for (const Transaction& tx : block.getTransactions()) {
+            if (tx.getRecipient() == publicKey) balance += tx.getAmount();
+            if (tx.getSender() == publicKey) balance -= tx.getAmount();
+        }
+    }
+    return balance;
+}
+
+// ✅ **Save transactions to disk**
+
+
+void Blockchain::saveTransactionsToDisk() {
+    std::string filePath = "data/transactions.json";
+
+    // Ensure "data" directory exists
+    struct stat info;
+    if (stat("data", &info) != 0) {
+        std::cerr << "⚠️ Warning: 'data' directory does not exist. Creating...\n";
+        mkdir("data", 0777);
+    }
+
+    std::ofstream file(filePath, std::ios::out | std::ios::trunc);
+    if (!file) {
+        std::cerr << "❌ Error: Could not open " << filePath << " for writing! Check permissions." << std::endl;
+        return;
+    }
+
+    Json::Value jsonData(Json::arrayValue);
+    for (const auto& tx : pendingTransactions) {
+        jsonData.append(tx.toJSON());
+    }
+
+    file << jsonData.toStyledString();
+    file.close();
+    std::cout << "✅ Transactions saved successfully!\n";
+}
+// ✅ **Convert blockchain to JSON**
+Json::Value Blockchain::toJSON() const {
+    Json::Value jsonData;
+    for (const auto& block : chain) {
+        jsonData["chain"].append(block.toJSON());
+    }
+
+    Json::StreamWriterBuilder writer;
+    return Json::writeString(writer, jsonData);
+}
+// ✅ Save blockchain to disk (Updated for better persistence)
+void Blockchain::saveToFile() {
+    if (chain.empty()) {
+        std::cerr << "⚠️ Blockchain empty! Creating and saving Genesis Block..." << std::endl;
+
+        // ✅ Ensure Genesis Block is properly initialized
+        Block genesis(0, "0", {}, "GENESIS", 1);
+        chain.push_back(genesis);
+        std::cout << "✅ Genesis Block Created!" << std::endl;
+    }
+
+    Json::Value blockchainData;
+    Json::Value blocksArray(Json::arrayValue);
+
+    for (const auto& block : chain) {
+        blocksArray.append(block.toJSON());  // ✅ Ensure block JSON is correct
+    }
+
+    blockchainData["blocks"] = blocksArray;
+
+    std::ofstream file("blockchain.json");
+    if (!file) {
+        std::cerr << "❌ Error saving blockchain to file!" << std::endl;
+        return;
+    }
+
+    file << blockchainData.toStyledString();  // ✅ Ensure proper JSON formatting
+    file.close();
+
+    std::cout << "✅ Blockchain successfully saved! Blocks count: " << chain.size() << std::endl;
+}
+
+// Loadfrom Json
+void Blockchain::loadFromJSON(const Json::Value& jsonData) {
+    if (!jsonData.isMember("blocks") || !jsonData["blocks"].isArray()) {
+        std::cerr << "❌ Error: Invalid blockchain JSON format!" << std::endl;
+        return;
+    }
+
+    chain.clear(); // ✅ Reset chain before loading
+    for (const auto& blockJson : jsonData["blocks"]) {
+        Block block = Block::fromJSON(blockJson);
+        if (block.getIndex() >= 0) {  // ✅ Only load valid blocks
+            chain.push_back(block);
+        } else {
+            std::cerr << "⚠️ Skipping corrupted block from JSON!" << std::endl;
+        }
+    }
+
+    std::cout << "✅ Blockchain successfully loaded from JSON. Blocks count: " << chain.size() << std::endl;
+}
+
+// ✅ **Replace blockchain if a longer valid chain is found**
+void Blockchain::replaceChain(const std::vector<Block>& newChain) {
+    std::lock_guard<std::mutex> lock(blockchainMutex);
+    if (newChain.size() > chain.size()) {
+        chain = newChain;
+        saveToFile();
+        std::cout << "✅ Blockchain replaced with a longer valid chain!" << std::endl;
+    }
+}
+//
+bool Blockchain::isValidNewBlock(const Block& newBlock) {
+    if (chain.empty()) {
+        std::cerr << "❌ Error: Blockchain is empty. No previous block to compare." << std::endl;
+        return false;
+    }
+
+    Block lastBlock = getLatestBlock();
+
+    // ✅ Ensure new block references the latest block's hash
+    if (newBlock.getPreviousHash() != lastBlock.getHash()) {
+        std::cerr << "❌ Invalid block! Previous hash mismatch." << std::endl;
+        return false;
+    }
+
+    // ✅ Validate Proof-of-Work
+    if (!newBlock.hasValidProofOfWork()) {
+        std::cerr << "❌ Invalid block! Proof-of-Work check failed." << std::endl;
+        return false;
+    }
+
+    return true;
+}
+// ✅ Load blockchain from disk
+void Blockchain::loadTransactionsFromDisk() {
+    std::ifstream file("data/transactions.json");
+    if (!file) {
+        std::cerr << "⚠️ transactions.json not found. Creating a new file...\n";
+        saveTransactionsToDisk(); // ✅ Fix: Create a new transactions file if missing
+        return;
+    }
+
+    Json::CharReaderBuilder readerBuilder;
+    Json::Value jsonData;
+    std::string errs;
+
+    if (!Json::parseFromStream(readerBuilder, file, &jsonData, &errs)) {
+        std::cerr << "❌ Error parsing transactions.json! " << errs << std::endl;
+        return;
+    }
+
+    file.close();
+
+    if (!jsonData.isArray()) {
+        std::cerr << "⚠️ Invalid transactions format. Resetting transactions...\n";
+        saveTransactionsToDisk();
+        return;
+    }
+
+    pendingTransactions.clear();
+    for (const auto& txData : jsonData) {
+        Transaction transaction;
+        transaction.fromJSON(txData);
+        pendingTransactions.push_back(transaction);
+    }
+
+    std::cout << "✅ Transactions loaded successfully! Count: " << pendingTransactions.size() << std::endl;
+}
+
+// ✅ Load blockchain from peers
+void Blockchain::loadFromPeers() {
+    if (!network) {
+        std::cerr << "❌ Network is not initialized!\n";
+        return;
+    }
+    network->requestBlockchainSync();
+}
+
+// ✅ **Hybrid PoW Mining (BLAKE3 + Keccak Validation)**
+Block Blockchain::mineBlock(const std::string& minerAddress) {
+    std::cout << "\n⏏️ Mining block using BLAKE3..." << std::endl;
+
+    if (pendingTransactions.empty()) {
+        std::cerr << "⚠️ No transactions to mine. Aborting mining process!" << std::endl;
+        return Block();
+    }
+
+    // ✅ Ensure miner keys exist
+    Crypto::ensureMinerKeys();
+
+    // ✅ Validate miner keypair before mining
+    std::string minerPrivateKey = "keys/" + minerAddress + "_private.pem";
+    std::string minerPublicKey = "keys/" + minerAddress + "_public.pem";
+
+    if (!std::filesystem::exists(minerPrivateKey) || !std::filesystem::exists(minerPublicKey)) {
+        std::cerr << "❌ Error: Miner keypair is missing! Cannot proceed with mining.\n";
+        return Block();
+    }
+
+    Block lastBlock = getLatestBlock();
+    std::string lastBlockHash = lastBlock.getHash();
+
+    // ✅ Generate miner address properly
+    std::string resolvedMinerAddress = Crypto::generateMinerAddress(minerAddress);
+    if (resolvedMinerAddress.empty()) {
+        std::cerr << "❌ Error: Failed to generate miner address from public key.\n";
+        return Block();
+    }
+
+    Block newBlock(chain.size(), lastBlockHash, pendingTransactions, resolvedMinerAddress, difficulty);
+    std::cout << "🔍 [DEBUG] Mining Block Index: " << newBlock.getIndex() << std::endl;
+
+    uint64_t nonce = 0;
+    std::string hash;
+
+    while (true) {
+        std::string data = newBlock.getPreviousHash() + std::to_string(newBlock.getTimestamp()) +
+                           newBlock.getMinerAddress() + std::to_string(nonce);
+
+        hash = Crypto::blake3(data);
+
+        if (hash.substr(0, difficulty) == std::string(difficulty, '0')) {
+            newBlock.setHash(hash);
+            newBlock.setNonce(nonce);
+            break;
+        }
+
+        if (nonce % 100000 == 0) {
+            std::cout << "⏳ Mining Progress: Nonce=" << nonce << ", Hash=" << hash << std::endl;
+        }
+
+        nonce++;
+    }
+
+    std::cout << "✅ Block successfully mined: " << hash << " (Nonce: " << nonce << ")\n";
+
+    // ✅ Sign the block using the miner's private key
+    std::string blockSignature = Crypto::signMessage(minerPrivateKey, hash);
+
+    if (blockSignature.empty()) {
+        std::cerr << "❌ Error: Failed to generate block signature!\n";
+        return Block();
+    }
+
+    std::cout << "✅ [DEBUG] Block Signature Successfully Generated: " << blockSignature << "\n";
+
+    newBlock.setSignature(blockSignature);
+
+    // ✅ Verify Block Signature
+    if (!Crypto::verifyMessage(minerPublicKey, blockSignature, hash)) {
+        std::cerr << "❌ Block signature verification failed! Miner: " << resolvedMinerAddress << std::endl;
+        return Block();
+    }
+
+    chain.push_back(newBlock);
+    saveToFile();
+    clearPendingTransactions();
+
+    std::cout << "✅ Block successfully added to blockchain!\n";
+    return newBlock;
+}
+
+// ✅ Get latest block
+const Block& Blockchain::getLatestBlock() const {
+    return chain.back();
+}
+
+// ✅ Get pending transactions
+std::vector<Transaction> Blockchain::getPendingTransactions() const {
+    return pendingTransactions;
+}
+// ✅ Update blockchain from JSON
+void Blockchain::updateFromJSON(const std::string& jsonData) {
+    try {
+        Json::Value root;
+        Json::CharReaderBuilder reader;
+        std::istringstream stream(jsonData);
+        std::string errs;
+
+        if (!Json::parseFromStream(reader, stream, &root, &errs)) {
+            std::cerr << "❌ Error parsing blockchain JSON: " << errs << std::endl;
+            return;
+        }
+
+        chain.clear();
+        for (const auto& blockJson : root["chain"]) {
+            Block newBlock;
+           newBlock.fromJSON(blockJson);
+           chain.push_back(newBlock);
+        }
+
+        saveToFile();
+        std::cout << "✅ Blockchain updated from JSON!\n";
+    } catch (const std::exception& e) {
+        std::cerr << "❌ Exception in updateFromJSON: " << e.what() << std::endl;
+    }
+}
+// ✅ Handle client connection (FIX FOR UNDEFINED REFERENCE)
+void Network::handleClient(std::shared_ptr<asio::ip::tcp::socket> socket) {
+    try {
+        std::array<char, 1024> data;
+        asio::error_code error;
+        size_t length = socket->read_some(asio::buffer(data), error);
+
+        if (!error) {
+            std::string receivedMessage(data.data(), length);
+            std::cout << "📩 Received message: " << receivedMessage << std::endl;
+
+            std::string senderIP = socket->remote_endpoint().address().to_string();
+            handleIncomingData(receivedMessage, senderIP);
+        } else {
+            std::cerr << "❌ Error reading from client: " << error.message() << std::endl;
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "❌ Exception in handleClient: " << e.what() << std::endl;
+    }
+}
+// ✅ Load blockchain from disk with error handling
+
+bool Blockchain::loadFromFile() {
+    std::ifstream file("blockchain.json");
+    if (!file.is_open()) {
+        std::cerr << "⚠️ Blockchain file not found! Creating new blockchain..." << std::endl;
+        return false;
+    }
+
+    Json::Value blockchainData;
+    file >> blockchainData;
+    file.close();
+
+    if (blockchainData.empty() || !blockchainData.isMember("blocks")) {
+        std::cerr << "❌ Invalid block JSON format!" << std::endl;
+        return false;
+    }
+
+    chain.clear();  // ✅ Avoid duplicate entries
+
+    for (const auto& blockJson : blockchainData["blocks"]) {
+        if (!blockJson.isObject()) {
+            std::cerr << "❌ Skipping invalid block data!" << std::endl;
+            continue;
+        }
+
+        Block newBlock = Block::fromJSON(blockJson);  // ✅ FIXED!
+        chain.push_back(newBlock);
+    }
+
+    std::cout << "✅ Blockchain loaded. Blocks count: " << chain.size() << std::endl;
+    return true;
+}
+
+// Store recent transaction counts
+std::deque<int> recentTransactionCounts;
+
+// Function to get average transaction count
+int Blockchain::getRecentTransactionCount() {
+    if (recentTransactionCounts.empty()) return 0;
+    
+    int sum = 0;
+    for (int count : recentTransactionCounts) sum += count;
+    
+    return sum / recentTransactionCounts.size();
+}
+
+// Update transaction history every block
+void Blockchain::updateTransactionHistory(int newTxCount) {
+    if (recentTransactionCounts.size() > 100) {
+        recentTransactionCounts.pop_front();  // Keep last 100 blocks' data
+    }
+    recentTransactionCounts.push_back(newTxCount);
+}

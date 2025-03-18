@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package alyncoin;
+
+import "block_protos.proto";
+import "transaction_protos.proto";
+
+message BlockchainProto {
+    int32 chain_id = 1;  // ✅ Added chain identifier
+    repeated BlockProto blocks = 2;
+    int32 difficulty = 3;
+    double block_reward = 4;
+    repeated TransactionProto pending_transactions = 5;
+}
