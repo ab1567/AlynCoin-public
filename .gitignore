@@ -13,3 +13,26 @@ CMakeCache.txt
 Makefile
 cmake_install.cmake
 build/
+
+# Ignore build and binary files
+build/
+*.o
+*.out
+*.a
+*.so
+*.exe
+
+# Ignore keys and sensitive data
+keys/
+*.pem
+
+# Ignore generated files
+*.pb.cc
+*.pb.h
+*.log
+*.dat
+*.zip
+
+# Ignore backups
+*.bak
+*.save
