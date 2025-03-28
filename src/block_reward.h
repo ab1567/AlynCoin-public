@@ -1,6 +1,7 @@
 #ifndef BLOCK_REWARD_H
 #define BLOCK_REWARD_H
 
-const double BASE_BLOCK_REWARD = 10.0;  // Fixed block reward per mined block
+// This is the *initial* base reward used in dynamic formulas.
+const double INITIAL_REWARD = 10.0;
 
 #endif

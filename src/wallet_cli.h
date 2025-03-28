@@ -7,15 +7,17 @@
 
 class WalletCLI {
 public:
-    void start();
-    
-private:
-    Wallet wallet;
+  void start();
 
-    void createWallet();
-    void loadWallet();
-    void checkBalance();
-    void sendCoins();
+private:
+  Wallet wallet;
+
+  void createWallet();
+  void loadWallet();
+  void checkBalance();
+  void sendCoins();
+  void generateNewPQKeys();
+  void showKeys();
 };
 
 #endif // WALLET_CLI_H

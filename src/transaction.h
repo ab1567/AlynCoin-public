@@ -1,56 +1,76 @@
 #ifndef TRANSACTION_H
 #define TRANSACTION_H
 
+#include "generated/transaction_protos.pb.h"
+#include "../network/peer_blacklist.h"
+#include "hash.h"
 #include <cstddef>
-#include <iostream>
 #include <fstream>
+#include <iostream>
+#include <jsoncpp/json/json.h>
 #include <string>
 #include <vector>
-#include <jsoncpp/json/json.h>
-#include "hash.h"
-#include "generated/transaction_protos.pb.h"  // ✅ Include Protobuf
 
 class Transaction {
 public:
-    Transaction();
-    Transaction(const std::string& sender, const std::string& recipient, double amount, const std::string& signature);
+  Transaction();
+  Transaction(const std::string &sender, const std::string &recipient,
+              double amount, const std::string &signatureDilithium,
+              const std::string &signatureFalcon, std::time_t timestamp);
 
-    std::string getRecipient() const;
-    std::string getSender() const;
-    double getAmount() const;
-    std::string getSignature() const;
-    time_t getTimestamp() const;
-    std::string getTransactionHash() const;
-    std::string getHash() const;
-    std::string toString() const;
-    void setAmount(double newAmount);
-    void setSignature(const std::string& sig);
-    static Transaction fromProto(const alyncoin::TransactionProto& proto);
-    bool isValid(const std::string& senderPublicKeyPath) const;
-    void signTransaction(const std::string& privateKeyPath, bool useManualSignature = false);
-    std::string calculateHash() const;
+  std::string getRecipient() const;
+  std::string getSender() const;
+  double getAmount() const;
+  std::string getSignatureDilithium() const;
+  std::string getSignatureFalcon() const;
+  time_t getTimestamp() const;
+  std::string getTransactionHash() const;
+  std::string getZkProof() const;
+  std::string calculateHash() const;
+  std::string toString() const;
+  std::string getHash() const;
+  std::string getSignature() const;
+  std::string getSenderPublicKeyDilithium() const {
+    return senderPublicKeyDilithium;
+  }
+  std::string getSenderPublicKeyFalcon() const { return senderPublicKeyFalcon; }
 
-    // ✅ Replace JSON serialization with Protobuf
-    std::string serialize() const;
-    void serializeToProtobuf(alyncoin::TransactionProto& proto) const;
-    bool deserializeFromProtobuf(const alyncoin::TransactionProto& proto);
-    Json::Value toJSON() const;
-    static Transaction deserialize(const std::string& data);
-    static Transaction fromJSON(const Json::Value& txJson);
-    // ✅ RocksDB Integration for Transactions
-    static bool saveToDB(const Transaction& tx, int index);
-    static std::vector<Transaction> loadFromDB();
+  void setAmount(double newAmount);
+  void setZkProof(const std::string &proof);
+  void signTransaction(const std::vector<unsigned char> &dilithiumPrivateKey,
+                     const std::vector<unsigned char> &falconPrivateKey);
+  bool isValid(const std::string &senderPublicKeyPathDilithium,
+               const std::string &senderPublicKeyPathFalcon) const;
+     bool isRewardTransaction() const {
+         return sender == "System";}
 
-    static double calculateBurnRate(int recentTxCount);
-    void applyBurn(std::string& sender, double& amount, int recentTxCount);
+  // Protobuf
+  std::string serialize() const;
+  void serializeToProtobuf(alyncoin::TransactionProto &proto) const;
+  bool deserializeFromProtobuf(const alyncoin::TransactionProto &proto);
+  static Transaction deserialize(const std::string &data);
+  Json::Value toJSON() const;
+  static Transaction fromJSON(const Json::Value &txJson);
+  static Transaction fromProto(const alyncoin::TransactionProto &proto);
 
+  // RocksDB
+  static bool saveToDB(const Transaction &tx, int index);
+  static std::vector<Transaction> loadFromDB();
+
+  // Burn
+  static double calculateBurnRate(int recentTxCount);
+  void applyBurn(std::string &sender, double &amount, int recentTxCount);
+static Transaction createSystemRewardTransaction(const std::string &recipient, double amount);
 private:
-    std::string sender;
-    std::string recipient;
-    double amount;
-    std::string signature;
-    time_t timestamp;
-    std::string hash;
+  std::string sender;
+  std::string recipient;
+  double amount;
+  std::string signatureDilithium;
+  std::string signatureFalcon;
+  time_t timestamp;
+  std::string zkProof;
+  std::string senderPublicKeyDilithium;
+  std::string senderPublicKeyFalcon;
 };
 
 #endif // TRANSACTION_H

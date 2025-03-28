@@ -23,18 +23,16 @@ namespace _pbi = _pb::internal;
 namespace alyncoin {
 PROTOBUF_CONSTEXPR TransactionProto::TransactionProto(
     ::_pbi::ConstantInitialized): _impl_{
-    /*decltype(_impl_._has_bits_)*/{}
-  , /*decltype(_impl_._cached_size_)*/{}
-  , /*decltype(_impl_.sender_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
+    /*decltype(_impl_.sender_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
   , /*decltype(_impl_.recipient_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
-  , /*decltype(_impl_.signature_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
+  , /*decltype(_impl_.signature_dilithium_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
+  , /*decltype(_impl_.signature_falcon_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
+  , /*decltype(_impl_.zkproof_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
+  , /*decltype(_impl_.sender_pubkey_dilithium_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
+  , /*decltype(_impl_.sender_pubkey_falcon_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
   , /*decltype(_impl_.amount_)*/0
   , /*decltype(_impl_.timestamp_)*/uint64_t{0u}
-  , /*decltype(_impl_.has_sender_)*/false
-  , /*decltype(_impl_.has_recipient_)*/false
-  , /*decltype(_impl_.has_amount_)*/false
-  , /*decltype(_impl_.has_signature_)*/false
-  , /*decltype(_impl_.has_timestamp_)*/false} {}
+  , /*decltype(_impl_._cached_size_)*/{}} {}
 struct TransactionProtoDefaultTypeInternal {
   PROTOBUF_CONSTEXPR TransactionProtoDefaultTypeInternal()
       : _instance(::_pbi::ConstantInitialized{}) {}
@@ -50,7 +48,7 @@ static constexpr ::_pb::EnumDescriptor const** file_level_enum_descriptors_trans
 static constexpr ::_pb::ServiceDescriptor const** file_level_service_descriptors_transaction_5fprotos_2eproto = nullptr;
 
 const uint32_t TableStruct_transaction_5fprotos_2eproto::offsets[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
-  PROTOBUF_FIELD_OFFSET(::alyncoin::TransactionProto, _impl_._has_bits_),
+  ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::alyncoin::TransactionProto, _internal_metadata_),
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
@@ -59,26 +57,15 @@ const uint32_t TableStruct_transaction_5fprotos_2eproto::offsets[] PROTOBUF_SECT
   PROTOBUF_FIELD_OFFSET(::alyncoin::TransactionProto, _impl_.sender_),
   PROTOBUF_FIELD_OFFSET(::alyncoin::TransactionProto, _impl_.recipient_),
   PROTOBUF_FIELD_OFFSET(::alyncoin::TransactionProto, _impl_.amount_),
-  PROTOBUF_FIELD_OFFSET(::alyncoin::TransactionProto, _impl_.signature_),
   PROTOBUF_FIELD_OFFSET(::alyncoin::TransactionProto, _impl_.timestamp_),
-  PROTOBUF_FIELD_OFFSET(::alyncoin::TransactionProto, _impl_.has_sender_),
-  PROTOBUF_FIELD_OFFSET(::alyncoin::TransactionProto, _impl_.has_recipient_),
-  PROTOBUF_FIELD_OFFSET(::alyncoin::TransactionProto, _impl_.has_amount_),
-  PROTOBUF_FIELD_OFFSET(::alyncoin::TransactionProto, _impl_.has_signature_),
-  PROTOBUF_FIELD_OFFSET(::alyncoin::TransactionProto, _impl_.has_timestamp_),
-  ~0u,
-  ~0u,
-  ~0u,
-  ~0u,
-  ~0u,
-  0,
-  1,
-  2,
-  3,
-  4,
+  PROTOBUF_FIELD_OFFSET(::alyncoin::TransactionProto, _impl_.signature_dilithium_),
+  PROTOBUF_FIELD_OFFSET(::alyncoin::TransactionProto, _impl_.signature_falcon_),
+  PROTOBUF_FIELD_OFFSET(::alyncoin::TransactionProto, _impl_.zkproof_),
+  PROTOBUF_FIELD_OFFSET(::alyncoin::TransactionProto, _impl_.sender_pubkey_dilithium_),
+  PROTOBUF_FIELD_OFFSET(::alyncoin::TransactionProto, _impl_.sender_pubkey_falcon_),
 };
 static const ::_pbi::MigrationSchema schemas[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
-  { 0, 16, -1, sizeof(::alyncoin::TransactionProto)},
+  { 0, -1, -1, sizeof(::alyncoin::TransactionProto)},
 };
 
 static const ::_pb::Message* const file_default_instances[] = {
@@ -86,20 +73,17 @@ static const ::_pb::Message* const file_default_instances[] = {
 };
 
 const char descriptor_table_protodef_transaction_5fprotos_2eproto[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) =
-  "\n\030transaction_protos.proto\022\010alyncoin\"\305\002\n"
+  "\n\030transaction_protos.proto\022\010alyncoin\"\337\001\n"
   "\020TransactionProto\022\016\n\006sender\030\001 \001(\t\022\021\n\trec"
-  "ipient\030\002 \001(\t\022\016\n\006amount\030\003 \001(\001\022\021\n\tsignatur"
-  "e\030\004 \001(\t\022\021\n\ttimestamp\030\005 \001(\004\022\027\n\nhas_sender"
-  "\030\006 \001(\010H\000\210\001\001\022\032\n\rhas_recipient\030\007 \001(\010H\001\210\001\001\022"
-  "\027\n\nhas_amount\030\010 \001(\010H\002\210\001\001\022\032\n\rhas_signatur"
-  "e\030\t \001(\010H\003\210\001\001\022\032\n\rhas_timestamp\030\n \001(\010H\004\210\001\001"
-  "B\r\n\013_has_senderB\020\n\016_has_recipientB\r\n\013_ha"
-  "s_amountB\020\n\016_has_signatureB\020\n\016_has_times"
-  "tampb\006proto3"
+  "ipient\030\002 \001(\t\022\016\n\006amount\030\003 \001(\001\022\021\n\ttimestam"
+  "p\030\004 \001(\004\022\033\n\023signature_dilithium\030\005 \001(\t\022\030\n\020"
+  "signature_falcon\030\006 \001(\t\022\017\n\007zkproof\030\007 \001(\t\022"
+  "\037\n\027sender_pubkey_dilithium\030\010 \001(\t\022\034\n\024send"
+  "er_pubkey_falcon\030\t \001(\tb\006proto3"
   ;
 static ::_pbi::once_flag descriptor_table_transaction_5fprotos_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_transaction_5fprotos_2eproto = {
-    false, false, 372, descriptor_table_protodef_transaction_5fprotos_2eproto,
+    false, false, 270, descriptor_table_protodef_transaction_5fprotos_2eproto,
     "transaction_protos.proto",
     &descriptor_table_transaction_5fprotos_2eproto_once, nullptr, 0, 1,
     schemas, file_default_instances, TableStruct_transaction_5fprotos_2eproto::offsets,
@@ -118,22 +102,6 @@ namespace alyncoin {
 
 class TransactionProto::_Internal {
  public:
-  using HasBits = decltype(std::declval<TransactionProto>()._impl_._has_bits_);
-  static void set_has_has_sender(HasBits* has_bits) {
-    (*has_bits)[0] |= 1u;
-  }
-  static void set_has_has_recipient(HasBits* has_bits) {
-    (*has_bits)[0] |= 2u;
-  }
-  static void set_has_has_amount(HasBits* has_bits) {
-    (*has_bits)[0] |= 4u;
-  }
-  static void set_has_has_signature(HasBits* has_bits) {
-    (*has_bits)[0] |= 8u;
-  }
-  static void set_has_has_timestamp(HasBits* has_bits) {
-    (*has_bits)[0] |= 16u;
-  }
 };
 
 TransactionProto::TransactionProto(::PROTOBUF_NAMESPACE_ID::Arena* arena,
@@ -146,18 +114,16 @@ TransactionProto::TransactionProto(const TransactionProto& from)
   : ::PROTOBUF_NAMESPACE_ID::Message() {
   TransactionProto* const _this = this; (void)_this;
   new (&_impl_) Impl_{
-      decltype(_impl_._has_bits_){from._impl_._has_bits_}
-    , /*decltype(_impl_._cached_size_)*/{}
-    , decltype(_impl_.sender_){}
+      decltype(_impl_.sender_){}
     , decltype(_impl_.recipient_){}
-    , decltype(_impl_.signature_){}
+    , decltype(_impl_.signature_dilithium_){}
+    , decltype(_impl_.signature_falcon_){}
+    , decltype(_impl_.zkproof_){}
+    , decltype(_impl_.sender_pubkey_dilithium_){}
+    , decltype(_impl_.sender_pubkey_falcon_){}
     , decltype(_impl_.amount_){}
     , decltype(_impl_.timestamp_){}
-    , decltype(_impl_.has_sender_){}
-    , decltype(_impl_.has_recipient_){}
-    , decltype(_impl_.has_amount_){}
-    , decltype(_impl_.has_signature_){}
-    , decltype(_impl_.has_timestamp_){}};
+    , /*decltype(_impl_._cached_size_)*/{}};
 
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
   _impl_.sender_.InitDefault();
@@ -176,17 +142,49 @@ TransactionProto::TransactionProto(const TransactionProto& from)
     _this->_impl_.recipient_.Set(from._internal_recipient(), 
       _this->GetArenaForAllocation());
   }
-  _impl_.signature_.InitDefault();
+  _impl_.signature_dilithium_.InitDefault();
   #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
-    _impl_.signature_.Set("", GetArenaForAllocation());
+    _impl_.signature_dilithium_.Set("", GetArenaForAllocation());
   #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
-  if (!from._internal_signature().empty()) {
-    _this->_impl_.signature_.Set(from._internal_signature(), 
+  if (!from._internal_signature_dilithium().empty()) {
+    _this->_impl_.signature_dilithium_.Set(from._internal_signature_dilithium(), 
+      _this->GetArenaForAllocation());
+  }
+  _impl_.signature_falcon_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.signature_falcon_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (!from._internal_signature_falcon().empty()) {
+    _this->_impl_.signature_falcon_.Set(from._internal_signature_falcon(), 
+      _this->GetArenaForAllocation());
+  }
+  _impl_.zkproof_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.zkproof_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (!from._internal_zkproof().empty()) {
+    _this->_impl_.zkproof_.Set(from._internal_zkproof(), 
+      _this->GetArenaForAllocation());
+  }
+  _impl_.sender_pubkey_dilithium_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.sender_pubkey_dilithium_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (!from._internal_sender_pubkey_dilithium().empty()) {
+    _this->_impl_.sender_pubkey_dilithium_.Set(from._internal_sender_pubkey_dilithium(), 
+      _this->GetArenaForAllocation());
+  }
+  _impl_.sender_pubkey_falcon_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.sender_pubkey_falcon_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (!from._internal_sender_pubkey_falcon().empty()) {
+    _this->_impl_.sender_pubkey_falcon_.Set(from._internal_sender_pubkey_falcon(), 
       _this->GetArenaForAllocation());
   }
   ::memcpy(&_impl_.amount_, &from._impl_.amount_,
-    static_cast<size_t>(reinterpret_cast<char*>(&_impl_.has_timestamp_) -
-    reinterpret_cast<char*>(&_impl_.amount_)) + sizeof(_impl_.has_timestamp_));
+    static_cast<size_t>(reinterpret_cast<char*>(&_impl_.timestamp_) -
+    reinterpret_cast<char*>(&_impl_.amount_)) + sizeof(_impl_.timestamp_));
   // @@protoc_insertion_point(copy_constructor:alyncoin.TransactionProto)
 }
 
@@ -195,18 +193,16 @@ inline void TransactionProto::SharedCtor(
   (void)arena;
   (void)is_message_owned;
   new (&_impl_) Impl_{
-      decltype(_impl_._has_bits_){}
-    , /*decltype(_impl_._cached_size_)*/{}
-    , decltype(_impl_.sender_){}
+      decltype(_impl_.sender_){}
     , decltype(_impl_.recipient_){}
-    , decltype(_impl_.signature_){}
+    , decltype(_impl_.signature_dilithium_){}
+    , decltype(_impl_.signature_falcon_){}
+    , decltype(_impl_.zkproof_){}
+    , decltype(_impl_.sender_pubkey_dilithium_){}
+    , decltype(_impl_.sender_pubkey_falcon_){}
     , decltype(_impl_.amount_){0}
     , decltype(_impl_.timestamp_){uint64_t{0u}}
-    , decltype(_impl_.has_sender_){false}
-    , decltype(_impl_.has_recipient_){false}
-    , decltype(_impl_.has_amount_){false}
-    , decltype(_impl_.has_signature_){false}
-    , decltype(_impl_.has_timestamp_){false}
+    , /*decltype(_impl_._cached_size_)*/{}
   };
   _impl_.sender_.InitDefault();
   #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
@@ -216,9 +212,25 @@ inline void TransactionProto::SharedCtor(
   #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
     _impl_.recipient_.Set("", GetArenaForAllocation());
   #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
-  _impl_.signature_.InitDefault();
+  _impl_.signature_dilithium_.InitDefault();
   #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
-    _impl_.signature_.Set("", GetArenaForAllocation());
+    _impl_.signature_dilithium_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.signature_falcon_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.signature_falcon_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.zkproof_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.zkproof_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.sender_pubkey_dilithium_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.sender_pubkey_dilithium_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.sender_pubkey_falcon_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.sender_pubkey_falcon_.Set("", GetArenaForAllocation());
   #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
 }
 
@@ -235,7 +247,11 @@ inline void TransactionProto::SharedDtor() {
   GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
   _impl_.sender_.Destroy();
   _impl_.recipient_.Destroy();
-  _impl_.signature_.Destroy();
+  _impl_.signature_dilithium_.Destroy();
+  _impl_.signature_falcon_.Destroy();
+  _impl_.zkproof_.Destroy();
+  _impl_.sender_pubkey_dilithium_.Destroy();
+  _impl_.sender_pubkey_falcon_.Destroy();
 }
 
 void TransactionProto::SetCachedSize(int size) const {
@@ -250,23 +266,19 @@ void TransactionProto::Clear() {
 
   _impl_.sender_.ClearToEmpty();
   _impl_.recipient_.ClearToEmpty();
-  _impl_.signature_.ClearToEmpty();
+  _impl_.signature_dilithium_.ClearToEmpty();
+  _impl_.signature_falcon_.ClearToEmpty();
+  _impl_.zkproof_.ClearToEmpty();
+  _impl_.sender_pubkey_dilithium_.ClearToEmpty();
+  _impl_.sender_pubkey_falcon_.ClearToEmpty();
   ::memset(&_impl_.amount_, 0, static_cast<size_t>(
       reinterpret_cast<char*>(&_impl_.timestamp_) -
       reinterpret_cast<char*>(&_impl_.amount_)) + sizeof(_impl_.timestamp_));
-  cached_has_bits = _impl_._has_bits_[0];
-  if (cached_has_bits & 0x0000001fu) {
-    ::memset(&_impl_.has_sender_, 0, static_cast<size_t>(
-        reinterpret_cast<char*>(&_impl_.has_timestamp_) -
-        reinterpret_cast<char*>(&_impl_.has_sender_)) + sizeof(_impl_.has_timestamp_));
-  }
-  _impl_._has_bits_.Clear();
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
 const char* TransactionProto::_InternalParse(const char* ptr, ::_pbi::ParseContext* ctx) {
 #define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
-  _Internal::HasBits has_bits{};
   while (!ctx->Done(&ptr)) {
     uint32_t tag;
     ptr = ::_pbi::ReadTag(ptr, &tag);
@@ -299,66 +311,61 @@ const char* TransactionProto::_InternalParse(const char* ptr, ::_pbi::ParseConte
         } else
           goto handle_unusual;
         continue;
-      // string signature = 4;
+      // uint64 timestamp = 4;
       case 4:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 34)) {
-          auto str = _internal_mutable_signature();
-          ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
-          CHK_(ptr);
-          CHK_(::_pbi::VerifyUTF8(str, "alyncoin.TransactionProto.signature"));
-        } else
-          goto handle_unusual;
-        continue;
-      // uint64 timestamp = 5;
-      case 5:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 40)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 32)) {
           _impl_.timestamp_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
           CHK_(ptr);
         } else
           goto handle_unusual;
         continue;
-      // optional bool has_sender = 6;
+      // string signature_dilithium = 5;
+      case 5:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 42)) {
+          auto str = _internal_mutable_signature_dilithium();
+          ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
+          CHK_(ptr);
+          CHK_(::_pbi::VerifyUTF8(str, "alyncoin.TransactionProto.signature_dilithium"));
+        } else
+          goto handle_unusual;
+        continue;
+      // string signature_falcon = 6;
       case 6:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 48)) {
-          _Internal::set_has_has_sender(&has_bits);
-          _impl_.has_sender_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 50)) {
+          auto str = _internal_mutable_signature_falcon();
+          ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(ptr);
+          CHK_(::_pbi::VerifyUTF8(str, "alyncoin.TransactionProto.signature_falcon"));
         } else
           goto handle_unusual;
         continue;
-      // optional bool has_recipient = 7;
+      // string zkproof = 7;
       case 7:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 56)) {
-          _Internal::set_has_has_recipient(&has_bits);
-          _impl_.has_recipient_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 58)) {
+          auto str = _internal_mutable_zkproof();
+          ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(ptr);
+          CHK_(::_pbi::VerifyUTF8(str, "alyncoin.TransactionProto.zkproof"));
         } else
           goto handle_unusual;
         continue;
-      // optional bool has_amount = 8;
+      // string sender_pubkey_dilithium = 8;
       case 8:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 64)) {
-          _Internal::set_has_has_amount(&has_bits);
-          _impl_.has_amount_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 66)) {
+          auto str = _internal_mutable_sender_pubkey_dilithium();
+          ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(ptr);
+          CHK_(::_pbi::VerifyUTF8(str, "alyncoin.TransactionProto.sender_pubkey_dilithium"));
         } else
           goto handle_unusual;
         continue;
-      // optional bool has_signature = 9;
+      // string sender_pubkey_falcon = 9;
       case 9:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 72)) {
-          _Internal::set_has_has_signature(&has_bits);
-          _impl_.has_signature_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 74)) {
+          auto str = _internal_mutable_sender_pubkey_falcon();
+          ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(ptr);
-        } else
-          goto handle_unusual;
-        continue;
-      // optional bool has_timestamp = 10;
-      case 10:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 80)) {
-          _Internal::set_has_has_timestamp(&has_bits);
-          _impl_.has_timestamp_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
-          CHK_(ptr);
+          CHK_(::_pbi::VerifyUTF8(str, "alyncoin.TransactionProto.sender_pubkey_falcon"));
         } else
           goto handle_unusual;
         continue;
@@ -378,7 +385,6 @@ const char* TransactionProto::_InternalParse(const char* ptr, ::_pbi::ParseConte
     CHK_(ptr != nullptr);
   }  // while
 message_done:
-  _impl_._has_bits_.Or(has_bits);
   return ptr;
 failure:
   ptr = nullptr;
@@ -422,50 +428,60 @@ uint8_t* TransactionProto::_InternalSerialize(
     target = ::_pbi::WireFormatLite::WriteDoubleToArray(3, this->_internal_amount(), target);
   }
 
-  // string signature = 4;
-  if (!this->_internal_signature().empty()) {
-    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
-      this->_internal_signature().data(), static_cast<int>(this->_internal_signature().length()),
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
-      "alyncoin.TransactionProto.signature");
-    target = stream->WriteStringMaybeAliased(
-        4, this->_internal_signature(), target);
-  }
-
-  // uint64 timestamp = 5;
+  // uint64 timestamp = 4;
   if (this->_internal_timestamp() != 0) {
     target = stream->EnsureSpace(target);
-    target = ::_pbi::WireFormatLite::WriteUInt64ToArray(5, this->_internal_timestamp(), target);
+    target = ::_pbi::WireFormatLite::WriteUInt64ToArray(4, this->_internal_timestamp(), target);
   }
 
-  // optional bool has_sender = 6;
-  if (_internal_has_has_sender()) {
-    target = stream->EnsureSpace(target);
-    target = ::_pbi::WireFormatLite::WriteBoolToArray(6, this->_internal_has_sender(), target);
+  // string signature_dilithium = 5;
+  if (!this->_internal_signature_dilithium().empty()) {
+    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
+      this->_internal_signature_dilithium().data(), static_cast<int>(this->_internal_signature_dilithium().length()),
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
+      "alyncoin.TransactionProto.signature_dilithium");
+    target = stream->WriteStringMaybeAliased(
+        5, this->_internal_signature_dilithium(), target);
   }
 
-  // optional bool has_recipient = 7;
-  if (_internal_has_has_recipient()) {
-    target = stream->EnsureSpace(target);
-    target = ::_pbi::WireFormatLite::WriteBoolToArray(7, this->_internal_has_recipient(), target);
+  // string signature_falcon = 6;
+  if (!this->_internal_signature_falcon().empty()) {
+    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
+      this->_internal_signature_falcon().data(), static_cast<int>(this->_internal_signature_falcon().length()),
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
+      "alyncoin.TransactionProto.signature_falcon");
+    target = stream->WriteStringMaybeAliased(
+        6, this->_internal_signature_falcon(), target);
   }
 
-  // optional bool has_amount = 8;
-  if (_internal_has_has_amount()) {
-    target = stream->EnsureSpace(target);
-    target = ::_pbi::WireFormatLite::WriteBoolToArray(8, this->_internal_has_amount(), target);
+  // string zkproof = 7;
+  if (!this->_internal_zkproof().empty()) {
+    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
+      this->_internal_zkproof().data(), static_cast<int>(this->_internal_zkproof().length()),
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
+      "alyncoin.TransactionProto.zkproof");
+    target = stream->WriteStringMaybeAliased(
+        7, this->_internal_zkproof(), target);
   }
 
-  // optional bool has_signature = 9;
-  if (_internal_has_has_signature()) {
-    target = stream->EnsureSpace(target);
-    target = ::_pbi::WireFormatLite::WriteBoolToArray(9, this->_internal_has_signature(), target);
+  // string sender_pubkey_dilithium = 8;
+  if (!this->_internal_sender_pubkey_dilithium().empty()) {
+    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
+      this->_internal_sender_pubkey_dilithium().data(), static_cast<int>(this->_internal_sender_pubkey_dilithium().length()),
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
+      "alyncoin.TransactionProto.sender_pubkey_dilithium");
+    target = stream->WriteStringMaybeAliased(
+        8, this->_internal_sender_pubkey_dilithium(), target);
   }
 
-  // optional bool has_timestamp = 10;
-  if (_internal_has_has_timestamp()) {
-    target = stream->EnsureSpace(target);
-    target = ::_pbi::WireFormatLite::WriteBoolToArray(10, this->_internal_has_timestamp(), target);
+  // string sender_pubkey_falcon = 9;
+  if (!this->_internal_sender_pubkey_falcon().empty()) {
+    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
+      this->_internal_sender_pubkey_falcon().data(), static_cast<int>(this->_internal_sender_pubkey_falcon().length()),
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
+      "alyncoin.TransactionProto.sender_pubkey_falcon");
+    target = stream->WriteStringMaybeAliased(
+        9, this->_internal_sender_pubkey_falcon(), target);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -498,11 +514,39 @@ size_t TransactionProto::ByteSizeLong() const {
         this->_internal_recipient());
   }
 
-  // string signature = 4;
-  if (!this->_internal_signature().empty()) {
+  // string signature_dilithium = 5;
+  if (!this->_internal_signature_dilithium().empty()) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
-        this->_internal_signature());
+        this->_internal_signature_dilithium());
+  }
+
+  // string signature_falcon = 6;
+  if (!this->_internal_signature_falcon().empty()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+        this->_internal_signature_falcon());
+  }
+
+  // string zkproof = 7;
+  if (!this->_internal_zkproof().empty()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+        this->_internal_zkproof());
+  }
+
+  // string sender_pubkey_dilithium = 8;
+  if (!this->_internal_sender_pubkey_dilithium().empty()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+        this->_internal_sender_pubkey_dilithium());
+  }
+
+  // string sender_pubkey_falcon = 9;
+  if (!this->_internal_sender_pubkey_falcon().empty()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+        this->_internal_sender_pubkey_falcon());
   }
 
   // double amount = 3;
@@ -514,39 +558,11 @@ size_t TransactionProto::ByteSizeLong() const {
     total_size += 1 + 8;
   }
 
-  // uint64 timestamp = 5;
+  // uint64 timestamp = 4;
   if (this->_internal_timestamp() != 0) {
     total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(this->_internal_timestamp());
   }
 
-  cached_has_bits = _impl_._has_bits_[0];
-  if (cached_has_bits & 0x0000001fu) {
-    // optional bool has_sender = 6;
-    if (cached_has_bits & 0x00000001u) {
-      total_size += 1 + 1;
-    }
-
-    // optional bool has_recipient = 7;
-    if (cached_has_bits & 0x00000002u) {
-      total_size += 1 + 1;
-    }
-
-    // optional bool has_amount = 8;
-    if (cached_has_bits & 0x00000004u) {
-      total_size += 1 + 1;
-    }
-
-    // optional bool has_signature = 9;
-    if (cached_has_bits & 0x00000008u) {
-      total_size += 1 + 1;
-    }
-
-    // optional bool has_timestamp = 10;
-    if (cached_has_bits & 0x00000010u) {
-      total_size += 1 + 1;
-    }
-
-  }
   return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
 }
 
@@ -571,8 +587,20 @@ void TransactionProto::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const
   if (!from._internal_recipient().empty()) {
     _this->_internal_set_recipient(from._internal_recipient());
   }
-  if (!from._internal_signature().empty()) {
-    _this->_internal_set_signature(from._internal_signature());
+  if (!from._internal_signature_dilithium().empty()) {
+    _this->_internal_set_signature_dilithium(from._internal_signature_dilithium());
+  }
+  if (!from._internal_signature_falcon().empty()) {
+    _this->_internal_set_signature_falcon(from._internal_signature_falcon());
+  }
+  if (!from._internal_zkproof().empty()) {
+    _this->_internal_set_zkproof(from._internal_zkproof());
+  }
+  if (!from._internal_sender_pubkey_dilithium().empty()) {
+    _this->_internal_set_sender_pubkey_dilithium(from._internal_sender_pubkey_dilithium());
+  }
+  if (!from._internal_sender_pubkey_falcon().empty()) {
+    _this->_internal_set_sender_pubkey_falcon(from._internal_sender_pubkey_falcon());
   }
   static_assert(sizeof(uint64_t) == sizeof(double), "Code assumes uint64_t and double are the same size.");
   double tmp_amount = from._internal_amount();
@@ -583,25 +611,6 @@ void TransactionProto::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const
   }
   if (from._internal_timestamp() != 0) {
     _this->_internal_set_timestamp(from._internal_timestamp());
-  }
-  cached_has_bits = from._impl_._has_bits_[0];
-  if (cached_has_bits & 0x0000001fu) {
-    if (cached_has_bits & 0x00000001u) {
-      _this->_impl_.has_sender_ = from._impl_.has_sender_;
-    }
-    if (cached_has_bits & 0x00000002u) {
-      _this->_impl_.has_recipient_ = from._impl_.has_recipient_;
-    }
-    if (cached_has_bits & 0x00000004u) {
-      _this->_impl_.has_amount_ = from._impl_.has_amount_;
-    }
-    if (cached_has_bits & 0x00000008u) {
-      _this->_impl_.has_signature_ = from._impl_.has_signature_;
-    }
-    if (cached_has_bits & 0x00000010u) {
-      _this->_impl_.has_timestamp_ = from._impl_.has_timestamp_;
-    }
-    _this->_impl_._has_bits_[0] |= cached_has_bits;
   }
   _this->_internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
 }
@@ -622,7 +631,6 @@ void TransactionProto::InternalSwap(TransactionProto* other) {
   auto* lhs_arena = GetArenaForAllocation();
   auto* rhs_arena = other->GetArenaForAllocation();
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
-  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
   ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::InternalSwap(
       &_impl_.sender_, lhs_arena,
       &other->_impl_.sender_, rhs_arena
@@ -632,12 +640,28 @@ void TransactionProto::InternalSwap(TransactionProto* other) {
       &other->_impl_.recipient_, rhs_arena
   );
   ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::InternalSwap(
-      &_impl_.signature_, lhs_arena,
-      &other->_impl_.signature_, rhs_arena
+      &_impl_.signature_dilithium_, lhs_arena,
+      &other->_impl_.signature_dilithium_, rhs_arena
+  );
+  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::InternalSwap(
+      &_impl_.signature_falcon_, lhs_arena,
+      &other->_impl_.signature_falcon_, rhs_arena
+  );
+  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::InternalSwap(
+      &_impl_.zkproof_, lhs_arena,
+      &other->_impl_.zkproof_, rhs_arena
+  );
+  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::InternalSwap(
+      &_impl_.sender_pubkey_dilithium_, lhs_arena,
+      &other->_impl_.sender_pubkey_dilithium_, rhs_arena
+  );
+  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::InternalSwap(
+      &_impl_.sender_pubkey_falcon_, lhs_arena,
+      &other->_impl_.sender_pubkey_falcon_, rhs_arena
   );
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(TransactionProto, _impl_.has_timestamp_)
-      + sizeof(TransactionProto::_impl_.has_timestamp_)
+      PROTOBUF_FIELD_OFFSET(TransactionProto, _impl_.timestamp_)
+      + sizeof(TransactionProto::_impl_.timestamp_)
       - PROTOBUF_FIELD_OFFSET(TransactionProto, _impl_.amount_)>(
           reinterpret_cast<char*>(&_impl_.amount_),
           reinterpret_cast<char*>(&other->_impl_.amount_));

@@ -4,6 +4,6 @@
 #include <string>
 
 // ✅ SHA-256 Hash Function Declaration
-std::string sha256(const std::string& input);
+std::string sha256(const std::string &input);
 
-#endif  // HASH_H
+#endif // HASH_H

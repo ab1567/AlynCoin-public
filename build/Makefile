@@ -117,6 +117,58 @@ depend:
 .PHONY : depend
 
 #=============================================================================
+# Target rules for targets named protobuf_gen
+
+# Build rule for target.
+protobuf_gen: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 protobuf_gen
+.PHONY : protobuf_gen
+
+# fast build rule for target.
+protobuf_gen/fast:
+	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/protobuf_gen.dir/build.make src/CMakeFiles/protobuf_gen.dir/build
+.PHONY : protobuf_gen/fast
+
+#=============================================================================
+# Target rules for targets named winterfell_ffi
+
+# Build rule for target.
+winterfell_ffi: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 winterfell_ffi
+.PHONY : winterfell_ffi
+
+# fast build rule for target.
+winterfell_ffi/fast:
+	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/winterfell_ffi.dir/build.make src/CMakeFiles/winterfell_ffi.dir/build
+.PHONY : winterfell_ffi/fast
+
+#=============================================================================
+# Target rules for targets named falcon
+
+# Build rule for target.
+falcon: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 falcon
+.PHONY : falcon
+
+# fast build rule for target.
+falcon/fast:
+	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/build
+.PHONY : falcon/fast
+
+#=============================================================================
+# Target rules for targets named dilithium
+
+# Build rule for target.
+dilithium: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 dilithium
+.PHONY : dilithium
+
+# fast build rule for target.
+dilithium/fast:
+	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/build
+.PHONY : dilithium/fast
+
+#=============================================================================
 # Target rules for targets named alyncoin_lib
 
 # Build rule for target.
@@ -155,6 +207,45 @@ alyncoin-cli/fast:
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin-cli.dir/build.make src/CMakeFiles/alyncoin-cli.dir/build
 .PHONY : alyncoin-cli/fast
 
+#=============================================================================
+# Target rules for targets named peer_blacklist_cli
+
+# Build rule for target.
+peer_blacklist_cli: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 peer_blacklist_cli
+.PHONY : peer_blacklist_cli
+
+# fast build rule for target.
+peer_blacklist_cli/fast:
+	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/peer_blacklist_cli.dir/build.make src/CMakeFiles/peer_blacklist_cli.dir/build
+.PHONY : peer_blacklist_cli/fast
+
+#=============================================================================
+# Target rules for targets named blacklist_test
+
+# Build rule for target.
+blacklist_test: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 blacklist_test
+.PHONY : blacklist_test
+
+# fast build rule for target.
+blacklist_test/fast:
+	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/blacklist_test.dir/build.make src/CMakeFiles/blacklist_test.dir/build
+.PHONY : blacklist_test/fast
+
+#=============================================================================
+# Target rules for targets named explorer_server
+
+# Build rule for target.
+explorer_server: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 explorer_server
+.PHONY : explorer_server
+
+# fast build rule for target.
+explorer_server/fast:
+	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/explorer_server.dir/build.make src/CMakeFiles/explorer_server.dir/build
+.PHONY : explorer_server/fast
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -163,9 +254,16 @@ help:
 	@echo "... depend"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
+	@echo "... protobuf_gen"
+	@echo "... winterfell_ffi"
 	@echo "... alyncoin"
 	@echo "... alyncoin-cli"
 	@echo "... alyncoin_lib"
+	@echo "... blacklist_test"
+	@echo "... dilithium"
+	@echo "... explorer_server"
+	@echo "... falcon"
+	@echo "... peer_blacklist_cli"
 .PHONY : help
 
 

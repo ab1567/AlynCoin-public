@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AlynCoin Blockchain Explorer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #1e1e2f;
+      color: #f0f0f0;
+      padding: 20px;
+    }
+    header {
+      text-align: center;
+      padding: 20px;
+    }
+    h1 {
+      color: #00ff99;
+      margin-bottom: 10px;
+    }
+    .container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+      max-width: 1200px;
+      margin: auto;
+    }
+    .card {
+      background: #2a2a40;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+    }
+    h2 {
+      color: #00ffcc;
+      margin-bottom: 10px;
+    }
+    input, button {
+      padding: 8px;
+      margin: 5px 0;
+      border-radius: 5px;
+      border: none;
+      outline: none;
+    }
+    input {
+      width: 70%;
+    }
+    button {
+      background-color: #00ff99;
+      color: #1e1e2f;
+      cursor: pointer;
+    }
+    pre {
+      background-color: #111;
+      color: #f0f0f0;
+      padding: 10px;
+      border-radius: 5px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      max-height: 300px;
+    }
+    footer {
+      text-align: center;
+      margin-top: 40px;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🔍 AlynCoin Blockchain Explorer</h1>
+    <p>Query blocks, transactions, and addresses with ease</p>
+  </header>
+
+  <div class="container">
+
+    <div class="card">
+      <h2>📊 Blockchain Stats</h2>
+      <button onclick="fetchStats()">Fetch Stats</button>
+      <pre id="statsOutput">...</pre>
+    </div>
+
+    <div class="card">
+      <h2>🔗 Block by Hash</h2>
+      <input type="text" id="blockHash" placeholder="Block Hash">
+      <button onclick="fetchBlock()">Fetch Block</button>
+      <pre id="blockOutput">...</pre>
+    </div>
+
+    <div class="card">
+      <h2>🔗 Block by Height</h2>
+      <input type="number" id="blockHeight" placeholder="Block Height">
+      <button onclick="fetchBlockByHeight()">Fetch Block</button>
+      <pre id="blockHeightOutput">...</pre>
+    </div>
+
+    <div class="card">
+      <h2>💳 Transaction by Hash</h2>
+      <input type="text" id="txHash" placeholder="Transaction Hash">
+      <button onclick="fetchTransaction()">Fetch Tx</button>
+      <pre id="txOutput">...</pre>
+    </div>
+
+    <div class="card">
+      <h2>🏦 Address Info</h2>
+      <input type="text" id="address" placeholder="Address">
+      <button onclick="fetchAddress()">Fetch Address Info</button>
+      <pre id="addressOutput">...</pre>
+    </div>
+
+  </div>
+
+  <footer>
+    © 2025 AlynCoin Explorer | Powered by zk-STARKs & Rollup
+  </footer>
+
+  <script src="js/main.js"></script>
+
+</body>
+</html>

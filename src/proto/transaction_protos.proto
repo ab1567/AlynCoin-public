@@ -6,13 +6,12 @@ message TransactionProto {
     string sender = 1;
     string recipient = 2;
     double amount = 3;
-    string signature = 4;
-    uint64 timestamp = 5;
+    uint64 timestamp = 4;
 
-    // ✅ Optional fields to avoid errors when checking `has_*`
-    optional bool has_sender = 6;
-    optional bool has_recipient = 7;
-    optional bool has_amount = 8;
-    optional bool has_signature = 9;
-    optional bool has_timestamp = 10;
+    string signature_dilithium = 5;
+    string signature_falcon = 6;
+    string zkproof = 7;
+
+    string sender_pubkey_dilithium = 8;
+    string sender_pubkey_falcon = 9;
 }

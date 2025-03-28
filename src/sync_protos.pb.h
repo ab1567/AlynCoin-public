@@ -19,16 +19,16 @@
 #error regenerate this file with a newer version of protoc.
 #endif
 
-#include <google/protobuf/port_undef.inc>
-#include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/arena.h>
 #include <google/protobuf/arenastring.h>
-#include <google/protobuf/generated_message_util.h>
-#include <google/protobuf/metadata_lite.h>
+#include <google/protobuf/extension_set.h> // IWYU pragma: export
 #include <google/protobuf/generated_message_reflection.h>
+#include <google/protobuf/generated_message_util.h>
+#include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/message.h>
-#include <google/protobuf/repeated_field.h>  // IWYU pragma: export
-#include <google/protobuf/extension_set.h>  // IWYU pragma: export
+#include <google/protobuf/metadata_lite.h>
+#include <google/protobuf/port_undef.inc>
+#include <google/protobuf/repeated_field.h> // IWYU pragma: export
 #include <google/protobuf/unknown_field_set.h>
 // @@protoc_insertion_point(includes)
 #include <google/protobuf/port_def.inc>
@@ -36,61 +36,75 @@
 PROTOBUF_NAMESPACE_OPEN
 namespace internal {
 class AnyMetadata;
-}  // namespace internal
+} // namespace internal
 PROTOBUF_NAMESPACE_CLOSE
 
 // Internal implementation detail -- do not use these members.
 struct TableStruct_sync_5fprotos_2eproto {
   static const uint32_t offsets[];
 };
-extern const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable descriptor_table_sync_5fprotos_2eproto;
+extern const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable
+    descriptor_table_sync_5fprotos_2eproto;
 namespace alyncoin {
 class BlockRequestProto;
 struct BlockRequestProtoDefaultTypeInternal;
-extern BlockRequestProtoDefaultTypeInternal _BlockRequestProto_default_instance_;
+extern BlockRequestProtoDefaultTypeInternal
+    _BlockRequestProto_default_instance_;
 class BlockchainSyncProto;
 struct BlockchainSyncProtoDefaultTypeInternal;
-extern BlockchainSyncProtoDefaultTypeInternal _BlockchainSyncProto_default_instance_;
+extern BlockchainSyncProtoDefaultTypeInternal
+    _BlockchainSyncProto_default_instance_;
 class SyncRequestProto;
 struct SyncRequestProtoDefaultTypeInternal;
 extern SyncRequestProtoDefaultTypeInternal _SyncRequestProto_default_instance_;
 class SyncResponseProto;
 struct SyncResponseProtoDefaultTypeInternal;
-extern SyncResponseProtoDefaultTypeInternal _SyncResponseProto_default_instance_;
-}  // namespace alyncoin
+extern SyncResponseProtoDefaultTypeInternal
+    _SyncResponseProto_default_instance_;
+} // namespace alyncoin
 PROTOBUF_NAMESPACE_OPEN
-template<> ::alyncoin::BlockRequestProto* Arena::CreateMaybeMessage<::alyncoin::BlockRequestProto>(Arena*);
-template<> ::alyncoin::BlockchainSyncProto* Arena::CreateMaybeMessage<::alyncoin::BlockchainSyncProto>(Arena*);
-template<> ::alyncoin::SyncRequestProto* Arena::CreateMaybeMessage<::alyncoin::SyncRequestProto>(Arena*);
-template<> ::alyncoin::SyncResponseProto* Arena::CreateMaybeMessage<::alyncoin::SyncResponseProto>(Arena*);
+template <>
+::alyncoin::BlockRequestProto *
+Arena::CreateMaybeMessage<::alyncoin::BlockRequestProto>(Arena *);
+template <>
+::alyncoin::BlockchainSyncProto *
+Arena::CreateMaybeMessage<::alyncoin::BlockchainSyncProto>(Arena *);
+template <>
+::alyncoin::SyncRequestProto *
+Arena::CreateMaybeMessage<::alyncoin::SyncRequestProto>(Arena *);
+template <>
+::alyncoin::SyncResponseProto *
+Arena::CreateMaybeMessage<::alyncoin::SyncResponseProto>(Arena *);
 PROTOBUF_NAMESPACE_CLOSE
 namespace alyncoin {
 
 // ===================================================================
 
-class SyncRequestProto final :
-    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:alyncoin.SyncRequestProto) */ {
- public:
+class SyncRequestProto final : public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:alyncoin.SyncRequestProto)
+                                                                        */
+{
+public:
   inline SyncRequestProto() : SyncRequestProto(nullptr) {}
   ~SyncRequestProto() override;
-  explicit PROTOBUF_CONSTEXPR SyncRequestProto(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+  explicit PROTOBUF_CONSTEXPR
+      SyncRequestProto(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
 
-  SyncRequestProto(const SyncRequestProto& from);
-  SyncRequestProto(SyncRequestProto&& from) noexcept
-    : SyncRequestProto() {
+  SyncRequestProto(const SyncRequestProto &from);
+  SyncRequestProto(SyncRequestProto &&from) noexcept : SyncRequestProto() {
     *this = ::std::move(from);
   }
 
-  inline SyncRequestProto& operator=(const SyncRequestProto& from) {
+  inline SyncRequestProto &operator=(const SyncRequestProto &from) {
     CopyFrom(from);
     return *this;
   }
-  inline SyncRequestProto& operator=(SyncRequestProto&& from) noexcept {
-    if (this == &from) return *this;
+  inline SyncRequestProto &operator=(SyncRequestProto &&from) noexcept {
+    if (this == &from)
+      return *this;
     if (GetOwningArena() == from.GetOwningArena()
-  #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
         && GetOwningArena() != nullptr
-  #endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+#endif // !PROTOBUF_FORCE_COPY_IN_MOVE
     ) {
       InternalSwap(&from);
     } else {
@@ -99,88 +113,95 @@ class SyncRequestProto final :
     return *this;
   }
 
-  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor *descriptor() {
     return GetDescriptor();
   }
-  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor *GetDescriptor() {
     return default_instance().GetMetadata().descriptor;
   }
-  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
+  static const ::PROTOBUF_NAMESPACE_ID::Reflection *GetReflection() {
     return default_instance().GetMetadata().reflection;
   }
-  static const SyncRequestProto& default_instance() {
+  static const SyncRequestProto &default_instance() {
     return *internal_default_instance();
   }
-  static inline const SyncRequestProto* internal_default_instance() {
-    return reinterpret_cast<const SyncRequestProto*>(
-               &_SyncRequestProto_default_instance_);
+  static inline const SyncRequestProto *internal_default_instance() {
+    return reinterpret_cast<const SyncRequestProto *>(
+        &_SyncRequestProto_default_instance_);
   }
-  static constexpr int kIndexInFileMessages =
-    0;
+  static constexpr int kIndexInFileMessages = 0;
 
-  friend void swap(SyncRequestProto& a, SyncRequestProto& b) {
-    a.Swap(&b);
-  }
-  inline void Swap(SyncRequestProto* other) {
-    if (other == this) return;
-  #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+  friend void swap(SyncRequestProto &a, SyncRequestProto &b) { a.Swap(&b); }
+  inline void Swap(SyncRequestProto *other) {
+    if (other == this)
+      return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
     if (GetOwningArena() != nullptr &&
         GetOwningArena() == other->GetOwningArena()) {
-   #else  // PROTOBUF_FORCE_COPY_IN_SWAP
+#else  // PROTOBUF_FORCE_COPY_IN_SWAP
     if (GetOwningArena() == other->GetOwningArena()) {
-  #endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+#endif // !PROTOBUF_FORCE_COPY_IN_SWAP
       InternalSwap(other);
     } else {
       ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
     }
   }
-  void UnsafeArenaSwap(SyncRequestProto* other) {
-    if (other == this) return;
+  void UnsafeArenaSwap(SyncRequestProto *other) {
+    if (other == this)
+      return;
     GOOGLE_DCHECK(GetOwningArena() == other->GetOwningArena());
     InternalSwap(other);
   }
 
   // implements Message ----------------------------------------------
 
-  SyncRequestProto* New(::PROTOBUF_NAMESPACE_ID::Arena* arena = nullptr) const final {
+  SyncRequestProto *
+  New(::PROTOBUF_NAMESPACE_ID::Arena *arena = nullptr) const final {
     return CreateMaybeMessage<SyncRequestProto>(arena);
   }
   using ::PROTOBUF_NAMESPACE_ID::Message::CopyFrom;
-  void CopyFrom(const SyncRequestProto& from);
+  void CopyFrom(const SyncRequestProto &from);
   using ::PROTOBUF_NAMESPACE_ID::Message::MergeFrom;
-  void MergeFrom( const SyncRequestProto& from) {
+  void MergeFrom(const SyncRequestProto &from) {
     SyncRequestProto::MergeImpl(*this, from);
   }
-  private:
-  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg);
-  public:
+
+private:
+  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message &to_msg,
+                        const ::PROTOBUF_NAMESPACE_ID::Message &from_msg);
+
+public:
   PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
   bool IsInitialized() const final;
 
   size_t ByteSizeLong() const final;
-  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
-  uint8_t* _InternalSerialize(
-      uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
+  const char *
+  _InternalParse(const char *ptr,
+                 ::PROTOBUF_NAMESPACE_ID::internal::ParseContext *ctx) final;
+  uint8_t *_InternalSerialize(
+      uint8_t *target,
+      ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream *stream) const final;
   int GetCachedSize() const final { return _impl_._cached_size_.Get(); }
 
-  private:
-  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena* arena, bool is_message_owned);
+private:
+  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena *arena, bool is_message_owned);
   void SharedDtor();
   void SetCachedSize(int size) const final;
-  void InternalSwap(SyncRequestProto* other);
+  void InternalSwap(SyncRequestProto *other);
 
-  private:
+private:
   friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
   static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
     return "alyncoin.SyncRequestProto";
   }
-  protected:
-  explicit SyncRequestProto(::PROTOBUF_NAMESPACE_ID::Arena* arena,
-                       bool is_message_owned = false);
-  public:
 
+protected:
+  explicit SyncRequestProto(::PROTOBUF_NAMESPACE_ID::Arena *arena,
+                            bool is_message_owned = false);
+
+public:
   static const ClassData _class_data_;
-  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*GetClassData() const final;
+  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData *GetClassData() const final;
 
   ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
 
@@ -193,57 +214,64 @@ class SyncRequestProto final :
   };
   // string request_type = 1;
   void clear_request_type();
-  const std::string& request_type() const;
-  template <typename ArgT0 = const std::string&, typename... ArgT>
-  void set_request_type(ArgT0&& arg0, ArgT... args);
-  std::string* mutable_request_type();
-  PROTOBUF_NODISCARD std::string* release_request_type();
-  void set_allocated_request_type(std::string* request_type);
-  private:
-  const std::string& _internal_request_type() const;
-  inline PROTOBUF_ALWAYS_INLINE void _internal_set_request_type(const std::string& value);
-  std::string* _internal_mutable_request_type();
-  public:
+  const std::string &request_type() const;
+  template <typename ArgT0 = const std::string &, typename... ArgT>
+  void set_request_type(ArgT0 &&arg0, ArgT... args);
+  std::string *mutable_request_type();
+  PROTOBUF_NODISCARD std::string *release_request_type();
+  void set_allocated_request_type(std::string *request_type);
 
+private:
+  const std::string &_internal_request_type() const;
+  inline PROTOBUF_ALWAYS_INLINE void
+  _internal_set_request_type(const std::string &value);
+  std::string *_internal_mutable_request_type();
+
+public:
   // @@protoc_insertion_point(class_scope:alyncoin.SyncRequestProto)
- private:
+private:
   class _Internal;
 
-  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
+  template <typename T>
+  friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
   struct Impl_ {
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr request_type_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   };
-  union { Impl_ _impl_; };
+  union {
+    Impl_ _impl_;
+  };
   friend struct ::TableStruct_sync_5fprotos_2eproto;
 };
 // -------------------------------------------------------------------
 
-class SyncResponseProto final :
-    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:alyncoin.SyncResponseProto) */ {
- public:
+class SyncResponseProto final : public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:alyncoin.SyncResponseProto)
+                                                                         */
+{
+public:
   inline SyncResponseProto() : SyncResponseProto(nullptr) {}
   ~SyncResponseProto() override;
-  explicit PROTOBUF_CONSTEXPR SyncResponseProto(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+  explicit PROTOBUF_CONSTEXPR
+      SyncResponseProto(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
 
-  SyncResponseProto(const SyncResponseProto& from);
-  SyncResponseProto(SyncResponseProto&& from) noexcept
-    : SyncResponseProto() {
+  SyncResponseProto(const SyncResponseProto &from);
+  SyncResponseProto(SyncResponseProto &&from) noexcept : SyncResponseProto() {
     *this = ::std::move(from);
   }
 
-  inline SyncResponseProto& operator=(const SyncResponseProto& from) {
+  inline SyncResponseProto &operator=(const SyncResponseProto &from) {
     CopyFrom(from);
     return *this;
   }
-  inline SyncResponseProto& operator=(SyncResponseProto&& from) noexcept {
-    if (this == &from) return *this;
+  inline SyncResponseProto &operator=(SyncResponseProto &&from) noexcept {
+    if (this == &from)
+      return *this;
     if (GetOwningArena() == from.GetOwningArena()
-  #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
         && GetOwningArena() != nullptr
-  #endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+#endif // !PROTOBUF_FORCE_COPY_IN_MOVE
     ) {
       InternalSwap(&from);
     } else {
@@ -252,88 +280,95 @@ class SyncResponseProto final :
     return *this;
   }
 
-  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor *descriptor() {
     return GetDescriptor();
   }
-  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor *GetDescriptor() {
     return default_instance().GetMetadata().descriptor;
   }
-  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
+  static const ::PROTOBUF_NAMESPACE_ID::Reflection *GetReflection() {
     return default_instance().GetMetadata().reflection;
   }
-  static const SyncResponseProto& default_instance() {
+  static const SyncResponseProto &default_instance() {
     return *internal_default_instance();
   }
-  static inline const SyncResponseProto* internal_default_instance() {
-    return reinterpret_cast<const SyncResponseProto*>(
-               &_SyncResponseProto_default_instance_);
+  static inline const SyncResponseProto *internal_default_instance() {
+    return reinterpret_cast<const SyncResponseProto *>(
+        &_SyncResponseProto_default_instance_);
   }
-  static constexpr int kIndexInFileMessages =
-    1;
+  static constexpr int kIndexInFileMessages = 1;
 
-  friend void swap(SyncResponseProto& a, SyncResponseProto& b) {
-    a.Swap(&b);
-  }
-  inline void Swap(SyncResponseProto* other) {
-    if (other == this) return;
-  #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+  friend void swap(SyncResponseProto &a, SyncResponseProto &b) { a.Swap(&b); }
+  inline void Swap(SyncResponseProto *other) {
+    if (other == this)
+      return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
     if (GetOwningArena() != nullptr &&
         GetOwningArena() == other->GetOwningArena()) {
-   #else  // PROTOBUF_FORCE_COPY_IN_SWAP
+#else  // PROTOBUF_FORCE_COPY_IN_SWAP
     if (GetOwningArena() == other->GetOwningArena()) {
-  #endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+#endif // !PROTOBUF_FORCE_COPY_IN_SWAP
       InternalSwap(other);
     } else {
       ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
     }
   }
-  void UnsafeArenaSwap(SyncResponseProto* other) {
-    if (other == this) return;
+  void UnsafeArenaSwap(SyncResponseProto *other) {
+    if (other == this)
+      return;
     GOOGLE_DCHECK(GetOwningArena() == other->GetOwningArena());
     InternalSwap(other);
   }
 
   // implements Message ----------------------------------------------
 
-  SyncResponseProto* New(::PROTOBUF_NAMESPACE_ID::Arena* arena = nullptr) const final {
+  SyncResponseProto *
+  New(::PROTOBUF_NAMESPACE_ID::Arena *arena = nullptr) const final {
     return CreateMaybeMessage<SyncResponseProto>(arena);
   }
   using ::PROTOBUF_NAMESPACE_ID::Message::CopyFrom;
-  void CopyFrom(const SyncResponseProto& from);
+  void CopyFrom(const SyncResponseProto &from);
   using ::PROTOBUF_NAMESPACE_ID::Message::MergeFrom;
-  void MergeFrom( const SyncResponseProto& from) {
+  void MergeFrom(const SyncResponseProto &from) {
     SyncResponseProto::MergeImpl(*this, from);
   }
-  private:
-  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg);
-  public:
+
+private:
+  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message &to_msg,
+                        const ::PROTOBUF_NAMESPACE_ID::Message &from_msg);
+
+public:
   PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
   bool IsInitialized() const final;
 
   size_t ByteSizeLong() const final;
-  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
-  uint8_t* _InternalSerialize(
-      uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
+  const char *
+  _InternalParse(const char *ptr,
+                 ::PROTOBUF_NAMESPACE_ID::internal::ParseContext *ctx) final;
+  uint8_t *_InternalSerialize(
+      uint8_t *target,
+      ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream *stream) const final;
   int GetCachedSize() const final { return _impl_._cached_size_.Get(); }
 
-  private:
-  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena* arena, bool is_message_owned);
+private:
+  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena *arena, bool is_message_owned);
   void SharedDtor();
   void SetCachedSize(int size) const final;
-  void InternalSwap(SyncResponseProto* other);
+  void InternalSwap(SyncResponseProto *other);
 
-  private:
+private:
   friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
   static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
     return "alyncoin.SyncResponseProto";
   }
-  protected:
-  explicit SyncResponseProto(::PROTOBUF_NAMESPACE_ID::Arena* arena,
-                       bool is_message_owned = false);
-  public:
 
+protected:
+  explicit SyncResponseProto(::PROTOBUF_NAMESPACE_ID::Arena *arena,
+                             bool is_message_owned = false);
+
+public:
   static const ClassData _class_data_;
-  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*GetClassData() const final;
+  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData *GetClassData() const final;
 
   ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
 
@@ -347,37 +382,42 @@ class SyncResponseProto final :
   };
   // string status = 1;
   void clear_status();
-  const std::string& status() const;
-  template <typename ArgT0 = const std::string&, typename... ArgT>
-  void set_status(ArgT0&& arg0, ArgT... args);
-  std::string* mutable_status();
-  PROTOBUF_NODISCARD std::string* release_status();
-  void set_allocated_status(std::string* status);
-  private:
-  const std::string& _internal_status() const;
-  inline PROTOBUF_ALWAYS_INLINE void _internal_set_status(const std::string& value);
-  std::string* _internal_mutable_status();
-  public:
+  const std::string &status() const;
+  template <typename ArgT0 = const std::string &, typename... ArgT>
+  void set_status(ArgT0 &&arg0, ArgT... args);
+  std::string *mutable_status();
+  PROTOBUF_NODISCARD std::string *release_status();
+  void set_allocated_status(std::string *status);
 
+private:
+  const std::string &_internal_status() const;
+  inline PROTOBUF_ALWAYS_INLINE void
+  _internal_set_status(const std::string &value);
+  std::string *_internal_mutable_status();
+
+public:
   // string data = 2;
   void clear_data();
-  const std::string& data() const;
-  template <typename ArgT0 = const std::string&, typename... ArgT>
-  void set_data(ArgT0&& arg0, ArgT... args);
-  std::string* mutable_data();
-  PROTOBUF_NODISCARD std::string* release_data();
-  void set_allocated_data(std::string* data);
-  private:
-  const std::string& _internal_data() const;
-  inline PROTOBUF_ALWAYS_INLINE void _internal_set_data(const std::string& value);
-  std::string* _internal_mutable_data();
-  public:
+  const std::string &data() const;
+  template <typename ArgT0 = const std::string &, typename... ArgT>
+  void set_data(ArgT0 &&arg0, ArgT... args);
+  std::string *mutable_data();
+  PROTOBUF_NODISCARD std::string *release_data();
+  void set_allocated_data(std::string *data);
 
+private:
+  const std::string &_internal_data() const;
+  inline PROTOBUF_ALWAYS_INLINE void
+  _internal_set_data(const std::string &value);
+  std::string *_internal_mutable_data();
+
+public:
   // @@protoc_insertion_point(class_scope:alyncoin.SyncResponseProto)
- private:
+private:
   class _Internal;
 
-  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
+  template <typename T>
+  friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
   struct Impl_ {
@@ -385,34 +425,38 @@ class SyncResponseProto final :
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr data_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   };
-  union { Impl_ _impl_; };
+  union {
+    Impl_ _impl_;
+  };
   friend struct ::TableStruct_sync_5fprotos_2eproto;
 };
 // -------------------------------------------------------------------
 
-class BlockRequestProto final :
-    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:alyncoin.BlockRequestProto) */ {
- public:
+class BlockRequestProto final : public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:alyncoin.BlockRequestProto)
+                                                                         */
+{
+public:
   inline BlockRequestProto() : BlockRequestProto(nullptr) {}
   ~BlockRequestProto() override;
-  explicit PROTOBUF_CONSTEXPR BlockRequestProto(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+  explicit PROTOBUF_CONSTEXPR
+      BlockRequestProto(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
 
-  BlockRequestProto(const BlockRequestProto& from);
-  BlockRequestProto(BlockRequestProto&& from) noexcept
-    : BlockRequestProto() {
+  BlockRequestProto(const BlockRequestProto &from);
+  BlockRequestProto(BlockRequestProto &&from) noexcept : BlockRequestProto() {
     *this = ::std::move(from);
   }
 
-  inline BlockRequestProto& operator=(const BlockRequestProto& from) {
+  inline BlockRequestProto &operator=(const BlockRequestProto &from) {
     CopyFrom(from);
     return *this;
   }
-  inline BlockRequestProto& operator=(BlockRequestProto&& from) noexcept {
-    if (this == &from) return *this;
+  inline BlockRequestProto &operator=(BlockRequestProto &&from) noexcept {
+    if (this == &from)
+      return *this;
     if (GetOwningArena() == from.GetOwningArena()
-  #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
         && GetOwningArena() != nullptr
-  #endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+#endif // !PROTOBUF_FORCE_COPY_IN_MOVE
     ) {
       InternalSwap(&from);
     } else {
@@ -421,88 +465,95 @@ class BlockRequestProto final :
     return *this;
   }
 
-  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor *descriptor() {
     return GetDescriptor();
   }
-  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor *GetDescriptor() {
     return default_instance().GetMetadata().descriptor;
   }
-  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
+  static const ::PROTOBUF_NAMESPACE_ID::Reflection *GetReflection() {
     return default_instance().GetMetadata().reflection;
   }
-  static const BlockRequestProto& default_instance() {
+  static const BlockRequestProto &default_instance() {
     return *internal_default_instance();
   }
-  static inline const BlockRequestProto* internal_default_instance() {
-    return reinterpret_cast<const BlockRequestProto*>(
-               &_BlockRequestProto_default_instance_);
+  static inline const BlockRequestProto *internal_default_instance() {
+    return reinterpret_cast<const BlockRequestProto *>(
+        &_BlockRequestProto_default_instance_);
   }
-  static constexpr int kIndexInFileMessages =
-    2;
+  static constexpr int kIndexInFileMessages = 2;
 
-  friend void swap(BlockRequestProto& a, BlockRequestProto& b) {
-    a.Swap(&b);
-  }
-  inline void Swap(BlockRequestProto* other) {
-    if (other == this) return;
-  #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+  friend void swap(BlockRequestProto &a, BlockRequestProto &b) { a.Swap(&b); }
+  inline void Swap(BlockRequestProto *other) {
+    if (other == this)
+      return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
     if (GetOwningArena() != nullptr &&
         GetOwningArena() == other->GetOwningArena()) {
-   #else  // PROTOBUF_FORCE_COPY_IN_SWAP
+#else  // PROTOBUF_FORCE_COPY_IN_SWAP
     if (GetOwningArena() == other->GetOwningArena()) {
-  #endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+#endif // !PROTOBUF_FORCE_COPY_IN_SWAP
       InternalSwap(other);
     } else {
       ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
     }
   }
-  void UnsafeArenaSwap(BlockRequestProto* other) {
-    if (other == this) return;
+  void UnsafeArenaSwap(BlockRequestProto *other) {
+    if (other == this)
+      return;
     GOOGLE_DCHECK(GetOwningArena() == other->GetOwningArena());
     InternalSwap(other);
   }
 
   // implements Message ----------------------------------------------
 
-  BlockRequestProto* New(::PROTOBUF_NAMESPACE_ID::Arena* arena = nullptr) const final {
+  BlockRequestProto *
+  New(::PROTOBUF_NAMESPACE_ID::Arena *arena = nullptr) const final {
     return CreateMaybeMessage<BlockRequestProto>(arena);
   }
   using ::PROTOBUF_NAMESPACE_ID::Message::CopyFrom;
-  void CopyFrom(const BlockRequestProto& from);
+  void CopyFrom(const BlockRequestProto &from);
   using ::PROTOBUF_NAMESPACE_ID::Message::MergeFrom;
-  void MergeFrom( const BlockRequestProto& from) {
+  void MergeFrom(const BlockRequestProto &from) {
     BlockRequestProto::MergeImpl(*this, from);
   }
-  private:
-  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg);
-  public:
+
+private:
+  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message &to_msg,
+                        const ::PROTOBUF_NAMESPACE_ID::Message &from_msg);
+
+public:
   PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
   bool IsInitialized() const final;
 
   size_t ByteSizeLong() const final;
-  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
-  uint8_t* _InternalSerialize(
-      uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
+  const char *
+  _InternalParse(const char *ptr,
+                 ::PROTOBUF_NAMESPACE_ID::internal::ParseContext *ctx) final;
+  uint8_t *_InternalSerialize(
+      uint8_t *target,
+      ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream *stream) const final;
   int GetCachedSize() const final { return _impl_._cached_size_.Get(); }
 
-  private:
-  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena* arena, bool is_message_owned);
+private:
+  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena *arena, bool is_message_owned);
   void SharedDtor();
   void SetCachedSize(int size) const final;
-  void InternalSwap(BlockRequestProto* other);
+  void InternalSwap(BlockRequestProto *other);
 
-  private:
+private:
   friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
   static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
     return "alyncoin.BlockRequestProto";
   }
-  protected:
-  explicit BlockRequestProto(::PROTOBUF_NAMESPACE_ID::Arena* arena,
-                       bool is_message_owned = false);
-  public:
 
+protected:
+  explicit BlockRequestProto(::PROTOBUF_NAMESPACE_ID::Arena *arena,
+                             bool is_message_owned = false);
+
+public:
   static const ClassData _class_data_;
-  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*GetClassData() const final;
+  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData *GetClassData() const final;
 
   ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
 
@@ -515,57 +566,65 @@ class BlockRequestProto final :
   };
   // string request_type = 1;
   void clear_request_type();
-  const std::string& request_type() const;
-  template <typename ArgT0 = const std::string&, typename... ArgT>
-  void set_request_type(ArgT0&& arg0, ArgT... args);
-  std::string* mutable_request_type();
-  PROTOBUF_NODISCARD std::string* release_request_type();
-  void set_allocated_request_type(std::string* request_type);
-  private:
-  const std::string& _internal_request_type() const;
-  inline PROTOBUF_ALWAYS_INLINE void _internal_set_request_type(const std::string& value);
-  std::string* _internal_mutable_request_type();
-  public:
+  const std::string &request_type() const;
+  template <typename ArgT0 = const std::string &, typename... ArgT>
+  void set_request_type(ArgT0 &&arg0, ArgT... args);
+  std::string *mutable_request_type();
+  PROTOBUF_NODISCARD std::string *release_request_type();
+  void set_allocated_request_type(std::string *request_type);
 
+private:
+  const std::string &_internal_request_type() const;
+  inline PROTOBUF_ALWAYS_INLINE void
+  _internal_set_request_type(const std::string &value);
+  std::string *_internal_mutable_request_type();
+
+public:
   // @@protoc_insertion_point(class_scope:alyncoin.BlockRequestProto)
- private:
+private:
   class _Internal;
 
-  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
+  template <typename T>
+  friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
   struct Impl_ {
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr request_type_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   };
-  union { Impl_ _impl_; };
+  union {
+    Impl_ _impl_;
+  };
   friend struct ::TableStruct_sync_5fprotos_2eproto;
 };
 // -------------------------------------------------------------------
 
-class BlockchainSyncProto final :
-    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:alyncoin.BlockchainSyncProto) */ {
- public:
+class BlockchainSyncProto final : public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:alyncoin.BlockchainSyncProto)
+                                                                           */
+{
+public:
   inline BlockchainSyncProto() : BlockchainSyncProto(nullptr) {}
   ~BlockchainSyncProto() override;
-  explicit PROTOBUF_CONSTEXPR BlockchainSyncProto(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+  explicit PROTOBUF_CONSTEXPR BlockchainSyncProto(
+      ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
 
-  BlockchainSyncProto(const BlockchainSyncProto& from);
-  BlockchainSyncProto(BlockchainSyncProto&& from) noexcept
-    : BlockchainSyncProto() {
+  BlockchainSyncProto(const BlockchainSyncProto &from);
+  BlockchainSyncProto(BlockchainSyncProto &&from) noexcept
+      : BlockchainSyncProto() {
     *this = ::std::move(from);
   }
 
-  inline BlockchainSyncProto& operator=(const BlockchainSyncProto& from) {
+  inline BlockchainSyncProto &operator=(const BlockchainSyncProto &from) {
     CopyFrom(from);
     return *this;
   }
-  inline BlockchainSyncProto& operator=(BlockchainSyncProto&& from) noexcept {
-    if (this == &from) return *this;
+  inline BlockchainSyncProto &operator=(BlockchainSyncProto &&from) noexcept {
+    if (this == &from)
+      return *this;
     if (GetOwningArena() == from.GetOwningArena()
-  #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
         && GetOwningArena() != nullptr
-  #endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+#endif // !PROTOBUF_FORCE_COPY_IN_MOVE
     ) {
       InternalSwap(&from);
     } else {
@@ -574,88 +633,97 @@ class BlockchainSyncProto final :
     return *this;
   }
 
-  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor *descriptor() {
     return GetDescriptor();
   }
-  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor *GetDescriptor() {
     return default_instance().GetMetadata().descriptor;
   }
-  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
+  static const ::PROTOBUF_NAMESPACE_ID::Reflection *GetReflection() {
     return default_instance().GetMetadata().reflection;
   }
-  static const BlockchainSyncProto& default_instance() {
+  static const BlockchainSyncProto &default_instance() {
     return *internal_default_instance();
   }
-  static inline const BlockchainSyncProto* internal_default_instance() {
-    return reinterpret_cast<const BlockchainSyncProto*>(
-               &_BlockchainSyncProto_default_instance_);
+  static inline const BlockchainSyncProto *internal_default_instance() {
+    return reinterpret_cast<const BlockchainSyncProto *>(
+        &_BlockchainSyncProto_default_instance_);
   }
-  static constexpr int kIndexInFileMessages =
-    3;
+  static constexpr int kIndexInFileMessages = 3;
 
-  friend void swap(BlockchainSyncProto& a, BlockchainSyncProto& b) {
+  friend void swap(BlockchainSyncProto &a, BlockchainSyncProto &b) {
     a.Swap(&b);
   }
-  inline void Swap(BlockchainSyncProto* other) {
-    if (other == this) return;
-  #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+  inline void Swap(BlockchainSyncProto *other) {
+    if (other == this)
+      return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
     if (GetOwningArena() != nullptr &&
         GetOwningArena() == other->GetOwningArena()) {
-   #else  // PROTOBUF_FORCE_COPY_IN_SWAP
+#else  // PROTOBUF_FORCE_COPY_IN_SWAP
     if (GetOwningArena() == other->GetOwningArena()) {
-  #endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+#endif // !PROTOBUF_FORCE_COPY_IN_SWAP
       InternalSwap(other);
     } else {
       ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
     }
   }
-  void UnsafeArenaSwap(BlockchainSyncProto* other) {
-    if (other == this) return;
+  void UnsafeArenaSwap(BlockchainSyncProto *other) {
+    if (other == this)
+      return;
     GOOGLE_DCHECK(GetOwningArena() == other->GetOwningArena());
     InternalSwap(other);
   }
 
   // implements Message ----------------------------------------------
 
-  BlockchainSyncProto* New(::PROTOBUF_NAMESPACE_ID::Arena* arena = nullptr) const final {
+  BlockchainSyncProto *
+  New(::PROTOBUF_NAMESPACE_ID::Arena *arena = nullptr) const final {
     return CreateMaybeMessage<BlockchainSyncProto>(arena);
   }
   using ::PROTOBUF_NAMESPACE_ID::Message::CopyFrom;
-  void CopyFrom(const BlockchainSyncProto& from);
+  void CopyFrom(const BlockchainSyncProto &from);
   using ::PROTOBUF_NAMESPACE_ID::Message::MergeFrom;
-  void MergeFrom( const BlockchainSyncProto& from) {
+  void MergeFrom(const BlockchainSyncProto &from) {
     BlockchainSyncProto::MergeImpl(*this, from);
   }
-  private:
-  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg);
-  public:
+
+private:
+  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message &to_msg,
+                        const ::PROTOBUF_NAMESPACE_ID::Message &from_msg);
+
+public:
   PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
   bool IsInitialized() const final;
 
   size_t ByteSizeLong() const final;
-  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
-  uint8_t* _InternalSerialize(
-      uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
+  const char *
+  _InternalParse(const char *ptr,
+                 ::PROTOBUF_NAMESPACE_ID::internal::ParseContext *ctx) final;
+  uint8_t *_InternalSerialize(
+      uint8_t *target,
+      ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream *stream) const final;
   int GetCachedSize() const final { return _impl_._cached_size_.Get(); }
 
-  private:
-  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena* arena, bool is_message_owned);
+private:
+  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena *arena, bool is_message_owned);
   void SharedDtor();
   void SetCachedSize(int size) const final;
-  void InternalSwap(BlockchainSyncProto* other);
+  void InternalSwap(BlockchainSyncProto *other);
 
-  private:
+private:
   friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
   static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
     return "alyncoin.BlockchainSyncProto";
   }
-  protected:
-  explicit BlockchainSyncProto(::PROTOBUF_NAMESPACE_ID::Arena* arena,
-                       bool is_message_owned = false);
-  public:
 
+protected:
+  explicit BlockchainSyncProto(::PROTOBUF_NAMESPACE_ID::Arena *arena,
+                               bool is_message_owned = false);
+
+public:
   static const ClassData _class_data_;
-  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*GetClassData() const final;
+  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData *GetClassData() const final;
 
   ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
 
@@ -668,83 +736,89 @@ class BlockchainSyncProto final :
   };
   // string request_type = 1;
   void clear_request_type();
-  const std::string& request_type() const;
-  template <typename ArgT0 = const std::string&, typename... ArgT>
-  void set_request_type(ArgT0&& arg0, ArgT... args);
-  std::string* mutable_request_type();
-  PROTOBUF_NODISCARD std::string* release_request_type();
-  void set_allocated_request_type(std::string* request_type);
-  private:
-  const std::string& _internal_request_type() const;
-  inline PROTOBUF_ALWAYS_INLINE void _internal_set_request_type(const std::string& value);
-  std::string* _internal_mutable_request_type();
-  public:
+  const std::string &request_type() const;
+  template <typename ArgT0 = const std::string &, typename... ArgT>
+  void set_request_type(ArgT0 &&arg0, ArgT... args);
+  std::string *mutable_request_type();
+  PROTOBUF_NODISCARD std::string *release_request_type();
+  void set_allocated_request_type(std::string *request_type);
 
+private:
+  const std::string &_internal_request_type() const;
+  inline PROTOBUF_ALWAYS_INLINE void
+  _internal_set_request_type(const std::string &value);
+  std::string *_internal_mutable_request_type();
+
+public:
   // @@protoc_insertion_point(class_scope:alyncoin.BlockchainSyncProto)
- private:
+private:
   class _Internal;
 
-  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
+  template <typename T>
+  friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
   struct Impl_ {
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr request_type_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   };
-  union { Impl_ _impl_; };
+  union {
+    Impl_ _impl_;
+  };
   friend struct ::TableStruct_sync_5fprotos_2eproto;
 };
 // ===================================================================
 
-
 // ===================================================================
 
 #ifdef __GNUC__
-  #pragma GCC diagnostic push
-  #pragma GCC diagnostic ignored "-Wstrict-aliasing"
-#endif  // __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#endif // __GNUC__
 // SyncRequestProto
 
 // string request_type = 1;
 inline void SyncRequestProto::clear_request_type() {
   _impl_.request_type_.ClearToEmpty();
 }
-inline const std::string& SyncRequestProto::request_type() const {
+inline const std::string &SyncRequestProto::request_type() const {
   // @@protoc_insertion_point(field_get:alyncoin.SyncRequestProto.request_type)
   return _internal_request_type();
 }
 template <typename ArgT0, typename... ArgT>
-inline PROTOBUF_ALWAYS_INLINE
-void SyncRequestProto::set_request_type(ArgT0&& arg0, ArgT... args) {
- 
- _impl_.request_type_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+inline PROTOBUF_ALWAYS_INLINE void
+SyncRequestProto::set_request_type(ArgT0 &&arg0, ArgT... args) {
+
+  _impl_.request_type_.Set(static_cast<ArgT0 &&>(arg0), args...,
+                           GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:alyncoin.SyncRequestProto.request_type)
 }
-inline std::string* SyncRequestProto::mutable_request_type() {
-  std::string* _s = _internal_mutable_request_type();
+inline std::string *SyncRequestProto::mutable_request_type() {
+  std::string *_s = _internal_mutable_request_type();
   // @@protoc_insertion_point(field_mutable:alyncoin.SyncRequestProto.request_type)
   return _s;
 }
-inline const std::string& SyncRequestProto::_internal_request_type() const {
+inline const std::string &SyncRequestProto::_internal_request_type() const {
   return _impl_.request_type_.Get();
 }
-inline void SyncRequestProto::_internal_set_request_type(const std::string& value) {
-  
+inline void
+SyncRequestProto::_internal_set_request_type(const std::string &value) {
+
   _impl_.request_type_.Set(value, GetArenaForAllocation());
 }
-inline std::string* SyncRequestProto::_internal_mutable_request_type() {
-  
+inline std::string *SyncRequestProto::_internal_mutable_request_type() {
+
   return _impl_.request_type_.Mutable(GetArenaForAllocation());
 }
-inline std::string* SyncRequestProto::release_request_type() {
+inline std::string *SyncRequestProto::release_request_type() {
   // @@protoc_insertion_point(field_release:alyncoin.SyncRequestProto.request_type)
   return _impl_.request_type_.Release();
 }
-inline void SyncRequestProto::set_allocated_request_type(std::string* request_type) {
+inline void
+SyncRequestProto::set_allocated_request_type(std::string *request_type) {
   if (request_type != nullptr) {
-    
+
   } else {
-    
   }
   _impl_.request_type_.SetAllocated(request_type, GetArenaForAllocation());
 #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
@@ -760,45 +834,43 @@ inline void SyncRequestProto::set_allocated_request_type(std::string* request_ty
 // SyncResponseProto
 
 // string status = 1;
-inline void SyncResponseProto::clear_status() {
-  _impl_.status_.ClearToEmpty();
-}
-inline const std::string& SyncResponseProto::status() const {
+inline void SyncResponseProto::clear_status() { _impl_.status_.ClearToEmpty(); }
+inline const std::string &SyncResponseProto::status() const {
   // @@protoc_insertion_point(field_get:alyncoin.SyncResponseProto.status)
   return _internal_status();
 }
 template <typename ArgT0, typename... ArgT>
-inline PROTOBUF_ALWAYS_INLINE
-void SyncResponseProto::set_status(ArgT0&& arg0, ArgT... args) {
- 
- _impl_.status_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+inline PROTOBUF_ALWAYS_INLINE void SyncResponseProto::set_status(ArgT0 &&arg0,
+                                                                 ArgT... args) {
+
+  _impl_.status_.Set(static_cast<ArgT0 &&>(arg0), args...,
+                     GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:alyncoin.SyncResponseProto.status)
 }
-inline std::string* SyncResponseProto::mutable_status() {
-  std::string* _s = _internal_mutable_status();
+inline std::string *SyncResponseProto::mutable_status() {
+  std::string *_s = _internal_mutable_status();
   // @@protoc_insertion_point(field_mutable:alyncoin.SyncResponseProto.status)
   return _s;
 }
-inline const std::string& SyncResponseProto::_internal_status() const {
+inline const std::string &SyncResponseProto::_internal_status() const {
   return _impl_.status_.Get();
 }
-inline void SyncResponseProto::_internal_set_status(const std::string& value) {
-  
+inline void SyncResponseProto::_internal_set_status(const std::string &value) {
+
   _impl_.status_.Set(value, GetArenaForAllocation());
 }
-inline std::string* SyncResponseProto::_internal_mutable_status() {
-  
+inline std::string *SyncResponseProto::_internal_mutable_status() {
+
   return _impl_.status_.Mutable(GetArenaForAllocation());
 }
-inline std::string* SyncResponseProto::release_status() {
+inline std::string *SyncResponseProto::release_status() {
   // @@protoc_insertion_point(field_release:alyncoin.SyncResponseProto.status)
   return _impl_.status_.Release();
 }
-inline void SyncResponseProto::set_allocated_status(std::string* status) {
+inline void SyncResponseProto::set_allocated_status(std::string *status) {
   if (status != nullptr) {
-    
+
   } else {
-    
   }
   _impl_.status_.SetAllocated(status, GetArenaForAllocation());
 #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
@@ -810,45 +882,43 @@ inline void SyncResponseProto::set_allocated_status(std::string* status) {
 }
 
 // string data = 2;
-inline void SyncResponseProto::clear_data() {
-  _impl_.data_.ClearToEmpty();
-}
-inline const std::string& SyncResponseProto::data() const {
+inline void SyncResponseProto::clear_data() { _impl_.data_.ClearToEmpty(); }
+inline const std::string &SyncResponseProto::data() const {
   // @@protoc_insertion_point(field_get:alyncoin.SyncResponseProto.data)
   return _internal_data();
 }
 template <typename ArgT0, typename... ArgT>
-inline PROTOBUF_ALWAYS_INLINE
-void SyncResponseProto::set_data(ArgT0&& arg0, ArgT... args) {
- 
- _impl_.data_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+inline PROTOBUF_ALWAYS_INLINE void SyncResponseProto::set_data(ArgT0 &&arg0,
+                                                               ArgT... args) {
+
+  _impl_.data_.Set(static_cast<ArgT0 &&>(arg0), args...,
+                   GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:alyncoin.SyncResponseProto.data)
 }
-inline std::string* SyncResponseProto::mutable_data() {
-  std::string* _s = _internal_mutable_data();
+inline std::string *SyncResponseProto::mutable_data() {
+  std::string *_s = _internal_mutable_data();
   // @@protoc_insertion_point(field_mutable:alyncoin.SyncResponseProto.data)
   return _s;
 }
-inline const std::string& SyncResponseProto::_internal_data() const {
+inline const std::string &SyncResponseProto::_internal_data() const {
   return _impl_.data_.Get();
 }
-inline void SyncResponseProto::_internal_set_data(const std::string& value) {
-  
+inline void SyncResponseProto::_internal_set_data(const std::string &value) {
+
   _impl_.data_.Set(value, GetArenaForAllocation());
 }
-inline std::string* SyncResponseProto::_internal_mutable_data() {
-  
+inline std::string *SyncResponseProto::_internal_mutable_data() {
+
   return _impl_.data_.Mutable(GetArenaForAllocation());
 }
-inline std::string* SyncResponseProto::release_data() {
+inline std::string *SyncResponseProto::release_data() {
   // @@protoc_insertion_point(field_release:alyncoin.SyncResponseProto.data)
   return _impl_.data_.Release();
 }
-inline void SyncResponseProto::set_allocated_data(std::string* data) {
+inline void SyncResponseProto::set_allocated_data(std::string *data) {
   if (data != nullptr) {
-    
+
   } else {
-    
   }
   _impl_.data_.SetAllocated(data, GetArenaForAllocation());
 #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
@@ -867,42 +937,44 @@ inline void SyncResponseProto::set_allocated_data(std::string* data) {
 inline void BlockRequestProto::clear_request_type() {
   _impl_.request_type_.ClearToEmpty();
 }
-inline const std::string& BlockRequestProto::request_type() const {
+inline const std::string &BlockRequestProto::request_type() const {
   // @@protoc_insertion_point(field_get:alyncoin.BlockRequestProto.request_type)
   return _internal_request_type();
 }
 template <typename ArgT0, typename... ArgT>
-inline PROTOBUF_ALWAYS_INLINE
-void BlockRequestProto::set_request_type(ArgT0&& arg0, ArgT... args) {
- 
- _impl_.request_type_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+inline PROTOBUF_ALWAYS_INLINE void
+BlockRequestProto::set_request_type(ArgT0 &&arg0, ArgT... args) {
+
+  _impl_.request_type_.Set(static_cast<ArgT0 &&>(arg0), args...,
+                           GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:alyncoin.BlockRequestProto.request_type)
 }
-inline std::string* BlockRequestProto::mutable_request_type() {
-  std::string* _s = _internal_mutable_request_type();
+inline std::string *BlockRequestProto::mutable_request_type() {
+  std::string *_s = _internal_mutable_request_type();
   // @@protoc_insertion_point(field_mutable:alyncoin.BlockRequestProto.request_type)
   return _s;
 }
-inline const std::string& BlockRequestProto::_internal_request_type() const {
+inline const std::string &BlockRequestProto::_internal_request_type() const {
   return _impl_.request_type_.Get();
 }
-inline void BlockRequestProto::_internal_set_request_type(const std::string& value) {
-  
+inline void
+BlockRequestProto::_internal_set_request_type(const std::string &value) {
+
   _impl_.request_type_.Set(value, GetArenaForAllocation());
 }
-inline std::string* BlockRequestProto::_internal_mutable_request_type() {
-  
+inline std::string *BlockRequestProto::_internal_mutable_request_type() {
+
   return _impl_.request_type_.Mutable(GetArenaForAllocation());
 }
-inline std::string* BlockRequestProto::release_request_type() {
+inline std::string *BlockRequestProto::release_request_type() {
   // @@protoc_insertion_point(field_release:alyncoin.BlockRequestProto.request_type)
   return _impl_.request_type_.Release();
 }
-inline void BlockRequestProto::set_allocated_request_type(std::string* request_type) {
+inline void
+BlockRequestProto::set_allocated_request_type(std::string *request_type) {
   if (request_type != nullptr) {
-    
+
   } else {
-    
   }
   _impl_.request_type_.SetAllocated(request_type, GetArenaForAllocation());
 #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
@@ -921,42 +993,44 @@ inline void BlockRequestProto::set_allocated_request_type(std::string* request_t
 inline void BlockchainSyncProto::clear_request_type() {
   _impl_.request_type_.ClearToEmpty();
 }
-inline const std::string& BlockchainSyncProto::request_type() const {
+inline const std::string &BlockchainSyncProto::request_type() const {
   // @@protoc_insertion_point(field_get:alyncoin.BlockchainSyncProto.request_type)
   return _internal_request_type();
 }
 template <typename ArgT0, typename... ArgT>
-inline PROTOBUF_ALWAYS_INLINE
-void BlockchainSyncProto::set_request_type(ArgT0&& arg0, ArgT... args) {
- 
- _impl_.request_type_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+inline PROTOBUF_ALWAYS_INLINE void
+BlockchainSyncProto::set_request_type(ArgT0 &&arg0, ArgT... args) {
+
+  _impl_.request_type_.Set(static_cast<ArgT0 &&>(arg0), args...,
+                           GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:alyncoin.BlockchainSyncProto.request_type)
 }
-inline std::string* BlockchainSyncProto::mutable_request_type() {
-  std::string* _s = _internal_mutable_request_type();
+inline std::string *BlockchainSyncProto::mutable_request_type() {
+  std::string *_s = _internal_mutable_request_type();
   // @@protoc_insertion_point(field_mutable:alyncoin.BlockchainSyncProto.request_type)
   return _s;
 }
-inline const std::string& BlockchainSyncProto::_internal_request_type() const {
+inline const std::string &BlockchainSyncProto::_internal_request_type() const {
   return _impl_.request_type_.Get();
 }
-inline void BlockchainSyncProto::_internal_set_request_type(const std::string& value) {
-  
+inline void
+BlockchainSyncProto::_internal_set_request_type(const std::string &value) {
+
   _impl_.request_type_.Set(value, GetArenaForAllocation());
 }
-inline std::string* BlockchainSyncProto::_internal_mutable_request_type() {
-  
+inline std::string *BlockchainSyncProto::_internal_mutable_request_type() {
+
   return _impl_.request_type_.Mutable(GetArenaForAllocation());
 }
-inline std::string* BlockchainSyncProto::release_request_type() {
+inline std::string *BlockchainSyncProto::release_request_type() {
   // @@protoc_insertion_point(field_release:alyncoin.BlockchainSyncProto.request_type)
   return _impl_.request_type_.Release();
 }
-inline void BlockchainSyncProto::set_allocated_request_type(std::string* request_type) {
+inline void
+BlockchainSyncProto::set_allocated_request_type(std::string *request_type) {
   if (request_type != nullptr) {
-    
+
   } else {
-    
   }
   _impl_.request_type_.SetAllocated(request_type, GetArenaForAllocation());
 #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
@@ -968,20 +1042,19 @@ inline void BlockchainSyncProto::set_allocated_request_type(std::string* request
 }
 
 #ifdef __GNUC__
-  #pragma GCC diagnostic pop
-#endif  // __GNUC__
+#pragma GCC diagnostic pop
+#endif // __GNUC__
 // -------------------------------------------------------------------
 
 // -------------------------------------------------------------------
 
 // -------------------------------------------------------------------
-
 
 // @@protoc_insertion_point(namespace_scope)
 
-}  // namespace alyncoin
+} // namespace alyncoin
 
 // @@protoc_insertion_point(global_scope)
 
 #include <google/protobuf/port_undef.inc>
-#endif  // GOOGLE_PROTOBUF_INCLUDED_GOOGLE_PROTOBUF_INCLUDED_sync_5fprotos_2eproto
+#endif // GOOGLE_PROTOBUF_INCLUDED_GOOGLE_PROTOBUF_INCLUDED_sync_5fprotos_2eproto

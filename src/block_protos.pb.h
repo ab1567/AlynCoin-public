@@ -19,67 +19,72 @@
 #error regenerate this file with a newer version of protoc.
 #endif
 
-#include <google/protobuf/port_undef.inc>
-#include <google/protobuf/io/coded_stream.h>
+#include "transaction_protos.pb.h"
 #include <google/protobuf/arena.h>
 #include <google/protobuf/arenastring.h>
-#include <google/protobuf/generated_message_util.h>
-#include <google/protobuf/metadata_lite.h>
+#include <google/protobuf/extension_set.h> // IWYU pragma: export
 #include <google/protobuf/generated_message_reflection.h>
+#include <google/protobuf/generated_message_util.h>
+#include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/message.h>
-#include <google/protobuf/repeated_field.h>  // IWYU pragma: export
-#include <google/protobuf/extension_set.h>  // IWYU pragma: export
+#include <google/protobuf/metadata_lite.h>
+#include <google/protobuf/port_undef.inc>
+#include <google/protobuf/repeated_field.h> // IWYU pragma: export
 #include <google/protobuf/unknown_field_set.h>
-#include "transaction_protos.pb.h"
 // @@protoc_insertion_point(includes)
 #include <google/protobuf/port_def.inc>
 #define PROTOBUF_INTERNAL_EXPORT_block_5fprotos_2eproto
 PROTOBUF_NAMESPACE_OPEN
 namespace internal {
 class AnyMetadata;
-}  // namespace internal
+} // namespace internal
 PROTOBUF_NAMESPACE_CLOSE
 
 // Internal implementation detail -- do not use these members.
 struct TableStruct_block_5fprotos_2eproto {
   static const uint32_t offsets[];
 };
-extern const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable descriptor_table_block_5fprotos_2eproto;
+extern const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable
+    descriptor_table_block_5fprotos_2eproto;
 namespace alyncoin {
 class BlockProto;
 struct BlockProtoDefaultTypeInternal;
 extern BlockProtoDefaultTypeInternal _BlockProto_default_instance_;
-}  // namespace alyncoin
+} // namespace alyncoin
 PROTOBUF_NAMESPACE_OPEN
-template<> ::alyncoin::BlockProto* Arena::CreateMaybeMessage<::alyncoin::BlockProto>(Arena*);
+template <>
+::alyncoin::BlockProto *
+Arena::CreateMaybeMessage<::alyncoin::BlockProto>(Arena *);
 PROTOBUF_NAMESPACE_CLOSE
 namespace alyncoin {
 
 // ===================================================================
 
-class BlockProto final :
-    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:alyncoin.BlockProto) */ {
- public:
+class BlockProto final : public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:alyncoin.BlockProto)
+                                                                  */
+{
+public:
   inline BlockProto() : BlockProto(nullptr) {}
   ~BlockProto() override;
-  explicit PROTOBUF_CONSTEXPR BlockProto(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+  explicit PROTOBUF_CONSTEXPR
+      BlockProto(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
 
-  BlockProto(const BlockProto& from);
-  BlockProto(BlockProto&& from) noexcept
-    : BlockProto() {
+  BlockProto(const BlockProto &from);
+  BlockProto(BlockProto &&from) noexcept : BlockProto() {
     *this = ::std::move(from);
   }
 
-  inline BlockProto& operator=(const BlockProto& from) {
+  inline BlockProto &operator=(const BlockProto &from) {
     CopyFrom(from);
     return *this;
   }
-  inline BlockProto& operator=(BlockProto&& from) noexcept {
-    if (this == &from) return *this;
+  inline BlockProto &operator=(BlockProto &&from) noexcept {
+    if (this == &from)
+      return *this;
     if (GetOwningArena() == from.GetOwningArena()
-  #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
         && GetOwningArena() != nullptr
-  #endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+#endif // !PROTOBUF_FORCE_COPY_IN_MOVE
     ) {
       InternalSwap(&from);
     } else {
@@ -88,88 +93,91 @@ class BlockProto final :
     return *this;
   }
 
-  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor *descriptor() {
     return GetDescriptor();
   }
-  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor *GetDescriptor() {
     return default_instance().GetMetadata().descriptor;
   }
-  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
+  static const ::PROTOBUF_NAMESPACE_ID::Reflection *GetReflection() {
     return default_instance().GetMetadata().reflection;
   }
-  static const BlockProto& default_instance() {
+  static const BlockProto &default_instance() {
     return *internal_default_instance();
   }
-  static inline const BlockProto* internal_default_instance() {
-    return reinterpret_cast<const BlockProto*>(
-               &_BlockProto_default_instance_);
+  static inline const BlockProto *internal_default_instance() {
+    return reinterpret_cast<const BlockProto *>(&_BlockProto_default_instance_);
   }
-  static constexpr int kIndexInFileMessages =
-    0;
+  static constexpr int kIndexInFileMessages = 0;
 
-  friend void swap(BlockProto& a, BlockProto& b) {
-    a.Swap(&b);
-  }
-  inline void Swap(BlockProto* other) {
-    if (other == this) return;
-  #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+  friend void swap(BlockProto &a, BlockProto &b) { a.Swap(&b); }
+  inline void Swap(BlockProto *other) {
+    if (other == this)
+      return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
     if (GetOwningArena() != nullptr &&
         GetOwningArena() == other->GetOwningArena()) {
-   #else  // PROTOBUF_FORCE_COPY_IN_SWAP
+#else  // PROTOBUF_FORCE_COPY_IN_SWAP
     if (GetOwningArena() == other->GetOwningArena()) {
-  #endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+#endif // !PROTOBUF_FORCE_COPY_IN_SWAP
       InternalSwap(other);
     } else {
       ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
     }
   }
-  void UnsafeArenaSwap(BlockProto* other) {
-    if (other == this) return;
+  void UnsafeArenaSwap(BlockProto *other) {
+    if (other == this)
+      return;
     GOOGLE_DCHECK(GetOwningArena() == other->GetOwningArena());
     InternalSwap(other);
   }
 
   // implements Message ----------------------------------------------
 
-  BlockProto* New(::PROTOBUF_NAMESPACE_ID::Arena* arena = nullptr) const final {
+  BlockProto *New(::PROTOBUF_NAMESPACE_ID::Arena *arena = nullptr) const final {
     return CreateMaybeMessage<BlockProto>(arena);
   }
   using ::PROTOBUF_NAMESPACE_ID::Message::CopyFrom;
-  void CopyFrom(const BlockProto& from);
+  void CopyFrom(const BlockProto &from);
   using ::PROTOBUF_NAMESPACE_ID::Message::MergeFrom;
-  void MergeFrom( const BlockProto& from) {
-    BlockProto::MergeImpl(*this, from);
-  }
-  private:
-  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg);
-  public:
+  void MergeFrom(const BlockProto &from) { BlockProto::MergeImpl(*this, from); }
+
+private:
+  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message &to_msg,
+                        const ::PROTOBUF_NAMESPACE_ID::Message &from_msg);
+
+public:
   PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
   bool IsInitialized() const final;
 
   size_t ByteSizeLong() const final;
-  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
-  uint8_t* _InternalSerialize(
-      uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
+  const char *
+  _InternalParse(const char *ptr,
+                 ::PROTOBUF_NAMESPACE_ID::internal::ParseContext *ctx) final;
+  uint8_t *_InternalSerialize(
+      uint8_t *target,
+      ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream *stream) const final;
   int GetCachedSize() const final { return _impl_._cached_size_.Get(); }
 
-  private:
-  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena* arena, bool is_message_owned);
+private:
+  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena *arena, bool is_message_owned);
   void SharedDtor();
   void SetCachedSize(int size) const final;
-  void InternalSwap(BlockProto* other);
+  void InternalSwap(BlockProto *other);
 
-  private:
+private:
   friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
   static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
     return "alyncoin.BlockProto";
   }
-  protected:
-  explicit BlockProto(::PROTOBUF_NAMESPACE_ID::Arena* arena,
-                       bool is_message_owned = false);
-  public:
 
+protected:
+  explicit BlockProto(::PROTOBUF_NAMESPACE_ID::Arena *arena,
+                      bool is_message_owned = false);
+
+public:
   static const ClassData _class_data_;
-  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*GetClassData() const final;
+  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData *GetClassData() const final;
 
   ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
 
@@ -190,123 +198,142 @@ class BlockProto final :
   };
   // repeated .alyncoin.TransactionProto transactions = 3;
   int transactions_size() const;
-  private:
+
+private:
   int _internal_transactions_size() const;
-  public:
+
+public:
   void clear_transactions();
-  ::alyncoin::TransactionProto* mutable_transactions(int index);
-  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::TransactionProto >*
-      mutable_transactions();
-  private:
-  const ::alyncoin::TransactionProto& _internal_transactions(int index) const;
-  ::alyncoin::TransactionProto* _internal_add_transactions();
-  public:
-  const ::alyncoin::TransactionProto& transactions(int index) const;
-  ::alyncoin::TransactionProto* add_transactions();
-  const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::TransactionProto >&
-      transactions() const;
+  ::alyncoin::TransactionProto *mutable_transactions(int index);
+  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<::alyncoin::TransactionProto> *
+  mutable_transactions();
+
+private:
+  const ::alyncoin::TransactionProto &_internal_transactions(int index) const;
+  ::alyncoin::TransactionProto *_internal_add_transactions();
+
+public:
+  const ::alyncoin::TransactionProto &transactions(int index) const;
+  ::alyncoin::TransactionProto *add_transactions();
+  const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<
+      ::alyncoin::TransactionProto> &
+  transactions() const;
 
   // bytes previous_hash = 2;
   void clear_previous_hash();
-  const std::string& previous_hash() const;
-  template <typename ArgT0 = const std::string&, typename... ArgT>
-  void set_previous_hash(ArgT0&& arg0, ArgT... args);
-  std::string* mutable_previous_hash();
-  PROTOBUF_NODISCARD std::string* release_previous_hash();
-  void set_allocated_previous_hash(std::string* previous_hash);
-  private:
-  const std::string& _internal_previous_hash() const;
-  inline PROTOBUF_ALWAYS_INLINE void _internal_set_previous_hash(const std::string& value);
-  std::string* _internal_mutable_previous_hash();
-  public:
+  const std::string &previous_hash() const;
+  template <typename ArgT0 = const std::string &, typename... ArgT>
+  void set_previous_hash(ArgT0 &&arg0, ArgT... args);
+  std::string *mutable_previous_hash();
+  PROTOBUF_NODISCARD std::string *release_previous_hash();
+  void set_allocated_previous_hash(std::string *previous_hash);
 
+private:
+  const std::string &_internal_previous_hash() const;
+  inline PROTOBUF_ALWAYS_INLINE void
+  _internal_set_previous_hash(const std::string &value);
+  std::string *_internal_mutable_previous_hash();
+
+public:
   // bytes miner_address = 4;
   void clear_miner_address();
-  const std::string& miner_address() const;
-  template <typename ArgT0 = const std::string&, typename... ArgT>
-  void set_miner_address(ArgT0&& arg0, ArgT... args);
-  std::string* mutable_miner_address();
-  PROTOBUF_NODISCARD std::string* release_miner_address();
-  void set_allocated_miner_address(std::string* miner_address);
-  private:
-  const std::string& _internal_miner_address() const;
-  inline PROTOBUF_ALWAYS_INLINE void _internal_set_miner_address(const std::string& value);
-  std::string* _internal_mutable_miner_address();
-  public:
+  const std::string &miner_address() const;
+  template <typename ArgT0 = const std::string &, typename... ArgT>
+  void set_miner_address(ArgT0 &&arg0, ArgT... args);
+  std::string *mutable_miner_address();
+  PROTOBUF_NODISCARD std::string *release_miner_address();
+  void set_allocated_miner_address(std::string *miner_address);
 
+private:
+  const std::string &_internal_miner_address() const;
+  inline PROTOBUF_ALWAYS_INLINE void
+  _internal_set_miner_address(const std::string &value);
+  std::string *_internal_mutable_miner_address();
+
+public:
   // bytes hash = 8;
   void clear_hash();
-  const std::string& hash() const;
-  template <typename ArgT0 = const std::string&, typename... ArgT>
-  void set_hash(ArgT0&& arg0, ArgT... args);
-  std::string* mutable_hash();
-  PROTOBUF_NODISCARD std::string* release_hash();
-  void set_allocated_hash(std::string* hash);
-  private:
-  const std::string& _internal_hash() const;
-  inline PROTOBUF_ALWAYS_INLINE void _internal_set_hash(const std::string& value);
-  std::string* _internal_mutable_hash();
-  public:
+  const std::string &hash() const;
+  template <typename ArgT0 = const std::string &, typename... ArgT>
+  void set_hash(ArgT0 &&arg0, ArgT... args);
+  std::string *mutable_hash();
+  PROTOBUF_NODISCARD std::string *release_hash();
+  void set_allocated_hash(std::string *hash);
 
+private:
+  const std::string &_internal_hash() const;
+  inline PROTOBUF_ALWAYS_INLINE void
+  _internal_set_hash(const std::string &value);
+  std::string *_internal_mutable_hash();
+
+public:
   // bytes block_signature = 9;
   void clear_block_signature();
-  const std::string& block_signature() const;
-  template <typename ArgT0 = const std::string&, typename... ArgT>
-  void set_block_signature(ArgT0&& arg0, ArgT... args);
-  std::string* mutable_block_signature();
-  PROTOBUF_NODISCARD std::string* release_block_signature();
-  void set_allocated_block_signature(std::string* block_signature);
-  private:
-  const std::string& _internal_block_signature() const;
-  inline PROTOBUF_ALWAYS_INLINE void _internal_set_block_signature(const std::string& value);
-  std::string* _internal_mutable_block_signature();
-  public:
+  const std::string &block_signature() const;
+  template <typename ArgT0 = const std::string &, typename... ArgT>
+  void set_block_signature(ArgT0 &&arg0, ArgT... args);
+  std::string *mutable_block_signature();
+  PROTOBUF_NODISCARD std::string *release_block_signature();
+  void set_allocated_block_signature(std::string *block_signature);
 
+private:
+  const std::string &_internal_block_signature() const;
+  inline PROTOBUF_ALWAYS_INLINE void
+  _internal_set_block_signature(const std::string &value);
+  std::string *_internal_mutable_block_signature();
+
+public:
   // uint32 index = 1;
   void clear_index();
   uint32_t index() const;
   void set_index(uint32_t value);
-  private:
+
+private:
   uint32_t _internal_index() const;
   void _internal_set_index(uint32_t value);
-  public:
 
+public:
   // uint32 difficulty = 6;
   void clear_difficulty();
   uint32_t difficulty() const;
   void set_difficulty(uint32_t value);
-  private:
+
+private:
   uint32_t _internal_difficulty() const;
   void _internal_set_difficulty(uint32_t value);
-  public:
 
+public:
   // uint64 timestamp = 5;
   void clear_timestamp();
   uint64_t timestamp() const;
   void set_timestamp(uint64_t value);
-  private:
+
+private:
   uint64_t _internal_timestamp() const;
   void _internal_set_timestamp(uint64_t value);
-  public:
 
+public:
   // uint64 nonce = 7;
   void clear_nonce();
   uint64_t nonce() const;
   void set_nonce(uint64_t value);
-  private:
+
+private:
   uint64_t _internal_nonce() const;
   void _internal_set_nonce(uint64_t value);
-  public:
 
+public:
   // @@protoc_insertion_point(class_scope:alyncoin.BlockProto)
- private:
+private:
   class _Internal;
 
-  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
+  template <typename T>
+  friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
   struct Impl_ {
-    ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::TransactionProto > transactions_;
+    ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<::alyncoin::TransactionProto>
+        transactions_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr previous_hash_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr miner_address_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr hash_;
@@ -317,33 +344,30 @@ class BlockProto final :
     uint64_t nonce_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   };
-  union { Impl_ _impl_; };
+  union {
+    Impl_ _impl_;
+  };
   friend struct ::TableStruct_block_5fprotos_2eproto;
 };
 // ===================================================================
 
-
 // ===================================================================
 
 #ifdef __GNUC__
-  #pragma GCC diagnostic push
-  #pragma GCC diagnostic ignored "-Wstrict-aliasing"
-#endif  // __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#endif // __GNUC__
 // BlockProto
 
 // uint32 index = 1;
-inline void BlockProto::clear_index() {
-  _impl_.index_ = 0u;
-}
-inline uint32_t BlockProto::_internal_index() const {
-  return _impl_.index_;
-}
+inline void BlockProto::clear_index() { _impl_.index_ = 0u; }
+inline uint32_t BlockProto::_internal_index() const { return _impl_.index_; }
 inline uint32_t BlockProto::index() const {
   // @@protoc_insertion_point(field_get:alyncoin.BlockProto.index)
   return _internal_index();
 }
 inline void BlockProto::_internal_set_index(uint32_t value) {
-  
+
   _impl_.index_ = value;
 }
 inline void BlockProto::set_index(uint32_t value) {
@@ -355,42 +379,43 @@ inline void BlockProto::set_index(uint32_t value) {
 inline void BlockProto::clear_previous_hash() {
   _impl_.previous_hash_.ClearToEmpty();
 }
-inline const std::string& BlockProto::previous_hash() const {
+inline const std::string &BlockProto::previous_hash() const {
   // @@protoc_insertion_point(field_get:alyncoin.BlockProto.previous_hash)
   return _internal_previous_hash();
 }
 template <typename ArgT0, typename... ArgT>
-inline PROTOBUF_ALWAYS_INLINE
-void BlockProto::set_previous_hash(ArgT0&& arg0, ArgT... args) {
- 
- _impl_.previous_hash_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+inline PROTOBUF_ALWAYS_INLINE void BlockProto::set_previous_hash(ArgT0 &&arg0,
+                                                                 ArgT... args) {
+
+  _impl_.previous_hash_.SetBytes(static_cast<ArgT0 &&>(arg0), args...,
+                                 GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:alyncoin.BlockProto.previous_hash)
 }
-inline std::string* BlockProto::mutable_previous_hash() {
-  std::string* _s = _internal_mutable_previous_hash();
+inline std::string *BlockProto::mutable_previous_hash() {
+  std::string *_s = _internal_mutable_previous_hash();
   // @@protoc_insertion_point(field_mutable:alyncoin.BlockProto.previous_hash)
   return _s;
 }
-inline const std::string& BlockProto::_internal_previous_hash() const {
+inline const std::string &BlockProto::_internal_previous_hash() const {
   return _impl_.previous_hash_.Get();
 }
-inline void BlockProto::_internal_set_previous_hash(const std::string& value) {
-  
+inline void BlockProto::_internal_set_previous_hash(const std::string &value) {
+
   _impl_.previous_hash_.Set(value, GetArenaForAllocation());
 }
-inline std::string* BlockProto::_internal_mutable_previous_hash() {
-  
+inline std::string *BlockProto::_internal_mutable_previous_hash() {
+
   return _impl_.previous_hash_.Mutable(GetArenaForAllocation());
 }
-inline std::string* BlockProto::release_previous_hash() {
+inline std::string *BlockProto::release_previous_hash() {
   // @@protoc_insertion_point(field_release:alyncoin.BlockProto.previous_hash)
   return _impl_.previous_hash_.Release();
 }
-inline void BlockProto::set_allocated_previous_hash(std::string* previous_hash) {
+inline void
+BlockProto::set_allocated_previous_hash(std::string *previous_hash) {
   if (previous_hash != nullptr) {
-    
+
   } else {
-    
   }
   _impl_.previous_hash_.SetAllocated(previous_hash, GetArenaForAllocation());
 #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
@@ -408,31 +433,35 @@ inline int BlockProto::_internal_transactions_size() const {
 inline int BlockProto::transactions_size() const {
   return _internal_transactions_size();
 }
-inline ::alyncoin::TransactionProto* BlockProto::mutable_transactions(int index) {
+inline ::alyncoin::TransactionProto *
+BlockProto::mutable_transactions(int index) {
   // @@protoc_insertion_point(field_mutable:alyncoin.BlockProto.transactions)
   return _impl_.transactions_.Mutable(index);
 }
-inline ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::TransactionProto >*
+inline ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<::alyncoin::TransactionProto> *
 BlockProto::mutable_transactions() {
   // @@protoc_insertion_point(field_mutable_list:alyncoin.BlockProto.transactions)
   return &_impl_.transactions_;
 }
-inline const ::alyncoin::TransactionProto& BlockProto::_internal_transactions(int index) const {
+inline const ::alyncoin::TransactionProto &
+BlockProto::_internal_transactions(int index) const {
   return _impl_.transactions_.Get(index);
 }
-inline const ::alyncoin::TransactionProto& BlockProto::transactions(int index) const {
+inline const ::alyncoin::TransactionProto &
+BlockProto::transactions(int index) const {
   // @@protoc_insertion_point(field_get:alyncoin.BlockProto.transactions)
   return _internal_transactions(index);
 }
-inline ::alyncoin::TransactionProto* BlockProto::_internal_add_transactions() {
+inline ::alyncoin::TransactionProto *BlockProto::_internal_add_transactions() {
   return _impl_.transactions_.Add();
 }
-inline ::alyncoin::TransactionProto* BlockProto::add_transactions() {
-  ::alyncoin::TransactionProto* _add = _internal_add_transactions();
+inline ::alyncoin::TransactionProto *BlockProto::add_transactions() {
+  ::alyncoin::TransactionProto *_add = _internal_add_transactions();
   // @@protoc_insertion_point(field_add:alyncoin.BlockProto.transactions)
   return _add;
 }
-inline const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::TransactionProto >&
+inline const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<
+    ::alyncoin::TransactionProto> &
 BlockProto::transactions() const {
   // @@protoc_insertion_point(field_list:alyncoin.BlockProto.transactions)
   return _impl_.transactions_;
@@ -442,42 +471,43 @@ BlockProto::transactions() const {
 inline void BlockProto::clear_miner_address() {
   _impl_.miner_address_.ClearToEmpty();
 }
-inline const std::string& BlockProto::miner_address() const {
+inline const std::string &BlockProto::miner_address() const {
   // @@protoc_insertion_point(field_get:alyncoin.BlockProto.miner_address)
   return _internal_miner_address();
 }
 template <typename ArgT0, typename... ArgT>
-inline PROTOBUF_ALWAYS_INLINE
-void BlockProto::set_miner_address(ArgT0&& arg0, ArgT... args) {
- 
- _impl_.miner_address_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+inline PROTOBUF_ALWAYS_INLINE void BlockProto::set_miner_address(ArgT0 &&arg0,
+                                                                 ArgT... args) {
+
+  _impl_.miner_address_.SetBytes(static_cast<ArgT0 &&>(arg0), args...,
+                                 GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:alyncoin.BlockProto.miner_address)
 }
-inline std::string* BlockProto::mutable_miner_address() {
-  std::string* _s = _internal_mutable_miner_address();
+inline std::string *BlockProto::mutable_miner_address() {
+  std::string *_s = _internal_mutable_miner_address();
   // @@protoc_insertion_point(field_mutable:alyncoin.BlockProto.miner_address)
   return _s;
 }
-inline const std::string& BlockProto::_internal_miner_address() const {
+inline const std::string &BlockProto::_internal_miner_address() const {
   return _impl_.miner_address_.Get();
 }
-inline void BlockProto::_internal_set_miner_address(const std::string& value) {
-  
+inline void BlockProto::_internal_set_miner_address(const std::string &value) {
+
   _impl_.miner_address_.Set(value, GetArenaForAllocation());
 }
-inline std::string* BlockProto::_internal_mutable_miner_address() {
-  
+inline std::string *BlockProto::_internal_mutable_miner_address() {
+
   return _impl_.miner_address_.Mutable(GetArenaForAllocation());
 }
-inline std::string* BlockProto::release_miner_address() {
+inline std::string *BlockProto::release_miner_address() {
   // @@protoc_insertion_point(field_release:alyncoin.BlockProto.miner_address)
   return _impl_.miner_address_.Release();
 }
-inline void BlockProto::set_allocated_miner_address(std::string* miner_address) {
+inline void
+BlockProto::set_allocated_miner_address(std::string *miner_address) {
   if (miner_address != nullptr) {
-    
+
   } else {
-    
   }
   _impl_.miner_address_.SetAllocated(miner_address, GetArenaForAllocation());
 #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
@@ -489,9 +519,7 @@ inline void BlockProto::set_allocated_miner_address(std::string* miner_address) 
 }
 
 // uint64 timestamp = 5;
-inline void BlockProto::clear_timestamp() {
-  _impl_.timestamp_ = uint64_t{0u};
-}
+inline void BlockProto::clear_timestamp() { _impl_.timestamp_ = uint64_t{0u}; }
 inline uint64_t BlockProto::_internal_timestamp() const {
   return _impl_.timestamp_;
 }
@@ -500,7 +528,7 @@ inline uint64_t BlockProto::timestamp() const {
   return _internal_timestamp();
 }
 inline void BlockProto::_internal_set_timestamp(uint64_t value) {
-  
+
   _impl_.timestamp_ = value;
 }
 inline void BlockProto::set_timestamp(uint64_t value) {
@@ -509,9 +537,7 @@ inline void BlockProto::set_timestamp(uint64_t value) {
 }
 
 // uint32 difficulty = 6;
-inline void BlockProto::clear_difficulty() {
-  _impl_.difficulty_ = 0u;
-}
+inline void BlockProto::clear_difficulty() { _impl_.difficulty_ = 0u; }
 inline uint32_t BlockProto::_internal_difficulty() const {
   return _impl_.difficulty_;
 }
@@ -520,7 +546,7 @@ inline uint32_t BlockProto::difficulty() const {
   return _internal_difficulty();
 }
 inline void BlockProto::_internal_set_difficulty(uint32_t value) {
-  
+
   _impl_.difficulty_ = value;
 }
 inline void BlockProto::set_difficulty(uint32_t value) {
@@ -529,18 +555,14 @@ inline void BlockProto::set_difficulty(uint32_t value) {
 }
 
 // uint64 nonce = 7;
-inline void BlockProto::clear_nonce() {
-  _impl_.nonce_ = uint64_t{0u};
-}
-inline uint64_t BlockProto::_internal_nonce() const {
-  return _impl_.nonce_;
-}
+inline void BlockProto::clear_nonce() { _impl_.nonce_ = uint64_t{0u}; }
+inline uint64_t BlockProto::_internal_nonce() const { return _impl_.nonce_; }
 inline uint64_t BlockProto::nonce() const {
   // @@protoc_insertion_point(field_get:alyncoin.BlockProto.nonce)
   return _internal_nonce();
 }
 inline void BlockProto::_internal_set_nonce(uint64_t value) {
-  
+
   _impl_.nonce_ = value;
 }
 inline void BlockProto::set_nonce(uint64_t value) {
@@ -549,45 +571,43 @@ inline void BlockProto::set_nonce(uint64_t value) {
 }
 
 // bytes hash = 8;
-inline void BlockProto::clear_hash() {
-  _impl_.hash_.ClearToEmpty();
-}
-inline const std::string& BlockProto::hash() const {
+inline void BlockProto::clear_hash() { _impl_.hash_.ClearToEmpty(); }
+inline const std::string &BlockProto::hash() const {
   // @@protoc_insertion_point(field_get:alyncoin.BlockProto.hash)
   return _internal_hash();
 }
 template <typename ArgT0, typename... ArgT>
-inline PROTOBUF_ALWAYS_INLINE
-void BlockProto::set_hash(ArgT0&& arg0, ArgT... args) {
- 
- _impl_.hash_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+inline PROTOBUF_ALWAYS_INLINE void BlockProto::set_hash(ArgT0 &&arg0,
+                                                        ArgT... args) {
+
+  _impl_.hash_.SetBytes(static_cast<ArgT0 &&>(arg0), args...,
+                        GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:alyncoin.BlockProto.hash)
 }
-inline std::string* BlockProto::mutable_hash() {
-  std::string* _s = _internal_mutable_hash();
+inline std::string *BlockProto::mutable_hash() {
+  std::string *_s = _internal_mutable_hash();
   // @@protoc_insertion_point(field_mutable:alyncoin.BlockProto.hash)
   return _s;
 }
-inline const std::string& BlockProto::_internal_hash() const {
+inline const std::string &BlockProto::_internal_hash() const {
   return _impl_.hash_.Get();
 }
-inline void BlockProto::_internal_set_hash(const std::string& value) {
-  
+inline void BlockProto::_internal_set_hash(const std::string &value) {
+
   _impl_.hash_.Set(value, GetArenaForAllocation());
 }
-inline std::string* BlockProto::_internal_mutable_hash() {
-  
+inline std::string *BlockProto::_internal_mutable_hash() {
+
   return _impl_.hash_.Mutable(GetArenaForAllocation());
 }
-inline std::string* BlockProto::release_hash() {
+inline std::string *BlockProto::release_hash() {
   // @@protoc_insertion_point(field_release:alyncoin.BlockProto.hash)
   return _impl_.hash_.Release();
 }
-inline void BlockProto::set_allocated_hash(std::string* hash) {
+inline void BlockProto::set_allocated_hash(std::string *hash) {
   if (hash != nullptr) {
-    
+
   } else {
-    
   }
   _impl_.hash_.SetAllocated(hash, GetArenaForAllocation());
 #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
@@ -602,44 +622,47 @@ inline void BlockProto::set_allocated_hash(std::string* hash) {
 inline void BlockProto::clear_block_signature() {
   _impl_.block_signature_.ClearToEmpty();
 }
-inline const std::string& BlockProto::block_signature() const {
+inline const std::string &BlockProto::block_signature() const {
   // @@protoc_insertion_point(field_get:alyncoin.BlockProto.block_signature)
   return _internal_block_signature();
 }
 template <typename ArgT0, typename... ArgT>
-inline PROTOBUF_ALWAYS_INLINE
-void BlockProto::set_block_signature(ArgT0&& arg0, ArgT... args) {
- 
- _impl_.block_signature_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+inline PROTOBUF_ALWAYS_INLINE void
+BlockProto::set_block_signature(ArgT0 &&arg0, ArgT... args) {
+
+  _impl_.block_signature_.SetBytes(static_cast<ArgT0 &&>(arg0), args...,
+                                   GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:alyncoin.BlockProto.block_signature)
 }
-inline std::string* BlockProto::mutable_block_signature() {
-  std::string* _s = _internal_mutable_block_signature();
+inline std::string *BlockProto::mutable_block_signature() {
+  std::string *_s = _internal_mutable_block_signature();
   // @@protoc_insertion_point(field_mutable:alyncoin.BlockProto.block_signature)
   return _s;
 }
-inline const std::string& BlockProto::_internal_block_signature() const {
+inline const std::string &BlockProto::_internal_block_signature() const {
   return _impl_.block_signature_.Get();
 }
-inline void BlockProto::_internal_set_block_signature(const std::string& value) {
-  
+inline void
+BlockProto::_internal_set_block_signature(const std::string &value) {
+
   _impl_.block_signature_.Set(value, GetArenaForAllocation());
 }
-inline std::string* BlockProto::_internal_mutable_block_signature() {
-  
+inline std::string *BlockProto::_internal_mutable_block_signature() {
+
   return _impl_.block_signature_.Mutable(GetArenaForAllocation());
 }
-inline std::string* BlockProto::release_block_signature() {
+inline std::string *BlockProto::release_block_signature() {
   // @@protoc_insertion_point(field_release:alyncoin.BlockProto.block_signature)
   return _impl_.block_signature_.Release();
 }
-inline void BlockProto::set_allocated_block_signature(std::string* block_signature) {
+inline void
+BlockProto::set_allocated_block_signature(std::string *block_signature) {
   if (block_signature != nullptr) {
-    
+
   } else {
-    
   }
-  _impl_.block_signature_.SetAllocated(block_signature, GetArenaForAllocation());
+  _impl_.block_signature_.SetAllocated(block_signature,
+                                       GetArenaForAllocation());
 #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
   if (_impl_.block_signature_.IsDefault()) {
     _impl_.block_signature_.Set("", GetArenaForAllocation());
@@ -649,14 +672,14 @@ inline void BlockProto::set_allocated_block_signature(std::string* block_signatu
 }
 
 #ifdef __GNUC__
-  #pragma GCC diagnostic pop
-#endif  // __GNUC__
+#pragma GCC diagnostic pop
+#endif // __GNUC__
 
 // @@protoc_insertion_point(namespace_scope)
 
-}  // namespace alyncoin
+} // namespace alyncoin
 
 // @@protoc_insertion_point(global_scope)
 
 #include <google/protobuf/port_undef.inc>
-#endif  // GOOGLE_PROTOBUF_INCLUDED_GOOGLE_PROTOBUF_INCLUDED_block_5fprotos_2eproto
+#endif // GOOGLE_PROTOBUF_INCLUDED_GOOGLE_PROTOBUF_INCLUDED_block_5fprotos_2eproto

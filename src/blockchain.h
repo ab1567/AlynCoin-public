@@ -1,126 +1,167 @@
 #ifndef BLOCKCHAIN_H
 #define BLOCKCHAIN_H
 
-#include <rocksdb/db.h>
-#include <boost/asio.hpp>
-#include "block.h"
-#include "transaction.h"
-#include "crypto_utils.h"
-#include <vector>
-#include <mutex>
-#include <atomic>
-#include <json/json.h>
-#include <cstdint>
 #include "generated/block_protos.pb.h"
 #include "generated/blockchain_protos.pb.h"
 #include "generated/transaction_protos.pb.h"
+#include "block.h"
+#include "crypto_utils.h"
+#include "layer2/state_channel.h"
+#include "rollup/rollup_block.h"
+#include "transaction.h"
+#include <atomic>
+#include <boost/asio.hpp>
+#include <cstdint>
 #include <ctime>
-#include <map>
-#include <string>
-#include <vector>
-#include <functional>
-#include <unordered_map>
 #include <deque>
+#include <functional>
+#include <json/json.h>
+#include <map>
+#include <mutex>
+#include <rocksdb/db.h>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 #define DIFFICULTY 4
 #define DEFAULT_PORT 8333
 extern std::mutex blockchainMutex;
 using boost::asio::ip::tcp;
 class Network;
-
+extern double totalSupply;
+const double MAX_SUPPLY = 250000000.0;
 class Blockchain {
+  friend class Network;
+
 private:
-    Blockchain();
-    std::vector<Block> chain;
-    std::deque<int> recentTransactionCounts;
-    std::vector<Transaction> pendingTransactions;
-    static std::atomic<bool> isMining;
-    double blockReward = 10.0;
-    int difficulty;
-    double miningReward;
-    mutable std::mutex mutex;
-    Network* network;
-    rocksdb::DB* db;
-    double totalBurnedSupply = 0.0;
+  Blockchain();
+  std::vector<Block> chain;
+  std::deque<int> recentTransactionCounts;
+  std::vector<Transaction> pendingTransactions;
+  static std::atomic<bool> isMining;
+  double blockReward = 10.0;
+  int difficulty;
+  double miningReward;
+  mutable std::mutex mutex;
+  std::string minerAddress;
+  Network *network;
+  rocksdb::DB *db;
+  double totalBurnedSupply = 0.0;
+  std::unordered_map<std::string, double> balances;
+  std::vector<RollupBlock> rollupChain;
+  static constexpr const char *DEV_FUND_ADDRESS = "DevFundWallet";
+  double devFundBalance = 0.0;
+  std::time_t devFundLastActivity = std::time(nullptr);
 
-    static constexpr const char* DEV_FUND_ADDRESS = "DevFundWallet";
-    double devFundBalance = 0.0;
-    std::time_t devFundLastActivity = std::time(nullptr);
+  // --- Vesting ---
+  struct VestingInfo {
+    double lockedAmount;
+    uint64_t unlockTimestamp;
+  };
+  std::unordered_map<std::string, VestingInfo> vestingMap;
 
-    // --- Vesting ---
-    struct VestingInfo {
-        double lockedAmount;
-        uint64_t unlockTimestamp;
-    };
-    std::unordered_map<std::string, VestingInfo> vestingMap;
+  // --- Dev Fund Voting ---
+  struct VotingSession {
+    std::map<std::string, double> votes;
+    std::time_t startTime;
+    bool isActive;
+  };
+  VotingSession votingSession;
 
-    // --- Dev Fund Voting ---
-    struct VotingSession {
-        std::map<std::string, double> votes; // Map newDevFundAddress to total weight
-        std::time_t startTime;
-        bool isActive;
-    };
-    VotingSession votingSession;
+  // --- Private Helper Functions ---
+  void checkDevFundActivity();
+  void distributeDevFund();
+  void initiateVotingSession();
+  void tallyVotes();
+  double getTotalSupply() const;
+  void loadVestingInfoFromDB();
+  void saveVestingInfoToDB();
 
-    // --- Private Helper Functions ---
-    void checkDevFundActivity();
-    void distributeDevFund();
-    void initiateVotingSession();
-    void tallyVotes();
-    double getTotalSupply() const;
-    void loadVestingInfoFromDB();
-    void saveVestingInfoToDB();
-
-    Blockchain(unsigned short port, const std::string& dbPath = "");
+  Blockchain(unsigned short port, const std::string &dbPath = "");
 
 public:
-    static Blockchain& getInstance(unsigned short port = 8333, const std::string& dbPath = "/root/.alyncoin/blockchain_db");
-    Blockchain(const Blockchain&) = delete;
-    Blockchain& operator=(const Blockchain&) = delete;
-    ~Blockchain();
+  static Blockchain &
+  getInstance(unsigned short port = 8333,
+              const std::string &dbPath = "/root/.alyncoin/blockchain_db");
+  Blockchain(const Blockchain &) = delete;
+  Blockchain &operator=(const Blockchain &) = delete;
+  ~Blockchain();
 
-    // Blockchain Operations
-    void adjustDifficulty();
-    void syncChain(const Json::Value& jsonData);
-    bool saveToDB();
-    bool loadFromDB();
-    void loadFromPeers();
-    void saveTransactionsToDB();
-    void loadTransactionsFromDB();
-    void reloadBlockchainState();
-    void mergeWith(const Blockchain& other);
-    void updateFromJSON(const std::string& jsonData);
-    void clearPendingTransactions();
-    void printPendingTransactions();
-    int getIndex() const { return chain.size() - 1; }
-    Block createGenesisBlock();
-    bool deserializeBlockchain(const std::string& data);
-    bool serializeBlockchain(std::string& outData) const;
-    void fromJSON(const Json::Value& root);
-    void addTransaction(const Transaction& tx);
-    std::vector<Transaction> getPendingTransactions() const;
-    bool isTransactionValid(const Transaction& tx) const;
-    std::string signTransaction(const std::string& privateKeyPath, const std::string& message);
-    Block mineBlock(const std::string& minerAddress);
-    void startMining(const std::string& minerAddress);
-    void stopMining();
-    bool hasPendingTransactions() const;
-    Block minePendingTransactions(const std::string& minerAddress);
-    void setPendingTransactions(const std::vector<Transaction>& transactions);
-    bool addBlock(const Block& block);
-    void fromProto(const alyncoin::BlockchainProto& protoChain);
-    void replaceChain(const std::vector<Block>& newChain);
-    const Block& getLatestBlock() const;
-    void printBlockchain() const;
-    void requestFullSync();
-    Block createBlock(const std::string& minerAddress);
-    int getRecentTransactionCount();
-    void updateTransactionHistory(int newTxCount);
-    bool isValidNewBlock(const Block& newBlock);
-    const std::vector<Block>& getChain() const;
-    Json::Value toJSON() const;
-    double getBalance(const std::string& publicKey) const;
-    int getBlockCount() const { return chain.size(); }
+  // Blockchain Operations
+  void adjustDifficulty();
+  void syncChain(const Json::Value &jsonData);
+  bool saveToDB();
+  bool loadFromDB();
+  void loadFromPeers();
+  void saveTransactionsToDB();
+  void loadTransactionsFromDB();
+  void reloadBlockchainState();
+  void mergeWith(const Blockchain &other);
+  void updateFromJSON(const std::string &jsonData);
+  void clearPendingTransactions();
+  void printPendingTransactions();
+  int getIndex() const { return chain.size() - 1; }
+  Block createGenesisBlock();
+  bool deserializeBlockchain(const std::string &data);
+  bool serializeBlockchain(std::string &outData) const;
+  void fromJSON(const Json::Value &root);
+  void addTransaction(const Transaction &tx);
+  std::vector<Transaction> getPendingTransactions() const;
+  bool isTransactionValid(const Transaction &tx) const;
+  std::vector<unsigned char> signTransaction(const std::vector<unsigned char> &privateKey,
+                                           const std::vector<unsigned char> &message);
+  double calculateBlockReward();
+  // Updated mining function to accept Dilithium + Falcon keys
+  Block mineBlock(const std::string &minerAddress);
+
+  void applyVestingSchedule();
+  void startMining(const std::string &minerAddress,
+                             const std::string &minerDilithiumKey,
+                             const std::string &minerFalconKey);
+  void stopMining();
+  bool hasPendingTransactions() const;
+  Block minePendingTransactions(const std::string &minerAddress,
+                                          const std::vector<unsigned char> &minerDilithiumPriv,
+                                          const std::vector<unsigned char> &minerFalconPriv);
+  void setPendingTransactions(const std::vector<Transaction> &transactions);
+ double getAverageBlockTime(int recentCount) const;
+  // Updated block addition and validation functions
+  bool addBlock(const Block &block);
+  bool isValidNewBlock(const Block &newBlock);
+
+  void fromProto(const alyncoin::BlockchainProto &protoChain);
+  void replaceChain(const std::vector<Block> &newChain);
+  const Block &getLatestBlock() const;
+  void printBlockchain() const;
+  void requestFullSync();
+  bool processStateChannelCommitment(const StateChannel &channel);
+  std::vector<Transaction>
+  aggregateOffChainTxs(const std::vector<Transaction> &offChainTxs);
+  Block createRollupBlock(const std::vector<Transaction> &offChainTxs);
+  void saveRollupChain() const;
+  void loadRollupChain();
+  void mergeRollupChain(const std::vector<RollupBlock> &otherChain);
+  std::vector<RollupBlock> deserializeRollupChain(const std::string &data);
+  RollupBlock deserializeRollupBlock(const std::string &data);
+
+  // Pass dual keys during block creation (optional)
+  Block createBlock(const std::string &minerDilithiumKey,
+                    const std::string &minerFalconKey);
+
+  int getRecentTransactionCount();
+  void updateTransactionHistory(int newTxCount);
+  const std::vector<Block> &getChain() const;
+  Json::Value toJSON() const;
+  void addRollupBlock(const RollupBlock &newRollupBlock);
+  bool isRollupBlockValid(const RollupBlock &newRollupBlock) const;
+  double getBalance(const std::string &publicKey) const;
+  int getBlockCount() const { return chain.size(); }
+  void addVestingForEarlySupporter(const std::string &address,
+                                   double initialAmount);
+  bool castVote(const std::string &voterAddress,
+                const std::string &candidateAddress);
+
+  void clearChain() { chain.clear(); }
 };
 
 #endif // BLOCKCHAIN_H

@@ -179,14 +179,13 @@ class TransactionProto final :
   enum : int {
     kSenderFieldNumber = 1,
     kRecipientFieldNumber = 2,
-    kSignatureFieldNumber = 4,
+    kSignatureDilithiumFieldNumber = 5,
+    kSignatureFalconFieldNumber = 6,
+    kZkproofFieldNumber = 7,
+    kSenderPubkeyDilithiumFieldNumber = 8,
+    kSenderPubkeyFalconFieldNumber = 9,
     kAmountFieldNumber = 3,
-    kTimestampFieldNumber = 5,
-    kHasSenderFieldNumber = 6,
-    kHasRecipientFieldNumber = 7,
-    kHasAmountFieldNumber = 8,
-    kHasSignatureFieldNumber = 9,
-    kHasTimestampFieldNumber = 10,
+    kTimestampFieldNumber = 4,
   };
   // string sender = 1;
   void clear_sender();
@@ -216,18 +215,74 @@ class TransactionProto final :
   std::string* _internal_mutable_recipient();
   public:
 
-  // string signature = 4;
-  void clear_signature();
-  const std::string& signature() const;
+  // string signature_dilithium = 5;
+  void clear_signature_dilithium();
+  const std::string& signature_dilithium() const;
   template <typename ArgT0 = const std::string&, typename... ArgT>
-  void set_signature(ArgT0&& arg0, ArgT... args);
-  std::string* mutable_signature();
-  PROTOBUF_NODISCARD std::string* release_signature();
-  void set_allocated_signature(std::string* signature);
+  void set_signature_dilithium(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_signature_dilithium();
+  PROTOBUF_NODISCARD std::string* release_signature_dilithium();
+  void set_allocated_signature_dilithium(std::string* signature_dilithium);
   private:
-  const std::string& _internal_signature() const;
-  inline PROTOBUF_ALWAYS_INLINE void _internal_set_signature(const std::string& value);
-  std::string* _internal_mutable_signature();
+  const std::string& _internal_signature_dilithium() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_signature_dilithium(const std::string& value);
+  std::string* _internal_mutable_signature_dilithium();
+  public:
+
+  // string signature_falcon = 6;
+  void clear_signature_falcon();
+  const std::string& signature_falcon() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_signature_falcon(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_signature_falcon();
+  PROTOBUF_NODISCARD std::string* release_signature_falcon();
+  void set_allocated_signature_falcon(std::string* signature_falcon);
+  private:
+  const std::string& _internal_signature_falcon() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_signature_falcon(const std::string& value);
+  std::string* _internal_mutable_signature_falcon();
+  public:
+
+  // string zkproof = 7;
+  void clear_zkproof();
+  const std::string& zkproof() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_zkproof(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_zkproof();
+  PROTOBUF_NODISCARD std::string* release_zkproof();
+  void set_allocated_zkproof(std::string* zkproof);
+  private:
+  const std::string& _internal_zkproof() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_zkproof(const std::string& value);
+  std::string* _internal_mutable_zkproof();
+  public:
+
+  // string sender_pubkey_dilithium = 8;
+  void clear_sender_pubkey_dilithium();
+  const std::string& sender_pubkey_dilithium() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_sender_pubkey_dilithium(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_sender_pubkey_dilithium();
+  PROTOBUF_NODISCARD std::string* release_sender_pubkey_dilithium();
+  void set_allocated_sender_pubkey_dilithium(std::string* sender_pubkey_dilithium);
+  private:
+  const std::string& _internal_sender_pubkey_dilithium() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_sender_pubkey_dilithium(const std::string& value);
+  std::string* _internal_mutable_sender_pubkey_dilithium();
+  public:
+
+  // string sender_pubkey_falcon = 9;
+  void clear_sender_pubkey_falcon();
+  const std::string& sender_pubkey_falcon() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_sender_pubkey_falcon(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_sender_pubkey_falcon();
+  PROTOBUF_NODISCARD std::string* release_sender_pubkey_falcon();
+  void set_allocated_sender_pubkey_falcon(std::string* sender_pubkey_falcon);
+  private:
+  const std::string& _internal_sender_pubkey_falcon() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_sender_pubkey_falcon(const std::string& value);
+  std::string* _internal_mutable_sender_pubkey_falcon();
   public:
 
   // double amount = 3;
@@ -239,78 +294,13 @@ class TransactionProto final :
   void _internal_set_amount(double value);
   public:
 
-  // uint64 timestamp = 5;
+  // uint64 timestamp = 4;
   void clear_timestamp();
   uint64_t timestamp() const;
   void set_timestamp(uint64_t value);
   private:
   uint64_t _internal_timestamp() const;
   void _internal_set_timestamp(uint64_t value);
-  public:
-
-  // optional bool has_sender = 6;
-  bool has_has_sender() const;
-  private:
-  bool _internal_has_has_sender() const;
-  public:
-  void clear_has_sender();
-  bool has_sender() const;
-  void set_has_sender(bool value);
-  private:
-  bool _internal_has_sender() const;
-  void _internal_set_has_sender(bool value);
-  public:
-
-  // optional bool has_recipient = 7;
-  bool has_has_recipient() const;
-  private:
-  bool _internal_has_has_recipient() const;
-  public:
-  void clear_has_recipient();
-  bool has_recipient() const;
-  void set_has_recipient(bool value);
-  private:
-  bool _internal_has_recipient() const;
-  void _internal_set_has_recipient(bool value);
-  public:
-
-  // optional bool has_amount = 8;
-  bool has_has_amount() const;
-  private:
-  bool _internal_has_has_amount() const;
-  public:
-  void clear_has_amount();
-  bool has_amount() const;
-  void set_has_amount(bool value);
-  private:
-  bool _internal_has_amount() const;
-  void _internal_set_has_amount(bool value);
-  public:
-
-  // optional bool has_signature = 9;
-  bool has_has_signature() const;
-  private:
-  bool _internal_has_has_signature() const;
-  public:
-  void clear_has_signature();
-  bool has_signature() const;
-  void set_has_signature(bool value);
-  private:
-  bool _internal_has_signature() const;
-  void _internal_set_has_signature(bool value);
-  public:
-
-  // optional bool has_timestamp = 10;
-  bool has_has_timestamp() const;
-  private:
-  bool _internal_has_has_timestamp() const;
-  public:
-  void clear_has_timestamp();
-  bool has_timestamp() const;
-  void set_has_timestamp(bool value);
-  private:
-  bool _internal_has_timestamp() const;
-  void _internal_set_has_timestamp(bool value);
   public:
 
   // @@protoc_insertion_point(class_scope:alyncoin.TransactionProto)
@@ -321,18 +311,16 @@ class TransactionProto final :
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
   struct Impl_ {
-    ::PROTOBUF_NAMESPACE_ID::internal::HasBits<1> _has_bits_;
-    mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr sender_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr recipient_;
-    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr signature_;
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr signature_dilithium_;
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr signature_falcon_;
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr zkproof_;
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr sender_pubkey_dilithium_;
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr sender_pubkey_falcon_;
     double amount_;
     uint64_t timestamp_;
-    bool has_sender_;
-    bool has_recipient_;
-    bool has_amount_;
-    bool has_signature_;
-    bool has_timestamp_;
+    mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   };
   union { Impl_ _impl_; };
   friend struct ::TableStruct_transaction_5fprotos_2eproto;
@@ -468,57 +456,7 @@ inline void TransactionProto::set_amount(double value) {
   // @@protoc_insertion_point(field_set:alyncoin.TransactionProto.amount)
 }
 
-// string signature = 4;
-inline void TransactionProto::clear_signature() {
-  _impl_.signature_.ClearToEmpty();
-}
-inline const std::string& TransactionProto::signature() const {
-  // @@protoc_insertion_point(field_get:alyncoin.TransactionProto.signature)
-  return _internal_signature();
-}
-template <typename ArgT0, typename... ArgT>
-inline PROTOBUF_ALWAYS_INLINE
-void TransactionProto::set_signature(ArgT0&& arg0, ArgT... args) {
- 
- _impl_.signature_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
-  // @@protoc_insertion_point(field_set:alyncoin.TransactionProto.signature)
-}
-inline std::string* TransactionProto::mutable_signature() {
-  std::string* _s = _internal_mutable_signature();
-  // @@protoc_insertion_point(field_mutable:alyncoin.TransactionProto.signature)
-  return _s;
-}
-inline const std::string& TransactionProto::_internal_signature() const {
-  return _impl_.signature_.Get();
-}
-inline void TransactionProto::_internal_set_signature(const std::string& value) {
-  
-  _impl_.signature_.Set(value, GetArenaForAllocation());
-}
-inline std::string* TransactionProto::_internal_mutable_signature() {
-  
-  return _impl_.signature_.Mutable(GetArenaForAllocation());
-}
-inline std::string* TransactionProto::release_signature() {
-  // @@protoc_insertion_point(field_release:alyncoin.TransactionProto.signature)
-  return _impl_.signature_.Release();
-}
-inline void TransactionProto::set_allocated_signature(std::string* signature) {
-  if (signature != nullptr) {
-    
-  } else {
-    
-  }
-  _impl_.signature_.SetAllocated(signature, GetArenaForAllocation());
-#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
-  if (_impl_.signature_.IsDefault()) {
-    _impl_.signature_.Set("", GetArenaForAllocation());
-  }
-#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
-  // @@protoc_insertion_point(field_set_allocated:alyncoin.TransactionProto.signature)
-}
-
-// uint64 timestamp = 5;
+// uint64 timestamp = 4;
 inline void TransactionProto::clear_timestamp() {
   _impl_.timestamp_ = uint64_t{0u};
 }
@@ -538,144 +476,254 @@ inline void TransactionProto::set_timestamp(uint64_t value) {
   // @@protoc_insertion_point(field_set:alyncoin.TransactionProto.timestamp)
 }
 
-// optional bool has_sender = 6;
-inline bool TransactionProto::_internal_has_has_sender() const {
-  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
-  return value;
+// string signature_dilithium = 5;
+inline void TransactionProto::clear_signature_dilithium() {
+  _impl_.signature_dilithium_.ClearToEmpty();
 }
-inline bool TransactionProto::has_has_sender() const {
-  return _internal_has_has_sender();
+inline const std::string& TransactionProto::signature_dilithium() const {
+  // @@protoc_insertion_point(field_get:alyncoin.TransactionProto.signature_dilithium)
+  return _internal_signature_dilithium();
 }
-inline void TransactionProto::clear_has_sender() {
-  _impl_.has_sender_ = false;
-  _impl_._has_bits_[0] &= ~0x00000001u;
+template <typename ArgT0, typename... ArgT>
+inline PROTOBUF_ALWAYS_INLINE
+void TransactionProto::set_signature_dilithium(ArgT0&& arg0, ArgT... args) {
+ 
+ _impl_.signature_dilithium_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:alyncoin.TransactionProto.signature_dilithium)
 }
-inline bool TransactionProto::_internal_has_sender() const {
-  return _impl_.has_sender_;
+inline std::string* TransactionProto::mutable_signature_dilithium() {
+  std::string* _s = _internal_mutable_signature_dilithium();
+  // @@protoc_insertion_point(field_mutable:alyncoin.TransactionProto.signature_dilithium)
+  return _s;
 }
-inline bool TransactionProto::has_sender() const {
-  // @@protoc_insertion_point(field_get:alyncoin.TransactionProto.has_sender)
-  return _internal_has_sender();
+inline const std::string& TransactionProto::_internal_signature_dilithium() const {
+  return _impl_.signature_dilithium_.Get();
 }
-inline void TransactionProto::_internal_set_has_sender(bool value) {
-  _impl_._has_bits_[0] |= 0x00000001u;
-  _impl_.has_sender_ = value;
+inline void TransactionProto::_internal_set_signature_dilithium(const std::string& value) {
+  
+  _impl_.signature_dilithium_.Set(value, GetArenaForAllocation());
 }
-inline void TransactionProto::set_has_sender(bool value) {
-  _internal_set_has_sender(value);
-  // @@protoc_insertion_point(field_set:alyncoin.TransactionProto.has_sender)
+inline std::string* TransactionProto::_internal_mutable_signature_dilithium() {
+  
+  return _impl_.signature_dilithium_.Mutable(GetArenaForAllocation());
 }
-
-// optional bool has_recipient = 7;
-inline bool TransactionProto::_internal_has_has_recipient() const {
-  bool value = (_impl_._has_bits_[0] & 0x00000002u) != 0;
-  return value;
+inline std::string* TransactionProto::release_signature_dilithium() {
+  // @@protoc_insertion_point(field_release:alyncoin.TransactionProto.signature_dilithium)
+  return _impl_.signature_dilithium_.Release();
 }
-inline bool TransactionProto::has_has_recipient() const {
-  return _internal_has_has_recipient();
-}
-inline void TransactionProto::clear_has_recipient() {
-  _impl_.has_recipient_ = false;
-  _impl_._has_bits_[0] &= ~0x00000002u;
-}
-inline bool TransactionProto::_internal_has_recipient() const {
-  return _impl_.has_recipient_;
-}
-inline bool TransactionProto::has_recipient() const {
-  // @@protoc_insertion_point(field_get:alyncoin.TransactionProto.has_recipient)
-  return _internal_has_recipient();
-}
-inline void TransactionProto::_internal_set_has_recipient(bool value) {
-  _impl_._has_bits_[0] |= 0x00000002u;
-  _impl_.has_recipient_ = value;
-}
-inline void TransactionProto::set_has_recipient(bool value) {
-  _internal_set_has_recipient(value);
-  // @@protoc_insertion_point(field_set:alyncoin.TransactionProto.has_recipient)
+inline void TransactionProto::set_allocated_signature_dilithium(std::string* signature_dilithium) {
+  if (signature_dilithium != nullptr) {
+    
+  } else {
+    
+  }
+  _impl_.signature_dilithium_.SetAllocated(signature_dilithium, GetArenaForAllocation());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (_impl_.signature_dilithium_.IsDefault()) {
+    _impl_.signature_dilithium_.Set("", GetArenaForAllocation());
+  }
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.TransactionProto.signature_dilithium)
 }
 
-// optional bool has_amount = 8;
-inline bool TransactionProto::_internal_has_has_amount() const {
-  bool value = (_impl_._has_bits_[0] & 0x00000004u) != 0;
-  return value;
+// string signature_falcon = 6;
+inline void TransactionProto::clear_signature_falcon() {
+  _impl_.signature_falcon_.ClearToEmpty();
 }
-inline bool TransactionProto::has_has_amount() const {
-  return _internal_has_has_amount();
+inline const std::string& TransactionProto::signature_falcon() const {
+  // @@protoc_insertion_point(field_get:alyncoin.TransactionProto.signature_falcon)
+  return _internal_signature_falcon();
 }
-inline void TransactionProto::clear_has_amount() {
-  _impl_.has_amount_ = false;
-  _impl_._has_bits_[0] &= ~0x00000004u;
+template <typename ArgT0, typename... ArgT>
+inline PROTOBUF_ALWAYS_INLINE
+void TransactionProto::set_signature_falcon(ArgT0&& arg0, ArgT... args) {
+ 
+ _impl_.signature_falcon_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:alyncoin.TransactionProto.signature_falcon)
 }
-inline bool TransactionProto::_internal_has_amount() const {
-  return _impl_.has_amount_;
+inline std::string* TransactionProto::mutable_signature_falcon() {
+  std::string* _s = _internal_mutable_signature_falcon();
+  // @@protoc_insertion_point(field_mutable:alyncoin.TransactionProto.signature_falcon)
+  return _s;
 }
-inline bool TransactionProto::has_amount() const {
-  // @@protoc_insertion_point(field_get:alyncoin.TransactionProto.has_amount)
-  return _internal_has_amount();
+inline const std::string& TransactionProto::_internal_signature_falcon() const {
+  return _impl_.signature_falcon_.Get();
 }
-inline void TransactionProto::_internal_set_has_amount(bool value) {
-  _impl_._has_bits_[0] |= 0x00000004u;
-  _impl_.has_amount_ = value;
+inline void TransactionProto::_internal_set_signature_falcon(const std::string& value) {
+  
+  _impl_.signature_falcon_.Set(value, GetArenaForAllocation());
 }
-inline void TransactionProto::set_has_amount(bool value) {
-  _internal_set_has_amount(value);
-  // @@protoc_insertion_point(field_set:alyncoin.TransactionProto.has_amount)
+inline std::string* TransactionProto::_internal_mutable_signature_falcon() {
+  
+  return _impl_.signature_falcon_.Mutable(GetArenaForAllocation());
 }
-
-// optional bool has_signature = 9;
-inline bool TransactionProto::_internal_has_has_signature() const {
-  bool value = (_impl_._has_bits_[0] & 0x00000008u) != 0;
-  return value;
+inline std::string* TransactionProto::release_signature_falcon() {
+  // @@protoc_insertion_point(field_release:alyncoin.TransactionProto.signature_falcon)
+  return _impl_.signature_falcon_.Release();
 }
-inline bool TransactionProto::has_has_signature() const {
-  return _internal_has_has_signature();
-}
-inline void TransactionProto::clear_has_signature() {
-  _impl_.has_signature_ = false;
-  _impl_._has_bits_[0] &= ~0x00000008u;
-}
-inline bool TransactionProto::_internal_has_signature() const {
-  return _impl_.has_signature_;
-}
-inline bool TransactionProto::has_signature() const {
-  // @@protoc_insertion_point(field_get:alyncoin.TransactionProto.has_signature)
-  return _internal_has_signature();
-}
-inline void TransactionProto::_internal_set_has_signature(bool value) {
-  _impl_._has_bits_[0] |= 0x00000008u;
-  _impl_.has_signature_ = value;
-}
-inline void TransactionProto::set_has_signature(bool value) {
-  _internal_set_has_signature(value);
-  // @@protoc_insertion_point(field_set:alyncoin.TransactionProto.has_signature)
+inline void TransactionProto::set_allocated_signature_falcon(std::string* signature_falcon) {
+  if (signature_falcon != nullptr) {
+    
+  } else {
+    
+  }
+  _impl_.signature_falcon_.SetAllocated(signature_falcon, GetArenaForAllocation());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (_impl_.signature_falcon_.IsDefault()) {
+    _impl_.signature_falcon_.Set("", GetArenaForAllocation());
+  }
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.TransactionProto.signature_falcon)
 }
 
-// optional bool has_timestamp = 10;
-inline bool TransactionProto::_internal_has_has_timestamp() const {
-  bool value = (_impl_._has_bits_[0] & 0x00000010u) != 0;
-  return value;
+// string zkproof = 7;
+inline void TransactionProto::clear_zkproof() {
+  _impl_.zkproof_.ClearToEmpty();
 }
-inline bool TransactionProto::has_has_timestamp() const {
-  return _internal_has_has_timestamp();
+inline const std::string& TransactionProto::zkproof() const {
+  // @@protoc_insertion_point(field_get:alyncoin.TransactionProto.zkproof)
+  return _internal_zkproof();
 }
-inline void TransactionProto::clear_has_timestamp() {
-  _impl_.has_timestamp_ = false;
-  _impl_._has_bits_[0] &= ~0x00000010u;
+template <typename ArgT0, typename... ArgT>
+inline PROTOBUF_ALWAYS_INLINE
+void TransactionProto::set_zkproof(ArgT0&& arg0, ArgT... args) {
+ 
+ _impl_.zkproof_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:alyncoin.TransactionProto.zkproof)
 }
-inline bool TransactionProto::_internal_has_timestamp() const {
-  return _impl_.has_timestamp_;
+inline std::string* TransactionProto::mutable_zkproof() {
+  std::string* _s = _internal_mutable_zkproof();
+  // @@protoc_insertion_point(field_mutable:alyncoin.TransactionProto.zkproof)
+  return _s;
 }
-inline bool TransactionProto::has_timestamp() const {
-  // @@protoc_insertion_point(field_get:alyncoin.TransactionProto.has_timestamp)
-  return _internal_has_timestamp();
+inline const std::string& TransactionProto::_internal_zkproof() const {
+  return _impl_.zkproof_.Get();
 }
-inline void TransactionProto::_internal_set_has_timestamp(bool value) {
-  _impl_._has_bits_[0] |= 0x00000010u;
-  _impl_.has_timestamp_ = value;
+inline void TransactionProto::_internal_set_zkproof(const std::string& value) {
+  
+  _impl_.zkproof_.Set(value, GetArenaForAllocation());
 }
-inline void TransactionProto::set_has_timestamp(bool value) {
-  _internal_set_has_timestamp(value);
-  // @@protoc_insertion_point(field_set:alyncoin.TransactionProto.has_timestamp)
+inline std::string* TransactionProto::_internal_mutable_zkproof() {
+  
+  return _impl_.zkproof_.Mutable(GetArenaForAllocation());
+}
+inline std::string* TransactionProto::release_zkproof() {
+  // @@protoc_insertion_point(field_release:alyncoin.TransactionProto.zkproof)
+  return _impl_.zkproof_.Release();
+}
+inline void TransactionProto::set_allocated_zkproof(std::string* zkproof) {
+  if (zkproof != nullptr) {
+    
+  } else {
+    
+  }
+  _impl_.zkproof_.SetAllocated(zkproof, GetArenaForAllocation());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (_impl_.zkproof_.IsDefault()) {
+    _impl_.zkproof_.Set("", GetArenaForAllocation());
+  }
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.TransactionProto.zkproof)
+}
+
+// string sender_pubkey_dilithium = 8;
+inline void TransactionProto::clear_sender_pubkey_dilithium() {
+  _impl_.sender_pubkey_dilithium_.ClearToEmpty();
+}
+inline const std::string& TransactionProto::sender_pubkey_dilithium() const {
+  // @@protoc_insertion_point(field_get:alyncoin.TransactionProto.sender_pubkey_dilithium)
+  return _internal_sender_pubkey_dilithium();
+}
+template <typename ArgT0, typename... ArgT>
+inline PROTOBUF_ALWAYS_INLINE
+void TransactionProto::set_sender_pubkey_dilithium(ArgT0&& arg0, ArgT... args) {
+ 
+ _impl_.sender_pubkey_dilithium_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:alyncoin.TransactionProto.sender_pubkey_dilithium)
+}
+inline std::string* TransactionProto::mutable_sender_pubkey_dilithium() {
+  std::string* _s = _internal_mutable_sender_pubkey_dilithium();
+  // @@protoc_insertion_point(field_mutable:alyncoin.TransactionProto.sender_pubkey_dilithium)
+  return _s;
+}
+inline const std::string& TransactionProto::_internal_sender_pubkey_dilithium() const {
+  return _impl_.sender_pubkey_dilithium_.Get();
+}
+inline void TransactionProto::_internal_set_sender_pubkey_dilithium(const std::string& value) {
+  
+  _impl_.sender_pubkey_dilithium_.Set(value, GetArenaForAllocation());
+}
+inline std::string* TransactionProto::_internal_mutable_sender_pubkey_dilithium() {
+  
+  return _impl_.sender_pubkey_dilithium_.Mutable(GetArenaForAllocation());
+}
+inline std::string* TransactionProto::release_sender_pubkey_dilithium() {
+  // @@protoc_insertion_point(field_release:alyncoin.TransactionProto.sender_pubkey_dilithium)
+  return _impl_.sender_pubkey_dilithium_.Release();
+}
+inline void TransactionProto::set_allocated_sender_pubkey_dilithium(std::string* sender_pubkey_dilithium) {
+  if (sender_pubkey_dilithium != nullptr) {
+    
+  } else {
+    
+  }
+  _impl_.sender_pubkey_dilithium_.SetAllocated(sender_pubkey_dilithium, GetArenaForAllocation());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (_impl_.sender_pubkey_dilithium_.IsDefault()) {
+    _impl_.sender_pubkey_dilithium_.Set("", GetArenaForAllocation());
+  }
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.TransactionProto.sender_pubkey_dilithium)
+}
+
+// string sender_pubkey_falcon = 9;
+inline void TransactionProto::clear_sender_pubkey_falcon() {
+  _impl_.sender_pubkey_falcon_.ClearToEmpty();
+}
+inline const std::string& TransactionProto::sender_pubkey_falcon() const {
+  // @@protoc_insertion_point(field_get:alyncoin.TransactionProto.sender_pubkey_falcon)
+  return _internal_sender_pubkey_falcon();
+}
+template <typename ArgT0, typename... ArgT>
+inline PROTOBUF_ALWAYS_INLINE
+void TransactionProto::set_sender_pubkey_falcon(ArgT0&& arg0, ArgT... args) {
+ 
+ _impl_.sender_pubkey_falcon_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:alyncoin.TransactionProto.sender_pubkey_falcon)
+}
+inline std::string* TransactionProto::mutable_sender_pubkey_falcon() {
+  std::string* _s = _internal_mutable_sender_pubkey_falcon();
+  // @@protoc_insertion_point(field_mutable:alyncoin.TransactionProto.sender_pubkey_falcon)
+  return _s;
+}
+inline const std::string& TransactionProto::_internal_sender_pubkey_falcon() const {
+  return _impl_.sender_pubkey_falcon_.Get();
+}
+inline void TransactionProto::_internal_set_sender_pubkey_falcon(const std::string& value) {
+  
+  _impl_.sender_pubkey_falcon_.Set(value, GetArenaForAllocation());
+}
+inline std::string* TransactionProto::_internal_mutable_sender_pubkey_falcon() {
+  
+  return _impl_.sender_pubkey_falcon_.Mutable(GetArenaForAllocation());
+}
+inline std::string* TransactionProto::release_sender_pubkey_falcon() {
+  // @@protoc_insertion_point(field_release:alyncoin.TransactionProto.sender_pubkey_falcon)
+  return _impl_.sender_pubkey_falcon_.Release();
+}
+inline void TransactionProto::set_allocated_sender_pubkey_falcon(std::string* sender_pubkey_falcon) {
+  if (sender_pubkey_falcon != nullptr) {
+    
+  } else {
+    
+  }
+  _impl_.sender_pubkey_falcon_.SetAllocated(sender_pubkey_falcon, GetArenaForAllocation());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (_impl_.sender_pubkey_falcon_.IsDefault()) {
+    _impl_.sender_pubkey_falcon_.Set("", GetArenaForAllocation());
+  }
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.TransactionProto.sender_pubkey_falcon)
 }
 
 #ifdef __GNUC__

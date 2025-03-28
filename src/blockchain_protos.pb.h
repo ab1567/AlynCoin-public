@@ -19,68 +19,73 @@
 #error regenerate this file with a newer version of protoc.
 #endif
 
-#include <google/protobuf/port_undef.inc>
-#include <google/protobuf/io/coded_stream.h>
-#include <google/protobuf/arena.h>
-#include <google/protobuf/arenastring.h>
-#include <google/protobuf/generated_message_util.h>
-#include <google/protobuf/metadata_lite.h>
-#include <google/protobuf/generated_message_reflection.h>
-#include <google/protobuf/message.h>
-#include <google/protobuf/repeated_field.h>  // IWYU pragma: export
-#include <google/protobuf/extension_set.h>  // IWYU pragma: export
-#include <google/protobuf/unknown_field_set.h>
 #include "block_protos.pb.h"
 #include "transaction_protos.pb.h"
+#include <google/protobuf/arena.h>
+#include <google/protobuf/arenastring.h>
+#include <google/protobuf/extension_set.h> // IWYU pragma: export
+#include <google/protobuf/generated_message_reflection.h>
+#include <google/protobuf/generated_message_util.h>
+#include <google/protobuf/io/coded_stream.h>
+#include <google/protobuf/message.h>
+#include <google/protobuf/metadata_lite.h>
+#include <google/protobuf/port_undef.inc>
+#include <google/protobuf/repeated_field.h> // IWYU pragma: export
+#include <google/protobuf/unknown_field_set.h>
 // @@protoc_insertion_point(includes)
 #include <google/protobuf/port_def.inc>
 #define PROTOBUF_INTERNAL_EXPORT_blockchain_5fprotos_2eproto
 PROTOBUF_NAMESPACE_OPEN
 namespace internal {
 class AnyMetadata;
-}  // namespace internal
+} // namespace internal
 PROTOBUF_NAMESPACE_CLOSE
 
 // Internal implementation detail -- do not use these members.
 struct TableStruct_blockchain_5fprotos_2eproto {
   static const uint32_t offsets[];
 };
-extern const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable descriptor_table_blockchain_5fprotos_2eproto;
+extern const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable
+    descriptor_table_blockchain_5fprotos_2eproto;
 namespace alyncoin {
 class BlockchainProto;
 struct BlockchainProtoDefaultTypeInternal;
 extern BlockchainProtoDefaultTypeInternal _BlockchainProto_default_instance_;
-}  // namespace alyncoin
+} // namespace alyncoin
 PROTOBUF_NAMESPACE_OPEN
-template<> ::alyncoin::BlockchainProto* Arena::CreateMaybeMessage<::alyncoin::BlockchainProto>(Arena*);
+template <>
+::alyncoin::BlockchainProto *
+Arena::CreateMaybeMessage<::alyncoin::BlockchainProto>(Arena *);
 PROTOBUF_NAMESPACE_CLOSE
 namespace alyncoin {
 
 // ===================================================================
 
-class BlockchainProto final :
-    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:alyncoin.BlockchainProto) */ {
- public:
+class BlockchainProto final : public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:alyncoin.BlockchainProto)
+                                                                       */
+{
+public:
   inline BlockchainProto() : BlockchainProto(nullptr) {}
   ~BlockchainProto() override;
-  explicit PROTOBUF_CONSTEXPR BlockchainProto(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+  explicit PROTOBUF_CONSTEXPR
+      BlockchainProto(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
 
-  BlockchainProto(const BlockchainProto& from);
-  BlockchainProto(BlockchainProto&& from) noexcept
-    : BlockchainProto() {
+  BlockchainProto(const BlockchainProto &from);
+  BlockchainProto(BlockchainProto &&from) noexcept : BlockchainProto() {
     *this = ::std::move(from);
   }
 
-  inline BlockchainProto& operator=(const BlockchainProto& from) {
+  inline BlockchainProto &operator=(const BlockchainProto &from) {
     CopyFrom(from);
     return *this;
   }
-  inline BlockchainProto& operator=(BlockchainProto&& from) noexcept {
-    if (this == &from) return *this;
+  inline BlockchainProto &operator=(BlockchainProto &&from) noexcept {
+    if (this == &from)
+      return *this;
     if (GetOwningArena() == from.GetOwningArena()
-  #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
         && GetOwningArena() != nullptr
-  #endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+#endif // !PROTOBUF_FORCE_COPY_IN_MOVE
     ) {
       InternalSwap(&from);
     } else {
@@ -89,88 +94,95 @@ class BlockchainProto final :
     return *this;
   }
 
-  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor *descriptor() {
     return GetDescriptor();
   }
-  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor *GetDescriptor() {
     return default_instance().GetMetadata().descriptor;
   }
-  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
+  static const ::PROTOBUF_NAMESPACE_ID::Reflection *GetReflection() {
     return default_instance().GetMetadata().reflection;
   }
-  static const BlockchainProto& default_instance() {
+  static const BlockchainProto &default_instance() {
     return *internal_default_instance();
   }
-  static inline const BlockchainProto* internal_default_instance() {
-    return reinterpret_cast<const BlockchainProto*>(
-               &_BlockchainProto_default_instance_);
+  static inline const BlockchainProto *internal_default_instance() {
+    return reinterpret_cast<const BlockchainProto *>(
+        &_BlockchainProto_default_instance_);
   }
-  static constexpr int kIndexInFileMessages =
-    0;
+  static constexpr int kIndexInFileMessages = 0;
 
-  friend void swap(BlockchainProto& a, BlockchainProto& b) {
-    a.Swap(&b);
-  }
-  inline void Swap(BlockchainProto* other) {
-    if (other == this) return;
-  #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+  friend void swap(BlockchainProto &a, BlockchainProto &b) { a.Swap(&b); }
+  inline void Swap(BlockchainProto *other) {
+    if (other == this)
+      return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
     if (GetOwningArena() != nullptr &&
         GetOwningArena() == other->GetOwningArena()) {
-   #else  // PROTOBUF_FORCE_COPY_IN_SWAP
+#else  // PROTOBUF_FORCE_COPY_IN_SWAP
     if (GetOwningArena() == other->GetOwningArena()) {
-  #endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+#endif // !PROTOBUF_FORCE_COPY_IN_SWAP
       InternalSwap(other);
     } else {
       ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
     }
   }
-  void UnsafeArenaSwap(BlockchainProto* other) {
-    if (other == this) return;
+  void UnsafeArenaSwap(BlockchainProto *other) {
+    if (other == this)
+      return;
     GOOGLE_DCHECK(GetOwningArena() == other->GetOwningArena());
     InternalSwap(other);
   }
 
   // implements Message ----------------------------------------------
 
-  BlockchainProto* New(::PROTOBUF_NAMESPACE_ID::Arena* arena = nullptr) const final {
+  BlockchainProto *
+  New(::PROTOBUF_NAMESPACE_ID::Arena *arena = nullptr) const final {
     return CreateMaybeMessage<BlockchainProto>(arena);
   }
   using ::PROTOBUF_NAMESPACE_ID::Message::CopyFrom;
-  void CopyFrom(const BlockchainProto& from);
+  void CopyFrom(const BlockchainProto &from);
   using ::PROTOBUF_NAMESPACE_ID::Message::MergeFrom;
-  void MergeFrom( const BlockchainProto& from) {
+  void MergeFrom(const BlockchainProto &from) {
     BlockchainProto::MergeImpl(*this, from);
   }
-  private:
-  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg);
-  public:
+
+private:
+  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message &to_msg,
+                        const ::PROTOBUF_NAMESPACE_ID::Message &from_msg);
+
+public:
   PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
   bool IsInitialized() const final;
 
   size_t ByteSizeLong() const final;
-  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
-  uint8_t* _InternalSerialize(
-      uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
+  const char *
+  _InternalParse(const char *ptr,
+                 ::PROTOBUF_NAMESPACE_ID::internal::ParseContext *ctx) final;
+  uint8_t *_InternalSerialize(
+      uint8_t *target,
+      ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream *stream) const final;
   int GetCachedSize() const final { return _impl_._cached_size_.Get(); }
 
-  private:
-  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena* arena, bool is_message_owned);
+private:
+  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena *arena, bool is_message_owned);
   void SharedDtor();
   void SetCachedSize(int size) const final;
-  void InternalSwap(BlockchainProto* other);
+  void InternalSwap(BlockchainProto *other);
 
-  private:
+private:
   friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
   static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
     return "alyncoin.BlockchainProto";
   }
-  protected:
-  explicit BlockchainProto(::PROTOBUF_NAMESPACE_ID::Arena* arena,
-                       bool is_message_owned = false);
-  public:
 
+protected:
+  explicit BlockchainProto(::PROTOBUF_NAMESPACE_ID::Arena *arena,
+                           bool is_message_owned = false);
+
+public:
   static const ClassData _class_data_;
-  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*GetClassData() const final;
+  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData *GetClassData() const final;
 
   ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
 
@@ -185,71 +197,77 @@ class BlockchainProto final :
   };
   // repeated .alyncoin.BlockProto blocks = 3;
   int blocks_size() const;
-  private:
+
+private:
   int _internal_blocks_size() const;
-  public:
+
+public:
   void clear_blocks();
-  ::alyncoin::BlockProto* mutable_blocks(int index);
-  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::BlockProto >*
-      mutable_blocks();
-  private:
-  const ::alyncoin::BlockProto& _internal_blocks(int index) const;
-  ::alyncoin::BlockProto* _internal_add_blocks();
-  public:
-  const ::alyncoin::BlockProto& blocks(int index) const;
-  ::alyncoin::BlockProto* add_blocks();
-  const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::BlockProto >&
-      blocks() const;
+  ::alyncoin::BlockProto *mutable_blocks(int index);
+  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<::alyncoin::BlockProto> *
+  mutable_blocks();
+
+private:
+  const ::alyncoin::BlockProto &_internal_blocks(int index) const;
+  ::alyncoin::BlockProto *_internal_add_blocks();
+
+public:
+  const ::alyncoin::BlockProto &blocks(int index) const;
+  ::alyncoin::BlockProto *add_blocks();
+  const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<::alyncoin::BlockProto> &
+  blocks() const;
 
   // double block_reward = 2;
   void clear_block_reward();
   double block_reward() const;
   void set_block_reward(double value);
-  private:
+
+private:
   double _internal_block_reward() const;
   void _internal_set_block_reward(double value);
-  public:
 
+public:
   // int32 difficulty = 1;
   void clear_difficulty();
   int32_t difficulty() const;
   void set_difficulty(int32_t value);
-  private:
+
+private:
   int32_t _internal_difficulty() const;
   void _internal_set_difficulty(int32_t value);
-  public:
 
+public:
   // @@protoc_insertion_point(class_scope:alyncoin.BlockchainProto)
- private:
+private:
   class _Internal;
 
-  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
+  template <typename T>
+  friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
   struct Impl_ {
-    ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::BlockProto > blocks_;
+    ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<::alyncoin::BlockProto> blocks_;
     double block_reward_;
     int32_t difficulty_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   };
-  union { Impl_ _impl_; };
+  union {
+    Impl_ _impl_;
+  };
   friend struct ::TableStruct_blockchain_5fprotos_2eproto;
 };
 // ===================================================================
 
-
 // ===================================================================
 
 #ifdef __GNUC__
-  #pragma GCC diagnostic push
-  #pragma GCC diagnostic ignored "-Wstrict-aliasing"
-#endif  // __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#endif // __GNUC__
 // BlockchainProto
 
 // int32 difficulty = 1;
-inline void BlockchainProto::clear_difficulty() {
-  _impl_.difficulty_ = 0;
-}
+inline void BlockchainProto::clear_difficulty() { _impl_.difficulty_ = 0; }
 inline int32_t BlockchainProto::_internal_difficulty() const {
   return _impl_.difficulty_;
 }
@@ -258,7 +276,7 @@ inline int32_t BlockchainProto::difficulty() const {
   return _internal_difficulty();
 }
 inline void BlockchainProto::_internal_set_difficulty(int32_t value) {
-  
+
   _impl_.difficulty_ = value;
 }
 inline void BlockchainProto::set_difficulty(int32_t value) {
@@ -267,9 +285,7 @@ inline void BlockchainProto::set_difficulty(int32_t value) {
 }
 
 // double block_reward = 2;
-inline void BlockchainProto::clear_block_reward() {
-  _impl_.block_reward_ = 0;
-}
+inline void BlockchainProto::clear_block_reward() { _impl_.block_reward_ = 0; }
 inline double BlockchainProto::_internal_block_reward() const {
   return _impl_.block_reward_;
 }
@@ -278,7 +294,7 @@ inline double BlockchainProto::block_reward() const {
   return _internal_block_reward();
 }
 inline void BlockchainProto::_internal_set_block_reward(double value) {
-  
+
   _impl_.block_reward_ = value;
 }
 inline void BlockchainProto::set_block_reward(double value) {
@@ -293,45 +309,46 @@ inline int BlockchainProto::_internal_blocks_size() const {
 inline int BlockchainProto::blocks_size() const {
   return _internal_blocks_size();
 }
-inline ::alyncoin::BlockProto* BlockchainProto::mutable_blocks(int index) {
+inline ::alyncoin::BlockProto *BlockchainProto::mutable_blocks(int index) {
   // @@protoc_insertion_point(field_mutable:alyncoin.BlockchainProto.blocks)
   return _impl_.blocks_.Mutable(index);
 }
-inline ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::BlockProto >*
+inline ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<::alyncoin::BlockProto> *
 BlockchainProto::mutable_blocks() {
   // @@protoc_insertion_point(field_mutable_list:alyncoin.BlockchainProto.blocks)
   return &_impl_.blocks_;
 }
-inline const ::alyncoin::BlockProto& BlockchainProto::_internal_blocks(int index) const {
+inline const ::alyncoin::BlockProto &
+BlockchainProto::_internal_blocks(int index) const {
   return _impl_.blocks_.Get(index);
 }
-inline const ::alyncoin::BlockProto& BlockchainProto::blocks(int index) const {
+inline const ::alyncoin::BlockProto &BlockchainProto::blocks(int index) const {
   // @@protoc_insertion_point(field_get:alyncoin.BlockchainProto.blocks)
   return _internal_blocks(index);
 }
-inline ::alyncoin::BlockProto* BlockchainProto::_internal_add_blocks() {
+inline ::alyncoin::BlockProto *BlockchainProto::_internal_add_blocks() {
   return _impl_.blocks_.Add();
 }
-inline ::alyncoin::BlockProto* BlockchainProto::add_blocks() {
-  ::alyncoin::BlockProto* _add = _internal_add_blocks();
+inline ::alyncoin::BlockProto *BlockchainProto::add_blocks() {
+  ::alyncoin::BlockProto *_add = _internal_add_blocks();
   // @@protoc_insertion_point(field_add:alyncoin.BlockchainProto.blocks)
   return _add;
 }
-inline const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::BlockProto >&
+inline const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<::alyncoin::BlockProto> &
 BlockchainProto::blocks() const {
   // @@protoc_insertion_point(field_list:alyncoin.BlockchainProto.blocks)
   return _impl_.blocks_;
 }
 
 #ifdef __GNUC__
-  #pragma GCC diagnostic pop
-#endif  // __GNUC__
+#pragma GCC diagnostic pop
+#endif // __GNUC__
 
 // @@protoc_insertion_point(namespace_scope)
 
-}  // namespace alyncoin
+} // namespace alyncoin
 
 // @@protoc_insertion_point(global_scope)
 
 #include <google/protobuf/port_undef.inc>
-#endif  // GOOGLE_PROTOBUF_INCLUDED_GOOGLE_PROTOBUF_INCLUDED_blockchain_5fprotos_2eproto
+#endif // GOOGLE_PROTOBUF_INCLUDED_GOOGLE_PROTOBUF_INCLUDED_blockchain_5fprotos_2eproto

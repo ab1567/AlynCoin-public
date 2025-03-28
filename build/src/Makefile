@@ -117,6 +117,62 @@ depend:
 .PHONY : depend
 
 # Convenience name for target.
+src/CMakeFiles/protobuf_gen.dir/rule:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 src/CMakeFiles/protobuf_gen.dir/rule
+.PHONY : src/CMakeFiles/protobuf_gen.dir/rule
+
+# Convenience name for target.
+protobuf_gen: src/CMakeFiles/protobuf_gen.dir/rule
+.PHONY : protobuf_gen
+
+# fast build rule for target.
+protobuf_gen/fast:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/protobuf_gen.dir/build.make src/CMakeFiles/protobuf_gen.dir/build
+.PHONY : protobuf_gen/fast
+
+# Convenience name for target.
+src/CMakeFiles/winterfell_ffi.dir/rule:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 src/CMakeFiles/winterfell_ffi.dir/rule
+.PHONY : src/CMakeFiles/winterfell_ffi.dir/rule
+
+# Convenience name for target.
+winterfell_ffi: src/CMakeFiles/winterfell_ffi.dir/rule
+.PHONY : winterfell_ffi
+
+# fast build rule for target.
+winterfell_ffi/fast:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/winterfell_ffi.dir/build.make src/CMakeFiles/winterfell_ffi.dir/build
+.PHONY : winterfell_ffi/fast
+
+# Convenience name for target.
+src/CMakeFiles/falcon.dir/rule:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 src/CMakeFiles/falcon.dir/rule
+.PHONY : src/CMakeFiles/falcon.dir/rule
+
+# Convenience name for target.
+falcon: src/CMakeFiles/falcon.dir/rule
+.PHONY : falcon
+
+# fast build rule for target.
+falcon/fast:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/build
+.PHONY : falcon/fast
+
+# Convenience name for target.
+src/CMakeFiles/dilithium.dir/rule:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 src/CMakeFiles/dilithium.dir/rule
+.PHONY : src/CMakeFiles/dilithium.dir/rule
+
+# Convenience name for target.
+dilithium: src/CMakeFiles/dilithium.dir/rule
+.PHONY : dilithium
+
+# fast build rule for target.
+dilithium/fast:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/build
+.PHONY : dilithium/fast
+
+# Convenience name for target.
 src/CMakeFiles/alyncoin_lib.dir/rule:
 	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 src/CMakeFiles/alyncoin_lib.dir/rule
 .PHONY : src/CMakeFiles/alyncoin_lib.dir/rule
@@ -157,6 +213,48 @@ alyncoin-cli: src/CMakeFiles/alyncoin-cli.dir/rule
 alyncoin-cli/fast:
 	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin-cli.dir/build.make src/CMakeFiles/alyncoin-cli.dir/build
 .PHONY : alyncoin-cli/fast
+
+# Convenience name for target.
+src/CMakeFiles/peer_blacklist_cli.dir/rule:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 src/CMakeFiles/peer_blacklist_cli.dir/rule
+.PHONY : src/CMakeFiles/peer_blacklist_cli.dir/rule
+
+# Convenience name for target.
+peer_blacklist_cli: src/CMakeFiles/peer_blacklist_cli.dir/rule
+.PHONY : peer_blacklist_cli
+
+# fast build rule for target.
+peer_blacklist_cli/fast:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/peer_blacklist_cli.dir/build.make src/CMakeFiles/peer_blacklist_cli.dir/build
+.PHONY : peer_blacklist_cli/fast
+
+# Convenience name for target.
+src/CMakeFiles/blacklist_test.dir/rule:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 src/CMakeFiles/blacklist_test.dir/rule
+.PHONY : src/CMakeFiles/blacklist_test.dir/rule
+
+# Convenience name for target.
+blacklist_test: src/CMakeFiles/blacklist_test.dir/rule
+.PHONY : blacklist_test
+
+# fast build rule for target.
+blacklist_test/fast:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/blacklist_test.dir/build.make src/CMakeFiles/blacklist_test.dir/build
+.PHONY : blacklist_test/fast
+
+# Convenience name for target.
+src/CMakeFiles/explorer_server.dir/rule:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 src/CMakeFiles/explorer_server.dir/rule
+.PHONY : src/CMakeFiles/explorer_server.dir/rule
+
+# Convenience name for target.
+explorer_server: src/CMakeFiles/explorer_server.dir/rule
+.PHONY : explorer_server
+
+# fast build rule for target.
+explorer_server/fast:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/explorer_server.dir/build.make src/CMakeFiles/explorer_server.dir/build
+.PHONY : explorer_server/fast
 
 __/generated/block_protos.pb.o: __/generated/block_protos.pb.cc.o
 .PHONY : __/generated/block_protos.pb.o
@@ -518,6 +616,678 @@ cli.cpp.s:
 	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin-cli.dir/build.make src/CMakeFiles/alyncoin-cli.dir/cli.cpp.s
 .PHONY : cli.cpp.s
 
+cli/peer_blacklist_cli.o: cli/peer_blacklist_cli.cpp.o
+.PHONY : cli/peer_blacklist_cli.o
+
+# target to build an object file
+cli/peer_blacklist_cli.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/peer_blacklist_cli.dir/build.make src/CMakeFiles/peer_blacklist_cli.dir/cli/peer_blacklist_cli.cpp.o
+.PHONY : cli/peer_blacklist_cli.cpp.o
+
+cli/peer_blacklist_cli.i: cli/peer_blacklist_cli.cpp.i
+.PHONY : cli/peer_blacklist_cli.i
+
+# target to preprocess a source file
+cli/peer_blacklist_cli.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/peer_blacklist_cli.dir/build.make src/CMakeFiles/peer_blacklist_cli.dir/cli/peer_blacklist_cli.cpp.i
+.PHONY : cli/peer_blacklist_cli.cpp.i
+
+cli/peer_blacklist_cli.s: cli/peer_blacklist_cli.cpp.s
+.PHONY : cli/peer_blacklist_cli.s
+
+# target to generate assembly for a file
+cli/peer_blacklist_cli.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/peer_blacklist_cli.dir/build.make src/CMakeFiles/peer_blacklist_cli.dir/cli/peer_blacklist_cli.cpp.s
+.PHONY : cli/peer_blacklist_cli.cpp.s
+
+cli/peer_blacklist_ui.o: cli/peer_blacklist_ui.cpp.o
+.PHONY : cli/peer_blacklist_ui.o
+
+# target to build an object file
+cli/peer_blacklist_ui.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin-cli.dir/build.make src/CMakeFiles/alyncoin-cli.dir/cli/peer_blacklist_ui.cpp.o
+.PHONY : cli/peer_blacklist_ui.cpp.o
+
+cli/peer_blacklist_ui.i: cli/peer_blacklist_ui.cpp.i
+.PHONY : cli/peer_blacklist_ui.i
+
+# target to preprocess a source file
+cli/peer_blacklist_ui.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin-cli.dir/build.make src/CMakeFiles/alyncoin-cli.dir/cli/peer_blacklist_ui.cpp.i
+.PHONY : cli/peer_blacklist_ui.cpp.i
+
+cli/peer_blacklist_ui.s: cli/peer_blacklist_ui.cpp.s
+.PHONY : cli/peer_blacklist_ui.s
+
+# target to generate assembly for a file
+cli/peer_blacklist_ui.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin-cli.dir/build.make src/CMakeFiles/alyncoin-cli.dir/cli/peer_blacklist_ui.cpp.s
+.PHONY : cli/peer_blacklist_ui.cpp.s
+
+crypto/dilithium/fips202.o: crypto/dilithium/fips202.c.o
+.PHONY : crypto/dilithium/fips202.o
+
+# target to build an object file
+crypto/dilithium/fips202.c.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/fips202.c.o
+.PHONY : crypto/dilithium/fips202.c.o
+
+crypto/dilithium/fips202.i: crypto/dilithium/fips202.c.i
+.PHONY : crypto/dilithium/fips202.i
+
+# target to preprocess a source file
+crypto/dilithium/fips202.c.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/fips202.c.i
+.PHONY : crypto/dilithium/fips202.c.i
+
+crypto/dilithium/fips202.s: crypto/dilithium/fips202.c.s
+.PHONY : crypto/dilithium/fips202.s
+
+# target to generate assembly for a file
+crypto/dilithium/fips202.c.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/fips202.c.s
+.PHONY : crypto/dilithium/fips202.c.s
+
+crypto/dilithium/ntt.o: crypto/dilithium/ntt.c.o
+.PHONY : crypto/dilithium/ntt.o
+
+# target to build an object file
+crypto/dilithium/ntt.c.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/ntt.c.o
+.PHONY : crypto/dilithium/ntt.c.o
+
+crypto/dilithium/ntt.i: crypto/dilithium/ntt.c.i
+.PHONY : crypto/dilithium/ntt.i
+
+# target to preprocess a source file
+crypto/dilithium/ntt.c.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/ntt.c.i
+.PHONY : crypto/dilithium/ntt.c.i
+
+crypto/dilithium/ntt.s: crypto/dilithium/ntt.c.s
+.PHONY : crypto/dilithium/ntt.s
+
+# target to generate assembly for a file
+crypto/dilithium/ntt.c.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/ntt.c.s
+.PHONY : crypto/dilithium/ntt.c.s
+
+crypto/dilithium/packing.o: crypto/dilithium/packing.c.o
+.PHONY : crypto/dilithium/packing.o
+
+# target to build an object file
+crypto/dilithium/packing.c.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/packing.c.o
+.PHONY : crypto/dilithium/packing.c.o
+
+crypto/dilithium/packing.i: crypto/dilithium/packing.c.i
+.PHONY : crypto/dilithium/packing.i
+
+# target to preprocess a source file
+crypto/dilithium/packing.c.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/packing.c.i
+.PHONY : crypto/dilithium/packing.c.i
+
+crypto/dilithium/packing.s: crypto/dilithium/packing.c.s
+.PHONY : crypto/dilithium/packing.s
+
+# target to generate assembly for a file
+crypto/dilithium/packing.c.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/packing.c.s
+.PHONY : crypto/dilithium/packing.c.s
+
+crypto/dilithium/poly.o: crypto/dilithium/poly.c.o
+.PHONY : crypto/dilithium/poly.o
+
+# target to build an object file
+crypto/dilithium/poly.c.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/poly.c.o
+.PHONY : crypto/dilithium/poly.c.o
+
+crypto/dilithium/poly.i: crypto/dilithium/poly.c.i
+.PHONY : crypto/dilithium/poly.i
+
+# target to preprocess a source file
+crypto/dilithium/poly.c.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/poly.c.i
+.PHONY : crypto/dilithium/poly.c.i
+
+crypto/dilithium/poly.s: crypto/dilithium/poly.c.s
+.PHONY : crypto/dilithium/poly.s
+
+# target to generate assembly for a file
+crypto/dilithium/poly.c.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/poly.c.s
+.PHONY : crypto/dilithium/poly.c.s
+
+crypto/dilithium/polyvec.o: crypto/dilithium/polyvec.c.o
+.PHONY : crypto/dilithium/polyvec.o
+
+# target to build an object file
+crypto/dilithium/polyvec.c.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/polyvec.c.o
+.PHONY : crypto/dilithium/polyvec.c.o
+
+crypto/dilithium/polyvec.i: crypto/dilithium/polyvec.c.i
+.PHONY : crypto/dilithium/polyvec.i
+
+# target to preprocess a source file
+crypto/dilithium/polyvec.c.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/polyvec.c.i
+.PHONY : crypto/dilithium/polyvec.c.i
+
+crypto/dilithium/polyvec.s: crypto/dilithium/polyvec.c.s
+.PHONY : crypto/dilithium/polyvec.s
+
+# target to generate assembly for a file
+crypto/dilithium/polyvec.c.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/polyvec.c.s
+.PHONY : crypto/dilithium/polyvec.c.s
+
+crypto/dilithium/randombytes.o: crypto/dilithium/randombytes.c.o
+.PHONY : crypto/dilithium/randombytes.o
+
+# target to build an object file
+crypto/dilithium/randombytes.c.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/randombytes.c.o
+.PHONY : crypto/dilithium/randombytes.c.o
+
+crypto/dilithium/randombytes.i: crypto/dilithium/randombytes.c.i
+.PHONY : crypto/dilithium/randombytes.i
+
+# target to preprocess a source file
+crypto/dilithium/randombytes.c.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/randombytes.c.i
+.PHONY : crypto/dilithium/randombytes.c.i
+
+crypto/dilithium/randombytes.s: crypto/dilithium/randombytes.c.s
+.PHONY : crypto/dilithium/randombytes.s
+
+# target to generate assembly for a file
+crypto/dilithium/randombytes.c.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/randombytes.c.s
+.PHONY : crypto/dilithium/randombytes.c.s
+
+crypto/dilithium/reduce.o: crypto/dilithium/reduce.c.o
+.PHONY : crypto/dilithium/reduce.o
+
+# target to build an object file
+crypto/dilithium/reduce.c.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/reduce.c.o
+.PHONY : crypto/dilithium/reduce.c.o
+
+crypto/dilithium/reduce.i: crypto/dilithium/reduce.c.i
+.PHONY : crypto/dilithium/reduce.i
+
+# target to preprocess a source file
+crypto/dilithium/reduce.c.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/reduce.c.i
+.PHONY : crypto/dilithium/reduce.c.i
+
+crypto/dilithium/reduce.s: crypto/dilithium/reduce.c.s
+.PHONY : crypto/dilithium/reduce.s
+
+# target to generate assembly for a file
+crypto/dilithium/reduce.c.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/reduce.c.s
+.PHONY : crypto/dilithium/reduce.c.s
+
+crypto/dilithium/rounding.o: crypto/dilithium/rounding.c.o
+.PHONY : crypto/dilithium/rounding.o
+
+# target to build an object file
+crypto/dilithium/rounding.c.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/rounding.c.o
+.PHONY : crypto/dilithium/rounding.c.o
+
+crypto/dilithium/rounding.i: crypto/dilithium/rounding.c.i
+.PHONY : crypto/dilithium/rounding.i
+
+# target to preprocess a source file
+crypto/dilithium/rounding.c.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/rounding.c.i
+.PHONY : crypto/dilithium/rounding.c.i
+
+crypto/dilithium/rounding.s: crypto/dilithium/rounding.c.s
+.PHONY : crypto/dilithium/rounding.s
+
+# target to generate assembly for a file
+crypto/dilithium/rounding.c.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/rounding.c.s
+.PHONY : crypto/dilithium/rounding.c.s
+
+crypto/dilithium/sign.o: crypto/dilithium/sign.c.o
+.PHONY : crypto/dilithium/sign.o
+
+# target to build an object file
+crypto/dilithium/sign.c.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/sign.c.o
+.PHONY : crypto/dilithium/sign.c.o
+
+crypto/dilithium/sign.i: crypto/dilithium/sign.c.i
+.PHONY : crypto/dilithium/sign.i
+
+# target to preprocess a source file
+crypto/dilithium/sign.c.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/sign.c.i
+.PHONY : crypto/dilithium/sign.c.i
+
+crypto/dilithium/sign.s: crypto/dilithium/sign.c.s
+.PHONY : crypto/dilithium/sign.s
+
+# target to generate assembly for a file
+crypto/dilithium/sign.c.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/sign.c.s
+.PHONY : crypto/dilithium/sign.c.s
+
+crypto/dilithium/symmetric-shake.o: crypto/dilithium/symmetric-shake.c.o
+.PHONY : crypto/dilithium/symmetric-shake.o
+
+# target to build an object file
+crypto/dilithium/symmetric-shake.c.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/symmetric-shake.c.o
+.PHONY : crypto/dilithium/symmetric-shake.c.o
+
+crypto/dilithium/symmetric-shake.i: crypto/dilithium/symmetric-shake.c.i
+.PHONY : crypto/dilithium/symmetric-shake.i
+
+# target to preprocess a source file
+crypto/dilithium/symmetric-shake.c.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/symmetric-shake.c.i
+.PHONY : crypto/dilithium/symmetric-shake.c.i
+
+crypto/dilithium/symmetric-shake.s: crypto/dilithium/symmetric-shake.c.s
+.PHONY : crypto/dilithium/symmetric-shake.s
+
+# target to generate assembly for a file
+crypto/dilithium/symmetric-shake.c.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/symmetric-shake.c.s
+.PHONY : crypto/dilithium/symmetric-shake.c.s
+
+crypto/falcon/PQClean/Falcon-1024/clean/codec.o: crypto/falcon/PQClean/Falcon-1024/clean/codec.c.o
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/codec.o
+
+# target to build an object file
+crypto/falcon/PQClean/Falcon-1024/clean/codec.c.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/codec.c.o
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/codec.c.o
+
+crypto/falcon/PQClean/Falcon-1024/clean/codec.i: crypto/falcon/PQClean/Falcon-1024/clean/codec.c.i
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/codec.i
+
+# target to preprocess a source file
+crypto/falcon/PQClean/Falcon-1024/clean/codec.c.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/codec.c.i
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/codec.c.i
+
+crypto/falcon/PQClean/Falcon-1024/clean/codec.s: crypto/falcon/PQClean/Falcon-1024/clean/codec.c.s
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/codec.s
+
+# target to generate assembly for a file
+crypto/falcon/PQClean/Falcon-1024/clean/codec.c.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/codec.c.s
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/codec.c.s
+
+crypto/falcon/PQClean/Falcon-1024/clean/common.o: crypto/falcon/PQClean/Falcon-1024/clean/common.c.o
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/common.o
+
+# target to build an object file
+crypto/falcon/PQClean/Falcon-1024/clean/common.c.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/common.c.o
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/common.c.o
+
+crypto/falcon/PQClean/Falcon-1024/clean/common.i: crypto/falcon/PQClean/Falcon-1024/clean/common.c.i
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/common.i
+
+# target to preprocess a source file
+crypto/falcon/PQClean/Falcon-1024/clean/common.c.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/common.c.i
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/common.c.i
+
+crypto/falcon/PQClean/Falcon-1024/clean/common.s: crypto/falcon/PQClean/Falcon-1024/clean/common.c.s
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/common.s
+
+# target to generate assembly for a file
+crypto/falcon/PQClean/Falcon-1024/clean/common.c.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/common.c.s
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/common.c.s
+
+crypto/falcon/PQClean/Falcon-1024/clean/fft.o: crypto/falcon/PQClean/Falcon-1024/clean/fft.c.o
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/fft.o
+
+# target to build an object file
+crypto/falcon/PQClean/Falcon-1024/clean/fft.c.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/fft.c.o
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/fft.c.o
+
+crypto/falcon/PQClean/Falcon-1024/clean/fft.i: crypto/falcon/PQClean/Falcon-1024/clean/fft.c.i
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/fft.i
+
+# target to preprocess a source file
+crypto/falcon/PQClean/Falcon-1024/clean/fft.c.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/fft.c.i
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/fft.c.i
+
+crypto/falcon/PQClean/Falcon-1024/clean/fft.s: crypto/falcon/PQClean/Falcon-1024/clean/fft.c.s
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/fft.s
+
+# target to generate assembly for a file
+crypto/falcon/PQClean/Falcon-1024/clean/fft.c.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/fft.c.s
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/fft.c.s
+
+crypto/falcon/PQClean/Falcon-1024/clean/fpr.o: crypto/falcon/PQClean/Falcon-1024/clean/fpr.c.o
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/fpr.o
+
+# target to build an object file
+crypto/falcon/PQClean/Falcon-1024/clean/fpr.c.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/fpr.c.o
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/fpr.c.o
+
+crypto/falcon/PQClean/Falcon-1024/clean/fpr.i: crypto/falcon/PQClean/Falcon-1024/clean/fpr.c.i
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/fpr.i
+
+# target to preprocess a source file
+crypto/falcon/PQClean/Falcon-1024/clean/fpr.c.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/fpr.c.i
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/fpr.c.i
+
+crypto/falcon/PQClean/Falcon-1024/clean/fpr.s: crypto/falcon/PQClean/Falcon-1024/clean/fpr.c.s
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/fpr.s
+
+# target to generate assembly for a file
+crypto/falcon/PQClean/Falcon-1024/clean/fpr.c.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/fpr.c.s
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/fpr.c.s
+
+crypto/falcon/PQClean/Falcon-1024/clean/keygen.o: crypto/falcon/PQClean/Falcon-1024/clean/keygen.c.o
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/keygen.o
+
+# target to build an object file
+crypto/falcon/PQClean/Falcon-1024/clean/keygen.c.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/keygen.c.o
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/keygen.c.o
+
+crypto/falcon/PQClean/Falcon-1024/clean/keygen.i: crypto/falcon/PQClean/Falcon-1024/clean/keygen.c.i
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/keygen.i
+
+# target to preprocess a source file
+crypto/falcon/PQClean/Falcon-1024/clean/keygen.c.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/keygen.c.i
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/keygen.c.i
+
+crypto/falcon/PQClean/Falcon-1024/clean/keygen.s: crypto/falcon/PQClean/Falcon-1024/clean/keygen.c.s
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/keygen.s
+
+# target to generate assembly for a file
+crypto/falcon/PQClean/Falcon-1024/clean/keygen.c.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/keygen.c.s
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/keygen.c.s
+
+crypto/falcon/PQClean/Falcon-1024/clean/pqclean.o: crypto/falcon/PQClean/Falcon-1024/clean/pqclean.c.o
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/pqclean.o
+
+# target to build an object file
+crypto/falcon/PQClean/Falcon-1024/clean/pqclean.c.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/pqclean.c.o
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/pqclean.c.o
+
+crypto/falcon/PQClean/Falcon-1024/clean/pqclean.i: crypto/falcon/PQClean/Falcon-1024/clean/pqclean.c.i
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/pqclean.i
+
+# target to preprocess a source file
+crypto/falcon/PQClean/Falcon-1024/clean/pqclean.c.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/pqclean.c.i
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/pqclean.c.i
+
+crypto/falcon/PQClean/Falcon-1024/clean/pqclean.s: crypto/falcon/PQClean/Falcon-1024/clean/pqclean.c.s
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/pqclean.s
+
+# target to generate assembly for a file
+crypto/falcon/PQClean/Falcon-1024/clean/pqclean.c.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/pqclean.c.s
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/pqclean.c.s
+
+crypto/falcon/PQClean/Falcon-1024/clean/rng.o: crypto/falcon/PQClean/Falcon-1024/clean/rng.c.o
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/rng.o
+
+# target to build an object file
+crypto/falcon/PQClean/Falcon-1024/clean/rng.c.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/rng.c.o
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/rng.c.o
+
+crypto/falcon/PQClean/Falcon-1024/clean/rng.i: crypto/falcon/PQClean/Falcon-1024/clean/rng.c.i
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/rng.i
+
+# target to preprocess a source file
+crypto/falcon/PQClean/Falcon-1024/clean/rng.c.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/rng.c.i
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/rng.c.i
+
+crypto/falcon/PQClean/Falcon-1024/clean/rng.s: crypto/falcon/PQClean/Falcon-1024/clean/rng.c.s
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/rng.s
+
+# target to generate assembly for a file
+crypto/falcon/PQClean/Falcon-1024/clean/rng.c.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/rng.c.s
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/rng.c.s
+
+crypto/falcon/PQClean/Falcon-1024/clean/sign.o: crypto/falcon/PQClean/Falcon-1024/clean/sign.c.o
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/sign.o
+
+# target to build an object file
+crypto/falcon/PQClean/Falcon-1024/clean/sign.c.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/sign.c.o
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/sign.c.o
+
+crypto/falcon/PQClean/Falcon-1024/clean/sign.i: crypto/falcon/PQClean/Falcon-1024/clean/sign.c.i
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/sign.i
+
+# target to preprocess a source file
+crypto/falcon/PQClean/Falcon-1024/clean/sign.c.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/sign.c.i
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/sign.c.i
+
+crypto/falcon/PQClean/Falcon-1024/clean/sign.s: crypto/falcon/PQClean/Falcon-1024/clean/sign.c.s
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/sign.s
+
+# target to generate assembly for a file
+crypto/falcon/PQClean/Falcon-1024/clean/sign.c.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/sign.c.s
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/sign.c.s
+
+crypto/falcon/PQClean/Falcon-1024/clean/vrfy.o: crypto/falcon/PQClean/Falcon-1024/clean/vrfy.c.o
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/vrfy.o
+
+# target to build an object file
+crypto/falcon/PQClean/Falcon-1024/clean/vrfy.c.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/vrfy.c.o
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/vrfy.c.o
+
+crypto/falcon/PQClean/Falcon-1024/clean/vrfy.i: crypto/falcon/PQClean/Falcon-1024/clean/vrfy.c.i
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/vrfy.i
+
+# target to preprocess a source file
+crypto/falcon/PQClean/Falcon-1024/clean/vrfy.c.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/vrfy.c.i
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/vrfy.c.i
+
+crypto/falcon/PQClean/Falcon-1024/clean/vrfy.s: crypto/falcon/PQClean/Falcon-1024/clean/vrfy.c.s
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/vrfy.s
+
+# target to generate assembly for a file
+crypto/falcon/PQClean/Falcon-1024/clean/vrfy.c.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/vrfy.c.s
+.PHONY : crypto/falcon/PQClean/Falcon-1024/clean/vrfy.c.s
+
+crypto/falcon/PQClean/common/aes.o: crypto/falcon/PQClean/common/aes.c.o
+.PHONY : crypto/falcon/PQClean/common/aes.o
+
+# target to build an object file
+crypto/falcon/PQClean/common/aes.c.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/aes.c.o
+.PHONY : crypto/falcon/PQClean/common/aes.c.o
+
+crypto/falcon/PQClean/common/aes.i: crypto/falcon/PQClean/common/aes.c.i
+.PHONY : crypto/falcon/PQClean/common/aes.i
+
+# target to preprocess a source file
+crypto/falcon/PQClean/common/aes.c.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/aes.c.i
+.PHONY : crypto/falcon/PQClean/common/aes.c.i
+
+crypto/falcon/PQClean/common/aes.s: crypto/falcon/PQClean/common/aes.c.s
+.PHONY : crypto/falcon/PQClean/common/aes.s
+
+# target to generate assembly for a file
+crypto/falcon/PQClean/common/aes.c.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/aes.c.s
+.PHONY : crypto/falcon/PQClean/common/aes.c.s
+
+crypto/falcon/PQClean/common/fips202.o: crypto/falcon/PQClean/common/fips202.c.o
+.PHONY : crypto/falcon/PQClean/common/fips202.o
+
+# target to build an object file
+crypto/falcon/PQClean/common/fips202.c.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/fips202.c.o
+.PHONY : crypto/falcon/PQClean/common/fips202.c.o
+
+crypto/falcon/PQClean/common/fips202.i: crypto/falcon/PQClean/common/fips202.c.i
+.PHONY : crypto/falcon/PQClean/common/fips202.i
+
+# target to preprocess a source file
+crypto/falcon/PQClean/common/fips202.c.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/fips202.c.i
+.PHONY : crypto/falcon/PQClean/common/fips202.c.i
+
+crypto/falcon/PQClean/common/fips202.s: crypto/falcon/PQClean/common/fips202.c.s
+.PHONY : crypto/falcon/PQClean/common/fips202.s
+
+# target to generate assembly for a file
+crypto/falcon/PQClean/common/fips202.c.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/fips202.c.s
+.PHONY : crypto/falcon/PQClean/common/fips202.c.s
+
+crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.o: crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.c.o
+.PHONY : crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.o
+
+# target to build an object file
+crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.c.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.c.o
+.PHONY : crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.c.o
+
+crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.i: crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.c.i
+.PHONY : crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.i
+
+# target to preprocess a source file
+crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.c.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.c.i
+.PHONY : crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.c.i
+
+crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.s: crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.c.s
+.PHONY : crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.s
+
+# target to generate assembly for a file
+crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.c.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.c.s
+.PHONY : crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.c.s
+
+crypto/falcon/PQClean/common/nistseedexpander.o: crypto/falcon/PQClean/common/nistseedexpander.c.o
+.PHONY : crypto/falcon/PQClean/common/nistseedexpander.o
+
+# target to build an object file
+crypto/falcon/PQClean/common/nistseedexpander.c.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/nistseedexpander.c.o
+.PHONY : crypto/falcon/PQClean/common/nistseedexpander.c.o
+
+crypto/falcon/PQClean/common/nistseedexpander.i: crypto/falcon/PQClean/common/nistseedexpander.c.i
+.PHONY : crypto/falcon/PQClean/common/nistseedexpander.i
+
+# target to preprocess a source file
+crypto/falcon/PQClean/common/nistseedexpander.c.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/nistseedexpander.c.i
+.PHONY : crypto/falcon/PQClean/common/nistseedexpander.c.i
+
+crypto/falcon/PQClean/common/nistseedexpander.s: crypto/falcon/PQClean/common/nistseedexpander.c.s
+.PHONY : crypto/falcon/PQClean/common/nistseedexpander.s
+
+# target to generate assembly for a file
+crypto/falcon/PQClean/common/nistseedexpander.c.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/nistseedexpander.c.s
+.PHONY : crypto/falcon/PQClean/common/nistseedexpander.c.s
+
+crypto/falcon/PQClean/common/randombytes.o: crypto/falcon/PQClean/common/randombytes.c.o
+.PHONY : crypto/falcon/PQClean/common/randombytes.o
+
+# target to build an object file
+crypto/falcon/PQClean/common/randombytes.c.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/randombytes.c.o
+.PHONY : crypto/falcon/PQClean/common/randombytes.c.o
+
+crypto/falcon/PQClean/common/randombytes.i: crypto/falcon/PQClean/common/randombytes.c.i
+.PHONY : crypto/falcon/PQClean/common/randombytes.i
+
+# target to preprocess a source file
+crypto/falcon/PQClean/common/randombytes.c.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/randombytes.c.i
+.PHONY : crypto/falcon/PQClean/common/randombytes.c.i
+
+crypto/falcon/PQClean/common/randombytes.s: crypto/falcon/PQClean/common/randombytes.c.s
+.PHONY : crypto/falcon/PQClean/common/randombytes.s
+
+# target to generate assembly for a file
+crypto/falcon/PQClean/common/randombytes.c.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/randombytes.c.s
+.PHONY : crypto/falcon/PQClean/common/randombytes.c.s
+
+crypto/falcon/PQClean/common/sha2.o: crypto/falcon/PQClean/common/sha2.c.o
+.PHONY : crypto/falcon/PQClean/common/sha2.o
+
+# target to build an object file
+crypto/falcon/PQClean/common/sha2.c.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sha2.c.o
+.PHONY : crypto/falcon/PQClean/common/sha2.c.o
+
+crypto/falcon/PQClean/common/sha2.i: crypto/falcon/PQClean/common/sha2.c.i
+.PHONY : crypto/falcon/PQClean/common/sha2.i
+
+# target to preprocess a source file
+crypto/falcon/PQClean/common/sha2.c.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sha2.c.i
+.PHONY : crypto/falcon/PQClean/common/sha2.c.i
+
+crypto/falcon/PQClean/common/sha2.s: crypto/falcon/PQClean/common/sha2.c.s
+.PHONY : crypto/falcon/PQClean/common/sha2.s
+
+# target to generate assembly for a file
+crypto/falcon/PQClean/common/sha2.c.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sha2.c.s
+.PHONY : crypto/falcon/PQClean/common/sha2.c.s
+
+crypto/falcon/PQClean/common/sp800-185.o: crypto/falcon/PQClean/common/sp800-185.c.o
+.PHONY : crypto/falcon/PQClean/common/sp800-185.o
+
+# target to build an object file
+crypto/falcon/PQClean/common/sp800-185.c.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.o
+.PHONY : crypto/falcon/PQClean/common/sp800-185.c.o
+
+crypto/falcon/PQClean/common/sp800-185.i: crypto/falcon/PQClean/common/sp800-185.c.i
+.PHONY : crypto/falcon/PQClean/common/sp800-185.i
+
+# target to preprocess a source file
+crypto/falcon/PQClean/common/sp800-185.c.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.i
+.PHONY : crypto/falcon/PQClean/common/sp800-185.c.i
+
+crypto/falcon/PQClean/common/sp800-185.s: crypto/falcon/PQClean/common/sp800-185.c.s
+.PHONY : crypto/falcon/PQClean/common/sp800-185.s
+
+# target to generate assembly for a file
+crypto/falcon/PQClean/common/sp800-185.c.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/falcon.dir/build.make src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.s
+.PHONY : crypto/falcon/PQClean/common/sp800-185.c.s
+
 crypto_utils.o: crypto_utils.cpp.o
 .PHONY : crypto_utils.o
 
@@ -541,6 +1311,78 @@ crypto_utils.s: crypto_utils.cpp.s
 crypto_utils.cpp.s:
 	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/crypto_utils.cpp.s
 .PHONY : crypto_utils.cpp.s
+
+explorer/explorer_db.o: explorer/explorer_db.cpp.o
+.PHONY : explorer/explorer_db.o
+
+# target to build an object file
+explorer/explorer_db.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/explorer_server.dir/build.make src/CMakeFiles/explorer_server.dir/explorer/explorer_db.cpp.o
+.PHONY : explorer/explorer_db.cpp.o
+
+explorer/explorer_db.i: explorer/explorer_db.cpp.i
+.PHONY : explorer/explorer_db.i
+
+# target to preprocess a source file
+explorer/explorer_db.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/explorer_server.dir/build.make src/CMakeFiles/explorer_server.dir/explorer/explorer_db.cpp.i
+.PHONY : explorer/explorer_db.cpp.i
+
+explorer/explorer_db.s: explorer/explorer_db.cpp.s
+.PHONY : explorer/explorer_db.s
+
+# target to generate assembly for a file
+explorer/explorer_db.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/explorer_server.dir/build.make src/CMakeFiles/explorer_server.dir/explorer/explorer_db.cpp.s
+.PHONY : explorer/explorer_db.cpp.s
+
+explorer/explorer_server.o: explorer/explorer_server.cpp.o
+.PHONY : explorer/explorer_server.o
+
+# target to build an object file
+explorer/explorer_server.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/explorer_server.dir/build.make src/CMakeFiles/explorer_server.dir/explorer/explorer_server.cpp.o
+.PHONY : explorer/explorer_server.cpp.o
+
+explorer/explorer_server.i: explorer/explorer_server.cpp.i
+.PHONY : explorer/explorer_server.i
+
+# target to preprocess a source file
+explorer/explorer_server.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/explorer_server.dir/build.make src/CMakeFiles/explorer_server.dir/explorer/explorer_server.cpp.i
+.PHONY : explorer/explorer_server.cpp.i
+
+explorer/explorer_server.s: explorer/explorer_server.cpp.s
+.PHONY : explorer/explorer_server.s
+
+# target to generate assembly for a file
+explorer/explorer_server.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/explorer_server.dir/build.make src/CMakeFiles/explorer_server.dir/explorer/explorer_server.cpp.s
+.PHONY : explorer/explorer_server.cpp.s
+
+explorer/explorer_utils.o: explorer/explorer_utils.cpp.o
+.PHONY : explorer/explorer_utils.o
+
+# target to build an object file
+explorer/explorer_utils.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/explorer_server.dir/build.make src/CMakeFiles/explorer_server.dir/explorer/explorer_utils.cpp.o
+.PHONY : explorer/explorer_utils.cpp.o
+
+explorer/explorer_utils.i: explorer/explorer_utils.cpp.i
+.PHONY : explorer/explorer_utils.i
+
+# target to preprocess a source file
+explorer/explorer_utils.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/explorer_server.dir/build.make src/CMakeFiles/explorer_server.dir/explorer/explorer_utils.cpp.i
+.PHONY : explorer/explorer_utils.cpp.i
+
+explorer/explorer_utils.s: explorer/explorer_utils.cpp.s
+.PHONY : explorer/explorer_utils.s
+
+# target to generate assembly for a file
+explorer/explorer_utils.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/explorer_server.dir/build.make src/CMakeFiles/explorer_server.dir/explorer/explorer_utils.cpp.s
+.PHONY : explorer/explorer_utils.cpp.s
 
 keccak.o: keccak.cpp.o
 .PHONY : keccak.o
@@ -662,6 +1504,222 @@ network.cpp.s:
 	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/network.cpp.s
 .PHONY : network.cpp.s
 
+network/peer_blacklist.o: network/peer_blacklist.cpp.o
+.PHONY : network/peer_blacklist.o
+
+# target to build an object file
+network/peer_blacklist.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/network/peer_blacklist.cpp.o
+.PHONY : network/peer_blacklist.cpp.o
+
+network/peer_blacklist.i: network/peer_blacklist.cpp.i
+.PHONY : network/peer_blacklist.i
+
+# target to preprocess a source file
+network/peer_blacklist.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/network/peer_blacklist.cpp.i
+.PHONY : network/peer_blacklist.cpp.i
+
+network/peer_blacklist.s: network/peer_blacklist.cpp.s
+.PHONY : network/peer_blacklist.s
+
+# target to generate assembly for a file
+network/peer_blacklist.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/network/peer_blacklist.cpp.s
+.PHONY : network/peer_blacklist.cpp.s
+
+network/peer_manager.o: network/peer_manager.cpp.o
+.PHONY : network/peer_manager.o
+
+# target to build an object file
+network/peer_manager.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/network/peer_manager.cpp.o
+.PHONY : network/peer_manager.cpp.o
+
+network/peer_manager.i: network/peer_manager.cpp.i
+.PHONY : network/peer_manager.i
+
+# target to preprocess a source file
+network/peer_manager.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/network/peer_manager.cpp.i
+.PHONY : network/peer_manager.cpp.i
+
+network/peer_manager.s: network/peer_manager.cpp.s
+.PHONY : network/peer_manager.s
+
+# target to generate assembly for a file
+network/peer_manager.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/network/peer_manager.cpp.s
+.PHONY : network/peer_manager.cpp.s
+
+node/main_blacklist_test.o: node/main_blacklist_test.cpp.o
+.PHONY : node/main_blacklist_test.o
+
+# target to build an object file
+node/main_blacklist_test.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/blacklist_test.dir/build.make src/CMakeFiles/blacklist_test.dir/node/main_blacklist_test.cpp.o
+.PHONY : node/main_blacklist_test.cpp.o
+
+node/main_blacklist_test.i: node/main_blacklist_test.cpp.i
+.PHONY : node/main_blacklist_test.i
+
+# target to preprocess a source file
+node/main_blacklist_test.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/blacklist_test.dir/build.make src/CMakeFiles/blacklist_test.dir/node/main_blacklist_test.cpp.i
+.PHONY : node/main_blacklist_test.cpp.i
+
+node/main_blacklist_test.s: node/main_blacklist_test.cpp.s
+.PHONY : node/main_blacklist_test.s
+
+# target to generate assembly for a file
+node/main_blacklist_test.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/blacklist_test.dir/build.make src/CMakeFiles/blacklist_test.dir/node/main_blacklist_test.cpp.s
+.PHONY : node/main_blacklist_test.cpp.s
+
+rollup/circuits/state_circuit.o: rollup/circuits/state_circuit.cpp.o
+.PHONY : rollup/circuits/state_circuit.o
+
+# target to build an object file
+rollup/circuits/state_circuit.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/rollup/circuits/state_circuit.cpp.o
+.PHONY : rollup/circuits/state_circuit.cpp.o
+
+rollup/circuits/state_circuit.i: rollup/circuits/state_circuit.cpp.i
+.PHONY : rollup/circuits/state_circuit.i
+
+# target to preprocess a source file
+rollup/circuits/state_circuit.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/rollup/circuits/state_circuit.cpp.i
+.PHONY : rollup/circuits/state_circuit.cpp.i
+
+rollup/circuits/state_circuit.s: rollup/circuits/state_circuit.cpp.s
+.PHONY : rollup/circuits/state_circuit.s
+
+# target to generate assembly for a file
+rollup/circuits/state_circuit.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/rollup/circuits/state_circuit.cpp.s
+.PHONY : rollup/circuits/state_circuit.cpp.s
+
+rollup/circuits/transaction_circuit.o: rollup/circuits/transaction_circuit.cpp.o
+.PHONY : rollup/circuits/transaction_circuit.o
+
+# target to build an object file
+rollup/circuits/transaction_circuit.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/rollup/circuits/transaction_circuit.cpp.o
+.PHONY : rollup/circuits/transaction_circuit.cpp.o
+
+rollup/circuits/transaction_circuit.i: rollup/circuits/transaction_circuit.cpp.i
+.PHONY : rollup/circuits/transaction_circuit.i
+
+# target to preprocess a source file
+rollup/circuits/transaction_circuit.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/rollup/circuits/transaction_circuit.cpp.i
+.PHONY : rollup/circuits/transaction_circuit.cpp.i
+
+rollup/circuits/transaction_circuit.s: rollup/circuits/transaction_circuit.cpp.s
+.PHONY : rollup/circuits/transaction_circuit.s
+
+# target to generate assembly for a file
+rollup/circuits/transaction_circuit.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/rollup/circuits/transaction_circuit.cpp.s
+.PHONY : rollup/circuits/transaction_circuit.cpp.s
+
+rollup/proofs/proof_generator.o: rollup/proofs/proof_generator.cpp.o
+.PHONY : rollup/proofs/proof_generator.o
+
+# target to build an object file
+rollup/proofs/proof_generator.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/rollup/proofs/proof_generator.cpp.o
+.PHONY : rollup/proofs/proof_generator.cpp.o
+
+rollup/proofs/proof_generator.i: rollup/proofs/proof_generator.cpp.i
+.PHONY : rollup/proofs/proof_generator.i
+
+# target to preprocess a source file
+rollup/proofs/proof_generator.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/rollup/proofs/proof_generator.cpp.i
+.PHONY : rollup/proofs/proof_generator.cpp.i
+
+rollup/proofs/proof_generator.s: rollup/proofs/proof_generator.cpp.s
+.PHONY : rollup/proofs/proof_generator.s
+
+# target to generate assembly for a file
+rollup/proofs/proof_generator.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/rollup/proofs/proof_generator.cpp.s
+.PHONY : rollup/proofs/proof_generator.cpp.s
+
+rollup/proofs/proof_verifier.o: rollup/proofs/proof_verifier.cpp.o
+.PHONY : rollup/proofs/proof_verifier.o
+
+# target to build an object file
+rollup/proofs/proof_verifier.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/rollup/proofs/proof_verifier.cpp.o
+.PHONY : rollup/proofs/proof_verifier.cpp.o
+
+rollup/proofs/proof_verifier.i: rollup/proofs/proof_verifier.cpp.i
+.PHONY : rollup/proofs/proof_verifier.i
+
+# target to preprocess a source file
+rollup/proofs/proof_verifier.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/rollup/proofs/proof_verifier.cpp.i
+.PHONY : rollup/proofs/proof_verifier.cpp.i
+
+rollup/proofs/proof_verifier.s: rollup/proofs/proof_verifier.cpp.s
+.PHONY : rollup/proofs/proof_verifier.s
+
+# target to generate assembly for a file
+rollup/proofs/proof_verifier.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/rollup/proofs/proof_verifier.cpp.s
+.PHONY : rollup/proofs/proof_verifier.cpp.s
+
+rollup/rollup_block.o: rollup/rollup_block.cpp.o
+.PHONY : rollup/rollup_block.o
+
+# target to build an object file
+rollup/rollup_block.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/rollup/rollup_block.cpp.o
+.PHONY : rollup/rollup_block.cpp.o
+
+rollup/rollup_block.i: rollup/rollup_block.cpp.i
+.PHONY : rollup/rollup_block.i
+
+# target to preprocess a source file
+rollup/rollup_block.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/rollup/rollup_block.cpp.i
+.PHONY : rollup/rollup_block.cpp.i
+
+rollup/rollup_block.s: rollup/rollup_block.cpp.s
+.PHONY : rollup/rollup_block.s
+
+# target to generate assembly for a file
+rollup/rollup_block.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/rollup/rollup_block.cpp.s
+.PHONY : rollup/rollup_block.cpp.s
+
+rollup/rollup_utils.o: rollup/rollup_utils.cpp.o
+.PHONY : rollup/rollup_utils.o
+
+# target to build an object file
+rollup/rollup_utils.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/rollup/rollup_utils.cpp.o
+.PHONY : rollup/rollup_utils.cpp.o
+
+rollup/rollup_utils.i: rollup/rollup_utils.cpp.i
+.PHONY : rollup/rollup_utils.i
+
+# target to preprocess a source file
+rollup/rollup_utils.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/rollup/rollup_utils.cpp.i
+.PHONY : rollup/rollup_utils.cpp.i
+
+rollup/rollup_utils.s: rollup/rollup_utils.cpp.s
+.PHONY : rollup/rollup_utils.s
+
+# target to generate assembly for a file
+rollup/rollup_utils.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/rollup/rollup_utils.cpp.s
+.PHONY : rollup/rollup_utils.cpp.s
+
 syncing.o: syncing.cpp.o
 .PHONY : syncing.o
 
@@ -710,6 +1768,30 @@ transaction.cpp.s:
 	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/transaction.cpp.s
 .PHONY : transaction.cpp.s
 
+validation/transaction_validator.o: validation/transaction_validator.cpp.o
+.PHONY : validation/transaction_validator.o
+
+# target to build an object file
+validation/transaction_validator.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/validation/transaction_validator.cpp.o
+.PHONY : validation/transaction_validator.cpp.o
+
+validation/transaction_validator.i: validation/transaction_validator.cpp.i
+.PHONY : validation/transaction_validator.i
+
+# target to preprocess a source file
+validation/transaction_validator.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/validation/transaction_validator.cpp.i
+.PHONY : validation/transaction_validator.cpp.i
+
+validation/transaction_validator.s: validation/transaction_validator.cpp.s
+.PHONY : validation/transaction_validator.s
+
+# target to generate assembly for a file
+validation/transaction_validator.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/validation/transaction_validator.cpp.s
+.PHONY : validation/transaction_validator.cpp.s
+
 wallet.o: wallet.cpp.o
 .PHONY : wallet.o
 
@@ -734,6 +1816,30 @@ wallet.cpp.s:
 	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/wallet.cpp.s
 .PHONY : wallet.cpp.s
 
+zk/winterfell_stark.o: zk/winterfell_stark.cpp.o
+.PHONY : zk/winterfell_stark.o
+
+# target to build an object file
+zk/winterfell_stark.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/zk/winterfell_stark.cpp.o
+.PHONY : zk/winterfell_stark.cpp.o
+
+zk/winterfell_stark.i: zk/winterfell_stark.cpp.i
+.PHONY : zk/winterfell_stark.i
+
+# target to preprocess a source file
+zk/winterfell_stark.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/zk/winterfell_stark.cpp.i
+.PHONY : zk/winterfell_stark.cpp.i
+
+zk/winterfell_stark.s: zk/winterfell_stark.cpp.s
+.PHONY : zk/winterfell_stark.s
+
+# target to generate assembly for a file
+zk/winterfell_stark.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/zk/winterfell_stark.cpp.s
+.PHONY : zk/winterfell_stark.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -742,9 +1848,16 @@ help:
 	@echo "... depend"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
+	@echo "... protobuf_gen"
+	@echo "... winterfell_ffi"
 	@echo "... alyncoin"
 	@echo "... alyncoin-cli"
 	@echo "... alyncoin_lib"
+	@echo "... blacklist_test"
+	@echo "... dilithium"
+	@echo "... explorer_server"
+	@echo "... falcon"
+	@echo "... peer_blacklist_cli"
 	@echo "... __/generated/block_protos.pb.o"
 	@echo "... __/generated/block_protos.pb.i"
 	@echo "... __/generated/block_protos.pb.s"
@@ -790,9 +1903,102 @@ help:
 	@echo "... cli.o"
 	@echo "... cli.i"
 	@echo "... cli.s"
+	@echo "... cli/peer_blacklist_cli.o"
+	@echo "... cli/peer_blacklist_cli.i"
+	@echo "... cli/peer_blacklist_cli.s"
+	@echo "... cli/peer_blacklist_ui.o"
+	@echo "... cli/peer_blacklist_ui.i"
+	@echo "... cli/peer_blacklist_ui.s"
+	@echo "... crypto/dilithium/fips202.o"
+	@echo "... crypto/dilithium/fips202.i"
+	@echo "... crypto/dilithium/fips202.s"
+	@echo "... crypto/dilithium/ntt.o"
+	@echo "... crypto/dilithium/ntt.i"
+	@echo "... crypto/dilithium/ntt.s"
+	@echo "... crypto/dilithium/packing.o"
+	@echo "... crypto/dilithium/packing.i"
+	@echo "... crypto/dilithium/packing.s"
+	@echo "... crypto/dilithium/poly.o"
+	@echo "... crypto/dilithium/poly.i"
+	@echo "... crypto/dilithium/poly.s"
+	@echo "... crypto/dilithium/polyvec.o"
+	@echo "... crypto/dilithium/polyvec.i"
+	@echo "... crypto/dilithium/polyvec.s"
+	@echo "... crypto/dilithium/randombytes.o"
+	@echo "... crypto/dilithium/randombytes.i"
+	@echo "... crypto/dilithium/randombytes.s"
+	@echo "... crypto/dilithium/reduce.o"
+	@echo "... crypto/dilithium/reduce.i"
+	@echo "... crypto/dilithium/reduce.s"
+	@echo "... crypto/dilithium/rounding.o"
+	@echo "... crypto/dilithium/rounding.i"
+	@echo "... crypto/dilithium/rounding.s"
+	@echo "... crypto/dilithium/sign.o"
+	@echo "... crypto/dilithium/sign.i"
+	@echo "... crypto/dilithium/sign.s"
+	@echo "... crypto/dilithium/symmetric-shake.o"
+	@echo "... crypto/dilithium/symmetric-shake.i"
+	@echo "... crypto/dilithium/symmetric-shake.s"
+	@echo "... crypto/falcon/PQClean/Falcon-1024/clean/codec.o"
+	@echo "... crypto/falcon/PQClean/Falcon-1024/clean/codec.i"
+	@echo "... crypto/falcon/PQClean/Falcon-1024/clean/codec.s"
+	@echo "... crypto/falcon/PQClean/Falcon-1024/clean/common.o"
+	@echo "... crypto/falcon/PQClean/Falcon-1024/clean/common.i"
+	@echo "... crypto/falcon/PQClean/Falcon-1024/clean/common.s"
+	@echo "... crypto/falcon/PQClean/Falcon-1024/clean/fft.o"
+	@echo "... crypto/falcon/PQClean/Falcon-1024/clean/fft.i"
+	@echo "... crypto/falcon/PQClean/Falcon-1024/clean/fft.s"
+	@echo "... crypto/falcon/PQClean/Falcon-1024/clean/fpr.o"
+	@echo "... crypto/falcon/PQClean/Falcon-1024/clean/fpr.i"
+	@echo "... crypto/falcon/PQClean/Falcon-1024/clean/fpr.s"
+	@echo "... crypto/falcon/PQClean/Falcon-1024/clean/keygen.o"
+	@echo "... crypto/falcon/PQClean/Falcon-1024/clean/keygen.i"
+	@echo "... crypto/falcon/PQClean/Falcon-1024/clean/keygen.s"
+	@echo "... crypto/falcon/PQClean/Falcon-1024/clean/pqclean.o"
+	@echo "... crypto/falcon/PQClean/Falcon-1024/clean/pqclean.i"
+	@echo "... crypto/falcon/PQClean/Falcon-1024/clean/pqclean.s"
+	@echo "... crypto/falcon/PQClean/Falcon-1024/clean/rng.o"
+	@echo "... crypto/falcon/PQClean/Falcon-1024/clean/rng.i"
+	@echo "... crypto/falcon/PQClean/Falcon-1024/clean/rng.s"
+	@echo "... crypto/falcon/PQClean/Falcon-1024/clean/sign.o"
+	@echo "... crypto/falcon/PQClean/Falcon-1024/clean/sign.i"
+	@echo "... crypto/falcon/PQClean/Falcon-1024/clean/sign.s"
+	@echo "... crypto/falcon/PQClean/Falcon-1024/clean/vrfy.o"
+	@echo "... crypto/falcon/PQClean/Falcon-1024/clean/vrfy.i"
+	@echo "... crypto/falcon/PQClean/Falcon-1024/clean/vrfy.s"
+	@echo "... crypto/falcon/PQClean/common/aes.o"
+	@echo "... crypto/falcon/PQClean/common/aes.i"
+	@echo "... crypto/falcon/PQClean/common/aes.s"
+	@echo "... crypto/falcon/PQClean/common/fips202.o"
+	@echo "... crypto/falcon/PQClean/common/fips202.i"
+	@echo "... crypto/falcon/PQClean/common/fips202.s"
+	@echo "... crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.o"
+	@echo "... crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.i"
+	@echo "... crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.s"
+	@echo "... crypto/falcon/PQClean/common/nistseedexpander.o"
+	@echo "... crypto/falcon/PQClean/common/nistseedexpander.i"
+	@echo "... crypto/falcon/PQClean/common/nistseedexpander.s"
+	@echo "... crypto/falcon/PQClean/common/randombytes.o"
+	@echo "... crypto/falcon/PQClean/common/randombytes.i"
+	@echo "... crypto/falcon/PQClean/common/randombytes.s"
+	@echo "... crypto/falcon/PQClean/common/sha2.o"
+	@echo "... crypto/falcon/PQClean/common/sha2.i"
+	@echo "... crypto/falcon/PQClean/common/sha2.s"
+	@echo "... crypto/falcon/PQClean/common/sp800-185.o"
+	@echo "... crypto/falcon/PQClean/common/sp800-185.i"
+	@echo "... crypto/falcon/PQClean/common/sp800-185.s"
 	@echo "... crypto_utils.o"
 	@echo "... crypto_utils.i"
 	@echo "... crypto_utils.s"
+	@echo "... explorer/explorer_db.o"
+	@echo "... explorer/explorer_db.i"
+	@echo "... explorer/explorer_db.s"
+	@echo "... explorer/explorer_server.o"
+	@echo "... explorer/explorer_server.i"
+	@echo "... explorer/explorer_server.s"
+	@echo "... explorer/explorer_utils.o"
+	@echo "... explorer/explorer_utils.i"
+	@echo "... explorer/explorer_utils.s"
 	@echo "... keccak.o"
 	@echo "... keccak.i"
 	@echo "... keccak.s"
@@ -808,15 +2014,48 @@ help:
 	@echo "... network.o"
 	@echo "... network.i"
 	@echo "... network.s"
+	@echo "... network/peer_blacklist.o"
+	@echo "... network/peer_blacklist.i"
+	@echo "... network/peer_blacklist.s"
+	@echo "... network/peer_manager.o"
+	@echo "... network/peer_manager.i"
+	@echo "... network/peer_manager.s"
+	@echo "... node/main_blacklist_test.o"
+	@echo "... node/main_blacklist_test.i"
+	@echo "... node/main_blacklist_test.s"
+	@echo "... rollup/circuits/state_circuit.o"
+	@echo "... rollup/circuits/state_circuit.i"
+	@echo "... rollup/circuits/state_circuit.s"
+	@echo "... rollup/circuits/transaction_circuit.o"
+	@echo "... rollup/circuits/transaction_circuit.i"
+	@echo "... rollup/circuits/transaction_circuit.s"
+	@echo "... rollup/proofs/proof_generator.o"
+	@echo "... rollup/proofs/proof_generator.i"
+	@echo "... rollup/proofs/proof_generator.s"
+	@echo "... rollup/proofs/proof_verifier.o"
+	@echo "... rollup/proofs/proof_verifier.i"
+	@echo "... rollup/proofs/proof_verifier.s"
+	@echo "... rollup/rollup_block.o"
+	@echo "... rollup/rollup_block.i"
+	@echo "... rollup/rollup_block.s"
+	@echo "... rollup/rollup_utils.o"
+	@echo "... rollup/rollup_utils.i"
+	@echo "... rollup/rollup_utils.s"
 	@echo "... syncing.o"
 	@echo "... syncing.i"
 	@echo "... syncing.s"
 	@echo "... transaction.o"
 	@echo "... transaction.i"
 	@echo "... transaction.s"
+	@echo "... validation/transaction_validator.o"
+	@echo "... validation/transaction_validator.i"
+	@echo "... validation/transaction_validator.s"
 	@echo "... wallet.o"
 	@echo "... wallet.i"
 	@echo "... wallet.s"
+	@echo "... zk/winterfell_stark.o"
+	@echo "... zk/winterfell_stark.i"
+	@echo "... zk/winterfell_stark.s"
 .PHONY : help
 
 

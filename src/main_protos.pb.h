@@ -19,68 +19,73 @@
 #error regenerate this file with a newer version of protoc.
 #endif
 
-#include <google/protobuf/port_undef.inc>
-#include <google/protobuf/io/coded_stream.h>
-#include <google/protobuf/arena.h>
-#include <google/protobuf/arenastring.h>
-#include <google/protobuf/generated_message_util.h>
-#include <google/protobuf/metadata_lite.h>
-#include <google/protobuf/generated_message_reflection.h>
-#include <google/protobuf/message.h>
-#include <google/protobuf/repeated_field.h>  // IWYU pragma: export
-#include <google/protobuf/extension_set.h>  // IWYU pragma: export
-#include <google/protobuf/unknown_field_set.h>
 #include "block_protos.pb.h"
 #include "transaction_protos.pb.h"
+#include <google/protobuf/arena.h>
+#include <google/protobuf/arenastring.h>
+#include <google/protobuf/extension_set.h> // IWYU pragma: export
+#include <google/protobuf/generated_message_reflection.h>
+#include <google/protobuf/generated_message_util.h>
+#include <google/protobuf/io/coded_stream.h>
+#include <google/protobuf/message.h>
+#include <google/protobuf/metadata_lite.h>
+#include <google/protobuf/port_undef.inc>
+#include <google/protobuf/repeated_field.h> // IWYU pragma: export
+#include <google/protobuf/unknown_field_set.h>
 // @@protoc_insertion_point(includes)
 #include <google/protobuf/port_def.inc>
 #define PROTOBUF_INTERNAL_EXPORT_main_5fprotos_2eproto
 PROTOBUF_NAMESPACE_OPEN
 namespace internal {
 class AnyMetadata;
-}  // namespace internal
+} // namespace internal
 PROTOBUF_NAMESPACE_CLOSE
 
 // Internal implementation detail -- do not use these members.
 struct TableStruct_main_5fprotos_2eproto {
   static const uint32_t offsets[];
 };
-extern const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable descriptor_table_main_5fprotos_2eproto;
+extern const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable
+    descriptor_table_main_5fprotos_2eproto;
 namespace alyncoin {
 class MainProto;
 struct MainProtoDefaultTypeInternal;
 extern MainProtoDefaultTypeInternal _MainProto_default_instance_;
-}  // namespace alyncoin
+} // namespace alyncoin
 PROTOBUF_NAMESPACE_OPEN
-template<> ::alyncoin::MainProto* Arena::CreateMaybeMessage<::alyncoin::MainProto>(Arena*);
+template <>
+::alyncoin::MainProto *
+Arena::CreateMaybeMessage<::alyncoin::MainProto>(Arena *);
 PROTOBUF_NAMESPACE_CLOSE
 namespace alyncoin {
 
 // ===================================================================
 
-class MainProto final :
-    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:alyncoin.MainProto) */ {
- public:
+class MainProto final : public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:alyncoin.MainProto)
+                                                                 */
+{
+public:
   inline MainProto() : MainProto(nullptr) {}
   ~MainProto() override;
-  explicit PROTOBUF_CONSTEXPR MainProto(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+  explicit PROTOBUF_CONSTEXPR
+      MainProto(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
 
-  MainProto(const MainProto& from);
-  MainProto(MainProto&& from) noexcept
-    : MainProto() {
+  MainProto(const MainProto &from);
+  MainProto(MainProto &&from) noexcept : MainProto() {
     *this = ::std::move(from);
   }
 
-  inline MainProto& operator=(const MainProto& from) {
+  inline MainProto &operator=(const MainProto &from) {
     CopyFrom(from);
     return *this;
   }
-  inline MainProto& operator=(MainProto&& from) noexcept {
-    if (this == &from) return *this;
+  inline MainProto &operator=(MainProto &&from) noexcept {
+    if (this == &from)
+      return *this;
     if (GetOwningArena() == from.GetOwningArena()
-  #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
         && GetOwningArena() != nullptr
-  #endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+#endif // !PROTOBUF_FORCE_COPY_IN_MOVE
     ) {
       InternalSwap(&from);
     } else {
@@ -89,88 +94,91 @@ class MainProto final :
     return *this;
   }
 
-  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor *descriptor() {
     return GetDescriptor();
   }
-  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor *GetDescriptor() {
     return default_instance().GetMetadata().descriptor;
   }
-  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
+  static const ::PROTOBUF_NAMESPACE_ID::Reflection *GetReflection() {
     return default_instance().GetMetadata().reflection;
   }
-  static const MainProto& default_instance() {
+  static const MainProto &default_instance() {
     return *internal_default_instance();
   }
-  static inline const MainProto* internal_default_instance() {
-    return reinterpret_cast<const MainProto*>(
-               &_MainProto_default_instance_);
+  static inline const MainProto *internal_default_instance() {
+    return reinterpret_cast<const MainProto *>(&_MainProto_default_instance_);
   }
-  static constexpr int kIndexInFileMessages =
-    0;
+  static constexpr int kIndexInFileMessages = 0;
 
-  friend void swap(MainProto& a, MainProto& b) {
-    a.Swap(&b);
-  }
-  inline void Swap(MainProto* other) {
-    if (other == this) return;
-  #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+  friend void swap(MainProto &a, MainProto &b) { a.Swap(&b); }
+  inline void Swap(MainProto *other) {
+    if (other == this)
+      return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
     if (GetOwningArena() != nullptr &&
         GetOwningArena() == other->GetOwningArena()) {
-   #else  // PROTOBUF_FORCE_COPY_IN_SWAP
+#else  // PROTOBUF_FORCE_COPY_IN_SWAP
     if (GetOwningArena() == other->GetOwningArena()) {
-  #endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+#endif // !PROTOBUF_FORCE_COPY_IN_SWAP
       InternalSwap(other);
     } else {
       ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
     }
   }
-  void UnsafeArenaSwap(MainProto* other) {
-    if (other == this) return;
+  void UnsafeArenaSwap(MainProto *other) {
+    if (other == this)
+      return;
     GOOGLE_DCHECK(GetOwningArena() == other->GetOwningArena());
     InternalSwap(other);
   }
 
   // implements Message ----------------------------------------------
 
-  MainProto* New(::PROTOBUF_NAMESPACE_ID::Arena* arena = nullptr) const final {
+  MainProto *New(::PROTOBUF_NAMESPACE_ID::Arena *arena = nullptr) const final {
     return CreateMaybeMessage<MainProto>(arena);
   }
   using ::PROTOBUF_NAMESPACE_ID::Message::CopyFrom;
-  void CopyFrom(const MainProto& from);
+  void CopyFrom(const MainProto &from);
   using ::PROTOBUF_NAMESPACE_ID::Message::MergeFrom;
-  void MergeFrom( const MainProto& from) {
-    MainProto::MergeImpl(*this, from);
-  }
-  private:
-  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg);
-  public:
+  void MergeFrom(const MainProto &from) { MainProto::MergeImpl(*this, from); }
+
+private:
+  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message &to_msg,
+                        const ::PROTOBUF_NAMESPACE_ID::Message &from_msg);
+
+public:
   PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
   bool IsInitialized() const final;
 
   size_t ByteSizeLong() const final;
-  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
-  uint8_t* _InternalSerialize(
-      uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
+  const char *
+  _InternalParse(const char *ptr,
+                 ::PROTOBUF_NAMESPACE_ID::internal::ParseContext *ctx) final;
+  uint8_t *_InternalSerialize(
+      uint8_t *target,
+      ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream *stream) const final;
   int GetCachedSize() const final { return _impl_._cached_size_.Get(); }
 
-  private:
-  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena* arena, bool is_message_owned);
+private:
+  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena *arena, bool is_message_owned);
   void SharedDtor();
   void SetCachedSize(int size) const final;
-  void InternalSwap(MainProto* other);
+  void InternalSwap(MainProto *other);
 
-  private:
+private:
   friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
   static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
     return "alyncoin.MainProto";
   }
-  protected:
-  explicit MainProto(::PROTOBUF_NAMESPACE_ID::Arena* arena,
-                       bool is_message_owned = false);
-  public:
 
+protected:
+  explicit MainProto(::PROTOBUF_NAMESPACE_ID::Arena *arena,
+                     bool is_message_owned = false);
+
+public:
   static const ClassData _class_data_;
-  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*GetClassData() const final;
+  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData *GetClassData() const final;
 
   ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
 
@@ -184,98 +192,109 @@ class MainProto final :
   };
   // repeated .alyncoin.BlockProto blocks = 1;
   int blocks_size() const;
-  private:
+
+private:
   int _internal_blocks_size() const;
-  public:
+
+public:
   void clear_blocks();
-  ::alyncoin::BlockProto* mutable_blocks(int index);
-  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::BlockProto >*
-      mutable_blocks();
-  private:
-  const ::alyncoin::BlockProto& _internal_blocks(int index) const;
-  ::alyncoin::BlockProto* _internal_add_blocks();
-  public:
-  const ::alyncoin::BlockProto& blocks(int index) const;
-  ::alyncoin::BlockProto* add_blocks();
-  const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::BlockProto >&
-      blocks() const;
+  ::alyncoin::BlockProto *mutable_blocks(int index);
+  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<::alyncoin::BlockProto> *
+  mutable_blocks();
+
+private:
+  const ::alyncoin::BlockProto &_internal_blocks(int index) const;
+  ::alyncoin::BlockProto *_internal_add_blocks();
+
+public:
+  const ::alyncoin::BlockProto &blocks(int index) const;
+  ::alyncoin::BlockProto *add_blocks();
+  const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<::alyncoin::BlockProto> &
+  blocks() const;
 
   // repeated .alyncoin.TransactionProto transactions = 2;
   int transactions_size() const;
-  private:
+
+private:
   int _internal_transactions_size() const;
-  public:
+
+public:
   void clear_transactions();
-  ::alyncoin::TransactionProto* mutable_transactions(int index);
-  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::TransactionProto >*
-      mutable_transactions();
-  private:
-  const ::alyncoin::TransactionProto& _internal_transactions(int index) const;
-  ::alyncoin::TransactionProto* _internal_add_transactions();
-  public:
-  const ::alyncoin::TransactionProto& transactions(int index) const;
-  ::alyncoin::TransactionProto* add_transactions();
-  const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::TransactionProto >&
-      transactions() const;
+  ::alyncoin::TransactionProto *mutable_transactions(int index);
+  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<::alyncoin::TransactionProto> *
+  mutable_transactions();
+
+private:
+  const ::alyncoin::TransactionProto &_internal_transactions(int index) const;
+  ::alyncoin::TransactionProto *_internal_add_transactions();
+
+public:
+  const ::alyncoin::TransactionProto &transactions(int index) const;
+  ::alyncoin::TransactionProto *add_transactions();
+  const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<
+      ::alyncoin::TransactionProto> &
+  transactions() const;
 
   // @@protoc_insertion_point(class_scope:alyncoin.MainProto)
- private:
+private:
   class _Internal;
 
-  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
+  template <typename T>
+  friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
   struct Impl_ {
-    ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::BlockProto > blocks_;
-    ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::TransactionProto > transactions_;
+    ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<::alyncoin::BlockProto> blocks_;
+    ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<::alyncoin::TransactionProto>
+        transactions_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   };
-  union { Impl_ _impl_; };
+  union {
+    Impl_ _impl_;
+  };
   friend struct ::TableStruct_main_5fprotos_2eproto;
 };
 // ===================================================================
 
-
 // ===================================================================
 
 #ifdef __GNUC__
-  #pragma GCC diagnostic push
-  #pragma GCC diagnostic ignored "-Wstrict-aliasing"
-#endif  // __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#endif // __GNUC__
 // MainProto
 
 // repeated .alyncoin.BlockProto blocks = 1;
 inline int MainProto::_internal_blocks_size() const {
   return _impl_.blocks_.size();
 }
-inline int MainProto::blocks_size() const {
-  return _internal_blocks_size();
-}
-inline ::alyncoin::BlockProto* MainProto::mutable_blocks(int index) {
+inline int MainProto::blocks_size() const { return _internal_blocks_size(); }
+inline ::alyncoin::BlockProto *MainProto::mutable_blocks(int index) {
   // @@protoc_insertion_point(field_mutable:alyncoin.MainProto.blocks)
   return _impl_.blocks_.Mutable(index);
 }
-inline ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::BlockProto >*
+inline ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<::alyncoin::BlockProto> *
 MainProto::mutable_blocks() {
   // @@protoc_insertion_point(field_mutable_list:alyncoin.MainProto.blocks)
   return &_impl_.blocks_;
 }
-inline const ::alyncoin::BlockProto& MainProto::_internal_blocks(int index) const {
+inline const ::alyncoin::BlockProto &
+MainProto::_internal_blocks(int index) const {
   return _impl_.blocks_.Get(index);
 }
-inline const ::alyncoin::BlockProto& MainProto::blocks(int index) const {
+inline const ::alyncoin::BlockProto &MainProto::blocks(int index) const {
   // @@protoc_insertion_point(field_get:alyncoin.MainProto.blocks)
   return _internal_blocks(index);
 }
-inline ::alyncoin::BlockProto* MainProto::_internal_add_blocks() {
+inline ::alyncoin::BlockProto *MainProto::_internal_add_blocks() {
   return _impl_.blocks_.Add();
 }
-inline ::alyncoin::BlockProto* MainProto::add_blocks() {
-  ::alyncoin::BlockProto* _add = _internal_add_blocks();
+inline ::alyncoin::BlockProto *MainProto::add_blocks() {
+  ::alyncoin::BlockProto *_add = _internal_add_blocks();
   // @@protoc_insertion_point(field_add:alyncoin.MainProto.blocks)
   return _add;
 }
-inline const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::BlockProto >&
+inline const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<::alyncoin::BlockProto> &
 MainProto::blocks() const {
   // @@protoc_insertion_point(field_list:alyncoin.MainProto.blocks)
   return _impl_.blocks_;
@@ -288,45 +307,49 @@ inline int MainProto::_internal_transactions_size() const {
 inline int MainProto::transactions_size() const {
   return _internal_transactions_size();
 }
-inline ::alyncoin::TransactionProto* MainProto::mutable_transactions(int index) {
+inline ::alyncoin::TransactionProto *
+MainProto::mutable_transactions(int index) {
   // @@protoc_insertion_point(field_mutable:alyncoin.MainProto.transactions)
   return _impl_.transactions_.Mutable(index);
 }
-inline ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::TransactionProto >*
+inline ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<::alyncoin::TransactionProto> *
 MainProto::mutable_transactions() {
   // @@protoc_insertion_point(field_mutable_list:alyncoin.MainProto.transactions)
   return &_impl_.transactions_;
 }
-inline const ::alyncoin::TransactionProto& MainProto::_internal_transactions(int index) const {
+inline const ::alyncoin::TransactionProto &
+MainProto::_internal_transactions(int index) const {
   return _impl_.transactions_.Get(index);
 }
-inline const ::alyncoin::TransactionProto& MainProto::transactions(int index) const {
+inline const ::alyncoin::TransactionProto &
+MainProto::transactions(int index) const {
   // @@protoc_insertion_point(field_get:alyncoin.MainProto.transactions)
   return _internal_transactions(index);
 }
-inline ::alyncoin::TransactionProto* MainProto::_internal_add_transactions() {
+inline ::alyncoin::TransactionProto *MainProto::_internal_add_transactions() {
   return _impl_.transactions_.Add();
 }
-inline ::alyncoin::TransactionProto* MainProto::add_transactions() {
-  ::alyncoin::TransactionProto* _add = _internal_add_transactions();
+inline ::alyncoin::TransactionProto *MainProto::add_transactions() {
+  ::alyncoin::TransactionProto *_add = _internal_add_transactions();
   // @@protoc_insertion_point(field_add:alyncoin.MainProto.transactions)
   return _add;
 }
-inline const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::TransactionProto >&
+inline const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<
+    ::alyncoin::TransactionProto> &
 MainProto::transactions() const {
   // @@protoc_insertion_point(field_list:alyncoin.MainProto.transactions)
   return _impl_.transactions_;
 }
 
 #ifdef __GNUC__
-  #pragma GCC diagnostic pop
-#endif  // __GNUC__
+#pragma GCC diagnostic pop
+#endif // __GNUC__
 
 // @@protoc_insertion_point(namespace_scope)
 
-}  // namespace alyncoin
+} // namespace alyncoin
 
 // @@protoc_insertion_point(global_scope)
 
 #include <google/protobuf/port_undef.inc>
-#endif  // GOOGLE_PROTOBUF_INCLUDED_GOOGLE_PROTOBUF_INCLUDED_main_5fprotos_2eproto
+#endif // GOOGLE_PROTOBUF_INCLUDED_GOOGLE_PROTOBUF_INCLUDED_main_5fprotos_2eproto

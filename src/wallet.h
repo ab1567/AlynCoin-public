@@ -1,36 +1,57 @@
 #ifndef WALLET_H
 #define WALLET_H
 
-#include <string>
+#include "crypto_utils.h"
 #include "transaction.h"
-#include "crypto_utils.h" // ✅ Ensure CryptoUtils is included
+#include <string>
+#include <vector>
 
-const std::string KEY_DIR = std::string(getenv("HOME") ? getenv("HOME") : "/root") + "/.alyncoin/keys/";
+const std::string WALLET_KEY_DIR =
+    std::string(getenv("HOME") ? getenv("HOME") : "/root") + "/.alyncoin/keys/";
+
 class Wallet {
 private:
-    std::string privateKey;
-    std::string publicKey;
-    std::string address;
-    std::string keyDirectory; // ✅ New
+  std::string privateKey;
+  std::string publicKey;
+  std::string address;
+  std::string keyDirectory;
+  std::string walletName; // Used as ID (same as address)
+
+  DilithiumKeyPair dilithiumKeys;
+  FalconKeyPair falconKeys;
+
+  std::string loadKeyFile(const std::string &keyPath);
 
 public:
-    Wallet(const std::string& keyPath = "/root/.alyncoin/keys/"); // ✅ Accept key path
-    Wallet(const std::string& privateKeyPath, const std::string& keyPath);
+  // Constructors
+  Wallet(); // Default
+  Wallet(const std::string &address, const std::string &keyDirectoryPath); // New wallet
+  Wallet(const std::string &privateKeyPath, const std::string &keyDirectoryPath, const std::string &address); // Load from private key
 
-    void generateKeyPair();
-    std::string getAddress() const;
-    std::string getPublicKey() const;
-    std::string getPrivateKey() const;
-    std::string getPrivateKeyPath() const;
-    bool privateKeyExists() const;
-    std::string signWithPrivateKey(const std::string& message);
-    std::string loadPrivateKey(const std::string& keyPath);
-    static std::string generateAddress(const std::string& publicKey);
-    double getBalance() const;
-    Transaction createTransaction(const std::string& recipient, double amount);
-    bool saveKeys(const std::string& privKey, const std::string& pubKey);
-    void saveToFile(const std::string& filename) const;
-    static Wallet loadFromFile(const std::string& filename);
+  // Key management
+  void generateKeyPair(); // RSA
+  void generateDilithiumKeyPair();
+  void generateFalconKeyPair();
+
+  // Info
+  std::string getAddress() const;
+  std::string getPublicKey() const;
+  std::string getPrivateKey() const;
+  std::string getPrivateKeyPath() const;
+  bool privateKeyExists() const;
+  static std::string generateAddress(const std::string &publicKey);
+
+  // Signing
+  std::string signWithPrivateKey(const std::string &message);
+
+  // Wallet file storage
+  bool saveKeys(const std::string &privKey, const std::string &pubKey);
+  void saveToFile(const std::string &filename) const;
+  static Wallet loadFromFile(const std::string &filename);
+
+  // Transaction
+  double getBalance() const;
+  Transaction createTransaction(const std::string &recipient, double amount);
 };
 
 #endif // WALLET_H

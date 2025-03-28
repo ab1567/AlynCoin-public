@@ -4,15 +4,23 @@
 src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
   /root/AlynCoin/src/block.h \
   /root/AlynCoin/src/blockchain.h \
+  /root/AlynCoin/src/network/peer_blacklist.h \
+  /root/AlynCoin/src/cli/peer_blacklist_cli.h \
   /root/AlynCoin/src/crypto_protos.pb.h \
   /root/AlynCoin/src/crypto_utils.h \
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
   /root/AlynCoin/src/generated/transaction_protos.pb.h \
   /root/AlynCoin/src/hash.h \
+  /root/AlynCoin/src/layer2/state_channel.h \
   /root/AlynCoin/src/network.h \
+  /root/AlynCoin/src/network/peer_blacklist.h \
+  /root/AlynCoin/src/transaction.h \
+  /root/AlynCoin/src/rollup/rollup_block.h \
   /root/AlynCoin/src/transaction.h \
   /root/AlynCoin/src/wallet.h \
+  /root/AlynCoin/src/network/peer_blacklist.h \
+  /root/AlynCoin/src/zk/winterfell_stark.h \
   /usr/include/alloca.h \
   /usr/include/arpa/inet.h \
   /usr/include/asm-generic/bitsperlong.h \
@@ -983,6 +991,10 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
   /usr/include/c++/13/bits/exception.h \
   /usr/include/c++/13/bits/exception_defines.h \
   /usr/include/c++/13/bits/exception_ptr.h \
+  /usr/include/c++/13/bits/fs_dir.h \
+  /usr/include/c++/13/bits/fs_fwd.h \
+  /usr/include/c++/13/bits/fs_ops.h \
+  /usr/include/c++/13/bits/fs_path.h \
   /usr/include/c++/13/bits/fstream.tcc \
   /usr/include/c++/13/bits/functexcept.h \
   /usr/include/c++/13/bits/functional_hash.h \
@@ -995,8 +1007,11 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
   /usr/include/c++/13/bits/list.tcc \
   /usr/include/c++/13/bits/locale_classes.h \
   /usr/include/c++/13/bits/locale_classes.tcc \
+  /usr/include/c++/13/bits/locale_conv.h \
   /usr/include/c++/13/bits/locale_facets.h \
   /usr/include/c++/13/bits/locale_facets.tcc \
+  /usr/include/c++/13/bits/locale_facets_nonio.h \
+  /usr/include/c++/13/bits/locale_facets_nonio.tcc \
   /usr/include/c++/13/bits/localefwd.h \
   /usr/include/c++/13/bits/memory_resource.h \
   /usr/include/c++/13/bits/memoryfwd.h \
@@ -1010,6 +1025,7 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
   /usr/include/c++/13/bits/postypes.h \
   /usr/include/c++/13/bits/predefined_ops.h \
   /usr/include/c++/13/bits/ptr_traits.h \
+  /usr/include/c++/13/bits/quoted_string.h \
   /usr/include/c++/13/bits/range_access.h \
   /usr/include/c++/13/bits/refwrap.h \
   /usr/include/c++/13/bits/requires_hosted.h \
@@ -1067,6 +1083,7 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
   /usr/include/c++/13/climits \
   /usr/include/c++/13/clocale \
   /usr/include/c++/13/cmath \
+  /usr/include/c++/13/codecvt \
   /usr/include/c++/13/compare \
   /usr/include/c++/13/condition_variable \
   /usr/include/c++/13/csignal \
@@ -1090,10 +1107,12 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
   /usr/include/c++/13/ext/numeric_traits.h \
   /usr/include/c++/13/ext/string_conversions.h \
   /usr/include/c++/13/ext/type_traits.h \
+  /usr/include/c++/13/filesystem \
   /usr/include/c++/13/fstream \
   /usr/include/c++/13/functional \
   /usr/include/c++/13/future \
   /usr/include/c++/13/initializer_list \
+  /usr/include/c++/13/iomanip \
   /usr/include/c++/13/ios \
   /usr/include/c++/13/iosfwd \
   /usr/include/c++/13/iostream \
@@ -1101,6 +1120,7 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
   /usr/include/c++/13/iterator \
   /usr/include/c++/13/limits \
   /usr/include/c++/13/list \
+  /usr/include/c++/13/locale \
   /usr/include/c++/13/map \
   /usr/include/c++/13/memory \
   /usr/include/c++/13/mutex \
@@ -1203,6 +1223,7 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
   /usr/include/jsoncpp/json/value.h \
   /usr/include/jsoncpp/json/version.h \
   /usr/include/jsoncpp/json/writer.h \
+  /usr/include/libintl.h \
   /usr/include/limits.h \
   /usr/include/linux/close_range.h \
   /usr/include/linux/errno.h \
@@ -1480,7 +1501,9 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
   /usr/include/x86_64-linux-gnu/c++/13/bits/error_constants.h \
   /usr/include/x86_64-linux-gnu/c++/13/bits/gthr-default.h \
   /usr/include/x86_64-linux-gnu/c++/13/bits/gthr.h \
+  /usr/include/x86_64-linux-gnu/c++/13/bits/messages_members.h \
   /usr/include/x86_64-linux-gnu/c++/13/bits/os_defines.h \
+  /usr/include/x86_64-linux-gnu/c++/13/bits/time_members.h \
   /usr/include/x86_64-linux-gnu/gnu/stubs-64.h \
   /usr/include/x86_64-linux-gnu/gnu/stubs.h \
   /usr/include/x86_64-linux-gnu/openssl/configuration.h \
@@ -1507,6 +1530,320 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
   /usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h \
   /usr/lib/gcc/x86_64-linux-gnu/13/include/syslimits.h
 
+src/CMakeFiles/alyncoin-cli.dir/cli/peer_blacklist_ui.cpp.o: /root/AlynCoin/src/cli/peer_blacklist_ui.cpp \
+  /root/AlynCoin/src/network/peer_blacklist.h \
+  /root/AlynCoin/src/cli/peer_blacklist_cli.h \
+  /usr/include/alloca.h \
+  /usr/include/asm-generic/errno-base.h \
+  /usr/include/asm-generic/errno.h \
+  /usr/include/assert.h \
+  /usr/include/c++/13/array \
+  /usr/include/c++/13/atomic \
+  /usr/include/c++/13/backward/auto_ptr.h \
+  /usr/include/c++/13/backward/binders.h \
+  /usr/include/c++/13/bit \
+  /usr/include/c++/13/bits/algorithmfwd.h \
+  /usr/include/c++/13/bits/align.h \
+  /usr/include/c++/13/bits/alloc_traits.h \
+  /usr/include/c++/13/bits/allocated_ptr.h \
+  /usr/include/c++/13/bits/allocator.h \
+  /usr/include/c++/13/bits/atomic_base.h \
+  /usr/include/c++/13/bits/atomic_lockfree_defines.h \
+  /usr/include/c++/13/bits/basic_ios.h \
+  /usr/include/c++/13/bits/basic_ios.tcc \
+  /usr/include/c++/13/bits/basic_string.h \
+  /usr/include/c++/13/bits/basic_string.tcc \
+  /usr/include/c++/13/bits/char_traits.h \
+  /usr/include/c++/13/bits/charconv.h \
+  /usr/include/c++/13/bits/chrono.h \
+  /usr/include/c++/13/bits/concept_check.h \
+  /usr/include/c++/13/bits/cpp_type_traits.h \
+  /usr/include/c++/13/bits/cxxabi_forced.h \
+  /usr/include/c++/13/bits/cxxabi_init_exception.h \
+  /usr/include/c++/13/bits/enable_special_members.h \
+  /usr/include/c++/13/bits/erase_if.h \
+  /usr/include/c++/13/bits/exception.h \
+  /usr/include/c++/13/bits/exception_defines.h \
+  /usr/include/c++/13/bits/exception_ptr.h \
+  /usr/include/c++/13/bits/functexcept.h \
+  /usr/include/c++/13/bits/functional_hash.h \
+  /usr/include/c++/13/bits/hash_bytes.h \
+  /usr/include/c++/13/bits/hashtable.h \
+  /usr/include/c++/13/bits/hashtable_policy.h \
+  /usr/include/c++/13/bits/invoke.h \
+  /usr/include/c++/13/bits/ios_base.h \
+  /usr/include/c++/13/bits/istream.tcc \
+  /usr/include/c++/13/bits/list.tcc \
+  /usr/include/c++/13/bits/locale_classes.h \
+  /usr/include/c++/13/bits/locale_classes.tcc \
+  /usr/include/c++/13/bits/locale_facets.h \
+  /usr/include/c++/13/bits/locale_facets.tcc \
+  /usr/include/c++/13/bits/localefwd.h \
+  /usr/include/c++/13/bits/memory_resource.h \
+  /usr/include/c++/13/bits/memoryfwd.h \
+  /usr/include/c++/13/bits/move.h \
+  /usr/include/c++/13/bits/nested_exception.h \
+  /usr/include/c++/13/bits/new_allocator.h \
+  /usr/include/c++/13/bits/node_handle.h \
+  /usr/include/c++/13/bits/ostream.tcc \
+  /usr/include/c++/13/bits/ostream_insert.h \
+  /usr/include/c++/13/bits/parse_numbers.h \
+  /usr/include/c++/13/bits/postypes.h \
+  /usr/include/c++/13/bits/predefined_ops.h \
+  /usr/include/c++/13/bits/ptr_traits.h \
+  /usr/include/c++/13/bits/range_access.h \
+  /usr/include/c++/13/bits/refwrap.h \
+  /usr/include/c++/13/bits/requires_hosted.h \
+  /usr/include/c++/13/bits/shared_ptr.h \
+  /usr/include/c++/13/bits/shared_ptr_atomic.h \
+  /usr/include/c++/13/bits/shared_ptr_base.h \
+  /usr/include/c++/13/bits/std_abs.h \
+  /usr/include/c++/13/bits/std_function.h \
+  /usr/include/c++/13/bits/std_mutex.h \
+  /usr/include/c++/13/bits/stl_algo.h \
+  /usr/include/c++/13/bits/stl_algobase.h \
+  /usr/include/c++/13/bits/stl_bvector.h \
+  /usr/include/c++/13/bits/stl_construct.h \
+  /usr/include/c++/13/bits/stl_function.h \
+  /usr/include/c++/13/bits/stl_heap.h \
+  /usr/include/c++/13/bits/stl_iterator.h \
+  /usr/include/c++/13/bits/stl_iterator_base_funcs.h \
+  /usr/include/c++/13/bits/stl_iterator_base_types.h \
+  /usr/include/c++/13/bits/stl_list.h \
+  /usr/include/c++/13/bits/stl_map.h \
+  /usr/include/c++/13/bits/stl_multimap.h \
+  /usr/include/c++/13/bits/stl_pair.h \
+  /usr/include/c++/13/bits/stl_raw_storage_iter.h \
+  /usr/include/c++/13/bits/stl_relops.h \
+  /usr/include/c++/13/bits/stl_tempbuf.h \
+  /usr/include/c++/13/bits/stl_tree.h \
+  /usr/include/c++/13/bits/stl_uninitialized.h \
+  /usr/include/c++/13/bits/stl_vector.h \
+  /usr/include/c++/13/bits/streambuf.tcc \
+  /usr/include/c++/13/bits/streambuf_iterator.h \
+  /usr/include/c++/13/bits/string_view.tcc \
+  /usr/include/c++/13/bits/stringfwd.h \
+  /usr/include/c++/13/bits/uniform_int_dist.h \
+  /usr/include/c++/13/bits/unique_lock.h \
+  /usr/include/c++/13/bits/unique_ptr.h \
+  /usr/include/c++/13/bits/unordered_map.h \
+  /usr/include/c++/13/bits/unordered_set.h \
+  /usr/include/c++/13/bits/uses_allocator.h \
+  /usr/include/c++/13/bits/uses_allocator_args.h \
+  /usr/include/c++/13/bits/utility.h \
+  /usr/include/c++/13/bits/vector.tcc \
+  /usr/include/c++/13/cassert \
+  /usr/include/c++/13/cctype \
+  /usr/include/c++/13/cerrno \
+  /usr/include/c++/13/chrono \
+  /usr/include/c++/13/climits \
+  /usr/include/c++/13/clocale \
+  /usr/include/c++/13/compare \
+  /usr/include/c++/13/condition_variable \
+  /usr/include/c++/13/cstdarg \
+  /usr/include/c++/13/cstddef \
+  /usr/include/c++/13/cstdint \
+  /usr/include/c++/13/cstdio \
+  /usr/include/c++/13/cstdlib \
+  /usr/include/c++/13/cstring \
+  /usr/include/c++/13/ctime \
+  /usr/include/c++/13/cwchar \
+  /usr/include/c++/13/cwctype \
+  /usr/include/c++/13/debug/assertions.h \
+  /usr/include/c++/13/debug/debug.h \
+  /usr/include/c++/13/exception \
+  /usr/include/c++/13/ext/aligned_buffer.h \
+  /usr/include/c++/13/ext/alloc_traits.h \
+  /usr/include/c++/13/ext/atomicity.h \
+  /usr/include/c++/13/ext/concurrence.h \
+  /usr/include/c++/13/ext/numeric_traits.h \
+  /usr/include/c++/13/ext/string_conversions.h \
+  /usr/include/c++/13/ext/type_traits.h \
+  /usr/include/c++/13/functional \
+  /usr/include/c++/13/initializer_list \
+  /usr/include/c++/13/ios \
+  /usr/include/c++/13/iosfwd \
+  /usr/include/c++/13/iostream \
+  /usr/include/c++/13/istream \
+  /usr/include/c++/13/limits \
+  /usr/include/c++/13/list \
+  /usr/include/c++/13/map \
+  /usr/include/c++/13/memory \
+  /usr/include/c++/13/mutex \
+  /usr/include/c++/13/new \
+  /usr/include/c++/13/optional \
+  /usr/include/c++/13/ostream \
+  /usr/include/c++/13/pstl/execution_defs.h \
+  /usr/include/c++/13/pstl/glue_memory_defs.h \
+  /usr/include/c++/13/pstl/pstl_config.h \
+  /usr/include/c++/13/ratio \
+  /usr/include/c++/13/stdexcept \
+  /usr/include/c++/13/stdlib.h \
+  /usr/include/c++/13/streambuf \
+  /usr/include/c++/13/string \
+  /usr/include/c++/13/string_view \
+  /usr/include/c++/13/system_error \
+  /usr/include/c++/13/tuple \
+  /usr/include/c++/13/type_traits \
+  /usr/include/c++/13/typeinfo \
+  /usr/include/c++/13/unordered_map \
+  /usr/include/c++/13/unordered_set \
+  /usr/include/c++/13/utility \
+  /usr/include/c++/13/vector \
+  /usr/include/ctype.h \
+  /usr/include/endian.h \
+  /usr/include/errno.h \
+  /usr/include/features-time64.h \
+  /usr/include/features.h \
+  /usr/include/limits.h \
+  /usr/include/linux/errno.h \
+  /usr/include/linux/limits.h \
+  /usr/include/locale.h \
+  /usr/include/pthread.h \
+  /usr/include/rocksdb/advanced_options.h \
+  /usr/include/rocksdb/block_cache_trace_writer.h \
+  /usr/include/rocksdb/cache.h \
+  /usr/include/rocksdb/cleanable.h \
+  /usr/include/rocksdb/compaction_job_stats.h \
+  /usr/include/rocksdb/comparator.h \
+  /usr/include/rocksdb/compression_type.h \
+  /usr/include/rocksdb/configurable.h \
+  /usr/include/rocksdb/customizable.h \
+  /usr/include/rocksdb/data_structure.h \
+  /usr/include/rocksdb/db.h \
+  /usr/include/rocksdb/env.h \
+  /usr/include/rocksdb/file_checksum.h \
+  /usr/include/rocksdb/functor_wrapper.h \
+  /usr/include/rocksdb/io_status.h \
+  /usr/include/rocksdb/iterator.h \
+  /usr/include/rocksdb/listener.h \
+  /usr/include/rocksdb/memory_allocator.h \
+  /usr/include/rocksdb/memtablerep.h \
+  /usr/include/rocksdb/metadata.h \
+  /usr/include/rocksdb/options.h \
+  /usr/include/rocksdb/port_defs.h \
+  /usr/include/rocksdb/rocksdb_namespace.h \
+  /usr/include/rocksdb/slice.h \
+  /usr/include/rocksdb/snapshot.h \
+  /usr/include/rocksdb/sst_file_writer.h \
+  /usr/include/rocksdb/sst_partitioner.h \
+  /usr/include/rocksdb/status.h \
+  /usr/include/rocksdb/system_clock.h \
+  /usr/include/rocksdb/table_properties.h \
+  /usr/include/rocksdb/table_reader_caller.h \
+  /usr/include/rocksdb/thread_status.h \
+  /usr/include/rocksdb/trace_reader_writer.h \
+  /usr/include/rocksdb/trace_record.h \
+  /usr/include/rocksdb/transaction_log.h \
+  /usr/include/rocksdb/types.h \
+  /usr/include/rocksdb/universal_compaction.h \
+  /usr/include/rocksdb/version.h \
+  /usr/include/rocksdb/wide_columns.h \
+  /usr/include/rocksdb/write_batch.h \
+  /usr/include/rocksdb/write_batch_base.h \
+  /usr/include/rocksdb/write_buffer_manager.h \
+  /usr/include/sched.h \
+  /usr/include/stdc-predef.h \
+  /usr/include/stdint.h \
+  /usr/include/stdio.h \
+  /usr/include/stdlib.h \
+  /usr/include/string.h \
+  /usr/include/strings.h \
+  /usr/include/time.h \
+  /usr/include/wchar.h \
+  /usr/include/wctype.h \
+  /usr/include/x86_64-linux-gnu/asm/errno.h \
+  /usr/include/x86_64-linux-gnu/bits/atomic_wide_counter.h \
+  /usr/include/x86_64-linux-gnu/bits/byteswap.h \
+  /usr/include/x86_64-linux-gnu/bits/cpu-set.h \
+  /usr/include/x86_64-linux-gnu/bits/endian.h \
+  /usr/include/x86_64-linux-gnu/bits/endianness.h \
+  /usr/include/x86_64-linux-gnu/bits/errno.h \
+  /usr/include/x86_64-linux-gnu/bits/floatn-common.h \
+  /usr/include/x86_64-linux-gnu/bits/floatn.h \
+  /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
+  /usr/include/x86_64-linux-gnu/bits/local_lim.h \
+  /usr/include/x86_64-linux-gnu/bits/locale.h \
+  /usr/include/x86_64-linux-gnu/bits/long-double.h \
+  /usr/include/x86_64-linux-gnu/bits/posix1_lim.h \
+  /usr/include/x86_64-linux-gnu/bits/posix2_lim.h \
+  /usr/include/x86_64-linux-gnu/bits/pthread_stack_min-dynamic.h \
+  /usr/include/x86_64-linux-gnu/bits/pthreadtypes-arch.h \
+  /usr/include/x86_64-linux-gnu/bits/pthreadtypes.h \
+  /usr/include/x86_64-linux-gnu/bits/sched.h \
+  /usr/include/x86_64-linux-gnu/bits/select.h \
+  /usr/include/x86_64-linux-gnu/bits/setjmp.h \
+  /usr/include/x86_64-linux-gnu/bits/stdint-intn.h \
+  /usr/include/x86_64-linux-gnu/bits/stdint-least.h \
+  /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
+  /usr/include/x86_64-linux-gnu/bits/stdio_lim.h \
+  /usr/include/x86_64-linux-gnu/bits/stdlib-float.h \
+  /usr/include/x86_64-linux-gnu/bits/struct_mutex.h \
+  /usr/include/x86_64-linux-gnu/bits/struct_rwlock.h \
+  /usr/include/x86_64-linux-gnu/bits/thread-shared-types.h \
+  /usr/include/x86_64-linux-gnu/bits/time.h \
+  /usr/include/x86_64-linux-gnu/bits/time64.h \
+  /usr/include/x86_64-linux-gnu/bits/timesize.h \
+  /usr/include/x86_64-linux-gnu/bits/timex.h \
+  /usr/include/x86_64-linux-gnu/bits/types.h \
+  /usr/include/x86_64-linux-gnu/bits/types/FILE.h \
+  /usr/include/x86_64-linux-gnu/bits/types/__FILE.h \
+  /usr/include/x86_64-linux-gnu/bits/types/__fpos64_t.h \
+  /usr/include/x86_64-linux-gnu/bits/types/__fpos_t.h \
+  /usr/include/x86_64-linux-gnu/bits/types/__locale_t.h \
+  /usr/include/x86_64-linux-gnu/bits/types/__mbstate_t.h \
+  /usr/include/x86_64-linux-gnu/bits/types/__sigset_t.h \
+  /usr/include/x86_64-linux-gnu/bits/types/clock_t.h \
+  /usr/include/x86_64-linux-gnu/bits/types/clockid_t.h \
+  /usr/include/x86_64-linux-gnu/bits/types/cookie_io_functions_t.h \
+  /usr/include/x86_64-linux-gnu/bits/types/error_t.h \
+  /usr/include/x86_64-linux-gnu/bits/types/locale_t.h \
+  /usr/include/x86_64-linux-gnu/bits/types/mbstate_t.h \
+  /usr/include/x86_64-linux-gnu/bits/types/sigset_t.h \
+  /usr/include/x86_64-linux-gnu/bits/types/struct_FILE.h \
+  /usr/include/x86_64-linux-gnu/bits/types/struct___jmp_buf_tag.h \
+  /usr/include/x86_64-linux-gnu/bits/types/struct_itimerspec.h \
+  /usr/include/x86_64-linux-gnu/bits/types/struct_sched_param.h \
+  /usr/include/x86_64-linux-gnu/bits/types/struct_timespec.h \
+  /usr/include/x86_64-linux-gnu/bits/types/struct_timeval.h \
+  /usr/include/x86_64-linux-gnu/bits/types/struct_tm.h \
+  /usr/include/x86_64-linux-gnu/bits/types/time_t.h \
+  /usr/include/x86_64-linux-gnu/bits/types/timer_t.h \
+  /usr/include/x86_64-linux-gnu/bits/types/wint_t.h \
+  /usr/include/x86_64-linux-gnu/bits/typesizes.h \
+  /usr/include/x86_64-linux-gnu/bits/uintn-identity.h \
+  /usr/include/x86_64-linux-gnu/bits/uio_lim.h \
+  /usr/include/x86_64-linux-gnu/bits/waitflags.h \
+  /usr/include/x86_64-linux-gnu/bits/waitstatus.h \
+  /usr/include/x86_64-linux-gnu/bits/wchar.h \
+  /usr/include/x86_64-linux-gnu/bits/wctype-wchar.h \
+  /usr/include/x86_64-linux-gnu/bits/wordsize.h \
+  /usr/include/x86_64-linux-gnu/bits/xopen_lim.h \
+  /usr/include/x86_64-linux-gnu/c++/13/bits/atomic_word.h \
+  /usr/include/x86_64-linux-gnu/c++/13/bits/c++allocator.h \
+  /usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h \
+  /usr/include/x86_64-linux-gnu/c++/13/bits/c++locale.h \
+  /usr/include/x86_64-linux-gnu/c++/13/bits/cpu_defines.h \
+  /usr/include/x86_64-linux-gnu/c++/13/bits/ctype_base.h \
+  /usr/include/x86_64-linux-gnu/c++/13/bits/ctype_inline.h \
+  /usr/include/x86_64-linux-gnu/c++/13/bits/error_constants.h \
+  /usr/include/x86_64-linux-gnu/c++/13/bits/gthr-default.h \
+  /usr/include/x86_64-linux-gnu/c++/13/bits/gthr.h \
+  /usr/include/x86_64-linux-gnu/c++/13/bits/os_defines.h \
+  /usr/include/x86_64-linux-gnu/gnu/stubs-64.h \
+  /usr/include/x86_64-linux-gnu/gnu/stubs.h \
+  /usr/include/x86_64-linux-gnu/sys/cdefs.h \
+  /usr/include/x86_64-linux-gnu/sys/select.h \
+  /usr/include/x86_64-linux-gnu/sys/single_threaded.h \
+  /usr/include/x86_64-linux-gnu/sys/types.h \
+  /usr/lib/gcc/x86_64-linux-gnu/13/include/limits.h \
+  /usr/lib/gcc/x86_64-linux-gnu/13/include/stdarg.h \
+  /usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h \
+  /usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h \
+  /usr/lib/gcc/x86_64-linux-gnu/13/include/syslimits.h
+
+
+/root/AlynCoin/src/cli/peer_blacklist_ui.cpp:
 
 /usr/lib/gcc/x86_64-linux-gnu/13/include/syslimits.h:
 
@@ -1537,6 +1874,8 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 /usr/include/x86_64-linux-gnu/gnu/stubs-64.h:
 
 /usr/include/x86_64-linux-gnu/c++/13/bits/os_defines.h:
+
+/usr/include/x86_64-linux-gnu/c++/13/bits/messages_members.h:
 
 /usr/include/x86_64-linux-gnu/c++/13/bits/gthr-default.h:
 
@@ -1678,8 +2017,6 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/x86_64-linux-gnu/bits/math-vector.h:
 
-/usr/include/x86_64-linux-gnu/bits/long-double.h:
-
 /usr/include/x86_64-linux-gnu/bits/locale.h:
 
 /usr/include/x86_64-linux-gnu/bits/local_lim.h:
@@ -1749,8 +2086,6 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 /usr/include/rocksdb/options.h:
 
 /usr/include/rocksdb/memtablerep.h:
-
-/usr/include/rocksdb/memory_allocator.h:
 
 /usr/include/rocksdb/listener.h:
 
@@ -1869,6 +2204,10 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 /usr/include/linux/close_range.h:
 
 /usr/include/limits.h:
+
+/usr/include/x86_64-linux-gnu/bits/long-double.h:
+
+/usr/include/libintl.h:
 
 /usr/include/jsoncpp/json/writer.h:
 
@@ -2002,7 +2341,29 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/c++/13/ratio:
 
-/usr/include/c++/13/pstl/pstl_config.h:
+/usr/include/openssl/ecerr.h:
+
+/usr/include/c++/13/pstl/glue_memory_defs.h:
+
+/usr/include/c++/13/pstl/glue_algorithm_defs.h:
+
+/usr/include/c++/13/ostream:
+
+/usr/include/x86_64-linux-gnu/bits/waitflags.h:
+
+/usr/include/x86_64-linux-gnu/bits/socket_type.h:
+
+/usr/include/c++/13/memory:
+
+/usr/include/x86_64-linux-gnu/bits/types/__sigval_t.h:
+
+/usr/include/c++/13/map:
+
+/usr/include/google/protobuf/extension_set.h:
+
+/usr/include/c++/13/list:
+
+/usr/include/c++/13/iosfwd:
 
 /usr/include/boost/date_time/gregorian/greg_ymd.hpp:
 
@@ -2018,19 +2379,15 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/boost/asio/detail/socket_holder.hpp:
 
-/usr/include/boost/asio/detail/future.hpp:
-
 /usr/include/boost/asio/cancellation_state.hpp:
+
+/usr/include/boost/asio/detail/future.hpp:
 
 /usr/include/boost/date_time/gregorian/greg_duration_types.hpp:
 
 /usr/include/boost/asio/posix/descriptor.hpp:
 
 /usr/include/boost/predef/compiler/edg.h:
-
-/usr/include/x86_64-linux-gnu/bits/types/__sigval_t.h:
-
-/usr/include/c++/13/map:
 
 /usr/lib/gcc/x86_64-linux-gnu/13/include/limits.h:
 
@@ -2058,8 +2415,6 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/boost/system/detail/generic_category_message.hpp:
 
-/usr/include/boost/system/detail/config.hpp:
-
 /usr/include/x86_64-linux-gnu/sys/stat.h:
 
 /usr/include/boost/config/pragma_message.hpp:
@@ -2070,11 +2425,13 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/boost/preprocessor/list/fold_left.hpp:
 
+/usr/include/c++/13/iterator:
+
+/usr/include/boost/asio/basic_socket.hpp:
+
 /usr/include/boost/config/detail/cxx_composite.hpp:
 
 /usr/include/boost/asio/recycling_allocator.hpp:
-
-/usr/include/boost/config.hpp:
 
 /usr/include/boost/cerrno.hpp:
 
@@ -2099,10 +2456,6 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 /usr/include/boost/asio/version.hpp:
 
 /usr/include/boost/predef/architecture/z.h:
-
-/usr/include/boost/date_time/microsec_time_clock.hpp:
-
-/usr/include/boost/asio/completion_condition.hpp:
 
 /usr/include/boost/date_time/date.hpp:
 
@@ -2188,6 +2541,10 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/boost/preprocessor/list/detail/fold_right.hpp:
 
+/usr/include/c++/13/new:
+
+/usr/include/boost/asio/execution/any_executor.hpp:
+
 /usr/include/x86_64-linux-gnu/bits/ioctls.h:
 
 /usr/include/boost/asio/system_context.hpp:
@@ -2254,7 +2611,11 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/boost/asio/detail/thread.hpp:
 
-/usr/include/c++/13/bits/stl_heap.h:
+/usr/include/x86_64-linux-gnu/bits/termios.h:
+
+/usr/include/c++/13/optional:
+
+/usr/include/boost/asio/posix/stream_descriptor.hpp:
 
 /usr/include/boost/type_traits/intrinsics.hpp:
 
@@ -2306,8 +2667,6 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/boost/asio/is_write_buffered.hpp:
 
-/usr/include/boost/config/detail/suffix.hpp:
-
 /usr/include/c++/13/tr1/hypergeometric.tcc:
 
 /usr/include/c++/13/bits/locale_facets.h:
@@ -2317,6 +2676,10 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 /usr/include/boost/asio/detail/signal_handler.hpp:
 
 /usr/include/boost/date_time/gregorian/greg_duration.hpp:
+
+/usr/include/c++/13/bits/stl_heap.h:
+
+/root/AlynCoin/src/rollup/rollup_block.h:
 
 /usr/include/x86_64-linux-gnu/asm/errno.h:
 
@@ -2345,6 +2708,8 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 /usr/include/x86_64-linux-gnu/bits/types/locale_t.h:
 
 /usr/include/boost/asio/ip/impl/address_v4.hpp:
+
+/usr/include/c++/13/locale:
 
 /usr/include/boost/preprocessor/repetition/enum_trailing_params.hpp:
 
@@ -2426,10 +2791,6 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/boost/asio/impl/system_executor.hpp:
 
-/usr/include/openssl/ecerr.h:
-
-/usr/include/c++/13/pstl/glue_memory_defs.h:
-
 /usr/include/boost/date_time/constrained_value.hpp:
 
 /usr/include/x86_64-linux-gnu/bits/atomic_wide_counter.h:
@@ -2439,8 +2800,6 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 /usr/include/boost/asio/placeholders.hpp:
 
 /usr/include/boost/asio/impl/system_context.hpp:
-
-/usr/include/boost/date_time/posix_time/posix_time_config.hpp:
 
 /usr/include/boost/system/error_code.hpp:
 
@@ -2511,12 +2870,6 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 /usr/include/boost/asio/execution/connect.hpp:
 
 /usr/include/boost/asio/generic/seq_packet_protocol.hpp:
-
-/usr/include/jsoncpp/json/version.h:
-
-/usr/include/boost/asio/detail/impl/timer_queue_ptime.ipp:
-
-/usr/include/boost/core/yield_primitives.hpp:
 
 /usr/include/boost/predef/other/wordsize.h:
 
@@ -2620,9 +2973,13 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/boost/system/detail/is_same.hpp:
 
-/usr/include/boost/asio/detail/throw_error.hpp:
+/usr/include/boost/asio/execution/bulk_execute.hpp:
 
-/usr/include/c++/13/bits/stl_set.h:
+/usr/include/boost/date_time/dst_rules.hpp:
+
+/usr/include/c++/13/pstl/pstl_config.h:
+
+/usr/include/c++/13/iomanip:
 
 /usr/include/c++/13/tr1/bessel_function.tcc:
 
@@ -2726,8 +3083,6 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/boost/predef/architecture/rs6k.h:
 
-/usr/include/boost/asio/execution/bulk_execute.hpp:
-
 /usr/include/boost/asio/impl/buffered_read_stream.hpp:
 
 /usr/include/boost/asio/basic_seq_packet_socket.hpp:
@@ -2758,6 +3113,12 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/boost/config/no_tr1/cmath.hpp:
 
+/usr/include/openssl/core.h:
+
+/usr/include/c++/13/ios:
+
+/usr/include/boost/asio/basic_signal_set.hpp:
+
 /usr/include/boost/asio/ip/impl/address_v4.ipp:
 
 /usr/include/boost/asio/detail/io_object_impl.hpp:
@@ -2771,10 +3132,6 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 /root/AlynCoin/src/crypto_utils.h:
 
 /usr/include/boost/asio/buffered_write_stream.hpp:
-
-/usr/include/boost/asio/detail/config.hpp:
-
-/usr/include/boost/predef/platform/android.h:
 
 /usr/include/boost/asio/detail/epoll_reactor.hpp:
 
@@ -2818,9 +3175,59 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/boost/asio/bind_cancellation_slot.hpp:
 
-/usr/include/boost/asio/any_io_executor.hpp:
+/usr/include/boost/asio/bind_allocator.hpp:
 
-/usr/include/boost/preprocessor/control/detail/limits/while_256.hpp:
+/usr/include/c++/13/bits/std_mutex.h:
+
+/usr/include/jsoncpp/json/version.h:
+
+/usr/include/boost/asio/detail/impl/timer_queue_ptime.ipp:
+
+/usr/include/boost/core/yield_primitives.hpp:
+
+/root/AlynCoin/src/cli/peer_blacklist_cli.h:
+
+/usr/include/boost/asio/impl/handler_alloc_hook.ipp:
+
+/usr/include/rocksdb/system_clock.h:
+
+/usr/include/boost/preprocessor/detail/limits/auto_rec_256.hpp:
+
+/usr/include/c++/13/bits/char_traits.h:
+
+/usr/include/boost/core/detail/sp_thread_sleep.hpp:
+
+/usr/include/boost/mpl/aux_/msvc_eti_base.hpp:
+
+/usr/include/boost/preprocessor/variadic/limits/size_64.hpp:
+
+/usr/include/x86_64-linux-gnu/c++/13/bits/time_members.h:
+
+/usr/include/boost/asio/windows/overlapped_ptr.hpp:
+
+/usr/include/boost/asio/detail/impl/reactive_socket_service_base.ipp:
+
+/usr/include/boost/asio/traits/bulk_execute_free.hpp:
+
+/usr/include/boost/asio/detail/timer_queue.hpp:
+
+/usr/include/boost/predef/other/endian.h:
+
+/usr/include/boost/asio/basic_writable_pipe.hpp:
+
+/usr/include/boost/asio/detail/impl/posix_event.ipp:
+
+/usr/include/boost/mpl/aux_/largest_int.hpp:
+
+/usr/include/boost/preprocessor/control/iif.hpp:
+
+/usr/include/boost/asio/detail/posix_signal_blocker.hpp:
+
+/usr/include/boost/asio/basic_streambuf.hpp:
+
+/usr/include/boost/asio/impl/consign.hpp:
+
+/usr/include/boost/date_time/time_resolution_traits.hpp:
 
 /usr/include/boost/asio/traits/schedule_member.hpp:
 
@@ -2848,13 +3255,13 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/boost/asio/basic_socket_acceptor.hpp:
 
+/usr/include/boost/asio/impl/connect_pipe.hpp:
+
+/usr/include/asm-generic/ioctl.h:
+
 /usr/include/boost/asio.hpp:
 
 /usr/include/boost/preprocessor/control/limits/while_256.hpp:
-
-/usr/include/boost/predef/other/workaround.h:
-
-/usr/include/boost/type_traits/is_base_of.hpp:
 
 /usr/include/boost/predef/detail/comp_detected.h:
 
@@ -2864,11 +3271,59 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/boost/preprocessor/repetition/limits/repeat_256.hpp:
 
-/usr/include/boost/asio/detail/impl/posix_event.ipp:
+/usr/include/boost/asio/execution/submit.hpp:
 
-/usr/include/boost/mpl/aux_/largest_int.hpp:
+/usr/include/boost/asio/io_context_strand.hpp:
 
-/usr/include/boost/preprocessor/control/iif.hpp:
+/usr/include/boost/asio/detail/array_fwd.hpp:
+
+/usr/include/boost/predef/compiler/greenhills.h:
+
+/usr/include/boost/predef/compiler/palm.h:
+
+/usr/include/alloca.h:
+
+/usr/include/boost/asio/detail/handler_work.hpp:
+
+/usr/include/x86_64-linux-gnu/bits/types/__fpos_t.h:
+
+/usr/include/boost/asio/detail/impl/strand_executor_service.hpp:
+
+/usr/include/boost/config/detail/suffix.hpp:
+
+/root/AlynCoin/src/layer2/state_channel.h:
+
+/usr/include/boost/preprocessor/logical/bool.hpp:
+
+/usr/include/boost/asio/basic_datagram_socket.hpp:
+
+/usr/include/openssl/core_dispatch.h:
+
+/root/AlynCoin/src/cli.cpp:
+
+/usr/include/boost/asio/detail/signal_op.hpp:
+
+/usr/include/x86_64-linux-gnu/bits/fcntl-linux.h:
+
+/usr/include/boost/asio/local/basic_endpoint.hpp:
+
+/usr/include/boost/asio/execution/executor.hpp:
+
+/usr/include/boost/asio/execution/bulk_guarantee.hpp:
+
+/root/AlynCoin/src/blockchain.h:
+
+/usr/include/boost/asio/wait_traits.hpp:
+
+/usr/include/boost/asio/executor_work_guard.hpp:
+
+/usr/include/boost/asio/detail/reactive_socket_recvfrom_op.hpp:
+
+/usr/include/boost/asio/windows/basic_object_handle.hpp:
+
+/usr/include/boost/asio/impl/redirect_error.hpp:
+
+/usr/include/boost/asio/buffered_stream.hpp:
 
 /usr/include/rocksdb/cleanable.h:
 
@@ -2881,18 +3336,6 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 /usr/include/boost/asio/write_at.hpp:
 
 /usr/include/boost/asio/detail/pop_options.hpp:
-
-/usr/include/openssl/core_dispatch.h:
-
-/root/AlynCoin/src/cli.cpp:
-
-/usr/include/boost/asio/detail/signal_op.hpp:
-
-/usr/include/boost/asio/wait_traits.hpp:
-
-/usr/include/boost/asio/executor_work_guard.hpp:
-
-/usr/include/boost/asio/detail/reactive_socket_recvfrom_op.hpp:
 
 /usr/include/boost/asio/detail/consuming_buffers.hpp:
 
@@ -2914,11 +3357,11 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/boost/mpl/bool_fwd.hpp:
 
-/usr/include/boost/asio/windows/basic_object_handle.hpp:
+/usr/include/boost/config/platform/linux.hpp:
 
-/usr/include/boost/asio/impl/redirect_error.hpp:
+/usr/include/openssl/sha.h:
 
-/usr/include/boost/asio/buffered_stream.hpp:
+/usr/include/boost/smart_ptr/detail/sp_convertible.hpp:
 
 /usr/include/asm-generic/sockios.h:
 
@@ -2952,20 +3395,6 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/boost/asio/any_completion_handler.hpp:
 
-/usr/include/asm-generic/ioctl.h:
-
-/usr/include/boost/asio/impl/connect_pipe.hpp:
-
-/usr/include/boost/asio/detail/posix_signal_blocker.hpp:
-
-/usr/include/boost/asio/basic_streambuf.hpp:
-
-/usr/include/boost/asio/impl/consign.hpp:
-
-/usr/include/boost/date_time/time_resolution_traits.hpp:
-
-/usr/include/boost/asio/basic_datagram_socket.hpp:
-
 /usr/include/boost/asio/detail/functional.hpp:
 
 /usr/include/asm-generic/types.h:
@@ -2978,55 +3407,25 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/boost/mpl/aux_/lambda_support.hpp:
 
-/usr/include/boost/asio/impl/handler_alloc_hook.ipp:
+/usr/include/boost/asio/connect_pipe.hpp:
 
-/usr/include/rocksdb/system_clock.h:
+/usr/include/boost/asio/windows/random_access_handle.hpp:
 
-/usr/include/boost/preprocessor/detail/limits/auto_rec_256.hpp:
+/usr/include/boost/asio/detail/impl/resolver_service_base.ipp:
 
-/usr/include/c++/13/bits/char_traits.h:
+/usr/include/c++/13/bits/stl_function.h:
 
-/usr/include/boost/asio/bind_allocator.hpp:
+/usr/include/boost/asio/detail/posix_serial_port_service.hpp:
 
-/usr/include/c++/13/bits/std_mutex.h:
+/usr/include/boost/asio/detail/impl/strand_service.hpp:
 
-/usr/include/boost/core/detail/sp_thread_sleep.hpp:
+/root/AlynCoin/src/zk/winterfell_stark.h:
 
-/usr/include/boost/mpl/aux_/msvc_eti_base.hpp:
+/usr/include/boost/system/is_error_condition_enum.hpp:
 
-/usr/include/boost/preprocessor/variadic/limits/size_64.hpp:
+/usr/include/boost/mpl/aux_/config/ctps.hpp:
 
-/usr/include/boost/asio/windows/overlapped_ptr.hpp:
-
-/usr/include/boost/asio/detail/impl/reactive_socket_service_base.ipp:
-
-/usr/include/boost/asio/traits/bulk_execute_free.hpp:
-
-/usr/include/boost/asio/detail/timer_queue.hpp:
-
-/usr/include/boost/predef/other/endian.h:
-
-/usr/include/boost/asio/ip/network_v6.hpp:
-
-/usr/include/boost/preprocessor/repetition/repeat.hpp:
-
-/usr/include/boost/asio/detail/blocking_executor_op.hpp:
-
-/usr/include/boost/predef/os/unix.h:
-
-/usr/include/c++/13/bits/basic_ios.tcc:
-
-/usr/include/c++/13/thread:
-
-/usr/include/boost/asio/detail/impl/scheduler.ipp:
-
-/usr/include/boost/asio/impl/system_context.ipp:
-
-/usr/include/x86_64-linux-gnu/bits/types/stack_t.h:
-
-/usr/include/boost/asio/detail/utility.hpp:
-
-/usr/include/boost/mpl/aux_/lambda_arity_param.hpp:
+/usr/include/boost/asio/detail/socket_option.hpp:
 
 /usr/include/x86_64-linux-gnu/sys/poll.h:
 
@@ -3046,63 +3445,45 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/boost/asio/detail/bulk_executor_op.hpp:
 
-/usr/include/boost/asio/detail/handler_work.hpp:
-
-/usr/include/alloca.h:
-
 /usr/include/boost/asio/detail/assert.hpp:
 
-/usr/include/strings.h:
+/usr/include/x86_64-linux-gnu/bits/types/stack_t.h:
 
-/usr/include/boost/asio/detail/handler_cont_helpers.hpp:
+/usr/include/boost/asio/detail/utility.hpp:
 
-/usr/include/boost/asio/detail/bind_handler.hpp:
+/usr/include/boost/mpl/aux_/lambda_arity_param.hpp:
 
-/usr/include/boost/asio/connect_pipe.hpp:
+/usr/include/boost/asio/ip/network_v6.hpp:
 
-/usr/include/boost/asio/windows/random_access_handle.hpp:
+/usr/include/boost/preprocessor/repetition/repeat.hpp:
 
-/usr/include/boost/asio/detail/impl/resolver_service_base.ipp:
+/usr/include/boost/asio/detail/blocking_executor_op.hpp:
 
-/usr/include/c++/13/bits/stl_function.h:
+/usr/include/boost/predef/os/unix.h:
 
-/usr/include/boost/asio/detail/posix_serial_port_service.hpp:
+/usr/include/c++/13/thread:
 
-/usr/include/boost/asio/detail/impl/strand_service.hpp:
+/usr/include/boost/asio/detail/impl/scheduler.ipp:
 
-/usr/include/boost/mpl/aux_/config/ctps.hpp:
+/usr/include/boost/asio/impl/system_context.ipp:
 
-/usr/include/boost/asio/detail/socket_option.hpp:
+/usr/include/boost/asio/any_io_executor.hpp:
 
-/usr/include/boost/asio/execution/submit.hpp:
-
-/usr/include/boost/asio/io_context_strand.hpp:
-
-/usr/include/boost/asio/detail/array_fwd.hpp:
-
-/usr/include/boost/predef/compiler/greenhills.h:
-
-/usr/include/boost/predef/compiler/palm.h:
-
-/usr/include/x86_64-linux-gnu/bits/types/__fpos_t.h:
-
-/usr/include/boost/asio/detail/impl/strand_executor_service.hpp:
-
-/usr/include/boost/preprocessor/logical/bool.hpp:
-
-/usr/include/x86_64-linux-gnu/bits/fcntl-linux.h:
-
-/usr/include/boost/asio/local/basic_endpoint.hpp:
-
-/usr/include/boost/asio/execution/executor.hpp:
-
-/root/AlynCoin/src/blockchain.h:
-
-/usr/include/boost/asio/execution/bulk_guarantee.hpp:
+/usr/include/boost/preprocessor/control/detail/limits/while_256.hpp:
 
 /usr/include/boost/system/detail/cerrno.hpp:
 
 /usr/include/boost/asio/traits/execute_free.hpp:
+
+/usr/include/wctype.h:
+
+/usr/include/c++/13/mutex:
+
+/usr/include/boost/preprocessor/arithmetic/detail/is_maximum_number.hpp:
+
+/usr/include/boost/asio/high_resolution_timer.hpp:
+
+/usr/include/boost/asio/detail/handler_tracking.hpp:
 
 /usr/include/boost/preprocessor/logical/not.hpp:
 
@@ -3117,6 +3498,10 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 /usr/include/boost/asio/buffered_read_stream_fwd.hpp:
 
 /usr/include/arpa/inet.h:
+
+/usr/include/boost/asio/completion_condition.hpp:
+
+/usr/include/boost/date_time/microsec_time_clock.hpp:
 
 /usr/include/boost/asio/detail/impl/epoll_reactor.hpp:
 
@@ -3133,12 +3518,6 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 /usr/include/boost/asio/async_result.hpp:
 
 /usr/include/boost/mpl/aux_/config/eti.hpp:
-
-/usr/include/boost/asio/detail/impl/signal_set_service.ipp:
-
-/usr/include/boost/predef/platform/mingw32.h:
-
-/usr/include/boost/predef/library/c/gnu.h:
 
 /usr/include/boost/asio/any_completion_executor.hpp:
 
@@ -3159,6 +3538,10 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 /usr/include/boost/asio/ip/impl/network_v6.hpp:
 
 /usr/include/boost/mpl/aux_/config/overload_resolution.hpp:
+
+/usr/include/boost/asio/ip/impl/network_v6.ipp:
+
+/usr/include/boost/asio/detail/io_control.hpp:
 
 /usr/include/openssl/dsaerr.h:
 
@@ -3184,17 +3567,29 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/boost/asio/basic_socket_streambuf.hpp:
 
-/usr/include/boost/asio/basic_writable_pipe.hpp:
+/root/AlynCoin/src/network/peer_blacklist.h:
+
+/usr/include/boost/asio/detail/impl/signal_set_service.ipp:
+
+/usr/include/boost/predef/platform/mingw32.h:
+
+/usr/include/boost/predef/library/c/gnu.h:
+
+/usr/include/strings.h:
+
+/usr/include/boost/asio/detail/bind_handler.hpp:
+
+/usr/include/boost/asio/detail/handler_cont_helpers.hpp:
+
+/usr/include/boost/asio/detail/throw_error.hpp:
+
+/usr/include/c++/13/bits/stl_set.h:
 
 /usr/include/boost/preprocessor/config/config.hpp:
 
 /usr/include/boost/asio/detail/executor_function.hpp:
 
 /usr/include/boost/system/error_condition.hpp:
-
-/usr/include/c++/13/csignal:
-
-/usr/include/boost/asio/detail/scoped_ptr.hpp:
 
 /usr/include/boost/asio/detail/impl/descriptor_ops.ipp:
 
@@ -3204,11 +3599,11 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/boost/asio/detail/impl/null_event.ipp:
 
+/usr/include/boost/asio/buffers_iterator.hpp:
+
 /usr/include/boost/asio/detail/cstddef.hpp:
 
 /usr/include/boost/asio/detail/global.hpp:
-
-/usr/include/boost/asio/buffers_iterator.hpp:
 
 /usr/include/boost/asio/detail/impl/posix_mutex.ipp:
 
@@ -3250,12 +3645,6 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/boost/asio/cancellation_type.hpp:
 
-/usr/include/x86_64-linux-gnu/bits/termios.h:
-
-/usr/include/boost/asio/posix/stream_descriptor.hpp:
-
-/usr/include/c++/13/optional:
-
 /usr/include/boost/predef/architecture/e2k.h:
 
 /usr/include/boost/predef/library/std/libcomo.h:
@@ -3270,15 +3659,15 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/boost/asio/execution/set_value.hpp:
 
-/usr/include/c++/13/bits/ptr_traits.h:
-
-/usr/include/boost/asio/detail/impl/posix_thread.ipp:
-
 /usr/include/boost/asio/detail/resolver_service.hpp:
 
 /usr/include/boost/asio/detail/chrono.hpp:
 
 /usr/include/boost/predef/platform/ios.h:
+
+/usr/include/c++/13/bits/ptr_traits.h:
+
+/usr/include/boost/asio/detail/impl/posix_thread.ipp:
 
 /usr/include/x86_64-linux-gnu/bits/wctype-wchar.h:
 
@@ -3296,10 +3685,6 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/boost/asio/traits/set_done_member.hpp:
 
-/usr/include/google/protobuf/extension_set.h:
-
-/usr/include/c++/13/list:
-
 /usr/include/boost/asio/detail/posix_event.hpp:
 
 /usr/include/boost/asio/detail/posix_mutex.hpp:
@@ -3309,12 +3694,6 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 /usr/include/boost/asio/detail/operation.hpp:
 
 /usr/include/boost/asio/consign.hpp:
-
-/usr/include/openssl/core.h:
-
-/usr/include/boost/asio/basic_signal_set.hpp:
-
-/usr/include/c++/13/ios:
 
 /usr/include/boost/asio/detail/posix_thread.hpp:
 
@@ -3331,10 +3710,6 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 /usr/include/boost/asio/detail/std_fenced_block.hpp:
 
 /usr/include/c++/13/cerrno:
-
-/usr/include/boost/asio/ip/impl/network_v6.ipp:
-
-/usr/include/boost/asio/detail/io_control.hpp:
 
 /usr/include/boost/asio/detail/completion_handler.hpp:
 
@@ -3376,19 +3751,13 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/boost/asio/detail/reactive_socket_service.hpp:
 
-/usr/include/boost/config/platform/linux.hpp:
-
-/usr/include/openssl/sha.h:
-
-/usr/include/boost/smart_ptr/detail/sp_convertible.hpp:
+/usr/include/c++/13/codecvt:
 
 /usr/include/boost/regex/config.hpp:
 
 /usr/include/boost/preprocessor/control/detail/while.hpp:
 
 /usr/include/boost/asio/system_timer.hpp:
-
-/usr/include/boost/date_time/dst_rules.hpp:
 
 /usr/include/boost/mpl/aux_/numeric_op.hpp:
 
@@ -3407,8 +3776,6 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 /usr/include/boost/asio/detail/impl/strand_service.ipp:
 
 /usr/include/boost/system/api_config.hpp:
-
-/usr/include/boost/date_time/posix_time/posix_time_system.hpp:
 
 /usr/include/boost/asio/detail/signal_blocker.hpp:
 
@@ -3516,11 +3883,9 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/boost/asio/execution/operation_state.hpp:
 
-/usr/include/boost/date_time/posix_time/posix_time_duration.hpp:
+/usr/include/c++/13/bits/basic_ios.tcc:
 
-/usr/include/c++/13/bits/refwrap.h:
-
-/usr/include/boost/asio/local/datagram_protocol.hpp:
+/usr/include/c++/13/bits/fs_dir.h:
 
 /usr/include/boost/asio/detail/dependent_type.hpp:
 
@@ -3529,6 +3894,22 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 /usr/include/boost/asio/detail/reactive_socket_accept_op.hpp:
 
 /usr/include/boost/asio/dispatch.hpp:
+
+/usr/include/boost/date_time/posix_time/posix_time_config.hpp:
+
+/usr/include/c++/13/bits/refwrap.h:
+
+/usr/include/boost/asio/local/datagram_protocol.hpp:
+
+/usr/include/boost/date_time/posix_time/posix_time_duration.hpp:
+
+/usr/include/boost/type_traits/is_base_of.hpp:
+
+/usr/include/boost/predef/other/workaround.h:
+
+/usr/include/boost/system/detail/config.hpp:
+
+/usr/include/boost/date_time/posix_time/posix_time_system.hpp:
 
 /usr/include/boost/date_time/posix_time/ptime.hpp:
 
@@ -3576,8 +3957,6 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/boost/limits.hpp:
 
-/usr/include/boost/mpl/apply_wrap.hpp:
-
 /usr/include/boost/mpl/aux_/adl_barrier.hpp:
 
 /usr/include/boost/mpl/aux_/arity.hpp:
@@ -3615,6 +3994,10 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 /usr/include/boost/mpl/aux_/config/lambda.hpp:
 
 /usr/include/boost/predef/os/linux.h:
+
+/usr/include/boost/config.hpp:
+
+/usr/include/c++/13/bits/fs_path.h:
 
 /usr/include/boost/mpl/aux_/config/msvc.hpp:
 
@@ -4012,6 +4395,12 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/boost/predef/os/os400.h:
 
+/usr/include/boost/asio/detail/config.hpp:
+
+/usr/include/boost/predef/platform/android.h:
+
+/usr/include/c++/13/bits/fs_ops.h:
+
 /usr/include/boost/predef/os/solaris.h:
 
 /usr/include/boost/predef/os/vms.h:
@@ -4111,6 +4500,14 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 /usr/include/boost/preprocessor/facilities/overload.hpp:
 
 /usr/include/boost/preprocessor/identity.hpp:
+
+/usr/include/x86_64-linux-gnu/bits/stat.h:
+
+/usr/include/c++/13/limits:
+
+/usr/include/boost/mpl/aux_/is_msvc_eti_arg.hpp:
+
+/usr/include/c++/13/bits/chrono.h:
 
 /usr/include/boost/preprocessor/array/size.hpp:
 
@@ -4226,10 +4623,6 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/boost/system/detail/system_category.hpp:
 
-/usr/include/boost/asio/basic_socket.hpp:
-
-/usr/include/c++/13/iterator:
-
 /usr/include/openssl/conferr.h:
 
 /usr/include/boost/preprocessor/punctuation/comma_if.hpp:
@@ -4246,11 +4639,11 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/boost/system/is_error_code_enum.hpp:
 
-/usr/include/boost/system/is_error_condition_enum.hpp:
-
 /usr/include/x86_64-linux-gnu/bits/fp-logb.h:
 
 /usr/include/boost/system/system_category.hpp:
+
+/usr/include/c++/13/bits/fs_fwd.h:
 
 /usr/include/c++/13/bits/stl_construct.h:
 
@@ -4324,15 +4717,23 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/c++/13/bits/functional_hash.h:
 
-/usr/include/boost/smart_ptr/shared_ptr.hpp:
-
 /usr/include/c++/13/iostream:
+
+/usr/include/boost/smart_ptr/shared_ptr.hpp:
 
 /usr/include/c++/13/bits/hash_bytes.h:
 
 /usr/include/c++/13/bits/hashtable.h:
 
+/usr/include/boost/mpl/apply_wrap.hpp:
+
+/usr/include/c++/13/bits/locale_conv.h:
+
 /usr/include/c++/13/bits/locale_facets.tcc:
+
+/usr/include/c++/13/bits/locale_facets_nonio.h:
+
+/usr/include/c++/13/bits/locale_facets_nonio.tcc:
 
 /usr/include/c++/13/bits/localefwd.h:
 
@@ -4355,6 +4756,12 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 /usr/include/boost/asio/detail/atomic_count.hpp:
 
 /usr/include/c++/13/bits/postypes.h:
+
+/usr/include/c++/13/csignal:
+
+/usr/include/boost/asio/detail/scoped_ptr.hpp:
+
+/usr/include/c++/13/bits/quoted_string.h:
 
 /usr/include/boost/date_time/wrapping_int.hpp:
 
@@ -4446,6 +4853,10 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/c++/13/clocale:
 
+/usr/include/c++/13/istream:
+
+/usr/include/c++/13/cmath:
+
 /usr/include/asm-generic/ioctls.h:
 
 /usr/include/c++/13/cstdint:
@@ -4476,44 +4887,10 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
 
 /usr/include/c++/13/ext/type_traits.h:
 
+/usr/include/rocksdb/memory_allocator.h:
+
+/usr/include/c++/13/filesystem:
+
 /usr/include/boost/predef/library/std/dinkumware.h:
 
 /usr/include/c++/13/functional:
-
-/usr/include/c++/13/iosfwd:
-
-/usr/include/c++/13/cmath:
-
-/usr/include/c++/13/istream:
-
-/usr/include/x86_64-linux-gnu/bits/stat.h:
-
-/usr/include/boost/mpl/aux_/is_msvc_eti_arg.hpp:
-
-/usr/include/c++/13/bits/chrono.h:
-
-/usr/include/c++/13/limits:
-
-/usr/include/x86_64-linux-gnu/bits/waitflags.h:
-
-/usr/include/x86_64-linux-gnu/bits/socket_type.h:
-
-/usr/include/c++/13/memory:
-
-/usr/include/wctype.h:
-
-/usr/include/boost/preprocessor/arithmetic/detail/is_maximum_number.hpp:
-
-/usr/include/boost/asio/high_resolution_timer.hpp:
-
-/usr/include/boost/asio/detail/handler_tracking.hpp:
-
-/usr/include/c++/13/mutex:
-
-/usr/include/boost/asio/execution/any_executor.hpp:
-
-/usr/include/c++/13/new:
-
-/usr/include/c++/13/ostream:
-
-/usr/include/c++/13/pstl/glue_algorithm_defs.h:

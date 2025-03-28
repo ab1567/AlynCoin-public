@@ -14,5 +14,12 @@ message BlockProto {
     uint64 timestamp = 7;
     int32 difficulty = 8;
     string block_signature = 9;
-    string keccak_hash = 10;  
+    string keccak_hash = 10;
+    bytes zk_stark_proof = 11;
+
+    // 🔥 NEW FIELDS for Dilithium & Falcon Signatures
+    string dilithium_signature = 12;
+    string falcon_signature = 13;
+    string public_key_dilithium = 14;
+    string public_key_falcon = 15;
 }

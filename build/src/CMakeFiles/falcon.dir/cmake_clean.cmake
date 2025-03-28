@@ -1,0 +1,41 @@
+file(REMOVE_RECURSE
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/codec.c.o"
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/codec.c.o.d"
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/common.c.o"
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/common.c.o.d"
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/fft.c.o"
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/fft.c.o.d"
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/fpr.c.o"
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/fpr.c.o.d"
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/keygen.c.o"
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/keygen.c.o.d"
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/pqclean.c.o"
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/pqclean.c.o.d"
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/rng.c.o"
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/rng.c.o.d"
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/sign.c.o"
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/sign.c.o.d"
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/vrfy.c.o"
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/vrfy.c.o.d"
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/aes.c.o"
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/aes.c.o.d"
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/fips202.c.o"
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/fips202.c.o.d"
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.c.o"
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.c.o.d"
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/nistseedexpander.c.o"
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/nistseedexpander.c.o.d"
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/randombytes.c.o"
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/randombytes.c.o.d"
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sha2.c.o"
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sha2.c.o.d"
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.o"
+  "CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.o.d"
+  "libfalcon.a"
+  "libfalcon.pdb"
+)
+
+# Per-language clean rules from dependency scanning.
+foreach(lang C)
+  include(CMakeFiles/falcon.dir/cmake_clean_${lang}.cmake OPTIONAL)
+endforeach()

@@ -19,16 +19,16 @@
 #error regenerate this file with a newer version of protoc.
 #endif
 
-#include <google/protobuf/port_undef.inc>
-#include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/arena.h>
 #include <google/protobuf/arenastring.h>
-#include <google/protobuf/generated_message_util.h>
-#include <google/protobuf/metadata_lite.h>
+#include <google/protobuf/extension_set.h> // IWYU pragma: export
 #include <google/protobuf/generated_message_reflection.h>
+#include <google/protobuf/generated_message_util.h>
+#include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/message.h>
-#include <google/protobuf/repeated_field.h>  // IWYU pragma: export
-#include <google/protobuf/extension_set.h>  // IWYU pragma: export
+#include <google/protobuf/metadata_lite.h>
+#include <google/protobuf/port_undef.inc>
+#include <google/protobuf/repeated_field.h> // IWYU pragma: export
 #include <google/protobuf/unknown_field_set.h>
 // @@protoc_insertion_point(includes)
 #include <google/protobuf/port_def.inc>
@@ -36,49 +36,54 @@
 PROTOBUF_NAMESPACE_OPEN
 namespace internal {
 class AnyMetadata;
-}  // namespace internal
+} // namespace internal
 PROTOBUF_NAMESPACE_CLOSE
 
 // Internal implementation detail -- do not use these members.
 struct TableStruct_transaction_5fprotos_2eproto {
   static const uint32_t offsets[];
 };
-extern const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable descriptor_table_transaction_5fprotos_2eproto;
+extern const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable
+    descriptor_table_transaction_5fprotos_2eproto;
 namespace alyncoin {
 class TransactionProto;
 struct TransactionProtoDefaultTypeInternal;
 extern TransactionProtoDefaultTypeInternal _TransactionProto_default_instance_;
-}  // namespace alyncoin
+} // namespace alyncoin
 PROTOBUF_NAMESPACE_OPEN
-template<> ::alyncoin::TransactionProto* Arena::CreateMaybeMessage<::alyncoin::TransactionProto>(Arena*);
+template <>
+::alyncoin::TransactionProto *
+Arena::CreateMaybeMessage<::alyncoin::TransactionProto>(Arena *);
 PROTOBUF_NAMESPACE_CLOSE
 namespace alyncoin {
 
 // ===================================================================
 
-class TransactionProto final :
-    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:alyncoin.TransactionProto) */ {
- public:
+class TransactionProto final : public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:alyncoin.TransactionProto)
+                                                                        */
+{
+public:
   inline TransactionProto() : TransactionProto(nullptr) {}
   ~TransactionProto() override;
-  explicit PROTOBUF_CONSTEXPR TransactionProto(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+  explicit PROTOBUF_CONSTEXPR
+      TransactionProto(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
 
-  TransactionProto(const TransactionProto& from);
-  TransactionProto(TransactionProto&& from) noexcept
-    : TransactionProto() {
+  TransactionProto(const TransactionProto &from);
+  TransactionProto(TransactionProto &&from) noexcept : TransactionProto() {
     *this = ::std::move(from);
   }
 
-  inline TransactionProto& operator=(const TransactionProto& from) {
+  inline TransactionProto &operator=(const TransactionProto &from) {
     CopyFrom(from);
     return *this;
   }
-  inline TransactionProto& operator=(TransactionProto&& from) noexcept {
-    if (this == &from) return *this;
+  inline TransactionProto &operator=(TransactionProto &&from) noexcept {
+    if (this == &from)
+      return *this;
     if (GetOwningArena() == from.GetOwningArena()
-  #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
         && GetOwningArena() != nullptr
-  #endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+#endif // !PROTOBUF_FORCE_COPY_IN_MOVE
     ) {
       InternalSwap(&from);
     } else {
@@ -87,88 +92,95 @@ class TransactionProto final :
     return *this;
   }
 
-  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor *descriptor() {
     return GetDescriptor();
   }
-  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor *GetDescriptor() {
     return default_instance().GetMetadata().descriptor;
   }
-  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
+  static const ::PROTOBUF_NAMESPACE_ID::Reflection *GetReflection() {
     return default_instance().GetMetadata().reflection;
   }
-  static const TransactionProto& default_instance() {
+  static const TransactionProto &default_instance() {
     return *internal_default_instance();
   }
-  static inline const TransactionProto* internal_default_instance() {
-    return reinterpret_cast<const TransactionProto*>(
-               &_TransactionProto_default_instance_);
+  static inline const TransactionProto *internal_default_instance() {
+    return reinterpret_cast<const TransactionProto *>(
+        &_TransactionProto_default_instance_);
   }
-  static constexpr int kIndexInFileMessages =
-    0;
+  static constexpr int kIndexInFileMessages = 0;
 
-  friend void swap(TransactionProto& a, TransactionProto& b) {
-    a.Swap(&b);
-  }
-  inline void Swap(TransactionProto* other) {
-    if (other == this) return;
-  #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+  friend void swap(TransactionProto &a, TransactionProto &b) { a.Swap(&b); }
+  inline void Swap(TransactionProto *other) {
+    if (other == this)
+      return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
     if (GetOwningArena() != nullptr &&
         GetOwningArena() == other->GetOwningArena()) {
-   #else  // PROTOBUF_FORCE_COPY_IN_SWAP
+#else  // PROTOBUF_FORCE_COPY_IN_SWAP
     if (GetOwningArena() == other->GetOwningArena()) {
-  #endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+#endif // !PROTOBUF_FORCE_COPY_IN_SWAP
       InternalSwap(other);
     } else {
       ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
     }
   }
-  void UnsafeArenaSwap(TransactionProto* other) {
-    if (other == this) return;
+  void UnsafeArenaSwap(TransactionProto *other) {
+    if (other == this)
+      return;
     GOOGLE_DCHECK(GetOwningArena() == other->GetOwningArena());
     InternalSwap(other);
   }
 
   // implements Message ----------------------------------------------
 
-  TransactionProto* New(::PROTOBUF_NAMESPACE_ID::Arena* arena = nullptr) const final {
+  TransactionProto *
+  New(::PROTOBUF_NAMESPACE_ID::Arena *arena = nullptr) const final {
     return CreateMaybeMessage<TransactionProto>(arena);
   }
   using ::PROTOBUF_NAMESPACE_ID::Message::CopyFrom;
-  void CopyFrom(const TransactionProto& from);
+  void CopyFrom(const TransactionProto &from);
   using ::PROTOBUF_NAMESPACE_ID::Message::MergeFrom;
-  void MergeFrom( const TransactionProto& from) {
+  void MergeFrom(const TransactionProto &from) {
     TransactionProto::MergeImpl(*this, from);
   }
-  private:
-  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg);
-  public:
+
+private:
+  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message &to_msg,
+                        const ::PROTOBUF_NAMESPACE_ID::Message &from_msg);
+
+public:
   PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
   bool IsInitialized() const final;
 
   size_t ByteSizeLong() const final;
-  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
-  uint8_t* _InternalSerialize(
-      uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
+  const char *
+  _InternalParse(const char *ptr,
+                 ::PROTOBUF_NAMESPACE_ID::internal::ParseContext *ctx) final;
+  uint8_t *_InternalSerialize(
+      uint8_t *target,
+      ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream *stream) const final;
   int GetCachedSize() const final { return _impl_._cached_size_.Get(); }
 
-  private:
-  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena* arena, bool is_message_owned);
+private:
+  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena *arena, bool is_message_owned);
   void SharedDtor();
   void SetCachedSize(int size) const final;
-  void InternalSwap(TransactionProto* other);
+  void InternalSwap(TransactionProto *other);
 
-  private:
+private:
   friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
   static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
     return "alyncoin.TransactionProto";
   }
-  protected:
-  explicit TransactionProto(::PROTOBUF_NAMESPACE_ID::Arena* arena,
-                       bool is_message_owned = false);
-  public:
 
+protected:
+  explicit TransactionProto(::PROTOBUF_NAMESPACE_ID::Arena *arena,
+                            bool is_message_owned = false);
+
+public:
   static const ClassData _class_data_;
-  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*GetClassData() const final;
+  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData *GetClassData() const final;
 
   ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
 
@@ -185,69 +197,78 @@ class TransactionProto final :
   };
   // string sender = 1;
   void clear_sender();
-  const std::string& sender() const;
-  template <typename ArgT0 = const std::string&, typename... ArgT>
-  void set_sender(ArgT0&& arg0, ArgT... args);
-  std::string* mutable_sender();
-  PROTOBUF_NODISCARD std::string* release_sender();
-  void set_allocated_sender(std::string* sender);
-  private:
-  const std::string& _internal_sender() const;
-  inline PROTOBUF_ALWAYS_INLINE void _internal_set_sender(const std::string& value);
-  std::string* _internal_mutable_sender();
-  public:
+  const std::string &sender() const;
+  template <typename ArgT0 = const std::string &, typename... ArgT>
+  void set_sender(ArgT0 &&arg0, ArgT... args);
+  std::string *mutable_sender();
+  PROTOBUF_NODISCARD std::string *release_sender();
+  void set_allocated_sender(std::string *sender);
 
+private:
+  const std::string &_internal_sender() const;
+  inline PROTOBUF_ALWAYS_INLINE void
+  _internal_set_sender(const std::string &value);
+  std::string *_internal_mutable_sender();
+
+public:
   // string recipient = 2;
   void clear_recipient();
-  const std::string& recipient() const;
-  template <typename ArgT0 = const std::string&, typename... ArgT>
-  void set_recipient(ArgT0&& arg0, ArgT... args);
-  std::string* mutable_recipient();
-  PROTOBUF_NODISCARD std::string* release_recipient();
-  void set_allocated_recipient(std::string* recipient);
-  private:
-  const std::string& _internal_recipient() const;
-  inline PROTOBUF_ALWAYS_INLINE void _internal_set_recipient(const std::string& value);
-  std::string* _internal_mutable_recipient();
-  public:
+  const std::string &recipient() const;
+  template <typename ArgT0 = const std::string &, typename... ArgT>
+  void set_recipient(ArgT0 &&arg0, ArgT... args);
+  std::string *mutable_recipient();
+  PROTOBUF_NODISCARD std::string *release_recipient();
+  void set_allocated_recipient(std::string *recipient);
 
+private:
+  const std::string &_internal_recipient() const;
+  inline PROTOBUF_ALWAYS_INLINE void
+  _internal_set_recipient(const std::string &value);
+  std::string *_internal_mutable_recipient();
+
+public:
   // bytes signature = 4;
   void clear_signature();
-  const std::string& signature() const;
-  template <typename ArgT0 = const std::string&, typename... ArgT>
-  void set_signature(ArgT0&& arg0, ArgT... args);
-  std::string* mutable_signature();
-  PROTOBUF_NODISCARD std::string* release_signature();
-  void set_allocated_signature(std::string* signature);
-  private:
-  const std::string& _internal_signature() const;
-  inline PROTOBUF_ALWAYS_INLINE void _internal_set_signature(const std::string& value);
-  std::string* _internal_mutable_signature();
-  public:
+  const std::string &signature() const;
+  template <typename ArgT0 = const std::string &, typename... ArgT>
+  void set_signature(ArgT0 &&arg0, ArgT... args);
+  std::string *mutable_signature();
+  PROTOBUF_NODISCARD std::string *release_signature();
+  void set_allocated_signature(std::string *signature);
 
+private:
+  const std::string &_internal_signature() const;
+  inline PROTOBUF_ALWAYS_INLINE void
+  _internal_set_signature(const std::string &value);
+  std::string *_internal_mutable_signature();
+
+public:
   // double amount = 3;
   void clear_amount();
   double amount() const;
   void set_amount(double value);
-  private:
+
+private:
   double _internal_amount() const;
   void _internal_set_amount(double value);
-  public:
 
+public:
   // uint64 timestamp = 5;
   void clear_timestamp();
   uint64_t timestamp() const;
   void set_timestamp(uint64_t value);
-  private:
+
+private:
   uint64_t _internal_timestamp() const;
   void _internal_set_timestamp(uint64_t value);
-  public:
 
+public:
   // @@protoc_insertion_point(class_scope:alyncoin.TransactionProto)
- private:
+private:
   class _Internal;
 
-  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
+  template <typename T>
+  friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
   struct Impl_ {
@@ -258,60 +279,59 @@ class TransactionProto final :
     uint64_t timestamp_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   };
-  union { Impl_ _impl_; };
+  union {
+    Impl_ _impl_;
+  };
   friend struct ::TableStruct_transaction_5fprotos_2eproto;
 };
 // ===================================================================
 
-
 // ===================================================================
 
 #ifdef __GNUC__
-  #pragma GCC diagnostic push
-  #pragma GCC diagnostic ignored "-Wstrict-aliasing"
-#endif  // __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#endif // __GNUC__
 // TransactionProto
 
 // string sender = 1;
-inline void TransactionProto::clear_sender() {
-  _impl_.sender_.ClearToEmpty();
-}
-inline const std::string& TransactionProto::sender() const {
+inline void TransactionProto::clear_sender() { _impl_.sender_.ClearToEmpty(); }
+inline const std::string &TransactionProto::sender() const {
   // @@protoc_insertion_point(field_get:alyncoin.TransactionProto.sender)
   return _internal_sender();
 }
 template <typename ArgT0, typename... ArgT>
-inline PROTOBUF_ALWAYS_INLINE
-void TransactionProto::set_sender(ArgT0&& arg0, ArgT... args) {
- 
- _impl_.sender_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+inline PROTOBUF_ALWAYS_INLINE void TransactionProto::set_sender(ArgT0 &&arg0,
+                                                                ArgT... args) {
+
+  _impl_.sender_.Set(static_cast<ArgT0 &&>(arg0), args...,
+                     GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:alyncoin.TransactionProto.sender)
 }
-inline std::string* TransactionProto::mutable_sender() {
-  std::string* _s = _internal_mutable_sender();
+inline std::string *TransactionProto::mutable_sender() {
+  std::string *_s = _internal_mutable_sender();
   // @@protoc_insertion_point(field_mutable:alyncoin.TransactionProto.sender)
   return _s;
 }
-inline const std::string& TransactionProto::_internal_sender() const {
+inline const std::string &TransactionProto::_internal_sender() const {
   return _impl_.sender_.Get();
 }
-inline void TransactionProto::_internal_set_sender(const std::string& value) {
-  
+inline void TransactionProto::_internal_set_sender(const std::string &value) {
+
   _impl_.sender_.Set(value, GetArenaForAllocation());
 }
-inline std::string* TransactionProto::_internal_mutable_sender() {
-  
+inline std::string *TransactionProto::_internal_mutable_sender() {
+
   return _impl_.sender_.Mutable(GetArenaForAllocation());
 }
-inline std::string* TransactionProto::release_sender() {
+inline std::string *TransactionProto::release_sender() {
   // @@protoc_insertion_point(field_release:alyncoin.TransactionProto.sender)
   return _impl_.sender_.Release();
 }
-inline void TransactionProto::set_allocated_sender(std::string* sender) {
+inline void TransactionProto::set_allocated_sender(std::string *sender) {
   if (sender != nullptr) {
-    
+
   } else {
-    
   }
   _impl_.sender_.SetAllocated(sender, GetArenaForAllocation());
 #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
@@ -326,42 +346,43 @@ inline void TransactionProto::set_allocated_sender(std::string* sender) {
 inline void TransactionProto::clear_recipient() {
   _impl_.recipient_.ClearToEmpty();
 }
-inline const std::string& TransactionProto::recipient() const {
+inline const std::string &TransactionProto::recipient() const {
   // @@protoc_insertion_point(field_get:alyncoin.TransactionProto.recipient)
   return _internal_recipient();
 }
 template <typename ArgT0, typename... ArgT>
-inline PROTOBUF_ALWAYS_INLINE
-void TransactionProto::set_recipient(ArgT0&& arg0, ArgT... args) {
- 
- _impl_.recipient_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+inline PROTOBUF_ALWAYS_INLINE void
+TransactionProto::set_recipient(ArgT0 &&arg0, ArgT... args) {
+
+  _impl_.recipient_.Set(static_cast<ArgT0 &&>(arg0), args...,
+                        GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:alyncoin.TransactionProto.recipient)
 }
-inline std::string* TransactionProto::mutable_recipient() {
-  std::string* _s = _internal_mutable_recipient();
+inline std::string *TransactionProto::mutable_recipient() {
+  std::string *_s = _internal_mutable_recipient();
   // @@protoc_insertion_point(field_mutable:alyncoin.TransactionProto.recipient)
   return _s;
 }
-inline const std::string& TransactionProto::_internal_recipient() const {
+inline const std::string &TransactionProto::_internal_recipient() const {
   return _impl_.recipient_.Get();
 }
-inline void TransactionProto::_internal_set_recipient(const std::string& value) {
-  
+inline void
+TransactionProto::_internal_set_recipient(const std::string &value) {
+
   _impl_.recipient_.Set(value, GetArenaForAllocation());
 }
-inline std::string* TransactionProto::_internal_mutable_recipient() {
-  
+inline std::string *TransactionProto::_internal_mutable_recipient() {
+
   return _impl_.recipient_.Mutable(GetArenaForAllocation());
 }
-inline std::string* TransactionProto::release_recipient() {
+inline std::string *TransactionProto::release_recipient() {
   // @@protoc_insertion_point(field_release:alyncoin.TransactionProto.recipient)
   return _impl_.recipient_.Release();
 }
-inline void TransactionProto::set_allocated_recipient(std::string* recipient) {
+inline void TransactionProto::set_allocated_recipient(std::string *recipient) {
   if (recipient != nullptr) {
-    
+
   } else {
-    
   }
   _impl_.recipient_.SetAllocated(recipient, GetArenaForAllocation());
 #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
@@ -373,9 +394,7 @@ inline void TransactionProto::set_allocated_recipient(std::string* recipient) {
 }
 
 // double amount = 3;
-inline void TransactionProto::clear_amount() {
-  _impl_.amount_ = 0;
-}
+inline void TransactionProto::clear_amount() { _impl_.amount_ = 0; }
 inline double TransactionProto::_internal_amount() const {
   return _impl_.amount_;
 }
@@ -384,7 +403,7 @@ inline double TransactionProto::amount() const {
   return _internal_amount();
 }
 inline void TransactionProto::_internal_set_amount(double value) {
-  
+
   _impl_.amount_ = value;
 }
 inline void TransactionProto::set_amount(double value) {
@@ -396,42 +415,43 @@ inline void TransactionProto::set_amount(double value) {
 inline void TransactionProto::clear_signature() {
   _impl_.signature_.ClearToEmpty();
 }
-inline const std::string& TransactionProto::signature() const {
+inline const std::string &TransactionProto::signature() const {
   // @@protoc_insertion_point(field_get:alyncoin.TransactionProto.signature)
   return _internal_signature();
 }
 template <typename ArgT0, typename... ArgT>
-inline PROTOBUF_ALWAYS_INLINE
-void TransactionProto::set_signature(ArgT0&& arg0, ArgT... args) {
- 
- _impl_.signature_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+inline PROTOBUF_ALWAYS_INLINE void
+TransactionProto::set_signature(ArgT0 &&arg0, ArgT... args) {
+
+  _impl_.signature_.SetBytes(static_cast<ArgT0 &&>(arg0), args...,
+                             GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:alyncoin.TransactionProto.signature)
 }
-inline std::string* TransactionProto::mutable_signature() {
-  std::string* _s = _internal_mutable_signature();
+inline std::string *TransactionProto::mutable_signature() {
+  std::string *_s = _internal_mutable_signature();
   // @@protoc_insertion_point(field_mutable:alyncoin.TransactionProto.signature)
   return _s;
 }
-inline const std::string& TransactionProto::_internal_signature() const {
+inline const std::string &TransactionProto::_internal_signature() const {
   return _impl_.signature_.Get();
 }
-inline void TransactionProto::_internal_set_signature(const std::string& value) {
-  
+inline void
+TransactionProto::_internal_set_signature(const std::string &value) {
+
   _impl_.signature_.Set(value, GetArenaForAllocation());
 }
-inline std::string* TransactionProto::_internal_mutable_signature() {
-  
+inline std::string *TransactionProto::_internal_mutable_signature() {
+
   return _impl_.signature_.Mutable(GetArenaForAllocation());
 }
-inline std::string* TransactionProto::release_signature() {
+inline std::string *TransactionProto::release_signature() {
   // @@protoc_insertion_point(field_release:alyncoin.TransactionProto.signature)
   return _impl_.signature_.Release();
 }
-inline void TransactionProto::set_allocated_signature(std::string* signature) {
+inline void TransactionProto::set_allocated_signature(std::string *signature) {
   if (signature != nullptr) {
-    
+
   } else {
-    
   }
   _impl_.signature_.SetAllocated(signature, GetArenaForAllocation());
 #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
@@ -454,7 +474,7 @@ inline uint64_t TransactionProto::timestamp() const {
   return _internal_timestamp();
 }
 inline void TransactionProto::_internal_set_timestamp(uint64_t value) {
-  
+
   _impl_.timestamp_ = value;
 }
 inline void TransactionProto::set_timestamp(uint64_t value) {
@@ -463,14 +483,14 @@ inline void TransactionProto::set_timestamp(uint64_t value) {
 }
 
 #ifdef __GNUC__
-  #pragma GCC diagnostic pop
-#endif  // __GNUC__
+#pragma GCC diagnostic pop
+#endif // __GNUC__
 
 // @@protoc_insertion_point(namespace_scope)
 
-}  // namespace alyncoin
+} // namespace alyncoin
 
 // @@protoc_insertion_point(global_scope)
 
 #include <google/protobuf/port_undef.inc>
-#endif  // GOOGLE_PROTOBUF_INCLUDED_GOOGLE_PROTOBUF_INCLUDED_transaction_5fprotos_2eproto
+#endif // GOOGLE_PROTOBUF_INCLUDED_GOOGLE_PROTOBUF_INCLUDED_transaction_5fprotos_2eproto

@@ -1,0 +1,75 @@
+#include "../../governance/dao.h"
+#include "../../governance/dao_storage.h"
+#include <iostream>
+#include <string>
+#include <ctime>
+
+// CLI: Create Proposal
+void createProposalCLI() {
+    Proposal proposal;
+    std::cout << "Enter Proposal ID: ";
+    std::cin >> proposal.proposal_id;
+    std::cin.ignore();
+    std::cout << "Enter Description: ";
+    std::getline(std::cin, proposal.description);
+    std::cout << "Proposal Types:\n";
+    std::cout << "1. Protocol Upgrade\n2. Fund Allocation\n3. Blacklist Appeal\n4. Custom\n";
+    int typeInput;
+    std::cout << "Choose type (1-4): ";
+    std::cin >> typeInput;
+    proposal.type = static_cast<ProposalType>(typeInput - 1);
+    std::cout << "Enter Proposer Address: ";
+    std::cin >> proposal.proposer_address;
+    uint64_t duration;
+    std::cout << "Voting Duration (seconds): ";
+    std::cin >> duration;
+
+    proposal.creation_time = std::time(nullptr);
+    proposal.deadline_time = proposal.creation_time + duration;
+    proposal.status = ProposalStatus::PENDING;
+    proposal.yes_votes = 0;
+    proposal.no_votes = 0;
+
+    if (DAO::createProposal(proposal)) {
+        std::cout << "Proposal Created Successfully!\n";
+    } else {
+        std::cout << "Failed to create proposal (maybe already exists).\n";
+    }
+}
+
+// CLI: Vote on Proposal
+void voteCLI() {
+    std::string proposal_id;
+    std::cout << "Enter Proposal ID: ";
+    std::cin >> proposal_id;
+    std::string vote;
+    std::cout << "Vote (yes/no): ";
+    std::cin >> vote;
+    uint64_t weight;
+    std::cout << "Enter vote weight (tokens): ";
+    std::cin >> weight;
+
+    bool vote_yes = (vote == "yes");
+
+    if (DAO::castVote(proposal_id, vote_yes, weight)) {
+        std::cout << "Vote Cast Successfully!\n";
+    } else {
+        std::cout << "Failed to cast vote.\n";
+    }
+}
+
+// CLI: Check Proposal Status
+void checkProposalStatusCLI() {
+    std::string proposal_id;
+    std::cout << "Enter Proposal ID: ";
+    std::cin >> proposal_id;
+
+    ProposalStatus status = DAO::checkProposalStatus(proposal_id);
+    std::cout << "Proposal Status: ";
+    switch (status) {
+        case ProposalStatus::PENDING: std::cout << "Pending\n"; break;
+        case ProposalStatus::APPROVED: std::cout << "Approved\n"; break;
+        case ProposalStatus::REJECTED: std::cout << "Rejected\n"; break;
+        case ProposalStatus::EXPIRED: std::cout << "Expired\n"; break;
+    }
+}

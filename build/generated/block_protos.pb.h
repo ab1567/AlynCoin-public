@@ -184,6 +184,11 @@ class BlockProto final :
     kMinerAddressFieldNumber = 5,
     kBlockSignatureFieldNumber = 9,
     kKeccakHashFieldNumber = 10,
+    kZkStarkProofFieldNumber = 11,
+    kDilithiumSignatureFieldNumber = 12,
+    kFalconSignatureFieldNumber = 13,
+    kPublicKeyDilithiumFieldNumber = 14,
+    kPublicKeyFalconFieldNumber = 15,
     kIndexFieldNumber = 1,
     kDifficultyFieldNumber = 8,
     kNonceFieldNumber = 6,
@@ -277,6 +282,76 @@ class BlockProto final :
   std::string* _internal_mutable_keccak_hash();
   public:
 
+  // bytes zk_stark_proof = 11;
+  void clear_zk_stark_proof();
+  const std::string& zk_stark_proof() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_zk_stark_proof(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_zk_stark_proof();
+  PROTOBUF_NODISCARD std::string* release_zk_stark_proof();
+  void set_allocated_zk_stark_proof(std::string* zk_stark_proof);
+  private:
+  const std::string& _internal_zk_stark_proof() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_zk_stark_proof(const std::string& value);
+  std::string* _internal_mutable_zk_stark_proof();
+  public:
+
+  // string dilithium_signature = 12;
+  void clear_dilithium_signature();
+  const std::string& dilithium_signature() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_dilithium_signature(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_dilithium_signature();
+  PROTOBUF_NODISCARD std::string* release_dilithium_signature();
+  void set_allocated_dilithium_signature(std::string* dilithium_signature);
+  private:
+  const std::string& _internal_dilithium_signature() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_dilithium_signature(const std::string& value);
+  std::string* _internal_mutable_dilithium_signature();
+  public:
+
+  // string falcon_signature = 13;
+  void clear_falcon_signature();
+  const std::string& falcon_signature() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_falcon_signature(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_falcon_signature();
+  PROTOBUF_NODISCARD std::string* release_falcon_signature();
+  void set_allocated_falcon_signature(std::string* falcon_signature);
+  private:
+  const std::string& _internal_falcon_signature() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_falcon_signature(const std::string& value);
+  std::string* _internal_mutable_falcon_signature();
+  public:
+
+  // string public_key_dilithium = 14;
+  void clear_public_key_dilithium();
+  const std::string& public_key_dilithium() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_public_key_dilithium(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_public_key_dilithium();
+  PROTOBUF_NODISCARD std::string* release_public_key_dilithium();
+  void set_allocated_public_key_dilithium(std::string* public_key_dilithium);
+  private:
+  const std::string& _internal_public_key_dilithium() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_public_key_dilithium(const std::string& value);
+  std::string* _internal_mutable_public_key_dilithium();
+  public:
+
+  // string public_key_falcon = 15;
+  void clear_public_key_falcon();
+  const std::string& public_key_falcon() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_public_key_falcon(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_public_key_falcon();
+  PROTOBUF_NODISCARD std::string* release_public_key_falcon();
+  void set_allocated_public_key_falcon(std::string* public_key_falcon);
+  private:
+  const std::string& _internal_public_key_falcon() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_public_key_falcon(const std::string& value);
+  std::string* _internal_mutable_public_key_falcon();
+  public:
+
   // int32 index = 1;
   void clear_index();
   int32_t index() const;
@@ -327,6 +402,11 @@ class BlockProto final :
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr miner_address_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr block_signature_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr keccak_hash_;
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr zk_stark_proof_;
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr dilithium_signature_;
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr falcon_signature_;
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr public_key_dilithium_;
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr public_key_falcon_;
     int32_t index_;
     int32_t difficulty_;
     uint64_t nonce_;
@@ -712,6 +792,256 @@ inline void BlockProto::set_allocated_keccak_hash(std::string* keccak_hash) {
   }
 #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
   // @@protoc_insertion_point(field_set_allocated:alyncoin.BlockProto.keccak_hash)
+}
+
+// bytes zk_stark_proof = 11;
+inline void BlockProto::clear_zk_stark_proof() {
+  _impl_.zk_stark_proof_.ClearToEmpty();
+}
+inline const std::string& BlockProto::zk_stark_proof() const {
+  // @@protoc_insertion_point(field_get:alyncoin.BlockProto.zk_stark_proof)
+  return _internal_zk_stark_proof();
+}
+template <typename ArgT0, typename... ArgT>
+inline PROTOBUF_ALWAYS_INLINE
+void BlockProto::set_zk_stark_proof(ArgT0&& arg0, ArgT... args) {
+ 
+ _impl_.zk_stark_proof_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:alyncoin.BlockProto.zk_stark_proof)
+}
+inline std::string* BlockProto::mutable_zk_stark_proof() {
+  std::string* _s = _internal_mutable_zk_stark_proof();
+  // @@protoc_insertion_point(field_mutable:alyncoin.BlockProto.zk_stark_proof)
+  return _s;
+}
+inline const std::string& BlockProto::_internal_zk_stark_proof() const {
+  return _impl_.zk_stark_proof_.Get();
+}
+inline void BlockProto::_internal_set_zk_stark_proof(const std::string& value) {
+  
+  _impl_.zk_stark_proof_.Set(value, GetArenaForAllocation());
+}
+inline std::string* BlockProto::_internal_mutable_zk_stark_proof() {
+  
+  return _impl_.zk_stark_proof_.Mutable(GetArenaForAllocation());
+}
+inline std::string* BlockProto::release_zk_stark_proof() {
+  // @@protoc_insertion_point(field_release:alyncoin.BlockProto.zk_stark_proof)
+  return _impl_.zk_stark_proof_.Release();
+}
+inline void BlockProto::set_allocated_zk_stark_proof(std::string* zk_stark_proof) {
+  if (zk_stark_proof != nullptr) {
+    
+  } else {
+    
+  }
+  _impl_.zk_stark_proof_.SetAllocated(zk_stark_proof, GetArenaForAllocation());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (_impl_.zk_stark_proof_.IsDefault()) {
+    _impl_.zk_stark_proof_.Set("", GetArenaForAllocation());
+  }
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.BlockProto.zk_stark_proof)
+}
+
+// string dilithium_signature = 12;
+inline void BlockProto::clear_dilithium_signature() {
+  _impl_.dilithium_signature_.ClearToEmpty();
+}
+inline const std::string& BlockProto::dilithium_signature() const {
+  // @@protoc_insertion_point(field_get:alyncoin.BlockProto.dilithium_signature)
+  return _internal_dilithium_signature();
+}
+template <typename ArgT0, typename... ArgT>
+inline PROTOBUF_ALWAYS_INLINE
+void BlockProto::set_dilithium_signature(ArgT0&& arg0, ArgT... args) {
+ 
+ _impl_.dilithium_signature_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:alyncoin.BlockProto.dilithium_signature)
+}
+inline std::string* BlockProto::mutable_dilithium_signature() {
+  std::string* _s = _internal_mutable_dilithium_signature();
+  // @@protoc_insertion_point(field_mutable:alyncoin.BlockProto.dilithium_signature)
+  return _s;
+}
+inline const std::string& BlockProto::_internal_dilithium_signature() const {
+  return _impl_.dilithium_signature_.Get();
+}
+inline void BlockProto::_internal_set_dilithium_signature(const std::string& value) {
+  
+  _impl_.dilithium_signature_.Set(value, GetArenaForAllocation());
+}
+inline std::string* BlockProto::_internal_mutable_dilithium_signature() {
+  
+  return _impl_.dilithium_signature_.Mutable(GetArenaForAllocation());
+}
+inline std::string* BlockProto::release_dilithium_signature() {
+  // @@protoc_insertion_point(field_release:alyncoin.BlockProto.dilithium_signature)
+  return _impl_.dilithium_signature_.Release();
+}
+inline void BlockProto::set_allocated_dilithium_signature(std::string* dilithium_signature) {
+  if (dilithium_signature != nullptr) {
+    
+  } else {
+    
+  }
+  _impl_.dilithium_signature_.SetAllocated(dilithium_signature, GetArenaForAllocation());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (_impl_.dilithium_signature_.IsDefault()) {
+    _impl_.dilithium_signature_.Set("", GetArenaForAllocation());
+  }
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.BlockProto.dilithium_signature)
+}
+
+// string falcon_signature = 13;
+inline void BlockProto::clear_falcon_signature() {
+  _impl_.falcon_signature_.ClearToEmpty();
+}
+inline const std::string& BlockProto::falcon_signature() const {
+  // @@protoc_insertion_point(field_get:alyncoin.BlockProto.falcon_signature)
+  return _internal_falcon_signature();
+}
+template <typename ArgT0, typename... ArgT>
+inline PROTOBUF_ALWAYS_INLINE
+void BlockProto::set_falcon_signature(ArgT0&& arg0, ArgT... args) {
+ 
+ _impl_.falcon_signature_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:alyncoin.BlockProto.falcon_signature)
+}
+inline std::string* BlockProto::mutable_falcon_signature() {
+  std::string* _s = _internal_mutable_falcon_signature();
+  // @@protoc_insertion_point(field_mutable:alyncoin.BlockProto.falcon_signature)
+  return _s;
+}
+inline const std::string& BlockProto::_internal_falcon_signature() const {
+  return _impl_.falcon_signature_.Get();
+}
+inline void BlockProto::_internal_set_falcon_signature(const std::string& value) {
+  
+  _impl_.falcon_signature_.Set(value, GetArenaForAllocation());
+}
+inline std::string* BlockProto::_internal_mutable_falcon_signature() {
+  
+  return _impl_.falcon_signature_.Mutable(GetArenaForAllocation());
+}
+inline std::string* BlockProto::release_falcon_signature() {
+  // @@protoc_insertion_point(field_release:alyncoin.BlockProto.falcon_signature)
+  return _impl_.falcon_signature_.Release();
+}
+inline void BlockProto::set_allocated_falcon_signature(std::string* falcon_signature) {
+  if (falcon_signature != nullptr) {
+    
+  } else {
+    
+  }
+  _impl_.falcon_signature_.SetAllocated(falcon_signature, GetArenaForAllocation());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (_impl_.falcon_signature_.IsDefault()) {
+    _impl_.falcon_signature_.Set("", GetArenaForAllocation());
+  }
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.BlockProto.falcon_signature)
+}
+
+// string public_key_dilithium = 14;
+inline void BlockProto::clear_public_key_dilithium() {
+  _impl_.public_key_dilithium_.ClearToEmpty();
+}
+inline const std::string& BlockProto::public_key_dilithium() const {
+  // @@protoc_insertion_point(field_get:alyncoin.BlockProto.public_key_dilithium)
+  return _internal_public_key_dilithium();
+}
+template <typename ArgT0, typename... ArgT>
+inline PROTOBUF_ALWAYS_INLINE
+void BlockProto::set_public_key_dilithium(ArgT0&& arg0, ArgT... args) {
+ 
+ _impl_.public_key_dilithium_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:alyncoin.BlockProto.public_key_dilithium)
+}
+inline std::string* BlockProto::mutable_public_key_dilithium() {
+  std::string* _s = _internal_mutable_public_key_dilithium();
+  // @@protoc_insertion_point(field_mutable:alyncoin.BlockProto.public_key_dilithium)
+  return _s;
+}
+inline const std::string& BlockProto::_internal_public_key_dilithium() const {
+  return _impl_.public_key_dilithium_.Get();
+}
+inline void BlockProto::_internal_set_public_key_dilithium(const std::string& value) {
+  
+  _impl_.public_key_dilithium_.Set(value, GetArenaForAllocation());
+}
+inline std::string* BlockProto::_internal_mutable_public_key_dilithium() {
+  
+  return _impl_.public_key_dilithium_.Mutable(GetArenaForAllocation());
+}
+inline std::string* BlockProto::release_public_key_dilithium() {
+  // @@protoc_insertion_point(field_release:alyncoin.BlockProto.public_key_dilithium)
+  return _impl_.public_key_dilithium_.Release();
+}
+inline void BlockProto::set_allocated_public_key_dilithium(std::string* public_key_dilithium) {
+  if (public_key_dilithium != nullptr) {
+    
+  } else {
+    
+  }
+  _impl_.public_key_dilithium_.SetAllocated(public_key_dilithium, GetArenaForAllocation());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (_impl_.public_key_dilithium_.IsDefault()) {
+    _impl_.public_key_dilithium_.Set("", GetArenaForAllocation());
+  }
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.BlockProto.public_key_dilithium)
+}
+
+// string public_key_falcon = 15;
+inline void BlockProto::clear_public_key_falcon() {
+  _impl_.public_key_falcon_.ClearToEmpty();
+}
+inline const std::string& BlockProto::public_key_falcon() const {
+  // @@protoc_insertion_point(field_get:alyncoin.BlockProto.public_key_falcon)
+  return _internal_public_key_falcon();
+}
+template <typename ArgT0, typename... ArgT>
+inline PROTOBUF_ALWAYS_INLINE
+void BlockProto::set_public_key_falcon(ArgT0&& arg0, ArgT... args) {
+ 
+ _impl_.public_key_falcon_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:alyncoin.BlockProto.public_key_falcon)
+}
+inline std::string* BlockProto::mutable_public_key_falcon() {
+  std::string* _s = _internal_mutable_public_key_falcon();
+  // @@protoc_insertion_point(field_mutable:alyncoin.BlockProto.public_key_falcon)
+  return _s;
+}
+inline const std::string& BlockProto::_internal_public_key_falcon() const {
+  return _impl_.public_key_falcon_.Get();
+}
+inline void BlockProto::_internal_set_public_key_falcon(const std::string& value) {
+  
+  _impl_.public_key_falcon_.Set(value, GetArenaForAllocation());
+}
+inline std::string* BlockProto::_internal_mutable_public_key_falcon() {
+  
+  return _impl_.public_key_falcon_.Mutable(GetArenaForAllocation());
+}
+inline std::string* BlockProto::release_public_key_falcon() {
+  // @@protoc_insertion_point(field_release:alyncoin.BlockProto.public_key_falcon)
+  return _impl_.public_key_falcon_.Release();
+}
+inline void BlockProto::set_allocated_public_key_falcon(std::string* public_key_falcon) {
+  if (public_key_falcon != nullptr) {
+    
+  } else {
+    
+  }
+  _impl_.public_key_falcon_.SetAllocated(public_key_falcon, GetArenaForAllocation());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (_impl_.public_key_falcon_.IsDefault()) {
+    _impl_.public_key_falcon_.Set("", GetArenaForAllocation());
+  }
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.BlockProto.public_key_falcon)
 }
 
 #ifdef __GNUC__

@@ -1,0 +1,23 @@
+[package]
+name = "alynstark"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+alyn-air = { path = "../alyn-air", default-features = false }
+alyn-prover = { path = "../alyn-prover", default-features = false }
+alyn-verifier = { path = "../alyn-verifier", default-features = false }
+alyn-crypto = { path = "../alyn-crypto", default-features = false }
+alyn-math = { path = "../alyn-math", default-features = false }
+alyn-utils = { path = "../alyn-utils", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+    "alyn-air/std",
+    "alyn-prover/std",
+    "alyn-verifier/std",
+    "alyn-crypto/std",
+    "alyn-math/std",
+    "alyn-utils/std"
+]

@@ -1,0 +1,116 @@
+/* File: /AlynCoin/src/explorer/frontend/css/styles.css */
+
+:root {
+    --bg-color: #121212;
+    --text-color: #e0e0e0;
+    --card-bg: #1e1e1e;
+    --accent-color: #4caf50;
+    --border-radius: 10px;
+    --transition-speed: 0.3s;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: 'Segoe UI', Arial, sans-serif;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 1200px;
+    margin-bottom: 30px;
+}
+
+h1 {
+    color: var(--accent-color);
+}
+
+.theme-toggle {
+    cursor: pointer;
+    background: var(--accent-color);
+    color: #fff;
+    padding: 8px 12px;
+    border: none;
+    border-radius: var(--border-radius);
+    transition: background var(--transition-speed);
+}
+
+.theme-toggle:hover {
+    background: #45a049;
+}
+
+.container {
+    width: 100%;
+    max-width: 1200px;
+    display: grid;
+    gap: 20px;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.card {
+    background-color: var(--card-bg);
+    padding: 20px;
+    border-radius: var(--border-radius);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    transition: transform var(--transition-speed);
+}
+
+.card:hover {
+    transform: scale(1.02);
+}
+
+pre {
+    background-color: #181818;
+    padding: 15px;
+    border-radius: var(--border-radius);
+    overflow-x: auto;
+}
+
+input, button {
+    padding: 10px;
+    margin-top: 10px;
+    margin-right: 5px;
+    border: none;
+    border-radius: var(--border-radius);
+}
+
+input {
+    width: 70%;
+}
+
+button {
+    background-color: var(--accent-color);
+    color: white;
+    cursor: pointer;
+    transition: background var(--transition-speed);
+}
+
+button:hover {
+    background-color: #45a049;
+}
+
+footer {
+    margin-top: 50px;
+    text-align: center;
+    color: #888;
+}
+
+/* Light Theme Toggle */
+.light-mode {
+    --bg-color: #f0f0f0;
+    --text-color: #222;
+    --card-bg: #ffffff;
+}
+
+@media screen and (max-width: 600px) {
+    input {
+        width: 100%;
+    }
+}
