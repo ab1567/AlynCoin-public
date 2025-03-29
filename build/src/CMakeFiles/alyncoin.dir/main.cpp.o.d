@@ -1348,7 +1348,8 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
  /usr/include/boost/asio/windows/stream_handle.hpp \
  /usr/include/boost/asio/writable_pipe.hpp \
  /usr/include/boost/asio/write_at.hpp \
- /usr/include/boost/asio/impl/write_at.hpp /root/AlynCoin/src/miner.h \
+ /usr/include/boost/asio/impl/write_at.hpp \
+ /root/AlynCoin/src/db/db_paths.h /root/AlynCoin/src/miner.h \
  /root/AlynCoin/src/network.h /usr/include/c++/13/thread \
  /usr/include/c++/13/bits/this_thread_sleep.h \
  /root/AlynCoin/src/network/peer_blacklist.h /root/AlynCoin/src/wallet.h

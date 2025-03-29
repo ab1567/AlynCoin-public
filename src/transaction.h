@@ -34,7 +34,8 @@ public:
     return senderPublicKeyDilithium;
   }
   std::string getSenderPublicKeyFalcon() const { return senderPublicKeyFalcon; }
-
+    void setSenderPublicKeyDilithium(const std::string &key) { senderPublicKeyDilithium = key; }
+    void setSenderPublicKeyFalcon(const std::string &key) { senderPublicKeyFalcon = key; }
   void setAmount(double newAmount);
   void setZkProof(const std::string &proof);
   void signTransaction(const std::vector<unsigned char> &dilithiumPrivateKey,
@@ -52,7 +53,7 @@ public:
   Json::Value toJSON() const;
   static Transaction fromJSON(const Json::Value &txJson);
   static Transaction fromProto(const alyncoin::TransactionProto &proto);
-
+  alyncoin::TransactionProto toProto() const;
   // RocksDB
   static bool saveToDB(const Transaction &tx, int index);
   static std::vector<Transaction> loadFromDB();
@@ -66,6 +67,7 @@ private:
   std::string recipient;
   double amount;
   std::string signatureDilithium;
+  std::string hash;
   std::string signatureFalcon;
   time_t timestamp;
   std::string zkProof;

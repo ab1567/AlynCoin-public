@@ -1350,7 +1350,8 @@ src/CMakeFiles/alyncoin_lib.dir/miner.cpp.o: /root/AlynCoin/src/miner.cpp \
  /usr/include/boost/asio/windows/stream_handle.hpp \
  /usr/include/boost/asio/writable_pipe.hpp \
  /usr/include/boost/asio/write_at.hpp \
- /usr/include/boost/asio/impl/write_at.hpp /root/AlynCoin/src/blake3.h \
+ /usr/include/boost/asio/impl/write_at.hpp \
+ /root/AlynCoin/src/db/db_paths.h /root/AlynCoin/src/blake3.h \
  /root/AlynCoin/src/mining.h /root/AlynCoin/src/difficulty.h \
  /usr/include/c++/13/numeric /usr/include/c++/13/bits/stl_numeric.h \
  /usr/include/c++/13/pstl/glue_numeric_defs.h /usr/include/c++/13/thread \

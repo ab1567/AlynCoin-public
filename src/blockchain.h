@@ -13,6 +13,7 @@
 #include <boost/asio.hpp>
 #include <cstdint>
 #include <ctime>
+#include "db/db_paths.h"
 #include <deque>
 #include <functional>
 #include <json/json.h>
@@ -77,12 +78,12 @@ private:
   void loadVestingInfoFromDB();
   void saveVestingInfoToDB();
 
-  Blockchain(unsigned short port, const std::string &dbPath = "");
+  Blockchain(unsigned short port, const std::string &dbPath = DBPaths::getBlockchainDB());
 
 public:
   static Blockchain &
   getInstance(unsigned short port = 8333,
-              const std::string &dbPath = "/root/.alyncoin/blockchain_db");
+              const std::string &dbPath = DBPaths::getBlockchainDB());
   Blockchain(const Blockchain &) = delete;
   Blockchain &operator=(const Blockchain &) = delete;
   ~Blockchain();
@@ -96,6 +97,7 @@ public:
   void saveTransactionsToDB();
   void loadTransactionsFromDB();
   void reloadBlockchainState();
+  void recalculateBalancesFromChain();
   void mergeWith(const Blockchain &other);
   void updateFromJSON(const std::string &jsonData);
   void clearPendingTransactions();
@@ -128,7 +130,7 @@ public:
   // Updated block addition and validation functions
   bool addBlock(const Block &block);
   bool isValidNewBlock(const Block &newBlock);
-
+  double calculateBalance(const std::string &address, const std::map<std::string, double> &tempSnapshot) const;
   void fromProto(const alyncoin::BlockchainProto &protoChain);
   void replaceChain(const std::vector<Block> &newChain);
   const Block &getLatestBlock() const;

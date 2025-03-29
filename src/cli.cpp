@@ -10,6 +10,7 @@
 #include <limits>
 #include <string>
 #include <filesystem>
+#include "db/db_paths.h"
 
 void printMenu() {
   std::cout << "\n=== AlynCoin Wallet CLI ===\n";
@@ -37,7 +38,7 @@ void printBlacklistMenu() {
 
 int cliMain(int argc, char *argv[]) {
   unsigned short port = 8333;
-  std::string dbPath = "";
+  std::string dbPath = DBPaths::getBlockchainDB();
   std::string connectPeer = "";
   std::string keyDir = "/root/.alyncoin/keys/";
   std::string blacklistPath = "/root/.alyncoin/blacklist";

@@ -2488,6 +2488,7 @@ src/CMakeFiles/alyncoin_lib.dir/block.cpp.o: /root/AlynCoin/src/block.cpp \
   /root/AlynCoin/src/blockchain.h \
   /root/AlynCoin/src/crypto_protos.pb.h \
   /root/AlynCoin/src/crypto_utils.h \
+  /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
   /root/AlynCoin/src/generated/transaction_protos.pb.h \
@@ -4016,6 +4017,7 @@ src/CMakeFiles/alyncoin_lib.dir/blockchain.cpp.o: /root/AlynCoin/src/blockchain.
   /root/AlynCoin/src/blockchain.h \
   /root/AlynCoin/src/crypto_protos.pb.h \
   /root/AlynCoin/src/crypto_utils.h \
+  /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/difficulty.h \
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
@@ -6464,6 +6466,7 @@ src/CMakeFiles/alyncoin_lib.dir/miner.cpp.o: /root/AlynCoin/src/miner.cpp \
   /root/AlynCoin/src/blockchain.h \
   /root/AlynCoin/src/crypto_protos.pb.h \
   /root/AlynCoin/src/crypto_utils.h \
+  /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/difficulty.h \
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
@@ -7980,6 +7983,7 @@ src/CMakeFiles/alyncoin_lib.dir/network.cpp.o: /root/AlynCoin/src/network.cpp \
   /root/AlynCoin/src/blockchain.h \
   /root/AlynCoin/src/crypto_protos.pb.h \
   /root/AlynCoin/src/crypto_utils.h \
+  /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
   /root/AlynCoin/src/generated/transaction_protos.pb.h \
@@ -9504,6 +9508,7 @@ src/CMakeFiles/alyncoin_lib.dir/network.cpp.o: /root/AlynCoin/src/network.cpp \
   /usr/lib/gcc/x86_64-linux-gnu/13/include/syslimits.h
 
 src/CMakeFiles/alyncoin_lib.dir/network/peer_blacklist.cpp.o: /root/AlynCoin/src/network/peer_blacklist.cpp \
+  /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/network/peer_blacklist.h \
   /usr/include/alloca.h \
   /usr/include/asm-generic/errno-base.h \
@@ -12173,6 +12178,7 @@ src/CMakeFiles/alyncoin_lib.dir/syncing.cpp.o: /root/AlynCoin/src/syncing.cpp \
   /root/AlynCoin/src/blockchain.h \
   /root/AlynCoin/src/crypto_protos.pb.h \
   /root/AlynCoin/src/crypto_utils.h \
+  /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
   /root/AlynCoin/src/generated/sync_protos.pb.h \
@@ -13683,6 +13689,7 @@ src/CMakeFiles/alyncoin_lib.dir/syncing.cpp.o: /root/AlynCoin/src/syncing.cpp \
 src/CMakeFiles/alyncoin_lib.dir/transaction.cpp.o: /root/AlynCoin/src/transaction.cpp \
   /root/AlynCoin/src/base64.h \
   /root/AlynCoin/src/crypto_utils.h \
+  /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/generated/transaction_protos.pb.h \
   /root/AlynCoin/src/hash.h \
   /root/AlynCoin/src/transaction.h \
@@ -14461,6 +14468,7 @@ src/CMakeFiles/alyncoin_lib.dir/wallet.cpp.o: /root/AlynCoin/src/wallet.cpp \
   /root/AlynCoin/src/blockchain.h \
   /root/AlynCoin/src/crypto_protos.pb.h \
   /root/AlynCoin/src/crypto_utils.h \
+  /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
   /root/AlynCoin/src/generated/transaction_protos.pb.h \
@@ -16433,8 +16441,6 @@ src/CMakeFiles/alyncoin_lib.dir/zk/winterfell_stark.cpp.o: /root/AlynCoin/src/zk
 
 /usr/include/openssl/bn.h:
 
-/usr/include/openssl/bioerr.h:
-
 /usr/include/openssl/asn1err.h:
 
 /usr/include/openssl/asn1.h:
@@ -16953,14 +16959,6 @@ src/CMakeFiles/alyncoin_lib.dir/zk/winterfell_stark.cpp.o: /root/AlynCoin/src/zk
 
 /usr/include/boost/asio/detail/consuming_buffers.hpp:
 
-/usr/include/boost/asio/as_tuple.hpp:
-
-/usr/include/boost/predef/compiler/nvcc.h:
-
-/usr/include/c++/13/bits/basic_string.h:
-
-/usr/include/boost/date_time/gregorian/greg_weekday.hpp:
-
 /usr/include/boost/numeric/conversion/detail/udt_builtin_mixture.hpp:
 
 /usr/include/boost/asio/detail/completion_handler.hpp:
@@ -17017,6 +17015,10 @@ src/CMakeFiles/alyncoin_lib.dir/zk/winterfell_stark.cpp.o: /root/AlynCoin/src/zk
 
 /usr/include/boost/asio/detail/conditionally_enabled_mutex.hpp:
 
+/usr/include/openssl/bioerr.h:
+
+/root/AlynCoin/src/db/db_paths.h:
+
 /usr/include/boost/asio/bind_immediate_executor.hpp:
 
 /usr/include/boost/predef/compiler/digitalmars.h:
@@ -17045,10 +17047,6 @@ src/CMakeFiles/alyncoin_lib.dir/zk/winterfell_stark.cpp.o: /root/AlynCoin/src/zk
 
 /usr/include/boost/asio/execution/set_done.hpp:
 
-/usr/include/boost/asio/detail/composed_work.hpp:
-
-/usr/include/boost/asio/basic_raw_socket.hpp:
-
 /usr/include/boost/asio/basic_datagram_socket.hpp:
 
 /usr/include/boost/asio/async_result.hpp:
@@ -17074,6 +17072,18 @@ generated/main_protos.pb.h:
 /usr/include/x86_64-linux-gnu/bits/stdint-intn.h:
 
 /usr/include/boost/asio/associated_allocator.hpp:
+
+/usr/include/boost/asio/as_tuple.hpp:
+
+/usr/include/boost/asio/basic_raw_socket.hpp:
+
+/usr/include/boost/asio/detail/composed_work.hpp:
+
+/usr/include/boost/predef/compiler/nvcc.h:
+
+/usr/include/c++/13/bits/basic_string.h:
+
+/usr/include/boost/date_time/gregorian/greg_weekday.hpp:
 
 /usr/include/boost/asio/any_io_executor.hpp:
 
@@ -17787,17 +17797,17 @@ generated/sync_protos.pb.h:
 
 /usr/include/c++/13/bits/alloc_traits.h:
 
-/usr/include/x86_64-linux-gnu/bits/libm-simd-decl-stubs.h:
+/usr/include/boost/asio/local/connect_pair.hpp:
 
-/usr/include/boost/asio/detail/impl/eventfd_select_interrupter.ipp:
+generated/blockchain_protos.pb.h:
 
 /usr/include/libintl.h:
 
 /usr/include/x86_64-linux-gnu/bits/long-double.h:
 
-/usr/include/boost/asio/local/connect_pair.hpp:
+/usr/include/x86_64-linux-gnu/bits/libm-simd-decl-stubs.h:
 
-generated/blockchain_protos.pb.h:
+/usr/include/boost/asio/detail/impl/eventfd_select_interrupter.ipp:
 
 /usr/include/boost/asio/ip/impl/network_v4.hpp:
 

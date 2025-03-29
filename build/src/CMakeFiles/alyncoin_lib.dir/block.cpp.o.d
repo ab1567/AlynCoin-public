@@ -1350,7 +1350,8 @@ src/CMakeFiles/alyncoin_lib.dir/block.cpp.o: /root/AlynCoin/src/block.cpp \
  /usr/include/boost/asio/windows/stream_handle.hpp \
  /usr/include/boost/asio/writable_pipe.hpp \
  /usr/include/boost/asio/write_at.hpp \
- /usr/include/boost/asio/impl/write_at.hpp /root/AlynCoin/src/keccak.h \
+ /usr/include/boost/asio/impl/write_at.hpp \
+ /root/AlynCoin/src/db/db_paths.h /root/AlynCoin/src/keccak.h \
  /root/AlynCoin/src/zk/winterfell_ffi.h /usr/include/c++/13/filesystem \
  /usr/include/c++/13/bits/fs_fwd.h /usr/include/c++/13/bits/fs_path.h \
  /usr/include/c++/13/locale \

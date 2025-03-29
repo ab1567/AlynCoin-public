@@ -52,7 +52,10 @@ Json::Value ExplorerDB::getBlockByHash(const std::string& blockHash) {
 // ============ Get Transaction by Hash ============
 Json::Value ExplorerDB::getTransactionByHash(const std::string& txHash) {
     Json::Value txJson;
-    if (!db) return txJson;
+    if (!db) {
+        txJson["error"] = "Database not initialized";
+        return txJson;
+    }
 
     std::string txKey = "tx_" + txHash;
     std::string txData;
@@ -60,12 +63,14 @@ Json::Value ExplorerDB::getTransactionByHash(const std::string& txHash) {
 
     if (!status.ok()) {
         std::cerr << "❌ [ExplorerDB] Transaction not found: " << txHash << "\n";
+        txJson["error"] = "Transaction not found";
         return txJson;
     }
 
     alyncoin::TransactionProto protoTx;
     if (!protoTx.ParseFromString(txData)) {
         std::cerr << "❌ [ExplorerDB] TransactionProto parse failed!\n";
+        txJson["error"] = "Failed to parse transaction data";
         return txJson;
     }
 
@@ -127,17 +132,34 @@ Json::Value ExplorerDB::getBlockchainStats() {
 double ExplorerDB::getBalance(const std::string& address) {
     if (!db) return 0;
 
-    std::string balanceKey = "balance_" + address;
-    std::string balanceStr;
-    rocksdb::Status status = db->Get(rocksdb::ReadOptions(), balanceKey, &balanceStr);
+    double balance = 0.0;
 
-    if (!status.ok()) {
-        std::cerr << "⚠️ [ExplorerDB] No balance found for address: " << address << "\n";
-        return 0;
+    rocksdb::Iterator* it = db->NewIterator(rocksdb::ReadOptions());
+    for (it->SeekToFirst(); it->Valid(); it->Next()) {
+        std::string key = it->key().ToString();
+        if (key.find("tx_") != 0) continue;
+
+        alyncoin::TransactionProto protoTx;
+        if (!protoTx.ParseFromString(it->value().ToString())) continue;
+
+        // System or reward transactions
+        if (protoTx.sender() == "System" && protoTx.recipient() == address) {
+            balance += protoTx.amount();
+        }
+        // Normal incoming tx
+        else if (protoTx.recipient() == address) {
+            balance += protoTx.amount();
+        }
+        // Outgoing tx
+        else if (protoTx.sender() == address) {
+            balance -= protoTx.amount();
+        }
     }
 
-    return std::stod(balanceStr);
+    delete it;
+    return balance;
 }
+
 // ====== Get Block by Height ======
 Json::Value ExplorerDB::getBlockByHeight(int height) {
     Json::Value blockJson;

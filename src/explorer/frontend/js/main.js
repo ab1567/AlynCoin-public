@@ -1,19 +1,22 @@
-const API_BASE = "http://localhost:8080";
+const API_BASE = window.location.hostname === "localhost"
+  ? "http://localhost:8080"
+  : "http://" + window.location.hostname + ":8080";
 
 // Utility function to display loading spinner
 function toggleLoading(show) {
     const loader = document.getElementById('loading');
-    if (show) {
-        loader.style.display = 'block';
-    } else {
-        loader.style.display = 'none';
-    }
+    if (loader) loader.style.display = show ? 'block' : 'none';
 }
 
 // Utility function to handle fetch responses
 async function handleFetchResponse(response) {
     if (!response.ok) {
-        const errorData = await response.json();
+        let errorData = {};
+        try {
+            errorData = await response.json();
+        } catch (e) {
+            // fallback if response is not JSON
+        }
         throw new Error(`Error ${response.status}: ${errorData.message || response.statusText}`);
     }
     return response.json();

@@ -5,11 +5,12 @@
 #include <iostream>
 #include <sstream>
 #include <json/json.h> // You already use JSON in explorer
+#include "db/db_paths.h"
 
 PeerBlacklist::PeerBlacklist(const std::string& path, int threshold) : db_path(path), strike_threshold(threshold) {
     rocksdb::Options options;
     options.create_if_missing = true;
-    rocksdb::Status status = rocksdb::DB::Open(options, db_path, &db);
+    rocksdb::Status status = rocksdb::DB::Open(options, DBPaths::getBlacklistDB(), &db);
     if (!status.ok()) {
         std::cerr << "Failed to open peer blacklist DB: " << status.ToString() << std::endl;
         db = nullptr;

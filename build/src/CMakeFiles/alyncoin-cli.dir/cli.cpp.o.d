@@ -1349,6 +1349,7 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
  /usr/include/boost/asio/writable_pipe.hpp \
  /usr/include/boost/asio/write_at.hpp \
  /usr/include/boost/asio/impl/write_at.hpp \
+ /root/AlynCoin/src/db/db_paths.h \
  /root/AlynCoin/src/cli/peer_blacklist_cli.h \
  /root/AlynCoin/src/cli/../network/peer_blacklist.h \
  /root/AlynCoin/src/network.h /usr/include/c++/13/thread \

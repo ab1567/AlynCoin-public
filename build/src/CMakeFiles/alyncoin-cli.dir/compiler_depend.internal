@@ -9,6 +9,7 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o
  /root/AlynCoin/src/cli/peer_blacklist_cli.h
  /root/AlynCoin/src/crypto_protos.pb.h
  /root/AlynCoin/src/crypto_utils.h
+ /root/AlynCoin/src/db/db_paths.h
  /root/AlynCoin/src/generated/block_protos.pb.h
  /root/AlynCoin/src/generated/blockchain_protos.pb.h
  /root/AlynCoin/src/generated/transaction_protos.pb.h

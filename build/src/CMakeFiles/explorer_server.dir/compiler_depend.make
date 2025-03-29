@@ -1099,6 +1099,7 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_db.cpp.o: /root/AlynCoin/sr
   /usr/lib/gcc/x86_64-linux-gnu/13/include/syslimits.h
 
 src/CMakeFiles/explorer_server.dir/explorer/explorer_server.cpp.o: /root/AlynCoin/src/explorer/explorer_server.cpp \
+  /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/deps/Crow/include/crow.h \
   /root/AlynCoin/src/deps/Crow/include/crow/TinySHA1.hpp \
   /root/AlynCoin/src/deps/Crow/include/crow/app.h \
@@ -3028,6 +3029,8 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_utils.cpp.o: /root/AlynCoin
 /root/AlynCoin/src/explorer/explorer_utils.cpp:
 
 /root/AlynCoin/src/explorer/explorer_server.h:
+
+/root/AlynCoin/src/db/db_paths.h:
 
 /root/AlynCoin/src/explorer/explorer_server.cpp:
 

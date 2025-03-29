@@ -8,6 +8,7 @@
 #include <iostream>
 #include <limits>
 #include <thread>
+#include "db/db_paths.h"
 
 void clearInputBuffer() {
   std::cin.clear();
@@ -16,7 +17,7 @@ void clearInputBuffer() {
 
 int main(int argc, char *argv[]) {
   unsigned short port = 8333;
-  std::string dbPath = "";
+  std::string dbPath = DBPaths::getBlockchainDB();
   std::string connectIP = "";
   std::string keyDir = "/root/.alyncoin/keys/";
   std::string blacklistPath = "/root/.alyncoin/blacklist";

@@ -1,6 +1,7 @@
 #include "devfund.h"
 #include "../db/rocksdb_wrapper.h"
 #include <mutex>
+#include "db/db_paths.h"
 
 namespace DevFund {
 
@@ -10,7 +11,7 @@ const std::string FUND_KEY = "devfund:balance";
 
 // Load balance at startup
 void initialize() {
-    RocksDBWrapper db("/root/AlynCoin/data/governance_db");
+    RocksDBWrapper db(DBPaths::getGovernanceDB());
     std::string value;
     if (db.get(FUND_KEY, value)) {
         currentBalance = std::stoull(value);
@@ -23,7 +24,7 @@ void initialize() {
 bool addFunds(uint64_t amount) {
     std::lock_guard<std::mutex> lock(fundMutex);
     currentBalance += amount;
-    RocksDBWrapper db("/root/AlynCoin/data/governance_db");
+    RocksDBWrapper db(DBPaths::getGovernanceDB());
     return db.put(FUND_KEY, std::to_string(currentBalance));
 }
 
@@ -34,7 +35,7 @@ bool spendFunds(uint64_t amount, const std::string& recipientAddress) {
         return false; // Insufficient balance
     }
     currentBalance -= amount;
-    RocksDBWrapper db("/root/AlynCoin/data/governance_db");
+    RocksDBWrapper db(DBPaths::getGovernanceDB());
     // Store updated balance
     db.put(FUND_KEY, std::to_string(currentBalance));
 

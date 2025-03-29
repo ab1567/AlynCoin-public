@@ -20,6 +20,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include "db/db_paths.h"
 #include <locale>
 #include <mutex>
 #include <sys/stat.h>
@@ -27,7 +28,7 @@
 
 #define ROLLUP_CHAIN_FILE "rollup_chain.dat"
 namespace fs = std::filesystem;
-const std::string BLOCKCHAIN_DB_PATH = "/root/.alyncoin/blockchain_db";
+const std::string BLOCKCHAIN_DB_PATH = DBPaths::getBlockchainDB();
 std::vector<StateChannel> stateChannels;
 std::vector<RollupBlock> rollupBlocks;
 double totalSupply = 0.0;
@@ -74,6 +75,7 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath)
 
   // Load existing vesting info (if previously applied)
   loadVestingInfoFromDB();
+  recalculateBalancesFromChain();
 
   // ✅ Check if vesting marker exists
   std::string vestingMarker;
@@ -162,37 +164,72 @@ Block Blockchain::createGenesisBlock() {
 
 // ✅ Adds block, applies smart burn, and broadcasts to peers
 bool Blockchain::addBlock(const Block &newBlock) {
-  if (chain.empty()) {
-    if (!newBlock.isGenesisBlock()) {
-      std::cerr << "❌ First block must be Genesis Block!\n";
-      return false;
+    if (chain.empty()) {
+        if (!newBlock.isGenesisBlock()) {
+            std::cerr << "❌ First block must be Genesis Block!\n";
+            return false;
+        }
+    } else {
+        Block lastBlock = chain.back();
+        if (!newBlock.isValid(lastBlock.getHash())) {
+            std::cerr << "❌ Invalid block detected. Rejecting!\n";
+            return false;
+        }
     }
-  } else {
-    Block lastBlock = chain.back();
-    if (!newBlock.isValid(lastBlock.getHash())) {
-      std::cerr << "❌ Invalid block detected. Rejecting!\n";
-      return false;
+
+    // ✅ Push block to chain
+    chain.push_back(newBlock);
+
+    // ✅ Remove included transactions from pending
+    for (const auto &tx : newBlock.getTransactions()) {
+        pendingTransactions.erase(
+            std::remove_if(
+                pendingTransactions.begin(), pendingTransactions.end(),
+                [&tx](const Transaction &pendingTx) {
+                    return pendingTx.getHash() == tx.getHash();
+                }),
+            pendingTransactions.end());
     }
-  }
 
-  // Push block with proof (proof is already in block)
-  chain.push_back(newBlock);
+    // ✅ Serialize block using protobuf
+    alyncoin::BlockProto protoBlock;
+    newBlock.serializeToProtobuf(protoBlock);
+    std::string serializedBlock;
+    if (!protoBlock.SerializeToString(&serializedBlock)) {
+        std::cerr << "❌ Failed to serialize block using Protobuf.\n";
+        return false;
+    }
 
-  // Remove included transactions
-  for (const auto &tx : newBlock.getTransactions()) {
-    pendingTransactions.erase(
-        std::remove_if(pendingTransactions.begin(), pendingTransactions.end(),
-                       [&tx](const Transaction &pendingTx) {
-                         return pendingTx.getHash() == tx.getHash();
-                       }),
-        pendingTransactions.end());
-  }
+    // ✅ Save block by height
+    std::string blockKeyByHeight = "block_height_" + std::to_string(newBlock.getIndex());
+    rocksdb::Status statusHeight = db->Put(rocksdb::WriteOptions(), blockKeyByHeight, serializedBlock);
+    if (!statusHeight.ok()) {
+        std::cerr << "❌ Failed to save block by height: " << statusHeight.ToString() << "\n";
+        return false;
+    }
 
-  saveToDB();
-  saveTransactionsToDB();
+    // ✅ Save block by hash
+    std::string blockKeyByHash = "block_" + newBlock.getHash();
+    rocksdb::Status statusHash = db->Put(rocksdb::WriteOptions(), blockKeyByHash, serializedBlock);
+    if (!statusHash.ok()) {
+        std::cerr << "❌ Failed to save block by hash: " << statusHash.ToString() << "\n";
+        return false;
+    }
 
-  std::cout << "✅ Block added to blockchain. Pending TXs updated.\n";
-  return true;
+    // ✅ Update blockchain state
+    if (!saveToDB()) {
+        std::cerr << "❌ Failed to save blockchain to database after adding block.\n";
+        return false;
+    }
+
+    // ✅ Update transactions
+    saveTransactionsToDB();
+
+    // ✅ Recalculate balances explicitly from chain
+    recalculateBalancesFromChain();
+
+    std::cout << "✅ Block added to blockchain. Pending transactions updated and balances recalculated.\n";
+    return true;
 }
 
 // ✅ **Singleton Instance**
@@ -288,110 +325,133 @@ void Blockchain::setPendingTransactions(
 Block Blockchain::minePendingTransactions(const std::string &minerAddress,
                                           const std::vector<unsigned char> &minerDilithiumPriv,
                                           const std::vector<unsigned char> &minerFalconPriv) {
-  auto t1 = std::chrono::high_resolution_clock::now();
-  std::cout << "[DEBUG] Waiting on blockchainMutex in minePendingTransactions()...\n";
-  std::lock_guard<std::mutex> lock(blockchainMutex);
-  auto t2 = std::chrono::high_resolution_clock::now();
-  std::chrono::duration<double> elapsed = t2 - t1;
-  std::cout << "[DEBUG] Acquired mutex in " << elapsed.count() << " seconds.\n";
+    auto t1 = std::chrono::high_resolution_clock::now();
+    std::cout << "[DEBUG] Waiting on blockchainMutex in minePendingTransactions()...\n";
+    std::lock_guard<std::mutex> lock(blockchainMutex);
+    auto t2 = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = t2 - t1;
+    std::cout << "[DEBUG] Acquired mutex in " << elapsed.count() << " seconds.\n";
 
-  if (pendingTransactions.empty()) {
-    std::cerr << "⚠️ No transactions to mine!\n";
-    return Block();
-  }
-
-  std::vector<Transaction> validTransactions;
-  std::cout << "[DEBUG] Validating and preparing transactions...\n";
-
-  for (const auto &tx : pendingTransactions) {
-    if (isTransactionValid(tx)) {
-      double originalAmount = tx.getAmount();
-      std::string sender = tx.getSender();
-      std::string recipient = tx.getRecipient();
-      std::string sigDil = tx.getSignatureDilithium();
-      std::string sigFal = tx.getSignatureFalcon();
-      std::time_t timestamp = tx.getTimestamp();
-
-      // Optional: truncate overly large signatures to avoid malformed crashes
-      if (sigDil.length() > 5000) sigDil = sigDil.substr(0, 5000);
-      if (sigFal.length() > 5000) sigFal = sigFal.substr(0, 5000);
-
-      double txActivity = static_cast<double>(getRecentTransactionCount());
-      double burnRate = std::min(std::max(0.01, txActivity / 1000.0), 0.05);
-
-      double feeAmount = originalAmount * 0.01;
-      double burnAmount = feeAmount * burnRate;
-      double devFundAmount = feeAmount - burnAmount;
-      double finalAmount = originalAmount - feeAmount;
-
-      totalBurnedSupply += burnAmount;
-
-      validTransactions.emplace_back(sender, recipient, finalAmount, sigDil, sigFal, timestamp);
-      validTransactions.emplace_back(sender, DEV_FUND_ADDRESS, devFundAmount, sigDil, sigFal, timestamp);
-
-      std::cout << "🔥 Burned: " << burnAmount
-                << ", 💰 Dev Fund: " << devFundAmount
-                << ", Final Sent: " << finalAmount << std::endl;
-    } else {
-      std::cerr << "❌ Invalid transaction detected. Skipping.\n";
+    if (pendingTransactions.empty()) {
+        std::cerr << "⚠️ No transactions to mine!\n";
+        return Block();
     }
-  }
 
-  std::cout << "[DEBUG] Applying capped supply reward logic...\n";
-  if (totalSupply < MAX_SUPPLY) {
-    double reward = calculateBlockReward();
-    if (totalSupply + reward > MAX_SUPPLY)
-      reward = MAX_SUPPLY - totalSupply;
+    std::vector<Transaction> validTransactions;
+    std::map<std::string, double> tempBalances;
 
-  validTransactions.push_back(Transaction::createSystemRewardTransaction(minerAddress, reward));
+    std::cout << "[DEBUG] Validating and preparing transactions...\n";
 
-    totalSupply += reward;
-    std::cout << "⛏️ Block reward: " << reward << " AlynCoin\n";
-  } else {
-    std::cerr << "🚫 Block reward skipped. Max supply reached.\n";
-  }
+    for (const auto &tx : pendingTransactions) {
+        if (!isTransactionValid(tx)) {
+            std::cerr << "❌ Transaction verification failed. Skipping.\n";
+            continue;
+        }
 
-  Block lastBlock = getLatestBlock();
-  std::cout << "[DEBUG] Last block hash: " << lastBlock.getHash() << "\n";
+        std::string sender = tx.getSender();
+        double amount = tx.getAmount();
+        std::string recipient = tx.getRecipient();
 
-  std::cout << "[DEBUG] Adjusting difficulty...\n";
-  adjustDifficulty();
+        double senderBalance = calculateBalance(sender, tempBalances);
+        if (sender != "System" && senderBalance < amount) {
+            std::cerr << "❌ Insufficient balance (" << senderBalance << ") for sender (" << sender << ")\n";
+            continue;
+        }
 
-  std::cout << "[DEBUG] Creating new block...\n";
-  Block newBlock(chain.size(), lastBlock.getHash(), validTransactions,
-                 minerAddress, difficulty, std::time(nullptr), std::time(nullptr));
+        // Fee + burn logic
+// Fee + burn logic
+        double txActivity = static_cast<double>(getRecentTransactionCount());
+        double burnRate = std::clamp(txActivity / 1000.0, 0.01, 0.05);
 
-  std::cout << "[DEBUG] Starting PoW mining with difficulty " << difficulty << "...\n";
-  newBlock.mineBlock(difficulty);
+        double rawFee = amount * 0.01;
+        double maxFeePercent = 0.00005;
+        double feeAmount = std::min({rawFee, amount * maxFeePercent, 1.0});
 
-  std::string blockHashHex = newBlock.getHash();
-  std::vector<unsigned char> hashBytes = Crypto::fromHex(blockHashHex);
+        double burnAmount = std::min(feeAmount * burnRate, 0.003);
+        double devFundAmount = std::min(feeAmount - burnAmount, 0.002);
 
-  if (hashBytes.size() != 32) {
-    std::cerr << "[ERROR] Block hash is not 32 bytes! Cannot sign.\n";
-    return Block();
-  }
+        double finalAmount = amount - feeAmount;
 
-  std::vector<unsigned char> dilithiumSig = Crypto::signWithDilithium(hashBytes, minerDilithiumPriv);
-  std::vector<unsigned char> falconSig = Crypto::signWithFalcon(hashBytes, minerFalconPriv);
+        tempBalances[sender] -= amount;
+        tempBalances[recipient] += finalAmount;
+        tempBalances[DEV_FUND_ADDRESS] += devFundAmount;
+        totalBurnedSupply += burnAmount;
 
-  newBlock.setDilithiumSignature(Crypto::toHex(dilithiumSig));
-  newBlock.setFalconSignature(Crypto::toHex(falconSig));
+        validTransactions.push_back(tx);
+        Transaction devFundTx = Transaction::createSystemRewardTransaction(DEV_FUND_ADDRESS, devFundAmount);
+        validTransactions.push_back(devFundTx);
 
-  std::cout << "[DEBUG] Adding block to chain...\n";
-  addBlock(newBlock);
+        std::cout << "🔥 Burned: " << burnAmount
+                  << " AlynCoin, 💰 Dev Fund: " << devFundAmount
+                  << " AlynCoin, 📤 Final Sent: " << finalAmount << " AlynCoin\n";
+    }
 
-  std::cout << "[DEBUG] Re-adjusting difficulty post block...\n";
-  adjustDifficulty();
+    if (validTransactions.empty()) {
+        std::cerr << "⚠️ No valid transactions after validation. Skipping block creation.\n";
+        return Block();
+    }
 
-  std::cout << "[DEBUG] Clearing pending transactions...\n";
-  clearPendingTransactions();
+    std::cout << "[DEBUG] Applying capped supply reward logic...\n";
+    double reward = 0.0;
+    if (totalSupply < MAX_SUPPLY) {
+        reward = calculateBlockReward();
+        if (totalSupply + reward > MAX_SUPPLY)
+            reward = MAX_SUPPLY - totalSupply;
 
-  std::cout << "[DEBUG] Saving blockchain state to DB...\n";
-  saveToDB();
+        Transaction rewardTx = Transaction::createSystemRewardTransaction(minerAddress, reward);
+        validTransactions.push_back(rewardTx);
+        totalSupply += reward;
+        std::cout << "⛏️ Block reward: " << reward << " AlynCoin\n";
+    } else {
+        std::cerr << "🚫 Block reward skipped. Max supply reached.\n";
+    }
 
-  std::cout << "✅ Block mined successfully. Total burned: " << totalBurnedSupply << " AlynCoin\n";
-  return newBlock;
+    Block lastBlock = getLatestBlock();
+    std::cout << "[DEBUG] Last block hash: " << lastBlock.getHash() << "\n";
+
+    adjustDifficulty();
+    std::cout << "⚙️ Difficulty set to: " << difficulty << "\n";
+
+    Block newBlock(chain.size(), lastBlock.getHash(), validTransactions,
+                   minerAddress, difficulty, std::time(nullptr), std::time(nullptr));
+
+    std::cout << "[DEBUG] Starting PoW mining with difficulty: " << difficulty << "...\n";
+    newBlock.mineBlock(difficulty);
+
+    std::vector<unsigned char> hashBytes = Crypto::fromHex(newBlock.getHash());
+    if (hashBytes.size() != 32) {
+        std::cerr << "[ERROR] Block hash is not 32 bytes! Aborting mining.\n";
+        return Block();
+    }
+
+    auto dilithiumSig = Crypto::signWithDilithium(hashBytes, minerDilithiumPriv);
+    auto falconSig = Crypto::signWithFalcon(hashBytes, minerFalconPriv);
+
+    newBlock.setDilithiumSignature(Crypto::toHex(dilithiumSig));
+    newBlock.setFalconSignature(Crypto::toHex(falconSig));
+
+    std::cout << "[DEBUG] Adding block to blockchain...\n";
+    if (!addBlock(newBlock)) {
+        std::cerr << "❌ Error adding mined block to blockchain.\n";
+        return Block();
+    }
+
+    // ✅ Save each transaction in RocksDB
+    rocksdb::DB* rawDB = db; // db is already a pointer
+    for (const Transaction& tx : validTransactions) {
+        alyncoin::TransactionProto proto = tx.toProto();
+        std::string key = "tx_" + tx.getHash();
+        std::string value;
+        proto.SerializeToString(&value);
+        rawDB->Put(rocksdb::WriteOptions(), key, value);
+    }
+
+    clearPendingTransactions();
+    saveToDB();
+    recalculateBalancesFromChain();
+
+    std::cout << "✅ Block mined and added successfully. Total burned supply: " << totalBurnedSupply << "\n";
+    return newBlock;
 }
 
 // ✅ **Sync Blockchain**
@@ -527,9 +587,7 @@ void Blockchain::addTransaction(const Transaction &tx) {
   }
 
   // Update balances
-  balances[tx.getSender()] -= tx.getAmount();
-  balances[tx.getRecipient()] += tx.getAmount();
-
+   pendingTransactions.push_back(tx);
   // Monitor Dev Fund activity
   if (tx.getSender() == DEV_FUND_ADDRESS ||
       tx.getRecipient() == DEV_FUND_ADDRESS) {
@@ -759,7 +817,6 @@ void Blockchain::applyVestingSchedule() {
   }
   saveVestingInfoToDB();
 }
-
 // ✅ Serialize Blockchain to Protobuf
 bool Blockchain::serializeBlockchain(std::string &outData) const {
   alyncoin::BlockchainProto blockchainProto;
@@ -1464,5 +1521,42 @@ double Blockchain::getAverageBlockTime(int recentCount) const {
     }
 
     return totalTime / count;
+}
+
+// calculate balance
+double Blockchain::calculateBalance(const std::string &address, const std::map<std::string, double> &tempSnapshot) const {
+    double baseBalance = getBalance(address);  // This assumes getBalance() already exists and works
+    auto it = tempSnapshot.find(address);
+    if (it != tempSnapshot.end()) {
+        return baseBalance + it->second;
+    }
+    return baseBalance;
+}
+
+// recalculate
+void Blockchain::recalculateBalancesFromChain() {
+    balances.clear();
+    totalSupply = 0.0;
+    totalBurnedSupply = 0.0;
+
+    for (const auto &block : chain) {
+        for (const auto &tx : block.getTransactions()) {
+            std::string sender = tx.getSender();
+            std::string recipient = tx.getRecipient();
+            double amount = tx.getAmount();
+
+            if (sender != "System") {
+                balances[sender] -= amount;
+            } else {
+                totalSupply += amount;
+            }
+            balances[recipient] += amount;
+
+            // Handle dynamic burn logic here if applicable
+        }
+
+        // Add mining rewards (if separate from TX)
+        balances[block.getMinerAddress()] += miningReward;  // or actual mined amount
+    }
 }
 

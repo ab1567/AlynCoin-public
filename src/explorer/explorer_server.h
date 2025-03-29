@@ -2,6 +2,7 @@
 #define EXPLORER_SERVER_H
 
 #include <string>
+#include <crow.h> // ⬅️ Required for `crow::response`
 #include "explorer_db.h"
 #include "../network/peer_blacklist.h"
 
@@ -12,7 +13,7 @@ private:
     int port;
 
 public:
-     ExplorerServer(int serverPort, const std::string& dbPath, const std::string& blacklistPath);
+    ExplorerServer(int serverPort, const std::string& dbPath, const std::string& blacklistPath);
     void startServer(); // Starts HTTP server
 
 private:
@@ -23,8 +24,10 @@ private:
     std::string handleStatsRequest();
     std::string handleBlockHeightRequest(int height);
     std::string handleLatestBlockRequest();
-
     std::string handleBlacklistRequest();
+
+    // 🔓 CORS Wrapper
+    crow::response withCORS(const std::string& body);  // ⬅️ Add this
 };
 
 #endif // EXPLORER_SERVER_H

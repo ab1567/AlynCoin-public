@@ -1,6 +1,7 @@
 #include <sstream>
 #include "dao_storage.h"
 #include "../db/rocksdb_wrapper.h"
+#include "db/db_paths.h"
 
 // Simple serialization of Proposal
 static std::string serializeProposal(const Proposal& proposal) {
@@ -35,14 +36,14 @@ static Proposal deserializeProposal(const std::string& data) {
 }
 
 bool DAOStorage::storeProposal(const Proposal& proposal) {
-    RocksDBWrapper db("/root/AlynCoin/data/governance_db");
+    RocksDBWrapper db(DBPaths::getGovernanceDB());
     std::string key = "proposal_" + proposal.proposal_id;
     std::string value = serializeProposal(proposal);
     return db.put(key, value);
 }
 
 bool DAOStorage::loadProposal(const std::string& proposal_id, Proposal& proposal) {
-    RocksDBWrapper db("/root/AlynCoin/data/governance_db");
+    RocksDBWrapper db(DBPaths::getGovernanceDB());
     std::string key = "proposal_" + proposal_id;
     std::string value;
     if (!db.get(key, value)) {
@@ -53,7 +54,7 @@ bool DAOStorage::loadProposal(const std::string& proposal_id, Proposal& proposal
 }
 
 bool DAOStorage::proposalExists(const std::string& proposal_id) {
-    RocksDBWrapper db("/root/AlynCoin/data/governance_db");
+    RocksDBWrapper db(DBPaths::getGovernanceDB());
     std::string key = "proposal_" + proposal_id;
     return db.exists(key);
 }

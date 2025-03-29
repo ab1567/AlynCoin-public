@@ -1346,6 +1346,7 @@ src/CMakeFiles/alyncoin_lib.dir/wallet.cpp.o: \
  /usr/include/boost/asio/writable_pipe.hpp \
  /usr/include/boost/asio/write_at.hpp \
  /usr/include/boost/asio/impl/write_at.hpp \
+ /root/AlynCoin/src/db/db_paths.h \
  /root/AlynCoin/src/rollup/proofs/proof_generator.h \
  /root/AlynCoin/src/rollup/proofs/../../transaction.h \
  /usr/include/c++/13/filesystem /usr/include/c++/13/bits/fs_fwd.h \

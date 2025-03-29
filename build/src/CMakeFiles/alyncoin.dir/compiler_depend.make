@@ -6,6 +6,7 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
   /root/AlynCoin/src/blockchain.h \
   /root/AlynCoin/src/crypto_protos.pb.h \
   /root/AlynCoin/src/crypto_utils.h \
+  /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
   /root/AlynCoin/src/generated/transaction_protos.pb.h \
@@ -1843,8 +1844,6 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 
 /usr/include/openssl/bn.h:
 
-/usr/include/openssl/bioerr.h:
-
 /usr/include/openssl/asn1err.h:
 
 /usr/include/openssl/asn1.h:
@@ -2198,6 +2197,10 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 /usr/include/boost/date_time/special_defs.hpp:
 
 /usr/include/boost/preprocessor/list/detail/fold_right.hpp:
+
+/usr/include/c++/13/new:
+
+/usr/include/boost/asio/execution/any_executor.hpp:
 
 /usr/include/x86_64-linux-gnu/bits/ioctls.h:
 
@@ -2639,6 +2642,10 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 
 /usr/include/boost/asio/execution/blocking.hpp:
 
+/usr/include/boost/date_time/date_generators.hpp:
+
+/usr/include/boost/asio/execution/bad_executor.hpp:
+
 /usr/include/boost/asio/detail/executor_op.hpp:
 
 /usr/include/boost/mpl/aux_/value_wknd.hpp:
@@ -2686,12 +2693,6 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 /usr/include/boost/asio/detail/buffered_stream_storage.hpp:
 
 /usr/include/boost/asio/traits/set_value_free.hpp:
-
-/usr/include/boost/config/detail/select_compiler_config.hpp:
-
-/usr/include/boost/asio/traits/static_require_concept.hpp:
-
-/usr/include/boost/asio/detail/buffer_sequence_adapter.hpp:
 
 /usr/include/boost/asio/detail/cstdint.hpp:
 
@@ -2871,6 +2872,20 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 
 /usr/include/boost/date_time/time_resolution_traits.hpp:
 
+/usr/include/boost/system/detail/cerrno.hpp:
+
+/usr/include/boost/asio/traits/execute_free.hpp:
+
+/usr/include/boost/preprocessor/logical/not.hpp:
+
+/usr/include/boost/asio/detail/select_interrupter.hpp:
+
+/usr/include/boost/asio/detail/resolve_endpoint_op.hpp:
+
+/usr/include/boost/asio/buffered_read_stream_fwd.hpp:
+
+/usr/include/arpa/inet.h:
+
 /usr/include/boost/asio/traits/schedule_member.hpp:
 
 /usr/include/c++/13/bits/std_abs.h:
@@ -2947,15 +2962,29 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 
 /usr/include/boost/date_time/date_clock_device.hpp:
 
+/usr/include/openssl/bioerr.h:
+
+/root/AlynCoin/src/db/db_paths.h:
+
 /usr/include/boost/asio/write_at.hpp:
 
 /usr/include/boost/asio/detail/pop_options.hpp:
+
+/usr/include/boost/asio/windows/basic_object_handle.hpp:
+
+/usr/include/boost/asio/impl/redirect_error.hpp:
+
+/usr/include/boost/asio/buffered_stream.hpp:
 
 /usr/include/x86_64-linux-gnu/bits/fcntl-linux.h:
 
 /usr/include/boost/asio/local/basic_endpoint.hpp:
 
 /usr/include/boost/asio/execution/executor.hpp:
+
+/usr/include/boost/asio/deferred.hpp:
+
+/usr/include/boost/asio/execution/allocator.hpp:
 
 /usr/include/boost/asio/execution/bulk_guarantee.hpp:
 
@@ -2993,11 +3022,11 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 
 /usr/include/boost/smart_ptr/detail/sp_convertible.hpp:
 
-/usr/include/boost/asio/windows/basic_object_handle.hpp:
+/usr/include/boost/config/detail/select_compiler_config.hpp:
 
-/usr/include/boost/asio/impl/redirect_error.hpp:
+/usr/include/boost/asio/traits/static_require_concept.hpp:
 
-/usr/include/boost/asio/buffered_stream.hpp:
+/usr/include/boost/asio/detail/buffer_sequence_adapter.hpp:
 
 /usr/include/asm-generic/sockios.h:
 
@@ -3030,8 +3059,6 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 /usr/include/boost/numeric/conversion/detail/is_subranged.hpp:
 
 /usr/include/boost/asio/any_completion_handler.hpp:
-
-/usr/include/boost/asio/detail/functional.hpp:
 
 /usr/include/asm-generic/types.h:
 
@@ -3111,28 +3138,6 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 
 /usr/include/boost/preprocessor/control/detail/limits/while_256.hpp:
 
-/usr/include/boost/system/detail/cerrno.hpp:
-
-/usr/include/boost/asio/traits/execute_free.hpp:
-
-/usr/include/boost/preprocessor/logical/not.hpp:
-
-/usr/include/boost/asio/detail/select_interrupter.hpp:
-
-/usr/include/boost/asio/execution/allocator.hpp:
-
-/usr/include/boost/asio/deferred.hpp:
-
-/usr/include/boost/asio/detail/resolve_endpoint_op.hpp:
-
-/usr/include/boost/asio/buffered_read_stream_fwd.hpp:
-
-/usr/include/arpa/inet.h:
-
-/usr/include/boost/asio/completion_condition.hpp:
-
-/usr/include/boost/date_time/microsec_time_clock.hpp:
-
 /usr/include/boost/asio/detail/impl/epoll_reactor.hpp:
 
 /usr/include/boost/asio/associated_immediate_executor.hpp:
@@ -3196,6 +3201,8 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 /usr/include/boost/mpl/aux_/config/dtp.hpp:
 
 /usr/include/boost/asio/basic_socket_streambuf.hpp:
+
+/usr/include/boost/asio/detail/functional.hpp:
 
 /root/AlynCoin/src/network/peer_blacklist.h:
 
@@ -3316,10 +3323,6 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 /usr/include/x86_64-linux-gnu/bits/wctype-wchar.h:
 
 /usr/include/boost/asio/detail/is_executor.hpp:
-
-/usr/include/boost/date_time/date_generators.hpp:
-
-/usr/include/boost/asio/execution/bad_executor.hpp:
 
 /usr/include/boost/asio/detail/scheduler_task.hpp:
 
@@ -3536,6 +3539,10 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 /usr/include/boost/asio/detail/reactive_socket_accept_op.hpp:
 
 /usr/include/boost/asio/dispatch.hpp:
+
+/usr/include/boost/asio/completion_condition.hpp:
+
+/usr/include/boost/date_time/microsec_time_clock.hpp:
 
 /usr/include/boost/date_time/posix_time/posix_time_config.hpp:
 
@@ -4525,12 +4532,8 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 
 /usr/include/boost/preprocessor/arithmetic/detail/is_maximum_number.hpp:
 
-/usr/include/boost/asio/high_resolution_timer.hpp:
-
 /usr/include/boost/asio/detail/handler_tracking.hpp:
 
+/usr/include/boost/asio/high_resolution_timer.hpp:
+
 /usr/include/c++/13/mutex:
-
-/usr/include/boost/asio/execution/any_executor.hpp:
-
-/usr/include/c++/13/new:

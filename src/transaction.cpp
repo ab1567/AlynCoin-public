@@ -2,6 +2,7 @@
 #include "transaction.h"
 #include "../network/peer_blacklist.h"
 #include "base64.h"
+#include "db/db_paths.h"
 #include "crypto_utils.h"
 #include "hash.h"
 #include "proof_verifier.h"
@@ -72,10 +73,7 @@ std::string Transaction::getTransactionHash() const {
 //
 
 std::string Transaction::getHash() const {
-  std::ostringstream ss;
-  ss << sender << recipient << amount << signatureDilithium << signatureFalcon
-     << timestamp;
-  return Crypto::keccak256(ss.str());
+  return hash;
 }
 
 // ✅ Protobuf Serialization - Ensure all required fields are set
@@ -189,6 +187,20 @@ std::string Transaction::calculateHash() const {
 
   return Crypto::hybridHash(jsonString);
 }
+//
+alyncoin::TransactionProto Transaction::toProto() const {
+    alyncoin::TransactionProto proto;
+    proto.set_sender(sender);
+    proto.set_recipient(recipient);
+    proto.set_amount(amount);
+    proto.set_timestamp(timestamp);
+    proto.set_signature_dilithium(signatureDilithium);
+    proto.set_signature_falcon(signatureFalcon);
+    proto.set_zkproof(zkProof);
+    proto.set_sender_pubkey_dilithium(senderPublicKeyDilithium);
+    proto.set_sender_pubkey_falcon(senderPublicKeyFalcon);
+    return proto;
+}
 
 // Ensure keys are present and generate if missing
 static void ensureKeysExist(const std::string &sender) {
@@ -230,25 +242,31 @@ void Transaction::signTransaction(const std::vector<unsigned char> &dilithiumPri
     return;
   }
 
-  std::string transactionHash = getTransactionHash();
-  std::vector<unsigned char> hashBytes = Crypto::fromHex(transactionHash);
+  // ✅ Step 1: Create canonical hash from sender/recipient/amount/timestamp
+  std::ostringstream oss;
+  oss << sender << recipient
+      << std::fixed << std::setprecision(8) << amount
+      << timestamp;
 
-  std::cout << "🔍 [DEBUG] Signing transaction hash: " << transactionHash << std::endl;
+  hash = Crypto::sha256(oss.str());  // ✅ Store internally
+  std::vector<unsigned char> hashBytes = Crypto::fromHex(hash);
 
+  std::cout << "🔍 [DEBUG] Signing transaction hash: " << hash << std::endl;
+
+  // ✅ Step 2: Sign the transaction
   std::vector<unsigned char> dilithiumSigVec = Crypto::signWithDilithium(hashBytes, dilithiumPrivateKey);
   signatureDilithium = Crypto::toHex(dilithiumSigVec);
 
   std::vector<unsigned char> falconSigVec = Crypto::signWithFalcon(hashBytes, falconPrivateKey);
   signatureFalcon = Crypto::toHex(falconSigVec);
 
-  // Also set public keys
+  // ✅ Step 3: Attach public keys
   std::vector<unsigned char> pubDil = Crypto::getPublicKeyDilithium(sender);
   std::vector<unsigned char> pubFal = Crypto::getPublicKeyFalcon(sender);
-
   senderPublicKeyDilithium = Crypto::toHex(pubDil);
   senderPublicKeyFalcon = Crypto::toHex(pubFal);
 
-  // ✅ Generate zk-STARK proof
+  // ✅ Step 4: Generate zk-STARK proof
   zkProof = WinterfellStark::generateTransactionProof(sender, recipient, amount, timestamp);
   if (zkProof.empty()) {
     std::cerr << "❌ [ERROR] zk-STARK proof generation failed!\n";
@@ -354,7 +372,7 @@ std::vector<Transaction> Transaction::loadFromDB() {
   options.create_if_missing = true;
 
   rocksdb::Status status =
-      rocksdb::DB::Open(options, "data/transactions_db", &db);
+      rocksdb::DB::Open(options, DBPaths::getTransactionDB(), &db);
   if (!status.ok()) {
     std::cerr << "❌ [ERROR] Failed to open transaction database!" << std::endl;
     return transactions;
@@ -383,7 +401,7 @@ bool Transaction::saveToDB(const Transaction &tx, int index) {
   options.create_if_missing = true;
 
   rocksdb::Status status =
-      rocksdb::DB::Open(options, "data/transactions_db", &db);
+      rocksdb::DB::Open(options, DBPaths::getTransactionDB(), &db);
   if (!status.ok()) {
     std::cerr << "❌ [ERROR] Failed to open transaction database!" << std::endl;
     return false;

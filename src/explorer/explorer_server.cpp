@@ -1,83 +1,112 @@
 #include "explorer_server.h"
 #include "explorer_utils.h"
-#include "network/peer_blacklist.h" // ✅ Include PeerBlacklist
+#include "network/peer_blacklist.h"
 #include <crow.h>
 #include <iostream>
+#include "db/db_paths.h"
 
 ExplorerServer::ExplorerServer(int serverPort, const std::string& dbPath, const std::string& blacklistPath)
-    : port(serverPort), db(dbPath), blacklist(blacklistPath) // ✅ Pass DB and Blacklist paths
-{}
+    : port(serverPort), db(dbPath), blacklist(blacklistPath) {}
 
 void ExplorerServer::startServer() {
     crow::SimpleApp app;
 
-    // =======================
-    // Endpoint: Get Block by Hash
+    // 🏁 Root Greeting
+    CROW_ROUTE(app, "/")
+    ([this](const crow::request&) {
+        return withCORS("🧠 AlynCoin Blockchain Explorer API — use /stats, /block/<hash>, /tx/<hash>, /address/<addr>");
+    });
+
+    // 📊 Blockchain Stats
+    CROW_ROUTE(app, "/stats")
+    ([this](const crow::request&) {
+        return withCORS(handleStatsRequest());
+    });
+
+    // 🔍 Block by Hash
     CROW_ROUTE(app, "/block/<string>")
     ([this](const crow::request&, std::string hash) {
-        return handleBlockRequest(hash);
+        return withCORS(handleBlockRequest(hash));
     });
 
-    // =======================
-    // Endpoint: Get Transaction by Hash
+    // 🔢 Block by Height
+    CROW_ROUTE(app, "/block/height/<int>")
+    ([this](const crow::request&, int height) {
+        return withCORS(handleBlockHeightRequest(height));
+    });
+
+    // 🧱 Latest Block
+    CROW_ROUTE(app, "/latestblock")
+    ([this](const crow::request&) {
+        return withCORS(handleLatestBlockRequest());
+    });
+
+    // 📨 Transaction by Hash
     CROW_ROUTE(app, "/tx/<string>")
     ([this](const crow::request&, std::string hash) {
-        return handleTransactionRequest(hash);
+        return withCORS(handleTransactionRequest(hash));
     });
 
-    // =======================
-    // Endpoint: Get Address Details with Pagination
+    // 👛 Address Info with Pagination
     CROW_ROUTE(app, "/address/<string>").methods("GET"_method)
     ([this](const crow::request& req, std::string address) {
         int page = ExplorerUtils::parseQueryParam(req.url_params, "page", 1);
         int limit = ExplorerUtils::parseQueryParam(req.url_params, "limit", 10);
-        return handleAddressRequest(address, page, limit);
+        return withCORS(handleAddressRequest(address, page, limit));
     });
 
-    // =======================
-    // Endpoint: Blockchain Stats
-    CROW_ROUTE(app, "/stats")
-    ([this](const crow::request&) {
-        return handleStatsRequest();
+    // 💰 Basic Balance Check
+    CROW_ROUTE(app, "/balance/<string>")
+    ([this](const crow::request&, std::string address) {
+        double balance = db.getBalance(address);
+        Json::Value result;
+        result["address"] = address;
+        result["balance"] = ExplorerUtils::formatBalance(balance);
+        return withCORS(ExplorerUtils::jsonToString(result));
     });
 
-    // =======================
-    // Endpoint: Get Block by Height
-    CROW_ROUTE(app, "/block/height/<int>")
-    ([this](const crow::request&, int height) {
-        return handleBlockHeightRequest(height);
-    });
-
-    // =======================
-    // Endpoint: Latest Block
-    CROW_ROUTE(app, "/latestblock")
-    ([this](const crow::request&) {
-        return handleLatestBlockRequest();
-    });
-
-    // =======================
-    // Endpoint: View Blacklist
+    // 🚫 Blacklist View
     CROW_ROUTE(app, "/blacklist")
     ([this](const crow::request&) {
-        return handleBlacklistRequest();
+        return withCORS(handleBlacklistRequest());
     });
 
-    // =======================
-    std::cout << "\U0001F680 Blockchain Explorer Server running on port " << port << "\n";
+    // ⚙️ OPTIONS Preflight (CORS support)
+    CROW_ROUTE(app, "/<string>").methods("OPTIONS"_method)
+    ([](const crow::request&, std::string) {
+        crow::response res;
+        res.add_header("Access-Control-Allow-Origin", "*");
+        res.add_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        res.add_header("Access-Control-Allow-Headers", "Content-Type");
+        return res;
+    });
+
+    std::cout << "🚀 Blockchain Explorer Server running on port " << port << "\n";
     app.port(port).multithreaded().run();
 }
 
 // ======= Handlers =======
 
 std::string ExplorerServer::handleBlockRequest(const std::string& hash) {
-    Json::Value block = db.getBlockByHash(hash);
-    if (block.isNull()) return "Block not found!";
+    std::string normalizedHash = hash;
+    std::transform(normalizedHash.begin(), normalizedHash.end(), normalizedHash.begin(), ::tolower);
+
+    Json::Value block = db.getBlockByHash(normalizedHash);
+    if (block.isNull()) {
+        Json::Value err;
+        err["error"] = "Block not found";
+        return ExplorerUtils::jsonToString(err);
+    }
     return ExplorerUtils::jsonToString(block);
 }
 
 std::string ExplorerServer::handleTransactionRequest(const std::string& hash) {
     Json::Value tx = db.getTransactionByHash(hash);
-    if (tx.isNull()) return "Transaction not found!";
+    if (tx.isNull()) {
+        Json::Value err;
+        err["error"] = "Transaction not found";
+        return ExplorerUtils::jsonToString(err);
+    }
     return ExplorerUtils::jsonToString(tx);
 }
 
@@ -88,7 +117,6 @@ std::string ExplorerServer::handleAddressRequest(const std::string& address, int
 
     Json::Value pagedTxs(Json::arrayValue);
     int totalTxs = allTxs.size();
-
     auto [start, end] = ExplorerUtils::calculatePagination(page, limit, totalTxs);
 
     for (int i = start; i < end; ++i) {
@@ -111,17 +139,24 @@ std::string ExplorerServer::handleStatsRequest() {
 
 std::string ExplorerServer::handleBlockHeightRequest(int height) {
     Json::Value block = db.getBlockByHeight(height);
-    if (block.isNull()) return "Block not found!";
+    if (block.isNull()) {
+        Json::Value err;
+        err["error"] = "Block not found";
+        return ExplorerUtils::jsonToString(err);
+    }
     return ExplorerUtils::jsonToString(block);
 }
 
 std::string ExplorerServer::handleLatestBlockRequest() {
     Json::Value block = db.getLatestBlock();
-    if (block.isNull()) return "No blocks yet!";
+    if (block.isNull()) {
+        Json::Value info;
+        info["info"] = "No blocks yet";
+        return ExplorerUtils::jsonToString(info);
+    }
     return ExplorerUtils::jsonToString(block);
 }
 
-// ✅ New Blacklist Handler
 std::string ExplorerServer::handleBlacklistRequest() {
     Json::Value result(Json::arrayValue);
     auto entries = blacklist.getAllEntries();
@@ -136,14 +171,24 @@ std::string ExplorerServer::handleBlacklistRequest() {
     return ExplorerUtils::jsonToString(result);
 }
 
-// ✅ Add missing main function
+// ======= CORS Helper =======
+
+crow::response ExplorerServer::withCORS(const std::string& body) {
+    crow::response res(body);
+    res.add_header("Access-Control-Allow-Origin", "*");
+    res.add_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.add_header("Access-Control-Allow-Headers", "Content-Type");
+    return res;
+}
+
+// ======= Main Entry Point =======
+
 int main() {
     int port = 8080;
-    std::string dbPath = "/root/.alyncoin/db";
+    std::string dbPath = DBPaths::getBlockchainDB();  // Ensure this matches node's DB
     std::string blacklistPath = "/root/.alyncoin/blacklist";
 
     ExplorerServer server(port, dbPath, blacklistPath);
     server.startServer();
-
     return 0;
 }

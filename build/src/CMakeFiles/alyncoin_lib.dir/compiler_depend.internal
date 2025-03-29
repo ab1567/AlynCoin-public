@@ -2501,6 +2501,7 @@ src/CMakeFiles/alyncoin_lib.dir/block.cpp.o
  /root/AlynCoin/src/blockchain.h
  /root/AlynCoin/src/crypto_protos.pb.h
  /root/AlynCoin/src/crypto_utils.h
+ /root/AlynCoin/src/db/db_paths.h
  /root/AlynCoin/src/generated/block_protos.pb.h
  /root/AlynCoin/src/generated/blockchain_protos.pb.h
  /root/AlynCoin/src/generated/transaction_protos.pb.h
@@ -4030,6 +4031,7 @@ src/CMakeFiles/alyncoin_lib.dir/blockchain.cpp.o
  /root/AlynCoin/src/blockchain.h
  /root/AlynCoin/src/crypto_protos.pb.h
  /root/AlynCoin/src/crypto_utils.h
+ /root/AlynCoin/src/db/db_paths.h
  /root/AlynCoin/src/difficulty.h
  /root/AlynCoin/src/generated/block_protos.pb.h
  /root/AlynCoin/src/generated/blockchain_protos.pb.h
@@ -6482,6 +6484,7 @@ src/CMakeFiles/alyncoin_lib.dir/miner.cpp.o
  /root/AlynCoin/src/blockchain.h
  /root/AlynCoin/src/crypto_protos.pb.h
  /root/AlynCoin/src/crypto_utils.h
+ /root/AlynCoin/src/db/db_paths.h
  /root/AlynCoin/src/difficulty.h
  /root/AlynCoin/src/generated/block_protos.pb.h
  /root/AlynCoin/src/generated/blockchain_protos.pb.h
@@ -7999,6 +8002,7 @@ src/CMakeFiles/alyncoin_lib.dir/network.cpp.o
  /root/AlynCoin/src/blockchain.h
  /root/AlynCoin/src/crypto_protos.pb.h
  /root/AlynCoin/src/crypto_utils.h
+ /root/AlynCoin/src/db/db_paths.h
  /root/AlynCoin/src/generated/block_protos.pb.h
  /root/AlynCoin/src/generated/blockchain_protos.pb.h
  /root/AlynCoin/src/generated/transaction_protos.pb.h
@@ -9524,6 +9528,7 @@ src/CMakeFiles/alyncoin_lib.dir/network.cpp.o
 
 src/CMakeFiles/alyncoin_lib.dir/network/peer_blacklist.cpp.o
  /root/AlynCoin/src/network/peer_blacklist.cpp
+ /root/AlynCoin/src/db/db_paths.h
  /root/AlynCoin/src/network/peer_blacklist.h
  /usr/include/alloca.h
  /usr/include/asm-generic/errno-base.h
@@ -12201,6 +12206,7 @@ src/CMakeFiles/alyncoin_lib.dir/syncing.cpp.o
  /root/AlynCoin/src/blockchain.h
  /root/AlynCoin/src/crypto_protos.pb.h
  /root/AlynCoin/src/crypto_utils.h
+ /root/AlynCoin/src/db/db_paths.h
  /root/AlynCoin/src/generated/block_protos.pb.h
  /root/AlynCoin/src/generated/blockchain_protos.pb.h
  /root/AlynCoin/src/generated/sync_protos.pb.h
@@ -13712,6 +13718,7 @@ src/CMakeFiles/alyncoin_lib.dir/transaction.cpp.o
  /root/AlynCoin/src/transaction.cpp
  /root/AlynCoin/src/base64.h
  /root/AlynCoin/src/crypto_utils.h
+ /root/AlynCoin/src/db/db_paths.h
  /root/AlynCoin/src/generated/transaction_protos.pb.h
  /root/AlynCoin/src/hash.h
  /root/AlynCoin/src/transaction.h
@@ -14492,6 +14499,7 @@ src/CMakeFiles/alyncoin_lib.dir/wallet.cpp.o
  /root/AlynCoin/src/blockchain.h
  /root/AlynCoin/src/crypto_protos.pb.h
  /root/AlynCoin/src/crypto_utils.h
+ /root/AlynCoin/src/db/db_paths.h
  /root/AlynCoin/src/generated/block_protos.pb.h
  /root/AlynCoin/src/generated/blockchain_protos.pb.h
  /root/AlynCoin/src/generated/transaction_protos.pb.h

@@ -319,18 +319,18 @@ src/CMakeFiles/alyncoin_lib.dir/transaction.cpp.o: \
  /usr/include/openssl/bnerr.h /usr/include/openssl/objects.h \
  /usr/include/openssl/obj_mac.h /usr/include/openssl/asn1.h \
  /usr/include/openssl/asn1err.h /usr/include/openssl/objectserr.h \
- /root/AlynCoin/src/crypto_utils.h /usr/include/openssl/err.h \
- /usr/include/openssl/lhash.h /usr/include/openssl/pem.h \
- /usr/include/openssl/x509.h /usr/include/openssl/ec.h \
- /usr/include/openssl/ecerr.h /usr/include/openssl/rsa.h \
- /usr/include/openssl/rsaerr.h /usr/include/openssl/dsa.h \
- /usr/include/openssl/dh.h /usr/include/openssl/dherr.h \
- /usr/include/openssl/dsaerr.h /usr/include/openssl/sha.h \
- /usr/include/openssl/x509err.h /usr/include/openssl/x509_vfy.h \
- /usr/include/openssl/pkcs7.h /usr/include/openssl/pkcs7err.h \
- /usr/include/openssl/http.h /usr/include/openssl/conf.h \
- /usr/include/openssl/conferr.h /usr/include/openssl/conftypes.h \
- /usr/include/openssl/pemerr.h \
+ /root/AlynCoin/src/db/db_paths.h /root/AlynCoin/src/crypto_utils.h \
+ /usr/include/openssl/err.h /usr/include/openssl/lhash.h \
+ /usr/include/openssl/pem.h /usr/include/openssl/x509.h \
+ /usr/include/openssl/ec.h /usr/include/openssl/ecerr.h \
+ /usr/include/openssl/rsa.h /usr/include/openssl/rsaerr.h \
+ /usr/include/openssl/dsa.h /usr/include/openssl/dh.h \
+ /usr/include/openssl/dherr.h /usr/include/openssl/dsaerr.h \
+ /usr/include/openssl/sha.h /usr/include/openssl/x509err.h \
+ /usr/include/openssl/x509_vfy.h /usr/include/openssl/pkcs7.h \
+ /usr/include/openssl/pkcs7err.h /usr/include/openssl/http.h \
+ /usr/include/openssl/conf.h /usr/include/openssl/conferr.h \
+ /usr/include/openssl/conftypes.h /usr/include/openssl/pemerr.h \
  /root/AlynCoin/src/rollup/proofs/proof_verifier.h \
  /root/AlynCoin/src/rollup/proofs/../rollup_block.h \
  /root/AlynCoin/src/rollup/proofs/../../transaction.h \
