@@ -17,12 +17,14 @@ void printMenu() {
   std::cout << "1. Generate new wallet\n";
   std::cout << "2. Load existing wallet\n";
   std::cout << "3. Check balance\n";
-  std::cout << "4. Send transaction\n";
-  std::cout << "5. Mine block\n";
-  std::cout << "6. Print blockchain\n";
-  std::cout << "7. View Dev Fund Info\n";
-  std::cout << "8. Manage Peer Blacklist\n";
-  std::cout << "9. Exit\n";
+  std::cout << "4. Send L1 transaction\n";
+  std::cout << "5. Send L2 transaction\n";
+  std::cout << "6. Mine block\n";
+  std::cout << "7. Print blockchain\n";
+  std::cout << "8. View Dev Fund Info\n";
+  std::cout << "9. Manage Peer Blacklist\n";
+  std::cout << "10. Generate Rollup Block (zk-STARK)\n";
+  std::cout << "11. Exit\n";
   std::cout << "Choose an option: ";
 }
 
@@ -211,6 +213,44 @@ int cliMain(int argc, char *argv[]) {
     }
 
     case 5: {
+     if (!wallet) {
+      std::cout << "Load or create a wallet first!\n";
+      break;
+    }
+
+      std::string recipient;
+      double amount;
+      std::cout << "Enter recipient address (L2): ";
+      std::cin >> recipient;
+      std::cout << "Enter amount: ";
+      std::cin >> amount;
+
+    if (amount <= 0) {
+      std::cout << "Invalid amount!\n";
+      break;
+    }
+
+     std::string sender = wallet->getAddress();
+     auto dilPriv = Crypto::loadDilithiumKeys(sender);
+     auto falPriv = Crypto::loadFalconKeys(sender);
+
+     Transaction tx(sender, recipient, amount, "", "", time(nullptr));
+     tx.setMetadata("L2");
+     tx.signTransaction(dilPriv.privateKey, falPriv.privateKey);
+
+    // You can tag it as L2 with metadata later if needed
+    if (!tx.getSignatureDilithium().empty() && !tx.getSignatureFalcon().empty()) {
+        blockchain.addTransaction(tx);  // same pending pool
+        network.broadcastTransaction(tx);
+        std::cout << "L2 Transaction created and added to pending pool.\n";
+    } else {
+        std::cerr << "Invalid transaction! Signature check failed.\n";
+    }
+
+    break;
+    }
+
+    case 6: {
       if (!wallet) {
         std::cout << "Load or create a wallet first!\n";
         break;
@@ -232,18 +272,18 @@ int cliMain(int argc, char *argv[]) {
       break;
     }
 
-    case 6:
+    case 7:
       std::cout << "=== AlynCoin Blockchain ===\n";
       std::cout << Json::writeString(Json::StreamWriterBuilder(), blockchain.toJSON()) << std::endl;
       break;
 
-    case 7:
+    case 8:
       std::cout << "\n=== Dev Fund Information ===\n";
       std::cout << "Address: DevFundWallet\n";
       std::cout << "Balance: " << blockchain.getBalance("DevFundWallet") << " AlynCoin\n";
       break;
 
-    case 8: {
+    case 9: {
       bool blacklistRunning = true;
       while (blacklistRunning) {
         printBlacklistMenu();
@@ -282,7 +322,48 @@ int cliMain(int argc, char *argv[]) {
       break;
     }
 
-    case 9: running = false; break;
+    case 10: {
+        if (!wallet) {
+            std::cout << "Load or create a wallet first!\n";
+            break;
+        }
+
+        // 🔍 Snapshot current L1 state
+        std::unordered_map<std::string, double> stateBefore = blockchain.getCurrentState();
+
+        // 📦 Fetch L2 transactions
+        std::vector<Transaction> l2Transactions = blockchain.getPendingL2Transactions();
+
+        // 🧮 Simulate L2 state update
+        std::unordered_map<std::string, double> stateAfter =
+            blockchain.simulateL2StateUpdate(stateBefore, l2Transactions);
+
+        // 🧱 Create Rollup Block
+        RollupBlock rollup(
+            blockchain.getRollupChainSize(),               // Index
+            blockchain.getLastRollupHash(),                // Previous Hash
+            l2Transactions                                  // L2 Transactions
+        );
+
+        std::string prevRecursive = blockchain.getLastRollupProof(); // Recursive input
+
+        // 🔐 Generate zk-STARK proof + recursive proof
+        rollup.generateRollupProof(stateBefore, stateAfter, prevRecursive);
+
+        // ➕ Add to rollup chain
+     if (blockchain.isRollupBlockValid(rollup)) {
+        blockchain.addRollupBlock(rollup);
+        std::cout << "✅ Rollup Block created successfully!\n";
+        std::cout << "📦 Rollup Hash: " << rollup.getHash() << "\n";
+       } else {
+        std::cerr << "❌ Rollup Block creation failed: Proof invalid.\n";
+    }
+
+        std::cout << "📦 Rollup Hash: " << rollup.getHash() << "\n";
+        break;
+    }
+
+    case 11: running = false; break;
     default: std::cout << "Invalid choice! Please select a valid option.\n";
     }
   }

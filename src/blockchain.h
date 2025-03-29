@@ -31,6 +31,7 @@ using boost::asio::ip::tcp;
 class Network;
 extern double totalSupply;
 const double MAX_SUPPLY = 250000000.0;
+const size_t MAX_PENDING_TRANSACTIONS = 10000;
 class Blockchain {
   friend class Network;
 
@@ -162,6 +163,22 @@ public:
                                    double initialAmount);
   bool castVote(const std::string &voterAddress,
                 const std::string &candidateAddress);
+
+    //rollup
+   std::unordered_map<std::string, double> getCurrentState() const;
+   std::unordered_map<std::string, double> simulateL2StateUpdate(
+      const std::unordered_map<std::string, double>& currentState,
+      const std::vector<Transaction>& l2Txs) const;
+
+   int getRollupChainSize() const;
+   std::string getLastRollupHash() const;
+   std::string getLastRollupProof() const;
+
+
+// Add L2 transaction to pending pool
+   void addL2Transaction(const Transaction& tx);
+   bool isL2Transaction(const Transaction& tx) const;
+   std::vector<Transaction> getPendingL2Transactions() const;
 
   void clearChain() { chain.clear(); }
 };

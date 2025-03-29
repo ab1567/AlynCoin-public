@@ -472,7 +472,13 @@ void Network::handleIncomingData(const std::string &senderIP, const std::string 
       for (const auto &tx : rBlock.getTransactions()) {
         txHashes.push_back(tx.getHash());
       }
-      if (!ProofVerifier::verifyRollupProof(rBlock.getRollupProof(), txHashes, rBlock.getMerkleRoot())) {
+      if (!ProofVerifier::verifyRollupProof(
+        rBlock.getRollupProof(),
+        txHashes,
+        rBlock.getMerkleRoot(),
+        rBlock.getStateRootBefore(),
+        rBlock.getStateRootAfter())) {
+
         std::cerr << "[ERROR] Invalid zk-STARK proof in rollup from " << senderIP << "\n";
         zkValid = false;
         break;

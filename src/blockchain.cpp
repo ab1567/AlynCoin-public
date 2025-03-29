@@ -1347,37 +1347,47 @@ void Blockchain::addRollupBlock(const RollupBlock &newRollupBlock) {
 }
 //
 bool Blockchain::isRollupBlockValid(const RollupBlock &newRollupBlock) const {
-  // Validate index continuity
-  if (newRollupBlock.getIndex() != rollupChain.size()) {
-    std::cerr << "[ERROR] Rollup block index mismatch. Expected: "
-              << rollupChain.size() << ", Got: " << newRollupBlock.getIndex()
-              << std::endl;
-    return false;
-  }
+    // Validate index continuity
+    if (newRollupBlock.getIndex() != rollupChain.size()) {
+        std::cerr << "[ERROR] Rollup block index mismatch. Expected: "
+                  << rollupChain.size() << ", Got: " << newRollupBlock.getIndex()
+                  << std::endl;
+        return false;
+    }
 
-  // Validate previous hash
-  if (!rollupChain.empty() &&
-      newRollupBlock.getPreviousHash() != rollupChain.back().getHash()) {
-    std::cerr << "[ERROR] Rollup block previous hash mismatch." << std::endl;
-    return false;
-  }
+    // Validate previous hash
+    if (!rollupChain.empty() &&
+        newRollupBlock.getPreviousHash() != rollupChain.back().getHash()) {
+        std::cerr << "[ERROR] Rollup block previous hash mismatch." << std::endl;
+        return false;
+    }
 
-  // Validate rollup proof
-  std::vector<std::string> txHashes;
-  for (const auto &tx : newRollupBlock.getTransactions()) {
-    txHashes.push_back(tx.getHash());
-  }
+    // Extract tx hashes
+    std::vector<std::string> txHashes;
+    for (const auto &tx : newRollupBlock.getTransactions()) {
+        txHashes.push_back(tx.getHash());
+    }
 
-  if (!ProofVerifier::verifyRollupProof(newRollupBlock.getRollupProof(),
-                                        txHashes,
-                                        newRollupBlock.getMerkleRoot())) {
-    std::cerr << "[ERROR] Rollup block proof verification failed." << std::endl;
-    return false;
-  }
+    // DEBUG: Show rollup proof inputs
+    std::cout << "[DEBUG] Verifying RollupBlock:\n";
+    std::cout << " ↪️ Proof Length: " << newRollupBlock.getRollupProof().length() << "\n";
+    std::cout << " 🌳 Merkle Root: " << newRollupBlock.getMerkleRoot() << "\n";
+    std::cout << " 🔐 State Root Before: " << newRollupBlock.getStateRootBefore() << "\n";
+    std::cout << " 🔐 State Root After:  " << newRollupBlock.getStateRootAfter() << "\n";
+    std::cout << " 📦 TX Count: " << txHashes.size() << "\n";
 
-  // Additional validations as necessary
+    if (!ProofVerifier::verifyRollupProof(
+            newRollupBlock.getRollupProof(),
+            txHashes,
+            newRollupBlock.getMerkleRoot(),
+            newRollupBlock.getStateRootBefore(),
+            newRollupBlock.getStateRootAfter())) {
+        std::cerr << "[ERROR] ❌ Rollup block proof verification failed.\n";
+        return false;
+    }
 
-  return true;
+    std::cout << "✅ Rollup block proof verification passed.\n";
+    return true;
 }
 
 // --- Save Rollup Chain ---
@@ -1558,5 +1568,82 @@ void Blockchain::recalculateBalancesFromChain() {
         // Add mining rewards (if separate from TX)
         balances[block.getMinerAddress()] += miningReward;  // or actual mined amount
     }
+}
+
+// getCurrentState
+std::unordered_map<std::string, double> Blockchain::getCurrentState() const {
+    return balances;  // Copy of current L1 state
+}
+// simulateL2StateUpdate
+std::unordered_map<std::string, double> Blockchain::simulateL2StateUpdate(
+    const std::unordered_map<std::string, double>& currentState,
+    const std::vector<Transaction>& l2Txs) const {
+
+    std::unordered_map<std::string, double> updatedState = currentState;
+
+    for (const auto& tx : l2Txs) {
+        std::string sender = tx.getSender();
+        std::string recipient = tx.getRecipient();
+        double amount = tx.getAmount();
+
+        if (updatedState[sender] < amount) {
+            std::cerr << "⚠️ L2 State Sim: Insufficient funds for " << sender << "\n";
+            continue;
+        }
+
+        updatedState[sender] -= amount;
+        updatedState[recipient] += amount;
+    }
+
+    return updatedState;
+}
+
+// getRollupChainSize
+int Blockchain::getRollupChainSize() const {
+    return rollupChain.size();
+}
+
+// getLastRollupHash
+std::string Blockchain::getLastRollupHash() const {
+    if (rollupChain.empty()) return "GenesisRollup";
+    return rollupChain.back().getHash();
+}
+
+//getLastRollupProof
+std::string Blockchain::getLastRollupProof() const {
+    if (rollupChain.empty()) return "GenesisProof";
+    return rollupChain.back().getRollupProof();
+}
+
+// Append an L2 transaction to pending pool
+void Blockchain::addL2Transaction(const Transaction& tx) {
+    std::lock_guard<std::mutex> lock(blockchainMutex);
+    if (pendingTransactions.size() >= MAX_PENDING_TRANSACTIONS) {
+        std::cerr << "[WARN] Max pending transactions reached. Cannot add L2 transaction.\n";
+        return;
+    }
+
+    // Optional: flag L2 tx for explorer/debugging by setting a metadata field
+    Transaction l2tx = tx;
+    l2tx.setMetadata("L2"); // assuming you have such a setter, or else just use as-is
+
+    pendingTransactions.push_back(l2tx);
+    std::cout << "✅ L2 transaction added. Pending count: " << pendingTransactions.size() << "\n";
+}
+
+// Filter out and return only L2 transactions
+std::vector<Transaction> Blockchain::getPendingL2Transactions() const {
+    std::vector<Transaction> l2txs;
+    for (const auto& tx : pendingTransactions) {
+        if (isL2Transaction(tx)) {
+            l2txs.push_back(tx);
+        }
+    }
+    return l2txs;
+}
+
+// Determine if a transaction is L2
+bool Blockchain::isL2Transaction(const Transaction& tx) const {
+    return tx.getMetadata() == "L2";
 }
 

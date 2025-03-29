@@ -8,22 +8,35 @@ TransactionCircuit::TransactionCircuit() {}
 void TransactionCircuit::addTransactionData(const std::string& sender, const std::string& recipient, double amount, const std::string& txHash) {
     std::ostringstream ss;
     ss << sender << recipient << amount << txHash;
-    transactionTrace.push_back(RollupUtils::hybridHashWithDomain(ss.str(), "TxTrace"));
+    std::string hashed = RollupUtils::hybridHashWithDomain(ss.str(), "TxTrace");
+
+    {
+        std::lock_guard<std::mutex> lock(traceMutex);
+        transactionTrace.push_back(hashed);
+    }
+
     computeMerkleRoot();
 }
 
 void TransactionCircuit::addTransactionBatch(const std::vector<std::tuple<std::string, std::string, double, std::string>>& batch) {
-    std::vector<std::thread> threads;
+    std::vector<std::string> localHashes(batch.size());
 
-    for (const auto& tx : batch) {
-        threads.emplace_back([&]() {
+    std::vector<std::thread> threads;
+    for (size_t i = 0; i < batch.size(); ++i) {
+        threads.emplace_back([&, i]() {
+            const auto& [sender, recipient, amount, txHash] = batch[i];
             std::ostringstream ss;
-            ss << std::get<0>(tx) << std::get<1>(tx) << std::get<2>(tx) << std::get<3>(tx);
-            transactionTrace.push_back(RollupUtils::hybridHashWithDomain(ss.str(), "TxTrace"));
+            ss << sender << recipient << amount << txHash;
+            localHashes[i] = RollupUtils::hybridHashWithDomain(ss.str(), "TxTrace");
         });
     }
 
     for (auto& t : threads) t.join();
+
+    {
+        std::lock_guard<std::mutex> lock(traceMutex);
+        transactionTrace.insert(transactionTrace.end(), localHashes.begin(), localHashes.end());
+    }
 
     computeMerkleRoot();
 }

@@ -86,6 +86,7 @@ void Transaction::serializeToProtobuf(alyncoin::TransactionProto &proto) const {
   proto.set_sender_pubkey_dilithium(senderPublicKeyDilithium);
   proto.set_sender_pubkey_falcon(senderPublicKeyFalcon);
   proto.set_timestamp(timestamp);
+  proto.set_metadata(metadata);
 }
 
 bool Transaction::deserializeFromProtobuf(
@@ -98,6 +99,7 @@ bool Transaction::deserializeFromProtobuf(
   senderPublicKeyDilithium = proto.sender_pubkey_dilithium();
   senderPublicKeyFalcon = proto.sender_pubkey_falcon();
   timestamp = proto.timestamp();
+  metadata = proto.metadata();
   return true;
 }
 
@@ -132,6 +134,7 @@ Json::Value Transaction::toJSON() const {
   tx["timestamp"] = static_cast<Json::Int64>(timestamp);
   tx["senderPublicKeyDilithium"] = senderPublicKeyDilithium;
   tx["senderPublicKeyFalcon"] = senderPublicKeyFalcon;
+  tx["metadata"] = metadata;
 
   return tx;
 }
@@ -149,6 +152,8 @@ Transaction Transaction::fromJSON(const Json::Value &txJson) {
     tx.zkProof = txJson.get("zkProof", "").asString();
     tx.senderPublicKeyDilithium = txJson.get("senderPublicKeyDilithium", "").asString();
     tx.senderPublicKeyFalcon = txJson.get("senderPublicKeyFalcon", "").asString();
+   tx.metadata = txJson.get("metadata", "").asString();
+
   }
 
   return tx;

@@ -1,4 +1,3 @@
-
 #include "state_circuit.h"
 #include "../rollup_utils.h"
 #include <sstream>
@@ -6,10 +5,7 @@
 
 StateCircuit::StateCircuit() {}
 
-void StateCircuit::addAccountState(const std::string& address, double balance) {
-    if (accountStates.find(address) != accountStates.end()) {
-        throw std::runtime_error("Account already exists in the state circuit.");
-    }
+void StateCircuit::addOrUpdateAccount(const std::string& address, double balance) {
     accountStates[address] = balance;
 }
 
@@ -33,6 +29,7 @@ std::string StateCircuit::computeStateRootHash() const {
     for (const auto& [address, balance] : accountStates) {
         accountHashes.push_back(hashAccountData(address, balance));
     }
+
     return RollupUtils::calculateMerkleRoot(accountHashes);
 }
 
@@ -48,9 +45,15 @@ const std::unordered_map<std::string, double>& StateCircuit::getAccountStates() 
     return accountStates;
 }
 
+void StateCircuit::loadFullState(const std::unordered_map<std::string, double>& stateMap) {
+    accountStates = stateMap;
+}
+
 std::string StateCircuit::hashAccountData(const std::string& address, double balance) const {
     std::ostringstream ss;
     ss << address << balance;
     return RollupUtils::hybridHashWithDomain(ss.str(), "StateTrace");
 }
-
+void StateCircuit::addAccountState(const std::string& address, double balance) {
+    accountStates[address] = balance;
+}

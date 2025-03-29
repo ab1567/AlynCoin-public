@@ -12,7 +12,7 @@ public:
                                                const std::unordered_map<std::string, double>& stateBefore,
                                                const std::unordered_map<std::string, double>& stateAfter);
 
-    static std::string generatePublicInput(const std::string& merkleRoot,
+    static std::string generatePublicInput(const std::string& txRoot,
                                            const std::string& stateRootBefore,
                                            const std::string& stateRootAfter);
 

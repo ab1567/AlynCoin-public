@@ -3,6 +3,8 @@
 
 #include <string>
 #include <vector>
+#include <tuple>
+#include <mutex>
 
 class TransactionCircuit {
 public:
@@ -17,6 +19,8 @@ public:
 private:
     std::vector<std::string> transactionTrace;
     std::string merkleRoot;
+    std::mutex traceMutex;
+
     void computeMerkleRoot();
 };
 

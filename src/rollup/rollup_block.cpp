@@ -31,32 +31,20 @@ std::string RollupBlock::calculateHash() const {
     std::stringstream ss;
     ss << "[RollupBlock|"
        << index << "|" << previousHash << "|" << merkleRoot << "|" << timestamp << "|" << nonce << "]";
-
     return Crypto::hybridHash(ss.str());
 }
 
 void RollupBlock::generateRollupProof(const std::unordered_map<std::string, double>& stateBefore,
-                                     const std::unordered_map<std::string, double>& stateAfter,
-                                     const std::string& prevProof) {
-
+                                      const std::unordered_map<std::string, double>& stateAfter,
+                                      const std::string& prevProof) {
     rollupProof = ProofGenerator::generateAggregatedProof(transactions, stateBefore, stateAfter);
 
-    // Compress state delta
-    compressedDelta = RollupUtils::compressStateDelta(stateBefore, stateAfter);
+    stateRootBefore = RollupUtils::calculateStateRoot(stateBefore);
+    stateRootAfter = RollupUtils::calculateStateRoot(stateAfter);
 
-    // Generate recursive proof
+    compressedDelta = RollupUtils::compressStateDelta(stateBefore, stateAfter);
     recursiveProof = ProofGenerator::generateRecursiveProof(prevProof, rollupProof);
 }
-//
-std::vector<std::string> RollupBlock::getTransactionHashes() const {
-    std::vector<std::string> hashes;
-    for (const auto& tx : transactions) {
-        hashes.push_back(tx.getHash());
-    }
-    return hashes;
-}
-
-//
 
 bool RollupBlock::verifyRollupProof() const {
     std::vector<std::string> txHashes;
@@ -64,12 +52,39 @@ bool RollupBlock::verifyRollupProof() const {
         txHashes.push_back(tx.getHash());
     }
 
-    bool mainProofValid = ProofVerifier::verifyRollupProof(rollupProof, txHashes, merkleRoot);
+    std::cout << "\n🔎 [DEBUG] Verifying RollupBlock Locally:\n";
+    std::cout << " ↪️ Proof Length: " << rollupProof.length() << "\n";
+    std::cout << " 🌳 Merkle Root: " << merkleRoot << "\n";
+    std::cout << " 🔐 State Root Before: " << stateRootBefore << "\n";
+    std::cout << " 🔐 State Root After:  " << stateRootAfter << "\n";
+    std::cout << " 🧾 TX Count: " << txHashes.size() << "\n";
 
-    // Verify recursive proof hash (optional)
-    bool recursiveValid = ProofVerifier::verifyRecursiveProof(previousHash, rollupProof, recursiveProof);
+    bool mainProofValid = ProofVerifier::verifyRollupProof(
+        rollupProof,
+        txHashes,
+        merkleRoot,
+        stateRootBefore,
+        stateRootAfter
+    );
+
+    bool recursiveValid = ProofVerifier::verifyRecursiveProof(
+        previousHash,
+        rollupProof,
+        recursiveProof
+    );
+
+    std::cout << " ✅ Main Proof Valid: " << (mainProofValid ? "Yes" : "No") << "\n";
+    std::cout << " 🔁 Recursive Proof Valid: " << (recursiveValid ? "Yes" : "No") << "\n";
 
     return mainProofValid && recursiveValid;
+}
+
+std::vector<std::string> RollupBlock::getTransactionHashes() const {
+    std::vector<std::string> hashes;
+    for (const auto& tx : transactions) {
+        hashes.push_back(tx.getHash());
+    }
+    return hashes;
 }
 
 std::string RollupBlock::getHash() const {
@@ -98,6 +113,8 @@ std::string RollupBlock::serialize() const {
     root["rollupProof"] = rollupProof;
     root["recursiveProof"] = recursiveProof;
     root["nonce"] = nonce;
+    root["stateRootBefore"] = stateRootBefore;
+    root["stateRootAfter"] = stateRootAfter;
 
     Json::Value txArray;
     for (const auto& tx : transactions) {
@@ -136,6 +153,8 @@ RollupBlock RollupBlock::deserialize(const std::string& data) {
     block.recursiveProof = root["recursiveProof"].asString();
     block.rollupHash = root["rollupHash"].asString();
     block.nonce = root["nonce"].asString();
+    block.stateRootBefore = root["stateRootBefore"].asString();
+    block.stateRootAfter = root["stateRootAfter"].asString();
 
     for (const auto& d : root["compressedDelta"]) {
         std::string addr = d["address"].asString();

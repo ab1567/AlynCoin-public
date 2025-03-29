@@ -10,10 +10,13 @@ public:
     static bool verifyProof(const RollupBlock& rollupBlock, const std::string& aggregatedProof);
     static bool verifyRollupProof(const std::string& aggregatedProof,
                                   const std::vector<std::string>& txHashes,
-                                  const std::string& rollupRootHash);
+                                  const std::string& txRoot,
+                                  const std::string& stateRootBefore,
+                                  const std::string& stateRootAfter);
 
-    // ✅ Recursive verifier
-    static bool verifyRecursiveProof(const std::string& prevProof, const std::string& newProof, const std::string& combined);
+    static bool verifyRecursiveProof(const std::string& prevProof,
+                                     const std::string& newProof,
+                                     const std::string& combined);
 
 private:
     static bool validateProofFormat(const std::string& proof, size_t txCount);

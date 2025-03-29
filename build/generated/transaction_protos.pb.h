@@ -184,6 +184,7 @@ class TransactionProto final :
     kZkproofFieldNumber = 7,
     kSenderPubkeyDilithiumFieldNumber = 8,
     kSenderPubkeyFalconFieldNumber = 9,
+    kMetadataFieldNumber = 10,
     kAmountFieldNumber = 3,
     kTimestampFieldNumber = 4,
   };
@@ -285,6 +286,20 @@ class TransactionProto final :
   std::string* _internal_mutable_sender_pubkey_falcon();
   public:
 
+  // string metadata = 10;
+  void clear_metadata();
+  const std::string& metadata() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_metadata(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_metadata();
+  PROTOBUF_NODISCARD std::string* release_metadata();
+  void set_allocated_metadata(std::string* metadata);
+  private:
+  const std::string& _internal_metadata() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_metadata(const std::string& value);
+  std::string* _internal_mutable_metadata();
+  public:
+
   // double amount = 3;
   void clear_amount();
   double amount() const;
@@ -318,6 +333,7 @@ class TransactionProto final :
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr zkproof_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr sender_pubkey_dilithium_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr sender_pubkey_falcon_;
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr metadata_;
     double amount_;
     uint64_t timestamp_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
@@ -724,6 +740,56 @@ inline void TransactionProto::set_allocated_sender_pubkey_falcon(std::string* se
   }
 #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
   // @@protoc_insertion_point(field_set_allocated:alyncoin.TransactionProto.sender_pubkey_falcon)
+}
+
+// string metadata = 10;
+inline void TransactionProto::clear_metadata() {
+  _impl_.metadata_.ClearToEmpty();
+}
+inline const std::string& TransactionProto::metadata() const {
+  // @@protoc_insertion_point(field_get:alyncoin.TransactionProto.metadata)
+  return _internal_metadata();
+}
+template <typename ArgT0, typename... ArgT>
+inline PROTOBUF_ALWAYS_INLINE
+void TransactionProto::set_metadata(ArgT0&& arg0, ArgT... args) {
+ 
+ _impl_.metadata_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:alyncoin.TransactionProto.metadata)
+}
+inline std::string* TransactionProto::mutable_metadata() {
+  std::string* _s = _internal_mutable_metadata();
+  // @@protoc_insertion_point(field_mutable:alyncoin.TransactionProto.metadata)
+  return _s;
+}
+inline const std::string& TransactionProto::_internal_metadata() const {
+  return _impl_.metadata_.Get();
+}
+inline void TransactionProto::_internal_set_metadata(const std::string& value) {
+  
+  _impl_.metadata_.Set(value, GetArenaForAllocation());
+}
+inline std::string* TransactionProto::_internal_mutable_metadata() {
+  
+  return _impl_.metadata_.Mutable(GetArenaForAllocation());
+}
+inline std::string* TransactionProto::release_metadata() {
+  // @@protoc_insertion_point(field_release:alyncoin.TransactionProto.metadata)
+  return _impl_.metadata_.Release();
+}
+inline void TransactionProto::set_allocated_metadata(std::string* metadata) {
+  if (metadata != nullptr) {
+    
+  } else {
+    
+  }
+  _impl_.metadata_.SetAllocated(metadata, GetArenaForAllocation());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (_impl_.metadata_.IsDefault()) {
+    _impl_.metadata_.Set("", GetArenaForAllocation());
+  }
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.TransactionProto.metadata)
 }
 
 #ifdef __GNUC__

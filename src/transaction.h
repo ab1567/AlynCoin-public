@@ -61,7 +61,10 @@ public:
   // Burn
   static double calculateBurnRate(int recentTxCount);
   void applyBurn(std::string &sender, double &amount, int recentTxCount);
-static Transaction createSystemRewardTransaction(const std::string &recipient, double amount);
+  static Transaction createSystemRewardTransaction(const std::string &recipient, double amount);
+    void setMetadata(const std::string& meta) { metadata = meta; }
+    std::string getMetadata() const { return metadata; }
+
 private:
   std::string sender;
   std::string recipient;
@@ -71,6 +74,7 @@ private:
   std::string signatureFalcon;
   time_t timestamp;
   std::string zkProof;
+    std::string metadata;
   std::string senderPublicKeyDilithium;
   std::string senderPublicKeyFalcon;
 };

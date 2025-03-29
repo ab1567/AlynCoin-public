@@ -14,4 +14,5 @@ message TransactionProto {
 
     string sender_pubkey_dilithium = 8;
     string sender_pubkey_falcon = 9;
+    string metadata = 10;
 }

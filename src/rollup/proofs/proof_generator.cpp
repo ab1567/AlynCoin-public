@@ -7,52 +7,63 @@
 #include <thread>
 #include "../../crypto_utils.h"
 
-std::string ProofGenerator::generatePublicInput(const std::string& merkleRoot,
+std::string ProofGenerator::generatePublicInput(const std::string& txRoot,
                                                 const std::string& stateRootBefore,
                                                 const std::string& stateRootAfter) {
-    return merkleRoot + stateRootBefore + stateRootAfter;
+    return Crypto::hybridHashWithDomain(txRoot + stateRootBefore + stateRootAfter, "PublicInput");
 }
 
 std::string ProofGenerator::generateAggregatedProof(const std::vector<Transaction>& transactions,
                                                     const std::unordered_map<std::string, double>& stateBefore,
                                                     const std::unordered_map<std::string, double>& stateAfter) {
     TransactionCircuit txCircuit;
-    StateCircuit stCircuit;
+    StateCircuit stBefore, stAfter;
 
-    // Parallel: Add transaction data & state balances
+    // Parallel processing for better performance
     std::thread txThread([&]() {
         for (const auto& tx : transactions) {
             txCircuit.addTransactionData(tx.getSender(), tx.getRecipient(), tx.getAmount(), tx.getTransactionHash());
         }
     });
 
-    std::thread stateThread([&]() {
+    std::thread beforeThread([&]() {
+        for (const auto& [addr, bal] : stateBefore) {
+            stBefore.addAccountState(addr, bal);
+        }
+    });
+
+    std::thread afterThread([&]() {
         for (const auto& [addr, bal] : stateAfter) {
-            stCircuit.addAccountState(addr, bal);
+            stAfter.addAccountState(addr, bal);
         }
     });
 
     txThread.join();
-    stateThread.join();
+    beforeThread.join();
+    afterThread.join();
 
-    auto txTrace = txCircuit.getTrace();
-    auto stTrace = stCircuit.generateStateTrace();
-    auto txMerkleRoot = txCircuit.getMerkleRoot();
-    auto stMerkleRootBefore = RollupUtils::calculateMerkleRoot({}); // Simplified
-    auto stMerkleRootAfter = stCircuit.computeStateRootHash();
+    std::string txMerkleRoot = txCircuit.getMerkleRoot();
+    std::string stRootBefore = stBefore.computeStateRootHash();
+    std::string stRootAfter = stAfter.computeStateRootHash();
 
-    std::string publicInput = generatePublicInput(txMerkleRoot, stMerkleRootBefore, stMerkleRootAfter);
+    std::string publicInput = generatePublicInput(txMerkleRoot, stRootBefore, stRootAfter);
 
+    // Trace composition
     std::string combinedTrace;
-    for (const auto& trace : txTrace) combinedTrace += trace;
-    for (const auto& trace : stTrace) combinedTrace += trace;
+    for (const auto& hash : txCircuit.getTrace()) {
+        combinedTrace += hash;
+    }
+    for (const auto& hash : stAfter.generateStateTrace()) {
+        combinedTrace += hash;
+    }
 
-    std::string blockHash = Crypto::keccak256(combinedTrace);
-    std::string zkProof = WinterfellStark::generateProof(blockHash, publicInput, combinedTrace);
+    std::string fullTraceHash = Crypto::keccak256(combinedTrace);
 
+    // ✅ Generate real zk-STARK proof from trace & public input
+    std::string zkProof = WinterfellStark::generateProof(fullTraceHash, publicInput, combinedTrace);
 
     if (zkProof.empty()) {
-        std::cerr << "[ERROR] Failed to generate zk-STARK proof!\n";
+        std::cerr << "[ERROR] zk-STARK generation failed\n";
     }
 
     return zkProof;

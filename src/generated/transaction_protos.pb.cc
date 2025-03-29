@@ -30,6 +30,7 @@ PROTOBUF_CONSTEXPR TransactionProto::TransactionProto(
   , /*decltype(_impl_.zkproof_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
   , /*decltype(_impl_.sender_pubkey_dilithium_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
   , /*decltype(_impl_.sender_pubkey_falcon_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
+  , /*decltype(_impl_.metadata_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
   , /*decltype(_impl_.amount_)*/0
   , /*decltype(_impl_.timestamp_)*/uint64_t{0u}
   , /*decltype(_impl_._cached_size_)*/{}} {}
@@ -63,6 +64,7 @@ const uint32_t TableStruct_transaction_5fprotos_2eproto::offsets[] PROTOBUF_SECT
   PROTOBUF_FIELD_OFFSET(::alyncoin::TransactionProto, _impl_.zkproof_),
   PROTOBUF_FIELD_OFFSET(::alyncoin::TransactionProto, _impl_.sender_pubkey_dilithium_),
   PROTOBUF_FIELD_OFFSET(::alyncoin::TransactionProto, _impl_.sender_pubkey_falcon_),
+  PROTOBUF_FIELD_OFFSET(::alyncoin::TransactionProto, _impl_.metadata_),
 };
 static const ::_pbi::MigrationSchema schemas[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
   { 0, -1, -1, sizeof(::alyncoin::TransactionProto)},
@@ -73,17 +75,18 @@ static const ::_pb::Message* const file_default_instances[] = {
 };
 
 const char descriptor_table_protodef_transaction_5fprotos_2eproto[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) =
-  "\n\030transaction_protos.proto\022\010alyncoin\"\337\001\n"
+  "\n\030transaction_protos.proto\022\010alyncoin\"\361\001\n"
   "\020TransactionProto\022\016\n\006sender\030\001 \001(\t\022\021\n\trec"
   "ipient\030\002 \001(\t\022\016\n\006amount\030\003 \001(\001\022\021\n\ttimestam"
   "p\030\004 \001(\004\022\033\n\023signature_dilithium\030\005 \001(\t\022\030\n\020"
   "signature_falcon\030\006 \001(\t\022\017\n\007zkproof\030\007 \001(\t\022"
   "\037\n\027sender_pubkey_dilithium\030\010 \001(\t\022\034\n\024send"
-  "er_pubkey_falcon\030\t \001(\tb\006proto3"
+  "er_pubkey_falcon\030\t \001(\t\022\020\n\010metadata\030\n \001(\t"
+  "b\006proto3"
   ;
 static ::_pbi::once_flag descriptor_table_transaction_5fprotos_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_transaction_5fprotos_2eproto = {
-    false, false, 270, descriptor_table_protodef_transaction_5fprotos_2eproto,
+    false, false, 288, descriptor_table_protodef_transaction_5fprotos_2eproto,
     "transaction_protos.proto",
     &descriptor_table_transaction_5fprotos_2eproto_once, nullptr, 0, 1,
     schemas, file_default_instances, TableStruct_transaction_5fprotos_2eproto::offsets,
@@ -121,6 +124,7 @@ TransactionProto::TransactionProto(const TransactionProto& from)
     , decltype(_impl_.zkproof_){}
     , decltype(_impl_.sender_pubkey_dilithium_){}
     , decltype(_impl_.sender_pubkey_falcon_){}
+    , decltype(_impl_.metadata_){}
     , decltype(_impl_.amount_){}
     , decltype(_impl_.timestamp_){}
     , /*decltype(_impl_._cached_size_)*/{}};
@@ -182,6 +186,14 @@ TransactionProto::TransactionProto(const TransactionProto& from)
     _this->_impl_.sender_pubkey_falcon_.Set(from._internal_sender_pubkey_falcon(), 
       _this->GetArenaForAllocation());
   }
+  _impl_.metadata_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.metadata_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (!from._internal_metadata().empty()) {
+    _this->_impl_.metadata_.Set(from._internal_metadata(), 
+      _this->GetArenaForAllocation());
+  }
   ::memcpy(&_impl_.amount_, &from._impl_.amount_,
     static_cast<size_t>(reinterpret_cast<char*>(&_impl_.timestamp_) -
     reinterpret_cast<char*>(&_impl_.amount_)) + sizeof(_impl_.timestamp_));
@@ -200,6 +212,7 @@ inline void TransactionProto::SharedCtor(
     , decltype(_impl_.zkproof_){}
     , decltype(_impl_.sender_pubkey_dilithium_){}
     , decltype(_impl_.sender_pubkey_falcon_){}
+    , decltype(_impl_.metadata_){}
     , decltype(_impl_.amount_){0}
     , decltype(_impl_.timestamp_){uint64_t{0u}}
     , /*decltype(_impl_._cached_size_)*/{}
@@ -232,6 +245,10 @@ inline void TransactionProto::SharedCtor(
   #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
     _impl_.sender_pubkey_falcon_.Set("", GetArenaForAllocation());
   #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.metadata_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.metadata_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
 }
 
 TransactionProto::~TransactionProto() {
@@ -252,6 +269,7 @@ inline void TransactionProto::SharedDtor() {
   _impl_.zkproof_.Destroy();
   _impl_.sender_pubkey_dilithium_.Destroy();
   _impl_.sender_pubkey_falcon_.Destroy();
+  _impl_.metadata_.Destroy();
 }
 
 void TransactionProto::SetCachedSize(int size) const {
@@ -271,6 +289,7 @@ void TransactionProto::Clear() {
   _impl_.zkproof_.ClearToEmpty();
   _impl_.sender_pubkey_dilithium_.ClearToEmpty();
   _impl_.sender_pubkey_falcon_.ClearToEmpty();
+  _impl_.metadata_.ClearToEmpty();
   ::memset(&_impl_.amount_, 0, static_cast<size_t>(
       reinterpret_cast<char*>(&_impl_.timestamp_) -
       reinterpret_cast<char*>(&_impl_.amount_)) + sizeof(_impl_.timestamp_));
@@ -366,6 +385,16 @@ const char* TransactionProto::_InternalParse(const char* ptr, ::_pbi::ParseConte
           ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(ptr);
           CHK_(::_pbi::VerifyUTF8(str, "alyncoin.TransactionProto.sender_pubkey_falcon"));
+        } else
+          goto handle_unusual;
+        continue;
+      // string metadata = 10;
+      case 10:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 82)) {
+          auto str = _internal_mutable_metadata();
+          ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
+          CHK_(ptr);
+          CHK_(::_pbi::VerifyUTF8(str, "alyncoin.TransactionProto.metadata"));
         } else
           goto handle_unusual;
         continue;
@@ -484,6 +513,16 @@ uint8_t* TransactionProto::_InternalSerialize(
         9, this->_internal_sender_pubkey_falcon(), target);
   }
 
+  // string metadata = 10;
+  if (!this->_internal_metadata().empty()) {
+    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
+      this->_internal_metadata().data(), static_cast<int>(this->_internal_metadata().length()),
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
+      "alyncoin.TransactionProto.metadata");
+    target = stream->WriteStringMaybeAliased(
+        10, this->_internal_metadata(), target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
         _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
@@ -549,6 +588,13 @@ size_t TransactionProto::ByteSizeLong() const {
         this->_internal_sender_pubkey_falcon());
   }
 
+  // string metadata = 10;
+  if (!this->_internal_metadata().empty()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+        this->_internal_metadata());
+  }
+
   // double amount = 3;
   static_assert(sizeof(uint64_t) == sizeof(double), "Code assumes uint64_t and double are the same size.");
   double tmp_amount = this->_internal_amount();
@@ -601,6 +647,9 @@ void TransactionProto::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const
   }
   if (!from._internal_sender_pubkey_falcon().empty()) {
     _this->_internal_set_sender_pubkey_falcon(from._internal_sender_pubkey_falcon());
+  }
+  if (!from._internal_metadata().empty()) {
+    _this->_internal_set_metadata(from._internal_metadata());
   }
   static_assert(sizeof(uint64_t) == sizeof(double), "Code assumes uint64_t and double are the same size.");
   double tmp_amount = from._internal_amount();
@@ -658,6 +707,10 @@ void TransactionProto::InternalSwap(TransactionProto* other) {
   ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::InternalSwap(
       &_impl_.sender_pubkey_falcon_, lhs_arena,
       &other->_impl_.sender_pubkey_falcon_, rhs_arena
+  );
+  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::InternalSwap(
+      &_impl_.metadata_, lhs_arena,
+      &other->_impl_.metadata_, rhs_arena
   );
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(TransactionProto, _impl_.timestamp_)
