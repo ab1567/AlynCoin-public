@@ -1,7 +1,7 @@
 src/CMakeFiles/dilithium.dir/crypto/dilithium/symmetric-shake.c.o: \
  /root/AlynCoin/src/crypto/dilithium/symmetric-shake.c \
  /usr/include/stdc-predef.h \
- /usr/lib/gcc/x86_64-linux-gnu/10/include/stdint.h /usr/include/stdint.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h /usr/include/stdint.h \
  /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
  /usr/include/features.h /usr/include/features-time64.h \
  /usr/include/x86_64-linux-gnu/bits/wordsize.h \
@@ -21,4 +21,4 @@ src/CMakeFiles/dilithium.dir/crypto/dilithium/symmetric-shake.c.o: \
  /root/AlynCoin/src/crypto/dilithium/config.h \
  /root/AlynCoin/src/crypto/dilithium/symmetric.h \
  /root/AlynCoin/src/crypto/dilithium/fips202.h \
- /usr/lib/gcc/x86_64-linux-gnu/10/include/stddef.h
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h

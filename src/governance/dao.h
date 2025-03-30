@@ -32,6 +32,10 @@ struct Proposal {
     uint64_t creation_time;        // UNIX timestamp
     uint64_t deadline_time;        // Voting deadline
     ProposalStatus status;         // Current status
+
+    // ✅ Fund Allocation specific
+    double transfer_amount = 0.0;              // Amount to transfer (if FUND_ALLOCATION)
+    std::string target_address = "";           // Recipient address
 };
 
 // DAO Logic Functions

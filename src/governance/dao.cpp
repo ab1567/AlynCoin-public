@@ -2,6 +2,7 @@
 #include "dao_storage.h"
 #include <ctime>
 #include <iostream>
+#include "devfund.h"
 
 namespace DAO {
 
@@ -75,6 +76,18 @@ bool finalizeProposal(const std::string& proposal_id) {
     // Determine outcome
     if (proposal.yes_votes > proposal.no_votes) {
         proposal.status = ProposalStatus::APPROVED;
+
+        // ✅ Trigger DevFund transfer if applicable
+        if (proposal.type == ProposalType::FUND_ALLOCATION) {
+            if (!DevFund::spendFunds(proposal.transfer_amount, proposal.target_address)) {
+                std::cerr << "❌ Dev Fund transfer failed! Insufficient balance or invalid address.\n";
+            } else {
+                std::cout << "💸 Dev Fund transferred: "
+                          << proposal.transfer_amount << " AlynCoin to "
+                          << proposal.target_address << "\n";
+            }
+        }
+
     } else {
         proposal.status = ProposalStatus::REJECTED;
     }

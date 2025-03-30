@@ -15,7 +15,7 @@ public:
     bool del(const std::string& key);
     void close();
     bool exists(const std::string& key);
-
+    std::vector<std::pair<std::string, std::string>> prefixScan(const std::string& prefix);
 private:
     rocksdb::DB* db_;
     rocksdb::Options options_;

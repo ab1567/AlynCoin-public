@@ -11,6 +11,9 @@
 #include <string>
 #include <filesystem>
 #include "db/db_paths.h"
+#include "governance/dao.h"
+#include "governance/devfund.h"
+#include "governance/dao_storage.h"
 
 void printMenu() {
   std::cout << "\n=== AlynCoin Wallet CLI ===\n";
@@ -25,6 +28,10 @@ void printMenu() {
   std::cout << "9. Manage Peer Blacklist\n";
   std::cout << "10. Generate Rollup Block (zk-STARK)\n";
   std::cout << "11. Exit\n";
+  std::cout << "12. Submit DAO Proposal\n";
+  std::cout << "13. Vote on DAO Proposal\n";
+  std::cout << "14. View DAO Proposals\n";
+  std::cout << "15. Finalize DAO Proposal\n";
   std::cout << "Choose an option: ";
 }
 
@@ -364,9 +371,121 @@ int cliMain(int argc, char *argv[]) {
     }
 
     case 11: running = false; break;
+
+   case 12: {
+    if (!wallet) {
+        std::cout << "Load or create a wallet first!\n";
+        break;
+    }
+
+    Proposal proposal;
+    proposal.proposal_id = Crypto::sha256(Crypto::generateRandomHex(16));
+    proposal.proposer_address = wallet->getAddress();
+
+    std::cin.ignore();
+    std::cout << "Enter proposal description: ";
+    std::getline(std::cin, proposal.description);
+
+    std::cout << "Select Proposal Type:\n"
+              << "1. Protocol Upgrade\n"
+              << "2. Fund Allocation\n"
+              << "3. Blacklist Appeal\n"
+              << "4. Custom Action\n"
+              << "Choice: ";
+    int typeChoice;
+    std::cin >> typeChoice;
+    proposal.type = static_cast<ProposalType>(typeChoice - 1);
+
+    // Handle FUND_ALLOCATION-specific input
+    if (proposal.type == ProposalType::FUND_ALLOCATION) {
+        std::cout << "Enter amount to transfer from Dev Fund: ";
+        std::cin >> proposal.transfer_amount;
+
+        std::cout << "Enter recipient address: ";
+        std::cin.ignore(); // flush newline
+        std::getline(std::cin, proposal.target_address);
+
+        if (proposal.transfer_amount <= 0 || proposal.target_address.empty()) {
+            std::cerr << "❌ Invalid fund allocation details.\n";
+            break;
+        }
+    }
+
+    proposal.yes_votes = 0;
+    proposal.no_votes = 0;
+    proposal.creation_time = std::time(nullptr);
+    proposal.deadline_time = proposal.creation_time + 86400;  // 24 hours
+    proposal.status = ProposalStatus::PENDING;
+
+    if (DAO::createProposal(proposal)) {
+        std::cout << "✅ Proposal submitted. ID: " << proposal.proposal_id << "\n";
+    } else {
+        std::cerr << "❌ Failed to submit proposal.\n";
+    }
+
+    break;
+}
+
+   case 13: {
+    if (!wallet) {
+        std::cout << "Load or create a wallet first!\n";
+        break;
+    }
+
+    std::string proposal_id;
+    std::cout << "Enter Proposal ID: ";
+    std::cin >> proposal_id;
+
+    std::string voteStr;
+    std::cout << "Vote YES or NO: ";
+    std::cin >> voteStr;
+
+    bool voteYes = (voteStr == "YES" || voteStr == "yes" || voteStr == "Y" || voteStr == "y");
+    uint64_t weight = static_cast<uint64_t>(blockchain.getBalance(wallet->getAddress()));
+
+    if (weight == 0) {
+        std::cerr << "⚠️ You have no voting weight (0 balance).\n";
+        break;
+    }
+
+    if (DAO::castVote(proposal_id, voteYes, weight)) {
+        std::cout << "✅ Vote cast successfully! Weight: " << weight << "\n";
+    } else {
+        std::cerr << "❌ Failed to cast vote.\n";
+    }
+
+    break;
+  }
+    case 14: {
+        std::vector<Proposal> proposals = DAOStorage::getAllProposals();
+        std::cout << "\n=== DAO Proposals ===\n";
+        for (const auto& p : proposals) {
+            std::cout << "📜 ID: " << p.proposal_id << "\n";
+            std::cout << "📝 Description: " << p.description << "\n";
+            std::cout << "🧭 Type: " << static_cast<int>(p.type) << "\n";
+            std::cout << "📅 Deadline: " << p.deadline_time << "\n";
+            std::cout << "✅ YES: " << p.yes_votes << " | ❌ NO: " << p.no_votes << "\n";
+            std::cout << "📌 Status: " << static_cast<int>(p.status) << "\n\n";
+        }
+        break;
+    }
+
+    case 15: {
+        std::string pid;
+        std::cout << "Enter Proposal ID to finalize: ";
+        std::cin >> pid;
+        if (DAO::finalizeProposal(pid)) {
+            std::cout << "✅ Proposal finalized.\n";
+        } else {
+            std::cerr << "❌ Failed to finalize proposal.\n";
+        }
+        break;
+    }
+
     default: std::cout << "Invalid choice! Please select a valid option.\n";
     }
   }
+
 
   if (wallet) delete wallet;
   return 0;

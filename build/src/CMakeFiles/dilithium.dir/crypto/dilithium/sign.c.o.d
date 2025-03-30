@@ -1,6 +1,6 @@
 src/CMakeFiles/dilithium.dir/crypto/dilithium/sign.c.o: \
  /root/AlynCoin/src/crypto/dilithium/sign.c /usr/include/stdc-predef.h \
- /usr/lib/gcc/x86_64-linux-gnu/10/include/stdint.h /usr/include/stdint.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h /usr/include/stdint.h \
  /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
  /usr/include/features.h /usr/include/features-time64.h \
  /usr/include/x86_64-linux-gnu/bits/wordsize.h \
@@ -19,7 +19,7 @@ src/CMakeFiles/dilithium.dir/crypto/dilithium/sign.c.o: \
  /root/AlynCoin/src/crypto/dilithium/params.h \
  /root/AlynCoin/src/crypto/dilithium/config.h \
  /root/AlynCoin/src/crypto/dilithium/sign.h \
- /usr/lib/gcc/x86_64-linux-gnu/10/include/stddef.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h \
  /root/AlynCoin/src/crypto/dilithium/polyvec.h \
  /root/AlynCoin/src/crypto/dilithium/poly.h \
  /root/AlynCoin/src/crypto/dilithium/packing.h \

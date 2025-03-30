@@ -2,7 +2,7 @@ src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/randombytes.c.o: \
  /root/AlynCoin/src/crypto/falcon/PQClean/common/randombytes.c \
  /usr/include/stdc-predef.h \
  /root/AlynCoin/src/crypto/falcon/PQClean/common/randombytes.h \
- /usr/lib/gcc/x86_64-linux-gnu/10/include/stdint.h /usr/include/stdint.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h /usr/include/stdint.h \
  /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
  /usr/include/features.h /usr/include/features-time64.h \
  /usr/include/x86_64-linux-gnu/bits/wordsize.h \
@@ -20,7 +20,7 @@ src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/randombytes.c.o: \
  /usr/include/x86_64-linux-gnu/bits/stdint-least.h /usr/include/unistd.h \
  /usr/include/x86_64-linux-gnu/bits/posix_opt.h \
  /usr/include/x86_64-linux-gnu/bits/environments.h \
- /usr/lib/gcc/x86_64-linux-gnu/10/include/stddef.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h \
  /usr/include/x86_64-linux-gnu/bits/confname.h \
  /usr/include/x86_64-linux-gnu/bits/getopt_posix.h \
  /usr/include/x86_64-linux-gnu/bits/getopt_core.h \
@@ -43,7 +43,7 @@ src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/randombytes.c.o: \
  /usr/include/x86_64-linux-gnu/sys/poll.h \
  /usr/include/x86_64-linux-gnu/bits/poll.h \
  /usr/include/x86_64-linux-gnu/bits/types/__sigset_t.h \
- /usr/include/stdio.h /usr/lib/gcc/x86_64-linux-gnu/10/include/stdarg.h \
+ /usr/include/stdio.h /usr/lib/gcc/x86_64-linux-gnu/13/include/stdarg.h \
  /usr/include/x86_64-linux-gnu/bits/types/__fpos_t.h \
  /usr/include/x86_64-linux-gnu/bits/types/__mbstate_t.h \
  /usr/include/x86_64-linux-gnu/bits/types/__fpos64_t.h \
@@ -97,8 +97,8 @@ src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/randombytes.c.o: \
  /usr/include/x86_64-linux-gnu/asm/unistd_64.h \
  /usr/include/x86_64-linux-gnu/bits/syscall.h \
  /usr/include/x86_64-linux-gnu/sys/param.h \
- /usr/lib/gcc/x86_64-linux-gnu/10/include/limits.h \
- /usr/lib/gcc/x86_64-linux-gnu/10/include/syslimits.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/limits.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/syslimits.h \
  /usr/include/limits.h /usr/include/x86_64-linux-gnu/bits/posix1_lim.h \
  /usr/include/x86_64-linux-gnu/bits/local_lim.h \
  /usr/include/linux/limits.h \

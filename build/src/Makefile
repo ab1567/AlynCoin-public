@@ -1312,6 +1312,30 @@ crypto_utils.cpp.s:
 	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/crypto_utils.cpp.s
 .PHONY : crypto_utils.cpp.s
 
+db/rocksdb_wrapper.o: db/rocksdb_wrapper.cpp.o
+.PHONY : db/rocksdb_wrapper.o
+
+# target to build an object file
+db/rocksdb_wrapper.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/db/rocksdb_wrapper.cpp.o
+.PHONY : db/rocksdb_wrapper.cpp.o
+
+db/rocksdb_wrapper.i: db/rocksdb_wrapper.cpp.i
+.PHONY : db/rocksdb_wrapper.i
+
+# target to preprocess a source file
+db/rocksdb_wrapper.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/db/rocksdb_wrapper.cpp.i
+.PHONY : db/rocksdb_wrapper.cpp.i
+
+db/rocksdb_wrapper.s: db/rocksdb_wrapper.cpp.s
+.PHONY : db/rocksdb_wrapper.s
+
+# target to generate assembly for a file
+db/rocksdb_wrapper.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/db/rocksdb_wrapper.cpp.s
+.PHONY : db/rocksdb_wrapper.cpp.s
+
 explorer/explorer_db.o: explorer/explorer_db.cpp.o
 .PHONY : explorer/explorer_db.o
 
@@ -1383,6 +1407,78 @@ explorer/explorer_utils.s: explorer/explorer_utils.cpp.s
 explorer/explorer_utils.cpp.s:
 	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/explorer_server.dir/build.make src/CMakeFiles/explorer_server.dir/explorer/explorer_utils.cpp.s
 .PHONY : explorer/explorer_utils.cpp.s
+
+governance/dao.o: governance/dao.cpp.o
+.PHONY : governance/dao.o
+
+# target to build an object file
+governance/dao.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/governance/dao.cpp.o
+.PHONY : governance/dao.cpp.o
+
+governance/dao.i: governance/dao.cpp.i
+.PHONY : governance/dao.i
+
+# target to preprocess a source file
+governance/dao.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/governance/dao.cpp.i
+.PHONY : governance/dao.cpp.i
+
+governance/dao.s: governance/dao.cpp.s
+.PHONY : governance/dao.s
+
+# target to generate assembly for a file
+governance/dao.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/governance/dao.cpp.s
+.PHONY : governance/dao.cpp.s
+
+governance/dao_storage.o: governance/dao_storage.cpp.o
+.PHONY : governance/dao_storage.o
+
+# target to build an object file
+governance/dao_storage.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/governance/dao_storage.cpp.o
+.PHONY : governance/dao_storage.cpp.o
+
+governance/dao_storage.i: governance/dao_storage.cpp.i
+.PHONY : governance/dao_storage.i
+
+# target to preprocess a source file
+governance/dao_storage.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/governance/dao_storage.cpp.i
+.PHONY : governance/dao_storage.cpp.i
+
+governance/dao_storage.s: governance/dao_storage.cpp.s
+.PHONY : governance/dao_storage.s
+
+# target to generate assembly for a file
+governance/dao_storage.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/governance/dao_storage.cpp.s
+.PHONY : governance/dao_storage.cpp.s
+
+governance/devfund.o: governance/devfund.cpp.o
+.PHONY : governance/devfund.o
+
+# target to build an object file
+governance/devfund.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/governance/devfund.cpp.o
+.PHONY : governance/devfund.cpp.o
+
+governance/devfund.i: governance/devfund.cpp.i
+.PHONY : governance/devfund.i
+
+# target to preprocess a source file
+governance/devfund.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/governance/devfund.cpp.i
+.PHONY : governance/devfund.cpp.i
+
+governance/devfund.s: governance/devfund.cpp.s
+.PHONY : governance/devfund.s
+
+# target to generate assembly for a file
+governance/devfund.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/governance/devfund.cpp.s
+.PHONY : governance/devfund.cpp.s
 
 keccak.o: keccak.cpp.o
 .PHONY : keccak.o
@@ -1990,6 +2086,9 @@ help:
 	@echo "... crypto_utils.o"
 	@echo "... crypto_utils.i"
 	@echo "... crypto_utils.s"
+	@echo "... db/rocksdb_wrapper.o"
+	@echo "... db/rocksdb_wrapper.i"
+	@echo "... db/rocksdb_wrapper.s"
 	@echo "... explorer/explorer_db.o"
 	@echo "... explorer/explorer_db.i"
 	@echo "... explorer/explorer_db.s"
@@ -1999,6 +2098,15 @@ help:
 	@echo "... explorer/explorer_utils.o"
 	@echo "... explorer/explorer_utils.i"
 	@echo "... explorer/explorer_utils.s"
+	@echo "... governance/dao.o"
+	@echo "... governance/dao.i"
+	@echo "... governance/dao.s"
+	@echo "... governance/dao_storage.o"
+	@echo "... governance/dao_storage.i"
+	@echo "... governance/dao_storage.s"
+	@echo "... governance/devfund.o"
+	@echo "... governance/devfund.i"
+	@echo "... governance/devfund.s"
 	@echo "... keccak.o"
 	@echo "... keccak.i"
 	@echo "... keccak.s"

@@ -9,7 +9,7 @@ src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/rng.c.o: \
  /usr/include/x86_64-linux-gnu/gnu/stubs.h \
  /usr/include/x86_64-linux-gnu/gnu/stubs-64.h \
  /root/AlynCoin/src/crypto/falcon/PQClean/Falcon-1024/clean/inner.h \
- /usr/lib/gcc/x86_64-linux-gnu/10/include/stdint.h /usr/include/stdint.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h /usr/include/stdint.h \
  /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
  /usr/include/x86_64-linux-gnu/bits/types.h \
  /usr/include/x86_64-linux-gnu/bits/typesizes.h \
@@ -18,7 +18,7 @@ src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/rng.c.o: \
  /usr/include/x86_64-linux-gnu/bits/stdint-intn.h \
  /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
  /usr/include/x86_64-linux-gnu/bits/stdint-least.h /usr/include/stdlib.h \
- /usr/lib/gcc/x86_64-linux-gnu/10/include/stddef.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h \
  /usr/include/x86_64-linux-gnu/bits/waitflags.h \
  /usr/include/x86_64-linux-gnu/bits/waitstatus.h \
  /usr/include/x86_64-linux-gnu/bits/floatn.h \

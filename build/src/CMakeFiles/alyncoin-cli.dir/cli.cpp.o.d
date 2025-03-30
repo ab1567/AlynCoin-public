@@ -1363,4 +1363,8 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
  /usr/include/libintl.h /usr/include/c++/13/bits/locale_facets_nonio.tcc \
  /usr/include/c++/13/bits/locale_conv.h /usr/include/c++/13/iomanip \
  /usr/include/c++/13/bits/quoted_string.h /usr/include/c++/13/codecvt \
- /usr/include/c++/13/bits/fs_dir.h /usr/include/c++/13/bits/fs_ops.h
+ /usr/include/c++/13/bits/fs_dir.h /usr/include/c++/13/bits/fs_ops.h \
+ /root/AlynCoin/src/governance/dao.h \
+ /root/AlynCoin/src/governance/devfund.h \
+ /root/AlynCoin/src/governance/dao_storage.h \
+ /root/AlynCoin/src/governance/dao.h

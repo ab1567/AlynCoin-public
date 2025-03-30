@@ -14,7 +14,9 @@ static std::string serializeProposal(const Proposal& proposal) {
        << proposal.no_votes << "|"
        << proposal.creation_time << "|"
        << proposal.deadline_time << "|"
-       << static_cast<int>(proposal.status);
+       << static_cast<int>(proposal.status) << "|"
+       << proposal.transfer_amount << "|"
+       << proposal.target_address;
     return ss.str();
 }
 
@@ -23,6 +25,7 @@ static Proposal deserializeProposal(const std::string& data) {
     std::istringstream ss(data);
     Proposal p;
     std::string temp;
+
     std::getline(ss, p.proposal_id, '|');
     std::getline(ss, p.description, '|');
     std::getline(ss, temp, '|'); p.type = static_cast<ProposalType>(std::stoi(temp));
@@ -32,6 +35,9 @@ static Proposal deserializeProposal(const std::string& data) {
     std::getline(ss, temp, '|'); p.creation_time = std::stoull(temp);
     std::getline(ss, temp, '|'); p.deadline_time = std::stoull(temp);
     std::getline(ss, temp, '|'); p.status = static_cast<ProposalStatus>(std::stoi(temp));
+    std::getline(ss, temp, '|'); p.transfer_amount = std::stod(temp);
+    std::getline(ss, p.target_address);
+
     return p;
 }
 
@@ -57,4 +63,14 @@ bool DAOStorage::proposalExists(const std::string& proposal_id) {
     RocksDBWrapper db(DBPaths::getGovernanceDB());
     std::string key = "proposal_" + proposal_id;
     return db.exists(key);
+}
+std::vector<Proposal> DAOStorage::getAllProposals() {
+    std::vector<Proposal> result;
+    RocksDBWrapper db(DBPaths::getGovernanceDB());
+
+    auto all = db.prefixScan("proposal_");
+    for (const auto& [key, value] : all) {
+        result.push_back(deserializeProposal(value));
+    }
+    return result;
 }

@@ -67,6 +67,13 @@ file(GLOB SOURCES
     ${SOURCE_DIR}/network/peer_blacklist.cpp
     ${SOURCE_DIR}/network/peer_manager.cpp
     ${SOURCE_DIR}/validation/transaction_validator.cpp
+    ${SOURCE_DIR}/governance/dao.cpp
+    ${SOURCE_DIR}/governance/dao_storage.cpp
+    ${SOURCE_DIR}/governance/devfund.cpp
+)
+
+list(APPEND SOURCES
+    ${SOURCE_DIR}/db/rocksdb_wrapper.cpp
 )
 
 file(GLOB EXPLORER_SOURCES ${SOURCE_DIR}/explorer/*.cpp)
@@ -99,7 +106,7 @@ include_directories(
     ${SOURCE_DIR}/rollup/circuits
     ${SOURCE_DIR}/explorer
     ${GENERATED_DIR}
-    ${SOURCE_DIR}/deps/Crow/include
+    ${CMAKE_SOURCE_DIR}/deps/Crow/include
     /usr/include/jsoncpp
     /usr/include/rocksdb
     ${SOURCE_DIR}/crypto/falcon/PQClean/Falcon-1024/clean
@@ -286,7 +293,7 @@ target_link_libraries(blacklist_test
 add_executable(explorer_server ${EXPLORER_SOURCES})
 
 add_dependencies(explorer_server protobuf_gen winterfell_ffi)
-target_include_directories(explorer_server PRIVATE ${SOURCE_DIR}/explorer ${SOURCE_DIR}/deps/Crow/include)
+target_include_directories(explorer_server PRIVATE ${SOURCE_DIR}/explorer ${CMAKE_SOURCE_DIR}/deps/Crow/include)
 
 target_link_libraries(explorer_server
     alyncoin_lib

@@ -15,6 +15,7 @@ bool loadProposal(const std::string& proposal_id, Proposal& proposal);
 // Check if proposal exists
 bool proposalExists(const std::string& proposal_id);
 
+std::vector<Proposal> getAllProposals();
 }
 
 #endif // DAO_STORAGE_H

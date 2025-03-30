@@ -47,3 +47,16 @@ bool RocksDBWrapper::exists(const std::string& key) {
     rocksdb::Status status = db_->Get(rocksdb::ReadOptions(), key, &value);
     return status.ok();
 }
+std::vector<std::pair<std::string, std::string>> RocksDBWrapper::prefixScan(const std::string& prefix) {
+    std::vector<std::pair<std::string, std::string>> results;
+    rocksdb::Iterator* it = db_->NewIterator(rocksdb::ReadOptions());
+
+    for (it->Seek(prefix); it->Valid() && it->key().starts_with(prefix); it->Next()) {
+        std::string key = it->key().ToString();
+        std::string value = it->value().ToString();
+        results.emplace_back(key, value);
+    }
+
+    delete it;
+    return results;
+}
