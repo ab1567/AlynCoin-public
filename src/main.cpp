@@ -39,6 +39,13 @@ int main(int argc, char *argv[]) {
       if (keyDir.back() != '/')
         keyDir += '/';
       std::cout << "🔑 Using custom key directory: " << keyDir << std::endl;
+    } else if (arg[0] != '-') {
+      try {
+        port = static_cast<unsigned short>(std::stoi(arg));
+        std::cout << "🌐 Positional port override: " << port << std::endl;
+      } catch (...) {
+        std::cerr << "⚠️ Invalid positional argument: " << arg << std::endl;
+      }
     } else {
       std::cerr << "⚠️ Unknown argument ignored: " << arg << std::endl;
     }
@@ -144,7 +151,7 @@ int main(int argc, char *argv[]) {
       Block minedBlock = blockchain.mineBlock(minerAddress);
       if (!minedBlock.getHash().empty()) {
         blockchain.saveToDB();
-        blockchain.saveTransactionsToDB();
+        blockchain.savePendingTransactionsToDB();
         network.broadcastBlock(minedBlock);
         blockchain.reloadBlockchainState();
         std::cout << "Block mined, saved, synced!\n";

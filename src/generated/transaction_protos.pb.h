@@ -185,8 +185,10 @@ class TransactionProto final :
     kSenderPubkeyDilithiumFieldNumber = 8,
     kSenderPubkeyFalconFieldNumber = 9,
     kMetadataFieldNumber = 10,
+    kHashFieldNumber = 11,
     kAmountFieldNumber = 3,
     kTimestampFieldNumber = 4,
+    kIsSystemFieldNumber = 12,
   };
   // string sender = 1;
   void clear_sender();
@@ -244,7 +246,7 @@ class TransactionProto final :
   std::string* _internal_mutable_signature_falcon();
   public:
 
-  // string zkproof = 7;
+  // bytes zkproof = 7;
   void clear_zkproof();
   const std::string& zkproof() const;
   template <typename ArgT0 = const std::string&, typename... ArgT>
@@ -300,6 +302,20 @@ class TransactionProto final :
   std::string* _internal_mutable_metadata();
   public:
 
+  // string hash = 11;
+  void clear_hash();
+  const std::string& hash() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_hash(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_hash();
+  PROTOBUF_NODISCARD std::string* release_hash();
+  void set_allocated_hash(std::string* hash);
+  private:
+  const std::string& _internal_hash() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_hash(const std::string& value);
+  std::string* _internal_mutable_hash();
+  public:
+
   // double amount = 3;
   void clear_amount();
   double amount() const;
@@ -318,6 +334,15 @@ class TransactionProto final :
   void _internal_set_timestamp(uint64_t value);
   public:
 
+  // bool is_system = 12;
+  void clear_is_system();
+  bool is_system() const;
+  void set_is_system(bool value);
+  private:
+  bool _internal_is_system() const;
+  void _internal_set_is_system(bool value);
+  public:
+
   // @@protoc_insertion_point(class_scope:alyncoin.TransactionProto)
  private:
   class _Internal;
@@ -334,8 +359,10 @@ class TransactionProto final :
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr sender_pubkey_dilithium_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr sender_pubkey_falcon_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr metadata_;
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr hash_;
     double amount_;
     uint64_t timestamp_;
+    bool is_system_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   };
   union { Impl_ _impl_; };
@@ -592,7 +619,7 @@ inline void TransactionProto::set_allocated_signature_falcon(std::string* signat
   // @@protoc_insertion_point(field_set_allocated:alyncoin.TransactionProto.signature_falcon)
 }
 
-// string zkproof = 7;
+// bytes zkproof = 7;
 inline void TransactionProto::clear_zkproof() {
   _impl_.zkproof_.ClearToEmpty();
 }
@@ -604,7 +631,7 @@ template <typename ArgT0, typename... ArgT>
 inline PROTOBUF_ALWAYS_INLINE
 void TransactionProto::set_zkproof(ArgT0&& arg0, ArgT... args) {
  
- _impl_.zkproof_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+ _impl_.zkproof_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:alyncoin.TransactionProto.zkproof)
 }
 inline std::string* TransactionProto::mutable_zkproof() {
@@ -790,6 +817,76 @@ inline void TransactionProto::set_allocated_metadata(std::string* metadata) {
   }
 #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
   // @@protoc_insertion_point(field_set_allocated:alyncoin.TransactionProto.metadata)
+}
+
+// string hash = 11;
+inline void TransactionProto::clear_hash() {
+  _impl_.hash_.ClearToEmpty();
+}
+inline const std::string& TransactionProto::hash() const {
+  // @@protoc_insertion_point(field_get:alyncoin.TransactionProto.hash)
+  return _internal_hash();
+}
+template <typename ArgT0, typename... ArgT>
+inline PROTOBUF_ALWAYS_INLINE
+void TransactionProto::set_hash(ArgT0&& arg0, ArgT... args) {
+ 
+ _impl_.hash_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:alyncoin.TransactionProto.hash)
+}
+inline std::string* TransactionProto::mutable_hash() {
+  std::string* _s = _internal_mutable_hash();
+  // @@protoc_insertion_point(field_mutable:alyncoin.TransactionProto.hash)
+  return _s;
+}
+inline const std::string& TransactionProto::_internal_hash() const {
+  return _impl_.hash_.Get();
+}
+inline void TransactionProto::_internal_set_hash(const std::string& value) {
+  
+  _impl_.hash_.Set(value, GetArenaForAllocation());
+}
+inline std::string* TransactionProto::_internal_mutable_hash() {
+  
+  return _impl_.hash_.Mutable(GetArenaForAllocation());
+}
+inline std::string* TransactionProto::release_hash() {
+  // @@protoc_insertion_point(field_release:alyncoin.TransactionProto.hash)
+  return _impl_.hash_.Release();
+}
+inline void TransactionProto::set_allocated_hash(std::string* hash) {
+  if (hash != nullptr) {
+    
+  } else {
+    
+  }
+  _impl_.hash_.SetAllocated(hash, GetArenaForAllocation());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (_impl_.hash_.IsDefault()) {
+    _impl_.hash_.Set("", GetArenaForAllocation());
+  }
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.TransactionProto.hash)
+}
+
+// bool is_system = 12;
+inline void TransactionProto::clear_is_system() {
+  _impl_.is_system_ = false;
+}
+inline bool TransactionProto::_internal_is_system() const {
+  return _impl_.is_system_;
+}
+inline bool TransactionProto::is_system() const {
+  // @@protoc_insertion_point(field_get:alyncoin.TransactionProto.is_system)
+  return _internal_is_system();
+}
+inline void TransactionProto::_internal_set_is_system(bool value) {
+  
+  _impl_.is_system_ = value;
+}
+inline void TransactionProto::set_is_system(bool value) {
+  _internal_set_is_system(value);
+  // @@protoc_insertion_point(field_set:alyncoin.TransactionProto.is_system)
 }
 
 #ifdef __GNUC__

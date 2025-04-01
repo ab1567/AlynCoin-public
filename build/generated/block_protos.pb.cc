@@ -34,6 +34,8 @@ PROTOBUF_CONSTEXPR BlockProto::BlockProto(
   , /*decltype(_impl_.falcon_signature_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
   , /*decltype(_impl_.public_key_dilithium_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
   , /*decltype(_impl_.public_key_falcon_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
+  , /*decltype(_impl_.state_root_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
+  , /*decltype(_impl_.tx_merkle_root_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
   , /*decltype(_impl_.index_)*/0
   , /*decltype(_impl_.difficulty_)*/0
   , /*decltype(_impl_.nonce_)*/uint64_t{0u}
@@ -75,6 +77,8 @@ const uint32_t TableStruct_block_5fprotos_2eproto::offsets[] PROTOBUF_SECTION_VA
   PROTOBUF_FIELD_OFFSET(::alyncoin::BlockProto, _impl_.falcon_signature_),
   PROTOBUF_FIELD_OFFSET(::alyncoin::BlockProto, _impl_.public_key_dilithium_),
   PROTOBUF_FIELD_OFFSET(::alyncoin::BlockProto, _impl_.public_key_falcon_),
+  PROTOBUF_FIELD_OFFSET(::alyncoin::BlockProto, _impl_.state_root_),
+  PROTOBUF_FIELD_OFFSET(::alyncoin::BlockProto, _impl_.tx_merkle_root_),
 };
 static const ::_pbi::MigrationSchema schemas[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
   { 0, -1, -1, sizeof(::alyncoin::BlockProto)},
@@ -86,7 +90,7 @@ static const ::_pb::Message* const file_default_instances[] = {
 
 const char descriptor_table_protodef_block_5fprotos_2eproto[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) =
   "\n\022block_protos.proto\022\010alyncoin\032\030transact"
-  "ion_protos.proto\"\365\002\n\nBlockProto\022\r\n\005index"
+  "ion_protos.proto\"\241\003\n\nBlockProto\022\r\n\005index"
   "\030\001 \001(\005\022\025\n\rprevious_hash\030\002 \001(\t\0220\n\014transac"
   "tions\030\003 \003(\0132\032.alyncoin.TransactionProto\022"
   "\014\n\004hash\030\004 \001(\t\022\025\n\rminer_address\030\005 \001(\t\022\r\n\005"
@@ -95,14 +99,16 @@ const char descriptor_table_protodef_block_5fprotos_2eproto[] PROTOBUF_SECTION_V
   "eccak_hash\030\n \001(\t\022\026\n\016zk_stark_proof\030\013 \001(\014"
   "\022\033\n\023dilithium_signature\030\014 \001(\t\022\030\n\020falcon_"
   "signature\030\r \001(\t\022\034\n\024public_key_dilithium\030"
-  "\016 \001(\t\022\031\n\021public_key_falcon\030\017 \001(\tb\006proto3"
+  "\016 \001(\t\022\031\n\021public_key_falcon\030\017 \001(\t\022\022\n\nstat"
+  "e_root\030\020 \001(\t\022\026\n\016tx_merkle_root\030\021 \001(\tb\006pr"
+  "oto3"
   ;
 static const ::_pbi::DescriptorTable* const descriptor_table_block_5fprotos_2eproto_deps[1] = {
   &::descriptor_table_transaction_5fprotos_2eproto,
 };
 static ::_pbi::once_flag descriptor_table_block_5fprotos_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_block_5fprotos_2eproto = {
-    false, false, 440, descriptor_table_protodef_block_5fprotos_2eproto,
+    false, false, 484, descriptor_table_protodef_block_5fprotos_2eproto,
     "block_protos.proto",
     &descriptor_table_block_5fprotos_2eproto_once, descriptor_table_block_5fprotos_2eproto_deps, 1, 1,
     schemas, file_default_instances, TableStruct_block_5fprotos_2eproto::offsets,
@@ -147,6 +153,8 @@ BlockProto::BlockProto(const BlockProto& from)
     , decltype(_impl_.falcon_signature_){}
     , decltype(_impl_.public_key_dilithium_){}
     , decltype(_impl_.public_key_falcon_){}
+    , decltype(_impl_.state_root_){}
+    , decltype(_impl_.tx_merkle_root_){}
     , decltype(_impl_.index_){}
     , decltype(_impl_.difficulty_){}
     , decltype(_impl_.nonce_){}
@@ -234,6 +242,22 @@ BlockProto::BlockProto(const BlockProto& from)
     _this->_impl_.public_key_falcon_.Set(from._internal_public_key_falcon(), 
       _this->GetArenaForAllocation());
   }
+  _impl_.state_root_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.state_root_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (!from._internal_state_root().empty()) {
+    _this->_impl_.state_root_.Set(from._internal_state_root(), 
+      _this->GetArenaForAllocation());
+  }
+  _impl_.tx_merkle_root_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.tx_merkle_root_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (!from._internal_tx_merkle_root().empty()) {
+    _this->_impl_.tx_merkle_root_.Set(from._internal_tx_merkle_root(), 
+      _this->GetArenaForAllocation());
+  }
   ::memcpy(&_impl_.index_, &from._impl_.index_,
     static_cast<size_t>(reinterpret_cast<char*>(&_impl_.timestamp_) -
     reinterpret_cast<char*>(&_impl_.index_)) + sizeof(_impl_.timestamp_));
@@ -256,6 +280,8 @@ inline void BlockProto::SharedCtor(
     , decltype(_impl_.falcon_signature_){}
     , decltype(_impl_.public_key_dilithium_){}
     , decltype(_impl_.public_key_falcon_){}
+    , decltype(_impl_.state_root_){}
+    , decltype(_impl_.tx_merkle_root_){}
     , decltype(_impl_.index_){0}
     , decltype(_impl_.difficulty_){0}
     , decltype(_impl_.nonce_){uint64_t{0u}}
@@ -302,6 +328,14 @@ inline void BlockProto::SharedCtor(
   #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
     _impl_.public_key_falcon_.Set("", GetArenaForAllocation());
   #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.state_root_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.state_root_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.tx_merkle_root_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.tx_merkle_root_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
 }
 
 BlockProto::~BlockProto() {
@@ -326,6 +360,8 @@ inline void BlockProto::SharedDtor() {
   _impl_.falcon_signature_.Destroy();
   _impl_.public_key_dilithium_.Destroy();
   _impl_.public_key_falcon_.Destroy();
+  _impl_.state_root_.Destroy();
+  _impl_.tx_merkle_root_.Destroy();
 }
 
 void BlockProto::SetCachedSize(int size) const {
@@ -349,6 +385,8 @@ void BlockProto::Clear() {
   _impl_.falcon_signature_.ClearToEmpty();
   _impl_.public_key_dilithium_.ClearToEmpty();
   _impl_.public_key_falcon_.ClearToEmpty();
+  _impl_.state_root_.ClearToEmpty();
+  _impl_.tx_merkle_root_.ClearToEmpty();
   ::memset(&_impl_.index_, 0, static_cast<size_t>(
       reinterpret_cast<char*>(&_impl_.timestamp_) -
       reinterpret_cast<char*>(&_impl_.index_)) + sizeof(_impl_.timestamp_));
@@ -502,6 +540,26 @@ const char* BlockProto::_InternalParse(const char* ptr, ::_pbi::ParseContext* ct
           ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(ptr);
           CHK_(::_pbi::VerifyUTF8(str, "alyncoin.BlockProto.public_key_falcon"));
+        } else
+          goto handle_unusual;
+        continue;
+      // string state_root = 16;
+      case 16:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 130)) {
+          auto str = _internal_mutable_state_root();
+          ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
+          CHK_(ptr);
+          CHK_(::_pbi::VerifyUTF8(str, "alyncoin.BlockProto.state_root"));
+        } else
+          goto handle_unusual;
+        continue;
+      // string tx_merkle_root = 17;
+      case 17:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 138)) {
+          auto str = _internal_mutable_tx_merkle_root();
+          ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
+          CHK_(ptr);
+          CHK_(::_pbi::VerifyUTF8(str, "alyncoin.BlockProto.tx_merkle_root"));
         } else
           goto handle_unusual;
         continue;
@@ -662,6 +720,26 @@ uint8_t* BlockProto::_InternalSerialize(
         15, this->_internal_public_key_falcon(), target);
   }
 
+  // string state_root = 16;
+  if (!this->_internal_state_root().empty()) {
+    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
+      this->_internal_state_root().data(), static_cast<int>(this->_internal_state_root().length()),
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
+      "alyncoin.BlockProto.state_root");
+    target = stream->WriteStringMaybeAliased(
+        16, this->_internal_state_root(), target);
+  }
+
+  // string tx_merkle_root = 17;
+  if (!this->_internal_tx_merkle_root().empty()) {
+    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
+      this->_internal_tx_merkle_root().data(), static_cast<int>(this->_internal_tx_merkle_root().length()),
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
+      "alyncoin.BlockProto.tx_merkle_root");
+    target = stream->WriteStringMaybeAliased(
+        17, this->_internal_tx_merkle_root(), target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
         _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
@@ -755,6 +833,20 @@ size_t BlockProto::ByteSizeLong() const {
         this->_internal_public_key_falcon());
   }
 
+  // string state_root = 16;
+  if (!this->_internal_state_root().empty()) {
+    total_size += 2 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+        this->_internal_state_root());
+  }
+
+  // string tx_merkle_root = 17;
+  if (!this->_internal_tx_merkle_root().empty()) {
+    total_size += 2 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+        this->_internal_tx_merkle_root());
+  }
+
   // int32 index = 1;
   if (this->_internal_index() != 0) {
     total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(this->_internal_index());
@@ -823,6 +915,12 @@ void BlockProto::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PRO
   }
   if (!from._internal_public_key_falcon().empty()) {
     _this->_internal_set_public_key_falcon(from._internal_public_key_falcon());
+  }
+  if (!from._internal_state_root().empty()) {
+    _this->_internal_set_state_root(from._internal_state_root());
+  }
+  if (!from._internal_tx_merkle_root().empty()) {
+    _this->_internal_set_tx_merkle_root(from._internal_tx_merkle_root());
   }
   if (from._internal_index() != 0) {
     _this->_internal_set_index(from._internal_index());
@@ -895,6 +993,14 @@ void BlockProto::InternalSwap(BlockProto* other) {
   ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::InternalSwap(
       &_impl_.public_key_falcon_, lhs_arena,
       &other->_impl_.public_key_falcon_, rhs_arena
+  );
+  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::InternalSwap(
+      &_impl_.state_root_, lhs_arena,
+      &other->_impl_.state_root_, rhs_arena
+  );
+  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::InternalSwap(
+      &_impl_.tx_merkle_root_, lhs_arena,
+      &other->_impl_.tx_merkle_root_, rhs_arena
   );
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(BlockProto, _impl_.timestamp_)

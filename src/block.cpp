@@ -95,10 +95,7 @@ void Block::setZkProof(const std::string &proof) { zkProof = proof; }
 // Calculate Hash
 std::string Block::calculateHash() const {
   std::stringstream ss;
-  ss << index << previousHash << timestamp << nonce << minerAddress;
-  for (const auto &tx : transactions) {
-    ss << tx.calculateHash();
-  }
+  ss << index << previousHash << getTransactionsHash() << timestamp << nonce;
   return Crypto::hybridHash(ss.str());
 }
 
@@ -516,6 +513,13 @@ Block Block::fromProto(const alyncoin::BlockProto &protoBlock) {
   newBlock.difficulty = protoBlock.difficulty();
   newBlock.setSignature(protoBlock.block_signature());
   newBlock.setKeccakHash(protoBlock.keccak_hash());
+
+  // 🧠 Add the missing fields!
+  newBlock.zkProof = protoBlock.zk_stark_proof();
+  newBlock.dilithiumSignature = protoBlock.dilithium_signature();
+  newBlock.falconSignature = protoBlock.falcon_signature();
+  newBlock.publicKeyDilithium = protoBlock.public_key_dilithium();
+  newBlock.publicKeyFalcon = protoBlock.public_key_falcon();
 
   std::vector<Transaction> txs;
   for (const auto &protoTx : protoBlock.transactions()) {

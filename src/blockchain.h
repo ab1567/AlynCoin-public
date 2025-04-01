@@ -95,8 +95,6 @@ public:
   bool saveToDB();
   bool loadFromDB();
   void loadFromPeers();
-  void saveTransactionsToDB();
-  void loadTransactionsFromDB();
   void reloadBlockchainState();
   void recalculateBalancesFromChain();
   void mergeWith(const Blockchain &other);
@@ -104,6 +102,8 @@ public:
   void clearPendingTransactions();
   void printPendingTransactions();
   int getIndex() const { return chain.size() - 1; }
+  void savePendingTransactionsToDB();
+  void loadTransactionsFromDB();
   Block createGenesisBlock();
   bool deserializeBlockchain(const std::string &data);
   bool serializeBlockchain(std::string &outData) const;
@@ -113,6 +113,7 @@ public:
   bool isTransactionValid(const Transaction &tx) const;
   std::vector<unsigned char> signTransaction(const std::vector<unsigned char> &privateKey,
                                            const std::vector<unsigned char> &message);
+  void validateChainContinuity() const;
   double calculateBlockReward();
   // Updated mining function to accept Dilithium + Falcon keys
   Block mineBlock(const std::string &minerAddress);
@@ -179,8 +180,7 @@ public:
    void addL2Transaction(const Transaction& tx);
    bool isL2Transaction(const Transaction& tx) const;
    std::vector<Transaction> getPendingL2Transactions() const;
-
-  void clearChain() { chain.clear(); }
+   void clearChain() { chain.clear(); }
 };
 
 #endif // BLOCKCHAIN_H

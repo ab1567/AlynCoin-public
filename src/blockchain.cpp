@@ -72,10 +72,10 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath)
   // Load blockchain data
   std::cout << "[DEBUG] Attempting to load blockchain from DB...\n";
   loadFromDB();
+  recalculateBalancesFromChain();
 
   // Load existing vesting info (if previously applied)
   loadVestingInfoFromDB();
-  recalculateBalancesFromChain();
 
   // ✅ Check if vesting marker exists
   std::string vestingMarker;
@@ -164,23 +164,36 @@ Block Blockchain::createGenesisBlock() {
 
 // ✅ Adds block, applies smart burn, and broadcasts to peers
 bool Blockchain::addBlock(const Block &newBlock) {
+    // 🛡️ Prevent duplicate block addition by hash
+    for (const auto &block : chain) {
+        if (block.getHash() == newBlock.getHash()) {
+            std::cerr << "⚠️ Duplicate block detected. Skipping add.\n";
+            return true; // Not an error, just avoid re-adding
+        }
+    }
+
     if (chain.empty()) {
         if (!newBlock.isGenesisBlock()) {
             std::cerr << "❌ First block must be Genesis Block!\n";
             return false;
         }
     } else {
-        Block lastBlock = chain.back();
-        if (!newBlock.isValid(lastBlock.getHash())) {
+        const Block &lastBlock = chain.back();
+        if (newBlock.getPreviousHash() != lastBlock.getHash()) {
+            std::cerr << "❌ Previous Hash Mismatch!\n";
+            std::cerr << "EXPECTED: " << lastBlock.getHash() << "\n";
+            std::cerr << "RECEIVED: " << newBlock.getPreviousHash() << "\n";
+            return false;
+        }
+
+        if (!isValidNewBlock(newBlock)) {
             std::cerr << "❌ Invalid block detected. Rejecting!\n";
             return false;
         }
     }
 
-    // ✅ Push block to chain
     chain.push_back(newBlock);
 
-    // ✅ Remove included transactions from pending
     for (const auto &tx : newBlock.getTransactions()) {
         pendingTransactions.erase(
             std::remove_if(
@@ -191,7 +204,6 @@ bool Blockchain::addBlock(const Block &newBlock) {
             pendingTransactions.end());
     }
 
-    // ✅ Serialize block using protobuf
     alyncoin::BlockProto protoBlock;
     newBlock.serializeToProtobuf(protoBlock);
     std::string serializedBlock;
@@ -200,7 +212,6 @@ bool Blockchain::addBlock(const Block &newBlock) {
         return false;
     }
 
-    // ✅ Save block by height
     std::string blockKeyByHeight = "block_height_" + std::to_string(newBlock.getIndex());
     rocksdb::Status statusHeight = db->Put(rocksdb::WriteOptions(), blockKeyByHeight, serializedBlock);
     if (!statusHeight.ok()) {
@@ -208,7 +219,6 @@ bool Blockchain::addBlock(const Block &newBlock) {
         return false;
     }
 
-    // ✅ Save block by hash
     std::string blockKeyByHash = "block_" + newBlock.getHash();
     rocksdb::Status statusHash = db->Put(rocksdb::WriteOptions(), blockKeyByHash, serializedBlock);
     if (!statusHash.ok()) {
@@ -216,17 +226,13 @@ bool Blockchain::addBlock(const Block &newBlock) {
         return false;
     }
 
-    // ✅ Update blockchain state
     if (!saveToDB()) {
         std::cerr << "❌ Failed to save blockchain to database after adding block.\n";
         return false;
     }
 
-    // ✅ Update transactions
-    saveTransactionsToDB();
-
-    // ✅ Recalculate balances explicitly from chain
     recalculateBalancesFromChain();
+    validateChainContinuity();
 
     std::cout << "✅ Block added to blockchain. Pending transactions updated and balances recalculated.\n";
     return true;
@@ -261,23 +267,34 @@ void Blockchain::loadFromPeers() {
 
 //
 void Blockchain::clearPendingTransactions() {
-  pendingTransactions.clear(); // ✅ No mutex lock needed
+    // Clear in-memory pending transactions
+    pendingTransactions.clear();
+    std::cout << "🚨 Cleared all pending transactions after mining.\n";
 
-  // 🛠 Ensure "data/" directory exists
-  if (!std::filesystem::exists("data")) {
-    std::filesystem::create_directory("data");
-  }
+    // Also clear any local JSON file
+    if (!std::filesystem::exists("data")) {
+        std::filesystem::create_directory("data");
+    }
+    std::ofstream outFile("data/transactions.json", std::ios::trunc);
+    if (outFile.is_open()) {
+        outFile << "[]"; // Write empty JSON array
+        outFile.close();
+    } else {
+        std::cerr << "❌ [ERROR] Failed to open transactions.json for clearing!\n";
+    }
 
-  // ✅ Clear the transactions file
-  std::ofstream outFile("data/transactions.json", std::ios::trunc);
-  if (outFile.is_open()) {
-    outFile << "[]"; // Empty JSON array
-    outFile.close();
-  } else {
-    std::cerr << "❌ [ERROR] Failed to open transactions.json for clearing!" << std::endl;
-  }
-
-  std::cout << "🚨 Cleared all pending transactions after mining.\n";
+    // Now delete all "tx_" keys from RocksDB to prevent old TX reuse
+    if (db) {
+        rocksdb::Iterator* it = db->NewIterator(rocksdb::ReadOptions());
+        for (it->SeekToFirst(); it->Valid(); it->Next()) {
+            std::string key = it->key().ToString();
+            if (key.rfind("tx_", 0) == 0) {
+                // This key starts with "tx_", so delete it
+                db->Delete(rocksdb::WriteOptions(), key);
+            }
+        }
+        delete it;
+    }
 }
 
 // ✅ Helper function to check if a file exists
@@ -322,24 +339,23 @@ void Blockchain::setPendingTransactions(
 }
 
 // ✅ Mine pending transactions and dynamically adjust difficulty
-Block Blockchain::minePendingTransactions(const std::string &minerAddress,
-                                          const std::vector<unsigned char> &minerDilithiumPriv,
-                                          const std::vector<unsigned char> &minerFalconPriv) {
-    auto t1 = std::chrono::high_resolution_clock::now();
+Block Blockchain::minePendingTransactions(
+    const std::string &minerAddress,
+    const std::vector<unsigned char> &minerDilithiumPriv,
+    const std::vector<unsigned char> &minerFalconPriv)
+{
     std::cout << "[DEBUG] Waiting on blockchainMutex in minePendingTransactions()...\n";
     std::lock_guard<std::mutex> lock(blockchainMutex);
-    auto t2 = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed = t2 - t1;
-    std::cout << "[DEBUG] Acquired mutex in " << elapsed.count() << " seconds.\n";
+    std::cout << "[DEBUG] Acquired blockchainMutex in minePendingTransactions()!\n";
 
-    if (pendingTransactions.empty()) {
-        std::cerr << "⚠️ No transactions to mine!\n";
-        return Block();
-    }
+    // ==== Removed: do not abort if pendingTransactions is empty. ====
+    // if (pendingTransactions.empty()) {
+    //     std::cerr << "⚠️ No transactions to mine!\n";
+    //     return Block();
+    // }
 
-    std::vector<Transaction> validTransactions;
     std::map<std::string, double> tempBalances;
-
+    std::vector<Transaction> validTx;
     std::cout << "[DEBUG] Validating and preparing transactions...\n";
 
     for (const auto &tx : pendingTransactions) {
@@ -350,95 +366,94 @@ Block Blockchain::minePendingTransactions(const std::string &minerAddress,
 
         std::string sender = tx.getSender();
         double amount = tx.getAmount();
-        std::string recipient = tx.getRecipient();
+        double senderBal = calculateBalance(sender, tempBalances);
 
-        double senderBalance = calculateBalance(sender, tempBalances);
-        if (sender != "System" && senderBalance < amount) {
-            std::cerr << "❌ Insufficient balance (" << senderBalance << ") for sender (" << sender << ")\n";
+        if (sender != "System" && senderBal < amount) {
+            std::cerr << "❌ Insufficient balance (" << senderBal << ") for sender (" << sender << ")\n";
             continue;
         }
 
-        // Fee + burn logic
-// Fee + burn logic
         double txActivity = static_cast<double>(getRecentTransactionCount());
-        double burnRate = std::clamp(txActivity / 1000.0, 0.01, 0.05);
-
-        double rawFee = amount * 0.01;
-        double maxFeePercent = 0.00005;
-        double feeAmount = std::min({rawFee, amount * maxFeePercent, 1.0});
-
+        double burnRate   = std::clamp(txActivity / 1000.0, 0.01, 0.05);
+        double rawFee     = amount * 0.01;
+        double maxFeePct  = 0.00005;
+        double feeAmount  = std::min({ rawFee, amount * maxFeePct, 1.0 });
         double burnAmount = std::min(feeAmount * burnRate, 0.003);
-        double devFundAmount = std::min(feeAmount - burnAmount, 0.002);
-
+        double devFundAmt = std::min(feeAmount - burnAmount, 0.002);
         double finalAmount = amount - feeAmount;
 
         tempBalances[sender] -= amount;
-        tempBalances[recipient] += finalAmount;
-        tempBalances[DEV_FUND_ADDRESS] += devFundAmount;
+        tempBalances[tx.getRecipient()] += finalAmount;
+        tempBalances[DEV_FUND_ADDRESS]  += devFundAmt;
         totalBurnedSupply += burnAmount;
 
-        validTransactions.push_back(tx);
-        Transaction devFundTx = Transaction::createSystemRewardTransaction(DEV_FUND_ADDRESS, devFundAmount);
-        validTransactions.push_back(devFundTx);
+        validTx.push_back(tx);
+        Transaction devTx = Transaction::createSystemRewardTransaction(DEV_FUND_ADDRESS, devFundAmt);
+        validTx.push_back(devTx);
 
-        std::cout << "🔥 Burned: " << burnAmount
-                  << " AlynCoin, 💰 Dev Fund: " << devFundAmount
-                  << " AlynCoin, 📤 Final Sent: " << finalAmount << " AlynCoin\n";
+        std::cout << "🔥 Burned: " << burnAmount << " AlynCoin"
+                  << ", 💰 Dev Fund: " << devFundAmt << " AlynCoin"
+                  << ", 📤 Final Sent: " << finalAmount << " AlynCoin\n";
     }
 
-    if (validTransactions.empty()) {
-        std::cerr << "⚠️ No valid transactions after validation. Skipping block creation.\n";
-        return Block();
+    if (validTx.empty()) {
+        std::cout << "⛏️ No valid transactions found, creating empty block.\n";
     }
 
-    std::cout << "[DEBUG] Applying capped supply reward logic...\n";
-    double reward = 0.0;
+    double blockRewardVal = 0.0;
     if (totalSupply < MAX_SUPPLY) {
-        reward = calculateBlockReward();
-        if (totalSupply + reward > MAX_SUPPLY)
-            reward = MAX_SUPPLY - totalSupply;
-
-        Transaction rewardTx = Transaction::createSystemRewardTransaction(minerAddress, reward);
-        validTransactions.push_back(rewardTx);
-        totalSupply += reward;
-        std::cout << "⛏️ Block reward: " << reward << " AlynCoin\n";
+        blockRewardVal = calculateBlockReward();
+        if (totalSupply + blockRewardVal > MAX_SUPPLY) {
+            blockRewardVal = MAX_SUPPLY - totalSupply;
+        }
+        Transaction rewardTx = Transaction::createSystemRewardTransaction(minerAddress, blockRewardVal);
+        validTx.push_back(rewardTx);
+        totalSupply += blockRewardVal;
+        std::cout << "⛏️ Block reward: " << blockRewardVal << " AlynCoin\n";
     } else {
         std::cerr << "🚫 Block reward skipped. Max supply reached.\n";
     }
 
     Block lastBlock = getLatestBlock();
     std::cout << "[DEBUG] Last block hash: " << lastBlock.getHash() << "\n";
-
     adjustDifficulty();
     std::cout << "⚙️ Difficulty set to: " << difficulty << "\n";
 
-    Block newBlock(chain.size(), lastBlock.getHash(), validTransactions,
-                   minerAddress, difficulty, std::time(nullptr), std::time(nullptr));
+    Block newBlock(
+        chain.size(),
+        lastBlock.getHash(),
+        validTx,
+        minerAddress,
+        difficulty,
+        std::time(nullptr),
+        0
+    );
 
-    std::cout << "[DEBUG] Starting PoW mining with difficulty: " << difficulty << "...\n";
-    newBlock.mineBlock(difficulty);
-
-    std::vector<unsigned char> hashBytes = Crypto::fromHex(newBlock.getHash());
-    if (hashBytes.size() != 32) {
-        std::cerr << "[ERROR] Block hash is not 32 bytes! Aborting mining.\n";
+    if (!newBlock.mineBlock(difficulty)) {
+        std::cerr << "❌ Mining process returned false!\n";
         return Block();
     }
 
-    auto dilithiumSig = Crypto::signWithDilithium(hashBytes, minerDilithiumPriv);
-    auto falconSig = Crypto::signWithFalcon(hashBytes, minerFalconPriv);
+    std::vector<unsigned char> hashBytes = Crypto::fromHex(newBlock.getHash());
+    if (hashBytes.size() != 32) {
+        std::cerr << "[ERROR] Block hash is not 32 bytes! Aborting.\n";
+        return Block();
+    }
 
-    newBlock.setDilithiumSignature(Crypto::toHex(dilithiumSig));
-    newBlock.setFalconSignature(Crypto::toHex(falconSig));
+    auto dilSig = Crypto::signWithDilithium(hashBytes, minerDilithiumPriv);
+    auto falSig = Crypto::signWithFalcon(hashBytes, minerFalconPriv);
+    newBlock.setDilithiumSignature(Crypto::toHex(dilSig));
+    newBlock.setFalconSignature(Crypto::toHex(falSig));
 
-    std::cout << "[DEBUG] Adding block to blockchain...\n";
+    std::cout << "[DEBUG] Attempting to addBlock()...\n";
     if (!addBlock(newBlock)) {
         std::cerr << "❌ Error adding mined block to blockchain.\n";
         return Block();
     }
 
-    // ✅ Save each transaction in RocksDB
-    rocksdb::DB* rawDB = db; // db is already a pointer
-    for (const Transaction& tx : validTransactions) {
+    // Save newly-mined transactions to DB
+    rocksdb::DB* rawDB = db;
+    for (const Transaction &tx : validTx) {
         alyncoin::TransactionProto proto = tx.toProto();
         std::string key = "tx_" + tx.getHash();
         std::string value;
@@ -446,9 +461,9 @@ Block Blockchain::minePendingTransactions(const std::string &minerAddress,
         rawDB->Put(rocksdb::WriteOptions(), key, value);
     }
 
+    // Clear pending and save
     clearPendingTransactions();
     saveToDB();
-    recalculateBalancesFromChain();
 
     std::cout << "✅ Block mined and added successfully. Total burned supply: " << totalBurnedSupply << "\n";
     return newBlock;
@@ -489,33 +504,44 @@ void Blockchain::syncChain(const Json::Value &jsonData) {
 // ✅ **Start Mining**
 void Blockchain::startMining(const std::string &minerAddress,
                              const std::string &minerDilithiumKey,
-                             const std::string &minerFalconKey) {
-  if (isMining.load()) {
-    std::cout << "⚠️ Mining is already running!" << std::endl;
-    return;
-  }
-
-  isMining.store(true);
-
-  std::thread([this, minerAddress, minerDilithiumKey, minerFalconKey]() {
-    while (isMining.load()) {
-      reloadBlockchainState();
-
-      if (pendingTransactions.empty()) {
-        std::cout << "⏳ No transactions to mine. Waiting...\n";
-        std::this_thread::sleep_for(std::chrono::seconds(5));
-        continue;
-      }
-
-      std::vector<unsigned char> dilithiumPriv = Crypto::fromHex(minerDilithiumKey);
-      std::vector<unsigned char> falconPriv = Crypto::fromHex(minerFalconKey);
-
-      Block newBlock = minePendingTransactions(minerAddress, dilithiumPriv, falconPriv);
-      addBlock(newBlock);
-
-      std::this_thread::sleep_for(std::chrono::seconds(2));
+                             const std::string &minerFalconKey)
+{
+    // If already mining, do nothing
+    if (isMining.load()) {
+        std::cout << "⚠️ Mining is already running!\n";
+        return;
     }
-  }).detach();
+    isMining.store(true);
+
+    // Convert the hex-encoded private keys once, outside the loop
+    std::vector<unsigned char> dilithiumPriv = Crypto::fromHex(minerDilithiumKey);
+    std::vector<unsigned char> falconPriv    = Crypto::fromHex(minerFalconKey);
+
+    std::thread([this, minerAddress, dilithiumPriv, falconPriv]() {
+        std::cout << "⛏️ Starting continuous mining for: " << minerAddress << "\n";
+
+        while (isMining.load()) {
+            // Reload chain & pending TX from DB so we see the latest state
+            reloadBlockchainState();
+
+            // ❌ No more “if (pendingTransactions.empty()) { … }” check!
+            // We always call minePendingTransactions.
+
+            Block newBlock = minePendingTransactions(minerAddress, dilithiumPriv, falconPriv);
+
+            // If minePendingTransactions returns an empty Block (hash == ""),
+            // handle it gracefully or continue
+            if (newBlock.getHash().empty()) {
+                std::cerr << "⚠️ No block was mined. Possibly no valid transactions.\n";
+            } else {
+                std::cout << "✅ Mined block index " << newBlock.getIndex()
+                          << " with hash: " << newBlock.getHash() << "\n";
+            }
+
+            // Sleep a few seconds so we don't spam the chain
+            std::this_thread::sleep_for(std::chrono::seconds(5));
+        }
+    }).detach();
 }
 
 // ✅ **Stop Mining**
@@ -567,40 +593,38 @@ void Blockchain::printPendingTransactions() {
 
 // ✅ **Add a new transaction**
 void Blockchain::addTransaction(const Transaction &tx) {
-  std::lock_guard<std::mutex> lock(blockchainMutex);
+    std::lock_guard<std::mutex> lock(blockchainMutex);
 
-  // Lowercase sender name
-  std::string senderLower = tx.getSender();
-  std::transform(senderLower.begin(), senderLower.end(), senderLower.begin(),
-                 ::tolower);
+    // Lowercase sender name
+    std::string senderLower = tx.getSender();
+    std::transform(senderLower.begin(), senderLower.end(), senderLower.begin(), ::tolower);
 
-  // Check if public key exists, generate if missing
-  std::string keyDir = KEY_DIR;
-  std::string publicKeyPath = keyDir + senderLower + "_public.pem";
+    // Check if public key exists, generate if missing
+    std::string keyDir = KEY_DIR;
+    std::string publicKeyPath = keyDir + senderLower + "_public.pem";
 
-  if (!fs::exists(publicKeyPath)) {
-    std::cerr << "⚠️ [WARNING] Public key missing for " << senderLower
-              << "! Generating now...\n";
-    Crypto::generateKeysForUser(senderLower);
-    std::this_thread::sleep_for(
-        std::chrono::milliseconds(500)); // Small wait to ensure key generation
-  }
+    if (!fs::exists(publicKeyPath)) {
+        std::cerr << "⚠️ [WARNING] Public key missing for " << senderLower
+                  << "! Generating now...\n";
+        Crypto::generateKeysForUser(senderLower);
+        // A small wait to ensure key generation completes
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
 
-  // Update balances
-   pendingTransactions.push_back(tx);
-  // Monitor Dev Fund activity
-  if (tx.getSender() == DEV_FUND_ADDRESS ||
-      tx.getRecipient() == DEV_FUND_ADDRESS) {
-    devFundLastActivity = std::time(nullptr);
-    checkDevFundActivity();
-  }
+    // Only ONE push_back(tx) — remove the duplicate
+    pendingTransactions.push_back(tx);
 
-  // Add to pending transactions
-  pendingTransactions.push_back(tx);
-  saveTransactionsToDB();
+    // Monitor Dev Fund activity
+    if (tx.getSender() == DEV_FUND_ADDRESS || tx.getRecipient() == DEV_FUND_ADDRESS) {
+        devFundLastActivity = std::time(nullptr);
+        checkDevFundActivity();
+    }
 
-  std::cout << "✅ Transaction added. Pending count: "
-            << pendingTransactions.size() << "\n";
+    // Save pending transactions to DB
+    savePendingTransactionsToDB();
+
+    std::cout << "✅ Transaction added. Pending count: "
+              << pendingTransactions.size() << "\n";
 }
 
 // ✅ **Get balance of a public key**
@@ -610,40 +634,6 @@ double Blockchain::getBalance(const std::string &publicKey) const {
     return it->second;
   }
   return 0.0;
-}
-
-// ✅ **Save Transactions to RocksDB**
-void Blockchain::saveTransactionsToDB() {
-  if (!db) {
-    std::cerr << "❌ Database not initialized. Cannot save transactions.\n";
-    return;
-  }
-
-  std::cout << "📦 [DEBUG] Saving pending transactions to RocksDB...\n";
-
-  std::thread([this]() {
-    rocksdb::WriteBatch batch;
-    Json::StreamWriterBuilder writer;
-    {
-      std::lock_guard<std::mutex> lock(
-          blockchainMutex); // ✅ Lock only inside scope
-      for (size_t i = 0; i < pendingTransactions.size(); i++) {
-        Json::Value txJson = pendingTransactions[i].toJSON();
-        txJson["timestamp"] = static_cast<Json::Int64>(
-            pendingTransactions[i].getTimestamp()); // Ensure timestamp
-        std::string txData = Json::writeString(writer, txJson);
-        batch.Put("tx_" + std::to_string(i), txData);
-      }
-    } // ✅ Mutex automatically unlocks
-
-    rocksdb::Status status = db->Write(rocksdb::WriteOptions(), &batch);
-    if (!status.ok()) {
-      std::cerr << "❌ Error saving transactions to RocksDB: "
-                << status.ToString() << std::endl;
-    } else {
-      std::cout << "✅ Transactions successfully saved to RocksDB.\n";
-    }
-  }).detach(); // ✅ Run asynchronously, without blocking the mutex
 }
 
 // ✅ **Save Blockchain to RocksDB using Protobuf**
@@ -667,8 +657,7 @@ bool Blockchain::saveToDB() {
       db->Put(rocksdb::WriteOptions(), "blockchain", serializedData);
 
   if (!status.ok()) {
-    std::cerr << "❌ [ERROR] Failed to save blockchain: " << status.ToString()
-              << "\n";
+    std::cerr << "❌ [ERROR] Failed to save blockchain: " << status.ToString() << "\n";
     return false;
   }
 
@@ -683,63 +672,55 @@ bool Blockchain::saveToDB() {
 
 // ✅ **Load Blockchain from RocksDB using Protobuf**
 bool Blockchain::loadFromDB() {
-  std::cout << "[DEBUG] Attempting to load blockchain from DB..." << std::endl;
-  if (!db) {
-    std::cerr << "❌ RocksDB not initialized!\n";
-    return false;
-  }
+    std::cout << "[DEBUG] Attempting to load blockchain from DB..." << std::endl;
+    if (!db) {
+        std::cerr << "❌ RocksDB not initialized!\n";
+        return false;
+    }
 
-  std::string serializedBlockchain;
-  rocksdb::Status status =
-      db->Get(rocksdb::ReadOptions(), "blockchain", &serializedBlockchain);
-  if (!status.ok()) {
-    std::cerr << "⚠️ RocksDB blockchain not found. Creating Genesis Block.\n";
-    chain.push_back(createGenesisBlock());
-    saveToDB(); // Save genesis block
+    std::string serializedBlockchain;
+    rocksdb::Status status = db->Get(rocksdb::ReadOptions(), "blockchain", &serializedBlockchain);
+    if (!status.ok()) {
+        std::cerr << "⚠️ RocksDB blockchain not found. Creating Genesis Block.\n";
+        chain.push_back(createGenesisBlock());
+        saveToDB(); // Save genesis block
 
-    // 🔥 Apply vesting ONLY after fresh genesis block:
-    std::cout << "⏳ Applying vesting schedule for early supporters...\n";
-    applyVestingSchedule();
-    db->Put(rocksdb::WriteOptions(), "vesting_initialized", "true");
-    std::cout << "✅ Vesting applied & marker set.\n";
+        std::cout << "⏳ Applying vesting schedule for early supporters...\n";
+        applyVestingSchedule();
+        db->Put(rocksdb::WriteOptions(), "vesting_initialized", "true");
+        std::cout << "✅ Vesting applied & marker set.\n";
 
+        return true;
+    }
+
+    alyncoin::BlockchainProto blockchainProto;
+    if (!blockchainProto.ParseFromString(serializedBlockchain)) {
+        std::cerr << "❌ [ERROR] Failed to parse blockchain Protobuf data!\n";
+        return false;
+    }
+
+    chain.clear();
+    for (const auto &blockProto : blockchainProto.blocks()) {
+        chain.push_back(Block::fromProto(blockProto));
+    }
+
+    std::string burnedSupplyStr;
+    status = db->Get(rocksdb::ReadOptions(), "burned_supply", &burnedSupplyStr);
+    totalBurnedSupply = status.ok() ? std::stod(burnedSupplyStr) : 0.0;
+
+    std::string vestingFlag;
+    status = db->Get(rocksdb::ReadOptions(), "vesting_initialized", &vestingFlag);
+    if (status.ok() && vestingFlag == "true") {
+        std::cout << "⏩ Vesting already initialized. Skipping...\n";
+    } else {
+        std::cout << "⏳ Applying vesting schedule for early supporters...\n";
+        applyVestingSchedule();
+        db->Put(rocksdb::WriteOptions(), "vesting_initialized", "true");
+        std::cout << "✅ Vesting applied & marker set.\n";
+    }
+
+    std::cout << "✅ Blockchain loaded successfully!\n";
     return true;
-  }
-
-  alyncoin::BlockchainProto blockchainProto;
-  if (!blockchainProto.ParseFromString(serializedBlockchain)) {
-    std::cerr << "❌ [ERROR] Failed to parse blockchain Protobuf data!\n";
-    return false;
-  }
-
-  chain.clear();
-  for (const auto &blockProto : blockchainProto.blocks()) {
-    chain.push_back(Block::fromProto(blockProto));
-  }
-
-  // ✅ Load total burned supply
-  std::string burnedSupplyStr;
-  status = db->Get(rocksdb::ReadOptions(), "burned_supply", &burnedSupplyStr);
-  if (status.ok()) {
-    totalBurnedSupply = std::stod(burnedSupplyStr);
-  } else {
-    totalBurnedSupply = 0.0;
-  }
-
-  // 🟢 Check vesting marker:
-  std::string vestingFlag;
-  status = db->Get(rocksdb::ReadOptions(), "vesting_initialized", &vestingFlag);
-  if (status.ok() && vestingFlag == "true") {
-    std::cout << "⏩ Vesting already initialized. Skipping...\n";
-  } else {
-    std::cout << "⏳ Applying vesting schedule for early supporters...\n";
-    applyVestingSchedule();
-    db->Put(rocksdb::WriteOptions(), "vesting_initialized", "true");
-    std::cout << "✅ Vesting applied & marker set.\n";
-  }
-
-  std::cout << "✅ Blockchain loaded successfully!\n";
-  return true;
 }
 
 // ✅ Save vesting data to DB
@@ -898,8 +879,6 @@ bool Blockchain::deserializeBlockchain(const std::string &data) {
             << std::endl;
   return true;
 }
-//
-// ✅ Convert Protobuf back to Block
 // ✅ Correct version already in blockchain.cpp:
 void Blockchain::fromProto(const alyncoin::BlockchainProto &protoChain) {
   std::lock_guard<std::mutex> lock(blockchainMutex);
@@ -950,115 +929,22 @@ void Blockchain::replaceChain(const std::vector<Block> &newChain) {
 }
 //
 bool Blockchain::isValidNewBlock(const Block &newBlock) {
-  if (chain.empty()) return false;
-
-  Block lastBlock = getLatestBlock();
-  if (newBlock.getPreviousHash() != lastBlock.getHash()) {
-    std::cerr << "❌ Previous Hash Mismatch!\n";
-    return false;
-  }
-
-  if (!newBlock.hasValidProofOfWork()) {
-    std::cerr << "❌ Invalid PoW Detected!\n";
-    return false;
-  }
-
-  std::string txRoot = newBlock.getTransactionsHash();
-  if (!WinterfellStark::verifyProof(newBlock.getZkProof(), newBlock.getHash(), newBlock.getPreviousHash(), txRoot)) {
-    std::cerr << "❌ zk-STARK Proof Verification Failed!\n";
-    return false;
-  }
-
-  std::string computedKeccak = Crypto::keccak256(newBlock.getHash());
-  if (computedKeccak != newBlock.keccakHash) {
-    std::cerr << "❌ Keccak Validation Failed!\n";
-    return false;
-  }
-
-  std::vector<unsigned char> hashBytes;
-  try {
-    hashBytes = Crypto::fromHex(newBlock.getHash());
-  } catch (const std::exception &ex) {
-    std::cerr << "❌ Failed to decode block hash: " << ex.what() << "\n";
-    return false;
-  }
-
-  std::vector<unsigned char> sigDil, sigFal;
-  try {
-    sigDil = Crypto::fromHex(newBlock.getDilithiumSignature());
-    sigFal = Crypto::fromHex(newBlock.getFalconSignature());
-  } catch (const std::exception &ex) {
-    std::cerr << "❌ Failed to decode block signatures: " << ex.what() << "\n";
-    return false;
-  }
-
-  std::vector<unsigned char> pubKeyDil = Crypto::getPublicKeyDilithium(newBlock.getMinerAddress());
-  std::vector<unsigned char> pubKeyFal = Crypto::getPublicKeyFalcon(newBlock.getMinerAddress());
-
-  if (!Crypto::verifyWithDilithium(hashBytes, sigDil, pubKeyDil)) {
-    std::cerr << "❌ Dilithium Block Signature Verification Failed!\n";
-    return false;
-  }
-
-  if (!Crypto::verifyWithFalcon(hashBytes, sigFal, pubKeyFal)) {
-    std::cerr << "❌ Falcon Block Signature Verification Failed!\n";
-    return false;
-  }
-
-  std::cout << "✅ New Block Passed Validation.\n";
-  return true;
-}
-
-// ✅ **Load Transactions from RocksDB**
-void Blockchain::loadTransactionsFromDB() {
-  if (!db) {
-    std::cerr
-        << "❌ [ERROR] Database not initialized. Cannot load transactions.\n";
-    return;
-  }
-
-  std::cout << "🔄 [INFO] Loading transactions from RocksDB...\n";
-
-  rocksdb::Iterator *it = db->NewIterator(rocksdb::ReadOptions());
-  pendingTransactions.clear();
-
-  for (it->Seek("tx_"); it->Valid() && it->key().starts_with("tx_");
-       it->Next()) {
-    Json::Value txJson;
-    Json::CharReaderBuilder reader;
-    std::string errs;
-    std::istringstream stream(it->value().ToString());
-
-    // ✅ Prevent excessively large transactions
-    if (stream.str().size() > 2048) {
-      std::cerr << "⚠️ [WARNING] Transaction too large. Possible corruption. "
-                   "Skipping...\n";
-      continue;
+    if (chain.empty()) {
+        std::cerr << "❌ Cannot validate block — blockchain is empty!\n";
+        return false;
     }
 
-    if (!Json::parseFromStream(reader, stream, &txJson, &errs)) {
-      std::cerr << "❌ [ERROR] Failed to parse transaction JSON for key: "
-                << it->key().ToString() << "! Skipping transaction.\n";
-      continue;
+    const Block &lastBlock = getLatestBlock();
+    std::string expectedPrevHash = lastBlock.getHash();
+
+    // Use Block's internal validation logic
+    if (!newBlock.isValid(expectedPrevHash)) {
+        std::cerr << "❌ Block failed internal validation or previous hash mismatch.\n";
+        return false;
     }
 
-    try {
-      Transaction tx = Transaction::fromJSON(txJson);
-      if (tx.getAmount() > 0 && !tx.getSender().empty() &&
-          !tx.getRecipient().empty()) {
-        pendingTransactions.push_back(tx);
-      } else {
-        std::cerr << "⚠️ [WARNING] Invalid transaction detected! Skipping.\n";
-      }
-    } catch (const std::exception &e) {
-      std::cerr << "❌ [ERROR] Exception while parsing transaction: "
-                << e.what() << std::endl;
-    }
-  }
-
-  delete it;
-  std::cout << "✅ Transactions loaded successfully! Pending count: "
-            << pendingTransactions.size() << std::endl;
+    std::cout << "✅ New Block Passed Full Validation.\n";
+    return true;
 }
 
 //
@@ -1097,39 +983,41 @@ std::cout << "[DEBUG] Pending tx count: " << pendingTransactions.size() << std::
 Block Blockchain::mineBlock(const std::string &minerAddress) {
     std::cout << "[DEBUG] Entered mineBlock() for: " << minerAddress << "\n";
 
-    if (pendingTransactions.empty()) {
-        std::cout << "⚠️ No pending transactions to mine!\n";
-        return Block(); // Return empty block
-    }
+    // 1) Remove or comment out the "no pending tx" check. We want an empty block if none.
+    // if (pendingTransactions.empty()) {
+    //     std::cout << "⚠️ No pending transactions to mine!\n";
+    //     return Block(); // <-- Remove this
+    // }
 
-    // Load miner keys from default paths based on address
+    // 2) Load miner keys
     std::string dilithiumKeyPath = "/root/.alyncoin/keys/" + minerAddress + "_dilithium.key";
     std::string falconKeyPath    = "/root/.alyncoin/keys/" + minerAddress + "_falcon.key";
 
-    std::cout << "[DEBUG] Checking key file existence...\n";
     if (!Crypto::fileExists(dilithiumKeyPath) || !Crypto::fileExists(falconKeyPath)) {
         std::cerr << "❌ Miner key(s) not found for address: " << minerAddress << "\n";
+        return Block(); // fails if we truly can't mine
+    }
+
+    // 3) Load private keys
+    std::vector<unsigned char> dilPriv = Crypto::loadDilithiumKeys(minerAddress).privateKey;
+    std::vector<unsigned char> falPriv = Crypto::loadFalconKeys(minerAddress).privateKey;
+
+    if (dilPriv.empty() || falPriv.empty()) {
+        std::cerr << "❌ Failed to load miner keys for: " << minerAddress << "\n";
         return Block();
     }
 
-    std::cout << "[DEBUG] Loading private keys...\n";
-    std::vector<unsigned char> dilithiumPriv = Crypto::loadDilithiumKeys(minerAddress).privateKey;
-    std::vector<unsigned char> falconPriv    = Crypto::loadFalconKeys(minerAddress).privateKey;
+    // 4) Call our existing method that does the heavy lifting:
+    Block newBlock = minePendingTransactions(minerAddress, dilPriv, falPriv);
 
-    std::cout << "[DEBUG] Private keys loaded. Lengths: "
-              << dilithiumPriv.size() << " (Dilithium), "
-              << falconPriv.size() << " (Falcon)\n";
-
-    if (dilithiumPriv.empty() || falconPriv.empty()) {
-        std::cerr << "❌ Failed to load Dilithium or Falcon private key for mining!\n";
-        return Block();
+    // If minePendingTransactions returns an empty block (hash == ""), handle that
+    if (newBlock.getHash().empty()) {
+        std::cerr << "⚠️ Mining returned an empty block. Possibly no valid transactions.\n";
+        // But we don’t forcibly fail here – up to you if you want to do so
     }
 
-    std::string minerDilithiumKeyHex = Crypto::toHex(dilithiumPriv);
-    std::string minerFalconKeyHex    = Crypto::toHex(falconPriv);
-
-    std::cout << "[DEBUG] Calling minePendingTransactions...\n";
-    Block newBlock = minePendingTransactions(minerAddress, dilithiumPriv, falconPriv);
+    // 5) Optionally do further checks or calls:
+    // e.g. recalculate balances or broadcast block if not done within minePendingTransactions
 
     std::cout << "[DEBUG] Updating transaction history...\n";
     updateTransactionHistory(newBlock.getTransactions().size());
@@ -1158,17 +1046,10 @@ void Blockchain::updateTransactionHistory(int newTxCount) {
 }
 // ✅ Get latest block
 const Block &Blockchain::getLatestBlock() const {
-  if (chain.empty()) {
-    std::cerr << "❌ Error: Blockchain is empty! Returning a default block."
-              << std::endl;
-    static Block defaultBlock(0, "00000000000000000000000000000000", {},
-                              "System", 4,
-                              std::time(nullptr), // ✅ Added timestamp
-                              0                   // ✅ Added nonce
-    );
-    return defaultBlock;
-  }
-  return chain.back();
+    if (chain.empty()) {
+        throw std::runtime_error("❌ Error: getLatestBlock() called on empty blockchain!");
+    }
+    return chain.back();
 }
 
 // ✅ Get pending transactions
@@ -1334,6 +1215,104 @@ bool Blockchain::castVote(const std::string &voterAddress,
             << " to: " << candidateAddress << "\n";
   return true;
 }
+//
+void Blockchain::loadTransactionsFromDB() {
+  if (!db) {
+    std::cerr << "❌ RocksDB not initialized. Cannot load transactions!\n";
+    return;
+  }
+
+  pendingTransactions.clear();
+
+  rocksdb::Iterator* it = db->NewIterator(rocksdb::ReadOptions());
+  for (it->SeekToFirst(); it->Valid(); it->Next()) {
+    std::string key = it->key().ToString();
+
+    // Only process keys that start with "tx_"
+    if (key.rfind("tx_", 0) != 0) continue;
+
+    std::string value = it->value().ToString();
+    alyncoin::TransactionProto proto;
+
+    if (!proto.ParseFromString(value)) {
+      std::cerr << "⚠️ [CORRUPTED] Invalid transaction proto. Deleting key: " << key << "\n";
+      db->Delete(rocksdb::WriteOptions(), key);
+      continue;
+    }
+
+    Transaction tx = Transaction::fromProto(proto);
+
+    if (tx.getAmount() <= 0) {
+      std::cerr << "⚠️ [CORRUPTED] Invalid amount. Deleting: " << key << "\n";
+      db->Delete(rocksdb::WriteOptions(), key);
+      continue;
+    }
+
+    pendingTransactions.push_back(tx);
+  }
+
+  delete it;
+  std::cout << "✅ Transactions loaded successfully! Pending count: " << pendingTransactions.size() << "\n";
+}
+
+//
+
+void Blockchain::savePendingTransactionsToDB() {
+    if (!db) {
+        std::cerr << "❌ RocksDB not initialized. Cannot save transactions!\n";
+        return;
+    }
+
+    // 1) Delete all old "tx_" keys
+    {
+        rocksdb::Iterator* it = db->NewIterator(rocksdb::ReadOptions());
+        for (it->SeekToFirst(); it->Valid(); it->Next()) {
+            std::string key = it->key().ToString();
+            if (key.rfind("tx_", 0) == 0) {
+                db->Delete(rocksdb::WriteOptions(), key);
+            }
+        }
+        delete it;
+    }
+
+    // 2) Insert only the current pendingTransactions
+    rocksdb::WriteBatch batch;
+    for (int i = 0; i < (int)pendingTransactions.size(); ++i) {
+        alyncoin::TransactionProto proto = pendingTransactions[i].toProto();
+
+        std::string serialized;
+        if (!proto.SerializeToString(&serialized)) {
+            std::cerr << "❌ Failed to serialize transaction. Skipping...\n";
+            continue;
+        }
+
+        std::string key = "tx_" + std::to_string(i);
+        batch.Put(key, serialized);
+    }
+
+    // 3) Commit the batch
+    rocksdb::Status status = db->Write(rocksdb::WriteOptions(), &batch);
+    if (!status.ok()) {
+        std::cerr << "❌ Failed to write pending transactions to RocksDB!\n";
+    } else {
+        std::cout << "✅ Transactions successfully saved to RocksDB.\n";
+    }
+}
+
+//
+void Blockchain::validateChainContinuity() const {
+    for (size_t i = 1; i < chain.size(); ++i) {
+        const std::string &expected = chain[i - 1].getHash();
+        const std::string &received = chain[i].getPreviousHash();
+
+        if (expected != received) {
+            std::cerr << "❌ Chain mismatch at index " << i << "!\n";
+            std::cerr << "EXPECTED: " << expected << "\n";
+            std::cerr << "RECEIVED: " << received << "\n";
+        }
+    }
+}
+
 //
 void Blockchain::addRollupBlock(const RollupBlock &newRollupBlock) {
   if (isRollupBlockValid(newRollupBlock)) {
@@ -1549,8 +1528,32 @@ void Blockchain::recalculateBalancesFromChain() {
     totalSupply = 0.0;
     totalBurnedSupply = 0.0;
 
-    for (const auto &block : chain) {
-        for (const auto &tx : block.getTransactions()) {
+    std::unordered_set<std::string> seenBlocks;
+
+    for (size_t i = 0; i < chain.size(); ++i) {
+        const Block& block = chain[i];
+        const std::string& blockHash = block.getHash();
+
+        // Prevent duplicate block processing
+        if (seenBlocks.count(blockHash)) {
+            std::cerr << "⚠️ Duplicate block detected during balance recalculation. Skipping block: " << blockHash << "\n";
+            continue;
+        }
+        seenBlocks.insert(blockHash);
+
+        // Validate chain linkage
+        if (i > 0) {
+            const std::string expected = chain[i - 1].getHash();
+            const std::string received = block.getPreviousHash();
+            if (expected != received) {
+                std::cerr << "❌ Previous Hash Mismatch during recalc!\n";
+                std::cerr << "EXPECTED: " << expected << "\n";
+                std::cerr << "RECEIVED: " << received << "\n";
+            }
+        }
+
+        // Apply transactions
+        for (const auto& tx : block.getTransactions()) {
             std::string sender = tx.getSender();
             std::string recipient = tx.getRecipient();
             double amount = tx.getAmount();
@@ -1560,14 +1563,18 @@ void Blockchain::recalculateBalancesFromChain() {
             } else {
                 totalSupply += amount;
             }
+
             balances[recipient] += amount;
 
-            // Handle dynamic burn logic here if applicable
+            if (tx.getMetadata() == "burn") {
+                totalBurnedSupply += amount;
+            }
         }
-
-        // Add mining rewards (if separate from TX)
-        balances[block.getMinerAddress()] += miningReward;  // or actual mined amount
     }
+
+    std::cout << "✅ [DEBUG] Balances recalculated from chain. Unique blocks: "
+              << seenBlocks.size() << ", Total Supply: " << totalSupply
+              << ", Total Burned: " << totalBurnedSupply << "\n";
 }
 
 // getCurrentState

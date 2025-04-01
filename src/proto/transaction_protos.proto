@@ -10,9 +10,12 @@ message TransactionProto {
 
     string signature_dilithium = 5;
     string signature_falcon = 6;
-    string zkproof = 7;
+    bytes zkproof = 7;
 
     string sender_pubkey_dilithium = 8;
     string sender_pubkey_falcon = 9;
     string metadata = 10;
+    string hash = 11;
+
+    bool is_system = 12;
 }

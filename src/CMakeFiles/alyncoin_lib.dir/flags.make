@@ -3,15 +3,15 @@
 
 # compile C with /usr/bin/cc
 # compile CXX with /usr/bin/c++
-C_DEFINES = -DUSE_AVX2 -DUSE_SSE4_1
+C_DEFINES = -DBLAKE3_NO_AVX512 -DUSE_AVX2 -DUSE_SSE4_1
 
-C_INCLUDES = -I/root/AlynCoin/src -I/usr/include/jsoncpp -I/usr/include/rocksdb -I/root/AlynCoin/src/generated
+C_INCLUDES = -I/root/AlynCoin/src -I/root/AlynCoin/src/zk -I/root/AlynCoin/src/rollup -I/root/AlynCoin/src/rollup/proofs -I/root/AlynCoin/src/rollup/circuits -I/root/AlynCoin/src/explorer -I/root/AlynCoin/generated -I/root/AlynCoin/deps/Crow/include -I/usr/include/jsoncpp -I/usr/include/rocksdb -I/root/AlynCoin/src/crypto/falcon/PQClean/Falcon-1024/clean -I/root/AlynCoin/src/crypto/falcon/PQClean/common -I/root/AlynCoin/src/crypto/dilithium -I/root/AlynCoin/src/crypto/dilithium/ref -I/root/AlynCoin/src/crypto/falcon/PQClean/common/keccak2x -I/root/AlynCoin/src/crypto/falcon/PQClean/common/keccak4x
 
 C_FLAGS = 
 
-CXX_DEFINES = -DUSE_AVX2 -DUSE_SSE4_1
+CXX_DEFINES = -DBLAKE3_NO_AVX512 -DUSE_AVX2 -DUSE_SSE4_1
 
-CXX_INCLUDES = -I/root/AlynCoin/src -I/usr/include/jsoncpp -I/usr/include/rocksdb -I/root/AlynCoin/src/generated
+CXX_INCLUDES = -I/root/AlynCoin/src -I/root/AlynCoin/src/zk -I/root/AlynCoin/src/rollup -I/root/AlynCoin/src/rollup/proofs -I/root/AlynCoin/src/rollup/circuits -I/root/AlynCoin/src/explorer -I/root/AlynCoin/generated -I/root/AlynCoin/deps/Crow/include -I/usr/include/jsoncpp -I/usr/include/rocksdb -I/root/AlynCoin/src/crypto/falcon/PQClean/Falcon-1024/clean -I/root/AlynCoin/src/crypto/falcon/PQClean/common -I/root/AlynCoin/src/crypto/dilithium -I/root/AlynCoin/src/crypto/dilithium/ref -I/root/AlynCoin/src/crypto/falcon/PQClean/common/keccak2x -I/root/AlynCoin/src/crypto/falcon/PQClean/common/keccak4x
 
 CXX_FLAGS = -std=gnu++17
 

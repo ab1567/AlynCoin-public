@@ -87,10 +87,10 @@ void Transaction::serializeToProtobuf(alyncoin::TransactionProto &proto) const {
   proto.set_sender_pubkey_falcon(senderPublicKeyFalcon);
   proto.set_timestamp(timestamp);
   proto.set_metadata(metadata);
+  proto.set_hash(hash);
 }
 
-bool Transaction::deserializeFromProtobuf(
-    const alyncoin::TransactionProto &proto) {
+bool Transaction::deserializeFromProtobuf(const alyncoin::TransactionProto &proto) {
   sender = proto.sender();
   recipient = proto.recipient();
   amount = proto.amount();
@@ -100,16 +100,23 @@ bool Transaction::deserializeFromProtobuf(
   senderPublicKeyFalcon = proto.sender_pubkey_falcon();
   timestamp = proto.timestamp();
   metadata = proto.metadata();
+  zkProof = proto.zkproof();  // ✅ Restore zkProof
+  hash = proto.hash();        // ✅ Restore hash (used in verify)
   return true;
 }
 
+//
 Transaction Transaction::fromProto(const alyncoin::TransactionProto &proto) {
-  Transaction tx(proto.sender(), proto.recipient(), proto.amount(),
-                 proto.signature_dilithium(), proto.signature_falcon(),
-                 proto.timestamp());
-  tx.setZkProof(proto.zkproof());
-  tx.timestamp = proto.timestamp();
-  return tx;
+    Transaction tx(proto.sender(), proto.recipient(), proto.amount(),
+                   proto.signature_dilithium(), proto.signature_falcon(),
+                   proto.timestamp());
+
+    tx.setZkProof(proto.zkproof());
+    tx.senderPublicKeyDilithium = proto.sender_pubkey_dilithium();
+    tx.senderPublicKeyFalcon = proto.sender_pubkey_falcon();
+    tx.metadata = proto.metadata();
+    tx.hash = proto.hash();
+    return tx;
 }
 
 //To JSON
@@ -197,13 +204,15 @@ alyncoin::TransactionProto Transaction::toProto() const {
     alyncoin::TransactionProto proto;
     proto.set_sender(sender);
     proto.set_recipient(recipient);
-    proto.set_amount(amount);
-    proto.set_timestamp(timestamp);
+    proto.set_amount(amount);  // ✅ CRITICAL: Must be set
     proto.set_signature_dilithium(signatureDilithium);
     proto.set_signature_falcon(signatureFalcon);
-    proto.set_zkproof(zkProof);
     proto.set_sender_pubkey_dilithium(senderPublicKeyDilithium);
     proto.set_sender_pubkey_falcon(senderPublicKeyFalcon);
+    proto.set_timestamp(timestamp);
+    proto.set_zkproof(zkProof);
+    proto.set_metadata(metadata);
+    proto.set_hash(hash);  // Optional but safe
     return proto;
 }
 
@@ -370,58 +379,64 @@ void Transaction::applyBurn(std::string &sender, double &amount,
 }
 
 // ✅ Load Transactions from RocksDB with Error Handling
-std::vector<Transaction> Transaction::loadFromDB() {
-  std::vector<Transaction> transactions;
-  rocksdb::DB *db;
-  rocksdb::Options options;
-  options.create_if_missing = true;
+std::vector<Transaction> Transaction::loadAllFromDB() {
+    std::vector<Transaction> loaded;
+    rocksdb::DB *db = nullptr;
+    rocksdb::Options options;
+    options.create_if_missing = true;
+    rocksdb::Status status = rocksdb::DB::Open(options, DBPaths::getTransactionDB(), &db);
+    if (!status.ok()) return loaded;
 
-  rocksdb::Status status =
-      rocksdb::DB::Open(options, DBPaths::getTransactionDB(), &db);
-  if (!status.ok()) {
-    std::cerr << "❌ [ERROR] Failed to open transaction database!" << std::endl;
-    return transactions;
-  }
+    rocksdb::Iterator *it = db->NewIterator(rocksdb::ReadOptions());
+    for (it->SeekToFirst(); it->Valid(); it->Next()) {
+        const std::string &key = it->key().ToString();
+        const std::string &val = it->value().ToString();
 
-  rocksdb::Iterator *it = db->NewIterator(rocksdb::ReadOptions());
-  for (it->SeekToFirst(); it->Valid(); it->Next()) {
-    alyncoin::TransactionProto txProto;
-    if (!txProto.ParseFromString(it->value().ToString())) {
-      std::cerr << "❌ [ERROR] Corrupt transaction data found in DB!"
-                << std::endl;
-      continue; // Skip corrupted entries
+        alyncoin::TransactionProto proto;
+        if (!proto.ParseFromString(val)) {
+            std::cerr << "⚠️ [WARNING] Failed to parse transaction proto at key: " << key << "\n";
+            continue;
+        }
+
+        try {
+            loaded.push_back(Transaction::fromProto(proto));
+        } catch (...) {
+            std::cerr << "⚠️ [WARNING] Failed to reconstruct Transaction from proto at key: " << key << "\n";
+        }
     }
-    transactions.push_back(Transaction::fromProto(txProto));
-  }
 
-  delete it;
-  delete db;
-  return transactions;
+    delete it;
+    delete db;
+    return loaded;
 }
 
 // ✅ Use Atomic WriteBatch for RocksDB to prevent corruption
+
 bool Transaction::saveToDB(const Transaction &tx, int index) {
-  rocksdb::DB *db;
-  rocksdb::Options options;
-  options.create_if_missing = true;
+    rocksdb::DB *db = nullptr;
+    rocksdb::Options options;
+    options.create_if_missing = true;
+    rocksdb::Status status = rocksdb::DB::Open(options, DBPaths::getTransactionDB(), &db);
+    if (!status.ok()) return false;
 
-  rocksdb::Status status =
-      rocksdb::DB::Open(options, DBPaths::getTransactionDB(), &db);
-  if (!status.ok()) {
-    std::cerr << "❌ [ERROR] Failed to open transaction database!" << std::endl;
-    return false;
-  }
+    alyncoin::TransactionProto proto;
+    proto = tx.toProto();
 
-  rocksdb::WriteBatch batch;
-  Json::StreamWriterBuilder writer;
-  std::string txData = Json::writeString(writer, tx.toJSON());
+    std::string data;
+    if (!proto.SerializeToString(&data)) {
+        delete db;
+        return false;
+    }
 
-  batch.Put("tx_" + std::to_string(index), txData);
-  status = db->Write(rocksdb::WriteOptions(), &batch);
+    std::string key = "tx_" + std::to_string(index);
+    status = db->Put(rocksdb::WriteOptions(), key, data);
 
-  delete db;
-  return status.ok();
+    delete db;
+    return status.ok();
 }
+
+//
+
 Transaction Transaction::createSystemRewardTransaction(const std::string &recipient, double amount) {
   Transaction tx;
   tx.sender = "System";

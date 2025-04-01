@@ -603,7 +603,7 @@ void Network::handleIncomingData(const std::string &senderIP, const std::string 
     Transaction tx = Transaction::deserialize(data);
     if (tx.isValid(tx.getSenderPublicKeyDilithium(), tx.getSenderPublicKeyFalcon())) {
       blockchain->addTransaction(tx);
-      blockchain->saveTransactionsToDB();
+      blockchain->savePendingTransactionsToDB();
       std::cout << "[INFO] Valid transaction received from " << senderIP << "\n";
     } else {
       std::cerr << "[ERROR] Invalid transaction from " << senderIP << "\n";

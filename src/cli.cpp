@@ -45,6 +45,87 @@ void printBlacklistMenu() {
   std::cout << "Choose an option: ";
 }
 
+int cliMain(int argc, char *argv[]);
+
+int main(int argc, char **argv) {
+  if (argc >= 3) {
+    std::string cmd = argv[1];
+    std::string arg1 = argv[2];
+    std::string keyDir = "/root/.alyncoin/keys/";
+
+    if (cmd == "createwallet") {
+      Wallet *wallet = nullptr;
+      try {
+        wallet = new Wallet(arg1, keyDir);
+        std::cout << "✅ Wallet created: " << wallet->getAddress() << std::endl;
+      } catch (const std::exception &e) {
+        std::cerr << "❌ Wallet creation failed: " << e.what() << std::endl;
+      }
+      delete wallet;
+      return 0;
+    }
+
+    if (cmd == "loadwallet") {
+      std::string privPath = keyDir + arg1 + "_private.pem";
+      std::string dilPath = keyDir + arg1 + "_dilithium.key";
+      std::string falPath = keyDir + arg1 + "_falcon.key";
+
+      if (!std::filesystem::exists(privPath) || !std::filesystem::exists(dilPath) || !std::filesystem::exists(falPath)) {
+        std::cerr << "❌ Wallet key files not found for: " << arg1 << std::endl;
+        return 1;
+      }
+
+      Wallet *wallet = nullptr;
+      try {
+        wallet = new Wallet(privPath, keyDir, arg1);
+        std::cout << "✅ Wallet loaded successfully: " << wallet->getAddress() << std::endl;
+        std::ofstream("/root/.alyncoin/current_wallet.txt") << wallet->getAddress();
+      } catch (const std::exception &e) {
+        std::cerr << "❌ Wallet loading failed: " << e.what() << std::endl;
+        return 1;
+      }
+      delete wallet;
+      return 0;
+    }
+
+    if (cmd == "send" && argc >= 4) {
+      Blockchain &blockchain = Blockchain::getInstance(8333, DBPaths::getBlockchainDB());
+      std::string recipient = arg1;
+      double amount = std::stod(argv[3]);
+      bool isL2 = (argc >= 5 && std::string(argv[4]) == "--l2");
+
+      std::ifstream in(keyDir + "current_wallet.txt");
+      std::string sender;
+      std::getline(in, sender);
+
+      if (sender.empty()) {
+        std::cerr << "❌ No active wallet loaded. Please load one first.\n";
+        return 1;
+      }
+
+      auto dilPriv = Crypto::loadDilithiumKeys(sender);
+      auto falPriv = Crypto::loadFalconKeys(sender);
+
+      Transaction tx(sender, recipient, amount, "", "", time(nullptr));
+      if (isL2) tx.setMetadata("L2");
+      tx.signTransaction(dilPriv.privateKey, falPriv.privateKey);
+
+      if (!tx.getSignatureDilithium().empty() && !tx.getSignatureFalcon().empty()) {
+        blockchain.addTransaction(tx);
+        Network::getInstance(8333, &blockchain).broadcastTransaction(tx);
+        std::cout << "✅ Transaction sent: " << amount << " AlynCoin to " << recipient << std::endl;
+      } else {
+        std::cerr << "❌ Signature failure.\n";
+        return 1;
+      }
+
+      return 0;
+    }
+  }
+
+  return cliMain(argc, argv);
+}
+
 int cliMain(int argc, char *argv[]) {
   unsigned short port = 8333;
   std::string dbPath = DBPaths::getBlockchainDB();
@@ -186,19 +267,21 @@ int cliMain(int argc, char *argv[]) {
       break;
     }
 
-    case 4: {
+    case 4: {  // 🔁 Send L1 Transaction
       if (!wallet) {
-        std::cout << "Load or create a wallet first!\n";
+        std::cout << "❌ Load or create a wallet first!\n";
         break;
       }
+
       std::string recipient;
       double amount;
       std::cout << "Enter recipient address: ";
       std::cin >> recipient;
       std::cout << "Enter amount: ";
       std::cin >> amount;
-      if (amount <= 0) {
-        std::cout << "Invalid amount!\n";
+
+      if (recipient.empty() || amount <= 0) {
+        std::cout << "❌ Invalid input. Address must not be empty and amount must be positive.\n";
         break;
       }
 
@@ -207,23 +290,28 @@ int cliMain(int argc, char *argv[]) {
       auto falPriv = Crypto::loadFalconKeys(sender);
 
       Transaction tx(sender, recipient, amount, "", "", time(nullptr));
+      std::cout << "[DEBUG] signTransaction() called for sender: " << sender << "\n";
       tx.signTransaction(dilPriv.privateKey, falPriv.privateKey);
 
       if (!tx.getSignatureDilithium().empty() && !tx.getSignatureFalcon().empty()) {
         blockchain.addTransaction(tx);
+        std::cout << "📦 [DEBUG] Saving pending transactions to RocksDB...\n";
+        blockchain.savePendingTransactionsToDB();  // <-- this ensures RocksDB write
         network.broadcastTransaction(tx);
-        std::cout << "Transaction created and broadcasted!\n";
+        std::cout << "✅ Transactions successfully saved to RocksDB.\n";
+        std::cout << "✅ Transaction created and broadcasted!\n";
       } else {
-        std::cerr << "Invalid transaction! Signature check failed.\n";
+        std::cerr << "❌ Signature failure. Transaction not broadcasted.\n";
       }
+
       break;
     }
 
-    case 5: {
-     if (!wallet) {
-      std::cout << "Load or create a wallet first!\n";
-      break;
-    }
+    case 5: {  // 🔁 Send L2 Transaction
+      if (!wallet) {
+        std::cout << "❌ Load or create a wallet first!\n";
+        break;
+      }
 
       std::string recipient;
       double amount;
@@ -232,29 +320,32 @@ int cliMain(int argc, char *argv[]) {
       std::cout << "Enter amount: ";
       std::cin >> amount;
 
-    if (amount <= 0) {
-      std::cout << "Invalid amount!\n";
-      break;
-    }
+      if (recipient.empty() || amount <= 0) {
+        std::cout << "❌ Invalid input. Address must not be empty and amount must be positive.\n";
+        break;
+      }
 
-     std::string sender = wallet->getAddress();
-     auto dilPriv = Crypto::loadDilithiumKeys(sender);
-     auto falPriv = Crypto::loadFalconKeys(sender);
+      std::string sender = wallet->getAddress();
+      auto dilPriv = Crypto::loadDilithiumKeys(sender);
+      auto falPriv = Crypto::loadFalconKeys(sender);
 
-     Transaction tx(sender, recipient, amount, "", "", time(nullptr));
-     tx.setMetadata("L2");
-     tx.signTransaction(dilPriv.privateKey, falPriv.privateKey);
+      Transaction tx(sender, recipient, amount, "", "", time(nullptr));
+      tx.setMetadata("L2");
+      std::cout << "[DEBUG] signTransaction() called for sender: " << sender << "\n";
+      tx.signTransaction(dilPriv.privateKey, falPriv.privateKey);
 
-    // You can tag it as L2 with metadata later if needed
-    if (!tx.getSignatureDilithium().empty() && !tx.getSignatureFalcon().empty()) {
-        blockchain.addTransaction(tx);  // same pending pool
+      if (!tx.getSignatureDilithium().empty() && !tx.getSignatureFalcon().empty()) {
+        blockchain.addTransaction(tx);
+        std::cout << "📦 [DEBUG] Saving pending transactions to RocksDB...\n";
+        blockchain.savePendingTransactionsToDB();  // <-- persists the pool
         network.broadcastTransaction(tx);
-        std::cout << "L2 Transaction created and added to pending pool.\n";
-    } else {
-        std::cerr << "Invalid transaction! Signature check failed.\n";
-    }
+        std::cout << "✅ Transactions successfully saved to RocksDB.\n";
+        std::cout << "✅ L2 Transaction created and broadcasted!\n";
+      } else {
+        std::cerr << "❌ Signature failure. L2 Transaction not broadcasted.\n";
+      }
 
-    break;
+      break;
     }
 
     case 6: {
@@ -491,6 +582,3 @@ int cliMain(int argc, char *argv[]) {
   return 0;
 }
 
-int main(int argc, char **argv) {
-  return cliMain(argc, argv);
-}

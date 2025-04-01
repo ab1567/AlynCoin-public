@@ -56,8 +56,7 @@ public:
   alyncoin::TransactionProto toProto() const;
   // RocksDB
   static bool saveToDB(const Transaction &tx, int index);
-  static std::vector<Transaction> loadFromDB();
-
+  static std::vector<Transaction> loadAllFromDB();
   // Burn
   static double calculateBurnRate(int recentTxCount);
   void applyBurn(std::string &sender, double &amount, int recentTxCount);
