@@ -246,6 +246,19 @@ explorer_server/fast:
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/explorer_server.dir/build.make src/CMakeFiles/explorer_server.dir/build
 .PHONY : explorer_server/fast
 
+#=============================================================================
+# Target rules for targets named nftcli
+
+# Build rule for target.
+nftcli: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 nftcli
+.PHONY : nftcli
+
+# fast build rule for target.
+nftcli/fast:
+	$(MAKE) $(MAKESILENT) -f src/nft/CMakeFiles/nftcli.dir/build.make src/nft/CMakeFiles/nftcli.dir/build
+.PHONY : nftcli/fast
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -263,6 +276,7 @@ help:
 	@echo "... dilithium"
 	@echo "... explorer_server"
 	@echo "... falcon"
+	@echo "... nftcli"
 	@echo "... peer_blacklist_cli"
 .PHONY : help
 

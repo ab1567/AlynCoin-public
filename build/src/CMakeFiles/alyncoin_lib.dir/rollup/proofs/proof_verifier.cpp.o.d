@@ -308,6 +308,8 @@ src/CMakeFiles/alyncoin_lib.dir/rollup/proofs/proof_verifier.cpp.o: \
  /usr/include/c++/13/stack /usr/include/c++/13/bits/stl_stack.h \
  /usr/include/jsoncpp/json/writer.h \
  /root/AlynCoin/src/rollup/proofs/../../zk/winterfell_stark.h \
+ /root/AlynCoin/src/rollup/proofs/../../zk/../nft/nft.h \
+ /root/AlynCoin/src/generated/nft.pb.h \
  /root/AlynCoin/src/rollup/proofs/../rollup_utils.h \
  /root/AlynCoin/src/rollup/proofs/../../crypto_utils.h \
  /usr/include/openssl/err.h /usr/include/openssl/macros.h \

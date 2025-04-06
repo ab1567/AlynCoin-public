@@ -1,0 +1,2 @@
+# Empty dependencies file for nftcli.
+# This may be replaced when dependencies are built.

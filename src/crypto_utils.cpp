@@ -1029,6 +1029,10 @@ std::string blake3Hash(const std::string &input) {
   blake3_hasher_finalize(&hasher, output, BLAKE3_OUT_LEN);
   return std::string(reinterpret_cast<char *>(output), BLAKE3_OUT_LEN);
 }
+//
+std::vector<unsigned char> sha256ToBytes(const std::string &input) {
+    return fromHex(sha256(input));  // Convert hex → bytes
+}
 
 } // namespace Crypto
 //

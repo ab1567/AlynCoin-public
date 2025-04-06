@@ -135,6 +135,7 @@ set(PROTO_SRCS
     ${GENERATED_DIR}/crypto_protos.pb.cc
     ${GENERATED_DIR}/transaction_protos.pb.cc
     ${GENERATED_DIR}/main_protos.pb.cc
+    ${GENERATED_DIR}/nft.pb.cc
 )
 
 set(PROTO_HEADERS
@@ -144,6 +145,7 @@ set(PROTO_HEADERS
     ${GENERATED_DIR}/crypto_protos.pb.h
     ${GENERATED_DIR}/transaction_protos.pb.h
     ${GENERATED_DIR}/main_protos.pb.h
+    ${GENERATED_DIR}/nft.pb.h
 )
 
 add_custom_command(
@@ -156,6 +158,7 @@ add_custom_command(
             ${SOURCE_DIR}/proto/crypto_protos.proto
             ${SOURCE_DIR}/proto/transaction_protos.proto
             ${SOURCE_DIR}/proto/main_protos.proto
+            ${SOURCE_DIR}/proto/nft.proto
     DEPENDS ${SOURCE_DIR}/proto/*.proto
     COMMENT "Generating Protobuf files..."
 )

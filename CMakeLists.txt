@@ -14,3 +14,4 @@ file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/generated)
 
 # Add Subdirectory for src
 add_subdirectory(src)
+add_subdirectory(src/nft)

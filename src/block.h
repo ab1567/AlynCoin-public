@@ -30,6 +30,7 @@ private:
   std::string publicKeyDilithium;
   std::string publicKeyFalcon;
   std::string merkleRoot;
+  double reward = 0.0;
 
 public:
   std::string keccakHash;
@@ -72,6 +73,7 @@ public:
     return publicKeyDilithium;
   }
   const std::string &getPublicKeyFalcon() const { return publicKeyFalcon; }
+  double getReward() const;
   // --- Setters ---
   void setIndex(int idx) { index = idx; }
   void setPreviousHash(const std::string &prev) { previousHash = prev; }
@@ -92,7 +94,7 @@ public:
   }
   void setFalconSignature(const std::string &sig) { falconSignature = sig; }
   void setMerkleRoot(const std::string &merkle) { merkleRoot = merkle; }
-
+  void setReward(double r);
   // --- Other Functions ---
   bool isGenesisBlock() const {
     return index == 0 && previousHash == "00000000000000000000000000000000";

@@ -335,9 +335,10 @@ src/CMakeFiles/alyncoin_lib.dir/transaction.cpp.o: \
  /root/AlynCoin/src/rollup/proofs/../rollup_block.h \
  /root/AlynCoin/src/rollup/proofs/../../transaction.h \
  /root/AlynCoin/src/rollup/rollup_utils.h \
- /root/AlynCoin/src/zk/winterfell_stark.h /usr/include/c++/13/filesystem \
- /usr/include/c++/13/bits/fs_fwd.h /usr/include/c++/13/bits/fs_path.h \
- /usr/include/c++/13/locale \
+ /root/AlynCoin/src/zk/winterfell_stark.h \
+ /root/AlynCoin/src/zk/../nft/nft.h /root/AlynCoin/src/generated/nft.pb.h \
+ /usr/include/c++/13/filesystem /usr/include/c++/13/bits/fs_fwd.h \
+ /usr/include/c++/13/bits/fs_path.h /usr/include/c++/13/locale \
  /usr/include/c++/13/bits/locale_facets_nonio.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/time_members.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/messages_members.h \

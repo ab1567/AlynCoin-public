@@ -1,3 +1,6 @@
+// ───────────────────────────────────────────────────────────────
+// 🧱 AlynCoin Full Node - Main Entry Point (main.cpp)
+// ───────────────────────────────────────────────────────────────
 #include "blockchain.h"
 #include "crypto_utils.h"
 #include "miner.h"
@@ -10,11 +13,17 @@
 #include <thread>
 #include "db/db_paths.h"
 
+// ───────────────────────────────────────────────────────────────
+// 🧹 Helper: Clear std::cin on bad input
+// ───────────────────────────────────────────────────────────────
 void clearInputBuffer() {
   std::cin.clear();
   std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 }
 
+// ───────────────────────────────────────────────────────────────
+// 🏁 Main Function Entry
+// ───────────────────────────────────────────────────────────────
 int main(int argc, char *argv[]) {
   unsigned short port = 8333;
   std::string dbPath = DBPaths::getBlockchainDB();
@@ -22,7 +31,63 @@ int main(int argc, char *argv[]) {
   std::string keyDir = "/root/.alyncoin/keys/";
   std::string blacklistPath = "/root/.alyncoin/blacklist";
 
-  // Argument parsing
+// ───────────────────────────────────────────────────────────────
+// 🧪 Special CLI Mode: Headless Mining (for GUI integration)
+// ───────────────────────────────────────────────────────────────
+if (argc == 3 && (std::string(argv[1]) == "--mineonce" || std::string(argv[1]) == "--mine-once")) {
+  std::string minerAddress = argv[2];
+  std::cout << "⛏️ Mining single block for: " << minerAddress << "...\n";
+
+  Blockchain &blockchain = Blockchain::getInstanceNoNetwork(); // ✅ skip peer binding
+  if (!blockchain.loadFromDB()) {
+    std::cerr << "❌ Blockchain not loaded.\n";
+    return 1;
+  }
+
+  Block minedBlock = blockchain.mineBlock(minerAddress);
+  if (!minedBlock.getHash().empty()) {
+    blockchain.saveToDB();
+    blockchain.reloadBlockchainState();
+
+    std::cout << "✅ Block mined by: " << minerAddress << "\n";
+    std::cout << "🧱 Block Hash: " << minedBlock.getHash() << "\n";
+    std::cout << "✅ Block added to chain successfully.\n";
+  } else {
+    std::cerr << "⚠️ Mining failed. No valid transactions or error occurred.\n";
+  }
+  return 0;
+}
+//----------------------------
+//----------------------------
+if (argc == 3 && (std::string(argv[1]) == "--mineloop" || std::string(argv[1]) == "--mine-loop")) {
+  std::string minerAddress = argv[2];
+  std::cout << "🔁 Starting mining loop for: " << minerAddress << "\n";
+
+  Blockchain &blockchain = Blockchain::getInstanceNoNetwork();
+  if (!blockchain.loadFromDB()) {
+    std::cerr << "❌ Blockchain not loaded.\n";
+    return 1;
+  }
+
+  while (true) {
+    Block minedBlock = blockchain.mineBlock(minerAddress);
+    if (!minedBlock.getHash().empty()) {
+      blockchain.saveToDB();
+      blockchain.reloadBlockchainState();
+      std::cout << "✅ Block mined by: " << minerAddress << "\n";
+      std::cout << "🧱 Block Hash: " << minedBlock.getHash() << "\n";
+    } else {
+      std::cerr << "⚠️ Mining failed or no valid transactions.\n";
+    }
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+  }
+
+  return 0; // Just in case, though it'll never hit here.
+}
+
+// ───────────────────────────────────────────────────────────────
+// 🔧 Argument Parsing
+// ───────────────────────────────────────────────────────────────
   for (int i = 1; i < argc; ++i) {
     std::string arg = argv[i];
     if (arg == "--port" && i + 1 < argc) {
@@ -36,8 +101,7 @@ int main(int argc, char *argv[]) {
       std::cout << "🔗 Will connect to peer: " << connectIP << std::endl;
     } else if (arg == "--keypath" && i + 1 < argc) {
       keyDir = argv[++i];
-      if (keyDir.back() != '/')
-        keyDir += '/';
+      if (keyDir.back() != '/') keyDir += '/';
       std::cout << "🔑 Using custom key directory: " << keyDir << std::endl;
     } else if (arg[0] != '-') {
       try {
@@ -51,10 +115,16 @@ int main(int argc, char *argv[]) {
     }
   }
 
+// ───────────────────────────────────────────────────────────────
+// 🧠 Init Core Components: Blockchain, Network, Peers
+// ───────────────────────────────────────────────────────────────
   Blockchain &blockchain = Blockchain::getInstance(port, dbPath);
-  PeerBlacklist blacklist(blacklistPath, 3); // strike threshold
+  PeerBlacklist blacklist(blacklistPath, 3);
   Network &network = Network::getInstance(port, &blockchain, &blacklist);
 
+// ───────────────────────────────────────────────────────────────
+// 🧬 Load or Initialize Blockchain
+// ───────────────────────────────────────────────────────────────
   if (!blockchain.loadFromDB()) {
     std::cerr << "⚠️ Blockchain DB empty! Creating Genesis Block...\n";
     Block genesis = blockchain.createGenesisBlock();
@@ -71,6 +141,9 @@ int main(int argc, char *argv[]) {
   network.syncWithPeers();
   std::this_thread::sleep_for(std::chrono::seconds(2));
 
+// ───────────────────────────────────────────────────────────────
+// 📟 Interactive CLI Menu
+// ───────────────────────────────────────────────────────────────
   std::string minerAddress;
   bool running = true;
 
@@ -94,6 +167,9 @@ int main(int argc, char *argv[]) {
     }
 
     switch (choice) {
+    // ────────────────────────────────────────
+    // 🧾 Add Manual Transaction
+    // ────────────────────────────────────────
     case 1: {
       std::string sender, recipient;
       double amount;
@@ -114,7 +190,6 @@ int main(int argc, char *argv[]) {
       }
 
       Crypto::ensureUserKeys(sender);
-
       DilithiumKeyPair dilKeys = Crypto::loadDilithiumKeys(sender);
       FalconKeyPair falKeys = Crypto::loadFalconKeys(sender);
 
@@ -126,8 +201,7 @@ int main(int argc, char *argv[]) {
       Transaction tx(sender, recipient, amount, "", "", time(nullptr));
       tx.signTransaction(dilKeys.privateKey, falKeys.privateKey);
 
-      if (!tx.isValid(Crypto::toHex(dilKeys.publicKey),
-                      Crypto::toHex(falKeys.publicKey))) {
+      if (!tx.isValid(Crypto::toHex(dilKeys.publicKey), Crypto::toHex(falKeys.publicKey))) {
         std::cout << "Invalid transaction! Signature check failed.\n";
         break;
       }
@@ -138,6 +212,9 @@ int main(int argc, char *argv[]) {
       break;
     }
 
+    // ────────────────────────────────────────
+    // ⛏️ Manual Single Block Mining
+    // ────────────────────────────────────────
     case 2: {
       std::cout << "Enter miner address: ";
       std::cin >> minerAddress;
@@ -147,7 +224,6 @@ int main(int argc, char *argv[]) {
       }
 
       std::cout << "Mining block...\n";
-
       Block minedBlock = blockchain.mineBlock(minerAddress);
       if (!minedBlock.getHash().empty()) {
         blockchain.saveToDB();
@@ -161,10 +237,16 @@ int main(int argc, char *argv[]) {
       break;
     }
 
+    // ────────────────────────────────────────
+    // 📜 Print Blockchain
+    // ────────────────────────────────────────
     case 3:
       blockchain.printBlockchain();
       break;
 
+    // ────────────────────────────────────────
+    // 🔁 Start Mining Loop
+    // ────────────────────────────────────────
     case 4: {
       std::cout << "Enter miner address: ";
       std::cin >> minerAddress;
@@ -177,17 +259,26 @@ int main(int argc, char *argv[]) {
       break;
     }
 
+    // ────────────────────────────────────────
+    // 🔄 Sync With Peers
+    // ────────────────────────────────────────
     case 5:
       std::cout << "Syncing with peers...\n";
       network.syncWithPeers();
       break;
 
+    // ────────────────────────────────────────
+    // 💰 Dev Fund Info
+    // ────────────────────────────────────────
     case 6:
       std::cout << "\n=== Dev Fund Information ===\n";
       std::cout << "Address: DevFundWallet\n";
       std::cout << "Balance: " << blockchain.getBalance("DevFundWallet") << " AlynCoin\n";
       break;
 
+    // ────────────────────────────────────────
+    // ❌ Exit
+    // ────────────────────────────────────────
     case 7:
       std::cout << "Exiting AlynCoin Node... Goodbye!\n";
       running = false;

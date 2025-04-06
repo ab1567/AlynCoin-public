@@ -40,9 +40,11 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_db.cpp.o: /root/AlynCoin/sr
   /root/AlynCoin/src/generated/transaction_protos.pb.h \
   /root/AlynCoin/src/hash.h \
   /root/AlynCoin/src/transaction.h \
+  /root/AlynCoin/src/nft/nft.h \
   /root/AlynCoin/src/zk/winterfell_stark.h \
   /root/AlynCoin/src/explorer/explorer_db.h \
   /root/AlynCoin/src/explorer/explorer_utils.h \
+  /root/AlynCoin/src/generated/nft.pb.h \
   /root/AlynCoin/src/network/peer_blacklist.h \
   /usr/include/alloca.h \
   /usr/include/arpa/inet.h \
@@ -3032,8 +3034,6 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_utils.cpp.o: /root/AlynCoin
 
 /root/AlynCoin/src/db/db_paths.h:
 
-/root/AlynCoin/src/explorer/explorer_server.cpp:
-
 /usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h:
 
 /usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h:
@@ -3045,8 +3045,6 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_utils.cpp.o: /root/AlynCoin
 /usr/include/x86_64-linux-gnu/sys/stat.h:
 
 /usr/include/x86_64-linux-gnu/openssl/opensslconf.h:
-
-/usr/include/x86_64-linux-gnu/openssl/configuration.h:
 
 /usr/include/x86_64-linux-gnu/gnu/stubs-64.h:
 
@@ -3776,8 +3774,6 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_utils.cpp.o: /root/AlynCoin
 
 /root/AlynCoin/src/explorer/explorer_utils.h:
 
-/root/AlynCoin/deps/Crow/include/crow/mustache.h:
-
 /usr/include/x86_64-linux-gnu/bits/mathcalls-helper-functions.h:
 
 /usr/include/asio/detail/reactive_socket_recvmsg_op.hpp:
@@ -3958,6 +3954,26 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_utils.cpp.o: /root/AlynCoin
 
 /usr/include/asio/detail/dependent_type.hpp:
 
+/usr/include/asio/detail/posix_global.hpp:
+
+/usr/include/asio/detail/impl/descriptor_ops.ipp:
+
+/usr/include/openssl/cryptoerr.h:
+
+/usr/include/jsoncpp/json/json.h:
+
+/usr/include/asio/detail/handler_cont_helpers.hpp:
+
+/usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h:
+
+/usr/include/x86_64-linux-gnu/bits/wchar.h:
+
+/usr/include/x86_64-linux-gnu/asm/socket.h:
+
+/usr/include/rocksdb/functor_wrapper.h:
+
+/usr/include/asio/detail/consuming_buffers.hpp:
+
 /usr/include/x86_64-linux-gnu/bits/termios-tcflow.h:
 
 /usr/include/asio/detail/op_queue.hpp:
@@ -3983,10 +3999,6 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_utils.cpp.o: /root/AlynCoin
 /usr/include/asio/associated_executor.hpp:
 
 /usr/include/asio/associated_cancellation_slot.hpp:
-
-/usr/include/asio/detail/timer_scheduler_fwd.hpp:
-
-/usr/include/asio/co_spawn.hpp:
 
 /usr/include/google/protobuf/has_bits.h:
 
@@ -4019,6 +4031,20 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_utils.cpp.o: /root/AlynCoin
 /usr/include/asio/basic_waitable_timer.hpp:
 
 /usr/include/c++/13/bits/codecvt.h:
+
+/root/AlynCoin/src/explorer/explorer_server.cpp:
+
+/root/AlynCoin/src/nft/nft.h:
+
+/usr/include/asio/associated_immediate_executor.hpp:
+
+/root/AlynCoin/src/block.h:
+
+/usr/include/asio/impl/handler_alloc_hook.ipp:
+
+/usr/include/asio/impl/any_completion_executor.ipp:
+
+/root/AlynCoin/src/hash.h:
 
 /usr/include/asio/detail/variadic_templates.hpp:
 
@@ -4078,16 +4104,6 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_utils.cpp.o: /root/AlynCoin
 
 /usr/include/asio/execution/occupancy.hpp:
 
-/usr/include/asio/detail/impl/descriptor_ops.ipp:
-
-/usr/include/openssl/cryptoerr.h:
-
-/usr/include/jsoncpp/json/json.h:
-
-/usr/include/asio/detail/handler_cont_helpers.hpp:
-
-/usr/include/asio/detail/posix_global.hpp:
-
 /usr/include/x86_64-linux-gnu/gnu/stubs.h:
 
 /usr/include/c++/13/bits/erase_if.h:
@@ -4135,16 +4151,6 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_utils.cpp.o: /root/AlynCoin
 /usr/include/asio/buffered_read_stream.hpp:
 
 /usr/include/asio/prefer.hpp:
-
-/usr/include/asio/associated_immediate_executor.hpp:
-
-/root/AlynCoin/src/hash.h:
-
-/usr/include/asio/impl/any_completion_executor.ipp:
-
-/root/AlynCoin/src/block.h:
-
-/usr/include/asio/impl/handler_alloc_hook.ipp:
 
 /root/AlynCoin/deps/Crow/include/crow/http_request.h:
 
@@ -4246,16 +4252,6 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_utils.cpp.o: /root/AlynCoin
 
 /root/AlynCoin/deps/Crow/include/crow/settings.h:
 
-/usr/include/c++/13/bits/cxxabi_init_exception.h:
-
-/usr/include/asio/awaitable.hpp:
-
-/usr/include/asio/detail/bulk_executor_op.hpp:
-
-/root/AlynCoin/src/network/peer_blacklist.h:
-
-/usr/include/asio/post.hpp:
-
 /usr/include/asio/detail/operation.hpp:
 
 /usr/include/asio/detail/impl/reactive_descriptor_service.ipp:
@@ -4278,11 +4274,7 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_utils.cpp.o: /root/AlynCoin
 
 /usr/include/arpa/inet.h:
 
-/root/AlynCoin/src/explorer/explorer_db.cpp:
-
-/usr/include/asio/buffered_stream_fwd.hpp:
-
-/usr/include/asio/basic_stream_socket.hpp:
+/root/AlynCoin/deps/Crow/include/crow/mustache.h:
 
 /usr/include/asio/ip/basic_resolver_entry.hpp:
 
@@ -4330,6 +4322,10 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_utils.cpp.o: /root/AlynCoin
 
 /usr/include/asio/detail/io_object_impl.hpp:
 
+/usr/include/asio/buffered_stream_fwd.hpp:
+
+/root/AlynCoin/src/explorer/explorer_db.cpp:
+
 /usr/include/x86_64-linux-gnu/bits/environments.h:
 
 /usr/include/openssl/conferr.h:
@@ -4372,6 +4368,18 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_utils.cpp.o: /root/AlynCoin
 
 /root/AlynCoin/deps/Crow/include/crow/utility.h:
 
+/usr/include/c++/13/bits/cxxabi_init_exception.h:
+
+/usr/include/asio/awaitable.hpp:
+
+/usr/include/asio/detail/bulk_executor_op.hpp:
+
+/root/AlynCoin/src/network/peer_blacklist.h:
+
+/usr/include/asio/post.hpp:
+
+/usr/include/asio/basic_stream_socket.hpp:
+
 /usr/include/asio/basic_deadline_timer.hpp:
 
 /usr/include/asio/detail/object_pool.hpp:
@@ -4394,6 +4402,10 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_utils.cpp.o: /root/AlynCoin
 
 /usr/include/asio/basic_file.hpp:
 
+/usr/include/c++/13/bits/concept_check.h:
+
+/usr/include/asio/ip/impl/host_name.ipp:
+
 /usr/include/asio/detail/event.hpp:
 
 /usr/include/x86_64-linux-gnu/bits/sigstksz.h:
@@ -4411,16 +4423,6 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_utils.cpp.o: /root/AlynCoin
 /usr/include/asio/traits/set_value_member.hpp:
 
 /usr/include/asio/execution/detail/submit_receiver.hpp:
-
-/usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h:
-
-/usr/include/x86_64-linux-gnu/bits/wchar.h:
-
-/usr/include/x86_64-linux-gnu/asm/socket.h:
-
-/usr/include/rocksdb/functor_wrapper.h:
-
-/usr/include/asio/detail/consuming_buffers.hpp:
 
 /usr/include/asio/basic_readable_pipe.hpp:
 
@@ -4554,6 +4556,10 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_utils.cpp.o: /root/AlynCoin
 
 /usr/include/asio/is_executor.hpp:
 
+/usr/include/x86_64-linux-gnu/openssl/configuration.h:
+
+/root/AlynCoin/src/generated/nft.pb.h:
+
 /usr/include/x86_64-linux-gnu/sys/un.h:
 
 /usr/include/c++/13/bits/fs_dir.h:
@@ -4629,6 +4635,10 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_utils.cpp.o: /root/AlynCoin
 /usr/include/x86_64-linux-gnu/bits/types/struct___jmp_buf_tag.h:
 
 /root/AlynCoin/deps/Crow/include/crow/http_parser_merged.h:
+
+/usr/include/asio/co_spawn.hpp:
+
+/usr/include/asio/detail/timer_scheduler_fwd.hpp:
 
 /usr/include/asio/detail/tss_ptr.hpp:
 
@@ -4870,9 +4880,9 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_utils.cpp.o: /root/AlynCoin
 
 /usr/include/x86_64-linux-gnu/bits/types/struct_osockaddr.h:
 
-/usr/include/asio/detail/posix_mutex.hpp:
-
 /usr/include/asio/detail/config.hpp:
+
+/usr/include/asio/detail/posix_mutex.hpp:
 
 /usr/include/asio/impl/write.hpp:
 
@@ -5221,7 +5231,3 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_utils.cpp.o: /root/AlynCoin
 /usr/include/asio/ip/icmp.hpp:
 
 /usr/include/c++/13/bits/charconv.h:
-
-/usr/include/asio/ip/impl/host_name.ipp:
-
-/usr/include/c++/13/bits/concept_check.h:

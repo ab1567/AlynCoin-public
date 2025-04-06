@@ -5,7 +5,6 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use alloc::boxed::Box;
 use alloc::string::String;
 use core::{fmt::Debug, ptr};
 use core::ffi::c_char;

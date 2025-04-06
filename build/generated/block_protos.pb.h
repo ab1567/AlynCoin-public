@@ -195,6 +195,7 @@ class BlockProto final :
     kDifficultyFieldNumber = 8,
     kNonceFieldNumber = 6,
     kTimestampFieldNumber = 7,
+    kRewardFieldNumber = 18,
   };
   // repeated .alyncoin.TransactionProto transactions = 3;
   int transactions_size() const;
@@ -418,6 +419,19 @@ class BlockProto final :
   void _internal_set_timestamp(uint64_t value);
   public:
 
+  // optional double reward = 18;
+  bool has_reward() const;
+  private:
+  bool _internal_has_reward() const;
+  public:
+  void clear_reward();
+  double reward() const;
+  void set_reward(double value);
+  private:
+  double _internal_reward() const;
+  void _internal_set_reward(double value);
+  public:
+
   // @@protoc_insertion_point(class_scope:alyncoin.BlockProto)
  private:
   class _Internal;
@@ -426,6 +440,8 @@ class BlockProto final :
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
   struct Impl_ {
+    ::PROTOBUF_NAMESPACE_ID::internal::HasBits<1> _has_bits_;
+    mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
     ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::TransactionProto > transactions_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr previous_hash_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr hash_;
@@ -443,7 +459,7 @@ class BlockProto final :
     int32_t difficulty_;
     uint64_t nonce_;
     uint64_t timestamp_;
-    mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
+    double reward_;
   };
   union { Impl_ _impl_; };
   friend struct ::TableStruct_block_5fprotos_2eproto;
@@ -1174,6 +1190,34 @@ inline void BlockProto::set_allocated_tx_merkle_root(std::string* tx_merkle_root
   }
 #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
   // @@protoc_insertion_point(field_set_allocated:alyncoin.BlockProto.tx_merkle_root)
+}
+
+// optional double reward = 18;
+inline bool BlockProto::_internal_has_reward() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  return value;
+}
+inline bool BlockProto::has_reward() const {
+  return _internal_has_reward();
+}
+inline void BlockProto::clear_reward() {
+  _impl_.reward_ = 0;
+  _impl_._has_bits_[0] &= ~0x00000001u;
+}
+inline double BlockProto::_internal_reward() const {
+  return _impl_.reward_;
+}
+inline double BlockProto::reward() const {
+  // @@protoc_insertion_point(field_get:alyncoin.BlockProto.reward)
+  return _internal_reward();
+}
+inline void BlockProto::_internal_set_reward(double value) {
+  _impl_._has_bits_[0] |= 0x00000001u;
+  _impl_.reward_ = value;
+}
+inline void BlockProto::set_reward(double value) {
+  _internal_set_reward(value);
+  // @@protoc_insertion_point(field_set:alyncoin.BlockProto.reward)
 }
 
 #ifdef __GNUC__

@@ -38,6 +38,9 @@ class Blockchain {
 private:
   Blockchain();
   std::vector<Block> chain;
+  unsigned short port;
+  std::string dbPath;
+  double totalBurnedSupply = 0.0;
   std::deque<int> recentTransactionCounts;
   std::vector<Transaction> pendingTransactions;
   static std::atomic<bool> isMining;
@@ -48,7 +51,6 @@ private:
   std::string minerAddress;
   Network *network;
   rocksdb::DB *db;
-  double totalBurnedSupply = 0.0;
   std::unordered_map<std::string, double> balances;
   std::vector<RollupBlock> rollupChain;
   static constexpr const char *DEV_FUND_ADDRESS = "DevFundWallet";
@@ -75,16 +77,15 @@ private:
   void distributeDevFund();
   void initiateVotingSession();
   void tallyVotes();
-  double getTotalSupply() const;
   void loadVestingInfoFromDB();
   void saveVestingInfoToDB();
 
-  Blockchain(unsigned short port, const std::string &dbPath = DBPaths::getBlockchainDB());
+   Blockchain(unsigned short port, const std::string &dbPath = DBPaths::getBlockchainDB(), bool bindNetwork = true);
 
 public:
-  static Blockchain &
-  getInstance(unsigned short port = 8333,
-              const std::string &dbPath = DBPaths::getBlockchainDB());
+  static Blockchain &getInstance(unsigned short port = 8333,
+                               const std::string &dbPath = DBPaths::getBlockchainDB(),
+                               bool bindNetwork = true);
   Blockchain(const Blockchain &) = delete;
   Blockchain &operator=(const Blockchain &) = delete;
   ~Blockchain();
@@ -115,6 +116,8 @@ public:
                                            const std::vector<unsigned char> &message);
   void validateChainContinuity() const;
   double calculateBlockReward();
+  static Blockchain &getInstanceNoNetwork();
+  std::vector<Block> getAllBlocks();
   // Updated mining function to accept Dilithium + Falcon keys
   Block mineBlock(const std::string &minerAddress);
 
@@ -147,7 +150,8 @@ public:
   void mergeRollupChain(const std::vector<RollupBlock> &otherChain);
   std::vector<RollupBlock> deserializeRollupChain(const std::string &data);
   RollupBlock deserializeRollupBlock(const std::string &data);
-
+  double getTotalBurnedSupply() const { return totalBurnedSupply; }
+  double getTotalSupply() const;
   // Pass dual keys during block creation (optional)
   Block createBlock(const std::string &minerDilithiumKey,
                     const std::string &minerFalconKey);

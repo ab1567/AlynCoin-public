@@ -3,6 +3,10 @@
 
 #include <string>
 #include <ctime>  // Required for time_t
+#include <vector>
+#include <cstdint>
+#include <iostream>
+#include "../nft/nft.h"
 
 class WinterfellStark {
 public:
@@ -29,6 +33,17 @@ public:
                                        const std::string& recipient,
                                        double amount,
                                        time_t timestamp);
+
+    static bool verifyNFTZkProof(const NFT& nft) {
+    if (nft.zkStarkProof.empty()) {
+        std::cerr << "❌ [NFT-ZK] Missing zk-STARK proof data.\n";
+        return false;
+    }
+    const std::string proofStr(reinterpret_cast<const char*>(nft.zkStarkProof.data()), nft.zkStarkProof.size());
+    const std::string dummyPrev = "";
+    const std::string dummyRoot = "";
+    return verifyProof(proofStr, nft.id, dummyPrev, dummyRoot);
+}
 };
 
 #endif // WINTERFELL_STARK_H

@@ -43,9 +43,15 @@ Blockchain::Blockchain()
 }
 
 // ✅ **Constructor: Open RocksDB**
-Blockchain::Blockchain(unsigned short port, const std::string &dbPath)
-    : difficulty(4), miningReward(10.0) {
-  network = &Network::getInstance(port, this);
+Blockchain::Blockchain(unsigned short port, const std::string &dbPath, bool bindNetwork)
+    : difficulty(4), miningReward(10.0), port(port), dbPath(dbPath) {
+  
+  if (bindNetwork) {
+    network = &Network::getInstance(port, this);
+  } else {
+    network = nullptr;
+  }
+
   std::cout << "[DEBUG] Initializing Blockchain..." << std::endl;
 
   std::string dbPathFinal = BLOCKCHAIN_DB_PATH;
@@ -55,8 +61,7 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath)
   }
 
   if (!fs::exists(dbPathFinal)) {
-    std::cerr << "⚠️ RocksDB directory missing. Creating: " << dbPathFinal
-              << "\n";
+    std::cerr << "⚠️ RocksDB directory missing. Creating: " << dbPathFinal << "\n";
     fs::create_directories(dbPathFinal);
   }
 
@@ -64,27 +69,25 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath)
   options.create_if_missing = true;
   rocksdb::Status status = rocksdb::DB::Open(options, dbPathFinal, &db);
   if (!status.ok()) {
-    std::cerr << "❌ [ERROR] Failed to open RocksDB: " << status.ToString()
-              << std::endl;
+    std::cerr << "❌ [ERROR] Failed to open RocksDB: " << status.ToString() << std::endl;
     exit(1);
   }
 
-  // Load blockchain data
   std::cout << "[DEBUG] Attempting to load blockchain from DB...\n";
   loadFromDB();
-  recalculateBalancesFromChain();
 
-  // Load existing vesting info (if previously applied)
+  if (bindNetwork) {
+    recalculateBalancesFromChain();  // ⛔ Only in full mode
+  }
+
   loadVestingInfoFromDB();
 
-  // ✅ Check if vesting marker exists
   std::string vestingMarker;
-  status =
-      db->Get(rocksdb::ReadOptions(), "vesting_initialized", &vestingMarker);
+  status = db->Get(rocksdb::ReadOptions(), "vesting_initialized", &vestingMarker);
 
   if (!status.ok()) {
     std::cout << "⏳ Applying vesting schedule for early supporters...\n";
-    applyVestingSchedule(); // Call new function
+    applyVestingSchedule();
     db->Put(rocksdb::WriteOptions(), "vesting_initialized", "true");
     std::cout << "✅ Vesting applied & marker set.\n";
   } else {
@@ -99,7 +102,6 @@ Blockchain::~Blockchain() {
     db = nullptr; // ✅ Prevent potential use-after-free issues
   }
 }
-
 // ✅ **Validate a Transaction**
 bool Blockchain::isTransactionValid(const Transaction &tx) const {
   std::string sender = tx.getSender();
@@ -240,9 +242,17 @@ bool Blockchain::addBlock(const Block &newBlock) {
 
 // ✅ **Singleton Instance**
 Blockchain &Blockchain::getInstance(unsigned short port,
-                                    const std::string &dbPath) {
-  static Blockchain instance(port, dbPath);
-  return instance;
+                                    const std::string &dbPath,
+                                    bool bindNetwork)
+{
+    static Blockchain instance(port, dbPath, bindNetwork);
+    return instance;
+}
+
+//
+Blockchain& Blockchain::getInstanceNoNetwork() {
+    static Blockchain instance(0, DBPaths::getBlockchainDB(), true);
+    return instance;
 }
 
 //
@@ -428,7 +438,7 @@ Block Blockchain::minePendingTransactions(
         std::time(nullptr),
         0
     );
-
+    newBlock.setReward(blockRewardVal);
     if (!newBlock.mineBlock(difficulty)) {
         std::cerr << "❌ Mining process returned false!\n";
         return Block();
@@ -791,9 +801,9 @@ void Blockchain::addVestingForEarlySupporter(const std::string &address,
 }
 //
 void Blockchain::applyVestingSchedule() {
-  for (int i = 1; i <= 10000; ++i) {
+  for (int i = 1; i <= 10; ++i) {
     std::string supporterAddress = "supporter" + std::to_string(i);
-    double initialAmount = 10000.0; // Keep same allocation logic
+    double initialAmount = 10.0; // Keep same allocation logic
     addVestingForEarlySupporter(supporterAddress, initialAmount);
   }
   saveVestingInfoToDB();
@@ -1311,6 +1321,11 @@ void Blockchain::validateChainContinuity() const {
             std::cerr << "RECEIVED: " << received << "\n";
         }
     }
+}
+//
+std::vector<Block> Blockchain::getAllBlocks() {
+    std::lock_guard<std::mutex> lock(blockchainMutex);
+    return chain;  // assuming `chain` is the vector<Block> holding all blocks
 }
 
 //

@@ -353,6 +353,14 @@ bool Block::isValid(const std::string &prevHash) const {
   std::cout << "✅ Block Validated Successfully.\n";
   return true;
 }
+//
+double Block::getReward() const {
+    return reward;
+}
+
+void Block::setReward(double r) {
+    reward = r;
+}
 
 // ✅ Adaptive mining reward calculation
 //
@@ -392,13 +400,19 @@ bool Block::deserializeFromProtobuf(const alyncoin::BlockProto &protoBlock) {
     setSignature(protoBlock.block_signature());
     setKeccakHash(protoBlock.keccak_hash());
 
+    // ✅ Load reward
+    if (protoBlock.has_reward()) {
+      reward = protoBlock.reward();
+    } else {
+      reward = 0.0;
+    }
+
     transactions.clear();
     for (const auto &protoTx : protoBlock.transactions()) {
       Transaction tx;
       if (!tx.deserializeFromProtobuf(protoTx)) {
-        std::cerr
-            << "❌ [ERROR] Failed to deserialize transaction in block index: "
-            << index << "\n";
+        std::cerr << "❌ [ERROR] Failed to deserialize transaction in block index: "
+                  << index << "\n";
         return false;
       }
       transactions.push_back(tx);
@@ -432,6 +446,7 @@ void Block::serializeToProtobuf(alyncoin::BlockProto &proto) const {
   proto.set_timestamp(timestamp);
   proto.set_block_signature(blockSignature);
   proto.set_keccak_hash(keccakHash);
+  proto.set_reward(reward);
 
   // Serialize transactions
   for (const auto &tx : transactions) {
@@ -463,6 +478,7 @@ Json::Value Block::toJSON() const {
   block["dilithiumSignature"] = dilithiumSignature;
   block["falconSignature"] = falconSignature;
   block["zkProof"] = zkProof;
+  block["reward"] = reward;
 
   Json::Value txArray(Json::arrayValue);
   for (const auto &tx : transactions) {
@@ -513,6 +529,7 @@ Block Block::fromProto(const alyncoin::BlockProto &protoBlock) {
   newBlock.difficulty = protoBlock.difficulty();
   newBlock.setSignature(protoBlock.block_signature());
   newBlock.setKeccakHash(protoBlock.keccak_hash());
+  newBlock.setReward(protoBlock.reward());
 
   // 🧠 Add the missing fields!
   newBlock.zkProof = protoBlock.zk_stark_proof();
@@ -544,6 +561,9 @@ alyncoin::BlockProto Block::toProtobuf() const {
   protoBlock.set_block_signature(blockSignature);
   protoBlock.set_keccak_hash(keccakHash);
 
+  // ✅ Store reward
+  protoBlock.set_reward(reward);
+
   for (const auto &tx : transactions) {
     alyncoin::TransactionProto *protoTx = protoBlock.add_transactions();
     tx.serializeToProtobuf(*protoTx);
@@ -551,6 +571,7 @@ alyncoin::BlockProto Block::toProtobuf() const {
 
   return protoBlock;
 }
+
 // Modify Block class to handle rollup block structure
 std::string
 Block::generateRollupProof(const std::vector<Transaction> &offChainTxs) {

@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+message NFTProto {
+  string id = 1;
+  string creator = 2;
+  string owner = 3;
+  string metadata = 4;
+  string image_hash = 5;
+  int64 timestamp = 6;
+  bytes signature = 7;
+  bytes zk_stark_proof = 8;
+
+  string version = 9;
+  string nft_type = 10;
+  string proof_hash = 11;
+  string extra_data = 12;
+
+  repeated string transferLedger = 13;
+  string creator_identity = 14;
+  repeated string bundled_assets = 15;
+  bytes dilithium_signature = 16;
+  int64 expiry_timestamp = 17;
+  bool revoked = 18;
+  string encrypted_metadata = 19;
+}

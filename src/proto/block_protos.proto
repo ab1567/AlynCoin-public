@@ -22,6 +22,8 @@ message BlockProto {
     string public_key_dilithium = 14;
     string public_key_falcon = 15;
 
-    string state_root = 16;        
-    string tx_merkle_root = 17;    
+    string state_root = 16;
+    string tx_merkle_root = 17;
+
+    optional double reward = 18;
 }

@@ -29,6 +29,7 @@ std::string hybridHash(const std::string &input);
 std::string blake3Hash(const std::string &input);
 std::string hybridHashWithDomain(const std::string &input,
                                  const std::string &domain);
+std::vector<unsigned char> sha256ToBytes(const std::string &input);
 void ensureKeysDirectory();
 // ✅ Address Generation
 std::string generateAddress(const std::string &publicKey);

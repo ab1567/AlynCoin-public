@@ -12,3 +12,6 @@
 /root/AlynCoin/build/src/CMakeFiles/explorer_server.dir
 /root/AlynCoin/build/src/CMakeFiles/edit_cache.dir
 /root/AlynCoin/build/src/CMakeFiles/rebuild_cache.dir
+/root/AlynCoin/build/src/nft/CMakeFiles/nftcli.dir
+/root/AlynCoin/build/src/nft/CMakeFiles/edit_cache.dir
+/root/AlynCoin/build/src/nft/CMakeFiles/rebuild_cache.dir
