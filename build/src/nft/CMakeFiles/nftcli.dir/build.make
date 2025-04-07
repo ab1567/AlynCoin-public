@@ -141,6 +141,8 @@ bin/nftcli: src/nft/CMakeFiles/nftcli.dir/nft.cpp.o
 bin/nftcli: src/nft/CMakeFiles/nftcli.dir/nft_storage.cpp.o
 bin/nftcli: src/nft/CMakeFiles/nftcli.dir/build.make
 bin/nftcli: src/libalyncoin_lib.a
+bin/nftcli: src/nft/crypto/libnft_crypto.a
+bin/nftcli: /usr/lib/x86_64-linux-gnu/libcrypto.so
 bin/nftcli: /usr/lib/x86_64-linux-gnu/libcrypto.so
 bin/nftcli: /usr/lib/x86_64-linux-gnu/librocksdb.so
 bin/nftcli: /usr/lib/x86_64-linux-gnu/libprotobuf.so

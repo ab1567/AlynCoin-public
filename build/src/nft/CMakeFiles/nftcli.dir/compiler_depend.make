@@ -21,6 +21,8 @@ src/nft/CMakeFiles/nftcli.dir/nft.cpp.o: /root/AlynCoin/src/nft/nft.cpp \
   /root/AlynCoin/src/transaction.h \
   /root/AlynCoin/src/zk/winterfell_stark.h \
   /root/AlynCoin/src/generated/nft.pb.h \
+  /root/AlynCoin/src/db/db_instance.h \
+  /root/AlynCoin/src/db/rocksdb_wrapper.h \
   /root/AlynCoin/src/network/peer_blacklist.h \
   /root/AlynCoin/src/nft/nft.h \
   /root/AlynCoin/src/zk/winterfell_stark.h \
@@ -1561,6 +1563,7 @@ src/nft/CMakeFiles/nftcli.dir/nft_cli.cpp.o: /root/AlynCoin/src/nft/nft_cli.cpp 
   /root/AlynCoin/src/db/rocksdb_wrapper.h \
   /root/AlynCoin/src/nft/nft.h \
   /root/AlynCoin/src/nft/nft_storage.h \
+  /root/AlynCoin/src/nft/crypto/aes_utils.h \
   /root/AlynCoin/src/nft/nft_cli.h \
   /usr/include/alloca.h \
   /usr/include/asm-generic/errno-base.h \
@@ -2393,6 +2396,8 @@ src/nft/CMakeFiles/nftcli.dir/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 
 /usr/include/c++/13/bits/regex.h:
 
+/root/AlynCoin/src/nft/crypto/aes_utils.h:
+
 /root/AlynCoin/src/nft/nft_cli.cpp:
 
 /usr/local/include/nlohmann/json.hpp:
@@ -2721,10 +2726,6 @@ src/nft/CMakeFiles/nftcli.dir/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 
 /usr/include/openssl/asn1err.h:
 
-/root/AlynCoin/src/db/rocksdb_wrapper.h:
-
-/usr/include/openssl/asn1.h:
-
 /usr/include/netinet/in.h:
 
 /usr/include/netdb.h:
@@ -2944,6 +2945,10 @@ src/nft/CMakeFiles/nftcli.dir/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 /usr/include/c++/13/exception:
 
 /usr/include/c++/13/deque:
+
+/usr/include/rocksdb/wide_columns.h:
+
+/usr/include/c++/13/debug/debug.h:
 
 /usr/include/boost/date_time/gregorian/greg_ymd.hpp:
 
@@ -3501,12 +3506,6 @@ src/nft/CMakeFiles/nftcli.dir/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 
 /usr/include/boost/asio/execution/scheduler.hpp:
 
-/root/AlynCoin/src/db/db_instance.h:
-
-/usr/include/boost/asio/ip/resolver_query_base.hpp:
-
-/usr/include/boost/asio/execution/relationship.hpp:
-
 /usr/include/boost/asio/bind_immediate_executor.hpp:
 
 /usr/include/boost/predef/compiler/digitalmars.h:
@@ -3567,6 +3566,14 @@ src/nft/CMakeFiles/nftcli.dir/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 
 /usr/include/boost/asio/execution/bad_executor.hpp:
 
+/usr/include/boost/asio/signal_set.hpp:
+
+/usr/include/boost/asio/error.hpp:
+
+/usr/include/asm-generic/errno-base.h:
+
+/usr/include/boost/predef/architecture/rs6k.h:
+
 /usr/include/c++/13/bits/regex_scanner.tcc:
 
 /usr/include/boost/asio/detail/descriptor_write_op.hpp:
@@ -3574,10 +3581,6 @@ src/nft/CMakeFiles/nftcli.dir/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 /usr/include/boost/asio/impl/read.hpp:
 
 /usr/include/boost/asio/associated_allocator.hpp:
-
-/usr/include/boost/date_time/gregorian_calendar.ipp:
-
-/usr/include/boost/mpl/aux_/config/intel.hpp:
 
 /usr/include/boost/mpl/aux_/na_spec.hpp:
 
@@ -3638,14 +3641,6 @@ src/nft/CMakeFiles/nftcli.dir/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 /usr/include/boost/asio/execution/detail/as_invocable.hpp:
 
 /usr/include/boost/asio/compose.hpp:
-
-/usr/include/boost/asio/signal_set.hpp:
-
-/usr/include/boost/asio/error.hpp:
-
-/usr/include/asm-generic/errno-base.h:
-
-/usr/include/boost/predef/architecture/rs6k.h:
 
 /usr/include/boost/asio/impl/buffered_read_stream.hpp:
 
@@ -3783,6 +3778,16 @@ src/nft/CMakeFiles/nftcli.dir/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 
 /usr/include/boost/preprocessor/control/iif.hpp:
 
+/usr/include/boost/asio/traits/set_error_free.hpp:
+
+/usr/include/boost/numeric/conversion/cast.hpp:
+
+/usr/include/c++/13/bits/utility.h:
+
+/usr/include/boost/asio/generic/basic_endpoint.hpp:
+
+/usr/include/boost/asio/basic_socket_acceptor.hpp:
+
 /usr/include/boost/asio.hpp:
 
 /usr/include/boost/preprocessor/control/limits/while_256.hpp:
@@ -3850,16 +3855,6 @@ src/nft/CMakeFiles/nftcli.dir/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 /usr/include/c++/13/forward_list:
 
 /usr/include/boost/predef/library/std/vacpp.h:
-
-/usr/include/boost/asio/traits/set_error_free.hpp:
-
-/usr/include/boost/numeric/conversion/cast.hpp:
-
-/usr/include/c++/13/bits/utility.h:
-
-/usr/include/boost/asio/generic/basic_endpoint.hpp:
-
-/usr/include/boost/asio/basic_socket_acceptor.hpp:
 
 /usr/include/boost/asio/windows/basic_object_handle.hpp:
 
@@ -4041,6 +4036,14 @@ src/nft/CMakeFiles/nftcli.dir/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 
 /usr/include/boost/asio/detail/recycling_allocator.hpp:
 
+/usr/include/openssl/asn1.h:
+
+/root/AlynCoin/src/db/rocksdb_wrapper.h:
+
+/usr/include/boost/asio/execution/detail/as_operation.hpp:
+
+/usr/include/boost/asio/detail/thread_info_base.hpp:
+
 /usr/include/asm-generic/sockios.h:
 
 /usr/include/c++/13/sstream:
@@ -4055,25 +4058,9 @@ src/nft/CMakeFiles/nftcli.dir/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 
 /usr/include/boost/type_traits/is_arithmetic.hpp:
 
-/usr/include/boost/config/workaround.hpp:
-
-/usr/include/c++/13/bits/memory_resource.h:
-
-/usr/include/boost/mpl/aux_/preprocessor/enum.hpp:
-
-/usr/include/boost/asio/impl/any_io_executor.ipp:
-
 /usr/include/c++/13/bits/regex_scanner.h:
 
 /usr/include/boost/asio/detail/posix_global.hpp:
-
-/usr/include/boost/asio/detail/eventfd_select_interrupter.hpp:
-
-/usr/include/boost/asio/detail/impl/handler_tracking.ipp:
-
-/usr/include/boost/numeric/conversion/detail/is_subranged.hpp:
-
-/usr/include/boost/asio/any_completion_handler.hpp:
 
 /usr/include/openssl/dsaerr.h:
 
@@ -4082,10 +4069,6 @@ src/nft/CMakeFiles/nftcli.dir/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 /usr/include/boost/asio/detail/reactor_op.hpp:
 
 /usr/include/boost/preprocessor/detail/is_binary.hpp:
-
-/usr/include/boost/asio/execution/occupancy.hpp:
-
-/usr/include/boost/date_time/gregorian_calendar.hpp:
 
 /usr/include/boost/asio/buffer.hpp:
 
@@ -4162,6 +4145,14 @@ src/nft/CMakeFiles/nftcli.dir/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 /usr/include/boost/asio/ip/impl/network_v6.ipp:
 
 /usr/include/boost/asio/detail/io_control.hpp:
+
+/usr/include/boost/asio/any_completion_handler.hpp:
+
+/usr/include/boost/asio/detail/eventfd_select_interrupter.hpp:
+
+/usr/include/boost/asio/detail/impl/handler_tracking.ipp:
+
+/usr/include/boost/numeric/conversion/detail/is_subranged.hpp:
 
 /usr/include/boost/asio/detail/executor_op.hpp:
 
@@ -4295,6 +4286,14 @@ src/nft/CMakeFiles/nftcli.dir/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 
 /usr/include/boost/asio/detail/posix_thread.hpp:
 
+/usr/include/boost/asio/ip/resolver_query_base.hpp:
+
+/usr/include/boost/asio/execution/relationship.hpp:
+
+/root/AlynCoin/src/db/db_instance.h:
+
+/usr/include/boost/predef/version.h:
+
 /usr/include/boost/system/errc.hpp:
 
 /usr/include/boost/asio/time_traits.hpp:
@@ -4369,6 +4368,12 @@ src/nft/CMakeFiles/nftcli.dir/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 
 /usr/include/boost/asio/detail/scheduler_operation.hpp:
 
+/usr/include/boost/asio/execution.hpp:
+
+/usr/include/boost/asio/detail/wrapped_handler.hpp:
+
+/usr/include/boost/asio/detail/scheduler_thread_info.hpp:
+
 /usr/include/boost/core/enable_if.hpp:
 
 /usr/include/boost/asio/detail/impl/strand_service.ipp:
@@ -4429,17 +4434,7 @@ src/nft/CMakeFiles/nftcli.dir/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 
 /usr/include/c++/13/bits/list.tcc:
 
-/usr/include/boost/asio/execution/detail/as_operation.hpp:
-
-/usr/include/boost/asio/detail/thread_info_base.hpp:
-
 /usr/include/boost/predef/compiler/ibm.h:
-
-/usr/include/boost/asio/detail/scheduler_thread_info.hpp:
-
-/usr/include/boost/asio/execution.hpp:
-
-/usr/include/boost/asio/detail/wrapped_handler.hpp:
 
 /usr/include/boost/asio/is_contiguous_iterator.hpp:
 
@@ -4500,6 +4495,22 @@ src/nft/CMakeFiles/nftcli.dir/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 /usr/include/boost/asio/detail/reactive_socket_accept_op.hpp:
 
 /usr/include/boost/asio/dispatch.hpp:
+
+/usr/include/boost/asio/execution/occupancy.hpp:
+
+/usr/include/boost/date_time/gregorian_calendar.hpp:
+
+/usr/include/boost/date_time/gregorian_calendar.ipp:
+
+/usr/include/boost/mpl/aux_/config/intel.hpp:
+
+/usr/include/boost/config/workaround.hpp:
+
+/usr/include/c++/13/bits/memory_resource.h:
+
+/usr/include/boost/asio/impl/any_io_executor.ipp:
+
+/usr/include/boost/mpl/aux_/preprocessor/enum.hpp:
 
 /usr/include/boost/date_time/locale_config.hpp:
 
@@ -4692,10 +4703,6 @@ src/nft/CMakeFiles/nftcli.dir/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 /usr/include/google/protobuf/port_undef.inc:
 
 /usr/include/c++/13/bits/stl_list.h:
-
-/usr/include/rocksdb/wide_columns.h:
-
-/usr/include/c++/13/debug/debug.h:
 
 /usr/include/boost/mpl/integral_c.hpp:
 
@@ -5048,8 +5055,6 @@ src/nft/CMakeFiles/nftcli.dir/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 /usr/include/boost/asio/detail/impl/thread_context.ipp:
 
 /usr/include/boost/predef/platform/windows_system.h:
-
-/usr/include/boost/predef/version.h:
 
 /usr/include/boost/predef/version_number.h:
 

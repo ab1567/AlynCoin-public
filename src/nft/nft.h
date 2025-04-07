@@ -25,7 +25,7 @@ public:
     std::string nft_type;
     std::string proof_hash;
     std::string extra_data;
-
+    std::vector<std::string> previous_versions;
     // 👤 Creator identity (e.g., name, alias)
     std::string creator_identity;
 

@@ -117,6 +117,7 @@ public:
   void validateChainContinuity() const;
   double calculateBlockReward();
   static Blockchain &getInstanceNoNetwork();
+  static Blockchain& getInstanceNoDB();
   std::vector<Block> getAllBlocks();
   // Updated mining function to accept Dilithium + Falcon keys
   Block mineBlock(const std::string &minerAddress);

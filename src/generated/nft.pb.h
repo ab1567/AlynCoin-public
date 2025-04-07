@@ -176,6 +176,7 @@ class NFTProto final :
   enum : int {
     kTransferLedgerFieldNumber = 13,
     kBundledAssetsFieldNumber = 15,
+    kPreviousVersionsFieldNumber = 20,
     kIdFieldNumber = 1,
     kCreatorFieldNumber = 2,
     kOwnerFieldNumber = 3,
@@ -240,6 +241,30 @@ class NFTProto final :
   private:
   const std::string& _internal_bundled_assets(int index) const;
   std::string* _internal_add_bundled_assets();
+  public:
+
+  // repeated string previous_versions = 20;
+  int previous_versions_size() const;
+  private:
+  int _internal_previous_versions_size() const;
+  public:
+  void clear_previous_versions();
+  const std::string& previous_versions(int index) const;
+  std::string* mutable_previous_versions(int index);
+  void set_previous_versions(int index, const std::string& value);
+  void set_previous_versions(int index, std::string&& value);
+  void set_previous_versions(int index, const char* value);
+  void set_previous_versions(int index, const char* value, size_t size);
+  std::string* add_previous_versions();
+  void add_previous_versions(const std::string& value);
+  void add_previous_versions(std::string&& value);
+  void add_previous_versions(const char* value);
+  void add_previous_versions(const char* value, size_t size);
+  const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>& previous_versions() const;
+  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>* mutable_previous_versions();
+  private:
+  const std::string& _internal_previous_versions(int index) const;
+  std::string* _internal_add_previous_versions();
   public:
 
   // string id = 1;
@@ -475,6 +500,7 @@ class NFTProto final :
   struct Impl_ {
     ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string> transferledger_;
     ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string> bundled_assets_;
+    ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string> previous_versions_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr id_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr creator_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr owner_;
@@ -1416,6 +1442,81 @@ inline void NFTProto::set_allocated_encrypted_metadata(std::string* encrypted_me
   }
 #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
   // @@protoc_insertion_point(field_set_allocated:NFTProto.encrypted_metadata)
+}
+
+// repeated string previous_versions = 20;
+inline int NFTProto::_internal_previous_versions_size() const {
+  return _impl_.previous_versions_.size();
+}
+inline int NFTProto::previous_versions_size() const {
+  return _internal_previous_versions_size();
+}
+inline void NFTProto::clear_previous_versions() {
+  _impl_.previous_versions_.Clear();
+}
+inline std::string* NFTProto::add_previous_versions() {
+  std::string* _s = _internal_add_previous_versions();
+  // @@protoc_insertion_point(field_add_mutable:NFTProto.previous_versions)
+  return _s;
+}
+inline const std::string& NFTProto::_internal_previous_versions(int index) const {
+  return _impl_.previous_versions_.Get(index);
+}
+inline const std::string& NFTProto::previous_versions(int index) const {
+  // @@protoc_insertion_point(field_get:NFTProto.previous_versions)
+  return _internal_previous_versions(index);
+}
+inline std::string* NFTProto::mutable_previous_versions(int index) {
+  // @@protoc_insertion_point(field_mutable:NFTProto.previous_versions)
+  return _impl_.previous_versions_.Mutable(index);
+}
+inline void NFTProto::set_previous_versions(int index, const std::string& value) {
+  _impl_.previous_versions_.Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set:NFTProto.previous_versions)
+}
+inline void NFTProto::set_previous_versions(int index, std::string&& value) {
+  _impl_.previous_versions_.Mutable(index)->assign(std::move(value));
+  // @@protoc_insertion_point(field_set:NFTProto.previous_versions)
+}
+inline void NFTProto::set_previous_versions(int index, const char* value) {
+  GOOGLE_DCHECK(value != nullptr);
+  _impl_.previous_versions_.Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set_char:NFTProto.previous_versions)
+}
+inline void NFTProto::set_previous_versions(int index, const char* value, size_t size) {
+  _impl_.previous_versions_.Mutable(index)->assign(
+    reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_set_pointer:NFTProto.previous_versions)
+}
+inline std::string* NFTProto::_internal_add_previous_versions() {
+  return _impl_.previous_versions_.Add();
+}
+inline void NFTProto::add_previous_versions(const std::string& value) {
+  _impl_.previous_versions_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add:NFTProto.previous_versions)
+}
+inline void NFTProto::add_previous_versions(std::string&& value) {
+  _impl_.previous_versions_.Add(std::move(value));
+  // @@protoc_insertion_point(field_add:NFTProto.previous_versions)
+}
+inline void NFTProto::add_previous_versions(const char* value) {
+  GOOGLE_DCHECK(value != nullptr);
+  _impl_.previous_versions_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add_char:NFTProto.previous_versions)
+}
+inline void NFTProto::add_previous_versions(const char* value, size_t size) {
+  _impl_.previous_versions_.Add()->assign(reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_add_pointer:NFTProto.previous_versions)
+}
+inline const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>&
+NFTProto::previous_versions() const {
+  // @@protoc_insertion_point(field_list:NFTProto.previous_versions)
+  return _impl_.previous_versions_;
+}
+inline ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>*
+NFTProto::mutable_previous_versions() {
+  // @@protoc_insertion_point(field_mutable_list:NFTProto.previous_versions)
+  return &_impl_.previous_versions_;
 }
 
 #ifdef __GNUC__

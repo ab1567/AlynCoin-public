@@ -18,6 +18,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/select.h>
+#include "../db/db_instance.h"
 
 using json = nlohmann::json;
 
@@ -63,6 +64,8 @@ void NFT::generateZkStarkProof() {
 
 // ✅ Submit L2
 bool NFT::submitMetadataHashTransaction() const {
+    DB::closeInstance();  // Ensure RocksDB instance is closed before subprocess call
+
     auto runCommand = [](const std::string& cmd) -> bool {
         std::cout << "[DEBUG] Submitting metadata tx: " << cmd << std::endl;
 
@@ -120,10 +123,13 @@ bool NFT::submitMetadataHashTransaction() const {
     };
 
     std::string metadataHash = Crypto::sha256(metadata);
-    std::string l1 = "/root/AlynCoin/build/alyncoin-cli sendl1 --nonetwork --nodb \"" + creator + "\" \"metadataSink\" 0.0 \"" + metadataHash + "\"";
-    std::string l2 = "/root/AlynCoin/build/alyncoin-cli sendl2 --nonetwork --nodb \"" + creator + "\" \"metadataSink\" 0.0 \"" + metadataHash + "\"";
+    std::string l1 = "/root/AlynCoin/build/alyncoin-cli sendl1 --nonetwork --nodb \"" + creator +
+                     "\" \"metadataSink\" 0.0 \"" + metadataHash + "\"";
+    std::string l2 = "/root/AlynCoin/build/alyncoin-cli sendl2 --nonetwork --nodb \"" + creator +
+                     "\" \"metadataSink\" 0.0 \"" + metadataHash + "\"";
 
     if (runCommand(l1)) return true;
+
     std::cerr << "⚠️ L1 transaction failed or timed out. Trying L2...\n";
     if (runCommand(l2)) return true;
 
@@ -154,6 +160,7 @@ NFTProto NFT::toProto() const {
 
     for (const auto& a : bundledAssets) proto.add_bundled_assets(a);
     for (const auto& h : transferHistory) proto.add_transferledger(h);
+    for (const auto& prev : previous_versions) proto.add_previous_versions(prev);  // ✅ Add this line
 
     return proto;
 }
@@ -180,6 +187,11 @@ bool NFT::fromProto(const NFTProto& proto) {
 
     bundledAssets = {proto.bundled_assets().begin(), proto.bundled_assets().end()};
     transferHistory.assign(proto.transferledger().begin(), proto.transferledger().end());
+
+    previous_versions.clear();
+    for (int i = 0; i < proto.previous_versions_size(); ++i)
+        previous_versions.push_back(proto.previous_versions(i));
+
     return true;
 }
 
@@ -236,7 +248,6 @@ NFT NFT::fromJSON(const std::string& jsonStr) {
     return nft;
 }
 
-// ✅ Re-mint
 // Updated version of reMintNFT
 bool reMintNFT(const std::string& creator,
                const std::string& prevNftId,
@@ -245,7 +256,6 @@ bool reMintNFT(const std::string& creator,
                const std::string& signatureScheme,
                const std::string& previousVersion,
                const std::string& previousZkProof) {
-
     std::string newVersion = std::to_string(std::stoi(previousVersion) + 1);
     std::string metadataHash = calculateHash(newMetadata + imageHash + creator + newVersion);
 
@@ -254,16 +264,15 @@ bool reMintNFT(const std::string& creator,
 
     std::cout << "📄 Re-minting NFT v" << newVersion << " with hash: " << metadataHash << "\n";
 
-    bool submitted = submitMetadataHashTransaction(metadataHash, creator, signatureScheme, /*isReMint=*/true);
-
+    // Submit metadata hash as a Layer-1 (or fallback L2) transaction
+    bool submitted = submitMetadataHashTransaction(metadataHash, creator, signatureScheme, true);
     if (!submitted) {
         std::cerr << "❌ Failed to submit transaction.\n";
         return false;
     }
 
-    // Optionally save re-mint info to .alynft file (optional offline export)
+    // Optionally save to .alynft for offline reference
     exportNFTtoFile(prevNftId + "_v" + newVersion + ".alynft", metadataHash, creator, newVersion, newZkProof);
-
     return true;
 }
 
@@ -292,8 +301,11 @@ std::string generateZkStarkProof(const std::string& metadata, const std::string&
 }
 
 // 📤 Metadata hash broadcast (external re-minting version)
-bool submitMetadataHashTransaction(const std::string& metadataHash, const std::string& creator,
-                                   const std::string& signatureScheme, bool isReMint) {
+bool submitMetadataHashTransaction(const std::string& metadataHash,
+                                   const std::string& creator,
+                                   const std::string& signatureScheme,
+                                   bool isReMint) {
+    DB::closeInstance();
     auto runCommand = [](const std::string& cmd) -> bool {
         std::cout << "[DEBUG] Submitting metadata tx: " << cmd << std::endl;
         FILE* pipe = popen(cmd.c_str(), "r");
@@ -308,6 +320,7 @@ bool submitMetadataHashTransaction(const std::string& metadataHash, const std::s
         std::string output;
         bool success = false;
         char buffer[512];
+
         auto start = std::chrono::steady_clock::now();
         const int timeoutSeconds = 5;
 
@@ -333,8 +346,12 @@ bool submitMetadataHashTransaction(const std::string& metadataHash, const std::s
                     }
                 }
             }
+
             if (std::chrono::duration_cast<std::chrono::seconds>(
-                    std::chrono::steady_clock::now() - start).count() > timeoutSeconds) break;
+                    std::chrono::steady_clock::now() - start).count() > timeoutSeconds) {
+                std::cerr << "⚠️ Output timeout reached.\n";
+                break;
+            }
         }
 
         int exitCode = pclose(pipe);
@@ -342,8 +359,10 @@ bool submitMetadataHashTransaction(const std::string& metadataHash, const std::s
         return success;
     };
 
-    std::string l1 = "/root/AlynCoin/build/alyncoin-cli sendl1 --nonetwork \"" + creator + "\" \"metadataSink\" 0.0 \"" + metadataHash + "\"";
-    std::string l2 = "/root/AlynCoin/build/alyncoin-cli sendl2 --nonetwork \"" + creator + "\" \"metadataSink\" 0.0 \"" + metadataHash + "\"";
+    std::string l1 = "/root/AlynCoin/build/alyncoin-cli sendl1 --nonetwork --nodb \"" +
+                     creator + "\" \"metadataSink\" 0.0 \"" + metadataHash + "\"";
+    std::string l2 = "/root/AlynCoin/build/alyncoin-cli sendl2 --nonetwork --nodb \"" +
+                     creator + "\" \"metadataSink\" 0.0 \"" + metadataHash + "\"";
 
     if (runCommand(l1)) return true;
     std::cerr << "⚠️ L1 transaction failed or timed out. Trying L2...\n";

@@ -63,15 +63,21 @@ int main(int argc, char **argv) {
     std::cout.setf(std::ios::unitbuf);
     std::string keyDir = "/root/.alyncoin/keys/";
 
-    bool skipDB = false;
-    for (int i = 1; i < argc; ++i) {
-        if (std::string(argv[i]) == "--nodb") {
-            skipDB = true;
-            for (int j = i; j < argc - 1; ++j) argv[j] = argv[j + 1];
-            --argc;
-            break;
-        }
-    }
+    auto hasFlag = [](int argc, char** argv, const std::string& flag) -> bool {
+        for (int i = 1; i < argc; ++i)
+            if (std::string(argv[i]) == flag)
+                return true;
+        return false;
+    };
+
+    bool skipDB = hasFlag(argc, argv, "--nodb");
+    bool skipNet = hasFlag(argc, argv, "--nonetwork");
+
+    auto getBlockchain = [&]() -> Blockchain& {
+        if (skipDB) return Blockchain::getInstanceNoDB();
+        if (skipNet) return Blockchain::getInstanceNoNetwork();
+        return Blockchain::getInstance();
+    };
 
     // === DAO viewer ===
     if (argc == 2 && std::string(argv[1]) == "dao-view") {
@@ -90,27 +96,14 @@ int main(int argc, char **argv) {
 
     // === Blockchain stats ===
     if (argc >= 2 && std::string(argv[1]) == "stats") {
-        bool skipNet = false;
-        for (int i = 2; i < argc; ++i)
-            if (std::string(argv[i]) == "--nonetwork") skipNet = true;
-
-        if (skipNet) {
-            Blockchain &b = Blockchain::getInstanceNoNetwork();
-            std::cout << "\n=== Blockchain Stats ===\n";
-            std::cout << "Total Blocks: " << b.getBlockCount() << "\n";
-            std::cout << "Difficulty: " << DIFFICULTY << "\n";
-            std::cout << "Total Supply: " << b.getTotalSupply() << " AlynCoin\n";
-            std::cout << "Total Burned Supply: " << b.getTotalBurnedSupply() << " AlynCoin\n";
-            std::cout << "Dev Fund Balance: " << b.getBalance("DevFundWallet") << " AlynCoin\n";
-            std::exit(0);
-        } else {
-            std::cerr << "❌ Error: 'stats' must be used with --nonetwork flag.\n";
-            return 1;
-        }
-    }
-    // Only initialize RocksDB if not skipped
-    if (!skipDB) {
-        DB::getInstance();
+        Blockchain &b = getBlockchain();
+        std::cout << "\n=== Blockchain Stats ===\n";
+        std::cout << "Total Blocks: " << b.getBlockCount() << "\n";
+        std::cout << "Difficulty: " << DIFFICULTY << "\n";
+        std::cout << "Total Supply: " << b.getTotalSupply() << " AlynCoin\n";
+        std::cout << "Total Burned Supply: " << b.getTotalBurnedSupply() << " AlynCoin\n";
+        std::cout << "Dev Fund Balance: " << b.getBalance("DevFundWallet") << " AlynCoin\n";
+        std::exit(0);
     }
 
     // === Wallet creation ===
@@ -151,67 +144,55 @@ int main(int argc, char **argv) {
     // === Balance check ===
     if (argc >= 3 && std::string(argv[1]) == "balance") {
         std::string addr = argv[2];
-        bool skipNet = false;
-        for (int i = 3; i < argc; ++i)
-            if (std::string(argv[i]) == "--nonetwork") skipNet = true;
-
-        if (skipNet) {
-            Blockchain &b = Blockchain::getInstanceNoNetwork();
-            std::cout << "✅ Balance for " << addr << ": " << b.getBalance(addr) << " AlynCoin\n";
-            std::exit(0);
-        }
+        Blockchain &b = getBlockchain();
+        std::cout << "✅ Balance for " << addr << ": " << b.getBalance(addr) << " AlynCoin\n";
+        std::exit(0);
     }
 
-    // === sendl1 / sendl2 (5 or 6 args) ===
-   if ((argc >= 5) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == "sendl2")) {
-     std::string from, to = "metadataSink", metadata;
-     double amount = 0.0;
-     bool skipNet = false;
-     int cmdIndex = 2;
+    // === sendl1 / sendl2 ===
+    if ((argc >= 5) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == "sendl2")) {
+        std::string from, to = "metadataSink", metadata;
+        double amount = 0.0;
 
-     while (cmdIndex < argc) {
-         std::string arg = argv[cmdIndex];
-         if (arg == "--nonetwork") {
-             skipNet = true;
-             ++cmdIndex;
-         } else break;
-     }
+        int cmdIndex = 2;
+        while (cmdIndex < argc && std::string(argv[cmdIndex]).rfind("--", 0) == 0) ++cmdIndex;
 
-     if (argc - cmdIndex == 3) {
-         from = argv[cmdIndex++];
-         amount = std::stod(argv[cmdIndex++]);
-         metadata = argv[cmdIndex++];
-     } else if (argc - cmdIndex == 4) {
-         from = argv[cmdIndex++];
-         to = argv[cmdIndex++];
-         amount = std::stod(argv[cmdIndex++]);
-         metadata = argv[cmdIndex++];
-     } else {
-         std::cerr << "❌ Invalid arguments for sendl1/sendl2\n";
-         return 1;
-     }
+        if (argc - cmdIndex == 3) {
+            from = argv[cmdIndex++];
+            amount = std::stod(argv[cmdIndex++]);
+            metadata = argv[cmdIndex++];
+        } else if (argc - cmdIndex == 4) {
+            from = argv[cmdIndex++];
+            to = argv[cmdIndex++];
+            amount = std::stod(argv[cmdIndex++]);
+            metadata = argv[cmdIndex++];
+        } else {
+            std::cerr << "❌ Invalid arguments for sendl1/sendl2\n";
+            return 1;
+        }
 
-     Blockchain &b = skipNet ? Blockchain::getInstanceNoNetwork() : Blockchain::getInstance();
-     auto dil = Crypto::loadDilithiumKeys(from);
-     auto fal = Crypto::loadFalconKeys(from);
+        Blockchain &b = getBlockchain();
 
-     Transaction tx(from, to, amount, "", metadata, time(nullptr));
-     if (std::string(argv[1]) == "sendl2") tx.setMetadata("L2:" + metadata);
+        auto dil = Crypto::loadDilithiumKeys(from);
+        auto fal = Crypto::loadFalconKeys(from);
 
-     tx.signTransaction(dil.privateKey, fal.privateKey);
-     if (!tx.getSignatureDilithium().empty() && !tx.getSignatureFalcon().empty()) {
-         b.addTransaction(tx);
-         b.savePendingTransactionsToDB();
-         std::cout << "✅ Transaction broadcasted: " << from << " → " << to
-                   << " (" << amount << " AlynCoin, metadata: " << metadata << ")\n";
-     } else {
-         std::cerr << "❌ Transaction signing failed.\n";
-         return 1;
-     }
-     std::exit(0);
-   }
+        Transaction tx(from, to, amount, "", metadata, time(nullptr));
+        if (std::string(argv[1]) == "sendl2") tx.setMetadata("L2:" + metadata);
 
-    // === DAO submit ===
+        tx.signTransaction(dil.privateKey, fal.privateKey);
+        if (!tx.getSignatureDilithium().empty() && !tx.getSignatureFalcon().empty()) {
+            b.addTransaction(tx);
+            b.savePendingTransactionsToDB();
+            std::cout << "✅ Transaction broadcasted: " << from << " → " << to
+                      << " (" << amount << " AlynCoin, metadata: " << metadata << ")\n";
+        } else {
+            std::cerr << "❌ Transaction signing failed.\n";
+            return 1;
+        }
+        std::exit(0);
+    }
+
+    // === DAO proposal submission ===
     if (argc >= 4 && std::string(argv[1]) == "dao-submit") {
         std::string from = argv[2];
         std::string desc = argv[3];
@@ -239,14 +220,15 @@ int main(int argc, char **argv) {
         std::exit(0);
     }
 
-    // === DAO vote ===
+    // === DAO voting ===
     if (argc >= 5 && std::string(argv[1]) == "dao-vote") {
         std::string from = argv[2];
         std::string propID = argv[3];
         std::string vote = argv[4];
-
         bool yes = (vote == "yes" || vote == "y");
-        double weight = Blockchain::getInstanceNoNetwork().getBalance(from);
+
+        Blockchain &b = getBlockchain();
+        double weight = b.getBalance(from);
         if (DAO::castVote(propID, yes, static_cast<uint64_t>(weight))) {
             std::cout << "✅ Vote cast!\n";
         } else {
@@ -255,47 +237,40 @@ int main(int argc, char **argv) {
         std::exit(0);
     }
 
-    // === My chain stats ===
+    // === Mined block stats ===
     if (argc == 3 && std::string(argv[1]) == "mychain") {
         std::string addr = argv[2];
-        Blockchain &b = Blockchain::getInstanceNoNetwork();
+        Blockchain &b = getBlockchain();
         int count = 0;
         double reward = 0.0;
-
         for (const auto &blk : b.getAllBlocks()) {
             if (blk.getMinerAddress() == addr) {
                 count++;
                 reward += blk.getReward();
             }
         }
-
         std::cout << "📦 Blocks mined: " << count << "\n";
         std::cout << "💰 Total rewards: " << reward << " AlynCoin\n";
         std::exit(0);
     }
 
-     // Prevent re-entry if known command was processed (after skipping flags)
-       int cmdIndex = 1;
-	while (cmdIndex < argc && std::string(argv[cmdIndex]).rfind("--", 0) == 0) {
-    	cmdIndex++;
-	}
+    // === Fallback guard ===
+    int cmdIndex = 1;
+    while (cmdIndex < argc && std::string(argv[cmdIndex]).rfind("--", 0) == 0) ++cmdIndex;
+    if (cmdIndex < argc) {
+        std::string cmd = argv[cmdIndex];
+        bool known = (cmd == "sendl1" || cmd == "sendl2" || cmd == "createwallet" ||
+                      cmd == "loadwallet" || cmd == "balance" || cmd == "dao-view" ||
+                      cmd == "dao-submit" || cmd == "dao-vote" || cmd == "mychain" ||
+                      cmd == "stats");
+        if (!known) {
+            std::cerr << "❌ Unknown or unsupported command: " << cmd << "\n";
+            return 1;
+        }
+        std::exit(0);
+    }
 
-	if (cmdIndex < argc) {
-    	std::string cmd = argv[cmdIndex];
-    	bool known = (cmd == "sendl1" || cmd == "sendl2" || cmd == "createwallet" ||
-                  cmd == "loadwallet" || cmd == "balance" || cmd == "dao-view" ||
-                  cmd == "dao-submit" || cmd == "dao-vote" || cmd == "mychain" ||
-                  cmd == "stats");
-
-    	if (!known) {
-        std::cerr << "❌ Unknown or unsupported command: " << cmd << "\n";
-        return 1;
-    	}
-
-    	std::exit(0);
-}
-
-    // === Fallback to interactive CLI menu ===
+    // === Interactive CLI fallback ===
     return cliMain(argc, argv);
 }
 

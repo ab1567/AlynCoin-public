@@ -22,4 +22,5 @@ message NFTProto {
   int64 expiry_timestamp = 17;
   bool revoked = 18;
   string encrypted_metadata = 19;
+  repeated string previous_versions = 20;
 }

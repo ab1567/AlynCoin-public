@@ -13,6 +13,7 @@ set(CMAKE_MAKEFILE_DEPENDS
   "CMakeFiles/3.28.3/CMakeSystem.cmake"
   "/root/AlynCoin/src/CMakeLists.txt"
   "/root/AlynCoin/src/nft/CMakeLists.txt"
+  "/root/AlynCoin/src/nft/crypto/CMakeLists.txt"
   "/usr/share/cmake-3.28/Modules/CMakeCInformation.cmake"
   "/usr/share/cmake-3.28/Modules/CMakeCXXInformation.cmake"
   "/usr/share/cmake-3.28/Modules/CMakeCheckCompilerFlagCommonPatterns.cmake"
@@ -61,6 +62,7 @@ set(CMAKE_MAKEFILE_PRODUCTS
   "CMakeFiles/CMakeDirectoryInformation.cmake"
   "src/CMakeFiles/CMakeDirectoryInformation.cmake"
   "src/nft/CMakeFiles/CMakeDirectoryInformation.cmake"
+  "src/nft/crypto/CMakeFiles/CMakeDirectoryInformation.cmake"
   )
 
 # Dependency information for all targets:
@@ -76,4 +78,5 @@ set(CMAKE_DEPEND_INFO_FILES
   "src/CMakeFiles/blacklist_test.dir/DependInfo.cmake"
   "src/CMakeFiles/explorer_server.dir/DependInfo.cmake"
   "src/nft/CMakeFiles/nftcli.dir/DependInfo.cmake"
+  "src/nft/crypto/CMakeFiles/nft_crypto.dir/DependInfo.cmake"
   )

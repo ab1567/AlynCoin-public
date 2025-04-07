@@ -24,6 +24,7 @@ PROTOBUF_CONSTEXPR NFTProto::NFTProto(
     ::_pbi::ConstantInitialized): _impl_{
     /*decltype(_impl_.transferledger_)*/{}
   , /*decltype(_impl_.bundled_assets_)*/{}
+  , /*decltype(_impl_.previous_versions_)*/{}
   , /*decltype(_impl_.id_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
   , /*decltype(_impl_.creator_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
   , /*decltype(_impl_.owner_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
@@ -81,6 +82,7 @@ const uint32_t TableStruct_nft_2eproto::offsets[] PROTOBUF_SECTION_VARIABLE(prot
   PROTOBUF_FIELD_OFFSET(::NFTProto, _impl_.expiry_timestamp_),
   PROTOBUF_FIELD_OFFSET(::NFTProto, _impl_.revoked_),
   PROTOBUF_FIELD_OFFSET(::NFTProto, _impl_.encrypted_metadata_),
+  PROTOBUF_FIELD_OFFSET(::NFTProto, _impl_.previous_versions_),
 };
 static const ::_pbi::MigrationSchema schemas[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
   { 0, -1, -1, sizeof(::NFTProto)},
@@ -91,7 +93,7 @@ static const ::_pb::Message* const file_default_instances[] = {
 };
 
 const char descriptor_table_protodef_nft_2eproto[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) =
-  "\n\tnft.proto\"\223\003\n\010NFTProto\022\n\n\002id\030\001 \001(\t\022\017\n\007"
+  "\n\tnft.proto\"\256\003\n\010NFTProto\022\n\n\002id\030\001 \001(\t\022\017\n\007"
   "creator\030\002 \001(\t\022\r\n\005owner\030\003 \001(\t\022\020\n\010metadata"
   "\030\004 \001(\t\022\022\n\nimage_hash\030\005 \001(\t\022\021\n\ttimestamp\030"
   "\006 \001(\003\022\021\n\tsignature\030\007 \001(\014\022\026\n\016zk_stark_pro"
@@ -101,11 +103,12 @@ const char descriptor_table_protodef_nft_2eproto[] PROTOBUF_SECTION_VARIABLE(pro
   "dentity\030\016 \001(\t\022\026\n\016bundled_assets\030\017 \003(\t\022\033\n"
   "\023dilithium_signature\030\020 \001(\014\022\030\n\020expiry_tim"
   "estamp\030\021 \001(\003\022\017\n\007revoked\030\022 \001(\010\022\032\n\022encrypt"
-  "ed_metadata\030\023 \001(\tb\006proto3"
+  "ed_metadata\030\023 \001(\t\022\031\n\021previous_versions\030\024"
+  " \003(\tb\006proto3"
   ;
 static ::_pbi::once_flag descriptor_table_nft_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_nft_2eproto = {
-    false, false, 425, descriptor_table_protodef_nft_2eproto,
+    false, false, 452, descriptor_table_protodef_nft_2eproto,
     "nft.proto",
     &descriptor_table_nft_2eproto_once, nullptr, 0, 1,
     schemas, file_default_instances, TableStruct_nft_2eproto::offsets,
@@ -137,6 +140,7 @@ NFTProto::NFTProto(const NFTProto& from)
   new (&_impl_) Impl_{
       decltype(_impl_.transferledger_){from._impl_.transferledger_}
     , decltype(_impl_.bundled_assets_){from._impl_.bundled_assets_}
+    , decltype(_impl_.previous_versions_){from._impl_.previous_versions_}
     , decltype(_impl_.id_){}
     , decltype(_impl_.creator_){}
     , decltype(_impl_.owner_){}
@@ -282,6 +286,7 @@ inline void NFTProto::SharedCtor(
   new (&_impl_) Impl_{
       decltype(_impl_.transferledger_){arena}
     , decltype(_impl_.bundled_assets_){arena}
+    , decltype(_impl_.previous_versions_){arena}
     , decltype(_impl_.id_){}
     , decltype(_impl_.creator_){}
     , decltype(_impl_.owner_){}
@@ -372,6 +377,7 @@ inline void NFTProto::SharedDtor() {
   GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
   _impl_.transferledger_.~RepeatedPtrField();
   _impl_.bundled_assets_.~RepeatedPtrField();
+  _impl_.previous_versions_.~RepeatedPtrField();
   _impl_.id_.Destroy();
   _impl_.creator_.Destroy();
   _impl_.owner_.Destroy();
@@ -400,6 +406,7 @@ void NFTProto::Clear() {
 
   _impl_.transferledger_.Clear();
   _impl_.bundled_assets_.Clear();
+  _impl_.previous_versions_.Clear();
   _impl_.id_.ClearToEmpty();
   _impl_.creator_.ClearToEmpty();
   _impl_.owner_.ClearToEmpty();
@@ -617,6 +624,21 @@ const char* NFTProto::_InternalParse(const char* ptr, ::_pbi::ParseContext* ctx)
         } else
           goto handle_unusual;
         continue;
+      // repeated string previous_versions = 20;
+      case 20:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 162)) {
+          ptr -= 2;
+          do {
+            ptr += 2;
+            auto str = _internal_add_previous_versions();
+            ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
+            CHK_(ptr);
+            CHK_(::_pbi::VerifyUTF8(str, "NFTProto.previous_versions"));
+            if (!ctx->DataAvailable(ptr)) break;
+          } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<162>(ptr));
+        } else
+          goto handle_unusual;
+        continue;
       default:
         goto handle_unusual;
     }  // switch
@@ -812,6 +834,16 @@ uint8_t* NFTProto::_InternalSerialize(
         19, this->_internal_encrypted_metadata(), target);
   }
 
+  // repeated string previous_versions = 20;
+  for (int i = 0, n = this->_internal_previous_versions_size(); i < n; i++) {
+    const auto& s = this->_internal_previous_versions(i);
+    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
+      s.data(), static_cast<int>(s.length()),
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
+      "NFTProto.previous_versions");
+    target = stream->WriteString(20, s, target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
         _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
@@ -842,6 +874,14 @@ size_t NFTProto::ByteSizeLong() const {
   for (int i = 0, n = _impl_.bundled_assets_.size(); i < n; i++) {
     total_size += ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
       _impl_.bundled_assets_.Get(i));
+  }
+
+  // repeated string previous_versions = 20;
+  total_size += 2 *
+      ::PROTOBUF_NAMESPACE_ID::internal::FromIntSize(_impl_.previous_versions_.size());
+  for (int i = 0, n = _impl_.previous_versions_.size(); i < n; i++) {
+    total_size += ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+      _impl_.previous_versions_.Get(i));
   }
 
   // string id = 1;
@@ -979,6 +1019,7 @@ void NFTProto::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTO
 
   _this->_impl_.transferledger_.MergeFrom(from._impl_.transferledger_);
   _this->_impl_.bundled_assets_.MergeFrom(from._impl_.bundled_assets_);
+  _this->_impl_.previous_versions_.MergeFrom(from._impl_.previous_versions_);
   if (!from._internal_id().empty()) {
     _this->_internal_set_id(from._internal_id());
   }
@@ -1051,6 +1092,7 @@ void NFTProto::InternalSwap(NFTProto* other) {
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   _impl_.transferledger_.InternalSwap(&other->_impl_.transferledger_);
   _impl_.bundled_assets_.InternalSwap(&other->_impl_.bundled_assets_);
+  _impl_.previous_versions_.InternalSwap(&other->_impl_.previous_versions_);
   ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::InternalSwap(
       &_impl_.id_, lhs_arena,
       &other->_impl_.id_, rhs_arena

@@ -45,54 +45,57 @@ Blockchain::Blockchain()
 // ✅ **Constructor: Open RocksDB**
 Blockchain::Blockchain(unsigned short port, const std::string &dbPath, bool bindNetwork)
     : difficulty(4), miningReward(10.0), port(port), dbPath(dbPath) {
-  
-  if (bindNetwork) {
-    network = &Network::getInstance(port, this);
-  } else {
-    network = nullptr;
-  }
 
-  std::cout << "[DEBUG] Initializing Blockchain..." << std::endl;
+    if (bindNetwork) {
+        network = &Network::getInstance(port, this);
+    } else {
+        network = nullptr;
+    }
 
-  std::string dbPathFinal = BLOCKCHAIN_DB_PATH;
-  if (!dbPath.empty()) {
-    dbPathFinal = dbPath;
+    std::cout << "[DEBUG] Initializing Blockchain..." << std::endl;
+
+    // ✅ Skip DB logic entirely if dbPath is empty (used for --nodb)
+    if (dbPath.empty()) {
+        std::cerr << "⚠️ Skipping RocksDB init (empty dbPath, --nodb mode).\n";
+        db = nullptr;
+        return;
+    }
+
+    std::string dbPathFinal = dbPath;
     std::cout << "📁 Using custom DB path: " << dbPathFinal << "\n";
-  }
 
-  if (!fs::exists(dbPathFinal)) {
-    std::cerr << "⚠️ RocksDB directory missing. Creating: " << dbPathFinal << "\n";
-    fs::create_directories(dbPathFinal);
-  }
+    if (!fs::exists(dbPathFinal)) {
+        std::cerr << "⚠️ RocksDB directory missing. Creating: " << dbPathFinal << "\n";
+        fs::create_directories(dbPathFinal);
+    }
 
-  rocksdb::Options options;
-  options.create_if_missing = true;
-  rocksdb::Status status = rocksdb::DB::Open(options, dbPathFinal, &db);
-  if (!status.ok()) {
-    std::cerr << "❌ [ERROR] Failed to open RocksDB: " << status.ToString() << std::endl;
-    exit(1);
-  }
+    rocksdb::Options options;
+    options.create_if_missing = true;
+    rocksdb::Status status = rocksdb::DB::Open(options, dbPathFinal, &db);
+    if (!status.ok()) {
+        std::cerr << "❌ [ERROR] Failed to open RocksDB: " << status.ToString() << std::endl;
+        exit(1);
+    }
 
-  std::cout << "[DEBUG] Attempting to load blockchain from DB...\n";
-  loadFromDB();
+    std::cout << "[DEBUG] Attempting to load blockchain from DB...\n";
+    loadFromDB();
 
-  if (bindNetwork) {
-    recalculateBalancesFromChain();  // ⛔ Only in full mode
-  }
+    // ✅ Always recalculate balances from chain, even in non-network CLI mode
+    recalculateBalancesFromChain();
 
-  loadVestingInfoFromDB();
+    loadVestingInfoFromDB();
 
-  std::string vestingMarker;
-  status = db->Get(rocksdb::ReadOptions(), "vesting_initialized", &vestingMarker);
+    std::string vestingMarker;
+    status = db->Get(rocksdb::ReadOptions(), "vesting_initialized", &vestingMarker);
 
-  if (!status.ok()) {
-    std::cout << "⏳ Applying vesting schedule for early supporters...\n";
-    applyVestingSchedule();
-    db->Put(rocksdb::WriteOptions(), "vesting_initialized", "true");
-    std::cout << "✅ Vesting applied & marker set.\n";
-  } else {
-    std::cout << "✅ Vesting already initialized. Skipping.\n";
-  }
+    if (!status.ok()) {
+        std::cout << "⏳ Applying vesting schedule for early supporters...\n";
+        applyVestingSchedule();
+        db->Put(rocksdb::WriteOptions(), "vesting_initialized", "true");
+        std::cout << "✅ Vesting applied & marker set.\n";
+    } else {
+        std::cout << "✅ Vesting already initialized. Skipping.\n";
+    }
 }
 
 // ✅ **Destructor: Close RocksDB**
@@ -249,9 +252,15 @@ Blockchain &Blockchain::getInstance(unsigned short port,
     return instance;
 }
 
-//
+// Used when you want RocksDB, but no P2P
 Blockchain& Blockchain::getInstanceNoNetwork() {
-    static Blockchain instance(0, DBPaths::getBlockchainDB(), true);
+    static Blockchain instance(0, DBPaths::getBlockchainDB(), false);
+    return instance;
+}
+
+// Used when you want NO RocksDB or network
+Blockchain& Blockchain::getInstanceNoDB() {
+    static Blockchain instance(0, "", false);
     return instance;
 }
 
@@ -648,36 +657,33 @@ double Blockchain::getBalance(const std::string &publicKey) const {
 
 // ✅ **Save Blockchain to RocksDB using Protobuf**
 bool Blockchain::saveToDB() {
-  std::cout << "[DEBUG] Attempting to save blockchain to DB..." << std::endl;
-  if (!db) {
-    std::cerr << "❌ RocksDB not initialized!\n";
-    return false;
-  }
+    std::cout << "[DEBUG] Attempting to save blockchain to DB..." << std::endl;
 
-  alyncoin::BlockchainProto blockchainProto;
-  for (const auto &block : chain) {
-    alyncoin::BlockProto *blockProto = blockchainProto.add_blocks();
-    *blockProto = block.toProtobuf();
-  }
+    if (!db) {
+        std::cout << "🛑 Skipping full blockchain save: RocksDB not initialized (--nodb mode).\n";
+        return true;  // Not an error if we're intentionally in --nodb mode
+    }
 
-  std::string serializedData;
-  blockchainProto.SerializeToString(&serializedData);
+    alyncoin::BlockchainProto blockchainProto;
+    for (const auto &block : chain) {
+        alyncoin::BlockProto *blockProto = blockchainProto.add_blocks();
+        *blockProto = block.toProtobuf();
+    }
 
-  rocksdb::Status status =
-      db->Put(rocksdb::WriteOptions(), "blockchain", serializedData);
+    std::string serializedData;
+    blockchainProto.SerializeToString(&serializedData);
 
-  if (!status.ok()) {
-    std::cerr << "❌ [ERROR] Failed to save blockchain: " << status.ToString() << "\n";
-    return false;
-  }
+    rocksdb::Status status = db->Put(rocksdb::WriteOptions(), "blockchain", serializedData);
+    if (!status.ok()) {
+        std::cerr << "❌ [ERROR] Failed to save blockchain: " << status.ToString() << "\n";
+        return false;
+    }
 
-  // ✅ Save total burned supply
-  db->Put(rocksdb::WriteOptions(), "burned_supply",
-          std::to_string(totalBurnedSupply));
+    db->Put(rocksdb::WriteOptions(), "burned_supply", std::to_string(totalBurnedSupply));
 
-  std::cout << "✅ Blockchain saved successfully!\n";
-  saveVestingInfoToDB();
-  return true;
+    std::cout << "✅ Blockchain saved successfully!\n";
+    saveVestingInfoToDB();
+    return true;
 }
 
 // ✅ **Load Blockchain from RocksDB using Protobuf**
@@ -1266,10 +1272,9 @@ void Blockchain::loadTransactionsFromDB() {
 }
 
 //
-
 void Blockchain::savePendingTransactionsToDB() {
     if (!db) {
-        std::cerr << "❌ RocksDB not initialized. Cannot save transactions!\n";
+        std::cout << "🛑 Skipping pending transaction save: RocksDB not initialized (--nodb mode).\n";
         return;
     }
 

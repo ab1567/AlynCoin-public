@@ -1381,4 +1381,6 @@ src/nft/CMakeFiles/nftcli.dir/nft.cpp.o: /root/AlynCoin/src/nft/nft.cpp \
  /usr/include/c++/13/pstl/glue_numeric_defs.h \
  /usr/include/x86_64-linux-gnu/sys/wait.h \
  /usr/include/x86_64-linux-gnu/bits/types/idtype_t.h \
- /usr/include/c++/13/thread /usr/include/c++/13/bits/this_thread_sleep.h
+ /usr/include/c++/13/thread /usr/include/c++/13/bits/this_thread_sleep.h \
+ /root/AlynCoin/src/nft/../db/db_instance.h \
+ /root/AlynCoin/src/nft/../db/rocksdb_wrapper.h

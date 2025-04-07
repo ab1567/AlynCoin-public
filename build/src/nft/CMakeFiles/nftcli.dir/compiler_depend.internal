@@ -23,6 +23,8 @@ src/nft/CMakeFiles/nftcli.dir/nft.cpp.o
  /root/AlynCoin/src/transaction.h
  /root/AlynCoin/src/zk/winterfell_stark.h
  /root/AlynCoin/src/generated/nft.pb.h
+ /root/AlynCoin/src/db/db_instance.h
+ /root/AlynCoin/src/db/rocksdb_wrapper.h
  /root/AlynCoin/src/network/peer_blacklist.h
  /root/AlynCoin/src/nft/nft.h
  /root/AlynCoin/src/zk/winterfell_stark.h
@@ -1564,6 +1566,7 @@ src/nft/CMakeFiles/nftcli.dir/nft_cli.cpp.o
  /root/AlynCoin/src/db/rocksdb_wrapper.h
  /root/AlynCoin/src/nft/nft.h
  /root/AlynCoin/src/nft/nft_storage.h
+ /root/AlynCoin/src/nft/crypto/aes_utils.h
  /root/AlynCoin/src/nft/nft_cli.h
  /usr/include/alloca.h
  /usr/include/asm-generic/errno-base.h

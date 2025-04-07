@@ -114,15 +114,32 @@ src/clean: src/CMakeFiles/explorer_server.dir/clean
 
 # Recursive "all" directory target.
 src/nft/all: src/nft/CMakeFiles/nftcli.dir/all
+src/nft/all: src/nft/crypto/all
 .PHONY : src/nft/all
 
 # Recursive "preinstall" directory target.
-src/nft/preinstall:
+src/nft/preinstall: src/nft/crypto/preinstall
 .PHONY : src/nft/preinstall
 
 # Recursive "clean" directory target.
 src/nft/clean: src/nft/CMakeFiles/nftcli.dir/clean
+src/nft/clean: src/nft/crypto/clean
 .PHONY : src/nft/clean
+
+#=============================================================================
+# Directory level rules for directory src/nft/crypto
+
+# Recursive "all" directory target.
+src/nft/crypto/all: src/nft/crypto/CMakeFiles/nft_crypto.dir/all
+.PHONY : src/nft/crypto/all
+
+# Recursive "preinstall" directory target.
+src/nft/crypto/preinstall:
+.PHONY : src/nft/crypto/preinstall
+
+# Recursive "clean" directory target.
+src/nft/crypto/clean: src/nft/crypto/CMakeFiles/nft_crypto.dir/clean
+.PHONY : src/nft/crypto/clean
 
 #=============================================================================
 # Target rules for target src/CMakeFiles/protobuf_gen.dir
@@ -131,7 +148,7 @@ src/nft/clean: src/nft/CMakeFiles/nftcli.dir/clean
 src/CMakeFiles/protobuf_gen.dir/all:
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/protobuf_gen.dir/build.make src/CMakeFiles/protobuf_gen.dir/depend
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/protobuf_gen.dir/build.make src/CMakeFiles/protobuf_gen.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=86 "Built target protobuf_gen"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=88 "Built target protobuf_gen"
 .PHONY : src/CMakeFiles/protobuf_gen.dir/all
 
 # Build rule for subdir invocation for target.
@@ -157,7 +174,7 @@ src/CMakeFiles/protobuf_gen.dir/clean:
 src/CMakeFiles/winterfell_ffi.dir/all:
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/winterfell_ffi.dir/build.make src/CMakeFiles/winterfell_ffi.dir/depend
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/winterfell_ffi.dir/build.make src/CMakeFiles/winterfell_ffi.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=87 "Built target winterfell_ffi"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=89 "Built target winterfell_ffi"
 .PHONY : src/CMakeFiles/winterfell_ffi.dir/all
 
 # Build rule for subdir invocation for target.
@@ -328,7 +345,7 @@ src/CMakeFiles/peer_blacklist_cli.dir/all: src/CMakeFiles/dilithium.dir/all
 src/CMakeFiles/peer_blacklist_cli.dir/all: src/CMakeFiles/alyncoin_lib.dir/all
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/peer_blacklist_cli.dir/build.make src/CMakeFiles/peer_blacklist_cli.dir/depend
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/peer_blacklist_cli.dir/build.make src/CMakeFiles/peer_blacklist_cli.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=84,85 "Built target peer_blacklist_cli"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=86,87 "Built target peer_blacklist_cli"
 .PHONY : src/CMakeFiles/peer_blacklist_cli.dir/all
 
 # Build rule for subdir invocation for target.
@@ -413,15 +430,16 @@ src/CMakeFiles/explorer_server.dir/clean:
 # All Build rule for target.
 src/nft/CMakeFiles/nftcli.dir/all: src/CMakeFiles/falcon.dir/all
 src/nft/CMakeFiles/nftcli.dir/all: src/CMakeFiles/dilithium.dir/all
+src/nft/CMakeFiles/nftcli.dir/all: src/nft/crypto/CMakeFiles/nft_crypto.dir/all
 src/nft/CMakeFiles/nftcli.dir/all: src/CMakeFiles/alyncoin_lib.dir/all
 	$(MAKE) $(MAKESILENT) -f src/nft/CMakeFiles/nftcli.dir/build.make src/nft/CMakeFiles/nftcli.dir/depend
 	$(MAKE) $(MAKESILENT) -f src/nft/CMakeFiles/nftcli.dir/build.make src/nft/CMakeFiles/nftcli.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=79,80,81,82,83 "Built target nftcli"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=81,82,83,84,85 "Built target nftcli"
 .PHONY : src/nft/CMakeFiles/nftcli.dir/all
 
 # Build rule for subdir invocation for target.
 src/nft/CMakeFiles/nftcli.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /root/AlynCoin/build/CMakeFiles 74
+	$(CMAKE_COMMAND) -E cmake_progress_start /root/AlynCoin/build/CMakeFiles 76
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 src/nft/CMakeFiles/nftcli.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /root/AlynCoin/build/CMakeFiles 0
 .PHONY : src/nft/CMakeFiles/nftcli.dir/rule
@@ -434,6 +452,32 @@ nftcli: src/nft/CMakeFiles/nftcli.dir/rule
 src/nft/CMakeFiles/nftcli.dir/clean:
 	$(MAKE) $(MAKESILENT) -f src/nft/CMakeFiles/nftcli.dir/build.make src/nft/CMakeFiles/nftcli.dir/clean
 .PHONY : src/nft/CMakeFiles/nftcli.dir/clean
+
+#=============================================================================
+# Target rules for target src/nft/crypto/CMakeFiles/nft_crypto.dir
+
+# All Build rule for target.
+src/nft/crypto/CMakeFiles/nft_crypto.dir/all:
+	$(MAKE) $(MAKESILENT) -f src/nft/crypto/CMakeFiles/nft_crypto.dir/build.make src/nft/crypto/CMakeFiles/nft_crypto.dir/depend
+	$(MAKE) $(MAKESILENT) -f src/nft/crypto/CMakeFiles/nft_crypto.dir/build.make src/nft/crypto/CMakeFiles/nft_crypto.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=79,80 "Built target nft_crypto"
+.PHONY : src/nft/crypto/CMakeFiles/nft_crypto.dir/all
+
+# Build rule for subdir invocation for target.
+src/nft/crypto/CMakeFiles/nft_crypto.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /root/AlynCoin/build/CMakeFiles 2
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 src/nft/crypto/CMakeFiles/nft_crypto.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /root/AlynCoin/build/CMakeFiles 0
+.PHONY : src/nft/crypto/CMakeFiles/nft_crypto.dir/rule
+
+# Convenience name for target.
+nft_crypto: src/nft/crypto/CMakeFiles/nft_crypto.dir/rule
+.PHONY : nft_crypto
+
+# clean rule for target.
+src/nft/crypto/CMakeFiles/nft_crypto.dir/clean:
+	$(MAKE) $(MAKESILENT) -f src/nft/crypto/CMakeFiles/nft_crypto.dir/build.make src/nft/crypto/CMakeFiles/nft_crypto.dir/clean
+.PHONY : src/nft/crypto/CMakeFiles/nft_crypto.dir/clean
 
 #=============================================================================
 # Special targets to cleanup operation of make.
