@@ -1,5 +1,6 @@
-#include "atomic_swap.h"
-#include "swap_store.h"
+#include "proto_utils.h"
+#include "swap_manager.h"
+#include "rocksdb_swap_store.h"
 #include "swap_manager.h"
 #include "../crypto_utils.h"
 #include "../zk/winterfell_stark.h"
@@ -25,9 +26,16 @@ std::optional<std::string> AtomicSwapManager::initiateSwap(const std::string& se
     swap.state = SwapState::INITIATED;
 
     // Optional: Falcon + Dilithium signatures (on swap metadata)
-    std::string swapData = swap.uuid + sender + receiver + std::to_string(amount) + secretHash;
-    swap.falconSignature = Crypto::signFalcon(swapData);
-    swap.dilithiumSignature = Crypto::signDilithium(swapData);
+    std::string swapData;
+    serializeSwap(swap, swapData);
+
+    std::vector<unsigned char> swapBytes(swapData.begin(), swapData.end());
+    auto falKeys = Crypto::loadFalconKeys(sender);
+    auto dilKeys = Crypto::loadDilithiumKeys(sender);
+
+    swap.falconSignature = Crypto::toHex(Crypto::signWithFalcon(swapBytes, falKeys.privateKey));
+    swap.dilithiumSignature = Crypto::toHex(Crypto::signWithDilithium(swapBytes, dilKeys.privateKey));
+
 
     bool success = store_->saveSwap(swap);
     return success ? std::optional<std::string>(swap.uuid) : std::nullopt;

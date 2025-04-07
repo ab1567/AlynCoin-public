@@ -1,91 +1,17 @@
+#include "swap_manager.h"
+#include "rocksdb_swap_store.h"
+#include "proto_utils.h"
+#include "../crypto_utils.h"
+#include "../zk/winterfell_stark.h"
 #include "atomic_swap.h"
 #include <iostream>
 #include <map>
-#include <sstream>
+#include <string>
 #include <ctime>
+#include <sstream>
 #include <iomanip>
-#include <memory>
-#include <rocksdb/db.h>
-#include <rocksdb/utilities/transaction_db.h>
-#include <rocksdb/utilities/transaction_db_mutex.h>
-#include <rocksdb/utilities/transaction_db.h>
-#include "../crypto_utils.h"
-#include "../zk/winterfell_stark.h"
 
-// RocksDB-backed implementation of AtomicSwapStore
-class RocksDBAtomicSwapStore : public AtomicSwapStore {
-public:
-    RocksDBAtomicSwapStore(const std::string& path) {
-        options.create_if_missing = true;
-        rocksdb::Status s = rocksdb::TransactionDB::Open(options, txn_options, path, &db);
-        if (!s.ok()) throw std::runtime_error("Failed to open RocksDB: " + s.ToString());
-    }
-
-    ~RocksDBAtomicSwapStore() {
-        delete db;
-    }
-
-    bool saveSwap(const AtomicSwap& swap) override {
-        std::string key = "aswap:" + swap.uuid;
-        std::string value;
-        serialize(swap, value);
-        return db->Put(rocksdb::WriteOptions(), key, value).ok();
-    }
-
-    std::optional<AtomicSwap> loadSwap(const std::string& uuid) override {
-        std::string value;
-        if (!db->Get(rocksdb::ReadOptions(), "aswap:" + uuid, &value).ok())
-            return std::nullopt;
-        return deserialize(value);
-    }
-
-    bool updateSwap(const AtomicSwap& swap) override {
-        return saveSwap(swap);
-    }
-
-private:
-    rocksdb::TransactionDBOptions txn_options;
-    rocksdb::Options options;
-    rocksdb::TransactionDB* db;
-
-    static void serialize(const AtomicSwap& swap, std::string& out) {
-        std::ostringstream oss;
-        oss << swap.uuid << '\n'
-            << swap.senderAddress << '\n'
-            << swap.receiverAddress << '\n'
-            << swap.amount << '\n'
-            << swap.secretHash << '\n'
-            << (swap.secret ? *swap.secret : "") << '\n'
-            << swap.createdAt << '\n'
-            << swap.expiresAt << '\n'
-            << static_cast<int>(swap.state) << '\n'
-            << swap.zkProof << '\n'
-            << Crypto::base64Encode(swap.falconSignature) << '\n'
-            << Crypto::base64Encode(swap.dilithiumSignature) << '\n';
-        out = oss.str();
-    }
-
-    static std::optional<AtomicSwap> deserialize(const std::string& str) {
-        std::istringstream iss(str);
-        AtomicSwap swap;
-        std::string line;
-        std::getline(iss, swap.uuid);
-        std::getline(iss, swap.senderAddress);
-        std::getline(iss, swap.receiverAddress);
-        std::getline(iss, line); swap.amount = std::stoull(line);
-        std::getline(iss, swap.secretHash);
-        std::getline(iss, line); swap.secret = line.empty() ? std::nullopt : std::make_optional(line);
-        std::getline(iss, line); swap.createdAt = std::stoll(line);
-        std::getline(iss, line); swap.expiresAt = std::stoll(line);
-        std::getline(iss, line); swap.state = static_cast<SwapState>(std::stoi(line));
-        std::getline(iss, swap.zkProof);
-        std::getline(iss, line); swap.falconSignature = Crypto::base64Decode(line);
-        std::getline(iss, line); swap.dilithiumSignature = Crypto::base64Decode(line);
-        return swap;
-    }
-};
-
-// Arg parser
+// -------------------- Arg Parser --------------------
 std::map<std::string, std::string> parseArgs(int argc, char* argv[]) {
     std::map<std::string, std::string> args;
     for (int i = 2; i < argc - 1; i += 2) {
@@ -96,6 +22,7 @@ std::map<std::string, std::string> parseArgs(int argc, char* argv[]) {
     return args;
 }
 
+// -------------------- Print Functions --------------------
 void printSwap(const AtomicSwap& swap) {
     std::cout << "Swap ID: " << swap.uuid << "\n"
               << "  Sender: " << swap.senderAddress << "\n"
@@ -107,16 +34,16 @@ void printSwap(const AtomicSwap& swap) {
               << "  Expires: " << std::ctime(&swap.expiresAt)
               << "  State: " << static_cast<int>(swap.state) << "\n";
 
-    if (!swap.zkProof.empty()) {
-        std::cout << "  zk-STARK Proof: " << swap.zkProof << "\n";
+    if (swap.zkProof && !swap.zkProof->empty()) {
+        std::cout << "  zk-STARK Proof: " << *swap.zkProof << "\n";
     }
 
-    if (!swap.falconSignature.empty()) {
-        std::cout << "  Falcon Signature (base64): " << Crypto::base64Encode(swap.falconSignature) << "\n";
+    if (swap.falconSignature && !swap.falconSignature->empty()) {
+        std::cout << "  Falcon Signature (base64): " << Crypto::base64Encode(*swap.falconSignature) << "\n";
     }
 
-    if (!swap.dilithiumSignature.empty()) {
-        std::cout << "  Dilithium Signature (base64): " << Crypto::base64Encode(swap.dilithiumSignature) << "\n";
+    if (swap.dilithiumSignature && !swap.dilithiumSignature->empty()) {
+        std::cout << "  Dilithium Signature (base64): " << Crypto::base64Encode(*swap.dilithiumSignature) << "\n";
     }
 }
 
@@ -129,6 +56,7 @@ void printUsage() {
               << "  swapcli state --id UUID\n";
 }
 
+// -------------------- Main --------------------
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         printUsage();
@@ -139,8 +67,8 @@ int main(int argc, char* argv[]) {
     auto args = parseArgs(argc, argv);
 
     try {
-        RocksDBAtomicSwapStore store("swapdb");
-        AtomicSwapManager manager(&store);
+        std::shared_ptr<AtomicSwapStore> store = std::make_shared<RocksDBAtomicSwapStore>("swapdb");
+        AtomicSwapManager manager(store.get());
 
         if (cmd == "initiate") {
             std::string sender = args["sender"];

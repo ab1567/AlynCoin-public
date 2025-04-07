@@ -1,4 +1,6 @@
 file(REMOVE_RECURSE
+  "../generated/atomic_swap.pb.cc"
+  "../generated/atomic_swap.pb.h"
   "../generated/block_protos.pb.cc"
   "../generated/block_protos.pb.h"
   "../generated/blockchain_protos.pb.cc"
@@ -13,6 +15,8 @@ file(REMOVE_RECURSE
   "../generated/sync_protos.pb.h"
   "../generated/transaction_protos.pb.cc"
   "../generated/transaction_protos.pb.h"
+  "CMakeFiles/alyncoin_lib.dir/__/generated/atomic_swap.pb.cc.o"
+  "CMakeFiles/alyncoin_lib.dir/__/generated/atomic_swap.pb.cc.o.d"
   "CMakeFiles/alyncoin_lib.dir/__/generated/block_protos.pb.cc.o"
   "CMakeFiles/alyncoin_lib.dir/__/generated/block_protos.pb.cc.o.d"
   "CMakeFiles/alyncoin_lib.dir/__/generated/blockchain_protos.pb.cc.o"

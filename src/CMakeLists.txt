@@ -113,6 +113,7 @@ include_directories(
     ${SOURCE_DIR}/crypto/falcon/PQClean/common
     ${SOURCE_DIR}/crypto/dilithium
     ${SOURCE_DIR}/crypto/dilithium/ref
+    ${SOURCE_DIR}/atomic_swaps
 )
 
 # --------------------------
@@ -136,6 +137,7 @@ set(PROTO_SRCS
     ${GENERATED_DIR}/transaction_protos.pb.cc
     ${GENERATED_DIR}/main_protos.pb.cc
     ${GENERATED_DIR}/nft.pb.cc
+    ${GENERATED_DIR}/atomic_swap.pb.cc
 )
 
 set(PROTO_HEADERS
@@ -146,6 +148,7 @@ set(PROTO_HEADERS
     ${GENERATED_DIR}/transaction_protos.pb.h
     ${GENERATED_DIR}/main_protos.pb.h
     ${GENERATED_DIR}/nft.pb.h
+    ${GENERATED_DIR}/atomic_swap.pb.h
 )
 
 add_custom_command(
@@ -159,6 +162,7 @@ add_custom_command(
             ${SOURCE_DIR}/proto/transaction_protos.proto
             ${SOURCE_DIR}/proto/main_protos.proto
             ${SOURCE_DIR}/proto/nft.proto
+            ${SOURCE_DIR}/proto/atomic_swap.proto
     DEPENDS ${SOURCE_DIR}/proto/*.proto
     COMMENT "Generating Protobuf files..."
 )
@@ -277,6 +281,31 @@ target_link_libraries(peer_blacklist_cli
 )
 
 # --------------------------
+# Atomic Swap CLI
+add_executable(swapcli
+    ${SOURCE_DIR}/atomic_swaps/swapcli.cpp
+    ${SOURCE_DIR}/atomic_swaps/swap_manager.cpp
+    ${SOURCE_DIR}/atomic_swaps/rocksdb_swap_store.cpp
+    ${SOURCE_DIR}/atomic_swaps/proto_utils.cpp
+)
+
+add_dependencies(swapcli protobuf_gen winterfell_ffi)
+
+target_link_libraries(swapcli
+    alyncoin_lib
+    ${JSONCPP_LIBRARIES}
+    ${ROCKSDB_LIB}
+    pthread
+    crypto
+    m
+    dl
+    falcon
+    dilithium
+    ${Protobuf_LIBRARIES}
+    ${SOURCE_DIR}/rust/target/release/libzk_winterfell.a
+)
+
+# --------------------------
 # Optional Test Executable
 add_executable(blacklist_test ${SOURCE_DIR}/node/main_blacklist_test.cpp)
 
@@ -310,8 +339,8 @@ target_link_libraries(explorer_server
 
 # --------------------------
 # Output Binaries Location
-set_target_properties(alyncoin alyncoin-cli explorer_server peer_blacklist_cli blacklist_test PROPERTIES
+set_target_properties(alyncoin alyncoin-cli explorer_server peer_blacklist_cli blacklist_test swapcli PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
 )
 
-message(STATUS "AlynCoin Build Configured → Winterfell zk-STARK + Rollup + Falcon + Dilithium Integrated Successfully!")
+message(STATUS "AlynCoin Build Configured → Winterfell zk-STARK + Rollup + Falcon + Dilithium + Atomic Swap Integrated Successfully!")

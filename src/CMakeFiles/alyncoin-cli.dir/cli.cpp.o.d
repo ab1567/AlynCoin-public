@@ -336,6 +336,7 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
  /usr/include/c++/13/stack /usr/include/c++/13/bits/stl_stack.h \
  /usr/include/jsoncpp/json/writer.h \
  /root/AlynCoin/src/zk/winterfell_stark.h \
+ /root/AlynCoin/src/zk/../nft/nft.h /root/AlynCoin/src/generated/nft.pb.h \
  /usr/include/jsoncpp/json/json.h \
  /root/AlynCoin/src/layer2/state_channel.h \
  /root/AlynCoin/src/rollup/rollup_block.h \
@@ -1367,4 +1368,5 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
  /root/AlynCoin/src/governance/dao.h \
  /root/AlynCoin/src/governance/devfund.h \
  /root/AlynCoin/src/governance/dao_storage.h \
- /root/AlynCoin/src/governance/dao.h
+ /root/AlynCoin/src/governance/dao.h /root/AlynCoin/src/db/db_instance.h \
+ /root/AlynCoin/src/db/rocksdb_wrapper.h

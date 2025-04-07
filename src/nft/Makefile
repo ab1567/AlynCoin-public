@@ -130,78 +130,6 @@ nftcli/fast:
 	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/nft/CMakeFiles/nftcli.dir/build.make src/nft/CMakeFiles/nftcli.dir/build
 .PHONY : nftcli/fast
 
-__/crypto_utils.o: __/crypto_utils.cpp.o
-.PHONY : __/crypto_utils.o
-
-# target to build an object file
-__/crypto_utils.cpp.o:
-	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/nft/CMakeFiles/nftcli.dir/build.make src/nft/CMakeFiles/nftcli.dir/__/crypto_utils.cpp.o
-.PHONY : __/crypto_utils.cpp.o
-
-__/crypto_utils.i: __/crypto_utils.cpp.i
-.PHONY : __/crypto_utils.i
-
-# target to preprocess a source file
-__/crypto_utils.cpp.i:
-	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/nft/CMakeFiles/nftcli.dir/build.make src/nft/CMakeFiles/nftcli.dir/__/crypto_utils.cpp.i
-.PHONY : __/crypto_utils.cpp.i
-
-__/crypto_utils.s: __/crypto_utils.cpp.s
-.PHONY : __/crypto_utils.s
-
-# target to generate assembly for a file
-__/crypto_utils.cpp.s:
-	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/nft/CMakeFiles/nftcli.dir/build.make src/nft/CMakeFiles/nftcli.dir/__/crypto_utils.cpp.s
-.PHONY : __/crypto_utils.cpp.s
-
-__/generated/nft.pb.o: __/generated/nft.pb.cc.o
-.PHONY : __/generated/nft.pb.o
-
-# target to build an object file
-__/generated/nft.pb.cc.o:
-	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/nft/CMakeFiles/nftcli.dir/build.make src/nft/CMakeFiles/nftcli.dir/__/generated/nft.pb.cc.o
-.PHONY : __/generated/nft.pb.cc.o
-
-__/generated/nft.pb.i: __/generated/nft.pb.cc.i
-.PHONY : __/generated/nft.pb.i
-
-# target to preprocess a source file
-__/generated/nft.pb.cc.i:
-	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/nft/CMakeFiles/nftcli.dir/build.make src/nft/CMakeFiles/nftcli.dir/__/generated/nft.pb.cc.i
-.PHONY : __/generated/nft.pb.cc.i
-
-__/generated/nft.pb.s: __/generated/nft.pb.cc.s
-.PHONY : __/generated/nft.pb.s
-
-# target to generate assembly for a file
-__/generated/nft.pb.cc.s:
-	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/nft/CMakeFiles/nftcli.dir/build.make src/nft/CMakeFiles/nftcli.dir/__/generated/nft.pb.cc.s
-.PHONY : __/generated/nft.pb.cc.s
-
-__/zk/winterfell_stark.o: __/zk/winterfell_stark.cpp.o
-.PHONY : __/zk/winterfell_stark.o
-
-# target to build an object file
-__/zk/winterfell_stark.cpp.o:
-	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/nft/CMakeFiles/nftcli.dir/build.make src/nft/CMakeFiles/nftcli.dir/__/zk/winterfell_stark.cpp.o
-.PHONY : __/zk/winterfell_stark.cpp.o
-
-__/zk/winterfell_stark.i: __/zk/winterfell_stark.cpp.i
-.PHONY : __/zk/winterfell_stark.i
-
-# target to preprocess a source file
-__/zk/winterfell_stark.cpp.i:
-	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/nft/CMakeFiles/nftcli.dir/build.make src/nft/CMakeFiles/nftcli.dir/__/zk/winterfell_stark.cpp.i
-.PHONY : __/zk/winterfell_stark.cpp.i
-
-__/zk/winterfell_stark.s: __/zk/winterfell_stark.cpp.s
-.PHONY : __/zk/winterfell_stark.s
-
-# target to generate assembly for a file
-__/zk/winterfell_stark.cpp.s:
-	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/nft/CMakeFiles/nftcli.dir/build.make src/nft/CMakeFiles/nftcli.dir/__/zk/winterfell_stark.cpp.s
-.PHONY : __/zk/winterfell_stark.cpp.s
-
 main.o: main.cpp.o
 .PHONY : main.o
 
@@ -298,30 +226,6 @@ nft_storage.cpp.s:
 	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/nft/CMakeFiles/nftcli.dir/build.make src/nft/CMakeFiles/nftcli.dir/nft_storage.cpp.s
 .PHONY : nft_storage.cpp.s
 
-nft_zk.o: nft_zk.cpp.o
-.PHONY : nft_zk.o
-
-# target to build an object file
-nft_zk.cpp.o:
-	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/nft/CMakeFiles/nftcli.dir/build.make src/nft/CMakeFiles/nftcli.dir/nft_zk.cpp.o
-.PHONY : nft_zk.cpp.o
-
-nft_zk.i: nft_zk.cpp.i
-.PHONY : nft_zk.i
-
-# target to preprocess a source file
-nft_zk.cpp.i:
-	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/nft/CMakeFiles/nftcli.dir/build.make src/nft/CMakeFiles/nftcli.dir/nft_zk.cpp.i
-.PHONY : nft_zk.cpp.i
-
-nft_zk.s: nft_zk.cpp.s
-.PHONY : nft_zk.s
-
-# target to generate assembly for a file
-nft_zk.cpp.s:
-	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/nft/CMakeFiles/nftcli.dir/build.make src/nft/CMakeFiles/nftcli.dir/nft_zk.cpp.s
-.PHONY : nft_zk.cpp.s
-
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -331,15 +235,6 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... nftcli"
-	@echo "... __/crypto_utils.o"
-	@echo "... __/crypto_utils.i"
-	@echo "... __/crypto_utils.s"
-	@echo "... __/generated/nft.pb.o"
-	@echo "... __/generated/nft.pb.i"
-	@echo "... __/generated/nft.pb.s"
-	@echo "... __/zk/winterfell_stark.o"
-	@echo "... __/zk/winterfell_stark.i"
-	@echo "... __/zk/winterfell_stark.s"
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"
@@ -352,9 +247,6 @@ help:
 	@echo "... nft_storage.o"
 	@echo "... nft_storage.i"
 	@echo "... nft_storage.s"
-	@echo "... nft_zk.o"
-	@echo "... nft_zk.i"
-	@echo "... nft_zk.s"
 .PHONY : help
 
 

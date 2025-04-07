@@ -8,14 +8,10 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/root/AlynCoin/src/crypto_utils.cpp" "src/nft/CMakeFiles/nftcli.dir/__/crypto_utils.cpp.o" "gcc" "src/nft/CMakeFiles/nftcli.dir/__/crypto_utils.cpp.o.d"
-  "/root/AlynCoin/src/generated/nft.pb.cc" "src/nft/CMakeFiles/nftcli.dir/__/generated/nft.pb.cc.o" "gcc" "src/nft/CMakeFiles/nftcli.dir/__/generated/nft.pb.cc.o.d"
-  "/root/AlynCoin/src/zk/winterfell_stark.cpp" "src/nft/CMakeFiles/nftcli.dir/__/zk/winterfell_stark.cpp.o" "gcc" "src/nft/CMakeFiles/nftcli.dir/__/zk/winterfell_stark.cpp.o.d"
   "/root/AlynCoin/src/nft/main.cpp" "src/nft/CMakeFiles/nftcli.dir/main.cpp.o" "gcc" "src/nft/CMakeFiles/nftcli.dir/main.cpp.o.d"
   "/root/AlynCoin/src/nft/nft.cpp" "src/nft/CMakeFiles/nftcli.dir/nft.cpp.o" "gcc" "src/nft/CMakeFiles/nftcli.dir/nft.cpp.o.d"
   "/root/AlynCoin/src/nft/nft_cli.cpp" "src/nft/CMakeFiles/nftcli.dir/nft_cli.cpp.o" "gcc" "src/nft/CMakeFiles/nftcli.dir/nft_cli.cpp.o.d"
   "/root/AlynCoin/src/nft/nft_storage.cpp" "src/nft/CMakeFiles/nftcli.dir/nft_storage.cpp.o" "gcc" "src/nft/CMakeFiles/nftcli.dir/nft_storage.cpp.o.d"
-  "/root/AlynCoin/src/nft/nft_zk.cpp" "src/nft/CMakeFiles/nftcli.dir/nft_zk.cpp.o" "gcc" "src/nft/CMakeFiles/nftcli.dir/nft_zk.cpp.o.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

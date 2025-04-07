@@ -1,4 +1,6 @@
 file(REMOVE_RECURSE
+  "../generated/atomic_swap.pb.cc"
+  "../generated/atomic_swap.pb.h"
   "../generated/block_protos.pb.cc"
   "../generated/block_protos.pb.h"
   "../generated/blockchain_protos.pb.cc"
@@ -7,6 +9,8 @@ file(REMOVE_RECURSE
   "../generated/crypto_protos.pb.h"
   "../generated/main_protos.pb.cc"
   "../generated/main_protos.pb.h"
+  "../generated/nft.pb.cc"
+  "../generated/nft.pb.h"
   "../generated/sync_protos.pb.cc"
   "../generated/sync_protos.pb.h"
   "../generated/transaction_protos.pb.cc"

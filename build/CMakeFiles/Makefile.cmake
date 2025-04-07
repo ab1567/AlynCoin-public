@@ -75,6 +75,7 @@ set(CMAKE_DEPEND_INFO_FILES
   "src/CMakeFiles/alyncoin.dir/DependInfo.cmake"
   "src/CMakeFiles/alyncoin-cli.dir/DependInfo.cmake"
   "src/CMakeFiles/peer_blacklist_cli.dir/DependInfo.cmake"
+  "src/CMakeFiles/swapcli.dir/DependInfo.cmake"
   "src/CMakeFiles/blacklist_test.dir/DependInfo.cmake"
   "src/CMakeFiles/explorer_server.dir/DependInfo.cmake"
   "src/nft/CMakeFiles/nftcli.dir/DependInfo.cmake"

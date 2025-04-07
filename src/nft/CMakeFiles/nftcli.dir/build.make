@@ -83,24 +83,10 @@ src/nft/CMakeFiles/nftcli.dir/main.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/nftcli.dir/main.cpp.s"
 	cd /root/AlynCoin/src/nft && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /root/AlynCoin/src/nft/main.cpp -o CMakeFiles/nftcli.dir/main.cpp.s
 
-src/nft/CMakeFiles/nftcli.dir/nft.cpp.o: src/nft/CMakeFiles/nftcli.dir/flags.make
-src/nft/CMakeFiles/nftcli.dir/nft.cpp.o: src/nft/nft.cpp
-src/nft/CMakeFiles/nftcli.dir/nft.cpp.o: src/nft/CMakeFiles/nftcli.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object src/nft/CMakeFiles/nftcli.dir/nft.cpp.o"
-	cd /root/AlynCoin/src/nft && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT src/nft/CMakeFiles/nftcli.dir/nft.cpp.o -MF CMakeFiles/nftcli.dir/nft.cpp.o.d -o CMakeFiles/nftcli.dir/nft.cpp.o -c /root/AlynCoin/src/nft/nft.cpp
-
-src/nft/CMakeFiles/nftcli.dir/nft.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/nftcli.dir/nft.cpp.i"
-	cd /root/AlynCoin/src/nft && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /root/AlynCoin/src/nft/nft.cpp > CMakeFiles/nftcli.dir/nft.cpp.i
-
-src/nft/CMakeFiles/nftcli.dir/nft.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/nftcli.dir/nft.cpp.s"
-	cd /root/AlynCoin/src/nft && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /root/AlynCoin/src/nft/nft.cpp -o CMakeFiles/nftcli.dir/nft.cpp.s
-
 src/nft/CMakeFiles/nftcli.dir/nft_cli.cpp.o: src/nft/CMakeFiles/nftcli.dir/flags.make
 src/nft/CMakeFiles/nftcli.dir/nft_cli.cpp.o: src/nft/nft_cli.cpp
 src/nft/CMakeFiles/nftcli.dir/nft_cli.cpp.o: src/nft/CMakeFiles/nftcli.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object src/nft/CMakeFiles/nftcli.dir/nft_cli.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object src/nft/CMakeFiles/nftcli.dir/nft_cli.cpp.o"
 	cd /root/AlynCoin/src/nft && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT src/nft/CMakeFiles/nftcli.dir/nft_cli.cpp.o -MF CMakeFiles/nftcli.dir/nft_cli.cpp.o.d -o CMakeFiles/nftcli.dir/nft_cli.cpp.o -c /root/AlynCoin/src/nft/nft_cli.cpp
 
 src/nft/CMakeFiles/nftcli.dir/nft_cli.cpp.i: cmake_force
@@ -110,6 +96,20 @@ src/nft/CMakeFiles/nftcli.dir/nft_cli.cpp.i: cmake_force
 src/nft/CMakeFiles/nftcli.dir/nft_cli.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/nftcli.dir/nft_cli.cpp.s"
 	cd /root/AlynCoin/src/nft && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /root/AlynCoin/src/nft/nft_cli.cpp -o CMakeFiles/nftcli.dir/nft_cli.cpp.s
+
+src/nft/CMakeFiles/nftcli.dir/nft.cpp.o: src/nft/CMakeFiles/nftcli.dir/flags.make
+src/nft/CMakeFiles/nftcli.dir/nft.cpp.o: src/nft/nft.cpp
+src/nft/CMakeFiles/nftcli.dir/nft.cpp.o: src/nft/CMakeFiles/nftcli.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object src/nft/CMakeFiles/nftcli.dir/nft.cpp.o"
+	cd /root/AlynCoin/src/nft && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT src/nft/CMakeFiles/nftcli.dir/nft.cpp.o -MF CMakeFiles/nftcli.dir/nft.cpp.o.d -o CMakeFiles/nftcli.dir/nft.cpp.o -c /root/AlynCoin/src/nft/nft.cpp
+
+src/nft/CMakeFiles/nftcli.dir/nft.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/nftcli.dir/nft.cpp.i"
+	cd /root/AlynCoin/src/nft && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /root/AlynCoin/src/nft/nft.cpp > CMakeFiles/nftcli.dir/nft.cpp.i
+
+src/nft/CMakeFiles/nftcli.dir/nft.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/nftcli.dir/nft.cpp.s"
+	cd /root/AlynCoin/src/nft && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /root/AlynCoin/src/nft/nft.cpp -o CMakeFiles/nftcli.dir/nft.cpp.s
 
 src/nft/CMakeFiles/nftcli.dir/nft_storage.cpp.o: src/nft/CMakeFiles/nftcli.dir/flags.make
 src/nft/CMakeFiles/nftcli.dir/nft_storage.cpp.o: src/nft/nft_storage.cpp
@@ -125,91 +125,32 @@ src/nft/CMakeFiles/nftcli.dir/nft_storage.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/nftcli.dir/nft_storage.cpp.s"
 	cd /root/AlynCoin/src/nft && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /root/AlynCoin/src/nft/nft_storage.cpp -o CMakeFiles/nftcli.dir/nft_storage.cpp.s
 
-src/nft/CMakeFiles/nftcli.dir/nft_zk.cpp.o: src/nft/CMakeFiles/nftcli.dir/flags.make
-src/nft/CMakeFiles/nftcli.dir/nft_zk.cpp.o: src/nft/nft_zk.cpp
-src/nft/CMakeFiles/nftcli.dir/nft_zk.cpp.o: src/nft/CMakeFiles/nftcli.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object src/nft/CMakeFiles/nftcli.dir/nft_zk.cpp.o"
-	cd /root/AlynCoin/src/nft && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT src/nft/CMakeFiles/nftcli.dir/nft_zk.cpp.o -MF CMakeFiles/nftcli.dir/nft_zk.cpp.o.d -o CMakeFiles/nftcli.dir/nft_zk.cpp.o -c /root/AlynCoin/src/nft/nft_zk.cpp
-
-src/nft/CMakeFiles/nftcli.dir/nft_zk.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/nftcli.dir/nft_zk.cpp.i"
-	cd /root/AlynCoin/src/nft && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /root/AlynCoin/src/nft/nft_zk.cpp > CMakeFiles/nftcli.dir/nft_zk.cpp.i
-
-src/nft/CMakeFiles/nftcli.dir/nft_zk.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/nftcli.dir/nft_zk.cpp.s"
-	cd /root/AlynCoin/src/nft && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /root/AlynCoin/src/nft/nft_zk.cpp -o CMakeFiles/nftcli.dir/nft_zk.cpp.s
-
-src/nft/CMakeFiles/nftcli.dir/__/zk/winterfell_stark.cpp.o: src/nft/CMakeFiles/nftcli.dir/flags.make
-src/nft/CMakeFiles/nftcli.dir/__/zk/winterfell_stark.cpp.o: src/zk/winterfell_stark.cpp
-src/nft/CMakeFiles/nftcli.dir/__/zk/winterfell_stark.cpp.o: src/nft/CMakeFiles/nftcli.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object src/nft/CMakeFiles/nftcli.dir/__/zk/winterfell_stark.cpp.o"
-	cd /root/AlynCoin/src/nft && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT src/nft/CMakeFiles/nftcli.dir/__/zk/winterfell_stark.cpp.o -MF CMakeFiles/nftcli.dir/__/zk/winterfell_stark.cpp.o.d -o CMakeFiles/nftcli.dir/__/zk/winterfell_stark.cpp.o -c /root/AlynCoin/src/zk/winterfell_stark.cpp
-
-src/nft/CMakeFiles/nftcli.dir/__/zk/winterfell_stark.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/nftcli.dir/__/zk/winterfell_stark.cpp.i"
-	cd /root/AlynCoin/src/nft && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /root/AlynCoin/src/zk/winterfell_stark.cpp > CMakeFiles/nftcli.dir/__/zk/winterfell_stark.cpp.i
-
-src/nft/CMakeFiles/nftcli.dir/__/zk/winterfell_stark.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/nftcli.dir/__/zk/winterfell_stark.cpp.s"
-	cd /root/AlynCoin/src/nft && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /root/AlynCoin/src/zk/winterfell_stark.cpp -o CMakeFiles/nftcli.dir/__/zk/winterfell_stark.cpp.s
-
-src/nft/CMakeFiles/nftcli.dir/__/crypto_utils.cpp.o: src/nft/CMakeFiles/nftcli.dir/flags.make
-src/nft/CMakeFiles/nftcli.dir/__/crypto_utils.cpp.o: src/crypto_utils.cpp
-src/nft/CMakeFiles/nftcli.dir/__/crypto_utils.cpp.o: src/nft/CMakeFiles/nftcli.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object src/nft/CMakeFiles/nftcli.dir/__/crypto_utils.cpp.o"
-	cd /root/AlynCoin/src/nft && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT src/nft/CMakeFiles/nftcli.dir/__/crypto_utils.cpp.o -MF CMakeFiles/nftcli.dir/__/crypto_utils.cpp.o.d -o CMakeFiles/nftcli.dir/__/crypto_utils.cpp.o -c /root/AlynCoin/src/crypto_utils.cpp
-
-src/nft/CMakeFiles/nftcli.dir/__/crypto_utils.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/nftcli.dir/__/crypto_utils.cpp.i"
-	cd /root/AlynCoin/src/nft && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /root/AlynCoin/src/crypto_utils.cpp > CMakeFiles/nftcli.dir/__/crypto_utils.cpp.i
-
-src/nft/CMakeFiles/nftcli.dir/__/crypto_utils.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/nftcli.dir/__/crypto_utils.cpp.s"
-	cd /root/AlynCoin/src/nft && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /root/AlynCoin/src/crypto_utils.cpp -o CMakeFiles/nftcli.dir/__/crypto_utils.cpp.s
-
-src/nft/CMakeFiles/nftcli.dir/__/generated/nft.pb.cc.o: src/nft/CMakeFiles/nftcli.dir/flags.make
-src/nft/CMakeFiles/nftcli.dir/__/generated/nft.pb.cc.o: src/generated/nft.pb.cc
-src/nft/CMakeFiles/nftcli.dir/__/generated/nft.pb.cc.o: src/nft/CMakeFiles/nftcli.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building CXX object src/nft/CMakeFiles/nftcli.dir/__/generated/nft.pb.cc.o"
-	cd /root/AlynCoin/src/nft && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT src/nft/CMakeFiles/nftcli.dir/__/generated/nft.pb.cc.o -MF CMakeFiles/nftcli.dir/__/generated/nft.pb.cc.o.d -o CMakeFiles/nftcli.dir/__/generated/nft.pb.cc.o -c /root/AlynCoin/src/generated/nft.pb.cc
-
-src/nft/CMakeFiles/nftcli.dir/__/generated/nft.pb.cc.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/nftcli.dir/__/generated/nft.pb.cc.i"
-	cd /root/AlynCoin/src/nft && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /root/AlynCoin/src/generated/nft.pb.cc > CMakeFiles/nftcli.dir/__/generated/nft.pb.cc.i
-
-src/nft/CMakeFiles/nftcli.dir/__/generated/nft.pb.cc.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/nftcli.dir/__/generated/nft.pb.cc.s"
-	cd /root/AlynCoin/src/nft && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /root/AlynCoin/src/generated/nft.pb.cc -o CMakeFiles/nftcli.dir/__/generated/nft.pb.cc.s
-
 # Object files for target nftcli
 nftcli_OBJECTS = \
 "CMakeFiles/nftcli.dir/main.cpp.o" \
-"CMakeFiles/nftcli.dir/nft.cpp.o" \
 "CMakeFiles/nftcli.dir/nft_cli.cpp.o" \
-"CMakeFiles/nftcli.dir/nft_storage.cpp.o" \
-"CMakeFiles/nftcli.dir/nft_zk.cpp.o" \
-"CMakeFiles/nftcli.dir/__/zk/winterfell_stark.cpp.o" \
-"CMakeFiles/nftcli.dir/__/crypto_utils.cpp.o" \
-"CMakeFiles/nftcli.dir/__/generated/nft.pb.cc.o"
+"CMakeFiles/nftcli.dir/nft.cpp.o" \
+"CMakeFiles/nftcli.dir/nft_storage.cpp.o"
 
 # External object files for target nftcli
 nftcli_EXTERNAL_OBJECTS =
 
 bin/nftcli: src/nft/CMakeFiles/nftcli.dir/main.cpp.o
-bin/nftcli: src/nft/CMakeFiles/nftcli.dir/nft.cpp.o
 bin/nftcli: src/nft/CMakeFiles/nftcli.dir/nft_cli.cpp.o
+bin/nftcli: src/nft/CMakeFiles/nftcli.dir/nft.cpp.o
 bin/nftcli: src/nft/CMakeFiles/nftcli.dir/nft_storage.cpp.o
-bin/nftcli: src/nft/CMakeFiles/nftcli.dir/nft_zk.cpp.o
-bin/nftcli: src/nft/CMakeFiles/nftcli.dir/__/zk/winterfell_stark.cpp.o
-bin/nftcli: src/nft/CMakeFiles/nftcli.dir/__/crypto_utils.cpp.o
-bin/nftcli: src/nft/CMakeFiles/nftcli.dir/__/generated/nft.pb.cc.o
 bin/nftcli: src/nft/CMakeFiles/nftcli.dir/build.make
-bin/nftcli: /usr/lib/x86_64-linux-gnu/libprotobuf.so
-bin/nftcli: /usr/lib/x86_64-linux-gnu/librocksdb.so
-bin/nftcli: /usr/lib/x86_64-linux-gnu/libjsoncpp.so
+bin/nftcli: src/libalyncoin_lib.a
+bin/nftcli: src/nft/crypto/libnft_crypto.a
 bin/nftcli: /usr/lib/x86_64-linux-gnu/libcrypto.so
+bin/nftcli: /usr/lib/x86_64-linux-gnu/libcrypto.so
+bin/nftcli: /usr/lib/x86_64-linux-gnu/librocksdb.so
+bin/nftcli: /usr/lib/x86_64-linux-gnu/libprotobuf.so
+bin/nftcli: src/libfalcon.a
+bin/nftcli: src/libdilithium.a
+bin/nftcli: src/rust/target/release/libzk_winterfell.a
 bin/nftcli: src/nft/CMakeFiles/nftcli.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/root/AlynCoin/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Linking CXX executable ../../bin/nftcli"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/root/AlynCoin/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Linking CXX executable ../../bin/nftcli"
 	cd /root/AlynCoin/src/nft && $(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/nftcli.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.

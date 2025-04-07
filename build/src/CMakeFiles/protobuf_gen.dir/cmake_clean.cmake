@@ -1,4 +1,6 @@
 file(REMOVE_RECURSE
+  "../generated/atomic_swap.pb.cc"
+  "../generated/atomic_swap.pb.h"
   "../generated/block_protos.pb.cc"
   "../generated/block_protos.pb.h"
   "../generated/blockchain_protos.pb.cc"

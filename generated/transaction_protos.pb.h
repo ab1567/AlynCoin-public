@@ -188,6 +188,7 @@ class TransactionProto final :
     kHashFieldNumber = 11,
     kAmountFieldNumber = 3,
     kTimestampFieldNumber = 4,
+    kIsSystemFieldNumber = 12,
   };
   // string sender = 1;
   void clear_sender();
@@ -245,7 +246,7 @@ class TransactionProto final :
   std::string* _internal_mutable_signature_falcon();
   public:
 
-  // string zkproof = 7;
+  // bytes zkproof = 7;
   void clear_zkproof();
   const std::string& zkproof() const;
   template <typename ArgT0 = const std::string&, typename... ArgT>
@@ -333,6 +334,15 @@ class TransactionProto final :
   void _internal_set_timestamp(uint64_t value);
   public:
 
+  // bool is_system = 12;
+  void clear_is_system();
+  bool is_system() const;
+  void set_is_system(bool value);
+  private:
+  bool _internal_is_system() const;
+  void _internal_set_is_system(bool value);
+  public:
+
   // @@protoc_insertion_point(class_scope:alyncoin.TransactionProto)
  private:
   class _Internal;
@@ -352,6 +362,7 @@ class TransactionProto final :
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr hash_;
     double amount_;
     uint64_t timestamp_;
+    bool is_system_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   };
   union { Impl_ _impl_; };
@@ -608,7 +619,7 @@ inline void TransactionProto::set_allocated_signature_falcon(std::string* signat
   // @@protoc_insertion_point(field_set_allocated:alyncoin.TransactionProto.signature_falcon)
 }
 
-// string zkproof = 7;
+// bytes zkproof = 7;
 inline void TransactionProto::clear_zkproof() {
   _impl_.zkproof_.ClearToEmpty();
 }
@@ -620,7 +631,7 @@ template <typename ArgT0, typename... ArgT>
 inline PROTOBUF_ALWAYS_INLINE
 void TransactionProto::set_zkproof(ArgT0&& arg0, ArgT... args) {
  
- _impl_.zkproof_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+ _impl_.zkproof_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:alyncoin.TransactionProto.zkproof)
 }
 inline std::string* TransactionProto::mutable_zkproof() {
@@ -856,6 +867,26 @@ inline void TransactionProto::set_allocated_hash(std::string* hash) {
   }
 #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
   // @@protoc_insertion_point(field_set_allocated:alyncoin.TransactionProto.hash)
+}
+
+// bool is_system = 12;
+inline void TransactionProto::clear_is_system() {
+  _impl_.is_system_ = false;
+}
+inline bool TransactionProto::_internal_is_system() const {
+  return _impl_.is_system_;
+}
+inline bool TransactionProto::is_system() const {
+  // @@protoc_insertion_point(field_get:alyncoin.TransactionProto.is_system)
+  return _internal_is_system();
+}
+inline void TransactionProto::_internal_set_is_system(bool value) {
+  
+  _impl_.is_system_ = value;
+}
+inline void TransactionProto::set_is_system(bool value) {
+  _internal_set_is_system(value);
+  // @@protoc_insertion_point(field_set:alyncoin.TransactionProto.is_system)
 }
 
 #ifdef __GNUC__

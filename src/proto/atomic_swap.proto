@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package atomic;
+
+message AtomicSwapProto {
+  string uuid = 1;
+  string senderAddress = 2;
+  string receiverAddress = 3;
+  uint64 amount = 4;
+  string secretHash = 5;
+  string secret = 6;
+  int64 createdAt = 7;
+  int64 expiresAt = 8;
+  int32 state = 9;  // use enum if defined in your C++ code
+
+  string zkProof = 10;
+
+  string falconSignature = 11;
+  string dilithiumSignature = 12;
+}

@@ -229,6 +229,20 @@ peer_blacklist_cli/fast:
 .PHONY : peer_blacklist_cli/fast
 
 # Convenience name for target.
+src/CMakeFiles/swapcli.dir/rule:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 src/CMakeFiles/swapcli.dir/rule
+.PHONY : src/CMakeFiles/swapcli.dir/rule
+
+# Convenience name for target.
+swapcli: src/CMakeFiles/swapcli.dir/rule
+.PHONY : swapcli
+
+# fast build rule for target.
+swapcli/fast:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/swapcli.dir/build.make src/CMakeFiles/swapcli.dir/build
+.PHONY : swapcli/fast
+
+# Convenience name for target.
 src/CMakeFiles/blacklist_test.dir/rule:
 	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 src/CMakeFiles/blacklist_test.dir/rule
 .PHONY : src/CMakeFiles/blacklist_test.dir/rule
@@ -255,6 +269,30 @@ explorer_server: src/CMakeFiles/explorer_server.dir/rule
 explorer_server/fast:
 	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/explorer_server.dir/build.make src/CMakeFiles/explorer_server.dir/build
 .PHONY : explorer_server/fast
+
+__/generated/atomic_swap.pb.o: __/generated/atomic_swap.pb.cc.o
+.PHONY : __/generated/atomic_swap.pb.o
+
+# target to build an object file
+__/generated/atomic_swap.pb.cc.o:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/__/generated/atomic_swap.pb.cc.o
+.PHONY : __/generated/atomic_swap.pb.cc.o
+
+__/generated/atomic_swap.pb.i: __/generated/atomic_swap.pb.cc.i
+.PHONY : __/generated/atomic_swap.pb.i
+
+# target to preprocess a source file
+__/generated/atomic_swap.pb.cc.i:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/__/generated/atomic_swap.pb.cc.i
+.PHONY : __/generated/atomic_swap.pb.cc.i
+
+__/generated/atomic_swap.pb.s: __/generated/atomic_swap.pb.cc.s
+.PHONY : __/generated/atomic_swap.pb.s
+
+# target to generate assembly for a file
+__/generated/atomic_swap.pb.cc.s:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/__/generated/atomic_swap.pb.cc.s
+.PHONY : __/generated/atomic_swap.pb.cc.s
 
 __/generated/block_protos.pb.o: __/generated/block_protos.pb.cc.o
 .PHONY : __/generated/block_protos.pb.o
@@ -352,6 +390,30 @@ __/generated/main_protos.pb.cc.s:
 	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/__/generated/main_protos.pb.cc.s
 .PHONY : __/generated/main_protos.pb.cc.s
 
+__/generated/nft.pb.o: __/generated/nft.pb.cc.o
+.PHONY : __/generated/nft.pb.o
+
+# target to build an object file
+__/generated/nft.pb.cc.o:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/__/generated/nft.pb.cc.o
+.PHONY : __/generated/nft.pb.cc.o
+
+__/generated/nft.pb.i: __/generated/nft.pb.cc.i
+.PHONY : __/generated/nft.pb.i
+
+# target to preprocess a source file
+__/generated/nft.pb.cc.i:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/__/generated/nft.pb.cc.i
+.PHONY : __/generated/nft.pb.cc.i
+
+__/generated/nft.pb.s: __/generated/nft.pb.cc.s
+.PHONY : __/generated/nft.pb.s
+
+# target to generate assembly for a file
+__/generated/nft.pb.cc.s:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/__/generated/nft.pb.cc.s
+.PHONY : __/generated/nft.pb.cc.s
+
 __/generated/sync_protos.pb.o: __/generated/sync_protos.pb.cc.o
 .PHONY : __/generated/sync_protos.pb.o
 
@@ -399,6 +461,102 @@ __/generated/transaction_protos.pb.s: __/generated/transaction_protos.pb.cc.s
 __/generated/transaction_protos.pb.cc.s:
 	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/__/generated/transaction_protos.pb.cc.s
 .PHONY : __/generated/transaction_protos.pb.cc.s
+
+atomic_swaps/atomic_swap.o: atomic_swaps/atomic_swap.cpp.o
+.PHONY : atomic_swaps/atomic_swap.o
+
+# target to build an object file
+atomic_swaps/atomic_swap.cpp.o:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/swapcli.dir/build.make src/CMakeFiles/swapcli.dir/atomic_swaps/atomic_swap.cpp.o
+.PHONY : atomic_swaps/atomic_swap.cpp.o
+
+atomic_swaps/atomic_swap.i: atomic_swaps/atomic_swap.cpp.i
+.PHONY : atomic_swaps/atomic_swap.i
+
+# target to preprocess a source file
+atomic_swaps/atomic_swap.cpp.i:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/swapcli.dir/build.make src/CMakeFiles/swapcli.dir/atomic_swaps/atomic_swap.cpp.i
+.PHONY : atomic_swaps/atomic_swap.cpp.i
+
+atomic_swaps/atomic_swap.s: atomic_swaps/atomic_swap.cpp.s
+.PHONY : atomic_swaps/atomic_swap.s
+
+# target to generate assembly for a file
+atomic_swaps/atomic_swap.cpp.s:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/swapcli.dir/build.make src/CMakeFiles/swapcli.dir/atomic_swaps/atomic_swap.cpp.s
+.PHONY : atomic_swaps/atomic_swap.cpp.s
+
+atomic_swaps/rocksdb_swap_store.o: atomic_swaps/rocksdb_swap_store.cpp.o
+.PHONY : atomic_swaps/rocksdb_swap_store.o
+
+# target to build an object file
+atomic_swaps/rocksdb_swap_store.cpp.o:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/swapcli.dir/build.make src/CMakeFiles/swapcli.dir/atomic_swaps/rocksdb_swap_store.cpp.o
+.PHONY : atomic_swaps/rocksdb_swap_store.cpp.o
+
+atomic_swaps/rocksdb_swap_store.i: atomic_swaps/rocksdb_swap_store.cpp.i
+.PHONY : atomic_swaps/rocksdb_swap_store.i
+
+# target to preprocess a source file
+atomic_swaps/rocksdb_swap_store.cpp.i:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/swapcli.dir/build.make src/CMakeFiles/swapcli.dir/atomic_swaps/rocksdb_swap_store.cpp.i
+.PHONY : atomic_swaps/rocksdb_swap_store.cpp.i
+
+atomic_swaps/rocksdb_swap_store.s: atomic_swaps/rocksdb_swap_store.cpp.s
+.PHONY : atomic_swaps/rocksdb_swap_store.s
+
+# target to generate assembly for a file
+atomic_swaps/rocksdb_swap_store.cpp.s:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/swapcli.dir/build.make src/CMakeFiles/swapcli.dir/atomic_swaps/rocksdb_swap_store.cpp.s
+.PHONY : atomic_swaps/rocksdb_swap_store.cpp.s
+
+atomic_swaps/swap_manager.o: atomic_swaps/swap_manager.cpp.o
+.PHONY : atomic_swaps/swap_manager.o
+
+# target to build an object file
+atomic_swaps/swap_manager.cpp.o:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/swapcli.dir/build.make src/CMakeFiles/swapcli.dir/atomic_swaps/swap_manager.cpp.o
+.PHONY : atomic_swaps/swap_manager.cpp.o
+
+atomic_swaps/swap_manager.i: atomic_swaps/swap_manager.cpp.i
+.PHONY : atomic_swaps/swap_manager.i
+
+# target to preprocess a source file
+atomic_swaps/swap_manager.cpp.i:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/swapcli.dir/build.make src/CMakeFiles/swapcli.dir/atomic_swaps/swap_manager.cpp.i
+.PHONY : atomic_swaps/swap_manager.cpp.i
+
+atomic_swaps/swap_manager.s: atomic_swaps/swap_manager.cpp.s
+.PHONY : atomic_swaps/swap_manager.s
+
+# target to generate assembly for a file
+atomic_swaps/swap_manager.cpp.s:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/swapcli.dir/build.make src/CMakeFiles/swapcli.dir/atomic_swaps/swap_manager.cpp.s
+.PHONY : atomic_swaps/swap_manager.cpp.s
+
+atomic_swaps/swapcli.o: atomic_swaps/swapcli.cpp.o
+.PHONY : atomic_swaps/swapcli.o
+
+# target to build an object file
+atomic_swaps/swapcli.cpp.o:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/swapcli.dir/build.make src/CMakeFiles/swapcli.dir/atomic_swaps/swapcli.cpp.o
+.PHONY : atomic_swaps/swapcli.cpp.o
+
+atomic_swaps/swapcli.i: atomic_swaps/swapcli.cpp.i
+.PHONY : atomic_swaps/swapcli.i
+
+# target to preprocess a source file
+atomic_swaps/swapcli.cpp.i:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/swapcli.dir/build.make src/CMakeFiles/swapcli.dir/atomic_swaps/swapcli.cpp.i
+.PHONY : atomic_swaps/swapcli.cpp.i
+
+atomic_swaps/swapcli.s: atomic_swaps/swapcli.cpp.s
+.PHONY : atomic_swaps/swapcli.s
+
+# target to generate assembly for a file
+atomic_swaps/swapcli.cpp.s:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/swapcli.dir/build.make src/CMakeFiles/swapcli.dir/atomic_swaps/swapcli.cpp.s
+.PHONY : atomic_swaps/swapcli.cpp.s
 
 blake3.o: blake3.c.o
 .PHONY : blake3.o
@@ -1954,6 +2112,10 @@ help:
 	@echo "... explorer_server"
 	@echo "... falcon"
 	@echo "... peer_blacklist_cli"
+	@echo "... swapcli"
+	@echo "... __/generated/atomic_swap.pb.o"
+	@echo "... __/generated/atomic_swap.pb.i"
+	@echo "... __/generated/atomic_swap.pb.s"
 	@echo "... __/generated/block_protos.pb.o"
 	@echo "... __/generated/block_protos.pb.i"
 	@echo "... __/generated/block_protos.pb.s"
@@ -1966,12 +2128,27 @@ help:
 	@echo "... __/generated/main_protos.pb.o"
 	@echo "... __/generated/main_protos.pb.i"
 	@echo "... __/generated/main_protos.pb.s"
+	@echo "... __/generated/nft.pb.o"
+	@echo "... __/generated/nft.pb.i"
+	@echo "... __/generated/nft.pb.s"
 	@echo "... __/generated/sync_protos.pb.o"
 	@echo "... __/generated/sync_protos.pb.i"
 	@echo "... __/generated/sync_protos.pb.s"
 	@echo "... __/generated/transaction_protos.pb.o"
 	@echo "... __/generated/transaction_protos.pb.i"
 	@echo "... __/generated/transaction_protos.pb.s"
+	@echo "... atomic_swaps/atomic_swap.o"
+	@echo "... atomic_swaps/atomic_swap.i"
+	@echo "... atomic_swaps/atomic_swap.s"
+	@echo "... atomic_swaps/rocksdb_swap_store.o"
+	@echo "... atomic_swaps/rocksdb_swap_store.i"
+	@echo "... atomic_swaps/rocksdb_swap_store.s"
+	@echo "... atomic_swaps/swap_manager.o"
+	@echo "... atomic_swaps/swap_manager.i"
+	@echo "... atomic_swaps/swap_manager.s"
+	@echo "... atomic_swaps/swapcli.o"
+	@echo "... atomic_swaps/swapcli.i"
+	@echo "... atomic_swaps/swapcli.s"
 	@echo "... blake3.o"
 	@echo "... blake3.i"
 	@echo "... blake3.s"

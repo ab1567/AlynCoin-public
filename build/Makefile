@@ -221,6 +221,19 @@ peer_blacklist_cli/fast:
 .PHONY : peer_blacklist_cli/fast
 
 #=============================================================================
+# Target rules for targets named swapcli
+
+# Build rule for target.
+swapcli: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 swapcli
+.PHONY : swapcli
+
+# fast build rule for target.
+swapcli/fast:
+	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/swapcli.dir/build.make src/CMakeFiles/swapcli.dir/build
+.PHONY : swapcli/fast
+
+#=============================================================================
 # Target rules for targets named blacklist_test
 
 # Build rule for target.
@@ -292,6 +305,7 @@ help:
 	@echo "... nft_crypto"
 	@echo "... nftcli"
 	@echo "... peer_blacklist_cli"
+	@echo "... swapcli"
 .PHONY : help
 
 

@@ -307,6 +307,8 @@ src/CMakeFiles/alyncoin_lib.dir/rollup/proofs/proof_generator.cpp.o: \
  /root/AlynCoin/src/rollup/proofs/../circuits/transaction_circuit.h \
  /root/AlynCoin/src/rollup/proofs/../circuits/state_circuit.h \
  /root/AlynCoin/src/rollup/proofs/../../zk/winterfell_stark.h \
+ /root/AlynCoin/src/rollup/proofs/../../zk/../nft/nft.h \
+ /root/AlynCoin/src/generated/nft.pb.h \
  /root/AlynCoin/src/zk/../rollup/rollup_utils.h \
  /usr/include/c++/13/thread /usr/include/c++/13/bits/std_thread.h \
  /usr/include/c++/13/bits/this_thread_sleep.h \

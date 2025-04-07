@@ -71,7 +71,7 @@ include src/CMakeFiles/alyncoin_lib.dir/flags.make
 
 generated/sync_protos.pb.h: /root/AlynCoin/src/proto/*.proto
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Generating Protobuf files..."
-	cd /root/AlynCoin/build/src && /usr/bin/protoc --proto_path=/root/AlynCoin/src/proto --cpp_out=/root/AlynCoin/build/generated /root/AlynCoin/src/proto/sync_protos.proto /root/AlynCoin/src/proto/block_protos.proto /root/AlynCoin/src/proto/blockchain_protos.proto /root/AlynCoin/src/proto/crypto_protos.proto /root/AlynCoin/src/proto/transaction_protos.proto /root/AlynCoin/src/proto/main_protos.proto /root/AlynCoin/src/proto/nft.proto
+	cd /root/AlynCoin/build/src && /usr/bin/protoc --proto_path=/root/AlynCoin/src/proto --cpp_out=/root/AlynCoin/build/generated /root/AlynCoin/src/proto/sync_protos.proto /root/AlynCoin/src/proto/block_protos.proto /root/AlynCoin/src/proto/blockchain_protos.proto /root/AlynCoin/src/proto/crypto_protos.proto /root/AlynCoin/src/proto/transaction_protos.proto /root/AlynCoin/src/proto/main_protos.proto /root/AlynCoin/src/proto/nft.proto /root/AlynCoin/src/proto/atomic_swap.proto
 
 generated/block_protos.pb.h: generated/sync_protos.pb.h
 	@$(CMAKE_COMMAND) -E touch_nocreate generated/block_protos.pb.h
@@ -90,6 +90,9 @@ generated/main_protos.pb.h: generated/sync_protos.pb.h
 
 generated/nft.pb.h: generated/sync_protos.pb.h
 	@$(CMAKE_COMMAND) -E touch_nocreate generated/nft.pb.h
+
+generated/atomic_swap.pb.h: generated/sync_protos.pb.h
+	@$(CMAKE_COMMAND) -E touch_nocreate generated/atomic_swap.pb.h
 
 generated/sync_protos.pb.cc: generated/sync_protos.pb.h
 	@$(CMAKE_COMMAND) -E touch_nocreate generated/sync_protos.pb.cc
@@ -111,6 +114,9 @@ generated/main_protos.pb.cc: generated/sync_protos.pb.h
 
 generated/nft.pb.cc: generated/sync_protos.pb.h
 	@$(CMAKE_COMMAND) -E touch_nocreate generated/nft.pb.cc
+
+generated/atomic_swap.pb.cc: generated/sync_protos.pb.h
+	@$(CMAKE_COMMAND) -E touch_nocreate generated/atomic_swap.pb.cc
 
 src/CMakeFiles/alyncoin_lib.dir/block.cpp.o: src/CMakeFiles/alyncoin_lib.dir/flags.make
 src/CMakeFiles/alyncoin_lib.dir/block.cpp.o: /root/AlynCoin/src/block.cpp
@@ -630,6 +636,20 @@ src/CMakeFiles/alyncoin_lib.dir/__/generated/nft.pb.cc.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/alyncoin_lib.dir/__/generated/nft.pb.cc.s"
 	cd /root/AlynCoin/build/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /root/AlynCoin/build/generated/nft.pb.cc -o CMakeFiles/alyncoin_lib.dir/__/generated/nft.pb.cc.s
 
+src/CMakeFiles/alyncoin_lib.dir/__/generated/atomic_swap.pb.cc.o: src/CMakeFiles/alyncoin_lib.dir/flags.make
+src/CMakeFiles/alyncoin_lib.dir/__/generated/atomic_swap.pb.cc.o: generated/atomic_swap.pb.cc
+src/CMakeFiles/alyncoin_lib.dir/__/generated/atomic_swap.pb.cc.o: src/CMakeFiles/alyncoin_lib.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_39) "Building CXX object src/CMakeFiles/alyncoin_lib.dir/__/generated/atomic_swap.pb.cc.o"
+	cd /root/AlynCoin/build/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT src/CMakeFiles/alyncoin_lib.dir/__/generated/atomic_swap.pb.cc.o -MF CMakeFiles/alyncoin_lib.dir/__/generated/atomic_swap.pb.cc.o.d -o CMakeFiles/alyncoin_lib.dir/__/generated/atomic_swap.pb.cc.o -c /root/AlynCoin/build/generated/atomic_swap.pb.cc
+
+src/CMakeFiles/alyncoin_lib.dir/__/generated/atomic_swap.pb.cc.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/alyncoin_lib.dir/__/generated/atomic_swap.pb.cc.i"
+	cd /root/AlynCoin/build/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /root/AlynCoin/build/generated/atomic_swap.pb.cc > CMakeFiles/alyncoin_lib.dir/__/generated/atomic_swap.pb.cc.i
+
+src/CMakeFiles/alyncoin_lib.dir/__/generated/atomic_swap.pb.cc.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/alyncoin_lib.dir/__/generated/atomic_swap.pb.cc.s"
+	cd /root/AlynCoin/build/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /root/AlynCoin/build/generated/atomic_swap.pb.cc -o CMakeFiles/alyncoin_lib.dir/__/generated/atomic_swap.pb.cc.s
+
 # Object files for target alyncoin_lib
 alyncoin_lib_OBJECTS = \
 "CMakeFiles/alyncoin_lib.dir/block.cpp.o" \
@@ -668,7 +688,8 @@ alyncoin_lib_OBJECTS = \
 "CMakeFiles/alyncoin_lib.dir/__/generated/crypto_protos.pb.cc.o" \
 "CMakeFiles/alyncoin_lib.dir/__/generated/transaction_protos.pb.cc.o" \
 "CMakeFiles/alyncoin_lib.dir/__/generated/main_protos.pb.cc.o" \
-"CMakeFiles/alyncoin_lib.dir/__/generated/nft.pb.cc.o"
+"CMakeFiles/alyncoin_lib.dir/__/generated/nft.pb.cc.o" \
+"CMakeFiles/alyncoin_lib.dir/__/generated/atomic_swap.pb.cc.o"
 
 # External object files for target alyncoin_lib
 alyncoin_lib_EXTERNAL_OBJECTS =
@@ -710,9 +731,10 @@ src/libalyncoin_lib.a: src/CMakeFiles/alyncoin_lib.dir/__/generated/crypto_proto
 src/libalyncoin_lib.a: src/CMakeFiles/alyncoin_lib.dir/__/generated/transaction_protos.pb.cc.o
 src/libalyncoin_lib.a: src/CMakeFiles/alyncoin_lib.dir/__/generated/main_protos.pb.cc.o
 src/libalyncoin_lib.a: src/CMakeFiles/alyncoin_lib.dir/__/generated/nft.pb.cc.o
+src/libalyncoin_lib.a: src/CMakeFiles/alyncoin_lib.dir/__/generated/atomic_swap.pb.cc.o
 src/libalyncoin_lib.a: src/CMakeFiles/alyncoin_lib.dir/build.make
 src/libalyncoin_lib.a: src/CMakeFiles/alyncoin_lib.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_39) "Linking CXX static library libalyncoin_lib.a"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_40) "Linking CXX static library libalyncoin_lib.a"
 	cd /root/AlynCoin/build/src && $(CMAKE_COMMAND) -P CMakeFiles/alyncoin_lib.dir/cmake_clean_target.cmake
 	cd /root/AlynCoin/build/src && $(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/alyncoin_lib.dir/link.txt --verbose=$(VERBOSE)
 
@@ -724,6 +746,8 @@ src/CMakeFiles/alyncoin_lib.dir/clean:
 	cd /root/AlynCoin/build/src && $(CMAKE_COMMAND) -P CMakeFiles/alyncoin_lib.dir/cmake_clean.cmake
 .PHONY : src/CMakeFiles/alyncoin_lib.dir/clean
 
+src/CMakeFiles/alyncoin_lib.dir/depend: generated/atomic_swap.pb.cc
+src/CMakeFiles/alyncoin_lib.dir/depend: generated/atomic_swap.pb.h
 src/CMakeFiles/alyncoin_lib.dir/depend: generated/block_protos.pb.cc
 src/CMakeFiles/alyncoin_lib.dir/depend: generated/block_protos.pb.h
 src/CMakeFiles/alyncoin_lib.dir/depend: generated/blockchain_protos.pb.cc

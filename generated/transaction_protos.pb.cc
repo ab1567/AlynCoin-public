@@ -34,6 +34,7 @@ PROTOBUF_CONSTEXPR TransactionProto::TransactionProto(
   , /*decltype(_impl_.hash_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
   , /*decltype(_impl_.amount_)*/0
   , /*decltype(_impl_.timestamp_)*/uint64_t{0u}
+  , /*decltype(_impl_.is_system_)*/false
   , /*decltype(_impl_._cached_size_)*/{}} {}
 struct TransactionProtoDefaultTypeInternal {
   PROTOBUF_CONSTEXPR TransactionProtoDefaultTypeInternal()
@@ -67,6 +68,7 @@ const uint32_t TableStruct_transaction_5fprotos_2eproto::offsets[] PROTOBUF_SECT
   PROTOBUF_FIELD_OFFSET(::alyncoin::TransactionProto, _impl_.sender_pubkey_falcon_),
   PROTOBUF_FIELD_OFFSET(::alyncoin::TransactionProto, _impl_.metadata_),
   PROTOBUF_FIELD_OFFSET(::alyncoin::TransactionProto, _impl_.hash_),
+  PROTOBUF_FIELD_OFFSET(::alyncoin::TransactionProto, _impl_.is_system_),
 };
 static const ::_pbi::MigrationSchema schemas[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
   { 0, -1, -1, sizeof(::alyncoin::TransactionProto)},
@@ -77,18 +79,19 @@ static const ::_pb::Message* const file_default_instances[] = {
 };
 
 const char descriptor_table_protodef_transaction_5fprotos_2eproto[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) =
-  "\n\030transaction_protos.proto\022\010alyncoin\"\377\001\n"
+  "\n\030transaction_protos.proto\022\010alyncoin\"\222\002\n"
   "\020TransactionProto\022\016\n\006sender\030\001 \001(\t\022\021\n\trec"
   "ipient\030\002 \001(\t\022\016\n\006amount\030\003 \001(\001\022\021\n\ttimestam"
   "p\030\004 \001(\004\022\033\n\023signature_dilithium\030\005 \001(\t\022\030\n\020"
-  "signature_falcon\030\006 \001(\t\022\017\n\007zkproof\030\007 \001(\t\022"
+  "signature_falcon\030\006 \001(\t\022\017\n\007zkproof\030\007 \001(\014\022"
   "\037\n\027sender_pubkey_dilithium\030\010 \001(\t\022\034\n\024send"
   "er_pubkey_falcon\030\t \001(\t\022\020\n\010metadata\030\n \001(\t"
-  "\022\014\n\004hash\030\013 \001(\tb\006proto3"
+  "\022\014\n\004hash\030\013 \001(\t\022\021\n\tis_system\030\014 \001(\010b\006proto"
+  "3"
   ;
 static ::_pbi::once_flag descriptor_table_transaction_5fprotos_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_transaction_5fprotos_2eproto = {
-    false, false, 302, descriptor_table_protodef_transaction_5fprotos_2eproto,
+    false, false, 321, descriptor_table_protodef_transaction_5fprotos_2eproto,
     "transaction_protos.proto",
     &descriptor_table_transaction_5fprotos_2eproto_once, nullptr, 0, 1,
     schemas, file_default_instances, TableStruct_transaction_5fprotos_2eproto::offsets,
@@ -130,6 +133,7 @@ TransactionProto::TransactionProto(const TransactionProto& from)
     , decltype(_impl_.hash_){}
     , decltype(_impl_.amount_){}
     , decltype(_impl_.timestamp_){}
+    , decltype(_impl_.is_system_){}
     , /*decltype(_impl_._cached_size_)*/{}};
 
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
@@ -206,8 +210,8 @@ TransactionProto::TransactionProto(const TransactionProto& from)
       _this->GetArenaForAllocation());
   }
   ::memcpy(&_impl_.amount_, &from._impl_.amount_,
-    static_cast<size_t>(reinterpret_cast<char*>(&_impl_.timestamp_) -
-    reinterpret_cast<char*>(&_impl_.amount_)) + sizeof(_impl_.timestamp_));
+    static_cast<size_t>(reinterpret_cast<char*>(&_impl_.is_system_) -
+    reinterpret_cast<char*>(&_impl_.amount_)) + sizeof(_impl_.is_system_));
   // @@protoc_insertion_point(copy_constructor:alyncoin.TransactionProto)
 }
 
@@ -227,6 +231,7 @@ inline void TransactionProto::SharedCtor(
     , decltype(_impl_.hash_){}
     , decltype(_impl_.amount_){0}
     , decltype(_impl_.timestamp_){uint64_t{0u}}
+    , decltype(_impl_.is_system_){false}
     , /*decltype(_impl_._cached_size_)*/{}
   };
   _impl_.sender_.InitDefault();
@@ -309,8 +314,8 @@ void TransactionProto::Clear() {
   _impl_.metadata_.ClearToEmpty();
   _impl_.hash_.ClearToEmpty();
   ::memset(&_impl_.amount_, 0, static_cast<size_t>(
-      reinterpret_cast<char*>(&_impl_.timestamp_) -
-      reinterpret_cast<char*>(&_impl_.amount_)) + sizeof(_impl_.timestamp_));
+      reinterpret_cast<char*>(&_impl_.is_system_) -
+      reinterpret_cast<char*>(&_impl_.amount_)) + sizeof(_impl_.is_system_));
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -376,13 +381,12 @@ const char* TransactionProto::_InternalParse(const char* ptr, ::_pbi::ParseConte
         } else
           goto handle_unusual;
         continue;
-      // string zkproof = 7;
+      // bytes zkproof = 7;
       case 7:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 58)) {
           auto str = _internal_mutable_zkproof();
           ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(ptr);
-          CHK_(::_pbi::VerifyUTF8(str, "alyncoin.TransactionProto.zkproof"));
         } else
           goto handle_unusual;
         continue;
@@ -423,6 +427,14 @@ const char* TransactionProto::_InternalParse(const char* ptr, ::_pbi::ParseConte
           ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(ptr);
           CHK_(::_pbi::VerifyUTF8(str, "alyncoin.TransactionProto.hash"));
+        } else
+          goto handle_unusual;
+        continue;
+      // bool is_system = 12;
+      case 12:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 96)) {
+          _impl_.is_system_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
+          CHK_(ptr);
         } else
           goto handle_unusual;
         continue;
@@ -511,13 +523,9 @@ uint8_t* TransactionProto::_InternalSerialize(
         6, this->_internal_signature_falcon(), target);
   }
 
-  // string zkproof = 7;
+  // bytes zkproof = 7;
   if (!this->_internal_zkproof().empty()) {
-    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
-      this->_internal_zkproof().data(), static_cast<int>(this->_internal_zkproof().length()),
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
-      "alyncoin.TransactionProto.zkproof");
-    target = stream->WriteStringMaybeAliased(
+    target = stream->WriteBytesMaybeAliased(
         7, this->_internal_zkproof(), target);
   }
 
@@ -559,6 +567,12 @@ uint8_t* TransactionProto::_InternalSerialize(
       "alyncoin.TransactionProto.hash");
     target = stream->WriteStringMaybeAliased(
         11, this->_internal_hash(), target);
+  }
+
+  // bool is_system = 12;
+  if (this->_internal_is_system() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteBoolToArray(12, this->_internal_is_system(), target);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -605,10 +619,10 @@ size_t TransactionProto::ByteSizeLong() const {
         this->_internal_signature_falcon());
   }
 
-  // string zkproof = 7;
+  // bytes zkproof = 7;
   if (!this->_internal_zkproof().empty()) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::BytesSize(
         this->_internal_zkproof());
   }
 
@@ -652,6 +666,11 @@ size_t TransactionProto::ByteSizeLong() const {
   // uint64 timestamp = 4;
   if (this->_internal_timestamp() != 0) {
     total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(this->_internal_timestamp());
+  }
+
+  // bool is_system = 12;
+  if (this->_internal_is_system() != 0) {
+    total_size += 1 + 1;
   }
 
   return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
@@ -709,6 +728,9 @@ void TransactionProto::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const
   if (from._internal_timestamp() != 0) {
     _this->_internal_set_timestamp(from._internal_timestamp());
   }
+  if (from._internal_is_system() != 0) {
+    _this->_internal_set_is_system(from._internal_is_system());
+  }
   _this->_internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
 }
 
@@ -765,8 +787,8 @@ void TransactionProto::InternalSwap(TransactionProto* other) {
       &other->_impl_.hash_, rhs_arena
   );
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(TransactionProto, _impl_.timestamp_)
-      + sizeof(TransactionProto::_impl_.timestamp_)
+      PROTOBUF_FIELD_OFFSET(TransactionProto, _impl_.is_system_)
+      + sizeof(TransactionProto::_impl_.is_system_)
       - PROTOBUF_FIELD_OFFSET(TransactionProto, _impl_.amount_)>(
           reinterpret_cast<char*>(&_impl_.amount_),
           reinterpret_cast<char*>(&other->_impl_.amount_));

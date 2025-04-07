@@ -189,10 +189,13 @@ class BlockProto final :
     kFalconSignatureFieldNumber = 13,
     kPublicKeyDilithiumFieldNumber = 14,
     kPublicKeyFalconFieldNumber = 15,
+    kStateRootFieldNumber = 16,
+    kTxMerkleRootFieldNumber = 17,
     kIndexFieldNumber = 1,
     kDifficultyFieldNumber = 8,
     kNonceFieldNumber = 6,
     kTimestampFieldNumber = 7,
+    kRewardFieldNumber = 18,
   };
   // repeated .alyncoin.TransactionProto transactions = 3;
   int transactions_size() const;
@@ -352,6 +355,34 @@ class BlockProto final :
   std::string* _internal_mutable_public_key_falcon();
   public:
 
+  // string state_root = 16;
+  void clear_state_root();
+  const std::string& state_root() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_state_root(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_state_root();
+  PROTOBUF_NODISCARD std::string* release_state_root();
+  void set_allocated_state_root(std::string* state_root);
+  private:
+  const std::string& _internal_state_root() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_state_root(const std::string& value);
+  std::string* _internal_mutable_state_root();
+  public:
+
+  // string tx_merkle_root = 17;
+  void clear_tx_merkle_root();
+  const std::string& tx_merkle_root() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_tx_merkle_root(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_tx_merkle_root();
+  PROTOBUF_NODISCARD std::string* release_tx_merkle_root();
+  void set_allocated_tx_merkle_root(std::string* tx_merkle_root);
+  private:
+  const std::string& _internal_tx_merkle_root() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_tx_merkle_root(const std::string& value);
+  std::string* _internal_mutable_tx_merkle_root();
+  public:
+
   // int32 index = 1;
   void clear_index();
   int32_t index() const;
@@ -388,6 +419,19 @@ class BlockProto final :
   void _internal_set_timestamp(uint64_t value);
   public:
 
+  // optional double reward = 18;
+  bool has_reward() const;
+  private:
+  bool _internal_has_reward() const;
+  public:
+  void clear_reward();
+  double reward() const;
+  void set_reward(double value);
+  private:
+  double _internal_reward() const;
+  void _internal_set_reward(double value);
+  public:
+
   // @@protoc_insertion_point(class_scope:alyncoin.BlockProto)
  private:
   class _Internal;
@@ -396,6 +440,8 @@ class BlockProto final :
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
   struct Impl_ {
+    ::PROTOBUF_NAMESPACE_ID::internal::HasBits<1> _has_bits_;
+    mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
     ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::TransactionProto > transactions_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr previous_hash_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr hash_;
@@ -407,11 +453,13 @@ class BlockProto final :
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr falcon_signature_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr public_key_dilithium_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr public_key_falcon_;
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr state_root_;
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr tx_merkle_root_;
     int32_t index_;
     int32_t difficulty_;
     uint64_t nonce_;
     uint64_t timestamp_;
-    mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
+    double reward_;
   };
   union { Impl_ _impl_; };
   friend struct ::TableStruct_block_5fprotos_2eproto;
@@ -1042,6 +1090,134 @@ inline void BlockProto::set_allocated_public_key_falcon(std::string* public_key_
   }
 #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
   // @@protoc_insertion_point(field_set_allocated:alyncoin.BlockProto.public_key_falcon)
+}
+
+// string state_root = 16;
+inline void BlockProto::clear_state_root() {
+  _impl_.state_root_.ClearToEmpty();
+}
+inline const std::string& BlockProto::state_root() const {
+  // @@protoc_insertion_point(field_get:alyncoin.BlockProto.state_root)
+  return _internal_state_root();
+}
+template <typename ArgT0, typename... ArgT>
+inline PROTOBUF_ALWAYS_INLINE
+void BlockProto::set_state_root(ArgT0&& arg0, ArgT... args) {
+ 
+ _impl_.state_root_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:alyncoin.BlockProto.state_root)
+}
+inline std::string* BlockProto::mutable_state_root() {
+  std::string* _s = _internal_mutable_state_root();
+  // @@protoc_insertion_point(field_mutable:alyncoin.BlockProto.state_root)
+  return _s;
+}
+inline const std::string& BlockProto::_internal_state_root() const {
+  return _impl_.state_root_.Get();
+}
+inline void BlockProto::_internal_set_state_root(const std::string& value) {
+  
+  _impl_.state_root_.Set(value, GetArenaForAllocation());
+}
+inline std::string* BlockProto::_internal_mutable_state_root() {
+  
+  return _impl_.state_root_.Mutable(GetArenaForAllocation());
+}
+inline std::string* BlockProto::release_state_root() {
+  // @@protoc_insertion_point(field_release:alyncoin.BlockProto.state_root)
+  return _impl_.state_root_.Release();
+}
+inline void BlockProto::set_allocated_state_root(std::string* state_root) {
+  if (state_root != nullptr) {
+    
+  } else {
+    
+  }
+  _impl_.state_root_.SetAllocated(state_root, GetArenaForAllocation());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (_impl_.state_root_.IsDefault()) {
+    _impl_.state_root_.Set("", GetArenaForAllocation());
+  }
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.BlockProto.state_root)
+}
+
+// string tx_merkle_root = 17;
+inline void BlockProto::clear_tx_merkle_root() {
+  _impl_.tx_merkle_root_.ClearToEmpty();
+}
+inline const std::string& BlockProto::tx_merkle_root() const {
+  // @@protoc_insertion_point(field_get:alyncoin.BlockProto.tx_merkle_root)
+  return _internal_tx_merkle_root();
+}
+template <typename ArgT0, typename... ArgT>
+inline PROTOBUF_ALWAYS_INLINE
+void BlockProto::set_tx_merkle_root(ArgT0&& arg0, ArgT... args) {
+ 
+ _impl_.tx_merkle_root_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:alyncoin.BlockProto.tx_merkle_root)
+}
+inline std::string* BlockProto::mutable_tx_merkle_root() {
+  std::string* _s = _internal_mutable_tx_merkle_root();
+  // @@protoc_insertion_point(field_mutable:alyncoin.BlockProto.tx_merkle_root)
+  return _s;
+}
+inline const std::string& BlockProto::_internal_tx_merkle_root() const {
+  return _impl_.tx_merkle_root_.Get();
+}
+inline void BlockProto::_internal_set_tx_merkle_root(const std::string& value) {
+  
+  _impl_.tx_merkle_root_.Set(value, GetArenaForAllocation());
+}
+inline std::string* BlockProto::_internal_mutable_tx_merkle_root() {
+  
+  return _impl_.tx_merkle_root_.Mutable(GetArenaForAllocation());
+}
+inline std::string* BlockProto::release_tx_merkle_root() {
+  // @@protoc_insertion_point(field_release:alyncoin.BlockProto.tx_merkle_root)
+  return _impl_.tx_merkle_root_.Release();
+}
+inline void BlockProto::set_allocated_tx_merkle_root(std::string* tx_merkle_root) {
+  if (tx_merkle_root != nullptr) {
+    
+  } else {
+    
+  }
+  _impl_.tx_merkle_root_.SetAllocated(tx_merkle_root, GetArenaForAllocation());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (_impl_.tx_merkle_root_.IsDefault()) {
+    _impl_.tx_merkle_root_.Set("", GetArenaForAllocation());
+  }
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.BlockProto.tx_merkle_root)
+}
+
+// optional double reward = 18;
+inline bool BlockProto::_internal_has_reward() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  return value;
+}
+inline bool BlockProto::has_reward() const {
+  return _internal_has_reward();
+}
+inline void BlockProto::clear_reward() {
+  _impl_.reward_ = 0;
+  _impl_._has_bits_[0] &= ~0x00000001u;
+}
+inline double BlockProto::_internal_reward() const {
+  return _impl_.reward_;
+}
+inline double BlockProto::reward() const {
+  // @@protoc_insertion_point(field_get:alyncoin.BlockProto.reward)
+  return _internal_reward();
+}
+inline void BlockProto::_internal_set_reward(double value) {
+  _impl_._has_bits_[0] |= 0x00000001u;
+  _impl_.reward_ = value;
+}
+inline void BlockProto::set_reward(double value) {
+  _internal_set_reward(value);
+  // @@protoc_insertion_point(field_set:alyncoin.BlockProto.reward)
 }
 
 #ifdef __GNUC__
