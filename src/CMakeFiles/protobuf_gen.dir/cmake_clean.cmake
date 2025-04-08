@@ -7,6 +7,8 @@ file(REMOVE_RECURSE
   "../generated/blockchain_protos.pb.h"
   "../generated/crypto_protos.pb.cc"
   "../generated/crypto_protos.pb.h"
+  "../generated/identity.pb.cc"
+  "../generated/identity.pb.h"
   "../generated/main_protos.pb.cc"
   "../generated/main_protos.pb.h"
   "../generated/nft.pb.cc"

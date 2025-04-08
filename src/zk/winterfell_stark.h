@@ -2,10 +2,11 @@
 #define WINTERFELL_STARK_H
 
 #include <string>
-#include <ctime>  // Required for time_t
+#include <ctime>      // Required for time_t
 #include <vector>
 #include <cstdint>
 #include <iostream>
+#include <optional>   // Needed for std::optional
 #include "../nft/nft.h"
 
 class WinterfellStark {
@@ -34,16 +35,22 @@ public:
                                        double amount,
                                        time_t timestamp);
 
+    // ✅ Generate zk-STARK Proof for a zk-Identity
+    static std::optional<std::string> generateIdentityProof(const std::string& uuid,
+                                                            const std::string& name,
+                                                            const std::string& metadataHash);
+
+    // ✅ NFT zk-STARK Proof Verification
     static bool verifyNFTZkProof(const NFT& nft) {
-    if (nft.zkStarkProof.empty()) {
-        std::cerr << "❌ [NFT-ZK] Missing zk-STARK proof data.\n";
-        return false;
+        if (nft.zkStarkProof.empty()) {
+            std::cerr << "❌ [NFT-ZK] Missing zk-STARK proof data.\n";
+            return false;
+        }
+        const std::string proofStr(reinterpret_cast<const char*>(nft.zkStarkProof.data()), nft.zkStarkProof.size());
+        const std::string dummyPrev = "";
+        const std::string dummyRoot = "";
+        return verifyProof(proofStr, nft.id, dummyPrev, dummyRoot);
     }
-    const std::string proofStr(reinterpret_cast<const char*>(nft.zkStarkProof.data()), nft.zkStarkProof.size());
-    const std::string dummyPrev = "";
-    const std::string dummyRoot = "";
-    return verifyProof(proofStr, nft.id, dummyPrev, dummyRoot);
-}
 };
 
 #endif // WINTERFELL_STARK_H

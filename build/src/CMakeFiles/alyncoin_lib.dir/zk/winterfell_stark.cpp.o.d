@@ -159,9 +159,10 @@ src/CMakeFiles/alyncoin_lib.dir/zk/winterfell_stark.cpp.o: \
  /usr/include/c++/13/bits/locale_facets.tcc \
  /usr/include/c++/13/bits/basic_ios.tcc \
  /usr/include/c++/13/bits/ostream.tcc /usr/include/c++/13/istream \
- /usr/include/c++/13/bits/istream.tcc /root/AlynCoin/src/zk/../nft/nft.h \
- /root/AlynCoin/src/generated/nft.pb.h /usr/include/c++/13/limits \
- /usr/include/google/protobuf/port_def.inc \
+ /usr/include/c++/13/bits/istream.tcc /usr/include/c++/13/optional \
+ /usr/include/c++/13/bits/enable_special_members.h \
+ /root/AlynCoin/src/zk/../nft/nft.h /root/AlynCoin/src/generated/nft.pb.h \
+ /usr/include/c++/13/limits /usr/include/google/protobuf/port_def.inc \
  /usr/include/google/protobuf/port_undef.inc \
  /usr/include/google/protobuf/io/coded_stream.h /usr/include/assert.h \
  /usr/include/c++/13/atomic /usr/include/c++/13/bits/atomic_base.h \
@@ -211,7 +212,6 @@ src/CMakeFiles/alyncoin_lib.dir/zk/winterfell_stark.cpp.o: \
  /usr/include/c++/13/bits/unordered_map.h \
  /usr/include/c++/13/bits/hashtable.h \
  /usr/include/c++/13/bits/hashtable_policy.h \
- /usr/include/c++/13/bits/enable_special_members.h \
  /usr/include/c++/13/unordered_set \
  /usr/include/c++/13/bits/unordered_set.h \
  /usr/include/google/protobuf/stubs/logging.h \

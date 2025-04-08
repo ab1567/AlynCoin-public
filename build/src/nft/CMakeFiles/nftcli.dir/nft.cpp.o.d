@@ -282,7 +282,7 @@ src/nft/CMakeFiles/nftcli.dir/nft.cpp.o: /root/AlynCoin/src/nft/nft.cpp \
  /usr/include/openssl/conf.h /usr/include/openssl/conferr.h \
  /usr/include/openssl/conftypes.h /usr/include/openssl/pemerr.h \
  /root/AlynCoin/src/nft/../zk/winterfell_stark.h \
- /root/AlynCoin/src/nft/../zk/../nft/nft.h \
+ /usr/include/c++/13/optional /root/AlynCoin/src/nft/../zk/../nft/nft.h \
  /root/AlynCoin/src/../src/blockchain.h \
  /root/AlynCoin/src/../src/generated/block_protos.pb.h \
  /root/AlynCoin/src/../src/generated/transaction_protos.pb.h \
@@ -296,9 +296,8 @@ src/nft/CMakeFiles/nftcli.dir/nft.cpp.o: /root/AlynCoin/src/nft/nft.cpp \
  /root/AlynCoin/src/nft/../network/peer_blacklist.h \
  /usr/include/rocksdb/db.h \
  /usr/include/rocksdb/block_cache_trace_writer.h \
- /usr/include/rocksdb/options.h /usr/include/c++/13/optional \
- /usr/include/rocksdb/advanced_options.h /usr/include/rocksdb/cache.h \
- /usr/include/rocksdb/compression_type.h \
+ /usr/include/rocksdb/options.h /usr/include/rocksdb/advanced_options.h \
+ /usr/include/rocksdb/cache.h /usr/include/rocksdb/compression_type.h \
  /usr/include/rocksdb/rocksdb_namespace.h \
  /usr/include/rocksdb/data_structure.h \
  /usr/include/rocksdb/memory_allocator.h \

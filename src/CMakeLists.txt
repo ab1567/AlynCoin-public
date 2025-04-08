@@ -73,6 +73,12 @@ file(GLOB SOURCES
 )
 
 list(APPEND SOURCES
+    ${SOURCE_DIR}/identity/identity.cpp
+    ${SOURCE_DIR}/identity/identity_store.cpp
+    ${SOURCE_DIR}/identity/proto_utils.cpp
+)
+
+list(APPEND SOURCES
     ${SOURCE_DIR}/db/rocksdb_wrapper.cpp
 )
 
@@ -114,6 +120,7 @@ include_directories(
     ${SOURCE_DIR}/crypto/dilithium
     ${SOURCE_DIR}/crypto/dilithium/ref
     ${SOURCE_DIR}/atomic_swaps
+    ${SOURCE_DIR}/identity
 )
 
 # --------------------------
@@ -138,6 +145,7 @@ set(PROTO_SRCS
     ${GENERATED_DIR}/main_protos.pb.cc
     ${GENERATED_DIR}/nft.pb.cc
     ${GENERATED_DIR}/atomic_swap.pb.cc
+    ${GENERATED_DIR}/identity.pb.cc
 )
 
 set(PROTO_HEADERS
@@ -149,6 +157,7 @@ set(PROTO_HEADERS
     ${GENERATED_DIR}/main_protos.pb.h
     ${GENERATED_DIR}/nft.pb.h
     ${GENERATED_DIR}/atomic_swap.pb.h
+    ${GENERATED_DIR}/identity.pb.h
 )
 
 add_custom_command(
@@ -163,6 +172,7 @@ add_custom_command(
             ${SOURCE_DIR}/proto/main_protos.proto
             ${SOURCE_DIR}/proto/nft.proto
             ${SOURCE_DIR}/proto/atomic_swap.proto
+            ${SOURCE_DIR}/proto/identity.proto
     DEPENDS ${SOURCE_DIR}/proto/*.proto
     COMMENT "Generating Protobuf files..."
 )
@@ -305,6 +315,29 @@ target_link_libraries(swapcli
     ${SOURCE_DIR}/rust/target/release/libzk_winterfell.a
 )
 
+#---------------------------
+add_executable(identitycli
+    ${SOURCE_DIR}/identity/identitycli.cpp
+    ${SOURCE_DIR}/identity/identity.cpp
+    ${SOURCE_DIR}/identity/identity_store.cpp
+    ${SOURCE_DIR}/identity/proto_utils.cpp
+)
+
+add_dependencies(identitycli protobuf_gen winterfell_ffi)
+
+target_link_libraries(identitycli
+    alyncoin_lib
+    ${JSONCPP_LIBRARIES}
+    ${ROCKSDB_LIB}
+    pthread
+    crypto
+    m
+    dl
+    falcon
+    dilithium
+    ${Protobuf_LIBRARIES}
+)
+
 # --------------------------
 # Optional Test Executable
 add_executable(blacklist_test ${SOURCE_DIR}/node/main_blacklist_test.cpp)
@@ -339,7 +372,7 @@ target_link_libraries(explorer_server
 
 # --------------------------
 # Output Binaries Location
-set_target_properties(alyncoin alyncoin-cli explorer_server peer_blacklist_cli blacklist_test swapcli PROPERTIES
+set_target_properties(alyncoin alyncoin-cli explorer_server peer_blacklist_cli blacklist_test swapcli identitycli PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
 )
 

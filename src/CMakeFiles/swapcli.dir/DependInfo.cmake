@@ -8,7 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/root/AlynCoin/src/atomic_swaps/atomic_swap.cpp" "src/CMakeFiles/swapcli.dir/atomic_swaps/atomic_swap.cpp.o" "gcc" "src/CMakeFiles/swapcli.dir/atomic_swaps/atomic_swap.cpp.o.d"
+  "/root/AlynCoin/src/atomic_swaps/proto_utils.cpp" "src/CMakeFiles/swapcli.dir/atomic_swaps/proto_utils.cpp.o" "gcc" "src/CMakeFiles/swapcli.dir/atomic_swaps/proto_utils.cpp.o.d"
   "/root/AlynCoin/src/atomic_swaps/rocksdb_swap_store.cpp" "src/CMakeFiles/swapcli.dir/atomic_swaps/rocksdb_swap_store.cpp.o" "gcc" "src/CMakeFiles/swapcli.dir/atomic_swaps/rocksdb_swap_store.cpp.o.d"
   "/root/AlynCoin/src/atomic_swaps/swap_manager.cpp" "src/CMakeFiles/swapcli.dir/atomic_swaps/swap_manager.cpp.o" "gcc" "src/CMakeFiles/swapcli.dir/atomic_swaps/swap_manager.cpp.o.d"
   "/root/AlynCoin/src/atomic_swaps/swapcli.cpp" "src/CMakeFiles/swapcli.dir/atomic_swaps/swapcli.cpp.o" "gcc" "src/CMakeFiles/swapcli.dir/atomic_swaps/swapcli.cpp.o.d"

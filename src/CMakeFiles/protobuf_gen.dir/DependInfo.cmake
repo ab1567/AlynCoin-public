@@ -20,6 +20,8 @@ set(CMAKE_MULTIPLE_OUTPUT_PAIRS
   "/root/AlynCoin/generated/blockchain_protos.pb.h" "/root/AlynCoin/generated/sync_protos.pb.h"
   "/root/AlynCoin/generated/crypto_protos.pb.cc" "/root/AlynCoin/generated/sync_protos.pb.h"
   "/root/AlynCoin/generated/crypto_protos.pb.h" "/root/AlynCoin/generated/sync_protos.pb.h"
+  "/root/AlynCoin/generated/identity.pb.cc" "/root/AlynCoin/generated/sync_protos.pb.h"
+  "/root/AlynCoin/generated/identity.pb.h" "/root/AlynCoin/generated/sync_protos.pb.h"
   "/root/AlynCoin/generated/main_protos.pb.cc" "/root/AlynCoin/generated/sync_protos.pb.h"
   "/root/AlynCoin/generated/main_protos.pb.h" "/root/AlynCoin/generated/sync_protos.pb.h"
   "/root/AlynCoin/generated/nft.pb.cc" "/root/AlynCoin/generated/sync_protos.pb.h"

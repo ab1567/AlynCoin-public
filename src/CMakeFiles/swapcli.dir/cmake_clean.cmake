@@ -1,8 +1,8 @@
 file(REMOVE_RECURSE
   "../swapcli"
   "../swapcli.pdb"
-  "CMakeFiles/swapcli.dir/atomic_swaps/atomic_swap.cpp.o"
-  "CMakeFiles/swapcli.dir/atomic_swaps/atomic_swap.cpp.o.d"
+  "CMakeFiles/swapcli.dir/atomic_swaps/proto_utils.cpp.o"
+  "CMakeFiles/swapcli.dir/atomic_swaps/proto_utils.cpp.o.d"
   "CMakeFiles/swapcli.dir/atomic_swaps/rocksdb_swap_store.cpp.o"
   "CMakeFiles/swapcli.dir/atomic_swaps/rocksdb_swap_store.cpp.o.d"
   "CMakeFiles/swapcli.dir/atomic_swaps/swap_manager.cpp.o"

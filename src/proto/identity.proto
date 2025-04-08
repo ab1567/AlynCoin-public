@@ -1,0 +1,13 @@
+syntax = "proto3";
+package identity;
+
+message ZkIdentityProto {
+  string uuid = 1;
+  string name = 2;
+  string publicKey = 3;
+  string metadataHash = 4;
+  int64 createdAt = 5;
+  string zkProof = 6;
+  string falconSignature = 7;
+  string dilithiumSignature = 8;
+}

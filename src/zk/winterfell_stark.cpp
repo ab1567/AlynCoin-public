@@ -85,3 +85,24 @@ std::string WinterfellStark::generateTransactionProof(const std::string& sender,
     std::cout << "[zkSTARK] ✅ Transaction zk-STARK proof generated. Size: " << proof.size() << " bytes\n";
     return proof;
 }
+
+// ✅ Identity zk-STARK Proof Generation (mocked for now)
+std::optional<std::string> WinterfellStark::generateIdentityProof(const std::string& uuid,
+                                                                   const std::string& name,
+                                                                   const std::string& metadataHash) {
+    std::string seed = uuid + name + metadataHash;
+
+    std::cout << "[zkSTARK] Generating identity proof with seed: " << seed << "\n";
+
+    char* proof_cstr = generate_proof_bytes(seed.c_str(), seed.size());
+    if (!proof_cstr) {
+        std::cerr << "[zkSTARK] ❌ Failed to generate identity zk-STARK proof.\n";
+        return std::nullopt;
+    }
+
+    std::string proof(proof_cstr);
+    free(proof_cstr);
+
+    std::cout << "[zkSTARK] ✅ Identity zk-STARK proof generated. Size: " << proof.size() << " bytes\n";
+    return proof;
+}

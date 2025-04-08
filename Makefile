@@ -234,6 +234,19 @@ swapcli/fast:
 .PHONY : swapcli/fast
 
 #=============================================================================
+# Target rules for targets named identitycli
+
+# Build rule for target.
+identitycli: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 identitycli
+.PHONY : identitycli
+
+# fast build rule for target.
+identitycli/fast:
+	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/identitycli.dir/build.make src/CMakeFiles/identitycli.dir/build
+.PHONY : identitycli/fast
+
+#=============================================================================
 # Target rules for targets named blacklist_test
 
 # Build rule for target.
@@ -302,6 +315,7 @@ help:
 	@echo "... dilithium"
 	@echo "... explorer_server"
 	@echo "... falcon"
+	@echo "... identitycli"
 	@echo "... nft_crypto"
 	@echo "... nftcli"
 	@echo "... peer_blacklist_cli"

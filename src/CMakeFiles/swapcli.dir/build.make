@@ -111,26 +111,26 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/rocksdb_swap_store.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/swapcli.dir/atomic_swaps/rocksdb_swap_store.cpp.s"
 	cd /root/AlynCoin/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /root/AlynCoin/src/atomic_swaps/rocksdb_swap_store.cpp -o CMakeFiles/swapcli.dir/atomic_swaps/rocksdb_swap_store.cpp.s
 
-src/CMakeFiles/swapcli.dir/atomic_swaps/atomic_swap.cpp.o: src/CMakeFiles/swapcli.dir/flags.make
-src/CMakeFiles/swapcli.dir/atomic_swaps/atomic_swap.cpp.o: src/atomic_swaps/atomic_swap.cpp
-src/CMakeFiles/swapcli.dir/atomic_swaps/atomic_swap.cpp.o: src/CMakeFiles/swapcli.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object src/CMakeFiles/swapcli.dir/atomic_swaps/atomic_swap.cpp.o"
-	cd /root/AlynCoin/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT src/CMakeFiles/swapcli.dir/atomic_swaps/atomic_swap.cpp.o -MF CMakeFiles/swapcli.dir/atomic_swaps/atomic_swap.cpp.o.d -o CMakeFiles/swapcli.dir/atomic_swaps/atomic_swap.cpp.o -c /root/AlynCoin/src/atomic_swaps/atomic_swap.cpp
+src/CMakeFiles/swapcli.dir/atomic_swaps/proto_utils.cpp.o: src/CMakeFiles/swapcli.dir/flags.make
+src/CMakeFiles/swapcli.dir/atomic_swaps/proto_utils.cpp.o: src/atomic_swaps/proto_utils.cpp
+src/CMakeFiles/swapcli.dir/atomic_swaps/proto_utils.cpp.o: src/CMakeFiles/swapcli.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object src/CMakeFiles/swapcli.dir/atomic_swaps/proto_utils.cpp.o"
+	cd /root/AlynCoin/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT src/CMakeFiles/swapcli.dir/atomic_swaps/proto_utils.cpp.o -MF CMakeFiles/swapcli.dir/atomic_swaps/proto_utils.cpp.o.d -o CMakeFiles/swapcli.dir/atomic_swaps/proto_utils.cpp.o -c /root/AlynCoin/src/atomic_swaps/proto_utils.cpp
 
-src/CMakeFiles/swapcli.dir/atomic_swaps/atomic_swap.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/swapcli.dir/atomic_swaps/atomic_swap.cpp.i"
-	cd /root/AlynCoin/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /root/AlynCoin/src/atomic_swaps/atomic_swap.cpp > CMakeFiles/swapcli.dir/atomic_swaps/atomic_swap.cpp.i
+src/CMakeFiles/swapcli.dir/atomic_swaps/proto_utils.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/swapcli.dir/atomic_swaps/proto_utils.cpp.i"
+	cd /root/AlynCoin/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /root/AlynCoin/src/atomic_swaps/proto_utils.cpp > CMakeFiles/swapcli.dir/atomic_swaps/proto_utils.cpp.i
 
-src/CMakeFiles/swapcli.dir/atomic_swaps/atomic_swap.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/swapcli.dir/atomic_swaps/atomic_swap.cpp.s"
-	cd /root/AlynCoin/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /root/AlynCoin/src/atomic_swaps/atomic_swap.cpp -o CMakeFiles/swapcli.dir/atomic_swaps/atomic_swap.cpp.s
+src/CMakeFiles/swapcli.dir/atomic_swaps/proto_utils.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/swapcli.dir/atomic_swaps/proto_utils.cpp.s"
+	cd /root/AlynCoin/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /root/AlynCoin/src/atomic_swaps/proto_utils.cpp -o CMakeFiles/swapcli.dir/atomic_swaps/proto_utils.cpp.s
 
 # Object files for target swapcli
 swapcli_OBJECTS = \
 "CMakeFiles/swapcli.dir/atomic_swaps/swapcli.cpp.o" \
 "CMakeFiles/swapcli.dir/atomic_swaps/swap_manager.cpp.o" \
 "CMakeFiles/swapcli.dir/atomic_swaps/rocksdb_swap_store.cpp.o" \
-"CMakeFiles/swapcli.dir/atomic_swaps/atomic_swap.cpp.o"
+"CMakeFiles/swapcli.dir/atomic_swaps/proto_utils.cpp.o"
 
 # External object files for target swapcli
 swapcli_EXTERNAL_OBJECTS =
@@ -138,7 +138,7 @@ swapcli_EXTERNAL_OBJECTS =
 swapcli: src/CMakeFiles/swapcli.dir/atomic_swaps/swapcli.cpp.o
 swapcli: src/CMakeFiles/swapcli.dir/atomic_swaps/swap_manager.cpp.o
 swapcli: src/CMakeFiles/swapcli.dir/atomic_swaps/rocksdb_swap_store.cpp.o
-swapcli: src/CMakeFiles/swapcli.dir/atomic_swaps/atomic_swap.cpp.o
+swapcli: src/CMakeFiles/swapcli.dir/atomic_swaps/proto_utils.cpp.o
 swapcli: src/CMakeFiles/swapcli.dir/build.make
 swapcli: src/libalyncoin_lib.a
 swapcli: /usr/lib/x86_64-linux-gnu/librocksdb.so

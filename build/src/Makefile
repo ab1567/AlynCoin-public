@@ -243,6 +243,20 @@ swapcli/fast:
 .PHONY : swapcli/fast
 
 # Convenience name for target.
+src/CMakeFiles/identitycli.dir/rule:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 src/CMakeFiles/identitycli.dir/rule
+.PHONY : src/CMakeFiles/identitycli.dir/rule
+
+# Convenience name for target.
+identitycli: src/CMakeFiles/identitycli.dir/rule
+.PHONY : identitycli
+
+# fast build rule for target.
+identitycli/fast:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/identitycli.dir/build.make src/CMakeFiles/identitycli.dir/build
+.PHONY : identitycli/fast
+
+# Convenience name for target.
 src/CMakeFiles/blacklist_test.dir/rule:
 	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 src/CMakeFiles/blacklist_test.dir/rule
 .PHONY : src/CMakeFiles/blacklist_test.dir/rule
@@ -365,6 +379,30 @@ __/generated/crypto_protos.pb.s: __/generated/crypto_protos.pb.cc.s
 __/generated/crypto_protos.pb.cc.s:
 	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/__/generated/crypto_protos.pb.cc.s
 .PHONY : __/generated/crypto_protos.pb.cc.s
+
+__/generated/identity.pb.o: __/generated/identity.pb.cc.o
+.PHONY : __/generated/identity.pb.o
+
+# target to build an object file
+__/generated/identity.pb.cc.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/__/generated/identity.pb.cc.o
+.PHONY : __/generated/identity.pb.cc.o
+
+__/generated/identity.pb.i: __/generated/identity.pb.cc.i
+.PHONY : __/generated/identity.pb.i
+
+# target to preprocess a source file
+__/generated/identity.pb.cc.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/__/generated/identity.pb.cc.i
+.PHONY : __/generated/identity.pb.cc.i
+
+__/generated/identity.pb.s: __/generated/identity.pb.cc.s
+.PHONY : __/generated/identity.pb.s
+
+# target to generate assembly for a file
+__/generated/identity.pb.cc.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/__/generated/identity.pb.cc.s
+.PHONY : __/generated/identity.pb.cc.s
 
 __/generated/main_protos.pb.o: __/generated/main_protos.pb.cc.o
 .PHONY : __/generated/main_protos.pb.o
@@ -1638,6 +1676,111 @@ governance/devfund.cpp.s:
 	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/governance/devfund.cpp.s
 .PHONY : governance/devfund.cpp.s
 
+identity/identity.o: identity/identity.cpp.o
+.PHONY : identity/identity.o
+
+# target to build an object file
+identity/identity.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/identity/identity.cpp.o
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/identitycli.dir/build.make src/CMakeFiles/identitycli.dir/identity/identity.cpp.o
+.PHONY : identity/identity.cpp.o
+
+identity/identity.i: identity/identity.cpp.i
+.PHONY : identity/identity.i
+
+# target to preprocess a source file
+identity/identity.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/identity/identity.cpp.i
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/identitycli.dir/build.make src/CMakeFiles/identitycli.dir/identity/identity.cpp.i
+.PHONY : identity/identity.cpp.i
+
+identity/identity.s: identity/identity.cpp.s
+.PHONY : identity/identity.s
+
+# target to generate assembly for a file
+identity/identity.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/identity/identity.cpp.s
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/identitycli.dir/build.make src/CMakeFiles/identitycli.dir/identity/identity.cpp.s
+.PHONY : identity/identity.cpp.s
+
+identity/identity_store.o: identity/identity_store.cpp.o
+.PHONY : identity/identity_store.o
+
+# target to build an object file
+identity/identity_store.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/identity/identity_store.cpp.o
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/identitycli.dir/build.make src/CMakeFiles/identitycli.dir/identity/identity_store.cpp.o
+.PHONY : identity/identity_store.cpp.o
+
+identity/identity_store.i: identity/identity_store.cpp.i
+.PHONY : identity/identity_store.i
+
+# target to preprocess a source file
+identity/identity_store.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/identity/identity_store.cpp.i
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/identitycli.dir/build.make src/CMakeFiles/identitycli.dir/identity/identity_store.cpp.i
+.PHONY : identity/identity_store.cpp.i
+
+identity/identity_store.s: identity/identity_store.cpp.s
+.PHONY : identity/identity_store.s
+
+# target to generate assembly for a file
+identity/identity_store.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/identity/identity_store.cpp.s
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/identitycli.dir/build.make src/CMakeFiles/identitycli.dir/identity/identity_store.cpp.s
+.PHONY : identity/identity_store.cpp.s
+
+identity/identitycli.o: identity/identitycli.cpp.o
+.PHONY : identity/identitycli.o
+
+# target to build an object file
+identity/identitycli.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/identitycli.dir/build.make src/CMakeFiles/identitycli.dir/identity/identitycli.cpp.o
+.PHONY : identity/identitycli.cpp.o
+
+identity/identitycli.i: identity/identitycli.cpp.i
+.PHONY : identity/identitycli.i
+
+# target to preprocess a source file
+identity/identitycli.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/identitycli.dir/build.make src/CMakeFiles/identitycli.dir/identity/identitycli.cpp.i
+.PHONY : identity/identitycli.cpp.i
+
+identity/identitycli.s: identity/identitycli.cpp.s
+.PHONY : identity/identitycli.s
+
+# target to generate assembly for a file
+identity/identitycli.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/identitycli.dir/build.make src/CMakeFiles/identitycli.dir/identity/identitycli.cpp.s
+.PHONY : identity/identitycli.cpp.s
+
+identity/proto_utils.o: identity/proto_utils.cpp.o
+.PHONY : identity/proto_utils.o
+
+# target to build an object file
+identity/proto_utils.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/identity/proto_utils.cpp.o
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/identitycli.dir/build.make src/CMakeFiles/identitycli.dir/identity/proto_utils.cpp.o
+.PHONY : identity/proto_utils.cpp.o
+
+identity/proto_utils.i: identity/proto_utils.cpp.i
+.PHONY : identity/proto_utils.i
+
+# target to preprocess a source file
+identity/proto_utils.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/identity/proto_utils.cpp.i
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/identitycli.dir/build.make src/CMakeFiles/identitycli.dir/identity/proto_utils.cpp.i
+.PHONY : identity/proto_utils.cpp.i
+
+identity/proto_utils.s: identity/proto_utils.cpp.s
+.PHONY : identity/proto_utils.s
+
+# target to generate assembly for a file
+identity/proto_utils.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/identity/proto_utils.cpp.s
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/identitycli.dir/build.make src/CMakeFiles/identitycli.dir/identity/proto_utils.cpp.s
+.PHONY : identity/proto_utils.cpp.s
+
 keccak.o: keccak.cpp.o
 .PHONY : keccak.o
 
@@ -2111,6 +2254,7 @@ help:
 	@echo "... dilithium"
 	@echo "... explorer_server"
 	@echo "... falcon"
+	@echo "... identitycli"
 	@echo "... peer_blacklist_cli"
 	@echo "... swapcli"
 	@echo "... __/generated/atomic_swap.pb.o"
@@ -2125,6 +2269,9 @@ help:
 	@echo "... __/generated/crypto_protos.pb.o"
 	@echo "... __/generated/crypto_protos.pb.i"
 	@echo "... __/generated/crypto_protos.pb.s"
+	@echo "... __/generated/identity.pb.o"
+	@echo "... __/generated/identity.pb.i"
+	@echo "... __/generated/identity.pb.s"
 	@echo "... __/generated/main_protos.pb.o"
 	@echo "... __/generated/main_protos.pb.i"
 	@echo "... __/generated/main_protos.pb.s"
@@ -2284,6 +2431,18 @@ help:
 	@echo "... governance/devfund.o"
 	@echo "... governance/devfund.i"
 	@echo "... governance/devfund.s"
+	@echo "... identity/identity.o"
+	@echo "... identity/identity.i"
+	@echo "... identity/identity.s"
+	@echo "... identity/identity_store.o"
+	@echo "... identity/identity_store.i"
+	@echo "... identity/identity_store.s"
+	@echo "... identity/identitycli.o"
+	@echo "... identity/identitycli.i"
+	@echo "... identity/identitycli.s"
+	@echo "... identity/proto_utils.o"
+	@echo "... identity/proto_utils.i"
+	@echo "... identity/proto_utils.s"
 	@echo "... keccak.o"
 	@echo "... keccak.i"
 	@echo "... keccak.s"

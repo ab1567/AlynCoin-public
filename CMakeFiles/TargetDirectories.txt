@@ -9,6 +9,7 @@
 /root/AlynCoin/src/CMakeFiles/alyncoin-cli.dir
 /root/AlynCoin/src/CMakeFiles/peer_blacklist_cli.dir
 /root/AlynCoin/src/CMakeFiles/swapcli.dir
+/root/AlynCoin/src/CMakeFiles/identitycli.dir
 /root/AlynCoin/src/CMakeFiles/blacklist_test.dir
 /root/AlynCoin/src/CMakeFiles/explorer_server.dir
 /root/AlynCoin/src/CMakeFiles/edit_cache.dir
