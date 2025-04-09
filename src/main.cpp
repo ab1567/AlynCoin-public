@@ -32,60 +32,6 @@ int main(int argc, char *argv[]) {
   std::string blacklistPath = "/root/.alyncoin/blacklist";
 
 // ───────────────────────────────────────────────────────────────
-// 🧪 Special CLI Mode: Headless Mining (for GUI integration)
-// ───────────────────────────────────────────────────────────────
-if (argc == 3 && (std::string(argv[1]) == "--mineonce" || std::string(argv[1]) == "--mine-once")) {
-  std::string minerAddress = argv[2];
-  std::cout << "⛏️ Mining single block for: " << minerAddress << "...\n";
-
-  Blockchain &blockchain = Blockchain::getInstanceNoNetwork(); // ✅ skip peer binding
-  if (!blockchain.loadFromDB()) {
-    std::cerr << "❌ Blockchain not loaded.\n";
-    return 1;
-  }
-
-  Block minedBlock = blockchain.mineBlock(minerAddress);
-  if (!minedBlock.getHash().empty()) {
-    blockchain.saveToDB();
-    blockchain.reloadBlockchainState();
-
-    std::cout << "✅ Block mined by: " << minerAddress << "\n";
-    std::cout << "🧱 Block Hash: " << minedBlock.getHash() << "\n";
-    std::cout << "✅ Block added to chain successfully.\n";
-  } else {
-    std::cerr << "⚠️ Mining failed. No valid transactions or error occurred.\n";
-  }
-  return 0;
-}
-//----------------------------
-//----------------------------
-if (argc == 3 && (std::string(argv[1]) == "--mineloop" || std::string(argv[1]) == "--mine-loop")) {
-  std::string minerAddress = argv[2];
-  std::cout << "🔁 Starting mining loop for: " << minerAddress << "\n";
-
-  Blockchain &blockchain = Blockchain::getInstanceNoNetwork();
-  if (!blockchain.loadFromDB()) {
-    std::cerr << "❌ Blockchain not loaded.\n";
-    return 1;
-  }
-
-  while (true) {
-    Block minedBlock = blockchain.mineBlock(minerAddress);
-    if (!minedBlock.getHash().empty()) {
-      blockchain.saveToDB();
-      blockchain.reloadBlockchainState();
-      std::cout << "✅ Block mined by: " << minerAddress << "\n";
-      std::cout << "🧱 Block Hash: " << minedBlock.getHash() << "\n";
-    } else {
-      std::cerr << "⚠️ Mining failed or no valid transactions.\n";
-    }
-    std::this_thread::sleep_for(std::chrono::seconds(2));
-  }
-
-  return 0; // Just in case, though it'll never hit here.
-}
-
-// ───────────────────────────────────────────────────────────────
 // 🔧 Argument Parsing
 // ───────────────────────────────────────────────────────────────
   for (int i = 1; i < argc; ++i) {

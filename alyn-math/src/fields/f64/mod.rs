@@ -144,3 +144,46 @@ impl fmt::Display for BaseElement {
         write!(f, "{}", self.0)
     }
 }
+// -------------------------------
+use crate::traits::StarkField;
+
+impl StarkField for BaseElement {
+    const ZERO: Self = BaseElement(0);
+    const ONE: Self = BaseElement(1);
+
+    fn zero() -> Self {
+        BaseElement::zero()
+    }
+
+    fn one() -> Self {
+        BaseElement::one()
+    }
+
+    fn is_zero(&self) -> bool {
+        self.is_zero()
+    }
+
+    fn inverse(self) -> Option<Self> {
+        self.inverse()
+    }
+
+    fn square(self) -> Self {
+        self.square()
+    }
+
+    fn exp(self, power: u64) -> Self {
+        self.exp(power)
+    }
+
+    fn as_bytes(&self) -> Vec<u8> {
+        self.as_bytes()
+    }
+
+    fn as_int(&self) -> u64 {
+        self.as_int()
+    }
+ 
+    fn from_u64(value: u64) -> Self {
+    BaseElement::new(value)
+}
+}

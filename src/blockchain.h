@@ -135,6 +135,7 @@ public:
  double getAverageBlockTime(int recentCount) const;
   // Updated block addition and validation functions
   bool addBlock(const Block &block);
+  void loadPendingTransactionsFromDB();
   bool isValidNewBlock(const Block &newBlock);
   double calculateBalance(const std::string &address, const std::map<std::string, double> &tempSnapshot) const;
   void fromProto(const alyncoin::BlockchainProto &protoChain);

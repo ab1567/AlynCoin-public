@@ -2,11 +2,11 @@
 #define WINTERFELL_STARK_H
 
 #include <string>
-#include <ctime>      // Required for time_t
+#include <ctime>
 #include <vector>
 #include <cstdint>
 #include <iostream>
-#include <optional>   // Needed for std::optional
+#include <optional> 
 #include "../nft/nft.h"
 
 class WinterfellStark {
@@ -39,6 +39,10 @@ public:
     static std::optional<std::string> generateIdentityProof(const std::string& uuid,
                                                             const std::string& name,
                                                             const std::string& metadataHash);
+
+    // ✅ Generate Recursive zk-STARK Proof
+    static std::string generateRecursiveProof(const std::string& innerProof,
+                                              const std::string& expectedHashHex);
 
     // ✅ NFT zk-STARK Proof Verification
     static bool verifyNFTZkProof(const NFT& nft) {

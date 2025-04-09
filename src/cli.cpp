@@ -70,14 +70,70 @@ int main(int argc, char **argv) {
         return false;
     };
 
-    bool skipDB = hasFlag(argc, argv, "--nodb");
-    bool skipNet = hasFlag(argc, argv, "--nonetwork");
+	bool skipDB = hasFlag(argc, argv, "--nodb");
+	bool skipNet = hasFlag(argc, argv, "--nonetwork");
 
-    auto getBlockchain = [&]() -> Blockchain& {
-        if (skipDB) return Blockchain::getInstanceNoDB();
-        if (skipNet) return Blockchain::getInstanceNoNetwork();
-        return Blockchain::getInstance();
-    };
+	auto getBlockchain = [&]() -> Blockchain& {
+	    if (skipDB) {
+	        std::cout << "⚠️ CLI is running in --nodb mode.\n";
+	        return Blockchain::getInstanceNoDB();
+	    }
+	    if (skipNet) {
+	        std::cout << "⚠️ CLI is running in --nonetwork mode (DB OK).\n";
+	        return Blockchain::getInstanceNoNetwork();
+	    }
+
+	    std::cout << "🌐 CLI is using full network+DB mode.\n";
+	    return Blockchain::getInstance(12345, DBPaths::getBlockchainDB(), true);
+	};
+
+   // mineonce <minerAddress>
+    if (argc >= 3 && std::string(argv[1]) == "mineonce") {
+        std::string minerAddress = argv[2];
+        Blockchain &b = getBlockchain();
+        if (!b.loadFromDB()) {
+            std::cerr << "❌ Could not load blockchain from DB.\n";
+            return 1;
+        }
+        b.loadPendingTransactionsFromDB();
+        std::cout << "⛏️ Mining single block for: " << minerAddress << "\n";
+        Block minedBlock = b.mineBlock(minerAddress);
+        if (!minedBlock.getHash().empty()) {
+            b.saveToDB();
+            b.reloadBlockchainState();
+            std::cout << "✅ Block mined by: " << minerAddress << "\n"
+                      << "🧱 Block Hash: " << minedBlock.getHash() << "\n"
+                      << "✅ Block added to chain.\n";
+        } else {
+            std::cerr << "⚠️ Mining failed.\n";
+        }
+        return 0;
+    }
+
+    // mineloop <minerAddress>
+    if (argc >= 3 && std::string(argv[1]) == "mineloop") {
+        std::string minerAddress = argv[2];
+        Blockchain &b = getBlockchain();
+        if (!b.loadFromDB()) {
+            std::cerr << "❌ Could not load blockchain from DB.\n";
+            return 1;
+        }
+        std::cout << "🔁 Starting mining loop for: " << minerAddress << "\n";
+        while (true) {
+            b.loadPendingTransactionsFromDB();
+            Block minedBlock = b.mineBlock(minerAddress);
+            if (!minedBlock.getHash().empty()) {
+                b.saveToDB();
+                b.reloadBlockchainState();
+                std::cout << "✅ Block mined by: " << minerAddress << "\n"
+                          << "🧱 Block Hash: " << minedBlock.getHash() << "\n";
+            } else {
+                std::cerr << "⚠️ Mining failed or no valid transactions.\n";
+            }
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+        }
+        return 0;
+    }
 
     // === DAO viewer ===
     if (argc == 2 && std::string(argv[1]) == "dao-view") {
@@ -141,13 +197,18 @@ int main(int argc, char **argv) {
         std::exit(0);
     }
 
-    // === Balance check ===
-    if (argc >= 3 && std::string(argv[1]) == "balance") {
-        std::string addr = argv[2];
-        Blockchain &b = getBlockchain();
-        std::cout << "✅ Balance for " << addr << ": " << b.getBalance(addr) << " AlynCoin\n";
-        std::exit(0);
-    }
+    // === Balance check (normal or forced) ===
+     if (argc >= 3 && (std::string(argv[1]) == "balance" || std::string(argv[1]) == "balance-force")) {
+      std::string addr = argv[2];
+      Blockchain &b = (std::string(argv[1]) == "balance-force")
+          ? Blockchain::getInstanceNoDB()
+          : getBlockchain();
+
+      b.reloadBlockchainState();  // 🔧 Ensure latest state is loaded before querying balance
+
+      std::cout << "✅ Balance for " << addr << ": " << b.getBalance(addr) << " AlynCoin\n";
+      std::exit(0);
+   }
 
     // === sendl1 / sendl2 ===
     if ((argc >= 5) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == "sendl2")) {
@@ -191,7 +252,6 @@ int main(int argc, char **argv) {
         }
         std::exit(0);
     }
-
     // === DAO proposal submission ===
     if (argc >= 4 && std::string(argv[1]) == "dao-submit") {
         std::string from = argv[2];
@@ -237,6 +297,60 @@ int main(int argc, char **argv) {
         std::exit(0);
     }
 
+// === Transaction history by address ===
+if (argc >= 3 && std::string(argv[1]) == "history") {
+    std::string addr = argv[2];
+    Blockchain& b = getBlockchain();
+
+    std::cout << "🔍 Loading blockchain from DB...\n";
+    b.loadFromDB();
+    b.reloadBlockchainState();
+
+    std::vector<Transaction> relevant;
+    auto blocks = b.getAllBlocks();
+    std::cout << "📦 Total blocks loaded: " << blocks.size() << "\n";
+
+    for (const auto& blk : blocks) {
+        auto txs = blk.getTransactions();
+        std::cout << "⛏ Block " << blk.getHash() << " has " << txs.size() << " txs.\n";
+
+        for (const auto& tx : txs) {
+            std::cout << "🔍 Checking tx: " << tx.getHash()
+                      << " | from: " << tx.getSender()
+                      << " | to: " << tx.getRecipient() << "\n";
+
+            if (tx.getSender() == addr || tx.getRecipient() == addr) {
+                relevant.push_back(tx);
+            }
+        }
+    }
+
+    std::cout << "\n=== Transaction History for: " << addr << " ===\n";
+    std::cout << "📜 Found " << relevant.size() << " related transactions.\n\n";
+
+    for (const auto& tx : relevant) {
+        time_t ts = tx.getTimestamp();
+        std::tm* tmPtr = std::localtime(&ts);
+        char timeStr[64];
+        std::strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", tmPtr);
+
+        std::cout << "🕒 " << timeStr << "\n"
+                  << "From: " << tx.getSender() << "\n"
+                  << "To:   " << tx.getRecipient() << "\n"
+                  << "💰 Amount: " << tx.getAmount() << " AlynCoin\n";
+
+        if (!tx.getMetadata().empty()) {
+            std::cout << "📎 Metadata: " << tx.getMetadata() << "\n";
+        }
+
+        std::cout << "🔑 TxHash: " << tx.getHash() << "\n"
+                  << "------------------------------\n";
+    }
+
+    std::exit(0);
+}
+
+
     // === Mined block stats ===
     if (argc == 3 && std::string(argv[1]) == "mychain") {
         std::string addr = argv[2];
@@ -254,6 +368,25 @@ int main(int argc, char **argv) {
         std::exit(0);
     }
 
+       // === CLI mining support ===
+   if (argc == 3 && std::string(argv[1]) == "mine") {
+     std::string minerAddr = argv[2];
+     auto dil = Crypto::loadDilithiumKeys(minerAddr);
+     auto fal = Crypto::loadFalconKeys(minerAddr);
+
+     Blockchain &b = getBlockchain();
+     Block mined = b.minePendingTransactions(minerAddr, dil.privateKey, fal.privateKey);
+
+     if (mined.getHash().empty()) {
+         std::cerr << "❌ Mining failed or returned empty block.\n";
+         return 1;
+     }
+
+     b.saveToDB();
+     std::cout << "✅ Block mined! Hash: " << mined.getHash() << "\n";
+     std::exit(0);
+ }
+
     // === Fallback guard ===
     int cmdIndex = 1;
     while (cmdIndex < argc && std::string(argv[cmdIndex]).rfind("--", 0) == 0) ++cmdIndex;
@@ -262,7 +395,7 @@ int main(int argc, char **argv) {
         bool known = (cmd == "sendl1" || cmd == "sendl2" || cmd == "createwallet" ||
                       cmd == "loadwallet" || cmd == "balance" || cmd == "dao-view" ||
                       cmd == "dao-submit" || cmd == "dao-vote" || cmd == "mychain" ||
-                      cmd == "stats");
+                      cmd == "stats" || cmd == "history");
         if (!known) {
             std::cerr << "❌ Unknown or unsupported command: " << cmd << "\n";
             return 1;

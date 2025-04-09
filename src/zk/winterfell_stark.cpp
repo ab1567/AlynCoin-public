@@ -7,15 +7,16 @@
 // 🔗 Required for linking to Rust-generated libzk_winterfell.a
 extern "C" {
     char* generate_proof(const char* seed);
-    char* generate_proof_bytes(const char* seed, size_t seed_len);  // ✅ Added declaration
+    char* generate_proof_bytes(const char* seed, size_t seed_len);  // ✅ Already present
     bool verify_proof(const char* proof, const char* seed, const char* block_hash);
+
+    // ✅ New FFI declaration for recursive proof
+    uint8_t* compose_recursive_proof(const uint8_t* proof, size_t len, const uint8_t* hash);
 }
 
 // ✅ Block zk-STARK Proof Generation
 std::string WinterfellStark::generateProof(const std::string& blockHash, const std::string& prevHash, const std::string& txRoot) {
-    // Concatenate input data to form proof seed
     std::string seed = blockHash + prevHash + txRoot;
-
     std::cout << "[zkSTARK] Generating proof with seed: " << seed << "\n";
 
     char* proof_cstr = generate_proof_bytes(seed.c_str(), seed.size());
@@ -86,7 +87,7 @@ std::string WinterfellStark::generateTransactionProof(const std::string& sender,
     return proof;
 }
 
-// ✅ Identity zk-STARK Proof Generation (mocked for now)
+// ✅ Identity zk-STARK Proof Generation
 std::optional<std::string> WinterfellStark::generateIdentityProof(const std::string& uuid,
                                                                    const std::string& name,
                                                                    const std::string& metadataHash) {
@@ -105,4 +106,32 @@ std::optional<std::string> WinterfellStark::generateIdentityProof(const std::str
 
     std::cout << "[zkSTARK] ✅ Identity zk-STARK proof generated. Size: " << proof.size() << " bytes\n";
     return proof;
+}
+
+// ✅ Recursive zk-STARK Proof Composition
+std::string WinterfellStark::generateRecursiveProof(const std::string& innerProof, const std::string& expectedHashHex) {
+    if (innerProof.empty() || expectedHashHex.empty()) {
+        std::cerr << "[zkSTARK] ❌ Invalid input for recursive proof generation.\n";
+        return "";
+    }
+
+    // Convert expected hash (hex string) to 32-byte array
+    uint8_t hash[32] = {0};
+    for (size_t i = 0; i < expectedHashHex.size() && i + 1 < expectedHashHex.size() && i / 2 < 32; i += 2) {
+        std::string byteStr = expectedHashHex.substr(i, 2);
+        hash[i / 2] = static_cast<uint8_t>(std::stoi(byteStr, nullptr, 16));
+    }
+
+    const uint8_t* innerData = reinterpret_cast<const uint8_t*>(innerProof.data());
+    uint8_t* result = compose_recursive_proof(innerData, innerProof.size(), hash);
+
+    if (!result) {
+        std::cerr << "[zkSTARK] ❌ Recursive proof generation failed.\n";
+        return "";
+    }
+
+    std::string recursiveProof(reinterpret_cast<char*>(result));
+    free(result);
+    std::cout << "[zkSTARK] ✅ Recursive proof composed. Size: " << recursiveProof.size() << " bytes\n";
+    return recursiveProof;
 }

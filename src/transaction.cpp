@@ -378,34 +378,45 @@ void Transaction::applyBurn(std::string &sender, double &amount,
             << (burnRate * 100) << "%)" << std::endl;
 }
 
-// ✅ Load Transactions from RocksDB with Error Handling
+// ✅ Load Only Confirmed Transactions from RocksDB
 std::vector<Transaction> Transaction::loadAllFromDB() {
     std::vector<Transaction> loaded;
-    rocksdb::DB *db = nullptr;
+    rocksdb::DB* db = nullptr;
+
     rocksdb::Options options;
     options.create_if_missing = true;
-    rocksdb::Status status = rocksdb::DB::Open(options, DBPaths::getTransactionDB(), &db);
-    if (!status.ok()) return loaded;
+    rocksdb::Status status = rocksdb::DB::Open(options, DBPaths::getBlockchainDB(), &db);  // ✅ Use Blockchain DB
 
-    rocksdb::Iterator *it = db->NewIterator(rocksdb::ReadOptions());
+    if (!status.ok() || !db) {
+        std::cerr << "❌ Failed to open RocksDB for reading confirmed transactions.\n";
+        return loaded;
+    }
+
+    std::unique_ptr<rocksdb::Iterator> it(db->NewIterator(rocksdb::ReadOptions()));
     for (it->SeekToFirst(); it->Valid(); it->Next()) {
-        const std::string &key = it->key().ToString();
-        const std::string &val = it->value().ToString();
+        std::string key = it->key().ToString();
 
+        // ✅ Confirmed TXs are saved after mining with "tx_<hash>"
+        if (key.rfind("tx_", 0) != 0) continue;
+
+        std::string val = it->value().ToString();
         alyncoin::TransactionProto proto;
+
         if (!proto.ParseFromString(val)) {
-            std::cerr << "⚠️ [WARNING] Failed to parse transaction proto at key: " << key << "\n";
+            std::cerr << "⚠️ Failed to parse transaction proto at key: " << key << "\n";
             continue;
         }
 
         try {
-            loaded.push_back(Transaction::fromProto(proto));
+            Transaction tx = Transaction::fromProto(proto);
+            if (tx.getAmount() > 0.0) {
+                loaded.push_back(tx);
+            }
         } catch (...) {
-            std::cerr << "⚠️ [WARNING] Failed to reconstruct Transaction from proto at key: " << key << "\n";
+            std::cerr << "⚠️ Failed to reconstruct Transaction from proto at key: " << key << "\n";
         }
     }
 
-    delete it;
     delete db;
     return loaded;
 }

@@ -9,7 +9,7 @@ use alyn_crypto::hash::Hasher;
 use alyn_crypto::digest::Digest;
 use alyn_utils::{
     ByteWriter,
-    ByteIOError, // unified from `byte_io.rs`
+    ByteIOError,
 };
 
 use crate::constraint_commitment::DefaultConstraintCommitment;
@@ -31,23 +31,44 @@ where
     E: StarkField + Debug + Serialize,
     H: Hasher,
 {
-    /// Return `Result<(), ByteIOError>` to match the ByteWriter trait.
     pub fn write_into<W: ByteWriter>(&self, target: &mut W) -> Result<(), ByteIOError> {
-        // Convert digest's bytes from e.g. Vec<u8> to &[u8] if needed:
         for digest in &self.commitments {
             let bytes_slice: &[u8] = &digest.as_bytes()[..];
             target.write_bytes(bytes_slice)?;
         }
 
-        // Write out constraint commitment
         let cc_bytes = self.constraint_commitment.commitment();
         target.write_bytes(cc_bytes)?;
         Ok(())
     }
 }
 
-#[derive(Debug)]
-pub struct ProofOptions;
+#[derive(Debug, Clone)]
+pub struct ProofOptions {
+    pub num_queries: usize,
+    pub blowup_factor: usize,
+    pub grinding_factor: usize,
+    pub fri_folding_factor: usize,
+    pub fri_max_remainder_size: usize,
+}
+
+impl ProofOptions {
+    pub fn new(
+        num_queries: usize,
+        blowup_factor: usize,
+        grinding_factor: usize,
+        fri_folding_factor: usize,
+        fri_max_remainder_size: usize,
+    ) -> Self {
+        Self {
+            num_queries,
+            blowup_factor,
+            grinding_factor,
+            fri_folding_factor,
+            fri_max_remainder_size,
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct ProverError;

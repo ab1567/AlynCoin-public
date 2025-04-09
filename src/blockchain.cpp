@@ -1270,6 +1270,35 @@ void Blockchain::loadTransactionsFromDB() {
   delete it;
   std::cout << "✅ Transactions loaded successfully! Pending count: " << pendingTransactions.size() << "\n";
 }
+//
+void Blockchain::loadPendingTransactionsFromDB() {
+    if (!db) return;
+
+    pendingTransactions.clear();
+
+    std::unique_ptr<rocksdb::Iterator> it(db->NewIterator(rocksdb::ReadOptions()));
+    for (it->SeekToFirst(); it->Valid(); it->Next()) {
+        std::string key = it->key().ToString();
+        std::string val = it->value().ToString();
+
+        // Use "tx_" prefix to match how we save them:
+        if (key.rfind("tx_", 0) == 0) {
+            alyncoin::TransactionProto proto;
+            if (!proto.ParseFromString(val)) {
+                std::cerr << "⚠️ [CORRUPTED] Invalid transaction proto. Deleting key: " << key << "\n";
+                db->Delete(rocksdb::WriteOptions(), key);
+                continue;
+            }
+            Transaction tx = Transaction::fromProto(proto);
+            if (tx.getAmount() <= 0) {
+                db->Delete(rocksdb::WriteOptions(), key);
+                continue;
+            }
+            pendingTransactions.push_back(tx);
+        }
+    }
+    std::cout << "✅ Transactions loaded successfully! Pending count: " << pendingTransactions.size() << "\n";
+}
 
 //
 void Blockchain::savePendingTransactionsToDB() {

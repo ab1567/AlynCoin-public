@@ -27,4 +27,7 @@ pub trait StarkField:
     fn exp(self, power: u64) -> Self;
     fn as_bytes(&self) -> Vec<u8>;
     fn as_int(&self) -> u64;
+
+    // ✅ Add this method for trace.rs compatibility
+    fn from_u64(value: u64) -> Self;
 }

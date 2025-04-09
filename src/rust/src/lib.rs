@@ -1,20 +1,16 @@
 #![no_std]
-#[allow(unused_variables)]
 
 #[macro_use]
 extern crate alloc;
 
-use alloc::vec::Vec;
-use alloc::string::String;
-use core::{fmt::Debug, ptr};
-use core::ffi::c_char;
-use alloc::ffi::CString;
+extern crate postcard;
 
-// Serde
+use alloc::{boxed::Box, ffi::CString, string::String, vec::Vec};
+use core::{fmt::Debug, ptr, ffi::c_char};
+
 use serde::{Serialize, Deserialize};
 use serde::de::DeserializeOwned;
 
-// Alyn crates
 use alyn_air::{Air, EvaluationFrame, TraceInfo};
 use alyn_math::StarkField;
 use alyn_prover::{
@@ -22,35 +18,30 @@ use alyn_prover::{
     trace::TraceTable,
     proof::{StarkProof, ProofOptions, ProverError},
 };
-use alyn_crypto::{
-    ElementDigest,
-    hash::Hasher,
-    digest::Digest,
-};
+use alyn_crypto::{ElementDigest, hash::Hasher, digest::Digest};
 
-// -----------------------------------------------------------------------------
-// Public Inputs and AIR
-// -----------------------------------------------------------------------------
+pub mod recursive;
+
+// --------------------------------------
+// PublicInputs<E>
+// --------------------------------------
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(bound(
-    serialize = "E: StarkField + Debug + Serialize + 'static",
-    deserialize = "E: StarkField + Debug + DeserializeOwned + 'static"
-))]
+#[serde(bound(deserialize = "E: StarkField + DeserializeOwned + Debug + Send + Sync + 'static"))]
 pub struct PublicInputs<E>
 where
-    E: StarkField + Debug + Serialize + Send + Sync + 'static,
+    E: StarkField + Debug + Serialize + DeserializeOwned + Send + Sync + 'static,
 {
     pub initial_value: E,
 }
 
+// --------------------------------------
+// BlockAir<E>
+// --------------------------------------
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(bound(
-    serialize = "E: StarkField + Debug + Serialize + 'static",
-    deserialize = "E: StarkField + Debug + DeserializeOwned + 'static"
-))]
+#[serde(bound(deserialize = "E: StarkField + DeserializeOwned + Debug + Send + Sync + 'static"))]
 pub struct BlockAir<E>
 where
-    E: StarkField + Debug + Serialize + Send + Sync + 'static,
+    E: StarkField + Debug + Serialize + DeserializeOwned + Send + Sync + 'static,
 {
     trace_info: TraceInfo<E>,
     pub_inputs: PublicInputs<E>,
@@ -77,6 +68,7 @@ where
         _periodic_values: &[F],
         result: &mut [F],
     ) {
+        // Example transition: Just squaring each current value
         for (i, val) in frame.current.iter().enumerate() {
             result[i] = val.square();
         }
@@ -87,9 +79,9 @@ where
     }
 }
 
-// -----------------------------------------------------------------------------
-// Custom Dummy Hasher (Replace with BLAKE3 + Digest later)
-// -----------------------------------------------------------------------------
+// --------------------------------------
+// Blake3_256<E> Hasher
+// --------------------------------------
 pub struct Blake3_256<E>(core::marker::PhantomData<E>);
 
 impl<E> Hasher for Blake3_256<E>
@@ -100,39 +92,45 @@ where
     type Digest = ElementDigest;
 
     fn hash(bytes: &[u8]) -> Self::Digest {
-        let _hash_out = blake3::hash(bytes);
-        ElementDigest::new(Vec::new())
+        let hash_out = blake3::hash(bytes);
+        ElementDigest::new(hash_out.as_bytes().to_vec())
     }
 
     fn merge(values: &[Self::Digest; 2]) -> Self::Digest {
         let mut combined = Vec::new();
-        combined.extend_from_slice(&values[0].as_bytes()[..]);
-        combined.extend_from_slice(&values[1].as_bytes()[..]);
-        ElementDigest::new(combined)
+        combined.extend_from_slice(&values[0].as_bytes());
+        combined.extend_from_slice(&values[1].as_bytes());
+        let hash_out = blake3::hash(&combined);
+        ElementDigest::new(hash_out.as_bytes().to_vec())
     }
 
     fn merge_many(values: &[Self::Digest]) -> Self::Digest {
         let mut combined = Vec::new();
         for v in values {
-            combined.extend_from_slice(&v.as_bytes()[..]);
+            combined.extend_from_slice(&v.as_bytes());
         }
-        ElementDigest::new(combined)
+        let hash_out = blake3::hash(&combined);
+        ElementDigest::new(hash_out.as_bytes().to_vec())
     }
 
-    fn merge_with_int(value: Self::Digest, _int: u64) -> Self::Digest {
-        let new_bytes = value.as_bytes();
-        ElementDigest::new(new_bytes)
+    fn merge_with_int(value: Self::Digest, int: u64) -> Self::Digest {
+        let mut data = value.as_bytes().to_vec();
+        data.extend_from_slice(&int.to_le_bytes());
+        let hash_out = blake3::hash(&data);
+        ElementDigest::new(hash_out.as_bytes().to_vec())
     }
 
     fn hash_elements<F2: StarkField + Serialize>(elements: &[F2]) -> Self::Digest {
-        let _ = elements;
-        ElementDigest::new(Vec::new())
+        // We'll serialize them using postcard, then hash
+        let serialized = postcard::to_allocvec(elements).unwrap_or_default();
+        let hash_out = blake3::hash(&serialized);
+        ElementDigest::new(hash_out.as_bytes().to_vec())
     }
 }
 
-// -----------------------------------------------------------------------------
-// Basic Trace Generator
-// -----------------------------------------------------------------------------
+// --------------------------------------
+// Proof building
+// --------------------------------------
 pub fn build_trace<E>(init_val: E, length: usize) -> TraceTable<E>
 where
     E: StarkField + Debug + Serialize,
@@ -142,9 +140,6 @@ where
     trace
 }
 
-// -----------------------------------------------------------------------------
-// STARK Proof Generator (not wired to FFI yet)
-// -----------------------------------------------------------------------------
 pub fn generate_proof<E>(
     options: ProofOptions,
     trace: TraceTable<E>,
@@ -153,38 +148,58 @@ pub fn generate_proof<E>(
 where
     E: StarkField + Debug + Serialize + DeserializeOwned + Send + Sync + 'static,
 {
+    // Wrap up your trace + AIR to produce a STARK proof
     let prover = AirProver::<BlockAir<E>>::new(trace);
-    let proof = prover.prove::<Blake3_256<E>>(options, pub_inputs)?;
-    Ok(proof)
+    prover.prove::<Blake3_256<E>>(options, pub_inputs)
 }
 
-// -----------------------------------------------------------------------------
-// FFI / C ABI STUBS (linked to C++)
-// -----------------------------------------------------------------------------
-
-#[no_mangle]
-pub extern "C" fn generate_proof_c(_seed: *const u8, _seed_len: usize) -> *mut u8 {
-    ptr::null_mut() // Placeholder: not used
-}
-
-#[no_mangle]
-pub extern "C" fn verify_proof(_proof: *const u8, _seed: *const u8, _result: *const u8) -> bool {
-    true // Always succeeds for now
-}
-
+// --------------------------------------
+// FFI exports (C-ABI)
+// --------------------------------------
 #[no_mangle]
 pub extern "C" fn generate_proof_bytes(seed_ptr: *const u8, seed_len: usize) -> *mut c_char {
+    // Just a placeholder demonstration
     if seed_ptr.is_null() || seed_len == 0 {
         return ptr::null_mut();
     }
 
     let seed_slice = unsafe { core::slice::from_raw_parts(seed_ptr, seed_len) };
     let seed_str = String::from_utf8_lossy(seed_slice);
-
     let dummy_proof = format!("zk-proof:{}", seed_str);
 
     match CString::new(dummy_proof) {
         Ok(c_string) => c_string.into_raw(),
         Err(_) => ptr::null_mut(),
     }
+}
+
+#[no_mangle]
+pub extern "C" fn verify_proof(_proof: *const u8, _seed: *const u8, _result: *const u8) -> bool {
+    // Always returns true for demonstration
+    true
+}
+
+#[no_mangle]
+pub extern "C" fn compose_recursive_proof(
+    proof_ptr: *const u8,
+    proof_len: usize,
+    hash_ptr: *const u8,
+) -> *mut u8 {
+    use crate::recursive::recursive_prover::compose_recursive_proof;
+
+    if proof_ptr.is_null() || proof_len == 0 || hash_ptr.is_null() {
+        return core::ptr::null_mut();
+    }
+
+    let proof_slice = unsafe { core::slice::from_raw_parts(proof_ptr, proof_len) };
+    let hash_slice = unsafe { core::slice::from_raw_parts(hash_ptr, 32) };
+
+    let hash_array: [u8; 32] = match hash_slice.try_into() {
+        Ok(arr) => arr,
+        Err(_) => return core::ptr::null_mut(),
+    };
+
+    let recursive_proof = compose_recursive_proof(proof_slice, hash_array);
+    let boxed = recursive_proof.into_boxed_slice();
+    Box::into_raw(boxed) as *mut u8
 }

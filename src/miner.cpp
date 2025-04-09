@@ -26,30 +26,26 @@ void Miner::startMiningProcess(const std::string &minerAddress) {
     try {
         std::cout << "🚀 Starting mining process for: " << minerAddress << std::endl;
 
-        // If miningActive was false, we set it to true. If it was already true, we do not start again.
         if (!miningActive.exchange(true)) {
             Blockchain &blockchain = Blockchain::getInstance(8333);
 
             while (miningActive) {
-                // Reload chain & pending TX from DB so we see any newly added transactions
-                blockchain.reloadBlockchainState();
-                // We no longer check if pendingTx is empty, so we always attempt to mine a block
-                // If no user transactions, mineBlock() will create an empty block with the reward
+                // ✅ Load latest pending transactions from disk
+                blockchain.loadPendingTransactionsFromDB();       // ← REQUIRED FIX
+                blockchain.reloadBlockchainState();               // reload balances, etc.
+
                 Block minedBlock = blockchain.mineBlock(minerAddress);
 
-                // If the block’s hash is empty, it means the call returned a failure
                 if (minedBlock.getHash().empty()) {
                     std::cerr << "❌ Mining failed. No valid hash generated." << std::endl;
                     miningActive = false;
                     break;
                 }
 
-                // Attempt to add the newly mined block to the chain
                 blockchain.addBlock(minedBlock);
                 blockchain.saveToDB();
                 std::cout << "✅ Block mined successfully!" << std::endl;
 
-                // Optional: Sleep briefly between blocks to avoid overloading CPU
                 std::this_thread::sleep_for(std::chrono::seconds(1));
             }
         }
