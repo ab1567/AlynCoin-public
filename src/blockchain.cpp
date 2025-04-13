@@ -186,16 +186,19 @@ Block Blockchain::createGenesisBlock() {
         falKeys = Crypto::loadFalconKeys("System");
     }
 
-    // ✅ Canonical Signing Message (32 bytes)
-    std::string combinedMsg = Crypto::blake3(genesis.getHash() + genesis.getPreviousHash());
-    std::vector<unsigned char> msgBytes(combinedMsg.begin(), combinedMsg.end());
+    // ✅ Canonical 32-byte Signing Message (safe for Falcon)
+    std::string combined = genesis.getHash() + genesis.getPreviousHash();
+    std::string hash32 = Crypto::sha256(combined).substr(0, 64); // 32-byte hex
+    std::vector<unsigned char> msgBytes = Crypto::fromHex(hash32);
+
     if (msgBytes.size() != 32) {
-        std::cerr << "❌ [ERROR] Signing message must be 32 bytes for Falcon.\n";
+        std::cerr << "❌ [ERROR] Falcon signing message must be 32 bytes. Got: " << msgBytes.size() << "\n";
         exit(1);
     }
 
     auto sigDilVec = Crypto::signWithDilithium(msgBytes, dilKeys.privateKey);
     auto sigFalVec = Crypto::signWithFalcon(msgBytes, falKeys.privateKey);
+
     if (sigDilVec.empty() || sigFalVec.empty()) {
         std::cerr << "❌ [ERROR] Post-Quantum signature generation failed.\n";
         exit(1);
@@ -206,10 +209,13 @@ Block Blockchain::createGenesisBlock() {
     genesis.setPublicKeyDilithium(std::string(dilKeys.publicKey.begin(), dilKeys.publicKey.end()));
     genesis.setPublicKeyFalcon(std::string(falKeys.publicKey.begin(), falKeys.publicKey.end()));
 
-    // ✅ zk-STARK Proof Generation with Canonical Seed
+    // ✅ zk-STARK Proof Generation (canonical seed)
+    std::string fixedMerkleRoot = "genesis-root";
+    genesis.setMerkleRoot(fixedMerkleRoot);  // 🔐 must match across nodes
+
     std::string seed1 = Crypto::blake3(genesis.getHash());
     std::string seed2 = Crypto::blake3(genesis.getPreviousHash());
-    std::string seed3 = "genesis-root";  // ✅ fixed seed for consistency
+    std::string seed3 = fixedMerkleRoot;
 
     std::string zkProof = WinterfellStark::generateProof(seed1, seed2, seed3);
     if (zkProof.empty() || zkProof.size() < 64) {

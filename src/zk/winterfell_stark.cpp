@@ -20,9 +20,10 @@ extern "C" void hash_blake3_256(const uint8_t* input, size_t len, uint8_t out[32
 }
 
 // ✅ Block zk-STARK Proof Generation
-std::string WinterfellStark::generateProof(const std::string& input1, const std::string& input2, const std::string& input3) {
-    std::string seed = input1 + input2 + input3;
-
+std::string WinterfellStark::generateProof(const std::string& blockHash,
+                                           const std::string& prevHash,
+                                           const std::string& txRoot) {
+    std::string seed = Crypto::blake3(blockHash) + Crypto::blake3(prevHash) + txRoot;
     std::cout << "[zkSTARK] Generating proof with seed: " << seed << "\n";
 
     char* proof_cstr = generate_proof_bytes(seed.c_str(), seed.size());
@@ -39,15 +40,21 @@ std::string WinterfellStark::generateProof(const std::string& input1, const std:
 }
 
 // ✅ Block zk-STARK Proof Verification
-bool WinterfellStark::verifyProof(const std::string& proof, const std::string& blockHash, const std::string& prevHash, const std::string& txRoot) {
+bool WinterfellStark::verifyProof(const std::string& proof,
+                                  const std::string& blockHash,
+                                  const std::string& prevHash,
+                                  const std::string& txRoot) {
     if (proof.empty() || blockHash.empty() || prevHash.empty() || txRoot.empty()) {
         std::cerr << "[zkSTARK] ❌ Invalid input for block zk-STARK proof verification.\n";
         return false;
     }
 
-    std::string seed = blockHash + prevHash + txRoot;
-    bool result = verify_proof(proof.c_str(), seed.c_str(), blockHash.c_str());
+    // ✅ Canonical seed computation — must exactly match proof generator
+    std::string seed = Crypto::blake3(blockHash) + Crypto::blake3(prevHash) + txRoot;
 
+    std::cout << "[zkSTARK] Verifying proof with seed: " << seed << "\n";
+
+    bool result = verify_proof(proof.c_str(), seed.c_str(), blockHash.c_str());
     std::cout << "[zkSTARK] 🔍 Block Proof Verification Result: " << (result ? "✅ Passed" : "❌ Failed") << "\n";
     return result;
 }
