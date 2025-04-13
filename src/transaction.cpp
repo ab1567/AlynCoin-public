@@ -73,7 +73,10 @@ std::string Transaction::getTransactionHash() const {
 //
 
 std::string Transaction::getHash() const {
-  return hash;
+    if (!hash.empty()) {
+        return hash;
+    }
+    return getTransactionHash();
 }
 
 // ✅ Protobuf Serialization - Ensure all required fields are set
@@ -100,9 +103,12 @@ bool Transaction::deserializeFromProtobuf(const alyncoin::TransactionProto &prot
   senderPublicKeyFalcon = proto.sender_pubkey_falcon();
   timestamp = proto.timestamp();
   metadata = proto.metadata();
-  zkProof = proto.zkproof();  // ✅ Restore zkProof
-  hash = proto.hash();        // ✅ Restore hash (used in verify)
-  return true;
+  zkProof = proto.zkproof();
+  hash = proto.hash();
+  if (hash.empty()) {
+    hash = getTransactionHash();
+}
+return true;
 }
 
 //
@@ -162,9 +168,12 @@ Transaction Transaction::fromJSON(const Json::Value &txJson) {
    tx.metadata = txJson.get("metadata", "").asString();
 
   }
+  if (tx.hash.empty()) {
+    tx.hash = tx.getTransactionHash();
+  }
 
   return tx;
-}
+ }
 //serialize
 std::string Transaction::serialize() const {
   Json::Value txJson = toJSON();  // ✅ reuse shared logic
@@ -385,7 +394,7 @@ std::vector<Transaction> Transaction::loadAllFromDB() {
 
     rocksdb::Options options;
     options.create_if_missing = true;
-    rocksdb::Status status = rocksdb::DB::Open(options, DBPaths::getBlockchainDB(), &db);  // ✅ Use Blockchain DB
+    rocksdb::Status status = rocksdb::DB::OpenForReadOnly(options, DBPaths::getBlockchainDB(), &db);
 
     if (!status.ok() || !db) {
         std::cerr << "❌ Failed to open RocksDB for reading confirmed transactions.\n";
@@ -459,5 +468,6 @@ Transaction Transaction::createSystemRewardTransaction(const std::string &recipi
   tx.zkProof = "";
   tx.senderPublicKeyDilithium = "";
   tx.senderPublicKeyFalcon = "";
+  tx.hash = tx.getTransactionHash();
   return tx;
 }

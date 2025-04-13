@@ -10,6 +10,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/root/AlynCoin/src/cli.cpp" "src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o" "gcc" "src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o.d"
   "/root/AlynCoin/src/cli/peer_blacklist_ui.cpp" "src/CMakeFiles/alyncoin-cli.dir/cli/peer_blacklist_ui.cpp.o" "gcc" "src/CMakeFiles/alyncoin-cli.dir/cli/peer_blacklist_ui.cpp.o.d"
+  "/root/AlynCoin/src/zk/recursive_proof_helper.cpp" "src/CMakeFiles/alyncoin-cli.dir/zk/recursive_proof_helper.cpp.o" "gcc" "src/CMakeFiles/alyncoin-cli.dir/zk/recursive_proof_helper.cpp.o.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

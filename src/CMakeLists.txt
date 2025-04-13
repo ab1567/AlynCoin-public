@@ -73,6 +73,13 @@ file(GLOB SOURCES
 )
 
 list(APPEND SOURCES
+    ${SOURCE_DIR}/self_healing/health_monitor.cpp
+    ${SOURCE_DIR}/self_healing/sync_recovery.cpp
+    ${SOURCE_DIR}/self_healing/self_healing_node.cpp
+    ${SOURCE_DIR}/utils/logger.cpp
+)
+
+list(APPEND SOURCES
     ${SOURCE_DIR}/identity/identity.cpp
     ${SOURCE_DIR}/identity/identity_store.cpp
     ${SOURCE_DIR}/identity/proto_utils.cpp
@@ -121,6 +128,9 @@ include_directories(
     ${SOURCE_DIR}/crypto/dilithium/ref
     ${SOURCE_DIR}/atomic_swaps
     ${SOURCE_DIR}/identity
+    ${SOURCE_DIR}/self_healing
+    ${SOURCE_DIR}/utils
+    ${SOURCE_DIR}/network
 )
 
 # --------------------------
@@ -272,6 +282,7 @@ add_executable(alyncoin ${MAIN_SOURCE})
 add_executable(alyncoin-cli
     ${SOURCE_DIR}/cli.cpp
     ${SOURCE_DIR}/cli/peer_blacklist_ui.cpp
+    ${SOURCE_DIR}/zk/recursive_proof_helper.cpp
 )
 add_executable(peer_blacklist_cli ${SOURCE_DIR}/cli/peer_blacklist_cli.cpp)
 

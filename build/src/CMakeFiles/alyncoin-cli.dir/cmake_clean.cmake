@@ -5,6 +5,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/alyncoin-cli.dir/cli.cpp.o.d"
   "CMakeFiles/alyncoin-cli.dir/cli/peer_blacklist_ui.cpp.o"
   "CMakeFiles/alyncoin-cli.dir/cli/peer_blacklist_ui.cpp.o.d"
+  "CMakeFiles/alyncoin-cli.dir/zk/recursive_proof_helper.cpp.o"
+  "CMakeFiles/alyncoin-cli.dir/zk/recursive_proof_helper.cpp.o.d"
 )
 
 # Per-language clean rules from dependency scanning.

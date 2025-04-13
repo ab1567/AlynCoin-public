@@ -1357,6 +1357,8 @@ src/CMakeFiles/alyncoin_lib.dir/blockchain.cpp.o: \
  /usr/include/c++/13/pstl/glue_numeric_defs.h \
  /root/AlynCoin/src/block_reward.h /root/AlynCoin/src/network.h \
  /usr/include/c++/13/thread /usr/include/c++/13/bits/this_thread_sleep.h \
+ /root/AlynCoin/src/network/peer_manager.h \
+ /root/AlynCoin/src/network/peer_blacklist.h /root/AlynCoin/src/block.h \
  /root/AlynCoin/src/rollup/proofs/proof_verifier.h \
  /root/AlynCoin/src/rollup/proofs/../rollup_block.h \
  /usr/include/c++/13/filesystem /usr/include/c++/13/bits/fs_fwd.h \
@@ -1367,4 +1369,5 @@ src/CMakeFiles/alyncoin_lib.dir/blockchain.cpp.o: \
  /usr/include/libintl.h /usr/include/c++/13/bits/locale_facets_nonio.tcc \
  /usr/include/c++/13/bits/locale_conv.h /usr/include/c++/13/iomanip \
  /usr/include/c++/13/bits/quoted_string.h /usr/include/c++/13/codecvt \
- /usr/include/c++/13/bits/fs_dir.h /usr/include/c++/13/bits/fs_ops.h
+ /usr/include/c++/13/bits/fs_dir.h /usr/include/c++/13/bits/fs_ops.h \
+ /root/AlynCoin/src/utils/logger.h

@@ -371,6 +371,18 @@ std::string Block::getTransactionsHash() const {
   }
   return Crypto::blake3(ss.str());
 }
+//
+void Block::setTransactionsHash(const std::string &hash) {
+    transactionsHash = hash;
+}
+
+std::string Block::computeTransactionsHash() const {
+    std::string combined;
+    for (const auto &tx : transactions) {
+        combined += tx.getHash();  // Uses existing hashes
+    }
+    return Crypto::hybridHash(combined);  // Or Crypto::blake3()
+}
 
 // valid pow
 bool Block::hasValidProofOfWork() const {

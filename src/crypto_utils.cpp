@@ -373,6 +373,41 @@ FalconKeyPair loadFalconKeys(const std::string &username) {
   }
   return keypair;
 }
+//- wrapper--
+bool generatePostQuantumKeys(const std::string &username) {
+    std::cout << "[DEBUG] Checking and generating PQ keys (Dilithium + Falcon) for: " << username << "\n";
+
+    std::string dilPrivPath = KEY_DIR + username + "_dilithium.key";
+    std::string dilPubPath  = KEY_DIR + username + "_dilithium.pub";
+    std::string falPrivPath = KEY_DIR + username + "_falcon.key";
+    std::string falPubPath  = KEY_DIR + username + "_falcon.pub";
+
+    bool dilExists = fs::exists(dilPrivPath) && fs::exists(dilPubPath);
+    bool falExists = fs::exists(falPrivPath) && fs::exists(falPubPath);
+
+    if (dilExists && falExists) {
+        std::cout << "✅ [INFO] Post-quantum keys already exist for user: " << username << "\n";
+        return true;
+    }
+
+    std::cout << "🔐 Generating missing post-quantum keys for: " << username << "\n";
+
+    // Generate and save Dilithium keys
+    DilithiumKeyPair dilKeys = Crypto::generateDilithiumKeys(username);
+    FalconKeyPair falKeys = Crypto::generateFalconKeys(username);
+
+    bool dilValid = !dilKeys.privateKey.empty() && !dilKeys.publicKey.empty();
+    bool falValid = !falKeys.privateKey.empty() && !falKeys.publicKey.empty();
+
+    if (dilValid && falValid) {
+        std::cout << "✅ [INFO] Successfully generated post-quantum keys for: " << username << "\n";
+        return true;
+    } else {
+        std::cerr << "❌ [ERROR] Failed to generate post-quantum keys for: " << username << "\n";
+        return false;
+    }
+}
+
 // buff conversion
 void serializeKeysToProtobuf(const std::string &privateKeyPath,
                              std::string &output) {
@@ -699,34 +734,36 @@ std::string base64Encode(const std::string &input) {
 
   b64 = BIO_new(BIO_f_base64());
   bio = BIO_new(BIO_s_mem());
-  bio = BIO_push(b64, bio);
-  BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);
-  BIO_write(bio, input.data(), input.size());
-  BIO_flush(bio);
-  BIO_get_mem_ptr(bio, &bufferPtr);
+  b64 = BIO_push(b64, bio);
+
+  BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL); // No newline
+  BIO_write(b64, input.data(), input.size());
+  BIO_flush(b64);
+  BIO_get_mem_ptr(b64, &bufferPtr);
 
   std::string output(bufferPtr->data, bufferPtr->length);
-  BIO_free_all(bio);
+  BIO_free_all(b64);
   return output;
 }
 
-// ✅ Base64 Decode
 std::string base64Decode(const std::string &input) {
   BIO *bio, *b64;
-  std::vector<char> buffer(input.size());
+  char *buffer = (char *)malloc(input.length());
+  memset(buffer, 0, input.length());
 
   b64 = BIO_new(BIO_f_base64());
-  bio = BIO_new_mem_buf(input.data(), input.size());
-  bio = BIO_push(b64, bio);
-  BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);
+  bio = BIO_new_mem_buf(input.data(), input.length());
+  b64 = BIO_push(b64, bio);
+  BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
 
-  int decodedSize = BIO_read(bio, buffer.data(), input.size());
-  BIO_free_all(bio);
+  int decodedLen = BIO_read(b64, buffer, input.length());
+  std::string result(buffer, decodedLen);
 
-  if (decodedSize <= 0)
-    return "";
-  return std::string(buffer.data(), decodedSize);
+  free(buffer);
+  BIO_free_all(b64);
+  return result;
 }
+
 //
 bool encryptFile(const std::string &inputFilePath,
                  const std::string &outputFilePath,

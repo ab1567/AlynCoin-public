@@ -113,8 +113,8 @@ void WalletCLI::sendCoins() {
       std::cout << "📝 Using Hybrid (Dilithium + Falcon) signature.\n";
     }
 
-    Blockchain::getInstance().addTransaction(tx);
-    tx.saveToDB(Blockchain::getInstance().getTransactionCount());
+    Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), false).addTransaction(tx);
+    tx.saveToDB(Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), false).getTransactionCount());
     std::cout << "✅ Transaction sent! TxID: " << tx.getHash() << std::endl;
   } catch (const std::exception &e) {
     std::cerr << e.what() << "\n";
@@ -123,5 +123,5 @@ void WalletCLI::sendCoins() {
 
 //
 double Wallet::getBalance() const {
-  return Blockchain::getInstance().getBalance(address);
+  return Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), false).getBalance(address);
 }

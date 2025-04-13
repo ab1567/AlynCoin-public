@@ -6,6 +6,7 @@
 #include "crypto_utils.h"
 #include "mining.h"
 #include <atomic>
+#include "network.h"
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -27,7 +28,7 @@ void Miner::startMiningProcess(const std::string &minerAddress) {
         std::cout << "🚀 Starting mining process for: " << minerAddress << std::endl;
 
         if (!miningActive.exchange(true)) {
-            Blockchain &blockchain = Blockchain::getInstance(8333);
+            Blockchain &blockchain = Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true);
 
             while (miningActive) {
                 // ✅ Load latest pending transactions from disk
@@ -56,7 +57,7 @@ void Miner::startMiningProcess(const std::string &minerAddress) {
 
 // ✅ Improved Mining Algorithm: Hybrid PoW (BLAKE3 + Keccak256)
 std::string Miner::mineBlock(int difficulty) {
-    std::string lastHash = Blockchain::getInstance().getLatestBlock().getHash();
+    std::string lastHash = Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true).getLatestBlock().getHash();
     int nonce = 0;
     std::string newHash;
 

@@ -2117,6 +2117,78 @@ rollup/rollup_utils.cpp.s:
 	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/rollup/rollup_utils.cpp.s
 .PHONY : rollup/rollup_utils.cpp.s
 
+self_healing/health_monitor.o: self_healing/health_monitor.cpp.o
+.PHONY : self_healing/health_monitor.o
+
+# target to build an object file
+self_healing/health_monitor.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/self_healing/health_monitor.cpp.o
+.PHONY : self_healing/health_monitor.cpp.o
+
+self_healing/health_monitor.i: self_healing/health_monitor.cpp.i
+.PHONY : self_healing/health_monitor.i
+
+# target to preprocess a source file
+self_healing/health_monitor.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/self_healing/health_monitor.cpp.i
+.PHONY : self_healing/health_monitor.cpp.i
+
+self_healing/health_monitor.s: self_healing/health_monitor.cpp.s
+.PHONY : self_healing/health_monitor.s
+
+# target to generate assembly for a file
+self_healing/health_monitor.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/self_healing/health_monitor.cpp.s
+.PHONY : self_healing/health_monitor.cpp.s
+
+self_healing/self_healing_node.o: self_healing/self_healing_node.cpp.o
+.PHONY : self_healing/self_healing_node.o
+
+# target to build an object file
+self_healing/self_healing_node.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/self_healing/self_healing_node.cpp.o
+.PHONY : self_healing/self_healing_node.cpp.o
+
+self_healing/self_healing_node.i: self_healing/self_healing_node.cpp.i
+.PHONY : self_healing/self_healing_node.i
+
+# target to preprocess a source file
+self_healing/self_healing_node.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/self_healing/self_healing_node.cpp.i
+.PHONY : self_healing/self_healing_node.cpp.i
+
+self_healing/self_healing_node.s: self_healing/self_healing_node.cpp.s
+.PHONY : self_healing/self_healing_node.s
+
+# target to generate assembly for a file
+self_healing/self_healing_node.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/self_healing/self_healing_node.cpp.s
+.PHONY : self_healing/self_healing_node.cpp.s
+
+self_healing/sync_recovery.o: self_healing/sync_recovery.cpp.o
+.PHONY : self_healing/sync_recovery.o
+
+# target to build an object file
+self_healing/sync_recovery.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/self_healing/sync_recovery.cpp.o
+.PHONY : self_healing/sync_recovery.cpp.o
+
+self_healing/sync_recovery.i: self_healing/sync_recovery.cpp.i
+.PHONY : self_healing/sync_recovery.i
+
+# target to preprocess a source file
+self_healing/sync_recovery.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/self_healing/sync_recovery.cpp.i
+.PHONY : self_healing/sync_recovery.cpp.i
+
+self_healing/sync_recovery.s: self_healing/sync_recovery.cpp.s
+.PHONY : self_healing/sync_recovery.s
+
+# target to generate assembly for a file
+self_healing/sync_recovery.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/self_healing/sync_recovery.cpp.s
+.PHONY : self_healing/sync_recovery.cpp.s
+
 syncing.o: syncing.cpp.o
 .PHONY : syncing.o
 
@@ -2165,6 +2237,30 @@ transaction.cpp.s:
 	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/transaction.cpp.s
 .PHONY : transaction.cpp.s
 
+utils/logger.o: utils/logger.cpp.o
+.PHONY : utils/logger.o
+
+# target to build an object file
+utils/logger.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/utils/logger.cpp.o
+.PHONY : utils/logger.cpp.o
+
+utils/logger.i: utils/logger.cpp.i
+.PHONY : utils/logger.i
+
+# target to preprocess a source file
+utils/logger.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/utils/logger.cpp.i
+.PHONY : utils/logger.cpp.i
+
+utils/logger.s: utils/logger.cpp.s
+.PHONY : utils/logger.s
+
+# target to generate assembly for a file
+utils/logger.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/utils/logger.cpp.s
+.PHONY : utils/logger.cpp.s
+
 validation/transaction_validator.o: validation/transaction_validator.cpp.o
 .PHONY : validation/transaction_validator.o
 
@@ -2212,6 +2308,33 @@ wallet.s: wallet.cpp.s
 wallet.cpp.s:
 	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/wallet.cpp.s
 .PHONY : wallet.cpp.s
+
+zk/recursive_proof_helper.o: zk/recursive_proof_helper.cpp.o
+.PHONY : zk/recursive_proof_helper.o
+
+# target to build an object file
+zk/recursive_proof_helper.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/zk/recursive_proof_helper.cpp.o
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin-cli.dir/build.make src/CMakeFiles/alyncoin-cli.dir/zk/recursive_proof_helper.cpp.o
+.PHONY : zk/recursive_proof_helper.cpp.o
+
+zk/recursive_proof_helper.i: zk/recursive_proof_helper.cpp.i
+.PHONY : zk/recursive_proof_helper.i
+
+# target to preprocess a source file
+zk/recursive_proof_helper.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/zk/recursive_proof_helper.cpp.i
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin-cli.dir/build.make src/CMakeFiles/alyncoin-cli.dir/zk/recursive_proof_helper.cpp.i
+.PHONY : zk/recursive_proof_helper.cpp.i
+
+zk/recursive_proof_helper.s: zk/recursive_proof_helper.cpp.s
+.PHONY : zk/recursive_proof_helper.s
+
+# target to generate assembly for a file
+zk/recursive_proof_helper.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/zk/recursive_proof_helper.cpp.s
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin-cli.dir/build.make src/CMakeFiles/alyncoin-cli.dir/zk/recursive_proof_helper.cpp.s
+.PHONY : zk/recursive_proof_helper.cpp.s
 
 zk/winterfell_stark.o: zk/winterfell_stark.cpp.o
 .PHONY : zk/winterfell_stark.o
@@ -2485,18 +2608,33 @@ help:
 	@echo "... rollup/rollup_utils.o"
 	@echo "... rollup/rollup_utils.i"
 	@echo "... rollup/rollup_utils.s"
+	@echo "... self_healing/health_monitor.o"
+	@echo "... self_healing/health_monitor.i"
+	@echo "... self_healing/health_monitor.s"
+	@echo "... self_healing/self_healing_node.o"
+	@echo "... self_healing/self_healing_node.i"
+	@echo "... self_healing/self_healing_node.s"
+	@echo "... self_healing/sync_recovery.o"
+	@echo "... self_healing/sync_recovery.i"
+	@echo "... self_healing/sync_recovery.s"
 	@echo "... syncing.o"
 	@echo "... syncing.i"
 	@echo "... syncing.s"
 	@echo "... transaction.o"
 	@echo "... transaction.i"
 	@echo "... transaction.s"
+	@echo "... utils/logger.o"
+	@echo "... utils/logger.i"
+	@echo "... utils/logger.s"
 	@echo "... validation/transaction_validator.o"
 	@echo "... validation/transaction_validator.i"
 	@echo "... validation/transaction_validator.s"
 	@echo "... wallet.o"
 	@echo "... wallet.i"
 	@echo "... wallet.s"
+	@echo "... zk/recursive_proof_helper.o"
+	@echo "... zk/recursive_proof_helper.i"
+	@echo "... zk/recursive_proof_helper.s"
 	@echo "... zk/winterfell_stark.o"
 	@echo "... zk/winterfell_stark.i"
 	@echo "... zk/winterfell_stark.s"

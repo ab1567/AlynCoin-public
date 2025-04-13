@@ -22,6 +22,7 @@ private:
   std::string minerAddress;
   int nonce;
   time_t timestamp;
+  std::string transactionsHash;
   std::string blockSignature;
   std::string zkProof;
   std::string transactionsToString() const;
@@ -64,6 +65,8 @@ public:
 
   std::string getMerkleRoot() const { return merkleRoot; }
   std::string getTxRoot() const { return getTransactionsHash(); }
+  void setPublicKeyDilithium(const std::string& pk) { publicKeyDilithium = pk; }
+  void setPublicKeyFalcon(const std::string& pk) { publicKeyFalcon = pk; }
 
   const std::string &getDilithiumSignature() const {
     return dilithiumSignature;
@@ -107,6 +110,8 @@ public:
   std::string calculateHash() const;
   bool verifyBlockSignature(const std::string &publicKeyPath) const;
   void computeKeccakHash();
+  void setTransactionsHash(const std::string &hash);
+  std::string computeTransactionsHash() const;
   bool isValid(const std::string &prevHash) const;
   bool containsTransaction(const Transaction &tx) const;
   std::string getHashInput() const {

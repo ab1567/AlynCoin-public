@@ -5,6 +5,12 @@
 #include <iostream>
 #include <json/json.h>
 
+// Local helper to safely fetch Network instance
+static Network &getNet() {
+  Blockchain &blockchain = Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true);
+  return *Network::getExistingInstance();
+}
+
 // ✅ Request latest block
 void Syncing::requestLatestBlock() {
   alyncoin::BlockRequestProto requestProto;
@@ -14,7 +20,7 @@ void Syncing::requestLatestBlock() {
   requestProto.SerializeToString(&serializedData);
 
   std::string message = "BLOCK_REQUEST|" + serializedData;
-  Network::getInstance().broadcastMessage(message);
+  getNet().broadcastMessage(message);
 }
 
 // ✅ Full blockchain sync request
@@ -26,7 +32,7 @@ void Syncing::syncWithNetwork() {
   syncProto.SerializeToString(&serializedData);
 
   std::string message = "BLOCKCHAIN_SYNC_REQUEST|" + serializedData;
-  Network::getInstance().broadcastMessage(message);
+  getNet().broadcastMessage(message);
 }
 
 // ✅ Propagate regular block with zk-STARK & dual signature awareness
@@ -37,15 +43,14 @@ void Syncing::propagateBlock(const Block &block) {
 
   std::string message = "BLOCK_DATA|" + serializedBlock;
 
-  Network &net = Network::getInstance();
+  Network &net = getNet();
   for (const std::string &peer : net.getPeers()) {
     if (!peer.empty()) {
       net.sendData(peer, message);
     }
   }
 
-  std::cout << "📡 Propagated block (zk-STARK + Dilithium + Falcon signatures "
-               "included) to peers.\n";
+  std::cout << "📡 Propagated block (zk-STARK + Dilithium + Falcon signatures included) to peers.\n";
 }
 
 // ✅ Propagate transaction (ensure contains signatures)
@@ -57,7 +62,8 @@ void Syncing::propagateTransaction(const Transaction &tx) {
   txProto.SerializeToString(&serializedTx);
 
   std::string message = "TRANSACTION_DATA|" + serializedTx;
-  Network::getInstance().broadcastMessage(message);
+  getNet().broadcastMessage(message);
 
   std::cout << "📡 Propagated transaction to peers.\n";
 }
+

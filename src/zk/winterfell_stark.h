@@ -6,8 +6,11 @@
 #include <vector>
 #include <cstdint>
 #include <iostream>
-#include <optional> 
+#include <optional>
 #include "../nft/nft.h"
+
+// ✅ Externally exposed hash function for Rust FFI
+extern "C" void hash_blake3_256(const uint8_t* input, size_t len, uint8_t out[32]);
 
 class WinterfellStark {
 public:
@@ -40,9 +43,8 @@ public:
                                                             const std::string& name,
                                                             const std::string& metadataHash);
 
-    // ✅ Generate Recursive zk-STARK Proof
-    static std::string generateRecursiveProof(const std::string& innerProof,
-                                              const std::string& expectedHashHex);
+    // ✅ Generate Recursive zk-STARK Proof from inner proof + expected hash
+    static std::string generateRecursiveProof(const std::string& address, size_t txCount);
 
     // ✅ NFT zk-STARK Proof Verification
     static bool verifyNFTZkProof(const NFT& nft) {

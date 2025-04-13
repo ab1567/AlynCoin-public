@@ -1,5 +1,3 @@
-#![no_std]
-
 #[macro_use]
 extern crate alloc;
 
@@ -82,6 +80,7 @@ where
 // --------------------------------------
 // Blake3_256<E> Hasher
 // --------------------------------------
+#[derive(Debug)]
 pub struct Blake3_256<E>(core::marker::PhantomData<E>);
 
 impl<E> Hasher for Blake3_256<E>
@@ -179,16 +178,25 @@ pub extern "C" fn verify_proof(_proof: *const u8, _seed: *const u8, _result: *co
     true
 }
 
+#[repr(C)]
+pub struct RecursiveProofResult {
+   pub data: *mut u8,
+   pub len: usize,
+}
+
 #[no_mangle]
 pub extern "C" fn compose_recursive_proof(
     proof_ptr: *const u8,
     proof_len: usize,
     hash_ptr: *const u8,
-) -> *mut u8 {
+) -> RecursiveProofResult {
     use crate::recursive::recursive_prover::compose_recursive_proof;
 
-    if proof_ptr.is_null() || proof_len == 0 || hash_ptr.is_null() {
-        return core::ptr::null_mut();
+    if proof_ptr.is_null() || hash_ptr.is_null() || proof_len == 0 {
+        return RecursiveProofResult {
+            data: core::ptr::null_mut(),
+            len: 0,
+        };
     }
 
     let proof_slice = unsafe { core::slice::from_raw_parts(proof_ptr, proof_len) };
@@ -196,10 +204,17 @@ pub extern "C" fn compose_recursive_proof(
 
     let hash_array: [u8; 32] = match hash_slice.try_into() {
         Ok(arr) => arr,
-        Err(_) => return core::ptr::null_mut(),
+        Err(_) => {
+            return RecursiveProofResult {
+                data: core::ptr::null_mut(),
+                len: 0,
+            }
+        }
     };
 
-    let recursive_proof = compose_recursive_proof(proof_slice, hash_array);
-    let boxed = recursive_proof.into_boxed_slice();
-    Box::into_raw(boxed) as *mut u8
+    let proof_vec = compose_recursive_proof(proof_slice, hash_array);
+    let len = proof_vec.len();
+    let ptr = Box::into_raw(proof_vec.into_boxed_slice()) as *mut u8;
+
+    RecursiveProofResult { data: ptr, len }
 }

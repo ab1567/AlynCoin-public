@@ -17,19 +17,44 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include "network/peer_manager.h"
 
 using boost::asio::ip::tcp;
 
 class Network {
 public:
-  inline static Network &getInstance(unsigned short port = 8333,
-                                     Blockchain *blockchain = nullptr,
-                                     PeerBlacklist *blacklistPtr = nullptr) {
-    static Network instance(port, blockchain, blacklistPtr);
-    return instance;
+inline static Network &getInstance(unsigned short port,
+                                   Blockchain *blockchain = nullptr,
+                                   PeerBlacklist *blacklistPtr = nullptr) {
+  static std::map<unsigned short, std::unique_ptr<Network>> instances;
+  static std::mutex mutex;
+
+  std::lock_guard<std::mutex> lock(mutex);
+
+  // If already initialized, return the existing one
+  if (instances.find(port) != instances.end()) {
+    return *instances[port];
   }
 
+  try {
+    auto instance = std::make_unique<Network>(port, blockchain, blacklistPtr);
+    instancePtr = instance.get();                  // Update global reference
+    instances[port] = std::move(instance);         // Store in map
+    return *instances[port];
+  } catch (const std::exception &ex) {
+    std::cerr << "❌ Failed to bind Network on port " << port << ": " << ex.what() << "\n";
+    throw;
+  }
+}
+
+
+  explicit Network(unsigned short port, Blockchain *blockchain,
+                   PeerBlacklist *blacklistPtr = nullptr);
   ~Network();
+
+  Blockchain& getBlockchain() {
+    return *blockchain;
+  }
 
   void start();
   void startListening();
@@ -38,7 +63,7 @@ public:
   void broadcastTransaction(const Transaction &tx);
   void broadcastMessage(const std::string &message);
   void broadcastBlock(const Block &block);
-
+  PeerManager* getPeerManager();
   std::vector<std::string> discoverPeers();
   void connectToDiscoveredPeers();
   std::string requestBlockchainSync(const std::string &peer);
@@ -48,7 +73,7 @@ public:
   void processReceivedData(const std::string &senderIP,
                            const std::string &data);
   void startServer();
-  void handleIncomingData(const std::string &sender, const std::string &data);
+  void handleIncomingData(const std::string &senderIP, std::string data);
   void sendLatestBlock(const std::string &peerIP);
   void sendLatestBlockIndex(const std::string &peerIP);
   void handleReceivedBlockIndex(const std::string &peerIP, int peerBlockIndex);
@@ -76,11 +101,18 @@ public:
   void receiveRollupBlock(const std::string &data);
   void listenForConnections();
   bool validatePeer(const std::string &peer);
-  void
-  handleNewBlock(const Block &newBlock); // Updated: Verifies dual signatures
+  void handleNewBlock(const Block &newBlock);
   void blacklistPeer(const std::string &peer);
   bool isBlacklisted(const std::string &peer);
   void cleanupPeers();
+
+  inline static bool isUninitialized() {
+    return instancePtr == nullptr;
+  }
+
+  inline static Network* getExistingInstance() {
+    return instancePtr;
+  }
 
 private:
   unsigned short port;
@@ -95,18 +127,15 @@ private:
   boost::asio::ip::tcp::acceptor acceptor;
   std::thread listenerThread;
   std::thread serverThread;
+  PeerManager* peerManager = nullptr;
 
-  std::unordered_map<std::string, std::shared_ptr<boost::asio::ip::tcp::socket>>
-      peerSockets;
+  std::unordered_map<std::string, std::shared_ptr<tcp::socket>> peerSockets;
   std::unordered_set<std::string> bannedPeers;
   PeerBlacklist *blacklist;
-
-  explicit Network(unsigned short port, Blockchain *blockchain,
-                   PeerBlacklist *blacklistPtr = nullptr);
   std::unordered_set<std::string> seenTxHashes;
-  void handlePeer(std::shared_ptr<tcp::socket> socket);
+  static Network* instancePtr;
 
-  // New: Dual signature validation helper (internally used)
+  void handlePeer(std::shared_ptr<tcp::socket> socket);
   bool validateBlockSignatures(const Block &blk);
 };
 

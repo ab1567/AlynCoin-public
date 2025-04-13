@@ -9,6 +9,7 @@ where
     E: StarkField + Debug + Serialize + Eq,
 {
     pub current: Vec<E>,
+    pub next: Vec<E>, // ✅ Add this line
 }
 
 impl<'de, E> Deserialize<'de> for EvaluationFrame<E>
@@ -22,9 +23,13 @@ where
         #[derive(Deserialize)]
         struct Helper<E> {
             current: Vec<E>,
+            next: Vec<E>, // ✅ Add this line
         }
 
         let helper = Helper::deserialize(deserializer)?;
-        Ok(EvaluationFrame { current: helper.current })
+        Ok(EvaluationFrame {
+            current: helper.current,
+            next: helper.next, // ✅ Add this line
+        })
     }
 }

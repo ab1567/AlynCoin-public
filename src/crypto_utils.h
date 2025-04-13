@@ -63,7 +63,7 @@ bool verifyMessage(const std::string &publicKeyPath,
 // ✅ Post-Quantum Keys (Return full keypair structs)
 DilithiumKeyPair generateDilithiumKeys(const std::string &username);
 FalconKeyPair generateFalconKeys(const std::string &username);
-
+bool generatePostQuantumKeys(const std::string &username);
 // ✅ PQ Signatures (Raw vector-based)
 std::vector<unsigned char>
 signWithDilithium(const std::vector<unsigned char> &message,

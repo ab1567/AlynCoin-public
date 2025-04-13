@@ -1,26 +1,27 @@
+extern crate alloc;
+
+use alloc::vec::Vec;
+use core::fmt::Debug;
 use alyn_air::{Air, EvaluationFrame, TraceInfo};
 use alyn_math::StarkField;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
-use core::fmt::Debug;
 
-// --------------------------------------
-// RecursivePublicInputs<E>
-// --------------------------------------
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(bound(deserialize = "E: StarkField + DeserializeOwned + Debug + Send + Sync + 'static + PartialEq"))]
+#[serde(bound(
+    deserialize = "E: StarkField + Debug + Serialize + DeserializeOwned + Send + Sync + 'static + PartialEq"
+))]
 pub struct RecursivePublicInputs<E>
 where
     E: StarkField + Debug + Serialize + DeserializeOwned + Send + Sync + 'static + PartialEq,
 {
-    pub expected_hash: E,
+    pub expected_hash: Vec<E>,
 }
 
-// --------------------------------------
-// RecursiveAIR<E>
-// --------------------------------------
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(bound(deserialize = "E: StarkField + DeserializeOwned + Debug + Send + Sync + 'static + PartialEq"))]
+#[serde(bound(
+    deserialize = "E: StarkField + Debug + Serialize + DeserializeOwned + Send + Sync + 'static + PartialEq"
+))]
 pub struct RecursiveAIR<E>
 where
     E: StarkField + Debug + Serialize + DeserializeOwned + Send + Sync + 'static + PartialEq,
@@ -44,15 +45,29 @@ where
         &self.trace_info
     }
 
-    // Simple difference check for demonstration
     fn evaluate_transition<F: StarkField + Debug>(
         &self,
         frame: &EvaluationFrame<F>,
         _periodic_values: &[F],
         result: &mut [F],
     ) {
-        // For example: result[0] = F(current[0]) - F(current[1])
-        result[0] = frame.current[0] - frame.current[1];
+        let current = &frame.current;
+        let next = &frame.next;
+
+        result[0] = next[0] - (current[0] + F::from_u64(1));
+        result[1] = next[1] - (current[1] * current[0]);
+        result[2] = next[2] - (current[2] + current[1]);
+        result[3] = next[3] - (current[3] * F::from_u64(2));
+
+        result[4] = if let Some(expected) = self.pub_inputs.expected_hash.get(0) {
+            current[0] - F::from_u64(expected.as_int())
+        } else {
+            F::ZERO
+        };
+
+        for i in 5..result.len() {
+            result[i] = F::ZERO;
+        }
     }
 
     fn get_pub_inputs(&self) -> &Self::PublicInputs {

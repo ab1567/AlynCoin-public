@@ -45,10 +45,15 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/root/AlynCoin/src/rollup/proofs/proof_verifier.cpp" "src/CMakeFiles/alyncoin_lib.dir/rollup/proofs/proof_verifier.cpp.o" "gcc" "src/CMakeFiles/alyncoin_lib.dir/rollup/proofs/proof_verifier.cpp.o.d"
   "/root/AlynCoin/src/rollup/rollup_block.cpp" "src/CMakeFiles/alyncoin_lib.dir/rollup/rollup_block.cpp.o" "gcc" "src/CMakeFiles/alyncoin_lib.dir/rollup/rollup_block.cpp.o.d"
   "/root/AlynCoin/src/rollup/rollup_utils.cpp" "src/CMakeFiles/alyncoin_lib.dir/rollup/rollup_utils.cpp.o" "gcc" "src/CMakeFiles/alyncoin_lib.dir/rollup/rollup_utils.cpp.o.d"
+  "/root/AlynCoin/src/self_healing/health_monitor.cpp" "src/CMakeFiles/alyncoin_lib.dir/self_healing/health_monitor.cpp.o" "gcc" "src/CMakeFiles/alyncoin_lib.dir/self_healing/health_monitor.cpp.o.d"
+  "/root/AlynCoin/src/self_healing/self_healing_node.cpp" "src/CMakeFiles/alyncoin_lib.dir/self_healing/self_healing_node.cpp.o" "gcc" "src/CMakeFiles/alyncoin_lib.dir/self_healing/self_healing_node.cpp.o.d"
+  "/root/AlynCoin/src/self_healing/sync_recovery.cpp" "src/CMakeFiles/alyncoin_lib.dir/self_healing/sync_recovery.cpp.o" "gcc" "src/CMakeFiles/alyncoin_lib.dir/self_healing/sync_recovery.cpp.o.d"
   "/root/AlynCoin/src/syncing.cpp" "src/CMakeFiles/alyncoin_lib.dir/syncing.cpp.o" "gcc" "src/CMakeFiles/alyncoin_lib.dir/syncing.cpp.o.d"
   "/root/AlynCoin/src/transaction.cpp" "src/CMakeFiles/alyncoin_lib.dir/transaction.cpp.o" "gcc" "src/CMakeFiles/alyncoin_lib.dir/transaction.cpp.o.d"
+  "/root/AlynCoin/src/utils/logger.cpp" "src/CMakeFiles/alyncoin_lib.dir/utils/logger.cpp.o" "gcc" "src/CMakeFiles/alyncoin_lib.dir/utils/logger.cpp.o.d"
   "/root/AlynCoin/src/validation/transaction_validator.cpp" "src/CMakeFiles/alyncoin_lib.dir/validation/transaction_validator.cpp.o" "gcc" "src/CMakeFiles/alyncoin_lib.dir/validation/transaction_validator.cpp.o.d"
   "/root/AlynCoin/src/wallet.cpp" "src/CMakeFiles/alyncoin_lib.dir/wallet.cpp.o" "gcc" "src/CMakeFiles/alyncoin_lib.dir/wallet.cpp.o.d"
+  "/root/AlynCoin/src/zk/recursive_proof_helper.cpp" "src/CMakeFiles/alyncoin_lib.dir/zk/recursive_proof_helper.cpp.o" "gcc" "src/CMakeFiles/alyncoin_lib.dir/zk/recursive_proof_helper.cpp.o.d"
   "/root/AlynCoin/src/zk/winterfell_stark.cpp" "src/CMakeFiles/alyncoin_lib.dir/zk/winterfell_stark.cpp.o" "gcc" "src/CMakeFiles/alyncoin_lib.dir/zk/winterfell_stark.cpp.o.d"
   )
 

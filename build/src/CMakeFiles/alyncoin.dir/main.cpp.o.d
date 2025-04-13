@@ -1353,4 +1353,9 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
  /root/AlynCoin/src/db/db_paths.h /root/AlynCoin/src/miner.h \
  /root/AlynCoin/src/network.h /usr/include/c++/13/thread \
  /usr/include/c++/13/bits/this_thread_sleep.h \
- /root/AlynCoin/src/network/peer_blacklist.h /root/AlynCoin/src/wallet.h
+ /root/AlynCoin/src/network/peer_manager.h \
+ /root/AlynCoin/src/network/peer_blacklist.h /root/AlynCoin/src/block.h \
+ /root/AlynCoin/src/self_healing/self_healing_node.h \
+ /root/AlynCoin/src/self_healing/health_monitor.h \
+ /root/AlynCoin/src/self_healing/sync_recovery.h \
+ /root/AlynCoin/src/network/peer_blacklist.h

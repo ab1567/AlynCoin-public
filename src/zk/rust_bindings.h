@@ -1,6 +1,9 @@
 #ifndef RUST_BINDINGS_H
 #define RUST_BINDINGS_H
 
+#include <cstddef>   // For size_t
+#include <cstdint>   // For uint8_t
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -11,8 +14,14 @@ char* generate_proof_bytes(const char* seed, size_t len);
 // Verifies a zk-STARK proof given the seed and expected result
 bool verify_proof(const char* proof, const char* seed, const char* result);
 
-// ✅ Composes a recursive zk-STARK proof from inner proof and expected hash
-uint8_t* compose_recursive_proof(const uint8_t* proof, size_t len, const uint8_t* hash);
+// Result type for recursive proof
+typedef struct {
+    uint8_t* data;
+    size_t len;
+} RecursiveProofResult;
+
+// ✅ Composes a recursive zk-STARK proof from inner proof and hash
+RecursiveProofResult compose_recursive_proof(const uint8_t* proof, size_t len, const uint8_t* hash);
 
 #ifdef __cplusplus
 }

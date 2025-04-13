@@ -1355,6 +1355,8 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
  /root/AlynCoin/src/cli/../network/peer_blacklist.h \
  /root/AlynCoin/src/network.h /usr/include/c++/13/thread \
  /usr/include/c++/13/bits/this_thread_sleep.h \
+ /root/AlynCoin/src/network/peer_manager.h \
+ /root/AlynCoin/src/network/peer_blacklist.h /root/AlynCoin/src/block.h \
  /root/AlynCoin/src/network/peer_blacklist.h /root/AlynCoin/src/wallet.h \
  /usr/include/c++/13/filesystem /usr/include/c++/13/bits/fs_fwd.h \
  /usr/include/c++/13/bits/fs_path.h /usr/include/c++/13/locale \
@@ -1369,4 +1371,5 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
  /root/AlynCoin/src/governance/devfund.h \
  /root/AlynCoin/src/governance/dao_storage.h \
  /root/AlynCoin/src/governance/dao.h /root/AlynCoin/src/db/db_instance.h \
- /root/AlynCoin/src/db/rocksdb_wrapper.h
+ /root/AlynCoin/src/db/rocksdb_wrapper.h \
+ /root/AlynCoin/src/zk/recursive_proof_helper.h

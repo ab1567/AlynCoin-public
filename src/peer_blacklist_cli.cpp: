@@ -1,4 +1,0 @@
-int main() {
-    // Implement peer blacklist functionality here, placeholder for now
-    return 0;
-}

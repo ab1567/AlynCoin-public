@@ -10,7 +10,7 @@
 PeerBlacklist::PeerBlacklist(const std::string& path, int threshold) : db_path(path), strike_threshold(threshold) {
     rocksdb::Options options;
     options.create_if_missing = true;
-    rocksdb::Status status = rocksdb::DB::Open(options, DBPaths::getBlacklistDB(), &db);
+    rocksdb::Status status = rocksdb::DB::Open(options, db_path, &db);
     if (!status.ok()) {
         std::cerr << "Failed to open peer blacklist DB: " << status.ToString() << std::endl;
         db = nullptr;
