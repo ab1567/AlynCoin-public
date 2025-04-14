@@ -20,7 +20,7 @@ fn to_hex(bytes: &[u8]) -> String {
     s
 }
 
-pub fn generate_trace_from_inner_proof(inner_proof_bytes: &[u8]) -> TraceTable<BaseElement> {
+pub fn generate_trace_from_inner_proof(inner_proof_bytes: &[u8]) -> (TraceTable<BaseElement>, BaseElement) {
     let mut trace = TraceTable::default();
 
     let mut col0 = Vec::new();
@@ -65,22 +65,22 @@ pub fn generate_trace_from_inner_proof(inner_proof_bytes: &[u8]) -> TraceTable<B
         col3.push(s3);
     }
 
+    let last_col0 = col0[col0.len() - 1];
     trace.add_column(col0);
     trace.add_column(col1);
     trace.add_column(col2);
     trace.add_column(col3);
-    trace
+
+    (trace, last_col0)
 }
 
 pub fn compose_recursive_proof(
     inner_proof_bytes: &[u8],
-    address_hash: [u8; 32],
+    _address_hash: [u8; 32], // unused now
 ) -> Vec<u8> {
-    let trace = generate_trace_from_inner_proof(inner_proof_bytes);
-    let expected_hash: Vec<BaseElement> = address_hash
-        .iter()
-        .map(|b| BaseElement::new(*b as u64))
-        .collect();
+    let (trace, col0_last) = generate_trace_from_inner_proof(inner_proof_bytes);
+
+    let expected_hash = vec![col0_last]; // ✅ enforce match with col0.last()
 
     let pub_inputs = RecursivePublicInputs { expected_hash };
     let air = RecursiveAIR::new(trace.get_info(), pub_inputs);

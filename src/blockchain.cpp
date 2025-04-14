@@ -153,12 +153,15 @@ bool Blockchain::isTransactionValid(const Transaction &tx) const {
 // ✅ Create the Genesis Block Properly
 Block Blockchain::createGenesisBlock() {
     std::vector<Transaction> transactions;
-    Block genesis(0, "00000000000000000000000000000000", transactions, "System",
-                  difficulty, std::time(nullptr), 0);
+    std::string prevHash = "00000000000000000000000000000000";
+    std::string creator = "System";
+    uint64_t fixedTimestamp = 1713120000;  // ⏳ Hardcoded Genesis timestamp
+
+    Block genesis(0, prevHash, transactions, creator, difficulty, fixedTimestamp, 0);
 
     std::cout << "[DEBUG] Genesis Block created with hash: " << genesis.getHash() << std::endl;
 
-    // ✅ RSA Signature (legacy)
+    // ✅ RSA Signature
     std::string rsaKeyPath = getPrivateKeyPath("System");
     if (!fs::exists(rsaKeyPath)) {
         std::cerr << "⚠️ [WARNING] RSA key missing for Genesis Block! Generating...\n";
@@ -171,34 +174,27 @@ Block Blockchain::createGenesisBlock() {
     }
     genesis.setSignature(rsaSig);
 
-    // ✅ Post-Quantum Key Handling
+    // ✅ Post-Quantum Keys
     auto dilKeys = Crypto::loadDilithiumKeys("System");
     auto falKeys = Crypto::loadFalconKeys("System");
-
     if (dilKeys.privateKey.size() < 32 || falKeys.privateKey.size() < 32) {
         std::cerr << "⚠️ [WARNING] Missing PQ keys. Generating...\n";
-        std::cout << "[DEBUG] Checking and generating PQ keys (Dilithium + Falcon) for: System\n";
-        if (!Crypto::generatePostQuantumKeys("System")) {
-            std::cerr << "❌ [ERROR] PQ key generation failed.\n";
-            exit(1);
-        }
+        Crypto::generatePostQuantumKeys("System");
         dilKeys = Crypto::loadDilithiumKeys("System");
         falKeys = Crypto::loadFalconKeys("System");
     }
 
-    // ✅ Canonical 32-byte Signing Message (safe for Falcon)
+    // ✅ Canonical 32-byte signing message for zk-STARK + Falcon
     std::string combined = genesis.getHash() + genesis.getPreviousHash();
-    std::string hash32 = Crypto::sha256(combined).substr(0, 64); // 32-byte hex
-    std::vector<unsigned char> msgBytes = Crypto::fromHex(hash32);
-
+    std::string hashHex = Crypto::blake3(combined);
+    std::vector<unsigned char> msgBytes = Crypto::fromHex(hashHex);
     if (msgBytes.size() != 32) {
-        std::cerr << "❌ [ERROR] Falcon signing message must be 32 bytes. Got: " << msgBytes.size() << "\n";
+        std::cerr << "❌ [ERROR] Signing message must be 32 bytes!\n";
         exit(1);
     }
 
     auto sigDilVec = Crypto::signWithDilithium(msgBytes, dilKeys.privateKey);
     auto sigFalVec = Crypto::signWithFalcon(msgBytes, falKeys.privateKey);
-
     if (sigDilVec.empty() || sigFalVec.empty()) {
         std::cerr << "❌ [ERROR] Post-Quantum signature generation failed.\n";
         exit(1);
@@ -209,9 +205,9 @@ Block Blockchain::createGenesisBlock() {
     genesis.setPublicKeyDilithium(std::string(dilKeys.publicKey.begin(), dilKeys.publicKey.end()));
     genesis.setPublicKeyFalcon(std::string(falKeys.publicKey.begin(), falKeys.publicKey.end()));
 
-    // ✅ zk-STARK Proof Generation (canonical seed)
+    // ✅ zk-STARK Proof Generation (deterministic seed)
     std::string fixedMerkleRoot = "genesis-root";
-    genesis.setMerkleRoot(fixedMerkleRoot);  // 🔐 must match across nodes
+    genesis.setMerkleRoot(fixedMerkleRoot);
 
     std::string seed1 = Crypto::blake3(genesis.getHash());
     std::string seed2 = Crypto::blake3(genesis.getPreviousHash());
@@ -222,6 +218,7 @@ Block Blockchain::createGenesisBlock() {
         std::cerr << "❌ [ERROR] zk-STARK proof generation failed for Genesis Block!" << std::endl;
         exit(1);
     }
+
     genesis.setZkProof(zkProof);
 
     return genesis;

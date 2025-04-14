@@ -12,7 +12,7 @@ extern "C" {
 char* generate_proof_bytes(const char* seed, size_t len);
 
 // Verifies a zk-STARK proof given the seed and expected result
-bool verify_proof(const char* proof, const char* seed, const char* result);
+bool verify_proof_ffi(const char* proof, const char* seed, const char* result);
 
 // Result type for recursive proof
 typedef struct {
@@ -20,8 +20,8 @@ typedef struct {
     size_t len;
 } RecursiveProofResult;
 
-// ✅ Composes a recursive zk-STARK proof from inner proof and hash
-RecursiveProofResult compose_recursive_proof(const uint8_t* proof, size_t len, const uint8_t* hash);
+// Composes a recursive zk-STARK proof from inner proof and hash
+RecursiveProofResult compose_recursive_proof_ffi(const uint8_t* proof, size_t len, const uint8_t* hash);
 
 #ifdef __cplusplus
 }
