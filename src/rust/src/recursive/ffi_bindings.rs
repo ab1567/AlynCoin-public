@@ -1,13 +1,6 @@
 use crate::recursive::recursive_prover::compose_recursive_proof;
 use core::slice;
 use alloc::boxed::Box;
-use std::ffi::CStr;
-use std::os::raw::c_char;
-use hex;
-use alyn_math::fields::f64::BaseElement;
-use alyn_crypto::hash::Hasher;
-use alyn_crypto::Digest;
-use crate::Blake3_256;
 
 #[repr(C)]
 pub struct RecursiveProofResult {
@@ -19,7 +12,7 @@ pub struct RecursiveProofResult {
 pub extern "C" fn compose_recursive_proof_ffi(
     inner_ptr: *const u8,
     inner_len: usize,
-    hash_ptr: *const u8,
+    hash_ptr: *const u8, // <-- actually use this now
 ) -> RecursiveProofResult {
     if inner_ptr.is_null() || inner_len == 0 || hash_ptr.is_null() {
         return RecursiveProofResult {
@@ -48,46 +41,3 @@ pub extern "C" fn compose_recursive_proof_ffi(
 
     RecursiveProofResult { data, len }
 }
-
-#[no_mangle]
-pub extern "C" fn verify_proof_ffi(
-    proof_ptr: *const c_char,
-    seed_ptr: *const c_char,
-    result_ptr: *const c_char,
-) -> bool {
-    let proof_bytes = unsafe { CStr::from_ptr(proof_ptr).to_bytes() };
-    let seed_bytes = unsafe { CStr::from_ptr(seed_ptr).to_bytes() };
-    let expected_hex_str = unsafe {
-        CStr::from_ptr(result_ptr)
-            .to_str()
-            .unwrap_or("[Invalid result ptr]")
-    };
-
-    println!("[Rust zkSTARK] 🔎 Raw seed bytes: {:?}", seed_bytes);
-    println!("[Rust zkSTARK] 🔎 Expected result (hex): {}", expected_hex_str);
-    println!("[Rust zkSTARK] 🔎 Received proof size: {} bytes", proof_bytes.len());
-
-    let digest = Blake3_256::<BaseElement>::hash(seed_bytes);
-    let computed = digest.as_bytes();
-
-    println!(
-        "[Rust zkSTARK] 🔑 Computed BLAKE3(seed) = {:02x?}",
-        computed
-    );
-
-    match hex::decode(expected_hex_str) {
-        Ok(expected_bytes) => {
-            println!(
-                "[Rust zkSTARK] 🔍 Checking if expected starts with computed: {}",
-                expected_bytes.starts_with(&computed)
-            );
-            expected_bytes.starts_with(&computed)
-        }
-        Err(e) => {
-            println!("[Rust zkSTARK] ❌ Failed to decode expected hex: {}", e);
-            false
-        }
-    }
-}
-
-

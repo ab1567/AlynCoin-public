@@ -117,11 +117,7 @@ bool WinterfellStark::verifyProof(const std::string& proof,
 }
 
 // ✅ Transaction zk-STARK Proof Verification
-bool WinterfellStark::verifyTransactionProof(const std::string& zkProof,
-                                             const std::string& sender,
-                                             const std::string& recipient,
-                                             double amount,
-                                             time_t timestamp) {
+bool WinterfellStark::verifyTransactionProof(const std::string& zkProof, const std::string& sender, const std::string& recipient, double amount, time_t timestamp) {
     if (zkProof.empty() || sender.empty() || recipient.empty()) {
         std::cerr << "[zkSTARK] ❌ Invalid input for transaction zk-STARK proof verification.\n";
         return false;
@@ -131,23 +127,11 @@ bool WinterfellStark::verifyTransactionProof(const std::string& zkProof,
     oss << sender << recipient << amount << timestamp;
     std::string seed = oss.str();
 
-    std::string resultHashHex = Crypto::blake3(seed);
-
-    std::cout << "[zkSTARK] 🧪 Verifying transaction proof with:\n";
-    std::cout << "  - Sender:      " << sender << "\n";
-    std::cout << "  - Recipient:   " << recipient << "\n";
-    std::cout << "  - Amount:      " << amount << "\n";
-    std::cout << "  - Timestamp:   " << timestamp << "\n";
-    std::cout << "  - Seed:        " << seed << "\n";
-    std::cout << "  - BLAKE3(seed): " << resultHashHex << "\n";
-    std::cout << "  - Proof len:   " << zkProof.size() << " bytes\n";
-
-    bool result = verify_proof_ffi(zkProof.c_str(), seed.c_str(), resultHashHex.c_str());
+    bool result = verify_proof(zkProof.c_str(), seed.c_str(), sender.c_str());
 
     std::cout << "[zkSTARK] 🔍 Transaction Proof Verification Result: " << (result ? "✅ Passed" : "❌ Failed") << "\n";
     return result;
 }
-
 // ✅ Transaction zk-STARK Proof Generation
 std::string WinterfellStark::generateTransactionProof(const std::string& sender,
                                                       const std::string& recipient,

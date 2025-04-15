@@ -216,51 +216,31 @@ Block Blockchain::createGenesisBlock(bool force) {
     genesis.setPublicKeyDilithium(Crypto::toHex(dilKeys.publicKey));
     genesis.setPublicKeyFalcon(Crypto::toHex(falKeys.publicKey));
 
-std::string zkProof = WinterfellStark::generateProof(
-    genesis.getHash(),
-    genesis.getPreviousHash(),
-    genesis.getTransactionsHash()
-);
+    std::string zkProof = WinterfellStark::generateProof(
+        genesis.getHash(),
+        genesis.getPreviousHash(),
+        genesis.getTransactionsHash()
+    );
 
-std::cout << "[GENESIS] 🔐 Generating zk-STARK proof for Genesis block\n";
-std::cout << "  - Hash        : " << genesis.getHash() << "\n";
-std::cout << "  - PrevHash    : " << genesis.getPreviousHash() << "\n";
-std::cout << "  - TxRoot      : " << genesis.getTransactionsHash() << "\n";
-std::cout << "  - ZK Proof len: " << zkProof.size() << " bytes\n";
+    std::cout << "[GENESIS] 🔐 Generating zk-STARK proof for Genesis block\n";
+    std::cout << "  - Hash        : " << genesis.getHash() << "\n";
+    std::cout << "  - PrevHash    : " << genesis.getPreviousHash() << "\n";
+    std::cout << "  - TxRoot      : " << genesis.getTransactionsHash() << "\n";
+    std::cout << "  - ZK Proof len: " << zkProof.size() << " bytes\n";
 
-if (zkProof.empty() || zkProof.size() < 64) {
-    std::cerr << "❌ zk-STARK proof generation failed for Genesis block!" << std::endl;
-    exit(1);
-}
-
-// ✅ Convert string to vector<uint8_t> and set on block
-genesis.setZkProof(std::vector<uint8_t>(zkProof.begin(), zkProof.end()));
-
-// ✅ Optional: Debug print first 32 bytes of the proof
-std::string zkStr(genesis.getZkProof().begin(), genesis.getZkProof().end());
-std::cout << "[DEBUG] zkProof in genesis: "
-          << zkStr.substr(0, std::min<size_t>(32, zkStr.size())) << "..."
-          << " (size=" << zkStr.size() << ")\n";
-
-// ✅ Save block to DB to ensure zkProof is persisted
-alyncoin::BlockProto proto;
-genesis.serializeToProtobuf(proto);
-
-std::string serialized;
-if (!proto.SerializeToString(&serialized)) {
-    std::cerr << "❌ Failed to serialize genesis block.\n";
-    exit(1);
-}
-
-if (db) {
-    std::string blockKeyByHash = "block_" + genesis.getHash();
-    rocksdb::Status s = db->Put(rocksdb::WriteOptions(), blockKeyByHash, serialized);
-    if (!s.ok()) {
-        std::cerr << "❌ Failed to store genesis block: " << s.ToString() << "\n";
+    if (zkProof.empty() || zkProof.size() < 64) {
+        std::cerr << "❌ zk-STARK proof generation failed for Genesis block!" << std::endl;
         exit(1);
     }
-}
-return genesis;
+
+    genesis.setZkProof(std::vector<uint8_t>(zkProof.begin(), zkProof.end()));
+
+    std::string zkStr(genesis.getZkProof().begin(), genesis.getZkProof().end());
+    std::cout << "[DEBUG] zkProof in genesis: "
+              << zkStr.substr(0, std::min<size_t>(32, zkStr.size())) << "..."
+              << " (size=" << zkStr.size() << ")\n";
+
+    return genesis;
 }
 
 // ✅ Adds block, applies smart burn, and broadcasts to peers
@@ -305,12 +285,14 @@ bool Blockchain::addBlock(const Block &newBlock) {
             pendingTransactions.end());
     }
 
-    std::string zkStr(newBlock.getZkProof().begin(), newBlock.getZkProof().begin() + std::min<size_t>(32, newBlock.getZkProof().size()));
+    std::string zkStr(newBlock.getZkProof().begin(),
+                      newBlock.getZkProof().begin() + std::min<size_t>(32, newBlock.getZkProof().size()));
     std::cout << "[DEBUG] zkProof in addBlock(): " << zkStr << "..."
-          << " (size=" << newBlock.getZkProof().size() << ")\n";
+              << " (size=" << newBlock.getZkProof().size() << ")\n";
 
-    alyncoin::BlockProto protoBlock;
-    newBlock.serializeToProtobuf(protoBlock);
+    // ✅ Use the unified toProtobuf() method (no double serialization)
+    alyncoin::BlockProto protoBlock = newBlock.toProtobuf();
+
     std::string serializedBlock;
     if (!protoBlock.SerializeToString(&serializedBlock)) {
         std::cerr << "❌ Failed to serialize block using Protobuf.\n";
@@ -590,34 +572,28 @@ Block Blockchain::minePendingTransactions(
 
 // ✅ **Sync Blockchain**
 void Blockchain::syncChain(const Json::Value &jsonData) {
-  std::lock_guard<std::mutex> lock(blockchainMutex);
+    std::lock_guard<std::mutex> lock(blockchainMutex);
 
-  std::vector<Block> newChain;
-  for (const auto &blockJson : jsonData["chain"]) {
-    alyncoin::BlockProto protoBlock;
-    if (!protoBlock.ParseFromString(blockJson.asString())) {
-      std::cerr << "❌ [ERROR] Failed to parse Protobuf block data!\n";
-      return;
+    std::vector<Block> newChain;
+    for (const auto &blockJson : jsonData["chain"]) {
+        alyncoin::BlockProto protoBlock;
+        if (!protoBlock.ParseFromString(blockJson.asString())) {
+            std::cerr << "❌ [ERROR] Failed to parse Protobuf block data!\n";
+            return;
+        }
+
+        // ✅ Use fromProto() constructor directly
+        Block newBlock = Block::fromProto(protoBlock);
+        newChain.push_back(newBlock);
     }
 
-    Block newBlock;
-    if (!newBlock.deserializeFromProtobuf(protoBlock)) {
-      std::cerr << "❌ [ERROR] Invalid block format during deserialization!\n";
-      return;
+    if (newChain.size() > chain.size()) {
+        chain = newChain;
+        saveToDB();
+        std::cout << "✅ Blockchain successfully synchronized with a longer chain!\n";
+    } else {
+        std::cerr << "⚠️ [WARNING] Received chain was not longer. No changes applied.\n";
     }
-
-    newChain.push_back(newBlock);
-  }
-
-  if (newChain.size() > chain.size()) {
-    chain = newChain;
-    saveToDB();
-    std::cout
-        << "✅ Blockchain successfully synchronized with a longer chain!\n";
-  } else {
-    std::cerr
-        << "⚠️ [WARNING] Received chain was not longer. No changes applied.\n";
-  }
 }
 
 // ✅ **Start Mining**
@@ -769,11 +745,11 @@ bool Blockchain::saveToDB() {
 
     int blockCount = 0;
     for (const auto &block : chain) {
+        // ✅ Use toProtobuf() directly — avoids extra indirection
         alyncoin::BlockProto *blockProto = blockchainProto.add_blocks();
-        block.serializeToProtobuf(*blockProto);
+        *blockProto = block.toProtobuf();
         ++blockCount;
 
-        // Print a sample field to debug block serialization
         std::cout << "🧱 [DEBUG] Block[" << blockCount << "] hash = " << block.getHash() << std::endl;
     }
 
@@ -797,7 +773,8 @@ bool Blockchain::saveToDB() {
               << ", Pending TXs: " << txCount
               << ", Serialized Size: " << serializedData.size() << " bytes\n";
 
-    std::vector<unsigned char> sampleBytes(serializedData.begin(), serializedData.begin() + std::min<size_t>(32, serializedData.size()));
+    std::vector<unsigned char> sampleBytes(serializedData.begin(),
+                                           serializedData.begin() + std::min<size_t>(32, serializedData.size()));
     std::cout << "🧪 [DEBUG] First 32 bytes of serialized proto (hex): " << Crypto::toHex(sampleBytes) << std::endl;
 
     rocksdb::Status status = db->Put(rocksdb::WriteOptions(), "blockchain", serializedData);
@@ -957,9 +934,13 @@ bool Blockchain::serializeBlockchain(std::string &outData) const {
     blockchainProto.set_chain_id(1);
 
     // ✅ Serialize blocks
+    int blkCount = 0;
     for (const auto &block : chain) {
+        std::cout << "[DEBUG] 🧩 Block[" << blkCount << "] zkProof vector size before toProtobuf: " 
+                  << block.getZkProof().size() << " bytes, Hash: " << block.getHash() << "\n";
         alyncoin::BlockProto *protoBlock = blockchainProto.add_blocks();
-        block.serializeToProtobuf(*protoBlock);
+        *protoBlock = block.toProtobuf();
+        blkCount++;
     }
 
     // ✅ Serialize pending transactions
@@ -978,6 +959,9 @@ bool Blockchain::serializeBlockchain(std::string &outData) const {
         std::cerr << "❌ SerializeToArray failed!\n";
         return false;
     }
+
+    std::cout << "[DEBUG] ✅ BlockchainProto serialization complete. Total Blocks: " << blkCount
+              << ", Serialized Size: " << size << " bytes\n";
 
     return true;
 }
@@ -1040,12 +1024,13 @@ bool Blockchain::loadFromProto(const alyncoin::BlockchainProto &protoChain) {
     blockReward = protoChain.block_reward();
 
     for (const auto &blockProto : protoChain.blocks()) {
-        Block block;
-        if (!block.deserializeFromProtobuf(blockProto)) {
-            std::cerr << "❌ [ERROR] Invalid block format during deserialization!\n";
+        try {
+            Block block = Block::fromProto(blockProto);
+            chain.push_back(block);
+        } catch (const std::exception &e) {
+            std::cerr << "❌ [ERROR] Invalid block format during deserialization: " << e.what() << "\n";
             return false;
         }
-        chain.push_back(block);
     }
 
     for (const auto &txProto : protoChain.pending_transactions()) {

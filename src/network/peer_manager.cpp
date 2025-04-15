@@ -104,10 +104,8 @@ bool PeerManager::fetchBlockAtHeight(int height, Block& outBlock) {
         alyncoin::BlockProto proto;
         if (!proto.ParseFromString(response)) continue;
 
-        Block blk;
-        if (!blk.deserializeFromProtobuf(proto)) continue;
-
-        outBlock = blk;
+        // ✅ Use unified constructor
+        outBlock = Block::fromProto(proto);
         return true;
     }
 

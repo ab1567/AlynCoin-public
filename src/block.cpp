@@ -405,82 +405,6 @@ bool Block::hasValidProofOfWork() const {
   return true;
 }
 //
-void Block::serializeToProtobuf(alyncoin::BlockProto &proto) const {
-    proto.set_index(index);
-    proto.set_timestamp(timestamp);
-    proto.set_previous_hash(previousHash);
-    proto.set_hash(hash);
-    proto.set_miner_address(minerAddress);
-    proto.set_nonce(nonce);
-    proto.set_difficulty(difficulty);
-    proto.set_block_signature(blockSignature);
-    proto.set_keccak_hash(keccakHash);
-    proto.set_reward(reward);
-
-    // ✅ zk-STARK proof as raw bytes serialized via string
-    if (!zkProof.empty()) {
-        proto.set_zk_stark_proof(std::string(zkProof.begin(), zkProof.end()));
-        std::cout << "[DEBUG] Serialized zkProof size: " << zkProof.size() << " bytes\n";
-    } else {
-        std::cout << "[DEBUG] Warning: zkProof is empty during serialization!\n";
-    }
-
-    proto.set_dilithium_signature(dilithiumSignature);
-    proto.set_falcon_signature(falconSignature);
-    proto.set_public_key_dilithium(publicKeyDilithium);
-    proto.set_public_key_falcon(publicKeyFalcon);
-
-    // Optional roots (set to "" unless actually computed)
-    proto.set_state_root("");
-    proto.set_tx_merkle_root("");
-
-    for (const auto &tx : transactions) {
-        alyncoin::TransactionProto *protoTx = proto.add_transactions();
-        tx.serializeToProtobuf(*protoTx);
-    }
-}
-
-//
-bool Block::deserializeFromProtobuf(const alyncoin::BlockProto &protoBlock) {
-    try {
-        setIndex(protoBlock.index());
-        setPreviousHash(protoBlock.previous_hash());
-        setHash(protoBlock.hash());
-        setMinerAddress(protoBlock.miner_address());
-        setNonce(protoBlock.nonce());
-        setTimestamp(protoBlock.timestamp());
-        setDifficulty(protoBlock.difficulty());
-        setSignature(protoBlock.block_signature());
-        setKeccakHash(protoBlock.keccak_hash());
-        reward = protoBlock.has_reward() ? protoBlock.reward() : 0.0;
-
-        // ✅ Deserialize zk-STARK proof
-        const std::string &proofStr = protoBlock.zk_stark_proof();
-        zkProof.assign(proofStr.begin(), proofStr.end());
-        std::cout << "[DEBUG] zkProof assigned in block: " << zkProof.size() << " bytes\n";
-
-        dilithiumSignature = protoBlock.dilithium_signature();
-        falconSignature = protoBlock.falcon_signature();
-        publicKeyDilithium = protoBlock.public_key_dilithium();
-        publicKeyFalcon = protoBlock.public_key_falcon();
-
-        // ✅ Transactions
-        transactions.clear();
-        for (const auto &protoTx : protoBlock.transactions()) {
-            Transaction tx;
-            if (!tx.deserializeFromProtobuf(protoTx)) {
-                std::cerr << "❌ [ERROR] Failed to deserialize transaction in block index: " << index << "\n";
-                return false;
-            }
-            transactions.push_back(tx);
-        }
-
-        return true;
-    } catch (const std::exception &e) {
-        std::cerr << "❌ [ERROR] Exception during Block deserialization: " << e.what() << "\n";
-        return false;
-    }
-}
 
 // ✅ Convert Block to Protobuf-Compatible JSON (FIXED)
 Json::Value Block::toJSON() const {
@@ -536,40 +460,8 @@ Block Block::fromJSON(const Json::Value &blockJson) {
 }
 
 //
-Block Block::fromProto(const alyncoin::BlockProto &protoBlock) {
-  Block newBlock;
-
-  newBlock.setIndex(protoBlock.index());
-  newBlock.setPreviousHash(protoBlock.previous_hash());
-  newBlock.setHash(protoBlock.hash());
-  newBlock.setMinerAddress(protoBlock.miner_address());
-  newBlock.setNonce(protoBlock.nonce());
-  newBlock.setTimestamp(protoBlock.timestamp());
-  newBlock.setDifficulty(protoBlock.difficulty());
-  newBlock.setSignature(protoBlock.block_signature());
-  newBlock.setKeccakHash(protoBlock.keccak_hash());
-  newBlock.setReward(protoBlock.has_reward() ? protoBlock.reward() : 0.0);
-
-  // ✅ Direct assignment of zk-STARK proof (no has_ check)
-  const std::string &proofStr = protoBlock.zk_stark_proof();
-  newBlock.zkProof.assign(proofStr.data(), proofStr.data() + proofStr.size());
-
-  newBlock.setDilithiumSignature(protoBlock.dilithium_signature());
-  newBlock.setFalconSignature(protoBlock.falcon_signature());
-  newBlock.setPublicKeyDilithium(protoBlock.public_key_dilithium());
-  newBlock.setPublicKeyFalcon(protoBlock.public_key_falcon());
-
-  std::vector<Transaction> txs;
-  for (const auto &protoTx : protoBlock.transactions()) {
-    txs.push_back(Transaction::fromProto(protoTx));
-  }
-  newBlock.setTransactions(txs);
-
-  return newBlock;
-}
-
-//
 alyncoin::BlockProto Block::toProtobuf() const {
+std::cout << "[DEBUG] 🧪 Entering toProtobuf() for block: " << hash << ", zkProof size: " << zkProof.size() << " bytes\n";
     alyncoin::BlockProto proto;
     proto.set_index(index);
     proto.set_timestamp(timestamp);
@@ -582,13 +474,13 @@ alyncoin::BlockProto Block::toProtobuf() const {
     proto.set_keccak_hash(keccakHash);
     proto.set_reward(reward);
 
-    // ✅ Convert vector<uint8_t> to string for serialization
     if (!zkProof.empty()) {
         std::string zkProofStr(zkProof.begin(), zkProof.end());
         proto.set_zk_stark_proof(zkProofStr);
-        std::cout << "[DEBUG] Serialized zkProof size: " << zkProofStr.size() << " bytes\n";
+        std::cout << "[DEBUG] ✅ Serialized zkProof: " << zkProof.size()
+                  << " bytes → proto string size: " << zkProofStr.size() << " bytes\n";
     } else {
-        std::cout << "[DEBUG] Warning: zkProof is empty during serialization!\n";
+        std::cout << "[DEBUG] ⚠️ Warning: zkProof is empty during serialization!\n";
     }
 
     proto.set_dilithium_signature(dilithiumSignature);
@@ -602,6 +494,40 @@ alyncoin::BlockProto Block::toProtobuf() const {
     }
 
     return proto;
+}
+
+//
+Block Block::fromProto(const alyncoin::BlockProto &protoBlock) {
+    Block newBlock;
+
+    newBlock.setIndex(protoBlock.index());
+    newBlock.setPreviousHash(protoBlock.previous_hash());
+    newBlock.setHash(protoBlock.hash());
+    newBlock.setMinerAddress(protoBlock.miner_address());
+    newBlock.setNonce(protoBlock.nonce());
+    newBlock.setTimestamp(protoBlock.timestamp());
+    newBlock.setDifficulty(protoBlock.difficulty());
+    newBlock.setSignature(protoBlock.block_signature());
+    newBlock.setKeccakHash(protoBlock.keccak_hash());
+    newBlock.setReward(protoBlock.has_reward() ? protoBlock.reward() : 0.0);
+
+    const std::string &proofStr = protoBlock.zk_stark_proof();
+    std::cout << "[DEBUG] 📥 zkProof received from proto (string size): " << proofStr.size() << " bytes\n";
+    newBlock.zkProof.assign(proofStr.begin(), proofStr.end());
+    std::cout << "[DEBUG] ✅ zkProof assigned to block (vector size): " << newBlock.zkProof.size() << " bytes\n";
+
+    newBlock.setDilithiumSignature(protoBlock.dilithium_signature());
+    newBlock.setFalconSignature(protoBlock.falcon_signature());
+    newBlock.setPublicKeyDilithium(protoBlock.public_key_dilithium());
+    newBlock.setPublicKeyFalcon(protoBlock.public_key_falcon());
+
+    std::vector<Transaction> txs;
+    for (const auto &protoTx : protoBlock.transactions()) {
+        txs.push_back(Transaction::fromProto(protoTx));
+    }
+    newBlock.setTransactions(txs);
+
+    return newBlock;
 }
 
 // Modify Block class to handle rollup block structure

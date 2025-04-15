@@ -655,11 +655,15 @@ if (data.rfind(blockchainPrefix, 0) == 0) {
 
     bool validChain = true;
     for (const auto &blk : mainChain.getChain()) {
-        if (blk.getIndex() == 0) {
-            std::cout << "⚠️ [WARNING] Skipping zk-STARK + signature check for Genesis block.\n";
-            continue;
-        }
-
+	if (blk.getIndex() == 0) {
+	    std::cout << "⚠️ [WARNING] Genesis block zk-STARK check: zkProof size = " << blk.getZkProof().size() << "\n";
+	    if (blk.getZkProof().empty()) {
+	        std::cerr << "❌ [ERROR] Genesis block has empty zkProof after sync!\n";
+	        validChain = false;
+	        break;
+	    }
+	    continue;
+	}
            std::string proofStr(blk.getZkProof().begin(), blk.getZkProof().end());
         if (!WinterfellStark::verifyProof(proofStr, blk.getHash(),
                                           blk.getPreviousHash(), blk.getTransactionsHash())) {
