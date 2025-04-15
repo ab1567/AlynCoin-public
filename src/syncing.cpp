@@ -56,7 +56,7 @@ void Syncing::propagateBlock(const Block &block) {
 // ✅ Propagate transaction (ensure contains signatures)
 void Syncing::propagateTransaction(const Transaction &tx) {
   alyncoin::TransactionProto txProto;
-  tx.serializeToProtobuf(txProto);
+  txProto = tx.toProto();
 
   std::string serializedTx;
   txProto.SerializeToString(&serializedTx);

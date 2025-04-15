@@ -55,12 +55,7 @@ int main(int argc, char *argv[]) {
   PeerBlacklist blacklist(blacklistPath, 3);
   Network &network = Network::getInstance(port, &blockchain, &blacklist);
 
-  if (!blockchain.loadFromDB()) {
-    Block genesis = blockchain.createGenesisBlock();
-    blockchain.addBlock(genesis);
-    blockchain.saveToDB();
-  }
-
+  blockchain.loadFromDB();
   // 🧠 Fixed connectToPeer logic to support full IP:PORT string
 if (!connectIP.empty()) {
     std::string ip;

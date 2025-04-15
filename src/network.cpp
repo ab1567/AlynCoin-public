@@ -31,20 +31,40 @@ Network::Network(unsigned short port, Blockchain *blockchain, PeerBlacklist *bla
     : port(port), blockchain(blockchain), isRunning(false), syncing(true),
       ioContext(), acceptor(ioContext), blacklist(blacklistPtr) {
 
-  try {
-    boost::asio::ip::tcp::acceptor::reuse_address reuseOpt(true);
-    acceptor.open(boost::asio::ip::tcp::v4());
-    acceptor.set_option(reuseOpt);
-    acceptor.bind(boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port));
-    acceptor.listen();
-  } catch (const std::exception &ex) {
-    std::cerr << "❌ [Network Bind Error] " << ex.what() << "\n";
-    throw;
-  }
+    try {
+        boost::asio::ip::tcp::acceptor::reuse_address reuseOpt(true);
+        acceptor.open(boost::asio::ip::tcp::v4());
 
-  peerManager = new PeerManager(blacklistPtr, this);  // ✅ initialized here
-  isRunning = true;
-  listenerThread = std::thread(&Network::listenForConnections, this);
+        boost::system::error_code ec;
+        acceptor.set_option(reuseOpt, ec);
+        if (ec) {
+            std::cerr << "⚠️ [Network] Failed to set socket option: " << ec.message() << "\n";
+        }
+
+        acceptor.bind(boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port), ec);
+        if (ec) {
+            std::cerr << "❌ [Network Bind Error] bind failed on port " << port
+                      << ": " << ec.message() << "\n";
+            std::cerr << "❌ Failed to bind Network on port " << port
+                      << " — skipping network startup.\n";
+            return;  // ⛔ Don't crash — skip network
+        }
+
+        acceptor.listen(boost::asio::socket_base::max_listen_connections, ec);
+        if (ec) {
+            std::cerr << "❌ [Network Listen Error] " << ec.message() << "\n";
+            return;
+        }
+
+        std::cout << "🌐 Network listener started on port: " << port << "\n";
+
+        peerManager = new PeerManager(blacklistPtr, this);
+        isRunning = true;
+        listenerThread = std::thread(&Network::listenForConnections, this);
+
+    } catch (const std::exception &ex) {
+        std::cerr << "❌ [Network Exception] " << ex.what() << "\n";
+    }
 }
 
 // ✅ Correct Destructor:
@@ -246,9 +266,24 @@ void Network::syncWithPeers() {
             continue;
         }
 
+        // 🧩 Safety: prevent invalid string construction from massive byte vectors
+        auto safeBinaryToString = [](const std::vector<uint8_t> &vec, size_t maxLen = 100000) -> std::string {
+            if (vec.size() > maxLen) {
+                std::cerr << "❌ [syncWithPeers] zkProof too large (" << vec.size() << " bytes). Skipping.\n";
+                return "";
+            }
+            return std::string(vec.begin(), vec.end());
+        };
+
         bool zkValid = true;
         for (const auto &blk : tempChain.getChain()) {
-               std::string proofStr(blk.getZkProof().begin(), blk.getZkProof().end());
+            std::string proofStr = safeBinaryToString(blk.getZkProof(), 100000);
+            if (proofStr.empty()) {
+                zkValid = false;
+                std::cerr << "❌ [ERROR] Invalid or oversized zk-STARK proof during sync from peer: " << peer << "\n";
+                break;
+            }
+
             if (!WinterfellStark::verifyProof(proofStr, blk.getHash(),
                                               blk.getPreviousHash(), blk.getTransactionsHash())) {
                 zkValid = false;

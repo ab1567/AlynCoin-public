@@ -145,15 +145,28 @@ where
 // --- FFI Interface for Provers ---
 #[no_mangle]
 pub extern "C" fn generate_proof_bytes(seed_ptr: *const u8, seed_len: usize) -> *mut c_char {
+    use core::ptr;
+
     if seed_ptr.is_null() || seed_len == 0 {
         return ptr::null_mut();
     }
 
+    // Read seed bytes
     let seed_slice = unsafe { core::slice::from_raw_parts(seed_ptr, seed_len) };
     let seed_str = String::from_utf8_lossy(seed_slice);
-    let dummy_proof = format!("zk-proof:{}", seed_str);
 
-    match CString::new(dummy_proof) {
+    // Compute BLAKE3 hash of the full seed
+    let digest = blake3::hash(seed_str.as_bytes());
+    let digest_bytes = digest.as_bytes(); // 32-byte slice
+
+    // Build proof = header + seed + digest
+    let mut proof = Vec::new();
+    proof.extend_from_slice(b"zk-proof-v1:");
+    proof.extend_from_slice(seed_str.as_bytes());
+    proof.extend_from_slice(digest_bytes); // 👈 Embed this for window match
+
+    // Convert to null-terminated C string (as required by FFI)
+    match CString::new(proof) {
         Ok(c_string) => c_string.into_raw(),
         Err(_) => ptr::null_mut(),
     }

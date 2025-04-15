@@ -113,15 +113,29 @@ return true;
 
 //
 Transaction Transaction::fromProto(const alyncoin::TransactionProto &proto) {
-    Transaction tx(proto.sender(), proto.recipient(), proto.amount(),
-                   proto.signature_dilithium(), proto.signature_falcon(),
-                   proto.timestamp());
+    auto safeStr = [](const std::string &val, const std::string &label, size_t maxLen = 10000) -> std::string {
+        if (val.size() > maxLen) {
+            std::cerr << "❌ [Transaction::fromProto] " << label << " too long (" << val.size() << " bytes). Skipping.\n";
+            return "";
+        }
+        return val;
+    };
 
-    tx.setZkProof(proto.zkproof());
-    tx.senderPublicKeyDilithium = proto.sender_pubkey_dilithium();
-    tx.senderPublicKeyFalcon = proto.sender_pubkey_falcon();
-    tx.metadata = proto.metadata();
-    tx.hash = proto.hash();
+    Transaction tx(
+        safeStr(proto.sender(), "sender", 4096),
+        safeStr(proto.recipient(), "recipient", 4096),
+        proto.amount(),
+        safeStr(proto.signature_dilithium(), "signature_dilithium", 10000),
+        safeStr(proto.signature_falcon(), "signature_falcon", 10000),
+        proto.timestamp()
+    );
+
+    tx.setZkProof(safeStr(proto.zkproof(), "zkproof", 50000));  // Limit for proof string
+    tx.senderPublicKeyDilithium = safeStr(proto.sender_pubkey_dilithium(), "sender_pubkey_dilithium", 10000);
+    tx.senderPublicKeyFalcon = safeStr(proto.sender_pubkey_falcon(), "sender_pubkey_falcon", 10000);
+    tx.metadata = safeStr(proto.metadata(), "metadata", 16384);
+    tx.hash = safeStr(proto.hash(), "hash", 1024);
+
     return tx;
 }
 

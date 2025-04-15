@@ -122,7 +122,7 @@ public:
   bool isTransactionValid(const Transaction &tx) const;
   std::vector<unsigned char> signTransaction(const std::vector<unsigned char> &privateKey,
                                              const std::vector<unsigned char> &message);
-  void clear();
+  void clear(bool force = false);
   void validateChainContinuity() const;
   double calculateBlockReward();
   std::string getLatestBlockHash() const;
