@@ -549,7 +549,9 @@ Block Blockchain::minePendingTransactions(
         return Block();
     }
 
-    std::vector<unsigned char> hashBytes = Crypto::fromHex(newBlock.getHash());
+    std::string msgHashHex = Crypto::blake3(newBlock.getHash() + newBlock.getPreviousHash());
+    std::vector<unsigned char> hashBytes = Crypto::fromHex(msgHashHex);
+
     if (hashBytes.size() != 32) {
         std::cerr << "[ERROR] Block hash is not 32 bytes! Aborting.\n";
         return Block();
@@ -1091,21 +1093,25 @@ void Blockchain::replaceChain(const std::vector<Block> &newChain) {
 bool Blockchain::isValidNewBlock(const Block& newBlock) const {
     if (blocks.empty()) {
         if (newBlock.getIndex() != 0) {
-            std::cerr << "❌ First block must be index 0 (genesis)." << std::endl;
+            std::cerr << "❌ First block must be index 0 (genesis). Block hash: "
+                      << newBlock.getHash() << "\n";
             return false;
         }
-        return true;  // Accept first block as genesis
+        return true;  // Accept genesis
     }
 
     const Block& lastBlock = getLatestBlock();
 
     if (newBlock.getIndex() != lastBlock.getIndex() + 1) {
-        std::cerr << "❌ Invalid block index.\n";
+        std::cerr << "❌ Invalid block index. Expected "
+                  << lastBlock.getIndex() + 1 << ", got " << newBlock.getIndex() << "\n";
         return false;
     }
 
     if (newBlock.getPreviousHash() != lastBlock.getHash()) {
-        std::cerr << "❌ Previous hash mismatch.\n";
+        std::cerr << "❌ Previous hash mismatch for block index "
+                  << newBlock.getIndex() << ". Got: " << newBlock.getPreviousHash()
+                  << ", Expected: " << lastBlock.getHash() << "\n";
         return false;
     }
 

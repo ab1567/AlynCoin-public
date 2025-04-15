@@ -25,7 +25,6 @@ private:
   time_t timestamp;
   std::string transactionsHash;
   std::string blockSignature;
-  std::string transactionsToString() const;
   std::string dilithiumSignature;
   std::string falconSignature;
   std::string publicKeyDilithium;
@@ -33,6 +32,8 @@ private:
   std::vector<uint8_t> zkProof;
   std::string merkleRoot;
   double reward = 0.0;
+
+  std::string transactionsToString() const;
 
 public:
   std::string keccakHash;
@@ -45,8 +46,8 @@ public:
   Block();
   Block(int index, const std::string &previousHash,
         const std::vector<Transaction> &transactions,
-        const std::string &minerAddress, int difficulty, uint64_t timestamp,
-        uint64_t nonce);
+        const std::string &minerAddress, int difficulty,
+        uint64_t timestamp, uint64_t nonce);
   Block(const Block &other);
   Block &operator=(const Block &other);
 
@@ -59,14 +60,9 @@ public:
   int getNonce() const { return nonce; }
   time_t getTimestamp() const { return timestamp; }
   std::string getBlockSignature() const { return blockSignature; }
-
-  // ✅ Binary zk-STARK proof access
-  void setZkProof(const std::vector<uint8_t> &proof);
-  std::vector<uint8_t> getZkProof() const;
   std::string getMerkleRoot() const { return merkleRoot; }
   std::string getTxRoot() const { return getTransactionsHash(); }
-  void setPublicKeyDilithium(const std::string& pk) { publicKeyDilithium = pk; }
-  void setPublicKeyFalcon(const std::string& pk) { publicKeyFalcon = pk; }
+  std::vector<uint8_t> getZkProof() const { return zkProof; }
 
   const std::string &getDilithiumSignature() const { return dilithiumSignature; }
   const std::string &getFalconSignature() const { return falconSignature; }
@@ -88,6 +84,9 @@ public:
   void setDifficulty(int diff) { difficulty = diff; }
   void setDilithiumSignature(const std::string &sig) { dilithiumSignature = sig; }
   void setFalconSignature(const std::string &sig) { falconSignature = sig; }
+  void setPublicKeyDilithium(const std::string &pk) { publicKeyDilithium = pk; }
+  void setPublicKeyFalcon(const std::string &pk) { publicKeyFalcon = pk; }
+  void setZkProof(const std::vector<uint8_t> &proof) { zkProof = proof; }
   void setMerkleRoot(const std::string &merkle) { merkleRoot = merkle; }
   void setReward(double r);
 
@@ -98,27 +97,27 @@ public:
 
   void incrementNonce() { nonce++; }
   std::string getTransactionsHash() const;
+  void setTransactionsHash(const std::string &hash);
+  std::string computeTransactionsHash() const;
+  std::string calculateHash() const;
   bool mineBlock(int difficulty);
   void signBlock(const std::string &minerPrivateKeyPath);
   bool hasValidProofOfWork() const;
-  std::string calculateHash() const;
-  bool verifyBlockSignature(const std::string &publicKeyPath) const;
   void computeKeccakHash();
-  void setTransactionsHash(const std::string &hash);
-  std::string computeTransactionsHash() const;
   bool isValid(const std::string &prevHash) const;
   bool containsTransaction(const Transaction &tx) const;
+  std::vector<unsigned char> getSignatureMessage() const;
   std::string getHashInput() const {
     return previousHash + std::to_string(timestamp) + std::to_string(nonce);
   }
+
   std::string generateRollupProof(const std::vector<Transaction> &offChainTxs);
 
   // --- Serialization / Deserialization ---
   static Block fromProto(const alyncoin::BlockProto &proto);
-
+  alyncoin::BlockProto toProtobuf() const;
   Json::Value toJSON() const;
   static Block fromJSON(const Json::Value &blockJson);
-  alyncoin::BlockProto toProtobuf() const;
 };
 
 #endif // BLOCK_H

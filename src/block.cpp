@@ -95,13 +95,10 @@ void Block::computeKeccakHash() {
   keccakHash = Crypto::keccak256(hash); // ✅ Use Keccak hashing function
 }
 //
-void Block::setZkProof(const std::vector<uint8_t>& proofBytes) {
-    std::cout << "[🧩 DEBUG] setZkProof() called with size: " << proofBytes.size() << "\n";
-    this->zkProof = proofBytes;
-}
-
-std::vector<uint8_t> Block::getZkProof() const {
-  return zkProof;
+std::vector<unsigned char> Block::getSignatureMessage() const {
+    std::string input = hash + previousHash;
+    std::string hashHex = Crypto::blake3(input);
+    return Crypto::fromHex(hashHex);
 }
 
 // Calculate Hash
@@ -113,9 +110,10 @@ std::string Block::calculateHash() const {
 
 // ✅ **Mine Block with Protobuf and RocksDB Storage**
 bool Block::mineBlock(int difficulty) {
-    std::cout << "⏳ Mining block for: " << minerAddress
+    std::cout << "\n⏳ Mining block for: " << minerAddress
               << " with difficulty: " << difficulty << "...\n";
 
+    // === Step 1: PoW loop ===
     do {
         nonce++;
         if (nonce % 50000 == 0) {
@@ -125,249 +123,300 @@ bool Block::mineBlock(int difficulty) {
         std::stringstream ss;
         ss << index << previousHash << getTransactionsHash() << timestamp << nonce;
         hash = Crypto::hybridHash(ss.str());
+
     } while (hash.substr(0, difficulty) != std::string(difficulty, '0'));
 
-    std::cout << "\n✅ PoW Complete. BLAKE3 Hash: " << hash << "\n";
+    std::cout << "\n✅ PoW Complete.\n";
+    std::cout << "🔢 Final Nonce: " << nonce << "\n";
+    std::cout << "🧬 Block Hash (BLAKE3): " << hash << "\n";
 
+    // === Step 2: Keccak256 hash ===
     keccakHash = Crypto::keccak256(hash);
     std::cout << "✅ Keccak Hash: " << keccakHash << "\n";
 
+    // === Step 3: zk-STARK Proof ===
     std::string txRoot = getTransactionsHash();
+    std::cout << "🧬 Transactions Merkle Root: " << txRoot << "\n";
+
     std::string proofStr = WinterfellStark::generateProof(hash, previousHash, txRoot);
     zkProof = std::vector<uint8_t>(proofStr.begin(), proofStr.end());
+    std::cout << "✅ zk-STARK Proof Generated. Size: " << zkProof.size() << " bytes\n";
 
-    std::cout << "✅ zk-STARK Proof Attached to Block.\n";
-
-    // --- Dilithium key check + load
+    // === Step 4: Dilithium Signing ===
     std::string dilKeyPath = "/root/.alyncoin/keys/" + minerAddress + "_dilithium.key";
     if (!Crypto::fileExists(dilKeyPath)) {
         std::cout << "⚠️ Miner Dilithium private key missing. Generating...\n";
         Crypto::generateDilithiumKeys(minerAddress);
     }
 
-    std::vector<unsigned char> privKeyDil = Crypto::loadDilithiumKeys(minerAddress).privateKey;
+    auto dilKeys = Crypto::loadDilithiumKeys(minerAddress);
+    std::vector<unsigned char> privKeyDil = dilKeys.privateKey;
+    std::vector<unsigned char> pubKeyDil = dilKeys.publicKey;
+
     if (privKeyDil.empty()) {
         std::cerr << "❌ Dilithium private key load failed!\n";
         return false;
     }
 
-    std::vector<unsigned char> hashBytes = Crypto::fromHex(hash);
-    dilithiumSignature = Crypto::toHex(Crypto::signWithDilithium(hashBytes, privKeyDil));
-    publicKeyDilithium = Crypto::toHex(Crypto::getPublicKeyDilithium(minerAddress));
+    std::vector<unsigned char> sigMsg = getSignatureMessage();
+    std::cout << "📝 Signature Message Size: " << sigMsg.size() << "\n";
+    std::cout << "🧬 Expected = 32 bytes\n";
 
+    if (sigMsg.size() != 32) {
+        std::cerr << "❌ Invalid signature message length: " << sigMsg.size() << " bytes\n";
+        return false;
+    }
+
+    auto dilSig = Crypto::signWithDilithium(sigMsg, privKeyDil);
+    if (dilSig.empty()) {
+        std::cerr << "❌ Dilithium signature generation failed!\n";
+        return false;
+    }
+
+    dilithiumSignature = Crypto::toHex(dilSig);
+    publicKeyDilithium = Crypto::toHex(pubKeyDil);
+    std::cout << "✅ Dilithium Signature Length: " << dilSig.size() << " bytes\n";
+    std::cout << "✅ Dilithium Public Key Length: " << pubKeyDil.size() << " bytes\n";
     std::cout << "✅ Block Signed with Dilithium Successfully.\n";
 
-    // --- Falcon key check + load
+    // === Step 5: Falcon Signing ===
     std::string falconKeyPath = "/root/.alyncoin/keys/" + minerAddress + "_falcon.key";
     if (!Crypto::fileExists(falconKeyPath)) {
         std::cout << "⚠️ Miner Falcon private key missing. Generating...\n";
         Crypto::generateFalconKeys(minerAddress);
     }
 
-    std::vector<unsigned char> privKeyFalcon = Crypto::loadFalconKeys(minerAddress).privateKey;
+    auto falKeys = Crypto::loadFalconKeys(minerAddress);
+    std::vector<unsigned char> privKeyFalcon = falKeys.privateKey;
+    std::vector<unsigned char> pubKeyFalconVec = falKeys.publicKey;
+
     if (privKeyFalcon.empty()) {
         std::cerr << "❌ Falcon private key load failed!\n";
         return false;
     }
 
-    falconSignature = Crypto::toHex(Crypto::signWithFalcon(hashBytes, privKeyFalcon));
-    publicKeyFalcon = Crypto::toHex(Crypto::getPublicKeyFalcon(minerAddress));
+    auto falSig = Crypto::signWithFalcon(sigMsg, privKeyFalcon);
+    if (falSig.empty()) {
+        std::cerr << "❌ Falcon signature generation failed!\n";
+        return false;
+    }
 
+    falconSignature = Crypto::toHex(falSig);
+    publicKeyFalcon = Crypto::toHex(pubKeyFalconVec);
+    std::cout << "✅ Falcon Signature Length: " << falSig.size() << " bytes\n";
+    std::cout << "✅ Falcon Public Key Length: " << pubKeyFalconVec.size() << " bytes\n";
     std::cout << "✅ Block Signed with Falcon Successfully.\n";
 
     return true;
 }
 
 //
-bool Block::verifyBlockSignature(const std::string &publicKeyPath) const {
-  std::cout << "[DEBUG] Verifying block signature using public key path: " << publicKeyPath << std::endl;
-
-  if (!fs::exists(publicKeyPath)) {
-    std::cerr << "❌ [ERROR] Public key not found: " << publicKeyPath << std::endl;
-    return false;
-  }
-
-  std::ifstream pubFile(publicKeyPath, std::ios::binary);
-  std::vector<unsigned char> pubKeyBytes((std::istreambuf_iterator<char>(pubFile)),
-                                         std::istreambuf_iterator<char>());
-  pubFile.close();
-
-  std::vector<unsigned char> msgBytes(hash.begin(), hash.end());
-  std::vector<unsigned char> sigBytes = Crypto::fromHex(blockSignature);
-
-  if (pubKeyBytes.empty() || sigBytes.empty() || msgBytes.empty()) {
-    std::cerr << "❌ [ERROR] Invalid inputs for verification.\n";
-    return false;
-  }
-
-  // Use OpenSSL for signature verification (RSA)
-  BIO *bio = BIO_new_mem_buf(pubKeyBytes.data(), pubKeyBytes.size());
-  EVP_PKEY *pkey = PEM_read_bio_PUBKEY(bio, nullptr, nullptr, nullptr);
-  BIO_free(bio);
-
-  if (!pkey) {
-    std::cerr << "❌ [ERROR] Failed to parse public key.\n";
-    return false;
-  }
-
-  EVP_MD_CTX *ctx = EVP_MD_CTX_new();
-  EVP_DigestVerifyInit(ctx, nullptr, EVP_sha256(), nullptr, pkey);
-  EVP_DigestVerifyUpdate(ctx, msgBytes.data(), msgBytes.size());
-
-  bool result = EVP_DigestVerifyFinal(ctx, sigBytes.data(), sigBytes.size()) == 1;
-
-  EVP_MD_CTX_free(ctx);
-  EVP_PKEY_free(pkey);
-
-  if (!result) {
-    std::cerr << "❌ [ERROR] Signature verification failed!\n";
-  } else {
-    std::cout << "✅ [INFO] Signature verified successfully!\n";
-  }
-
-  return result;
-}
 
 //
-void Block::signBlock(const std::string &minerPrivateKeyPath) {
-  std::cout << "🔍 [DEBUG] Signing block using private key from: "
-            << minerPrivateKeyPath << std::endl;
+void Block::signBlock(const std::string &minerAddress) {
+    std::cout << "🔐 [DEBUG] Signing block with Dilithium and Falcon for: " << minerAddress << "\n";
 
-  // Load private key
-  EVP_PKEY *privateKey = Crypto::loadPrivateKey(minerPrivateKeyPath);
-  if (!privateKey) {
-    std::cerr << "❌ [ERROR] Failed to load private key for signing!\n";
-    return;
-  }
+    // 🧱 Log block hash and previous hash
+    std::cout << "🔍 Block Hash: " << hash << "\n";
+    std::cout << "🔍 Previous Hash: " << previousHash << "\n";
 
-  // Prepare data to sign (hash of block)
-  std::string blockHash = this->getHash();
-  std::cout << "🔍 [DEBUG] Block hash to sign: " << blockHash << std::endl;
+    // --- Prepare message to sign (32-byte BLAKE3 of hash + prevHash)
+    std::string msgHashHex = Crypto::blake3(hash + previousHash);
+    std::cout << "🔍 BLAKE3(msg) Hex: " << msgHashHex << "\n";
 
-  EVP_MD_CTX *ctx = EVP_MD_CTX_new();
-  if (!ctx) {
-    std::cerr << "❌ [ERROR] Failed to create OpenSSL context!\n";
-    EVP_PKEY_free(privateKey);
-    return;
-  }
+    std::vector<unsigned char> msgBytes = Crypto::fromHex(msgHashHex);
+    std::cout << "🔍 Message Bytes Length: " << msgBytes.size() << "\n";
 
-  if (EVP_SignInit(ctx, EVP_sha256()) != 1) {
-    std::cerr << "❌ [ERROR] EVP_SignInit failed!\n";
-    EVP_MD_CTX_free(ctx);
-    EVP_PKEY_free(privateKey);
-    return;
-  }
+    if (msgBytes.size() != 32) {
+        std::cerr << "❌ [ERROR] Message hash must be 32 bytes! Aborting signBlock.\n";
+        return;
+    }
 
-  if (EVP_SignUpdate(ctx, blockHash.c_str(), blockHash.size()) != 1) {
-    std::cerr << "❌ [ERROR] EVP_SignUpdate failed!\n";
-    EVP_MD_CTX_free(ctx);
-    EVP_PKEY_free(privateKey);
-    return;
-  }
+    // === 🔑 Dilithium Key Load ===
+    std::string dilithiumKeyPath = "/root/.alyncoin/keys/" + minerAddress + "_dilithium.key";
+    if (!Crypto::fileExists(dilithiumKeyPath)) {
+        std::cout << "⚠️ Dilithium key missing. Generating...\n";
+        Crypto::generateDilithiumKeys(minerAddress);
+    }
 
-  unsigned char signature[256];
-  unsigned int sigLen = 0;
+    auto dilKeys = Crypto::loadDilithiumKeys(minerAddress);
+    std::cout << "🔑 Dilithium PubKey Length: " << dilKeys.publicKey.size()
+              << ", PrivKey Length: " << dilKeys.privateKey.size() << "\n";
 
-  if (EVP_SignFinal(ctx, signature, &sigLen, privateKey) != 1) {
-    std::cerr << "❌ [ERROR] EVP_SignFinal failed: "
-              << ERR_reason_error_string(ERR_get_error()) << "\n";
-  } else {
-    std::cout << "✅ [DEBUG] Block signed successfully! Signature size: "
-              << sigLen << " bytes\n";
+    if (dilKeys.privateKey.empty() || dilKeys.publicKey.empty()) {
+        std::cerr << "❌ Failed to load Dilithium keys for: " << minerAddress << "\n";
+        return;
+    }
 
-    // Base64 encode before setting
-    std::string base64Sig =
-        Crypto::base64Encode(std::string((char *)signature, sigLen));
-    this->setSignature(base64Sig);
-    std::cout << "✅ [DEBUG] Block signature Base64-encoded and set.\n";
-  }
+    auto sigDil = Crypto::signWithDilithium(msgBytes, dilKeys.privateKey);
+    std::cout << "🔏 Dilithium Signature Size: " << sigDil.size() << " bytes\n";
 
-  EVP_MD_CTX_free(ctx);
-  EVP_PKEY_free(privateKey);
+    if (sigDil.empty()) {
+        std::cerr << "❌ Dilithium signature failed!\n";
+        return;
+    }
+
+    dilithiumSignature = Crypto::toHex(sigDil);
+    publicKeyDilithium = Crypto::toHex(dilKeys.publicKey);
+    std::cout << "✅ Dilithium signature applied.\n";
+    std::cout << "🧬 Public Key (Hex, first 32): " << publicKeyDilithium.substr(0, 32) << "...\n";
+    std::cout << "🧾 Signature (Hex, first 32): " << dilithiumSignature.substr(0, 32) << "...\n";
+
+    // === 🦅 Falcon Key Load ===
+    std::string falconKeyPath = "/root/.alyncoin/keys/" + minerAddress + "_falcon.key";
+    if (!Crypto::fileExists(falconKeyPath)) {
+        std::cout << "⚠️ Falcon key missing. Generating...\n";
+        Crypto::generateFalconKeys(minerAddress);
+    }
+
+    auto falKeys = Crypto::loadFalconKeys(minerAddress);
+    std::cout << "🦅 Falcon PubKey Length: " << falKeys.publicKey.size()
+              << ", PrivKey Length: " << falKeys.privateKey.size() << "\n";
+
+    if (falKeys.privateKey.empty() || falKeys.publicKey.empty()) {
+        std::cerr << "❌ Failed to load Falcon keys for: " << minerAddress << "\n";
+        return;
+    }
+
+    auto sigFal = Crypto::signWithFalcon(msgBytes, falKeys.privateKey);
+    std::cout << "🔏 Falcon Signature Size: " << sigFal.size() << " bytes\n";
+
+    if (sigFal.empty()) {
+        std::cerr << "❌ Falcon signature failed!\n";
+        return;
+    }
+
+    falconSignature = Crypto::toHex(sigFal);
+    publicKeyFalcon = Crypto::toHex(falKeys.publicKey);
+    std::cout << "✅ Falcon signature applied.\n";
+    std::cout << "🧬 Public Key (Hex, first 32): " << publicKeyFalcon.substr(0, 32) << "...\n";
+    std::cout << "🧾 Signature (Hex, first 32): " << falconSignature.substr(0, 32) << "...\n";
+
+    std::cout << "✅ [DEBUG] Block signatures complete.\n";
 }
 
 // ✅ Validate Block (Hybrid PoW, Transactions & Signature)
 bool Block::isValid(const std::string &prevHash) const {
-  std::cout << "🔍 Validating Block Index: " << index << "\n";
+    std::cout << "\n🔍 Validating Block Index: " << index << ", Miner: " << minerAddress << "\n";
 
-  std::stringstream ss;
-  ss << index << previousHash << getTransactionsHash() << timestamp << nonce;
-  std::string recomputedHash = Crypto::hybridHash(ss.str());
+    // --- Recompute full block hash ---
+    std::stringstream ss;
+    ss << index << previousHash << getTransactionsHash() << timestamp << nonce;
+    std::string recomputedHash = Crypto::hybridHash(ss.str());
+    std::cout << "🔍 Recomputed Hash: " << recomputedHash << "\n";
+    std::cout << "🔍 Stored Hash:     " << hash << "\n";
 
-  if (recomputedHash != hash) {
-    std::cerr << "❌ Invalid Block Hash!\n";
-    return false;
-  }
-
-  if (hash.substr(0, difficulty) != std::string(difficulty, '0')) {
-    std::cerr << "❌ Invalid PoW!\n";
-    return false;
-  }
-
-  std::string recomputedKeccak = Crypto::keccak256(hash);
-  if (recomputedKeccak != keccakHash) {
-    std::cerr << "❌ Keccak Mismatch!\n";
-    return false;
-  }
-
-  std::vector<unsigned char> hashBytes;
-  try {
-    hashBytes = Crypto::fromHex(hash);
-  } catch (const std::exception &ex) {
-    std::cerr << "❌ Failed to decode block hash: " << ex.what() << "\n";
-    return false;
-  }
-
-  std::vector<unsigned char> pubKeyDil = Crypto::getPublicKeyDilithium(minerAddress);
-  std::vector<unsigned char> sigDil;
-  try {
-    sigDil = Crypto::fromHex(dilithiumSignature);
-  } catch (...) {
-    std::cerr << "❌ Invalid Dilithium Signature (Hex decode failed)!\n";
-    return false;
-  }
-
-  if (!Crypto::verifyWithDilithium(hashBytes, sigDil, pubKeyDil)) {
-    std::cerr << "❌ Invalid Dilithium Signature!\n";
-    return false;
-  }
-
-  std::vector<unsigned char> pubKeyFal = Crypto::getPublicKeyFalcon(minerAddress);
-  std::vector<unsigned char> sigFal;
-  try {
-    sigFal = Crypto::fromHex(falconSignature);
-  } catch (...) {
-    std::cerr << "❌ Invalid Falcon Signature (Hex decode failed)!\n";
-    return false;
-  }
-
-  if (!Crypto::verifyWithFalcon(hashBytes, sigFal, pubKeyFal)) {
-    std::cerr << "❌ Invalid Falcon Signature!\n";
-    return false;
-  }
-
-  for (const auto &tx : transactions) {
-    if (!tx.isValid(tx.getSenderPublicKeyDilithium(), tx.getSenderPublicKeyFalcon())) {
-      std::cerr << "❌ Invalid Transaction Detected from: " << tx.getSender() << "\n";
-      return false;
+    if (recomputedHash != hash) {
+        std::cerr << "❌ Invalid Block Hash!\n";
+        return false;
     }
-  }
 
-  if (previousHash != prevHash) {
-    std::cerr << "❌ Previous Hash Mismatch!\n";
-    return false;
-  }
+    if (hash.substr(0, difficulty) != std::string(difficulty, '0')) {
+        std::cerr << "❌ Invalid PoW! Hash doesn't match difficulty requirement.\n";
+        return false;
+    }
 
-  std::string txRoot = getTransactionsHash();
-  if (!WinterfellStark::verifyProof(
-      std::string(zkProof.begin(), zkProof.end()), hash, previousHash, txRoot)) {
-    std::cerr << "❌ Invalid zk-STARK Proof!\n";
-    return false;
-  }
+    std::string recomputedKeccak = Crypto::keccak256(hash);
+    std::cout << "🔍 Recomputed Keccak: " << recomputedKeccak << "\n";
+    std::cout << "🔍 Stored Keccak:    " << keccakHash << "\n";
 
-  std::cout << "✅ Block Validated Successfully.\n";
-  return true;
+    if (recomputedKeccak != keccakHash) {
+        std::cerr << "❌ Keccak Mismatch!\n";
+        return false;
+    }
+
+    // --- Convert hex block hash to bytes for signing check ---
+    std::vector<unsigned char> hashBytes;
+    try {
+        hashBytes = Crypto::fromHex(hash);
+        std::cout << "🔍 Hash Bytes (32): " << hashBytes.size() << "\n";
+    } catch (const std::exception &ex) {
+        std::cerr << "❌ Failed to decode block hash: " << ex.what() << "\n";
+        return false;
+    }
+
+    // === ✅ Dilithium Signature Verification ===
+    std::vector<unsigned char> pubKeyDil;
+    try {
+        pubKeyDil = Crypto::fromHex(publicKeyDilithium);
+        std::cout << "🧬 Dilithium Public Key Length: " << pubKeyDil.size() << "\n";
+    } catch (...) {
+        std::cerr << "❌ Invalid stored Dilithium public key!\n";
+        return false;
+    }
+
+    std::vector<unsigned char> sigDil;
+    try {
+        sigDil = Crypto::fromHex(dilithiumSignature);
+        std::cout << "🔏 Dilithium Signature Length: " << sigDil.size() << "\n";
+    } catch (...) {
+        std::cerr << "❌ Invalid Dilithium Signature (Hex decode failed)!\n";
+        return false;
+    }
+
+    if (!Crypto::verifyWithDilithium(hashBytes, sigDil, pubKeyDil)) {
+        std::cerr << "❌ Invalid Dilithium Signature!\n";
+        return false;
+    } else {
+        std::cout << "✅ Dilithium Signature Verified.\n";
+    }
+
+    // === ✅ Falcon Signature Verification ===
+    std::vector<unsigned char> pubKeyFal;
+    try {
+        pubKeyFal = Crypto::fromHex(publicKeyFalcon);
+        std::cout << "🦅 Falcon Public Key Length: " << pubKeyFal.size() << "\n";
+    } catch (...) {
+        std::cerr << "❌ Invalid stored Falcon public key!\n";
+        return false;
+    }
+
+    std::vector<unsigned char> sigFal;
+    try {
+        sigFal = Crypto::fromHex(falconSignature);
+        std::cout << "🔏 Falcon Signature Length: " << sigFal.size() << "\n";
+    } catch (...) {
+        std::cerr << "❌ Invalid Falcon Signature (Hex decode failed)!\n";
+        return false;
+    }
+
+    if (!Crypto::verifyWithFalcon(hashBytes, sigFal, pubKeyFal)) {
+        std::cerr << "❌ Invalid Falcon Signature!\n";
+        return false;
+    } else {
+        std::cout << "✅ Falcon Signature Verified.\n";
+    }
+
+    // === ✅ Validate All Transactions ===
+    for (const auto &tx : transactions) {
+        std::cout << "🔍 Validating Transaction from: " << tx.getSender() << "\n";
+        if (!tx.isValid(tx.getSenderPublicKeyDilithium(), tx.getSenderPublicKeyFalcon())) {
+            std::cerr << "❌ Invalid Transaction Detected. Hash: " << tx.getHash() << "\n";
+            return false;
+        }
+    }
+
+    // === 🔗 Check Previous Hash Consistency ===
+    if (previousHash != prevHash) {
+        std::cerr << "❌ Previous Hash Mismatch! expected: " << prevHash << ", got: " << previousHash << "\n";
+        return false;
+    }
+
+    // === 🔍 zk-STARK Proof Verification ===
+    std::string txRoot = getTransactionsHash();
+    std::cout << "🔍 Verifying zk-STARK Proof... Size: " << zkProof.size()
+              << ", TxRoot: " << txRoot << "\n";
+
+    if (!WinterfellStark::verifyProof(
+            std::string(zkProof.begin(), zkProof.end()), hash, previousHash, txRoot)) {
+        std::cerr << "❌ Invalid zk-STARK Proof!\n";
+        return false;
+    }
+
+    std::cout << "✅ Block Validated Successfully.\n";
+    return true;
 }
+
 //
 double Block::getReward() const {
     return reward;

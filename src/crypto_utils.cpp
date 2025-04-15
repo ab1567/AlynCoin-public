@@ -409,54 +409,57 @@ bool generatePostQuantumKeys(const std::string &username) {
 }
 
 // buff conversion
-void serializeKeysToProtobuf(const std::string &privateKeyPath,
-                             std::string &output) {
+void serializeKeysToProtobuf(const std::string &privateKeyPath, std::string &output) {
   alyncoin::CryptoKeysProto keyProto;
 
-  std::ifstream privFile(privateKeyPath);
+  // 🔐 Binary-safe read
+  std::ifstream privFile(privateKeyPath, std::ios::binary);
   if (privFile) {
-    std::stringstream buffer;
-    buffer << privFile.rdbuf();
-    keyProto.set_private_key(buffer.str());
+    std::vector<char> buffer((std::istreambuf_iterator<char>(privFile)), {});
+    keyProto.set_private_key(std::string(buffer.begin(), buffer.end()));
     privFile.close();
   } else {
-    std::cerr << "❌ Error: Cannot open private key file: " << privateKeyPath
-              << std::endl;
+    std::cerr << "❌ Error: Cannot open private key file: " << privateKeyPath << std::endl;
     return;
   }
 
+  // 🔓 Infer and read public key
   std::string publicKeyPath = privateKeyPath;
-  size_t pos = publicKeyPath.find("_private.pem");
+  size_t pos = publicKeyPath.find(".key");
   if (pos != std::string::npos) {
-    publicKeyPath.replace(pos, 12, "_public.pem");
+    publicKeyPath.replace(pos, 4, ".pub");
   }
 
-  std::ifstream pubFile(publicKeyPath);
+  std::ifstream pubFile(publicKeyPath, std::ios::binary);
   if (pubFile) {
-    std::stringstream buffer;
-    buffer << pubFile.rdbuf();
-    keyProto.set_public_key(buffer.str());
+    std::vector<char> buffer((std::istreambuf_iterator<char>(pubFile)), {});
+    keyProto.set_public_key(std::string(buffer.begin(), buffer.end()));
     pubFile.close();
   } else {
-    std::cerr << "⚠️ Warning: Cannot open public key file: " << publicKeyPath
-              << std::endl;
+    std::cerr << "⚠️ Warning: Cannot open public key file: " << publicKeyPath << std::endl;
   }
 
   keyProto.SerializeToString(&output);
 }
-
 bool deserializeKeysFromProtobuf(const std::string &input,
-                                 std::string &privateKey,
-                                 std::string &publicKey) {
-  alyncoin::CryptoKeysProto keyProto;
-  if (!keyProto.ParseFromString(input)) {
-    std::cerr << "❌ Error: Failed to parse Protobuf key data!" << std::endl;
-    return false;
-  }
+                                  std::vector<unsigned char> &privateKey,
+                                  std::vector<unsigned char> &publicKey) {
+    alyncoin::CryptoKeysProto keyProto;
+    if (!keyProto.ParseFromString(input)) {
+        std::cerr << "❌ Error: Failed to parse Protobuf key data!" << std::endl;
+        return false;
+    }
 
-  privateKey = keyProto.private_key();
-  publicKey = keyProto.public_key();
-  return true;
+    const std::string &privStr = keyProto.private_key();
+    const std::string &pubStr = keyProto.public_key();
+
+    privateKey.assign(privStr.begin(), privStr.end());
+    publicKey.assign(pubStr.begin(), pubStr.end());
+
+    std::cout << "✅ [DEBUG] Deserialized Private Key Length: " << privateKey.size() << "\n";
+    std::cout << "✅ [DEBUG] Deserialized Public Key Length: "  << publicKey.size() << "\n";
+
+    return true;
 }
 
 // Convert bytes to hex string
@@ -939,102 +942,106 @@ std::string signMessage(const std::string &message,
                         const std::string &privateKeyPath, bool isFilePath) {
   std::cout << "[DEBUG] Signing message: " << message
             << " using key: " << privateKeyPath << std::endl;
-  std::string privateKeyContent;
+
+  std::vector<unsigned char> privKeyData;
 
   if (isFilePath) {
     if (!fs::exists(privateKeyPath)) {
-      std::cerr << "❌ [ERROR] Private key file not found: " << privateKeyPath
-                << std::endl;
+      std::cerr << "❌ [ERROR] Private key file not found: " << privateKeyPath << std::endl;
       return "";
     }
-    std::ifstream keyFile(privateKeyPath);
-    std::stringstream buffer;
-    buffer << keyFile.rdbuf();
-    privateKeyContent = buffer.str();
-    keyFile.close();
+    std::ifstream file(privateKeyPath, std::ios::binary);
+    privKeyData = std::vector<unsigned char>((std::istreambuf_iterator<char>(file)),
+                                             std::istreambuf_iterator<char>());
   } else {
-    privateKeyContent = privateKeyPath;
+    privKeyData = std::vector<unsigned char>(privateKeyPath.begin(), privateKeyPath.end());
   }
 
-  if (privateKeyContent.empty()) {
+  if (privKeyData.empty()) {
     std::cerr << "❌ [ERROR] Private key is empty!\n";
     return "";
   }
 
-  BIO *bio =
-      BIO_new_mem_buf(privateKeyContent.data(), privateKeyContent.size());
-  EVP_PKEY *pkey = PEM_read_bio_PrivateKey(bio, nullptr, nullptr, nullptr);
-  BIO_free(bio);
+  std::vector<unsigned char> messageBytes(message.begin(), message.end());
 
-  if (!pkey) {
-    std::cerr << "❌ [ERROR] Failed to parse private key.\n";
-    return "";
+  if (privateKeyPath.find("falcon") != std::string::npos) {
+    auto sig = Crypto::signWithFalcon(messageBytes, privKeyData);
+    return Crypto::toHex(sig);
+  } else if (privateKeyPath.find("dilithium") != std::string::npos) {
+    auto sig = Crypto::signWithDilithium(messageBytes, privKeyData);
+    return Crypto::toHex(sig);
+  } else {
+    // Assume RSA fallback (PEM)
+    BIO *bio = BIO_new_mem_buf(privKeyData.data(), privKeyData.size());
+    EVP_PKEY *pkey = PEM_read_bio_PrivateKey(bio, nullptr, nullptr, nullptr);
+    BIO_free(bio);
+
+    if (!pkey) {
+      std::cerr << "❌ [ERROR] Failed to parse private key.\n";
+      return "";
+    }
+
+    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+    EVP_DigestSignInit(ctx, nullptr, EVP_sha256(), nullptr, pkey);
+    EVP_DigestSignUpdate(ctx, message.data(), message.size());
+
+    size_t sigLen = 0;
+    EVP_DigestSignFinal(ctx, nullptr, &sigLen);
+    std::vector<unsigned char> signature(sigLen);
+    EVP_DigestSignFinal(ctx, signature.data(), &sigLen);
+
+    EVP_MD_CTX_free(ctx);
+    EVP_PKEY_free(pkey);
+
+    return base64Encode(std::string(signature.begin(), signature.end()));
   }
-
-  EVP_MD_CTX *ctx = EVP_MD_CTX_new();
-  EVP_DigestSignInit(ctx, nullptr, EVP_sha256(), nullptr, pkey);
-  EVP_DigestSignUpdate(ctx, message.data(), message.size());
-
-  size_t sigLen = 0;
-  EVP_DigestSignFinal(ctx, nullptr, &sigLen);
-  std::vector<unsigned char> signature(sigLen);
-  EVP_DigestSignFinal(ctx, signature.data(), &sigLen);
-
-  EVP_MD_CTX_free(ctx);
-  EVP_PKEY_free(pkey);
-
-  return base64Encode(std::string(signature.begin(), signature.end()));
 }
 
-// ✅ Verify a signed message using a public key
+// ✅ Verify a signed message using public key (RSA/Falcon/Dilithium)
 bool verifyMessage(const std::string &publicKeyPath,
                    const std::string &signature, const std::string &message) {
   if (!fs::exists(publicKeyPath)) {
-    std::cerr << "❌ [ERROR] Public key file not found: " << publicKeyPath
-              << std::endl;
+    std::cerr << "❌ [ERROR] Public key file not found: " << publicKeyPath << std::endl;
     return false;
   }
 
-  std::ifstream pubFile(publicKeyPath);
-  std::stringstream buffer;
-  buffer << pubFile.rdbuf();
-  std::string publicKey = buffer.str();
-  pubFile.close();
+  std::ifstream pubFile(publicKeyPath, std::ios::binary);
+  std::vector<unsigned char> pubKeyData((std::istreambuf_iterator<char>(pubFile)),
+                                        std::istreambuf_iterator<char>());
 
-  if (publicKey.empty()) {
-    std::cerr << "❌ [ERROR] Public key is empty: " << publicKeyPath
-              << std::endl;
-    return false;
+  std::vector<unsigned char> msgBytes(message.begin(), message.end());
+
+  if (publicKeyPath.find("falcon") != std::string::npos) {
+    std::vector<unsigned char> sigBytes = Crypto::fromHex(signature);
+    return Crypto::verifyWithFalcon(msgBytes, sigBytes, pubKeyData);
+  } else if (publicKeyPath.find("dilithium") != std::string::npos) {
+    std::vector<unsigned char> sigBytes = Crypto::fromHex(signature);
+    return Crypto::verifyWithDilithium(msgBytes, sigBytes, pubKeyData);
+  } else {
+    std::string decodedSignature = base64Decode(signature);
+    BIO *bio = BIO_new_mem_buf(pubKeyData.data(), pubKeyData.size());
+    EVP_PKEY *pkey = PEM_read_bio_PUBKEY(bio, nullptr, nullptr, nullptr);
+    BIO_free(bio);
+
+    if (!pkey) {
+      std::cerr << "❌ [ERROR] Failed to parse public key." << std::endl;
+      return false;
+    }
+
+    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+    EVP_DigestVerifyInit(ctx, nullptr, EVP_sha256(), nullptr, pkey);
+    EVP_DigestVerifyUpdate(ctx, message.c_str(), message.size());
+
+    bool result = EVP_DigestVerifyFinal(ctx, (unsigned char *)decodedSignature.data(),
+                                        decodedSignature.size()) == 1;
+
+    EVP_MD_CTX_free(ctx);
+    EVP_PKEY_free(pkey);
+
+    return result;
   }
-
-  std::string decodedSignature = base64Decode(signature);
-  if (decodedSignature.empty()) {
-    std::cerr << "❌ [ERROR] Signature decoding failed!" << std::endl;
-    return false;
-  }
-
-  BIO *bio = BIO_new_mem_buf(publicKey.data(), publicKey.size());
-  EVP_PKEY *pkey = PEM_read_bio_PUBKEY(bio, nullptr, nullptr, nullptr);
-  BIO_free(bio);
-
-  if (!pkey) {
-    std::cerr << "❌ [ERROR] Failed to parse public key." << std::endl;
-    return false;
-  }
-
-  EVP_MD_CTX *ctx = EVP_MD_CTX_new();
-  EVP_DigestVerifyInit(ctx, nullptr, EVP_sha256(), nullptr, pkey);
-  EVP_DigestVerifyUpdate(ctx, message.c_str(), message.size());
-
-  bool result =
-      EVP_DigestVerifyFinal(ctx, (unsigned char *)decodedSignature.data(),
-                            decodedSignature.size()) == 1;
-
-  EVP_MD_CTX_free(ctx);
-  EVP_PKEY_free(pkey);
-
-  return result;
 }
+
 //
 std::string hybridHashWithDomain(const std::string &input,
                                  const std::string &domain) {

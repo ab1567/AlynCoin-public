@@ -333,9 +333,6 @@ bool Transaction::isValid(const std::string &senderPublicKeyDilithium,
     return false;
   }
 
-  std::cout << "[DEBUG] Verifying Dilithium & Falcon signatures for sender: " << sender << "\n";
-
-  // ⛔ Avoid invalid hex strings
   if (signatureDilithium.length() % 2 != 0 || signatureFalcon.length() % 2 != 0 ||
       senderPublicKeyDilithium.length() % 2 != 0 || senderPublicKeyFalcon.length() % 2 != 0) {
     std::cerr << "[ERROR] Invalid hex length in signature or public key!\n";
@@ -349,13 +346,19 @@ bool Transaction::isValid(const std::string &senderPublicKeyDilithium,
     std::vector<unsigned char> pubKeyDil = Crypto::fromHex(senderPublicKeyDilithium);
     std::vector<unsigned char> pubKeyFal = Crypto::fromHex(senderPublicKeyFalcon);
 
-    bool dilithiumValid = Crypto::verifyWithDilithium(hashBytes, sigDil, pubKeyDil);
-    bool falconValid = Crypto::verifyWithFalcon(hashBytes, sigFal, pubKeyFal);
+    std::cout << "[DEBUG] Verifying Dilithium & Falcon signatures for sender: " << sender << "\n";
+    std::cout << "[DEBUG] Hash used for signature: " << getHash() << "\n";
 
-    if (!dilithiumValid || !falconValid) {
-      std::cerr << "[ERROR] Signature verification failed!\n";
+    if (!Crypto::verifyWithDilithium(hashBytes, sigDil, pubKeyDil)) {
+      std::cerr << "[ERROR] Dilithium signature verification failed!\n";
       return false;
     }
+
+    if (!Crypto::verifyWithFalcon(hashBytes, sigFal, pubKeyFal)) {
+      std::cerr << "[ERROR] Falcon signature verification failed!\n";
+      return false;
+    }
+
   } catch (const std::exception &ex) {
     std::cerr << "[ERROR] Signature verification threw exception: " << ex.what() << "\n";
     return false;
@@ -365,6 +368,8 @@ bool Transaction::isValid(const std::string &senderPublicKeyDilithium,
     std::cerr << "[ERROR] Transaction missing zk-STARK proof!\n";
     return false;
   }
+
+  std::cout << "[DEBUG] Verifying zk-STARK transaction proof... length = " << zkProof.size() << " bytes\n";
 
   if (!WinterfellStark::verifyTransactionProof(zkProof, sender, recipient, amount, timestamp)) {
     std::cerr << "[ERROR] zk-STARK proof verification failed!\n";

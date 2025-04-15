@@ -139,7 +139,6 @@ void Network::autoMineBlock() {
 
         std::vector<unsigned char> sigFal = Crypto::fromHex(minedBlock.getFalconSignature());
         std::vector<unsigned char> pubFal = Crypto::getPublicKeyFalcon(minedBlock.getMinerAddress());
-
         bool validSignatures =
             Crypto::verifyWithDilithium(msgHash, sigDil, pubDil) &&
             Crypto::verifyWithFalcon(msgHash, sigFal, pubFal);
@@ -291,19 +290,34 @@ void Network::syncWithPeers() {
                 break;
             }
 
-            std::string blockMsg = blk.getHash() + blk.getPreviousHash() +
-                                   blk.getTransactionsHash() + std::to_string(blk.getTimestamp());
-            std::vector<unsigned char> msgBytes(blockMsg.begin(), blockMsg.end());
-
+            std::vector<unsigned char> msgBytes = blk.getSignatureMessage();
+            std::cout << "📦 Verifying Hash: " << blk.getHash() << ", PrevHash: " << blk.getPreviousHash() << "\n";
+            std::cout << "[SIGN DEBUG] 🔐 Message Length: " << msgBytes.size() << std::endl;
             auto sigDil = Crypto::fromHex(blk.getDilithiumSignature());
             auto pubDil = std::vector<unsigned char>(blk.getPublicKeyDilithium().begin(), blk.getPublicKeyDilithium().end());
             auto sigFal = Crypto::fromHex(blk.getFalconSignature());
             auto pubFal = std::vector<unsigned char>(blk.getPublicKeyFalcon().begin(), blk.getPublicKeyFalcon().end());
 
-            if (!Crypto::verifyWithDilithium(msgBytes, sigDil, pubDil) ||
-                !Crypto::verifyWithFalcon(msgBytes, sigFal, pubFal)) {
+            std::cout << "[SIGN DEBUG] 🔏 Block Hash: " << blk.getHash() << "\n";
+            std::cout << "[SIGN DEBUG] 🔐 Message Length: " << msgBytes.size() << "\n";
+            std::cout << "[SIGN DEBUG] 🧬 Dilithium PubKey Length: " << pubDil.size()
+                      << ", Sig Length: " << sigDil.size() << "\n";
+            std::cout << "[SIGN DEBUG] 🧬 Falcon PubKey Length: " << pubFal.size()
+                      << ", Sig Length: " << sigFal.size() << "\n";
+
+            bool dilPass = Crypto::verifyWithDilithium(msgBytes, sigDil, pubDil);
+            bool falPass = Crypto::verifyWithFalcon(msgBytes, sigFal, pubFal);
+
+            if (!dilPass) {
+                std::cerr << "❌ [ERROR] Dilithium signature verification FAILED for block: " << blk.getHash() << "\n";
+            }
+            if (!falPass) {
+                std::cerr << "❌ [ERROR] Falcon signature verification FAILED for block: " << blk.getHash() << "\n";
+            }
+
+            if (!dilPass || !falPass) {
                 zkValid = false;
-                std::cerr << "❌ [ERROR] Invalid signature in block from: " << peer << "\n";
+                std::cerr << "❌ [ERROR] Invalid signature(s) in block from: " << peer << "\n";
                 break;
             }
         }
@@ -414,8 +428,7 @@ void Network::receiveFullChain(const std::string &senderIP, const std::string &d
             break;
         }
 
-        std::string msg = blk.getHash() + blk.getPreviousHash() + blk.getTxRoot() + std::to_string(blk.getTimestamp());
-        std::vector<unsigned char> msgBytes(msg.begin(), msg.end());
+        std::vector<unsigned char> msgBytes = blk.getSignatureMessage();
 
         auto sigDil = Crypto::fromHex(blk.getDilithiumSignature());
         auto pubDil = std::vector<unsigned char>(blk.getPublicKeyDilithium().begin(), blk.getPublicKeyDilithium().end());
@@ -707,9 +720,7 @@ if (data.rfind(blockchainPrefix, 0) == 0) {
             break;
         }
 
-        std::string blockData = blk.getHash() + blk.getPreviousHash() +
-                                blk.getTransactionsHash() + std::to_string(blk.getTimestamp());
-        std::vector<unsigned char> msgBytes(blockData.begin(), blockData.end());
+        std::vector<unsigned char> msgBytes = blk.getSignatureMessage();
 
         auto sigDil = Crypto::fromHex(blk.getDilithiumSignature());
         auto pubDil = std::vector<unsigned char>(blk.getPublicKeyDilithium().begin(), blk.getPublicKeyDilithium().end());
@@ -852,10 +863,7 @@ void Network::handleNewBlock(const Block &newBlock) {
     return;
   }
 
-  std::string blockData = newBlock.getHash() + newBlock.getPreviousHash() +
-                          newBlock.getTransactionsHash() +
-                          std::to_string(newBlock.getTimestamp());
-  std::vector<unsigned char> msgBytes(blockData.begin(), blockData.end());
+  std::vector<unsigned char> msgBytes = newBlock.getSignatureMessage();
 
   std::vector<unsigned char> sigDil = Crypto::fromHex(newBlock.getDilithiumSignature());
   std::vector<unsigned char> pubDil(newBlock.getPublicKeyDilithium().begin(), newBlock.getPublicKeyDilithium().end());
@@ -1254,10 +1262,7 @@ void Network::handleNewRollupBlock(const RollupBlock &newRollupBlock) {
 }
 //
 bool Network::validateBlockSignatures(const Block &blk) {
-  std::string blockData = blk.getHash() + blk.getPreviousHash() +
-                          blk.getMerkleRoot() + std::to_string(blk.getTimestamp());
-
-  std::vector<unsigned char> msgBytes(blockData.begin(), blockData.end());
+  std::vector<unsigned char> msgBytes = blk.getSignatureMessage();
 
   std::vector<unsigned char> sigDil = Crypto::fromHex(blk.getDilithiumSignature());
   std::vector<unsigned char> sigFal = Crypto::fromHex(blk.getFalconSignature());
