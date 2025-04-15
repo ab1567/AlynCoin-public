@@ -44,16 +44,15 @@ Blockchain::Blockchain()
 }
 
 // ✅ **Constructor: Open RocksDB**
-Blockchain::Blockchain(unsigned short port, const std::string &dbPath, bool bindNetwork)
+Blockchain::Blockchain(unsigned short port, const std::string &dbPath, bool bindNetwork, bool isSyncMode)
     : difficulty(4), miningReward(10.0), port(port), dbPath(dbPath) {
 
-    // 🔒 Conditional network binding to avoid Boost ASIO port conflicts
     if (bindNetwork) {
         if (Network::isUninitialized()) {
-            network = &Network::getInstance(port, this, nullptr);  // ✅ Bind for first instance only
+            network = &Network::getInstance(port, this, nullptr);
         } else {
             std::cerr << "⚠️ Warning: Network already initialized. Using existing instance.\n";
-            network = Network::getExistingInstance();  // Reuse safely
+            network = Network::getExistingInstance();
         }
     } else {
         network = nullptr;
@@ -61,7 +60,6 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath, bool bind
 
     std::cout << "[DEBUG] Initializing Blockchain..." << std::endl;
 
-    // ✅ Skip DB logic entirely if dbPath is empty (used for --nodb)
     if (dbPath.empty()) {
         std::cerr << "⚠️ Skipping RocksDB init (empty dbPath, --nodb mode).\n";
         db = nullptr;
@@ -82,15 +80,22 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath, bool bind
     rocksdb::Status status = rocksdb::DB::Open(options, dbPathFinal, &db);
     if (!status.ok()) {
         std::cerr << "❌ [ERROR] Failed to open RocksDB: " << status.ToString() << std::endl;
-        exit(1);  // Fail-fast if DB can't open
+        exit(1);
     }
 
     std::cout << "[DEBUG] Attempting to load blockchain from DB...\n";
-    loadFromDB();
+    bool found = loadFromDB();
 
-    // ✅ Always recalculate balances from chain, even in non-network CLI mode
+    if (!found && !isSyncMode) {
+        std::cout << "🪐 Creating Genesis Block...\n";
+        Block genesis = createGenesisBlock();
+        chain.push_back(genesis);
+        saveToDB();
+    } else if (!found) {
+        std::cout << "⏳ [INFO] Skipping genesis block — awaiting peer sync...\n";
+    }
+
     recalculateBalancesFromChain();
-
     loadVestingInfoFromDB();
 
     std::string vestingMarker;
@@ -151,77 +156,111 @@ bool Blockchain::isTransactionValid(const Transaction &tx) const {
 }
 
 // ✅ Create the Genesis Block Properly
-Block Blockchain::createGenesisBlock() {
+Block Blockchain::createGenesisBlock(bool force) {
+    if (!force && !chain.empty()) {
+        std::cerr << "⚠️ Genesis block already exists. Skipping creation.\n";
+        return chain.front();
+    }
+
     std::vector<Transaction> transactions;
     std::string prevHash = "00000000000000000000000000000000";
     std::string creator = "System";
-    uint64_t fixedTimestamp = 1713120000;  // ⏳ Hardcoded Genesis timestamp
+    uint64_t fixedTimestamp = 1713120000;
 
     Block genesis(0, prevHash, transactions, creator, difficulty, fixedTimestamp, 0);
 
-    std::cout << "[DEBUG] Genesis Block created with hash: " << genesis.getHash() << std::endl;
+    std::string txRoot = genesis.computeTransactionsHash();
+    genesis.setTransactionsHash(txRoot);
+    genesis.setMerkleRoot(txRoot);
 
-    // ✅ RSA Signature
+    std::string blockHash = genesis.calculateHash();
+    genesis.setHash(blockHash);
+    std::cout << "[DEBUG] Genesis Block created with hash: " << blockHash << std::endl;
+
     std::string rsaKeyPath = getPrivateKeyPath("System");
     if (!fs::exists(rsaKeyPath)) {
-        std::cerr << "⚠️ [WARNING] RSA key missing for Genesis Block! Generating...\n";
+        std::cerr << "⚠️ RSA key missing for Genesis. Generating...\n";
         Crypto::generateKeysForUser("System");
     }
-    std::string rsaSig = Crypto::signMessage(genesis.getHash(), rsaKeyPath, true);
+
+    std::string rsaSig = Crypto::signMessage(blockHash, rsaKeyPath, true);
     if (rsaSig.empty()) {
-        std::cerr << "❌ [ERROR] Genesis block RSA signature failed!" << std::endl;
-        exit(1);
+        std::cerr << "❌ RSA signature failed!\n"; exit(1);
     }
     genesis.setSignature(rsaSig);
 
-    // ✅ Post-Quantum Keys
     auto dilKeys = Crypto::loadDilithiumKeys("System");
     auto falKeys = Crypto::loadFalconKeys("System");
-    if (dilKeys.privateKey.size() < 32 || falKeys.privateKey.size() < 32) {
-        std::cerr << "⚠️ [WARNING] Missing PQ keys. Generating...\n";
+
+    if (dilKeys.privateKey.empty() || falKeys.privateKey.empty()) {
+        std::cerr << "⚠️ PQ keys missing. Regenerating...\n";
         Crypto::generatePostQuantumKeys("System");
         dilKeys = Crypto::loadDilithiumKeys("System");
         falKeys = Crypto::loadFalconKeys("System");
     }
 
-    // ✅ Canonical 32-byte signing message for zk-STARK + Falcon
-    std::string combined = genesis.getHash() + genesis.getPreviousHash();
-    std::string hashHex = Crypto::blake3(combined);
-    std::vector<unsigned char> msgBytes = Crypto::fromHex(hashHex);
+    std::string msgHashHex = Crypto::blake3(blockHash + prevHash);
+    std::vector<unsigned char> msgBytes = Crypto::fromHex(msgHashHex);
     if (msgBytes.size() != 32) {
-        std::cerr << "❌ [ERROR] Signing message must be 32 bytes!\n";
-        exit(1);
+        std::cerr << "❌ Message must be 32 bytes!\n"; exit(1);
     }
 
     auto sigDilVec = Crypto::signWithDilithium(msgBytes, dilKeys.privateKey);
     auto sigFalVec = Crypto::signWithFalcon(msgBytes, falKeys.privateKey);
     if (sigDilVec.empty() || sigFalVec.empty()) {
-        std::cerr << "❌ [ERROR] Post-Quantum signature generation failed.\n";
-        exit(1);
+        std::cerr << "❌ PQ signature failed!\n"; exit(1);
     }
 
-    genesis.setDilithiumSignature(std::string(sigDilVec.begin(), sigDilVec.end()));
-    genesis.setFalconSignature(std::string(sigFalVec.begin(), sigFalVec.end()));
-    genesis.setPublicKeyDilithium(std::string(dilKeys.publicKey.begin(), dilKeys.publicKey.end()));
-    genesis.setPublicKeyFalcon(std::string(falKeys.publicKey.begin(), falKeys.publicKey.end()));
+    genesis.setDilithiumSignature(Crypto::toHex(sigDilVec));
+    genesis.setFalconSignature(Crypto::toHex(sigFalVec));
+    genesis.setPublicKeyDilithium(Crypto::toHex(dilKeys.publicKey));
+    genesis.setPublicKeyFalcon(Crypto::toHex(falKeys.publicKey));
 
-    // ✅ zk-STARK Proof Generation (deterministic seed)
-    std::string fixedMerkleRoot = "genesis-root";
-    genesis.setMerkleRoot(fixedMerkleRoot);
+std::string zkProof = WinterfellStark::generateProof(
+    genesis.getHash(),
+    genesis.getPreviousHash(),
+    genesis.getTransactionsHash()
+);
 
-    std::string seed1 = Crypto::blake3(genesis.getHash());
-    std::string seed2 = Crypto::blake3(genesis.getPreviousHash());
-    std::string seed3 = fixedMerkleRoot;
+std::cout << "[GENESIS] 🔐 Generating zk-STARK proof for Genesis block\n";
+std::cout << "  - Hash        : " << genesis.getHash() << "\n";
+std::cout << "  - PrevHash    : " << genesis.getPreviousHash() << "\n";
+std::cout << "  - TxRoot      : " << genesis.getTransactionsHash() << "\n";
+std::cout << "  - ZK Proof len: " << zkProof.size() << " bytes\n";
 
-    std::string zkProof = WinterfellStark::generateProof(seed1, seed2, seed3);
-    if (zkProof.empty() || zkProof.size() < 64) {
-        std::cerr << "❌ [ERROR] zk-STARK proof generation failed for Genesis Block!" << std::endl;
+if (zkProof.empty() || zkProof.size() < 64) {
+    std::cerr << "❌ zk-STARK proof generation failed for Genesis block!" << std::endl;
+    exit(1);
+}
+
+// ✅ Convert string to vector<uint8_t> and set on block
+genesis.setZkProof(std::vector<uint8_t>(zkProof.begin(), zkProof.end()));
+
+// ✅ Optional: Debug print first 32 bytes of the proof
+std::string zkStr(genesis.getZkProof().begin(), genesis.getZkProof().end());
+std::cout << "[DEBUG] zkProof in genesis: "
+          << zkStr.substr(0, std::min<size_t>(32, zkStr.size())) << "..."
+          << " (size=" << zkStr.size() << ")\n";
+
+// ✅ Save block to DB to ensure zkProof is persisted
+alyncoin::BlockProto proto;
+genesis.serializeToProtobuf(proto);
+
+std::string serialized;
+if (!proto.SerializeToString(&serialized)) {
+    std::cerr << "❌ Failed to serialize genesis block.\n";
+    exit(1);
+}
+
+if (db) {
+    std::string blockKeyByHash = "block_" + genesis.getHash();
+    rocksdb::Status s = db->Put(rocksdb::WriteOptions(), blockKeyByHash, serialized);
+    if (!s.ok()) {
+        std::cerr << "❌ Failed to store genesis block: " << s.ToString() << "\n";
         exit(1);
     }
-
-    genesis.setZkProof(zkProof);
-
-    return genesis;
+}
+return genesis;
 }
 
 // ✅ Adds block, applies smart burn, and broadcasts to peers
@@ -266,6 +305,10 @@ bool Blockchain::addBlock(const Block &newBlock) {
             pendingTransactions.end());
     }
 
+    std::string zkStr(newBlock.getZkProof().begin(), newBlock.getZkProof().begin() + std::min<size_t>(32, newBlock.getZkProof().size()));
+    std::cout << "[DEBUG] zkProof in addBlock(): " << zkStr << "..."
+          << " (size=" << newBlock.getZkProof().size() << ")\n";
+
     alyncoin::BlockProto protoBlock;
     newBlock.serializeToProtobuf(protoBlock);
     std::string serializedBlock;
@@ -305,14 +348,10 @@ bool Blockchain::addBlock(const Block &newBlock) {
 }
 
 // ✅ Singleton Instance (network + db)
-Blockchain &Blockchain::getInstance(unsigned short port,
-                                    const std::string &dbPath,
-                                    bool bindNetwork)
-{
-    static Blockchain instance(port, dbPath, bindNetwork);
+Blockchain &Blockchain::getInstance(unsigned short port, const std::string &dbPath, bool bindNetwork, bool isSyncMode) {
+    static Blockchain instance(port, dbPath, bindNetwork, isSyncMode);
     return instance;
 }
-
 // ✅ Used when you want RocksDB, but no P2P
 Blockchain& Blockchain::getInstanceNoNetwork() {
     static Blockchain instance(0, DBPaths::getBlockchainDB(), false);
@@ -726,13 +765,40 @@ bool Blockchain::saveToDB() {
     }
 
     alyncoin::BlockchainProto blockchainProto;
+    blockchainProto.set_chain_id(1);
+
+    int blockCount = 0;
     for (const auto &block : chain) {
         alyncoin::BlockProto *blockProto = blockchainProto.add_blocks();
-        *blockProto = block.toProtobuf();
+        block.serializeToProtobuf(*blockProto);
+        ++blockCount;
+
+        // Print a sample field to debug block serialization
+        std::cout << "🧱 [DEBUG] Block[" << blockCount << "] hash = " << block.getHash() << std::endl;
     }
 
+    int txCount = 0;
+    for (const auto &tx : pendingTransactions) {
+        alyncoin::TransactionProto *txProto = blockchainProto.add_pending_transactions();
+        tx.serializeToProtobuf(*txProto);
+        ++txCount;
+    }
+
+    blockchainProto.set_difficulty(difficulty);
+    blockchainProto.set_block_reward(blockReward);
+
     std::string serializedData;
-    blockchainProto.SerializeToString(&serializedData);
+    if (!blockchainProto.SerializeToString(&serializedData)) {
+        std::cerr << "❌ [ERROR] Failed to serialize BlockchainProto to string.\n";
+        return false;
+    }
+
+    std::cout << "✅ [DEBUG] BlockchainProto serialized. Blocks: " << blockCount
+              << ", Pending TXs: " << txCount
+              << ", Serialized Size: " << serializedData.size() << " bytes\n";
+
+    std::vector<unsigned char> sampleBytes(serializedData.begin(), serializedData.begin() + std::min<size_t>(32, serializedData.size()));
+    std::cout << "🧪 [DEBUG] First 32 bytes of serialized proto (hex): " << Crypto::toHex(sampleBytes) << std::endl;
 
     rocksdb::Status status = db->Put(rocksdb::WriteOptions(), "blockchain", serializedData);
     if (!status.ok()) {
@@ -741,9 +807,9 @@ bool Blockchain::saveToDB() {
     }
 
     db->Put(rocksdb::WriteOptions(), "burned_supply", std::to_string(totalBurnedSupply));
-
-    std::cout << "✅ Blockchain saved successfully!\n";
     saveVestingInfoToDB();
+
+    std::cout << "✅ Blockchain saved successfully to RocksDB.\n";
     return true;
 }
 
@@ -887,29 +953,32 @@ void Blockchain::applyVestingSchedule() {
 bool Blockchain::serializeBlockchain(std::string &outData) const {
     alyncoin::BlockchainProto blockchainProto;
 
-    // ✅ Serialize all blocks in the chain
+    // ✅ Mandatory field to prevent parse failure
+    blockchainProto.set_chain_id(1);
+
+    // ✅ Serialize blocks
     for (const auto &block : chain) {
         alyncoin::BlockProto *protoBlock = blockchainProto.add_blocks();
         block.serializeToProtobuf(*protoBlock);
     }
 
-    // ✅ Serialize all pending transactions
+    // ✅ Serialize pending transactions
     for (const auto &tx : pendingTransactions) {
         alyncoin::TransactionProto *txProto = blockchainProto.add_pending_transactions();
         tx.serializeToProtobuf(*txProto);
     }
 
-    // ✅ Include difficulty and reward values
     blockchainProto.set_difficulty(difficulty);
     blockchainProto.set_block_reward(blockReward);
 
-    // ✅ Serialize entire message to string buffer
-    if (!blockchainProto.SerializeToString(&outData)) {
-        std::cerr << "❌ Failed to serialize blockchain to Protobuf!\n";
+    // ✅ Serialize to array (needed for ParseFromArray compatibility)
+    size_t size = blockchainProto.ByteSizeLong();
+    outData.resize(size);
+    if (!blockchainProto.SerializeToArray(outData.data(), static_cast<int>(size))) {
+        std::cerr << "❌ SerializeToArray failed!\n";
         return false;
     }
 
-    // ✅ Data is binary (not base64), ready to be encoded if needed
     return true;
 }
 
@@ -926,66 +995,41 @@ bool Blockchain::deserializeBlockchain(const std::string &data) {
     std::cout << "📡 [DEBUG] Received Blockchain Data (Size: " << data.size() << " bytes)\n";
 
     alyncoin::BlockchainProto protoChain;
+    std::cerr << "🧪 [DEBUG] Deserializing blockchain with expected chain_id = " << protoChain.chain_id() << std::endl;
+
     if (!protoChain.ParseFromArray(data.data(), static_cast<int>(data.size()))) {
         std::cerr << "❌ [ERROR] Failed to parse decoded blockchain Protobuf using ParseFromArray.\n";
         return false;
     }
 
-    chain.clear();
-    pendingTransactions.clear();
-    difficulty = protoChain.difficulty();
-    blockReward = protoChain.block_reward();
-
-    for (const auto &blockProto : protoChain.blocks()) {
-        Block block;
-        if (!block.deserializeFromProtobuf(blockProto)) {
-            std::cerr << "❌ [ERROR] Invalid block format during deserialization!\n";
-            return false;
-        }
-        chain.push_back(block);
-    }
-
-    for (const auto &txProto : protoChain.pending_transactions()) {
-        Transaction tx;
-        if (!tx.deserializeFromProtobuf(txProto)) {
-            std::cerr << "❌ [ERROR] Invalid transaction format!\n";
-            return false;
-        }
-        pendingTransactions.push_back(tx);
-    }
-
-    std::cout << "✅ Blockchain deserialization completed! Blocks: " << chain.size()
-              << ", Pending Transactions: " << pendingTransactions.size() << std::endl;
-
-    return true;
+    return loadFromProto(protoChain);
 }
 
 // ✅ Optional helper for base64 input
-bool Blockchain::deserializeBlockchainBase64(const std::string &base64Data) {
-    std::string decoded = Crypto::base64Decode(base64Data);
-    std::cerr << "🧪 [DEBUG] Decoded blockchain data size: " << decoded.size() << " bytes\n";
+bool Blockchain::deserializeBlockchainBase64(const std::string &base64Str) {
+    std::string rawData = Crypto::base64Decode(base64Str);
+    if (rawData.empty()) {
+        std::cerr << "[ERROR] Base64 decode returned empty result." << std::endl;
+        return false;
+    }
 
-    std::vector<unsigned char> debugPrint(decoded.begin(), decoded.begin() + std::min<size_t>(32, decoded.size()));
-    std::cerr << "🧪 [DEBUG] First 32 bytes (hex): " << Crypto::toHex(debugPrint) << std::endl;
+    std::cout << "🧪 [DEBUG] Decoded blockchain data size: " << rawData.size() << " bytes" << std::endl;
+    std::cout << "🧪 [DEBUG] First 32 bytes (hex): ";
+    for (size_t i = 0; i < std::min<size_t>(32, rawData.size()); ++i) {
+        printf("%02x", static_cast<unsigned char>(rawData[i]));
+    }
+    std::cout << std::endl;
 
     alyncoin::BlockchainProto proto;
-
-    // Try ParseFromArray
-    if (proto.ParseFromArray(decoded.data(), static_cast<int>(decoded.size()))) {
-        std::cerr << "✅ [INFO] ParseFromArray() succeeded.\n";
-        return loadFromProto(proto);
+    if (!proto.ParseFromArray(rawData.data(), rawData.size())) {
+        std::cerr << "❌ [ERROR] ParseFromArray failed — trying ParseFromString fallback..." << std::endl;
+        if (!proto.ParseFromString(rawData)) {
+            std::cerr << "❌ [ERROR] Both ParseFromArray and ParseFromString failed!" << std::endl;
+            return false;
+        }
     }
 
-    std::cerr << "⚠️ [WARNING] ParseFromArray failed — trying ParseFromString fallback...\n";
-
-    // Fallback: ParseFromString (for double-check)
-    if (proto.ParseFromString(decoded)) {
-        std::cerr << "✅ [INFO] Fallback ParseFromString() succeeded (unexpected).\n";
-        return loadFromProto(proto);
-    }
-
-    std::cerr << "❌ [ERROR] Both ParseFromArray and ParseFromString failed!\n";
-    return false;
+    return this->loadFromProto(proto);
 }
 
 //
@@ -1192,12 +1236,13 @@ void Blockchain::updateTransactionHistory(int newTxCount) {
 }
 // ✅ Get latest block
 const Block& Blockchain::getLatestBlock() const {
-    if (blocks.empty()) {
+    if (chain.empty()) {
         static Block dummyGenesis;
-        Logger::warn("[⚠️ WARNING] Blockchain empty. Returning dummy block.");
-        return dummyGenesis;  // Safe fallback to prevent crash
+        dummyGenesis.setHash("00000000000000000000000000000000"); // Optional safe fallback
+        Logger::warn("[⚠️ WARNING] Blockchain chain is empty. Returning dummy genesis block.");
+        return dummyGenesis;
     }
-    return blocks.back();
+    return chain.back();
 }
 
 //

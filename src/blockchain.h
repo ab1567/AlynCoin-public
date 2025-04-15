@@ -42,7 +42,8 @@ class Blockchain {
 
 private:
   Blockchain();
-  Blockchain(unsigned short port, const std::string &dbPath = DBPaths::getBlockchainDB(), bool bindNetwork = true);
+  Blockchain(unsigned short port, const std::string &dbPath = DBPaths::getBlockchainDB(),
+  bool bindNetwork = true, bool isSyncMode = false);
 
   std::vector<Block> blocks;
   std::vector<Block> chain;
@@ -91,7 +92,8 @@ private:
 public:
   static Blockchain &getInstance(unsigned short port,
                                  const std::string &dbPath = DBPaths::getBlockchainDB(),
-                                 bool bindNetwork = true);
+                                 bool bindNetwork = true,
+                                 bool isSyncMode = false);
   static Blockchain &getInstanceNoNetwork();
   static Blockchain &getInstanceNoDB();
   ~Blockchain();
@@ -111,7 +113,7 @@ public:
   int getIndex() const { return chain.size() - 1; }
   void savePendingTransactionsToDB();
   void loadTransactionsFromDB();
-  Block createGenesisBlock();
+  Block createGenesisBlock(bool force = false);
   bool deserializeBlockchain(const std::string &data);
   bool serializeBlockchain(std::string &outData) const;
   void fromJSON(const Json::Value &root);

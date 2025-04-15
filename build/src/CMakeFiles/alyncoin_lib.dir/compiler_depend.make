@@ -24121,6 +24121,7 @@ src/CMakeFiles/alyncoin_lib.dir/zk/winterfell_stark.cpp.o: /root/AlynCoin/src/zk
   /root/AlynCoin/src/network/peer_blacklist.h \
   /root/AlynCoin/src/nft/nft.h \
   /root/AlynCoin/src/zk/rust_bindings.h \
+  /root/AlynCoin/src/zk/winterfell_ffi.h \
   /root/AlynCoin/src/zk/winterfell_stark.h \
   /usr/include/alloca.h \
   /usr/include/arpa/inet.h \

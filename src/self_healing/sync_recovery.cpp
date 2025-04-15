@@ -89,8 +89,8 @@ bool SyncRecovery::validateBlock(const Block& block) {
 
     // zk-STARK proof verification
     std::string blockHash = block.getHash();
-    std::string proof = block.getZkProof();
-    std::string expectedResult = blockHash.substr(0, 32);
+    std::string proof(reinterpret_cast<const char*>(block.getZkProof().data()), block.getZkProof().size());
+    std::string expectedResult = blockHash.substr(0, 32);  // Or adjust based on your STARK result length
 
     bool verified = verify_proof_ffi(proof.c_str(), blockHash.c_str(), expectedResult.c_str());
     if (!verified) {

@@ -52,9 +52,9 @@ const uint32_t TableStruct_blockchain_5fprotos_2eproto::offsets[] PROTOBUF_SECTI
   ~0u,  // no _inlined_string_donated_
   PROTOBUF_FIELD_OFFSET(::alyncoin::BlockchainProto, _impl_.chain_id_),
   PROTOBUF_FIELD_OFFSET(::alyncoin::BlockchainProto, _impl_.blocks_),
+  PROTOBUF_FIELD_OFFSET(::alyncoin::BlockchainProto, _impl_.pending_transactions_),
   PROTOBUF_FIELD_OFFSET(::alyncoin::BlockchainProto, _impl_.difficulty_),
   PROTOBUF_FIELD_OFFSET(::alyncoin::BlockchainProto, _impl_.block_reward_),
-  PROTOBUF_FIELD_OFFSET(::alyncoin::BlockchainProto, _impl_.pending_transactions_),
 };
 static const ::_pbi::MigrationSchema schemas[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
   { 0, -1, -1, sizeof(::alyncoin::BlockchainProto)},
@@ -68,10 +68,10 @@ const char descriptor_table_protodef_blockchain_5fprotos_2eproto[] PROTOBUF_SECT
   "\n\027blockchain_protos.proto\022\010alyncoin\032\022blo"
   "ck_protos.proto\032\030transaction_protos.prot"
   "o\"\255\001\n\017BlockchainProto\022\020\n\010chain_id\030\001 \001(\005\022"
-  "$\n\006blocks\030\002 \003(\0132\024.alyncoin.BlockProto\022\022\n"
-  "\ndifficulty\030\003 \001(\005\022\024\n\014block_reward\030\004 \001(\001\022"
-  "8\n\024pending_transactions\030\005 \003(\0132\032.alyncoin"
-  ".TransactionProtob\006proto3"
+  "$\n\006blocks\030\002 \003(\0132\024.alyncoin.BlockProto\0228\n"
+  "\024pending_transactions\030\003 \003(\0132\032.alyncoin.T"
+  "ransactionProto\022\022\n\ndifficulty\030\004 \001(\005\022\024\n\014b"
+  "lock_reward\030\005 \001(\001b\006proto3"
   ;
 static const ::_pbi::DescriptorTable* const descriptor_table_blockchain_5fprotos_2eproto_deps[2] = {
   &::descriptor_table_block_5fprotos_2eproto,
@@ -204,32 +204,32 @@ const char* BlockchainProto::_InternalParse(const char* ptr, ::_pbi::ParseContex
         } else
           goto handle_unusual;
         continue;
-      // int32 difficulty = 3;
+      // repeated .alyncoin.TransactionProto pending_transactions = 3;
       case 3:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 24)) {
-          _impl_.difficulty_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
-          CHK_(ptr);
-        } else
-          goto handle_unusual;
-        continue;
-      // double block_reward = 4;
-      case 4:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 33)) {
-          _impl_.block_reward_ = ::PROTOBUF_NAMESPACE_ID::internal::UnalignedLoad<double>(ptr);
-          ptr += sizeof(double);
-        } else
-          goto handle_unusual;
-        continue;
-      // repeated .alyncoin.TransactionProto pending_transactions = 5;
-      case 5:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 42)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 26)) {
           ptr -= 1;
           do {
             ptr += 1;
             ptr = ctx->ParseMessage(_internal_add_pending_transactions(), ptr);
             CHK_(ptr);
             if (!ctx->DataAvailable(ptr)) break;
-          } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<42>(ptr));
+          } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<26>(ptr));
+        } else
+          goto handle_unusual;
+        continue;
+      // int32 difficulty = 4;
+      case 4:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 32)) {
+          _impl_.difficulty_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      // double block_reward = 5;
+      case 5:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 41)) {
+          _impl_.block_reward_ = ::PROTOBUF_NAMESPACE_ID::internal::UnalignedLoad<double>(ptr);
+          ptr += sizeof(double);
         } else
           goto handle_unusual;
         continue;
@@ -276,28 +276,28 @@ uint8_t* BlockchainProto::_InternalSerialize(
         InternalWriteMessage(2, repfield, repfield.GetCachedSize(), target, stream);
   }
 
-  // int32 difficulty = 3;
-  if (this->_internal_difficulty() != 0) {
-    target = stream->EnsureSpace(target);
-    target = ::_pbi::WireFormatLite::WriteInt32ToArray(3, this->_internal_difficulty(), target);
+  // repeated .alyncoin.TransactionProto pending_transactions = 3;
+  for (unsigned i = 0,
+      n = static_cast<unsigned>(this->_internal_pending_transactions_size()); i < n; i++) {
+    const auto& repfield = this->_internal_pending_transactions(i);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+        InternalWriteMessage(3, repfield, repfield.GetCachedSize(), target, stream);
   }
 
-  // double block_reward = 4;
+  // int32 difficulty = 4;
+  if (this->_internal_difficulty() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteInt32ToArray(4, this->_internal_difficulty(), target);
+  }
+
+  // double block_reward = 5;
   static_assert(sizeof(uint64_t) == sizeof(double), "Code assumes uint64_t and double are the same size.");
   double tmp_block_reward = this->_internal_block_reward();
   uint64_t raw_block_reward;
   memcpy(&raw_block_reward, &tmp_block_reward, sizeof(tmp_block_reward));
   if (raw_block_reward != 0) {
     target = stream->EnsureSpace(target);
-    target = ::_pbi::WireFormatLite::WriteDoubleToArray(4, this->_internal_block_reward(), target);
-  }
-
-  // repeated .alyncoin.TransactionProto pending_transactions = 5;
-  for (unsigned i = 0,
-      n = static_cast<unsigned>(this->_internal_pending_transactions_size()); i < n; i++) {
-    const auto& repfield = this->_internal_pending_transactions(i);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-        InternalWriteMessage(5, repfield, repfield.GetCachedSize(), target, stream);
+    target = ::_pbi::WireFormatLite::WriteDoubleToArray(5, this->_internal_block_reward(), target);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -323,7 +323,7 @@ size_t BlockchainProto::ByteSizeLong() const {
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(msg);
   }
 
-  // repeated .alyncoin.TransactionProto pending_transactions = 5;
+  // repeated .alyncoin.TransactionProto pending_transactions = 3;
   total_size += 1UL * this->_internal_pending_transactions_size();
   for (const auto& msg : this->_impl_.pending_transactions_) {
     total_size +=
@@ -335,12 +335,12 @@ size_t BlockchainProto::ByteSizeLong() const {
     total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(this->_internal_chain_id());
   }
 
-  // int32 difficulty = 3;
+  // int32 difficulty = 4;
   if (this->_internal_difficulty() != 0) {
     total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(this->_internal_difficulty());
   }
 
-  // double block_reward = 4;
+  // double block_reward = 5;
   static_assert(sizeof(uint64_t) == sizeof(double), "Code assumes uint64_t and double are the same size.");
   double tmp_block_reward = this->_internal_block_reward();
   uint64_t raw_block_reward;

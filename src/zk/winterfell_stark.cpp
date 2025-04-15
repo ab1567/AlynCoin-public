@@ -1,5 +1,6 @@
 #include "winterfell_stark.h"
 #include "rust_bindings.h"
+#include "winterfell_ffi.h"
 #include "crypto_utils.h"
 #include "blockchain.h"
 #include "transaction.h"
@@ -27,9 +28,15 @@ std::string WinterfellStark::generateProof(const std::string& blockHash,
     std::string seed3 = txRoot.empty() ? "genesis-root" : txRoot;
     std::string seed = Crypto::blake3(blockHash) + Crypto::blake3(prevHash) + seed3;
 
-    std::cout << "[zkSTARK] Generating proof with seed: " << seed << "\n";
-    std::cout << "[zkSTARK] 🔑 Final Seed: " << seed << "\n";
-    std::cout << "[zkSTARK] 🔑 BLAKE3(seed): " << Crypto::blake3(seed) << "\n";
+    std::string blakeSeed = Crypto::blake3(seed);
+
+    std::cout << "\n[zkSTARK] 📦 Block Proof Generation";
+    std::cout << "\n  - blockHash: " << blockHash;
+    std::cout << "\n  - prevHash:  " << prevHash;
+    std::cout << "\n  - txRoot:    " << txRoot;
+    std::cout << "\n  - Seed:      " << seed;
+    std::cout << "\n  - Seed len:  " << seed.size();
+    std::cout << "\n  - BLAKE3(seed): " << blakeSeed << "\n";
 
     char* proof_cstr = generate_proof_bytes(seed.c_str(), seed.size());
     if (!proof_cstr) {
@@ -41,6 +48,11 @@ std::string WinterfellStark::generateProof(const std::string& blockHash,
     free(proof_cstr);
 
     std::cout << "[zkSTARK] ✅ zk-STARK proof generated. Size: " << proof.size() << " bytes\n";
+    std::cout << "[zkSTARK] 🔍 First 32 proof bytes (hex): ";
+    for (size_t i = 0; i < std::min<size_t>(32, proof.size()); ++i)
+        std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)(unsigned char)proof[i];
+    std::cout << "\n";
+
     return proof;
 }
 
@@ -49,11 +61,20 @@ bool WinterfellStark::verifyProof(const std::string& proof,
                                    const std::string& blockHash,
                                    const std::string& prevHash,
                                    const std::string& txRoot) {
+    // 🔍 Early Debug for Input Inspection
+    std::cout << "\n[zkSTARK][DEBUG] Verifying Inputs:";
+    std::cout << "\n  - proof.size():   " << proof.size();
+    std::cout << "\n  - blockHash:      " << (blockHash.empty() ? "(empty)" : blockHash);
+    std::cout << "\n  - prevHash:       " << (prevHash.empty() ? "(empty)" : prevHash);
+    std::cout << "\n  - txRoot:         " << (txRoot.empty() ? "(empty)" : txRoot) << "\n";
+
+    // ❌ Early exit if any critical input is missing
     if (proof.empty() || blockHash.empty() || prevHash.empty()) {
         std::cerr << "[zkSTARK] ❌ Invalid input for block zk-STARK proof verification.\n";
         return false;
     }
 
+    // 🧪 Reconstruct seed used during proof generation
     std::string seed1 = Crypto::blake3(blockHash);
     std::string seed2 = Crypto::blake3(prevHash);
     std::string seed3 = txRoot.empty() ? "genesis-root" : txRoot;
@@ -63,22 +84,35 @@ bool WinterfellStark::verifyProof(const std::string& proof,
     std::vector<unsigned char> resultHashVec = Crypto::fromHex(resultHashHex);
     std::string resultHash(reinterpret_cast<const char*>(resultHashVec.data()), resultHashVec.size());
 
-    std::cout << "[zkSTARK] 🧪 Verifying proof with:\n";
-    std::cout << "  - BlockHash:    " << blockHash << "\n";
-    std::cout << "  - PrevHash:     " << prevHash << "\n";
-    std::cout << "  - TxRoot:       " << txRoot << "\n";
-    std::cout << "  - Final Seed:   " << seed << "\n";
-    std::cout << "  - Seed Length:  " << seed.size() << " bytes\n";
-    std::cout << "  - BLAKE3(seed): " << resultHashHex << "\n";
-    std::cout << "  - Result Hash (raw bytes): ";
+    // 📊 Display full debug information
+    std::cout << "\n[zkSTARK] 🧪 Block Proof Verification";
+    std::cout << "\n  - BlockHash:   " << blockHash;
+    std::cout << "\n  - PrevHash:    " << prevHash;
+    std::cout << "\n  - TxRoot:      " << txRoot;
+    std::cout << "\n  - Final Seed:  " << seed;
+    std::cout << "\n  - Seed Length: " << seed.size();
+    std::cout << "\n  - BLAKE3(seed): " << resultHashHex;
+    std::cout << "\n  - Proof Length: " << proof.size();
+
+    std::cout << "\n  - Result Hash (raw bytes): ";
     for (unsigned char c : resultHashVec)
         std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)c;
-    std::cout << "\n";
-    std::cout << "  - Proof Length: " << proof.size() << " bytes\n";
 
-    bool result = verify_proof_ffi(proof.c_str(), seed.c_str(), resultHash.c_str());
+    std::cout << "\n  - Result Hash (printable): ";
+    for (unsigned char c : resultHashVec)
+        std::cout << ((c >= 32 && c <= 126) ? (char)c : '.');
 
-    std::cout << "[zkSTARK] 🔍 Block Proof Verification Result: " << (result ? "✅ Passed" : "❌ Failed") << std::endl;
+    std::cout << "\n[zkSTARK] 📤 Calling verify_winterfell_proof()...\n";
+
+    // ✅ Actual proof verification via Rust FFI
+    bool result = verify_winterfell_proof(
+        proof.c_str(),
+        blockHash.c_str(),
+        prevHash.c_str(),
+        txRoot.c_str()
+    );
+
+    std::cout << "[zkSTARK] 🔍 Block Proof Verification Result: " << (result ? "✅ Passed" : "❌ Failed") << "\n";
     return result;
 }
 

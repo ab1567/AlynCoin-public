@@ -85,12 +85,14 @@ Block &Block::operator=(const Block &other) {
 void Block::computeKeccakHash() {
   keccakHash = Crypto::keccak256(hash); // ✅ Use Keccak hashing function
 }
+//
+void Block::setZkProof(const std::vector<uint8_t>& proofBytes) {
+    this->zkProof = proofBytes;
+}
 
-// Getter for zkProof
-std::string Block::getZkProof() const { return zkProof; }
-
-// Setter for zkProof
-void Block::setZkProof(const std::string &proof) { zkProof = proof; }
+std::vector<uint8_t> Block::getZkProof() const {
+  return zkProof;
+}
 
 // Calculate Hash
 std::string Block::calculateHash() const {
@@ -121,7 +123,9 @@ bool Block::mineBlock(int difficulty) {
     std::cout << "✅ Keccak Hash: " << keccakHash << "\n";
 
     std::string txRoot = getTransactionsHash();
-    zkProof = WinterfellStark::generateProof(hash, previousHash, txRoot);
+    std::string proofStr = WinterfellStark::generateProof(hash, previousHash, txRoot);
+    zkProof = std::vector<uint8_t>(proofStr.begin(), proofStr.end());
+
     std::cout << "✅ zk-STARK Proof Attached to Block.\n";
 
     // --- Dilithium key check + load
@@ -345,7 +349,8 @@ bool Block::isValid(const std::string &prevHash) const {
   }
 
   std::string txRoot = getTransactionsHash();
-  if (!WinterfellStark::verifyProof(zkProof, hash, previousHash, txRoot)) {
+  if (!WinterfellStark::verifyProof(
+      std::string(zkProof.begin(), zkProof.end()), hash, previousHash, txRoot)) {
     std::cerr << "❌ Invalid zk-STARK Proof!\n";
     return false;
   }
@@ -400,80 +405,81 @@ bool Block::hasValidProofOfWork() const {
   return true;
 }
 //
-bool Block::deserializeFromProtobuf(const alyncoin::BlockProto &protoBlock) {
-  try {
-    setIndex(protoBlock.index());
-    setPreviousHash(protoBlock.previous_hash());
-    setHash(protoBlock.hash());
-    setMinerAddress(protoBlock.miner_address());
-    setNonce(protoBlock.nonce());
-    setTimestamp(protoBlock.timestamp());
-    setDifficulty(protoBlock.difficulty());
-    setSignature(protoBlock.block_signature());
-    setKeccakHash(protoBlock.keccak_hash());
+void Block::serializeToProtobuf(alyncoin::BlockProto &proto) const {
+    proto.set_index(index);
+    proto.set_timestamp(timestamp);
+    proto.set_previous_hash(previousHash);
+    proto.set_hash(hash);
+    proto.set_miner_address(minerAddress);
+    proto.set_nonce(nonce);
+    proto.set_difficulty(difficulty);
+    proto.set_block_signature(blockSignature);
+    proto.set_keccak_hash(keccakHash);
+    proto.set_reward(reward);
 
-    // ✅ Load reward
-    if (protoBlock.has_reward()) {
-      reward = protoBlock.reward();
+    // ✅ zk-STARK proof as raw bytes serialized via string
+    if (!zkProof.empty()) {
+        proto.set_zk_stark_proof(std::string(zkProof.begin(), zkProof.end()));
+        std::cout << "[DEBUG] Serialized zkProof size: " << zkProof.size() << " bytes\n";
     } else {
-      reward = 0.0;
+        std::cout << "[DEBUG] Warning: zkProof is empty during serialization!\n";
     }
 
-    transactions.clear();
-    for (const auto &protoTx : protoBlock.transactions()) {
-      Transaction tx;
-      if (!tx.deserializeFromProtobuf(protoTx)) {
-        std::cerr << "❌ [ERROR] Failed to deserialize transaction in block index: "
-                  << index << "\n";
-        return false;
-      }
-      transactions.push_back(tx);
+    proto.set_dilithium_signature(dilithiumSignature);
+    proto.set_falcon_signature(falconSignature);
+    proto.set_public_key_dilithium(publicKeyDilithium);
+    proto.set_public_key_falcon(publicKeyFalcon);
+
+    // Optional roots (set to "" unless actually computed)
+    proto.set_state_root("");
+    proto.set_tx_merkle_root("");
+
+    for (const auto &tx : transactions) {
+        alyncoin::TransactionProto *protoTx = proto.add_transactions();
+        tx.serializeToProtobuf(*protoTx);
     }
-
-    // Deserialize zk-STARK proof
-    setZkProof(protoBlock.zk_stark_proof());
-
-    // Deserialize Dilithium and Falcon signatures
-    dilithiumSignature = protoBlock.dilithium_signature();
-    falconSignature = protoBlock.falcon_signature();
-    publicKeyDilithium = protoBlock.public_key_dilithium();
-    publicKeyFalcon = protoBlock.public_key_falcon();
-
-    return true;
-  } catch (const std::exception &e) {
-    std::cerr << "❌ [ERROR] Exception during Block deserialization: "
-              << e.what() << "\n";
-    return false;
-  }
 }
 
 //
-void Block::serializeToProtobuf(alyncoin::BlockProto &proto) const {
-  proto.set_index(index);
-  proto.set_previous_hash(previousHash);
-  proto.set_hash(hash);
-  proto.set_miner_address(minerAddress);
-  proto.set_nonce(nonce);
-  proto.set_difficulty(difficulty);
-  proto.set_timestamp(timestamp);
-  proto.set_block_signature(blockSignature);
-  proto.set_keccak_hash(keccakHash);
-  proto.set_reward(reward);
+bool Block::deserializeFromProtobuf(const alyncoin::BlockProto &protoBlock) {
+    try {
+        setIndex(protoBlock.index());
+        setPreviousHash(protoBlock.previous_hash());
+        setHash(protoBlock.hash());
+        setMinerAddress(protoBlock.miner_address());
+        setNonce(protoBlock.nonce());
+        setTimestamp(protoBlock.timestamp());
+        setDifficulty(protoBlock.difficulty());
+        setSignature(protoBlock.block_signature());
+        setKeccakHash(protoBlock.keccak_hash());
+        reward = protoBlock.has_reward() ? protoBlock.reward() : 0.0;
 
-  // Serialize transactions
-  for (const auto &tx : transactions) {
-    alyncoin::TransactionProto *protoTx = proto.add_transactions();
-    tx.serializeToProtobuf(*protoTx);
-  }
+        // ✅ Deserialize zk-STARK proof
+        const std::string &proofStr = protoBlock.zk_stark_proof();
+        zkProof.assign(proofStr.begin(), proofStr.end());
+        std::cout << "[DEBUG] zkProof assigned in block: " << zkProof.size() << " bytes\n";
 
-  // Serialize zk-STARK proof
-  proto.set_zk_stark_proof(zkProof);
+        dilithiumSignature = protoBlock.dilithium_signature();
+        falconSignature = protoBlock.falcon_signature();
+        publicKeyDilithium = protoBlock.public_key_dilithium();
+        publicKeyFalcon = protoBlock.public_key_falcon();
 
-  // Serialize Dilithium and Falcon signatures
-  proto.set_dilithium_signature(dilithiumSignature);
-  proto.set_falcon_signature(falconSignature);
-  proto.set_public_key_dilithium(publicKeyDilithium);
-  proto.set_public_key_falcon(publicKeyFalcon);
+        // ✅ Transactions
+        transactions.clear();
+        for (const auto &protoTx : protoBlock.transactions()) {
+            Transaction tx;
+            if (!tx.deserializeFromProtobuf(protoTx)) {
+                std::cerr << "❌ [ERROR] Failed to deserialize transaction in block index: " << index << "\n";
+                return false;
+            }
+            transactions.push_back(tx);
+        }
+
+        return true;
+    } catch (const std::exception &e) {
+        std::cerr << "❌ [ERROR] Exception during Block deserialization: " << e.what() << "\n";
+        return false;
+    }
 }
 
 // ✅ Convert Block to Protobuf-Compatible JSON (FIXED)
@@ -489,7 +495,7 @@ Json::Value Block::toJSON() const {
   block["keccakHash"] = keccakHash;
   block["dilithiumSignature"] = dilithiumSignature;
   block["falconSignature"] = falconSignature;
-  block["zkProof"] = zkProof;
+  block["zkProof"] = Json::Value(Json::String(zkProof.begin(), zkProof.end()));
   block["reward"] = reward;
 
   Json::Value txArray(Json::arrayValue);
@@ -523,7 +529,8 @@ Block Block::fromJSON(const Json::Value &blockJson) {
   block.keccakHash = blockJson.get("keccakHash", "").asString();
   block.dilithiumSignature = blockJson.get("dilithiumSignature", "").asString();
   block.falconSignature = blockJson.get("falconSignature", "").asString();
-  block.zkProof = blockJson.get("zkProof", "").asString();
+  std::string zkStr = blockJson.get("zkProof", "").asString();
+  block.zkProof = std::vector<uint8_t>(zkStr.begin(), zkStr.end());
 
   return block;
 }
@@ -538,22 +545,23 @@ Block Block::fromProto(const alyncoin::BlockProto &protoBlock) {
   newBlock.setMinerAddress(protoBlock.miner_address());
   newBlock.setNonce(protoBlock.nonce());
   newBlock.setTimestamp(protoBlock.timestamp());
-  newBlock.difficulty = protoBlock.difficulty();
+  newBlock.setDifficulty(protoBlock.difficulty());
   newBlock.setSignature(protoBlock.block_signature());
   newBlock.setKeccakHash(protoBlock.keccak_hash());
-  newBlock.setReward(protoBlock.reward());
+  newBlock.setReward(protoBlock.has_reward() ? protoBlock.reward() : 0.0);
 
-  // 🧠 Add the missing fields!
-  newBlock.zkProof = protoBlock.zk_stark_proof();
-  newBlock.dilithiumSignature = protoBlock.dilithium_signature();
-  newBlock.falconSignature = protoBlock.falcon_signature();
-  newBlock.publicKeyDilithium = protoBlock.public_key_dilithium();
-  newBlock.publicKeyFalcon = protoBlock.public_key_falcon();
+  // ✅ Direct assignment of zk-STARK proof (no has_ check)
+  const std::string &proofStr = protoBlock.zk_stark_proof();
+  newBlock.zkProof.assign(proofStr.data(), proofStr.data() + proofStr.size());
+
+  newBlock.setDilithiumSignature(protoBlock.dilithium_signature());
+  newBlock.setFalconSignature(protoBlock.falcon_signature());
+  newBlock.setPublicKeyDilithium(protoBlock.public_key_dilithium());
+  newBlock.setPublicKeyFalcon(protoBlock.public_key_falcon());
 
   std::vector<Transaction> txs;
   for (const auto &protoTx : protoBlock.transactions()) {
-    Transaction tx = Transaction::fromProto(protoTx);
-    txs.push_back(tx);
+    txs.push_back(Transaction::fromProto(protoTx));
   }
   newBlock.setTransactions(txs);
 
@@ -562,26 +570,38 @@ Block Block::fromProto(const alyncoin::BlockProto &protoBlock) {
 
 //
 alyncoin::BlockProto Block::toProtobuf() const {
-  alyncoin::BlockProto protoBlock;
-  protoBlock.set_index(index);
-  protoBlock.set_timestamp(timestamp);
-  protoBlock.set_previous_hash(previousHash);
-  protoBlock.set_hash(hash);
-  protoBlock.set_miner_address(minerAddress);
-  protoBlock.set_nonce(nonce);
-  protoBlock.set_difficulty(difficulty);
-  protoBlock.set_block_signature(blockSignature);
-  protoBlock.set_keccak_hash(keccakHash);
+    alyncoin::BlockProto proto;
+    proto.set_index(index);
+    proto.set_timestamp(timestamp);
+    proto.set_previous_hash(previousHash);
+    proto.set_hash(hash);
+    proto.set_miner_address(minerAddress);
+    proto.set_nonce(nonce);
+    proto.set_difficulty(difficulty);
+    proto.set_block_signature(blockSignature);
+    proto.set_keccak_hash(keccakHash);
+    proto.set_reward(reward);
 
-  // ✅ Store reward
-  protoBlock.set_reward(reward);
+    // ✅ Convert vector<uint8_t> to string for serialization
+    if (!zkProof.empty()) {
+        std::string zkProofStr(zkProof.begin(), zkProof.end());
+        proto.set_zk_stark_proof(zkProofStr);
+        std::cout << "[DEBUG] Serialized zkProof size: " << zkProofStr.size() << " bytes\n";
+    } else {
+        std::cout << "[DEBUG] Warning: zkProof is empty during serialization!\n";
+    }
 
-  for (const auto &tx : transactions) {
-    alyncoin::TransactionProto *protoTx = protoBlock.add_transactions();
-    tx.serializeToProtobuf(*protoTx);
-  }
+    proto.set_dilithium_signature(dilithiumSignature);
+    proto.set_falcon_signature(falconSignature);
+    proto.set_public_key_dilithium(publicKeyDilithium);
+    proto.set_public_key_falcon(publicKeyFalcon);
 
-  return protoBlock;
+    for (const auto &tx : transactions) {
+        alyncoin::TransactionProto *protoTx = proto.add_transactions();
+        tx.serializeToProtobuf(*protoTx);
+    }
+
+    return proto;
 }
 
 // Modify Block class to handle rollup block structure

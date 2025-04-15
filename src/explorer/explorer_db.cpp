@@ -45,7 +45,8 @@ Json::Value ExplorerDB::getBlockByHash(const std::string& blockHash) {
 
     Block block = Block::fromProto(protoBlock);
     blockJson = block.toJSON();
-    blockJson["zkProof"] = block.getZkProof();  // Explicitly add zkProof
+    std::string zkStr(block.getZkProof().begin(), block.getZkProof().end());
+    blockJson["zkProof"] = zkStr;
     return blockJson;
 }
 

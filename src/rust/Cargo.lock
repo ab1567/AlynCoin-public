@@ -19,6 +19,7 @@ dependencies = [
  "alyn-math",
  "alyn-utils",
  "blake3",
+ "hex",
  "serde",
 ]
 

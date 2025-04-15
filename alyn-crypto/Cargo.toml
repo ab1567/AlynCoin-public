@@ -9,6 +9,7 @@ alyn-utils = { path = "../alyn-utils", default-features = false }
 blake3 = { version = "1.7", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 
+hex = "0.4"
 [features]
 default = ["std"]
 std = ["alyn-math/std", "alyn-utils/std", "blake3/std"]

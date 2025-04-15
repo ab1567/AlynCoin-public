@@ -180,10 +180,10 @@ class BlockchainProto final :
 
   enum : int {
     kBlocksFieldNumber = 2,
-    kPendingTransactionsFieldNumber = 5,
+    kPendingTransactionsFieldNumber = 3,
     kChainIdFieldNumber = 1,
-    kDifficultyFieldNumber = 3,
-    kBlockRewardFieldNumber = 4,
+    kDifficultyFieldNumber = 4,
+    kBlockRewardFieldNumber = 5,
   };
   // repeated .alyncoin.BlockProto blocks = 2;
   int blocks_size() const;
@@ -203,7 +203,7 @@ class BlockchainProto final :
   const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::BlockProto >&
       blocks() const;
 
-  // repeated .alyncoin.TransactionProto pending_transactions = 5;
+  // repeated .alyncoin.TransactionProto pending_transactions = 3;
   int pending_transactions_size() const;
   private:
   int _internal_pending_transactions_size() const;
@@ -230,7 +230,7 @@ class BlockchainProto final :
   void _internal_set_chain_id(int32_t value);
   public:
 
-  // int32 difficulty = 3;
+  // int32 difficulty = 4;
   void clear_difficulty();
   int32_t difficulty() const;
   void set_difficulty(int32_t value);
@@ -239,7 +239,7 @@ class BlockchainProto final :
   void _internal_set_difficulty(int32_t value);
   public:
 
-  // double block_reward = 4;
+  // double block_reward = 5;
   void clear_block_reward();
   double block_reward() const;
   void set_block_reward(double value);
@@ -334,47 +334,7 @@ BlockchainProto::blocks() const {
   return _impl_.blocks_;
 }
 
-// int32 difficulty = 3;
-inline void BlockchainProto::clear_difficulty() {
-  _impl_.difficulty_ = 0;
-}
-inline int32_t BlockchainProto::_internal_difficulty() const {
-  return _impl_.difficulty_;
-}
-inline int32_t BlockchainProto::difficulty() const {
-  // @@protoc_insertion_point(field_get:alyncoin.BlockchainProto.difficulty)
-  return _internal_difficulty();
-}
-inline void BlockchainProto::_internal_set_difficulty(int32_t value) {
-  
-  _impl_.difficulty_ = value;
-}
-inline void BlockchainProto::set_difficulty(int32_t value) {
-  _internal_set_difficulty(value);
-  // @@protoc_insertion_point(field_set:alyncoin.BlockchainProto.difficulty)
-}
-
-// double block_reward = 4;
-inline void BlockchainProto::clear_block_reward() {
-  _impl_.block_reward_ = 0;
-}
-inline double BlockchainProto::_internal_block_reward() const {
-  return _impl_.block_reward_;
-}
-inline double BlockchainProto::block_reward() const {
-  // @@protoc_insertion_point(field_get:alyncoin.BlockchainProto.block_reward)
-  return _internal_block_reward();
-}
-inline void BlockchainProto::_internal_set_block_reward(double value) {
-  
-  _impl_.block_reward_ = value;
-}
-inline void BlockchainProto::set_block_reward(double value) {
-  _internal_set_block_reward(value);
-  // @@protoc_insertion_point(field_set:alyncoin.BlockchainProto.block_reward)
-}
-
-// repeated .alyncoin.TransactionProto pending_transactions = 5;
+// repeated .alyncoin.TransactionProto pending_transactions = 3;
 inline int BlockchainProto::_internal_pending_transactions_size() const {
   return _impl_.pending_transactions_.size();
 }
@@ -409,6 +369,46 @@ inline const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::TransactionP
 BlockchainProto::pending_transactions() const {
   // @@protoc_insertion_point(field_list:alyncoin.BlockchainProto.pending_transactions)
   return _impl_.pending_transactions_;
+}
+
+// int32 difficulty = 4;
+inline void BlockchainProto::clear_difficulty() {
+  _impl_.difficulty_ = 0;
+}
+inline int32_t BlockchainProto::_internal_difficulty() const {
+  return _impl_.difficulty_;
+}
+inline int32_t BlockchainProto::difficulty() const {
+  // @@protoc_insertion_point(field_get:alyncoin.BlockchainProto.difficulty)
+  return _internal_difficulty();
+}
+inline void BlockchainProto::_internal_set_difficulty(int32_t value) {
+  
+  _impl_.difficulty_ = value;
+}
+inline void BlockchainProto::set_difficulty(int32_t value) {
+  _internal_set_difficulty(value);
+  // @@protoc_insertion_point(field_set:alyncoin.BlockchainProto.difficulty)
+}
+
+// double block_reward = 5;
+inline void BlockchainProto::clear_block_reward() {
+  _impl_.block_reward_ = 0;
+}
+inline double BlockchainProto::_internal_block_reward() const {
+  return _impl_.block_reward_;
+}
+inline double BlockchainProto::block_reward() const {
+  // @@protoc_insertion_point(field_get:alyncoin.BlockchainProto.block_reward)
+  return _internal_block_reward();
+}
+inline void BlockchainProto::_internal_set_block_reward(double value) {
+  
+  _impl_.block_reward_ = value;
+}
+inline void BlockchainProto::set_block_reward(double value) {
+  _internal_set_block_reward(value);
+  // @@protoc_insertion_point(field_set:alyncoin.BlockchainProto.block_reward)
 }
 
 #ifdef __GNUC__

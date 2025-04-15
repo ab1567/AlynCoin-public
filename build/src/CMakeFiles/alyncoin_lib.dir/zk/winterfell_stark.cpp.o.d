@@ -257,7 +257,8 @@ src/CMakeFiles/alyncoin_lib.dir/zk/winterfell_stark.cpp.o: \
  /usr/include/c++/13/compare \
  /usr/include/google/protobuf/map_type_handler.h \
  /usr/include/google/protobuf/extension_set.h /usr/include/c++/13/cassert \
- /root/AlynCoin/src/zk/rust_bindings.h /root/AlynCoin/src/crypto_utils.h \
+ /root/AlynCoin/src/zk/rust_bindings.h \
+ /root/AlynCoin/src/zk/winterfell_ffi.h /root/AlynCoin/src/crypto_utils.h \
  /usr/include/openssl/err.h /usr/include/openssl/macros.h \
  /usr/include/x86_64-linux-gnu/openssl/opensslconf.h \
  /usr/include/x86_64-linux-gnu/openssl/configuration.h \

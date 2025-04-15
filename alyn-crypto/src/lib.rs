@@ -7,6 +7,7 @@ pub mod hash;
 pub mod merkle;
 pub mod merkle_path;
 pub mod random_coin;
+pub mod utils;
 
 // Fix unresolved imports - only re-export correct ones
 pub use crate::digest::Digest;
