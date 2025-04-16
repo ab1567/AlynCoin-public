@@ -1,5 +1,3 @@
-// File: src/difficulty.h
-
 #ifndef DIFFICULTY_H
 #define DIFFICULTY_H
 

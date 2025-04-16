@@ -118,15 +118,21 @@ DilithiumKeyPair generateDilithiumKeys(const std::string &username) {
   if (crypto_sign_keypair(pk, sk) == 0) {
     keypair.publicKey.assign(pk, pk + sizeof(pk));
     keypair.privateKey.assign(sk, sk + sizeof(sk));
+    keypair.publicKeyHex = Crypto::toHex(keypair.publicKey);    // For display/UI only
+    keypair.privateKeyHex = Crypto::toHex(keypair.privateKey);  // For display/UI only
 
     std::string pubPath = KEY_DIR + username + "_dilithium.pub";
     std::string privPath = KEY_DIR + username + "_dilithium.key";
 
+    // Overwrite any old hex-encoded files (if they exist)
+    std::ofstream(pubPath).close();
+    std::ofstream(privPath).close();
+
     std::ofstream pub(pubPath, std::ios::binary);
     std::ofstream priv(privPath, std::ios::binary);
 
-    pub.write((char *)pk, sizeof(pk));
-    priv.write((char *)sk, sizeof(sk));
+    pub.write(reinterpret_cast<char *>(pk), sizeof(pk));
+    priv.write(reinterpret_cast<char *>(sk), sizeof(sk));
 
     std::cout << "✅ [DEBUG] Dilithium keys generated and saved to:\n";
     std::cout << "    " << pubPath << "\n    " << privPath << std::endl;
@@ -147,15 +153,21 @@ FalconKeyPair generateFalconKeys(const std::string &username) {
   if (PQCLEAN_FALCON1024_CLEAN_crypto_sign_keypair(pk, sk) == 0) {
     keypair.publicKey.assign(pk, pk + sizeof(pk));
     keypair.privateKey.assign(sk, sk + sizeof(sk));
+    keypair.publicKeyHex = Crypto::toHex(keypair.publicKey);    // For display/UI only
+    keypair.privateKeyHex = Crypto::toHex(keypair.privateKey);  // For display/UI only
 
     std::string pubPath = KEY_DIR + username + "_falcon.pub";
     std::string privPath = KEY_DIR + username + "_falcon.key";
 
+    // Overwrite any old hex-encoded files (if they exist)
+    std::ofstream(pubPath).close();
+    std::ofstream(privPath).close();
+
     std::ofstream pub(pubPath, std::ios::binary);
     std::ofstream priv(privPath, std::ios::binary);
 
-    pub.write((char *)pk, sizeof(pk));
-    priv.write((char *)sk, sizeof(sk));
+    pub.write(reinterpret_cast<char *>(pk), sizeof(pk));
+    priv.write(reinterpret_cast<char *>(sk), sizeof(sk));
 
     std::cout << "✅ [DEBUG] Falcon keys generated and saved to:\n";
     std::cout << "    " << pubPath << "\n    " << privPath << std::endl;
@@ -165,24 +177,27 @@ FalconKeyPair generateFalconKeys(const std::string &username) {
 
   return keypair;
 }
-
 // --- Dilithium Signing ---
 std::vector<unsigned char>
 signWithDilithium(const std::vector<unsigned char> &message,
                   const std::vector<unsigned char> &privKey) {
+  std::cout << "[DEBUG] 🔏 Starting Dilithium signing..." << std::endl;
+  std::cout << "[DEBUG] Message size: " << message.size() << " bytes" << std::endl;
+  std::cout << "[DEBUG] Private key size: " << privKey.size() << " bytes" << std::endl;
+
   if (privKey.size() != CRYPTO_SECRETKEYBYTES) {
-    std::cerr << "[ERROR] signWithDilithium() - Private key size mismatch!\n";
+    std::cerr << "[ERROR] signWithDilithium() - Private key size mismatch! Expected: "
+              << CRYPTO_SECRETKEYBYTES << " bytes\n";
     return {};
   }
 
-  // Max signature size is safe at 2701, but we'll cap at 2700 to prevent overflow
-  std::vector<unsigned char> signature(2700);
+  std::vector<unsigned char> signature(2700);  // Safe upper bound
   size_t siglen = 0;
 
   int ret = crypto_sign_signature(
       signature.data(), &siglen,
       message.data(), message.size(),
-      nullptr, 0, // context = NULL
+      nullptr, 0,
       privKey.data());
 
   if (ret != 0) {
@@ -197,7 +212,7 @@ signWithDilithium(const std::vector<unsigned char> &message,
   }
 
   signature.resize(siglen);
-  std::cout << "✅ [DEBUG] Dilithium signature generated. Length: " << siglen << "\n";
+  std::cout << "✅ [DEBUG] Dilithium signature generated. Length: " << siglen << " bytes\n";
   return signature;
 }
 
@@ -205,88 +220,120 @@ signWithDilithium(const std::vector<unsigned char> &message,
 bool verifyWithDilithium(const std::vector<unsigned char> &message,
                          const std::vector<unsigned char> &signature,
                          const std::vector<unsigned char> &publicKey) {
-  if (signature.empty() || message.empty() || publicKey.empty())
-    return false;
+  std::cout << "[DEBUG] 🔍 Verifying Dilithium signature..." << std::endl;
+  std::cout << "[DEBUG] Message size: " << message.size() << " bytes" << std::endl;
+  std::cout << "[DEBUG] Signature size: " << signature.size() << " bytes" << std::endl;
+  std::cout << "[DEBUG] Public key size: " << publicKey.size() << " bytes" << std::endl;
 
-  if (publicKey.size() != CRYPTO_PUBLICKEYBYTES)
+  if (signature.empty() || message.empty() || publicKey.empty()) {
+    std::cerr << "❌ [ERROR] One or more inputs are empty.\n";
     return false;
+  }
+
+  if (publicKey.size() != CRYPTO_PUBLICKEYBYTES) {
+    std::cerr << "❌ [ERROR] Public key size mismatch! Expected: "
+              << CRYPTO_PUBLICKEYBYTES << ", Got: " << publicKey.size() << "\n";
+    return false;
+  }
 
   int result = crypto_sign_verify(signature.data(), signature.size(),
                                   message.data(), message.size(),
                                   nullptr, 0, publicKey.data());
 
-  return result == 0;
+  if (result == 0) {
+    std::cout << "✅ [DEBUG] Dilithium signature verified successfully.\n";
+    return true;
+  } else {
+    std::cerr << "❌ [ERROR] Dilithium signature verification failed!\n";
+    return false;
+  }
 }
-
 // --- Falcon Signing ---
 std::vector<unsigned char>
 signWithFalcon(const std::vector<unsigned char> &message,
                const std::vector<unsigned char> &privKey) {
-  const size_t expectedPrivSize = PQCLEAN_FALCON1024_CLEAN_CRYPTO_SECRETKEYBYTES;
+    const size_t expectedPrivSize = PQCLEAN_FALCON1024_CLEAN_CRYPTO_SECRETKEYBYTES;
 
-  if (privKey.size() != expectedPrivSize) {
-    std::cerr << "[ERROR] signWithFalcon() - Private key size mismatch! Expected: "
-              << expectedPrivSize << ", Got: " << privKey.size() << "\n";
-    return {};
-  }
+    std::cout << "[DEBUG] Falcon Signing Initiated\n";
+    std::cout << "  - Private Key Size: " << privKey.size() << " (Expected: " << expectedPrivSize << ")\n";
+    std::cout << "  - Message Size    : " << message.size() << " (Expected: 32)\n";
 
-  if (message.size() != 32) {
-    std::cerr << "[ERROR] signWithFalcon() - Message hash size invalid: " << message.size() << " (expected 32)\n";
-    return {};
-  }
-
-  size_t maxSigLen = 1330;
-  std::vector<unsigned char> signature(maxSigLen);
-  size_t actualSigLen = 0;
-
-  std::cout << "[DEBUG] Calling Falcon crypto_sign_signature... (message.size=" << message.size()
-            << ", privKey.size=" << privKey.size() << ")\n";
-
-  try {
-    int ret = PQCLEAN_FALCON1024_CLEAN_crypto_sign_signature(
-        signature.data(), &actualSigLen,
-        message.data(), message.size(),
-        privKey.data());
-
-    if (ret != 0) {
-      std::cerr << "❌ [ERROR] Falcon signing failed! Return code: " << ret << "\n";
-      return {};
+    if (privKey.size() != expectedPrivSize) {
+        std::cerr << "[ERROR] signWithFalcon() - Private key size mismatch!\n";
+        return {};
     }
 
-    if (actualSigLen == 0 || actualSigLen > maxSigLen) {
-      std::cerr << "❌ [ERROR] Falcon signature length invalid: " << actualSigLen << "\n";
-      return {};
+    if (message.size() != 32) {
+        std::cerr << "[ERROR] signWithFalcon() - Message hash size invalid: " << message.size() << " (expected 32)\n";
+        return {};
     }
 
-    signature.resize(actualSigLen);
-    std::cout << "✅ [DEBUG] Falcon signature generated. Length: " << actualSigLen << "\n";
-    return signature;
+    size_t maxSigLen = 1330;
+    std::vector<unsigned char> signature(maxSigLen);
+    size_t actualSigLen = 0;
 
-  } catch (const std::exception &ex) {
-    std::cerr << "❌ [EXCEPTION] Falcon signing threw exception: " << ex.what() << "\n";
-    return {};
-  } catch (...) {
-    std::cerr << "❌ [FATAL] Unknown Falcon signing crash caught!\n";
-    return {};
-  }
+    try {
+        std::cout << "[DEBUG] Calling Falcon crypto_sign_signature()...\n";
+        int ret = PQCLEAN_FALCON1024_CLEAN_crypto_sign_signature(
+            signature.data(), &actualSigLen,
+            message.data(), message.size(),
+            privKey.data());
+
+        if (ret != 0) {
+            std::cerr << "❌ [ERROR] Falcon signing failed! Return code: " << ret << "\n";
+            return {};
+        }
+
+        if (actualSigLen == 0 || actualSigLen > maxSigLen) {
+            std::cerr << "❌ [ERROR] Falcon signature length invalid: " << actualSigLen << "\n";
+            return {};
+        }
+
+        signature.resize(actualSigLen);
+        std::cout << "✅ [DEBUG] Falcon signature generated. Length: " << actualSigLen << "\n";
+        return signature;
+
+    } catch (const std::exception &ex) {
+        std::cerr << "❌ [EXCEPTION] Falcon signing threw exception: " << ex.what() << "\n";
+        return {};
+    } catch (...) {
+        std::cerr << "❌ [FATAL] Unknown Falcon signing crash caught!\n";
+        return {};
+    }
 }
 
 // --- ✅ Falcon Verification ---
 bool verifyWithFalcon(const std::vector<unsigned char> &message,
                       const std::vector<unsigned char> &signature,
                       const std::vector<unsigned char> &publicKey) {
-  if (signature.empty() || message.empty() || publicKey.empty())
-    return false;
+    std::cout << "[DEBUG] Falcon Verification Initiated\n";
+    std::cout << "  - Message Size   : " << message.size() << "\n";
+    std::cout << "  - Signature Size : " << signature.size() << "\n";
+    std::cout << "  - PublicKey Size : " << publicKey.size() << " (Expected: " 
+              << PQCLEAN_FALCON1024_CLEAN_CRYPTO_PUBLICKEYBYTES << ")\n";
 
-  if (publicKey.size() != PQCLEAN_FALCON1024_CLEAN_CRYPTO_PUBLICKEYBYTES)
-    return false;
+    if (signature.empty() || message.empty() || publicKey.empty()) {
+        std::cerr << "❌ [ERROR] Empty input to Falcon verification!\n";
+        return false;
+    }
 
-  int result = PQCLEAN_FALCON1024_CLEAN_crypto_sign_verify(
-      signature.data(), signature.size(),
-      message.data(), message.size(),
-      publicKey.data());
+    if (publicKey.size() != PQCLEAN_FALCON1024_CLEAN_CRYPTO_PUBLICKEYBYTES) {
+        std::cerr << "❌ [ERROR] Falcon public key size mismatch!\n";
+        return false;
+    }
 
-  return result == 0;
+    int result = PQCLEAN_FALCON1024_CLEAN_crypto_sign_verify(
+        signature.data(), signature.size(),
+        message.data(), message.size(),
+        publicKey.data());
+
+    if (result == 0) {
+        std::cout << "✅ [DEBUG] Falcon signature verification PASSED\n";
+        return true;
+    } else {
+        std::cerr << "❌ [DEBUG] Falcon signature verification FAILED! Return code: " << result << "\n";
+        return false;
+    }
 }
 
 // --- Public Key Extraction ---
@@ -309,7 +356,7 @@ std::string extractFalconPublicKey(const std::string &username) {
   buffer << pubFile.rdbuf();
   return buffer.str();
 }
-// --- Binary Public Key Loaders (for signature verification) ---
+// --- Public Key Loaders ---
 std::vector<unsigned char> getPublicKeyDilithium(const std::string &walletAddress) {
   std::string pubPath = KEY_DIR + walletAddress + "_dilithium.pub";
   std::ifstream pubFile(pubPath, std::ios::binary);
@@ -317,6 +364,10 @@ std::vector<unsigned char> getPublicKeyDilithium(const std::string &walletAddres
 
   std::vector<unsigned char> buffer((std::istreambuf_iterator<char>(pubFile)),
                                     std::istreambuf_iterator<char>());
+  if (buffer.size() != CRYPTO_PUBLICKEYBYTES) {
+    std::cerr << "❌ [ERROR] Loaded Dilithium public key is incorrect length: " << buffer.size() << " (expected " << CRYPTO_PUBLICKEYBYTES << ")\n";
+    return {};
+  }
   return buffer;
 }
 
@@ -327,6 +378,10 @@ std::vector<unsigned char> getPublicKeyFalcon(const std::string &walletAddress) 
 
   std::vector<unsigned char> buffer((std::istreambuf_iterator<char>(pubFile)),
                                     std::istreambuf_iterator<char>());
+  if (buffer.size() != PQCLEAN_FALCON1024_CLEAN_CRYPTO_PUBLICKEYBYTES) {
+    std::cerr << "❌ [ERROR] Loaded Falcon public key is incorrect length: " << buffer.size() << " (expected " << PQCLEAN_FALCON1024_CLEAN_CRYPTO_PUBLICKEYBYTES << ")\n";
+    return {};
+  }
   return buffer;
 }
 
@@ -348,13 +403,14 @@ DilithiumKeyPair loadDilithiumKeys(const std::string &username) {
     if (!pubBytes.empty() && !privBytes.empty()) {
       keypair.publicKey = pubBytes;
       keypair.privateKey = privBytes;
+      keypair.publicKeyHex = Crypto::toHex(pubBytes);
+      keypair.privateKeyHex = Crypto::toHex(privBytes);
     }
   }
 
   return keypair;
 }
 
-//
 FalconKeyPair loadFalconKeys(const std::string &username) {
   FalconKeyPair keypair;
   std::string privPath = KEY_DIR + username + "_falcon.key";
@@ -370,9 +426,13 @@ FalconKeyPair loadFalconKeys(const std::string &username) {
                                          std::istreambuf_iterator<char>());
     keypair.publicKey = pubBytes;
     keypair.privateKey = privBytes;
+    keypair.publicKeyHex = Crypto::toHex(pubBytes);
+    keypair.privateKeyHex = Crypto::toHex(privBytes);
   }
+
   return keypair;
 }
+
 //- wrapper--
 bool generatePostQuantumKeys(const std::string &username) {
     std::cout << "[DEBUG] Checking and generating PQ keys (Dilithium + Falcon) for: " << username << "\n";
@@ -467,21 +527,42 @@ std::string toHex(const std::vector<unsigned char> &data) {
   static const char hex_chars[] = "0123456789abcdef";
   std::string hex;
   hex.reserve(data.size() * 2);
+
   for (unsigned char byte : data) {
     hex.push_back(hex_chars[(byte >> 4) & 0x0F]);
     hex.push_back(hex_chars[byte & 0x0F]);
   }
+
+  std::cout << "✅ [DEBUG] toHex() - Converted " << data.size()
+            << " bytes to hex string of length " << hex.length() << "\n";
+
   return hex;
 }
+
 // Convert hex string back to bytes
 std::vector<unsigned char> fromHex(const std::string &hex) {
   std::vector<unsigned char> bytes;
+
+  if (hex.empty()) {
+    std::cerr << "❌ [ERROR] fromHex() input is empty!\n";
+    return {};
+  }
+
+  if (hex.length() % 2 != 0) {
+    std::cerr << "❌ [ERROR] fromHex() - hex string must have even length! Got: "
+              << hex.length() << "\n";
+    return {};
+  }
+
   bytes.reserve(hex.length() / 2);
   for (size_t i = 0; i < hex.length(); i += 2) {
-    unsigned char byte =
-        (unsigned char)strtol(hex.substr(i, 2).c_str(), nullptr, 16);
+    std::string byteStr = hex.substr(i, 2);
+    unsigned char byte = static_cast<unsigned char>(strtol(byteStr.c_str(), nullptr, 16));
     bytes.push_back(byte);
   }
+
+  std::cout << "✅ [DEBUG] fromHex() - Parsed " << bytes.size()
+            << " bytes from hex string (expected: " << (hex.length() / 2) << ")\n";
   return bytes;
 }
 //
@@ -1066,16 +1147,18 @@ std::string generateRandomHex(size_t length) {
 }
 
 std::string blake3Hash(const std::string &input) {
-  uint8_t output[BLAKE3_OUT_LEN];
-  blake3_hasher hasher;
-  blake3_hasher_init(&hasher);
-  blake3_hasher_update(&hasher, input.data(), input.size());
-  blake3_hasher_finalize(&hasher, output, BLAKE3_OUT_LEN);
-  return std::string(reinterpret_cast<char *>(output), BLAKE3_OUT_LEN);
+    uint8_t output[BLAKE3_OUT_LEN];
+    blake3_hasher hasher;
+    blake3_hasher_init(&hasher);
+    blake3_hasher_update(&hasher, input.data(), input.size());
+    blake3_hasher_finalize(&hasher, output, BLAKE3_OUT_LEN);
+    return std::string(reinterpret_cast<char *>(output), BLAKE3_OUT_LEN);  // ✅ Raw 32-byte
 }
+
 //
 std::vector<unsigned char> sha256ToBytes(const std::string &input) {
-    return fromHex(sha256(input));  // Convert hex → bytes
+    std::string hashHex = sha256(input);
+    return fromHex(hashHex);  // 64-char hex → 32-byte vector
 }
 
 } // namespace Crypto

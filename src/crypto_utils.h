@@ -11,13 +11,17 @@
 #define KEY_DIR "/root/.alyncoin/keys/"
 
 struct DilithiumKeyPair {
-  std::vector<uint8_t> publicKey;
-  std::vector<uint8_t> privateKey;
+    std::vector<uint8_t> publicKey;        // raw
+    std::vector<uint8_t> privateKey;       // raw
+    std::string publicKeyHex;              // hex string
+    std::string privateKeyHex;             // hex string (optional, if needed)
 };
 
 struct FalconKeyPair {
-  std::vector<uint8_t> publicKey;
-  std::vector<uint8_t> privateKey;
+    std::vector<uint8_t> publicKey;        // raw
+    std::vector<uint8_t> privateKey;       // raw
+    std::string publicKeyHex;              // hex string
+    std::string privateKeyHex;             // hex string (optional, if needed)
 };
 
 namespace Crypto {

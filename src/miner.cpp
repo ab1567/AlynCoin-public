@@ -31,9 +31,8 @@ void Miner::startMiningProcess(const std::string &minerAddress) {
             Blockchain &blockchain = Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true);
 
             while (miningActive) {
-                // ✅ Load latest pending transactions from disk
-                blockchain.loadPendingTransactionsFromDB();       // ← REQUIRED FIX
-                blockchain.reloadBlockchainState();               // reload balances, etc.
+                blockchain.loadPendingTransactionsFromDB();
+                blockchain.reloadBlockchainState();
 
                 Block minedBlock = blockchain.mineBlock(minerAddress);
 
@@ -43,23 +42,24 @@ void Miner::startMiningProcess(const std::string &minerAddress) {
                     break;
                 }
 
-                // 🔐 Construct message to verify signature consistency
                 std::string blockMsg = minedBlock.getHash() + minedBlock.getPreviousHash() +
                                        minedBlock.getTransactionsHash() + std::to_string(minedBlock.getTimestamp());
 
                 std::vector<unsigned char> pubKeyDil(minedBlock.getPublicKeyDilithium().begin(),
                                                      minedBlock.getPublicKeyDilithium().end());
-
                 std::vector<unsigned char> pubKeyFal(minedBlock.getPublicKeyFalcon().begin(),
                                                      minedBlock.getPublicKeyFalcon().end());
 
                 std::cout << "[SIGN DEBUG] 🔏 Block Message (MINING): " << blockMsg << std::endl;
                 std::cout << "[SIGN DEBUG] 🧬 Dilithium PubKey (MINING): " << Crypto::toHex(pubKeyDil) << std::endl;
-                std::cout << "[SIGN DEBUG] 🧬 Falcon PubKey (MINING): "   << Crypto::toHex(pubKeyFal) << std::endl;
+                std::cout << "[SIGN DEBUG] 🧬 Falcon PubKey (MINING): " << Crypto::toHex(pubKeyFal) << std::endl;
 
                 blockchain.addBlock(minedBlock);
                 blockchain.saveToDB();
-                std::cout << "✅ Block mined successfully!" << std::endl;
+
+                // ✅ ✅ NEW: Broadcast mined block to live peers
+                Network::getInstance(8333, &blockchain, nullptr).broadcastBlock(minedBlock);
+                std::cout << "✅ Block mined and broadcasted.\n";
 
                 std::this_thread::sleep_for(std::chrono::seconds(1));
             }
@@ -68,6 +68,7 @@ void Miner::startMiningProcess(const std::string &minerAddress) {
         std::cerr << "❌ Fatal error: " << e.what() << std::endl;
     }
 }
+
 // ✅ Improved Mining Algorithm: Hybrid PoW (BLAKE3 + Keccak256)
 std::string Miner::mineBlock(int difficulty) {
     std::string lastHash = Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true).getLatestBlock().getHash();

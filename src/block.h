@@ -104,7 +104,7 @@ public:
   void signBlock(const std::string &minerPrivateKeyPath);
   bool hasValidProofOfWork() const;
   void computeKeccakHash();
-  bool isValid(const std::string &prevHash) const;
+  bool isValid(const std::string &prevHash, int expectedDifficulty) const;
   bool containsTransaction(const Transaction &tx) const;
   std::vector<unsigned char> getSignatureMessage() const;
   std::string getHashInput() const {

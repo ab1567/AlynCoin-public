@@ -299,7 +299,7 @@ class BlockProto final :
   std::string* _internal_mutable_zk_stark_proof();
   public:
 
-  // string dilithium_signature = 12;
+  // bytes dilithium_signature = 12;
   void clear_dilithium_signature();
   const std::string& dilithium_signature() const;
   template <typename ArgT0 = const std::string&, typename... ArgT>
@@ -313,7 +313,7 @@ class BlockProto final :
   std::string* _internal_mutable_dilithium_signature();
   public:
 
-  // string falcon_signature = 13;
+  // bytes falcon_signature = 13;
   void clear_falcon_signature();
   const std::string& falcon_signature() const;
   template <typename ArgT0 = const std::string&, typename... ArgT>
@@ -327,7 +327,7 @@ class BlockProto final :
   std::string* _internal_mutable_falcon_signature();
   public:
 
-  // string public_key_dilithium = 14;
+  // bytes public_key_dilithium = 14;
   void clear_public_key_dilithium();
   const std::string& public_key_dilithium() const;
   template <typename ArgT0 = const std::string&, typename... ArgT>
@@ -341,7 +341,7 @@ class BlockProto final :
   std::string* _internal_mutable_public_key_dilithium();
   public:
 
-  // string public_key_falcon = 15;
+  // bytes public_key_falcon = 15;
   void clear_public_key_falcon();
   const std::string& public_key_falcon() const;
   template <typename ArgT0 = const std::string&, typename... ArgT>
@@ -892,7 +892,7 @@ inline void BlockProto::set_allocated_zk_stark_proof(std::string* zk_stark_proof
   // @@protoc_insertion_point(field_set_allocated:alyncoin.BlockProto.zk_stark_proof)
 }
 
-// string dilithium_signature = 12;
+// bytes dilithium_signature = 12;
 inline void BlockProto::clear_dilithium_signature() {
   _impl_.dilithium_signature_.ClearToEmpty();
 }
@@ -904,7 +904,7 @@ template <typename ArgT0, typename... ArgT>
 inline PROTOBUF_ALWAYS_INLINE
 void BlockProto::set_dilithium_signature(ArgT0&& arg0, ArgT... args) {
  
- _impl_.dilithium_signature_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+ _impl_.dilithium_signature_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:alyncoin.BlockProto.dilithium_signature)
 }
 inline std::string* BlockProto::mutable_dilithium_signature() {
@@ -942,7 +942,7 @@ inline void BlockProto::set_allocated_dilithium_signature(std::string* dilithium
   // @@protoc_insertion_point(field_set_allocated:alyncoin.BlockProto.dilithium_signature)
 }
 
-// string falcon_signature = 13;
+// bytes falcon_signature = 13;
 inline void BlockProto::clear_falcon_signature() {
   _impl_.falcon_signature_.ClearToEmpty();
 }
@@ -954,7 +954,7 @@ template <typename ArgT0, typename... ArgT>
 inline PROTOBUF_ALWAYS_INLINE
 void BlockProto::set_falcon_signature(ArgT0&& arg0, ArgT... args) {
  
- _impl_.falcon_signature_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+ _impl_.falcon_signature_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:alyncoin.BlockProto.falcon_signature)
 }
 inline std::string* BlockProto::mutable_falcon_signature() {
@@ -992,7 +992,7 @@ inline void BlockProto::set_allocated_falcon_signature(std::string* falcon_signa
   // @@protoc_insertion_point(field_set_allocated:alyncoin.BlockProto.falcon_signature)
 }
 
-// string public_key_dilithium = 14;
+// bytes public_key_dilithium = 14;
 inline void BlockProto::clear_public_key_dilithium() {
   _impl_.public_key_dilithium_.ClearToEmpty();
 }
@@ -1004,7 +1004,7 @@ template <typename ArgT0, typename... ArgT>
 inline PROTOBUF_ALWAYS_INLINE
 void BlockProto::set_public_key_dilithium(ArgT0&& arg0, ArgT... args) {
  
- _impl_.public_key_dilithium_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+ _impl_.public_key_dilithium_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:alyncoin.BlockProto.public_key_dilithium)
 }
 inline std::string* BlockProto::mutable_public_key_dilithium() {
@@ -1042,7 +1042,7 @@ inline void BlockProto::set_allocated_public_key_dilithium(std::string* public_k
   // @@protoc_insertion_point(field_set_allocated:alyncoin.BlockProto.public_key_dilithium)
 }
 
-// string public_key_falcon = 15;
+// bytes public_key_falcon = 15;
 inline void BlockProto::clear_public_key_falcon() {
   _impl_.public_key_falcon_.ClearToEmpty();
 }
@@ -1054,7 +1054,7 @@ template <typename ArgT0, typename... ArgT>
 inline PROTOBUF_ALWAYS_INLINE
 void BlockProto::set_public_key_falcon(ArgT0&& arg0, ArgT... args) {
  
- _impl_.public_key_falcon_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+ _impl_.public_key_falcon_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:alyncoin.BlockProto.public_key_falcon)
 }
 inline std::string* BlockProto::mutable_public_key_falcon() {

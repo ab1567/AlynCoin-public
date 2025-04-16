@@ -257,8 +257,10 @@ void Network::syncWithPeers() {
         std::cout << "📡 [DEBUG] Raw Blockchain Data from Peer (" << peer
                   << "): " << base64Response.substr(0, 100) << "...\n";
 
-        Blockchain &tempChain = Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true);
-        tempChain.clear();  // ✅ Clear chain + pending txs
+        // ✅ Use a temporary DB path to avoid RocksDB lock conflict
+        std::string syncTempPath = "/tmp/alyncoin_sync_temp";
+        Blockchain tempChain(0, syncTempPath, true, true);  // temp port=0
+        tempChain.clear();
 
         if (!tempChain.deserializeBlockchainBase64(base64Response)) {
             std::cerr << "❌ [ERROR] Failed to parse blockchain data from peer: " << peer << "\n";
@@ -291,33 +293,19 @@ void Network::syncWithPeers() {
             }
 
             std::vector<unsigned char> msgBytes = blk.getSignatureMessage();
-            std::cout << "📦 Verifying Hash: " << blk.getHash() << ", PrevHash: " << blk.getPreviousHash() << "\n";
-            std::cout << "[SIGN DEBUG] 🔐 Message Length: " << msgBytes.size() << std::endl;
+
             auto sigDil = Crypto::fromHex(blk.getDilithiumSignature());
             auto pubDil = std::vector<unsigned char>(blk.getPublicKeyDilithium().begin(), blk.getPublicKeyDilithium().end());
+
             auto sigFal = Crypto::fromHex(blk.getFalconSignature());
             auto pubFal = std::vector<unsigned char>(blk.getPublicKeyFalcon().begin(), blk.getPublicKeyFalcon().end());
-
-            std::cout << "[SIGN DEBUG] 🔏 Block Hash: " << blk.getHash() << "\n";
-            std::cout << "[SIGN DEBUG] 🔐 Message Length: " << msgBytes.size() << "\n";
-            std::cout << "[SIGN DEBUG] 🧬 Dilithium PubKey Length: " << pubDil.size()
-                      << ", Sig Length: " << sigDil.size() << "\n";
-            std::cout << "[SIGN DEBUG] 🧬 Falcon PubKey Length: " << pubFal.size()
-                      << ", Sig Length: " << sigFal.size() << "\n";
 
             bool dilPass = Crypto::verifyWithDilithium(msgBytes, sigDil, pubDil);
             bool falPass = Crypto::verifyWithFalcon(msgBytes, sigFal, pubFal);
 
-            if (!dilPass) {
-                std::cerr << "❌ [ERROR] Dilithium signature verification FAILED for block: " << blk.getHash() << "\n";
-            }
-            if (!falPass) {
-                std::cerr << "❌ [ERROR] Falcon signature verification FAILED for block: " << blk.getHash() << "\n";
-            }
-
             if (!dilPass || !falPass) {
                 zkValid = false;
-                std::cerr << "❌ [ERROR] Invalid signature(s) in block from: " << peer << "\n";
+                std::cerr << "❌ [ERROR] Signature verification failed in block from: " << peer << "\n";
                 break;
             }
         }
@@ -331,6 +319,9 @@ void Network::syncWithPeers() {
         } else {
             std::cout << "✅ Local chain is up-to-date. No merge needed.\n";
         }
+
+        // 🧹 Optional: clean up temporary RocksDB path
+        std::filesystem::remove_all(syncTempPath);
     }
 }
 
@@ -411,7 +402,7 @@ void Network::receiveFullChain(const std::string &senderIP, const std::string &d
         return;
     }
 
-    Blockchain &tempChain = Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true);
+    Blockchain tempChain(0, "/tmp/alyncoin_sync_temp", true, true);
     tempChain.clear();
 
     if (!tempChain.deserializeBlockchain(decodedData)) {
@@ -456,7 +447,6 @@ void Network::receiveFullChain(const std::string &senderIP, const std::string &d
         std::cerr << "❌ Rejected chain from " << senderIP << ": invalid or shorter.\n";
     }
 }
-
 // network node
 bool Network::connectToNode(const std::string &peerIP, int port) {
     if (peerIP == "127.0.0.1" && port == this->port) {
@@ -500,16 +490,21 @@ bool Network::connectToNode(const std::string &peerIP, int port) {
 // ✅ **Run Network Thread**
 void Network::run() {
   serverThread = std::thread([this]() { startServer(); });
-  serverThread.detach(); // ✅ Keeps server running in background
+  serverThread.detach();
 
-  std::this_thread::sleep_for(
-      std::chrono::seconds(2)); // ✅ Allow some time for initialization
+  std::this_thread::sleep_for(std::chrono::seconds(2));
 
-  requestPeerList(); // 🔄 Request peers on startup
-  scanForPeers();    // 🔄 Try discovering new peers
-  requestBlockchainSync(peerSockets.begin()->first);
-  autoMineBlock(); // ⛏️ Auto-mining thread
-  periodicSync();  // 🔄 Keep syncing every few seconds
+  requestPeerList();
+  scanForPeers();
+  autoMineBlock();
+
+  // 🔁 Live periodic sync every 15 seconds
+  std::thread([this]() {
+    while (true) {
+      std::this_thread::sleep_for(std::chrono::seconds(15));
+      periodicSync();
+    }
+  }).detach();
 }
 //
 // ✅ Auto-Discover Peers Instead of Manually Adding Nodes
@@ -538,94 +533,101 @@ std::vector<std::string> Network::discoverPeers() {
 }
 //
 void Network::connectToDiscoveredPeers() {
-    std::vector<std::string> peers = discoverPeers();
-    for (const std::string &peer : peers) {
-        if (peer.empty()) continue;
+  std::vector<std::string> peers = discoverPeers();
+  for (const std::string &peer : peers) {
+    if (peer.empty()) continue;
 
-        std::string ip = peer;
-        int port = DEFAULT_PORT;
+    std::string ip = peer;
+    int port = DEFAULT_PORT;
 
-        // Handle peer like "192.168.1.10:8333"
-        if (peer.find(":") != std::string::npos) {
-            size_t pos = peer.find(":");
-            ip = peer.substr(0, pos);
-            try {
-                port = std::stoi(peer.substr(pos + 1));
-            } catch (...) {
-                std::cerr << "⚠️ [WARNING] Invalid port for peer: " << peer << "\n";
-                continue;
-            }
-        }
-
-        if (ip == "127.0.0.1" && port == this->port) {
-            std::cout << "⚠️ Skipping self in discovered peers: " << peer << "\n";
-            continue;
-        }
-
-        connectToNode(ip, port);
+    if (peer.find(":") != std::string::npos) {
+      size_t pos = peer.find(":");
+      ip = peer.substr(0, pos);
+      try {
+        port = std::stoi(peer.substr(pos + 1));
+      } catch (...) {
+        std::cerr << "⚠️ [WARNING] Invalid port for peer: " << peer << "\n";
+        continue;
+      }
     }
+
+    if (ip == "127.0.0.1" && port == this->port) {
+      std::cout << "⚠️ Skipping self in discovered peers: " << peer << "\n";
+      continue;
+    }
+
+    connectToNode(ip, port); // Will update socket inside
+  }
 }
 
 //
 void Network::periodicSync() {
-    Blockchain &localChain = Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true);
+    std::thread([this]() {
+        while (true) {
+            std::this_thread::sleep_for(std::chrono::seconds(10)); // Adjust frequency if needed
+            Blockchain &localChain = Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true);
 
-    for (const auto &peer : peerSockets) {
-        const std::string &peerAddr = peer.first;
-        if (peerAddr.empty()) continue;
+            for (const auto &peer : peerSockets) {
+                const std::string &peerAddr = peer.first;
+                if (peerAddr.empty()) continue;
 
-        std::cout << "📡 [DEBUG] Periodic sync request to " << peerAddr << "\n";
+                std::cout << "📡 [DEBUG] Periodic sync request to " << peerAddr << "\n";
 
-        std::string response = requestBlockchainSync(peerAddr);
-        if (response.empty()) {
-            std::cerr << "⚠️ [WARNING] Skipping peer " << peerAddr << " due to empty response.\n";
-            continue;
-        }
+                std::string response = requestBlockchainSync(peerAddr);
+                if (response.empty()) {
+                    std::cerr << "⚠️ [WARNING] Skipping peer " << peerAddr << " due to empty response.\n";
+                    continue;
+                }
 
-        std::string decoded = Crypto::base64Decode(response);
-        if (decoded.empty()) {
-            std::cerr << "⚠️ [WARNING] Invalid base64 response from peer: " << peerAddr << "\n";
-            continue;
-        }
+                std::string decoded = Crypto::base64Decode(response);
+                if (decoded.empty()) {
+                    std::cerr << "⚠️ [WARNING] Invalid base64 response from peer: " << peerAddr << "\n";
+                    continue;
+                }
 
-        Blockchain &tempChain = Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true);
-        tempChain.clear();
+                Blockchain tempChain(0, "/tmp/alyncoin_sync_temp", true, true);
+                tempChain.clear();
 
-        if (!tempChain.deserializeBlockchainBase64(decoded)) {
-            std::cerr << "❌ [ERROR] Failed to parse blockchain from peer: " << peerAddr << "\n";
-            continue;
-        }
+                if (!tempChain.deserializeBlockchainBase64(decoded)) {
+                    std::cerr << "❌ [ERROR] Failed to parse blockchain from peer: " << peerAddr << "\n";
+                    continue;
+                }
 
-        bool valid = true;
-        for (const auto &blk : tempChain.getChain()) {
-            std::string proofStr(blk.getZkProof().begin(), blk.getZkProof().end());
-            if (!WinterfellStark::verifyProof(proofStr, blk.getHash(), blk.getPreviousHash(), blk.getTxRoot())) {
-                std::cerr << "❌ [ERROR] Invalid zk-STARK proof in block from: " << peerAddr << "\n";
-                valid = false;
-                break;
+                bool valid = true;
+                for (const auto &blk : tempChain.getChain()) {
+                    std::string proofStr(blk.getZkProof().begin(), blk.getZkProof().end());
+                    if (!WinterfellStark::verifyProof(proofStr, blk.getHash(), blk.getPreviousHash(), blk.getTxRoot())) {
+                        std::cerr << "❌ [ERROR] Invalid zk-STARK proof in block from: " << peerAddr << "\n";
+                        valid = false;
+                        break;
+                    }
+                }
+
+                if (valid && tempChain.getBlockCount() > localChain.getBlockCount()) {
+                    std::cout << "✅ Periodic sync accepted. Replacing local chain with chain from " << peerAddr << "\n";
+                    localChain.replaceChain(tempChain.getChain());
+                    localChain.saveToDB();
+                } else if (!valid) {
+                    std::cerr << "❌ Rejected chain from " << peerAddr << " due to invalid zk-STARK proofs.\n";
+                } else {
+                    std::cout << "ℹ️ Local chain is up-to-date. No sync needed with " << peerAddr << "\n";
+                }
             }
         }
-
-        if (valid && tempChain.getBlockCount() > localChain.getBlockCount()) {
-            std::cout << "✅ Periodic sync accepted. Replacing local chain with chain from " << peerAddr << "\n";
-            localChain.replaceChain(tempChain.getChain());
-            localChain.saveToDB();
-        } else if (!valid) {
-            std::cerr << "❌ Rejected chain from " << peerAddr << " due to invalid zk-STARK proofs.\n";
-        } else {
-            std::cout << "ℹ️ Local chain is up-to-date. No sync needed with " << peerAddr << "\n";
-        }
-    }
+    }).detach();
 }
 
 //
 std::vector<std::string> Network::getPeers() {
-  std::vector<std::string> peerList;
-  for (const auto &peer : peerSockets) {
-    peerList.push_back(peer.first); // Extract peer addresses
-  }
-  return peerList;
+    std::vector<std::string> peerList;
+    for (const auto &peer : peerSockets) {
+        if (peer.second && peer.second->is_open()) {
+            peerList.push_back(peer.first); // Only include connected peers
+        }
+    }
+    return peerList;
 }
+
 //
 RollupBlock deserializeRollupBlock(const std::string &data) {
   return RollupBlock::deserialize(data);
@@ -689,100 +691,85 @@ void Network::handleIncomingData(const std::string &senderIP, std::string data) 
         return;
     }
 
-    // 🧬 Sync receive
-    const std::string blockchainPrefix = "BLOCKCHAIN_DATA|";
-if (data.rfind(blockchainPrefix, 0) == 0) {
-    std::string encodedData = data.substr(blockchainPrefix.length());
-    Blockchain &mainChain = Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true);
-    mainChain.clear();
-
-    if (!mainChain.deserializeBlockchainBase64(encodedData)) {
-        std::cerr << "❌ [ERROR] Failed to parse blockchain data from peer: " << senderIP << "\n";
-        return;
-    }
-
-    bool validChain = true;
-    for (const auto &blk : mainChain.getChain()) {
-	if (blk.getIndex() == 0) {
-	    std::cout << "⚠️ [WARNING] Genesis block zk-STARK check: zkProof size = " << blk.getZkProof().size() << "\n";
-	    if (blk.getZkProof().empty()) {
-	        std::cerr << "❌ [ERROR] Genesis block has empty zkProof after sync!\n";
-	        validChain = false;
-	        break;
-	    }
-	    continue;
-	}
-           std::string proofStr(blk.getZkProof().begin(), blk.getZkProof().end());
-        if (!WinterfellStark::verifyProof(proofStr, blk.getHash(),
-                                          blk.getPreviousHash(), blk.getTransactionsHash())) {
-            std::cerr << "[ERROR] Invalid zk-STARK proof in synced blockchain from " << senderIP << "\n";
-            validChain = false;
-            break;
-        }
-
-        std::vector<unsigned char> msgBytes = blk.getSignatureMessage();
-
-        auto sigDil = Crypto::fromHex(blk.getDilithiumSignature());
-        auto pubDil = std::vector<unsigned char>(blk.getPublicKeyDilithium().begin(), blk.getPublicKeyDilithium().end());
-        if (!Crypto::verifyWithDilithium(msgBytes, sigDil, pubDil)) {
-            std::cerr << "[ERROR] Invalid Dilithium signature in synced blockchain from " << senderIP << "\n";
-            validChain = false;
-            break;
-        }
-
-        auto sigFal = Crypto::fromHex(blk.getFalconSignature());
-        auto pubFal = std::vector<unsigned char>(blk.getPublicKeyFalcon().begin(), blk.getPublicKeyFalcon().end());
-        if (!Crypto::verifyWithFalcon(msgBytes, sigFal, pubFal)) {
-            std::cerr << "[ERROR] Invalid Falcon signature in synced blockchain from " << senderIP << "\n";
-            validChain = false;
-            break;
-        }
-    }
-
-    if (validChain) {
-        std::lock_guard<std::mutex> lock(blockchainMutex);
-        mainChain.saveToDB();
-        std::cout << "[INFO] ✅ Blockchain sync complete from peer " << senderIP << "\n";
-    } else {
-        std::cerr << "[ERROR] ❌ Blockchain rejected due to verification failure.\n";
-    }
-
-    return;
-}
-
-    // 📦 Rollup sync
-    const std::string rollupPrefix = "ROLLUP_BLOCKCHAIN_DATA|";
-    if (data.rfind(rollupPrefix, 0) == 0) {
-        std::string encoded = data.substr(rollupPrefix.length());
-        std::string decoded = Crypto::base64Decode(encoded);
-        if (decoded.empty()) {
-            std::cerr << "[ERROR] Base64 decode failed for rollup chain from " << senderIP << "\n";
+    // ✅ Live Block Propagation
+    const std::string blockPrefix = "BLOCK_DATA|";
+    if (data.rfind(blockPrefix, 0) == 0) {
+        std::string serialized = data.substr(blockPrefix.length());
+        alyncoin::BlockProto proto;
+        if (!proto.ParseFromString(serialized)) {
+            std::cerr << "❌ [ERROR] Failed to parse received block from peer: " << senderIP << "\n";
             return;
         }
 
-        std::vector<RollupBlock> rollupChain = deserializeRollupChain(decoded);
-        for (const auto &rollupBlock : rollupChain) {
-            std::vector<std::string> txHashes;
-            for (const auto &tx : rollupBlock.getTransactions()) {
-                txHashes.push_back(tx.getHash());
-            }
+        Block newBlock = Block::fromProto(proto);
 
-            if (!ProofVerifier::verifyRollupProof(rollupBlock.getRollupProof(), txHashes,
-                                                  rollupBlock.getMerkleRoot(),
-                                                  rollupBlock.getStateRootBefore(),
-                                                  rollupBlock.getStateRootAfter())) {
-                std::cerr << "[ERROR] ❌ Invalid rollup proof from " << senderIP << "\n";
-                return;
-            }
-
-            handleNewRollupBlock(rollupBlock);
-        }
-
-        std::cout << "✅ Rollup chain processed from peer " << senderIP << "\n";
+        std::cout << "📥 Received BLOCK_DATA from " << senderIP << ", attempting to validate...\n";
+        handleNewBlock(newBlock);
         return;
     }
 
-    // 📨 Fallback: single transaction
+    // 🔄 Full sync response
+    const std::string blockchainPrefix = "BLOCKCHAIN_DATA|";
+    if (data.rfind(blockchainPrefix, 0) == 0) {
+        std::string encodedData = data.substr(blockchainPrefix.length());
+        Blockchain &mainChain = Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true);
+        mainChain.clear();
+
+        if (!mainChain.deserializeBlockchainBase64(encodedData)) {
+            std::cerr << "❌ [ERROR] Failed to parse blockchain data from peer: " << senderIP << "\n";
+            return;
+        }
+
+        bool validChain = true;
+        for (const auto &blk : mainChain.getChain()) {
+            if (blk.getIndex() == 0) {
+                std::cout << "⚠️ [WARNING] Genesis block zk-STARK check: zkProof size = " << blk.getZkProof().size() << "\n";
+                if (blk.getZkProof().empty()) {
+                    std::cerr << "❌ [ERROR] Genesis block has empty zkProof after sync!\n";
+                    validChain = false;
+                    break;
+                }
+                continue;
+            }
+
+            std::string proofStr(blk.getZkProof().begin(), blk.getZkProof().end());
+            if (!WinterfellStark::verifyProof(proofStr, blk.getHash(), blk.getPreviousHash(), blk.getTransactionsHash())) {
+                std::cerr << "[ERROR] Invalid zk-STARK proof in synced blockchain from " << senderIP << "\n";
+                validChain = false;
+                break;
+            }
+
+            std::vector<unsigned char> msgBytes = blk.getSignatureMessage();
+
+            auto sigDil = Crypto::fromHex(blk.getDilithiumSignature());
+            auto pubDil = std::vector<unsigned char>(blk.getPublicKeyDilithium().begin(), blk.getPublicKeyDilithium().end());
+            if (!Crypto::verifyWithDilithium(msgBytes, sigDil, pubDil)) {
+                std::cerr << "[ERROR] Invalid Dilithium signature in synced blockchain from " << senderIP << "\n";
+                validChain = false;
+                break;
+            }
+
+            auto sigFal = Crypto::fromHex(blk.getFalconSignature());
+            auto pubFal = std::vector<unsigned char>(blk.getPublicKeyFalcon().begin(), blk.getPublicKeyFalcon().end());
+            if (!Crypto::verifyWithFalcon(msgBytes, sigFal, pubFal)) {
+                std::cerr << "[ERROR] Invalid Falcon signature in synced blockchain from " << senderIP << "\n";
+                validChain = false;
+                break;
+            }
+        }
+
+        if (validChain) {
+            std::lock_guard<std::mutex> lock(blockchainMutex);
+            mainChain.saveToDB();
+            std::cout << "[INFO] ✅ Blockchain sync complete from peer " << senderIP << "\n";
+        } else {
+            std::cerr << "[ERROR] ❌ Blockchain rejected due to verification failure.\n";
+        }
+
+        return;
+    }
+
+    // 📨 Fallback: transaction
     try {
         Transaction tx = Transaction::deserialize(data);
         if (tx.isValid(tx.getSenderPublicKeyDilithium(), tx.getSenderPublicKeyFalcon())) {
@@ -799,15 +786,24 @@ if (data.rfind(blockchainPrefix, 0) == 0) {
 
 // ✅ **Broadcast a mined block to all peers*
 void Network::broadcastBlock(const Block &block) {
-  alyncoin::BlockProto blockProto = block.toProtobuf();
-  std::string serializedBlock;
-  blockProto.SerializeToString(&serializedBlock);
+    alyncoin::BlockProto blockProto = block.toProtobuf();
+    std::string serializedBlock;
+    blockProto.SerializeToString(&serializedBlock);
 
-  std::string message = "BLOCK_DATA|" + serializedBlock;
-  for (const auto &peer : getPeers()) {
-    sendData(peer, message);
-  }
-  std::cout << "📡 Broadcasted mined block to peers!\n";
+    std::string message = "BLOCK_DATA|" + serializedBlock;
+
+    std::lock_guard<std::mutex> lock(peersMutex);
+    for (const auto &peer : peerSockets) {
+        auto socket = peer.second;
+        if (socket && socket->is_open()) {
+            try {
+                boost::asio::write(*socket, boost::asio::buffer(message + "\n"));
+                std::cout << "📡 [LIVE BROADCAST] Block sent to: " << peer.first << "\n";
+            } catch (const std::exception &e) {
+                std::cerr << "❌ Failed to send block to " << peer.first << ": " << e.what() << "\n";
+            }
+        }
+    }
 }
 
 //
@@ -1013,7 +1009,8 @@ void Network::handlePeer(std::shared_ptr<tcp::socket> socket) {
   try {
     char buffer[1024];
     boost::system::error_code error;
-    std::string peerId = socket->remote_endpoint().address().to_string();
+    std::string peerId = socket->remote_endpoint().address().to_string() + ":" +
+                     std::to_string(socket->remote_endpoint().port());
 
     while (isRunning) {
       size_t bytesRead = socket->read_some(boost::asio::buffer(buffer), error);
@@ -1061,31 +1058,30 @@ void Network::handleReceivedBlockIndex(const std::string &peerIP,
 
 // ✅ **Fix Peer Saving & Loading**
 void Network::loadPeers() {
-  std::lock_guard<std::mutex> lock(fileIOMutex); // 🔒 Added
+  std::lock_guard<std::mutex> lock(fileIOMutex);
 
   std::ifstream file("peers.txt");
   if (!file.is_open()) {
-    std::cerr
-        << "⚠️ [WARNING] peers.txt not found. Attempting auto-discovery...\n";
+    std::cerr << "⚠️ [WARNING] peers.txt not found. Attempting auto-discovery...\n";
     scanForPeers();
     return;
   }
 
   std::string line;
   while (std::getline(file, line)) {
-    if (line.empty() || line.find(":") == std::string::npos)
-      continue;
+    if (line.empty() || line.find(":") == std::string::npos) continue;
 
     if (line == "127.0.0.1:" + std::to_string(port)) {
       std::cerr << "⚠️ Skipping self-peer: " << line << "\n";
       continue;
     }
 
-    peerSockets.insert({line, nullptr});
-    std::cout << "✅ Peer loaded & connected: " << line << "\n";
+    std::string ip = line.substr(0, line.find(":"));
+    int portVal = std::stoi(line.substr(line.find(":") + 1));
 
-    if (!connectToNode(line.substr(0, line.find(":")),
-                       stoi(line.substr(line.find(":") + 1)))) {
+    if (connectToNode(ip, portVal)) {
+      std::cout << "✅ Peer loaded & connected: " << line << "\n";
+    } else {
       std::cerr << "⚠️ Failed to connect to loaded peer: " << line << "\n";
     }
   }

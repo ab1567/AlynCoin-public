@@ -17,10 +17,10 @@ message BlockProto {
     string keccak_hash = 10;
     bytes zk_stark_proof = 11;
 
-    string dilithium_signature = 12;
-    string falcon_signature = 13;
-    string public_key_dilithium = 14;
-    string public_key_falcon = 15;
+    bytes dilithium_signature = 12;
+    bytes falcon_signature = 13;
+    bytes public_key_dilithium = 14;
+    bytes public_key_falcon = 15;
 
     string state_root = 16;
     string tx_merkle_root = 17;

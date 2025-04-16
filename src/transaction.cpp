@@ -155,16 +155,19 @@ Json::Value Transaction::toJSON() const {
   tx["sender"] = sender;
   tx["recipient"] = recipient;
   tx["amount"] = amount;
-  tx["signatureDilithium"] = signatureDilithium;
-  tx["signatureFalcon"] = signatureFalcon;
-  tx["zkProof"] = zkProof;
   tx["timestamp"] = static_cast<Json::Int64>(timestamp);
-  tx["senderPublicKeyDilithium"] = senderPublicKeyDilithium;
-  tx["senderPublicKeyFalcon"] = senderPublicKeyFalcon;
   tx["metadata"] = metadata;
+
+  // ✅ Encode binary data to base64
+  tx["signatureDilithium"] = Crypto::base64Encode(signatureDilithium);
+  tx["signatureFalcon"] = Crypto::base64Encode(signatureFalcon);
+  tx["zkProof"] = Crypto::base64Encode(zkProof);
+  tx["senderPublicKeyDilithium"] = Crypto::base64Encode(senderPublicKeyDilithium);
+  tx["senderPublicKeyFalcon"] = Crypto::base64Encode(senderPublicKeyFalcon);
 
   return tx;
 }
+
 // From JSON
 Transaction Transaction::fromJSON(const Json::Value &txJson) {
   Transaction tx;
@@ -172,22 +175,24 @@ Transaction Transaction::fromJSON(const Json::Value &txJson) {
   tx.recipient = txJson.get("recipient", "").asString();
   tx.amount = txJson.get("amount", 0.0).asDouble();
   tx.timestamp = txJson.get("timestamp", 0).asInt64();
+  tx.metadata = txJson.get("metadata", "").asString();
 
   if (tx.sender != "System") {
-    tx.signatureDilithium = txJson.get("signatureDilithium", "").asString();
-    tx.signatureFalcon = txJson.get("signatureFalcon", "").asString();
-    tx.zkProof = txJson.get("zkProof", "").asString();
-    tx.senderPublicKeyDilithium = txJson.get("senderPublicKeyDilithium", "").asString();
-    tx.senderPublicKeyFalcon = txJson.get("senderPublicKeyFalcon", "").asString();
-   tx.metadata = txJson.get("metadata", "").asString();
-
+    // ✅ Decode base64-encoded binary fields
+    tx.signatureDilithium = Crypto::base64Decode(txJson.get("signatureDilithium", "").asString());
+    tx.signatureFalcon = Crypto::base64Decode(txJson.get("signatureFalcon", "").asString());
+    tx.zkProof = Crypto::base64Decode(txJson.get("zkProof", "").asString());
+    tx.senderPublicKeyDilithium = Crypto::base64Decode(txJson.get("senderPublicKeyDilithium", "").asString());
+    tx.senderPublicKeyFalcon = Crypto::base64Decode(txJson.get("senderPublicKeyFalcon", "").asString());
   }
+
   if (tx.hash.empty()) {
     tx.hash = tx.getTransactionHash();
   }
 
   return tx;
- }
+}
+
 //serialize
 std::string Transaction::serialize() const {
   Json::Value txJson = toJSON();  // ✅ reuse shared logic
@@ -239,21 +244,6 @@ alyncoin::TransactionProto Transaction::toProto() const {
     return proto;
 }
 
-// Ensure keys are present and generate if missing
-static void ensureKeysExist(const std::string &sender) {
-  std::string keyDir = "/root/.alyncoin/keys/";
-  std::string dilithiumPrivPath = keyDir + sender + "_dilithium_priv.bin";
-  std::string falconPrivPath = keyDir + sender + "_falcon_priv.bin";
-
-  if (!std::filesystem::exists(dilithiumPrivPath)) {
-    std::cout << "⚠️ Dilithium keys missing. Generating for: " << sender << "\n";
-    Crypto::generateDilithiumKeys(sender);
-  }
-  if (!std::filesystem::exists(falconPrivPath)) {
-    std::cout << "⚠️ Falcon keys missing. Generating for: " << sender << "\n";
-    Crypto::generateFalconKeys(sender);
-  }
-}
 // ✅ Sign Transaction
 void Transaction::signTransaction(const std::vector<unsigned char> &dilithiumPrivateKey,
                                   const std::vector<unsigned char> &falconPrivateKey) {
@@ -300,8 +290,9 @@ void Transaction::signTransaction(const std::vector<unsigned char> &dilithiumPri
   // ✅ Step 3: Attach public keys
   std::vector<unsigned char> pubDil = Crypto::getPublicKeyDilithium(sender);
   std::vector<unsigned char> pubFal = Crypto::getPublicKeyFalcon(sender);
-  senderPublicKeyDilithium = Crypto::toHex(pubDil);
-  senderPublicKeyFalcon = Crypto::toHex(pubFal);
+  senderPublicKeyDilithium = std::string(pubDil.begin(), pubDil.end());
+  senderPublicKeyFalcon = std::string(pubFal.begin(), pubFal.end());
+
 
   // ✅ Step 4: Generate zk-STARK proof
   zkProof = WinterfellStark::generateTransactionProof(sender, recipient, amount, timestamp);

@@ -206,8 +206,7 @@ Block Blockchain::createGenesisBlock(bool force) {
         falKeys = Crypto::loadFalconKeys("System");
     }
 
-    std::string msgHashHex = Crypto::blake3(blockHash + prevHash);
-    std::vector<unsigned char> msgBytes = Crypto::fromHex(msgHashHex);
+    std::vector<unsigned char> msgBytes = genesis.getSignatureMessage(); // ✅ Use canonical input
     if (msgBytes.size() != 32) {
         std::cerr << "❌ Message must be 32 bytes!\n";
         exit(1);
@@ -220,10 +219,14 @@ Block Blockchain::createGenesisBlock(bool force) {
         exit(1);
     }
 
+    // ✅ Signatures stored as hex (safe)
     genesis.setDilithiumSignature(Crypto::toHex(sigDilVec));
     genesis.setFalconSignature(Crypto::toHex(sigFalVec));
-    genesis.setPublicKeyDilithium(Crypto::toHex(dilKeys.publicKey));
-    genesis.setPublicKeyFalcon(Crypto::toHex(falKeys.publicKey));
+
+    // ✅ Public keys stored as raw binary (correct, fixes signature verification)
+    genesis.setPublicKeyDilithium(std::string(dilKeys.publicKey.begin(), dilKeys.publicKey.end()));
+    genesis.setPublicKeyFalcon(std::string(falKeys.publicKey.begin(), falKeys.publicKey.end()));
+
 
     // 🧠 zk-STARK Proof
     std::string zkProof = WinterfellStark::generateProof(
@@ -265,31 +268,28 @@ bool Blockchain::addBlock(const Block &block) {
         std::cout << "[DEBUG] 🧩 addBlock() zkProof length: " << block.getZkProof().size() << " bytes\n";
     }
 
+    // 🚫 Check for same block hash
     for (const auto &existing : chain) {
         if (existing.getHash() == block.getHash()) {
-            std::cerr << "⚠️ Duplicate block detected. Skipping add.\n";
+            std::cerr << "⚠️ Duplicate block hash detected. Skipping add. Hash: "
+                      << block.getHash() << "\n";
             return true;
         }
     }
 
-    if (chain.empty()) {
-        if (!block.isGenesisBlock()) {
-            std::cerr << "❌ First block must be Genesis Block!\n";
+    // 🚫 Check for same block index (e.g., 2 genesis blocks at height 0)
+    for (const auto &existing : chain) {
+        if (existing.getIndex() == block.getIndex()) {
+            std::cerr << "⚠️ Block index already exists (Index: " << block.getIndex()
+                      << "). Skipping add.\n";
             return false;
         }
-    } else {
-        const Block &lastBlock = chain.back();
-        if (block.getPreviousHash() != lastBlock.getHash()) {
-            std::cerr << "❌ Previous Hash Mismatch!\n";
-            std::cerr << "EXPECTED: " << lastBlock.getHash() << "\n";
-            std::cerr << "RECEIVED: " << block.getPreviousHash() << "\n";
-            return false;
-        }
+    }
 
-        if (!isValidNewBlock(block)) {
-            std::cerr << "❌ Invalid block detected. Rejecting!\n";
-            return false;
-        }
+    // ✅ Unified validation logic (genesis or not)
+    if (!isValidNewBlock(block)) {
+        std::cerr << "❌ Invalid block detected. Rejecting!\n";
+        return false;
     }
 
     chain.push_back(block);
@@ -342,6 +342,7 @@ bool Blockchain::addBlock(const Block &block) {
     std::cout << "✅ Block added to blockchain. Pending transactions updated and balances recalculated.\n";
     return true;
 }
+
 
 // ✅ Singleton Instance (network + db)
 Blockchain &Blockchain::getInstance(unsigned short port, const std::string &dbPath, bool bindNetwork, bool isSyncMode) {
@@ -419,28 +420,42 @@ bool fileExists(const std::string &filename) {
 }
 //
 void Blockchain::mergeWith(const Blockchain &other) {
-  if (other.chain.size() <= chain.size()) {
-    std::cerr << "⚠️ Merge skipped: Local chain is longer or equal.\n";
-    return;
-  }
-
-  std::vector<Block> newChain;
-  for (const auto &block : other.chain) {
-    if (newChain.empty() || block.isValid(newChain.back().getHash())) {
-      newChain.push_back(block);
-    } else {
-      std::cerr
-          << "❌ [ERROR] Invalid block detected during merge! Skipping...\n";
+    if (other.chain.size() <= chain.size()) {
+        std::cerr << "⚠️ Merge skipped: Local chain is longer or equal.\n";
+        return;
     }
-  }
 
-  if (newChain.size() > chain.size()) {
-    std::cout << "✅ Replacing current blockchain with a longer valid chain!\n";
-    chain = newChain;
-    saveToDB();
-  } else {
-    std::cerr << "⚠️ New chain was not longer. Keeping existing chain.\n";
-  }
+    std::vector<Block> newChain;
+    for (size_t i = 0; i < other.chain.size(); ++i) {
+        const Block &block = other.chain[i];
+
+        std::string expectedPrevHash = (i == 0)
+            ? "00000000000000000000000000000000"
+            : newChain.back().getHash();
+
+        if (block.getPreviousHash() != expectedPrevHash) {
+            std::cerr << "❌ [ERROR] Invalid previous hash at block index " << block.getIndex()
+                      << ". Expected: " << expectedPrevHash << ", Got: " << block.getPreviousHash() << "\n";
+            return;
+        }
+
+        if (block.getHash() != block.calculateHash()) {
+            std::cerr << "❌ [ERROR] Block hash mismatch at index " << block.getIndex() << "\n";
+            return;
+        }
+
+        // ✅ Skip static difficulty validation (LWMA adjusts on mining only)
+        newChain.push_back(block);
+    }
+
+    if (newChain.size() > chain.size()) {
+        std::cout << "✅ Replacing current blockchain with a longer valid chain!\n";
+        chain = newChain;
+        adjustDifficulty();  // Recalculate based on new chain via LWMA
+        saveToDB();
+    } else {
+        std::cerr << "⚠️ New chain was not longer. Keeping existing chain.\n";
+    }
 }
 
 // ✅ **Check for pending transactions**
@@ -759,10 +774,28 @@ bool Blockchain::saveToDB() {
     alyncoin::BlockchainProto blockchainProto;
     blockchainProto.set_chain_id(1);
 
+    std::set<int> usedIndices;
     int blockCount = 0;
     for (const auto &block : chain) {
-std::cout << "[🧪 saveToDB] zkProof.size() before serialization: " << block.getZkProof().size() << " bytes\n";
-        // ✅ Use toProtobuf() directly — avoids extra indirection
+        const auto &zk = block.getZkProof();
+        if (zk.empty()) {
+            std::cerr << "⚠️ [saveToDB] Skipping block with EMPTY zkProof. Hash: "
+                      << block.getHash() << "\n";
+            continue;
+        }
+
+        int index = block.getIndex();
+        if (usedIndices.count(index)) {
+            std::cerr << "⚠️ [saveToDB] Duplicate block index detected. Skipping block at index: "
+                      << index << ", Hash: " << block.getHash() << "\n";
+            continue;
+        }
+
+        usedIndices.insert(index);
+
+        std::cout << "[🧪 saveToDB] Block[" << blockCount << "] Index: " << index
+                  << ", zkProof: " << zk.size() << " bytes\n";
+
         alyncoin::BlockProto *blockProto = blockchainProto.add_blocks();
         *blockProto = block.toProtobuf();
         ++blockCount;
@@ -776,8 +809,6 @@ std::cout << "[🧪 saveToDB] zkProof.size() before serialization: " << block.ge
         *txProto = tx.toProto();
         ++txCount;
     }
-   std::cout << "[DEBUG] Saving genesis block at address: " << &chain[0]
-            << ", zkProof.size(): " << chain[0].getZkProof().size() << "\n";
 
     blockchainProto.set_difficulty(difficulty);
     blockchainProto.set_block_reward(blockReward);
@@ -812,6 +843,7 @@ std::cout << "[🧪 saveToDB] zkProof.size() before serialization: " << block.ge
 // ✅ **Load Blockchain from RocksDB using Protobuf**
 bool Blockchain::loadFromDB() {
     std::cout << "[DEBUG] Attempting to load blockchain from DB..." << std::endl;
+
     if (!db) {
         std::cerr << "❌ RocksDB not initialized!\n";
         return false;
@@ -830,8 +862,11 @@ bool Blockchain::loadFromDB() {
 
         std::cerr << "🪐 Creating Genesis Block...\n";
         Block genesis = createGenesisBlock();
-        chain.push_back(genesis);
-        saveToDB();
+
+        if (!addBlock(genesis)) {
+            std::cerr << "❌ [ERROR] Failed to add Genesis block.\n";
+            return false;
+        }
 
         std::cout << "⏳ Applying vesting schedule for early supporters...\n";
         applyVestingSchedule();
@@ -848,8 +883,15 @@ bool Blockchain::loadFromDB() {
     }
 
     chain.clear();
+    std::unordered_set<std::string> seenHashes;
+
     for (const auto &blockProto : blockchainProto.blocks()) {
-        chain.push_back(Block::fromProto(blockProto));
+        Block blk = Block::fromProto(blockProto);
+        if (seenHashes.insert(blk.getHash()).second) {
+            chain.push_back(blk);
+        } else {
+            std::cerr << "⚠️ [loadFromDB] Duplicate block skipped. Hash: " << blk.getHash() << "\n";
+        }
     }
 
     std::string burnedSupplyStr;
@@ -1091,13 +1133,13 @@ void Blockchain::replaceChain(const std::vector<Block> &newChain) {
 }
 //
 bool Blockchain::isValidNewBlock(const Block& newBlock) const {
-    if (blocks.empty()) {
+    if (chain.empty()) {
         if (newBlock.getIndex() != 0) {
             std::cerr << "❌ First block must be index 0 (genesis). Block hash: "
                       << newBlock.getHash() << "\n";
             return false;
         }
-        return true;  // Accept genesis
+        return newBlock.isValid("00000000000000000000000000000000", 0); // Genesis: skip PoW
     }
 
     const Block& lastBlock = getLatestBlock();
@@ -1115,7 +1157,7 @@ bool Blockchain::isValidNewBlock(const Block& newBlock) const {
         return false;
     }
 
-    return newBlock.isValid(lastBlock.getHash());
+    return newBlock.isValid(lastBlock.getHash(), difficulty);
 }
 
 //
