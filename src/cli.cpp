@@ -17,7 +17,6 @@
 #include <ctime>
 #include <filesystem>
 #include "db/db_instance.h"
-#include "zk/recursive_proof_helper.h"
 
 std::string getCurrentWallet() {
     std::ifstream in("/root/.alyncoin/current_wallet.txt");
@@ -77,15 +76,15 @@ int main(int argc, char **argv) {
 	auto getBlockchain = [&]() -> Blockchain& {
 	    if (skipDB) {
 	        std::cout << "⚠️ CLI is running in --nodb mode.\n";
-	        return Blockchain::getInstance(8333, "", false);
+	        return Blockchain::getInstanceNoDB();
 	    }
 	    if (skipNet) {
 	        std::cout << "⚠️ CLI is running in --nonetwork mode (DB OK).\n";
-	        return Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true);
+	        return Blockchain::getInstanceNoNetwork();
 	    }
 
 	    std::cout << "🌐 CLI is using full network+DB mode.\n";
-	    return Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true);
+	    return Blockchain::getInstance(12345, DBPaths::getBlockchainDB(), true);
 	};
 
    // mineonce <minerAddress>
@@ -202,7 +201,7 @@ int main(int argc, char **argv) {
      if (argc >= 3 && (std::string(argv[1]) == "balance" || std::string(argv[1]) == "balance-force")) {
       std::string addr = argv[2];
       Blockchain &b = (std::string(argv[1]) == "balance-force")
-          ? Blockchain::getInstance(8333, "", false)
+          ? Blockchain::getInstanceNoDB()
           : getBlockchain();
 
       b.reloadBlockchainState();  // 🔧 Ensure latest state is loaded before querying balance
@@ -298,102 +297,59 @@ int main(int argc, char **argv) {
         std::exit(0);
     }
 
-	// === Transaction history by address ===
-	if (argc >= 3 && std::string(argv[1]) == "history") {
-	    std::string addr = argv[2];
-	    Blockchain& b = getBlockchain();
-
-	    std::cout << "🔍 Loading blockchain from DB...\n";
-	    b.loadFromDB();
-	    b.reloadBlockchainState();
-
-	    std::vector<Transaction> relevant;
-	    auto blocks = b.getAllBlocks();
-	    std::cout << "📦 Total blocks loaded: " << blocks.size() << "\n";
-
-	    for (const auto& blk : blocks) {
-	        auto txs = blk.getTransactions();
-	        std::cout << "⛏ Block " << blk.getHash() << " has " << txs.size() << " txs.\n";
-
-	        for (const auto& tx : txs) {
-	            std::cout << "🔍 Checking tx: " << tx.getHash()
-                      << " | from: " << tx.getSender()
-                      << " | to: " << tx.getRecipient() << "\n";
-
-	            if (tx.getSender() == addr || tx.getRecipient() == addr) {
-        	        relevant.push_back(tx);
-	            }
-	        }
-	    }
-
-	    std::cout << "\n=== Transaction History for: " << addr << " ===\n";
-	    std::cout << "📜 Found " << relevant.size() << " related transactions.\n\n";
-
-	    for (const auto& tx : relevant) {
-	        time_t ts = tx.getTimestamp();
-	        std::tm* tmPtr = std::localtime(&ts);
-	        char timeStr[64];
-	        std::strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", tmPtr);
-
-	        std::cout << "🕒 " << timeStr << "\n"
-                  << "From: " << tx.getSender() << "\n"
-                  << "To:   " << tx.getRecipient() << "\n"
-                  << "💰 Amount: " << tx.getAmount() << " AlynCoin\n";
-
-	        if (!tx.getMetadata().empty()) {
-        	    std::cout << "📎 Metadata: " << tx.getMetadata() << "\n";
-        	}
-
-	        std::cout << "🔑 TxHash: " << tx.getHash() << "\n"
-                  << "------------------------------\n";
-	    }
-
-	    std::exit(0);
-	}
-
-// === Recursive zk-STARK batch proof ===
-if (argc >= 4 && std::string(argv[1]) == "recursiveproof") {
+// === Transaction history by address ===
+if (argc >= 3 && std::string(argv[1]) == "history") {
     std::string addr = argv[2];
-    int lastN = std::stoi(argv[4]);
-
-    std::string outFile = "";
-    for (int i = 5; i < argc - 1; ++i) {
-        if (std::string(argv[i]) == "--out") {
-            outFile = argv[i + 1];
-            break;
-        }
-    }
-
     Blockchain& b = getBlockchain();
+
+    std::cout << "🔍 Loading blockchain from DB...\n";
     b.loadFromDB();
     b.reloadBlockchainState();
 
-    std::vector<std::string> txHashes;
+    std::vector<Transaction> relevant;
     auto blocks = b.getAllBlocks();
-    for (auto it = blocks.rbegin(); it != blocks.rend() && txHashes.size() < static_cast<size_t>(lastN); ++it) {
-        for (const auto& tx : it->getTransactions()) {
-            if ((tx.getSender() == addr || tx.getRecipient() == addr)) {
-                std::string h = tx.getHash();
-                if (!h.empty()) {
-                    std::cout << "TxHash: " << h << "\n";
-                    txHashes.push_back(h);
-                    if (txHashes.size() == static_cast<size_t>(lastN)) break;
-                }
+    std::cout << "📦 Total blocks loaded: " << blocks.size() << "\n";
+
+    for (const auto& blk : blocks) {
+        auto txs = blk.getTransactions();
+        std::cout << "⛏ Block " << blk.getHash() << " has " << txs.size() << " txs.\n";
+
+        for (const auto& tx : txs) {
+            std::cout << "🔍 Checking tx: " << tx.getHash()
+                      << " | from: " << tx.getSender()
+                      << " | to: " << tx.getRecipient() << "\n";
+
+            if (tx.getSender() == addr || tx.getRecipient() == addr) {
+                relevant.push_back(tx);
             }
         }
     }
 
-    if (txHashes.empty()) {
-        std::cerr << "❌ No transactions found for: " << addr << "\n";
-        std::exit(1);
+    std::cout << "\n=== Transaction History for: " << addr << " ===\n";
+    std::cout << "📜 Found " << relevant.size() << " related transactions.\n\n";
+
+    for (const auto& tx : relevant) {
+        time_t ts = tx.getTimestamp();
+        std::tm* tmPtr = std::localtime(&ts);
+        char timeStr[64];
+        std::strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", tmPtr);
+
+        std::cout << "🕒 " << timeStr << "\n"
+                  << "From: " << tx.getSender() << "\n"
+                  << "To:   " << tx.getRecipient() << "\n"
+                  << "💰 Amount: " << tx.getAmount() << " AlynCoin\n";
+
+        if (!tx.getMetadata().empty()) {
+            std::cout << "📎 Metadata: " << tx.getMetadata() << "\n";
+        }
+
+        std::cout << "🔑 TxHash: " << tx.getHash() << "\n"
+                  << "------------------------------\n";
     }
 
-    std::cout << "🔄 Generating recursive zk-STARK proof for last " << txHashes.size() << " txs...\n";
-
-    std::string proofMessage = generateRecursiveProofToFile(txHashes, addr, lastN, outFile);
-    std::cout << proofMessage << "\n";
     std::exit(0);
 }
+
 
     // === Mined block stats ===
     if (argc == 3 && std::string(argv[1]) == "mychain") {
@@ -453,12 +409,10 @@ if (argc >= 4 && std::string(argv[1]) == "recursiveproof") {
 
 
 int cliMain(int argc, char *argv[]) {
-  unsigned short port = 0;
+  unsigned short port = 8333;
   std::string dbPath = DBPaths::getBlockchainDB();
   std::string connectPeer = "";
-  std::string address = "default_test_wallet_001";
-  std::string keyDir = DBPaths::getKeyPath(address);
-
+  std::string keyDir = "/root/.alyncoin/keys/";
   std::string blacklistPath = "/root/.alyncoin/blacklist";
   bool skipNetwork = false;
 
@@ -487,12 +441,12 @@ int cliMain(int argc, char *argv[]) {
   }
 
   Wallet *wallet = nullptr;
-  Blockchain &blockchain = Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true);
+  Blockchain &blockchain = Blockchain::getInstance(port, dbPath);
   PeerBlacklist peerBlacklist(blacklistPath, 3);
 
   Network *network = nullptr;
   if (!skipNetwork) {
-  
+  network = &Network::getInstance(port, &blockchain, &peerBlacklist);
   }
 
   if (!connectPeer.empty()) {
@@ -928,4 +882,3 @@ int cliMain(int argc, char *argv[]) {
   if (wallet) delete wallet;
   return 0;
 }
-

@@ -218,7 +218,7 @@ class TransactionProto final :
   std::string* _internal_mutable_recipient();
   public:
 
-  // string signature_dilithium = 5;
+  // bytes signature_dilithium = 5;
   void clear_signature_dilithium();
   const std::string& signature_dilithium() const;
   template <typename ArgT0 = const std::string&, typename... ArgT>
@@ -232,7 +232,7 @@ class TransactionProto final :
   std::string* _internal_mutable_signature_dilithium();
   public:
 
-  // string signature_falcon = 6;
+  // bytes signature_falcon = 6;
   void clear_signature_falcon();
   const std::string& signature_falcon() const;
   template <typename ArgT0 = const std::string&, typename... ArgT>
@@ -260,7 +260,7 @@ class TransactionProto final :
   std::string* _internal_mutable_zkproof();
   public:
 
-  // string sender_pubkey_dilithium = 8;
+  // bytes sender_pubkey_dilithium = 8;
   void clear_sender_pubkey_dilithium();
   const std::string& sender_pubkey_dilithium() const;
   template <typename ArgT0 = const std::string&, typename... ArgT>
@@ -274,7 +274,7 @@ class TransactionProto final :
   std::string* _internal_mutable_sender_pubkey_dilithium();
   public:
 
-  // string sender_pubkey_falcon = 9;
+  // bytes sender_pubkey_falcon = 9;
   void clear_sender_pubkey_falcon();
   const std::string& sender_pubkey_falcon() const;
   template <typename ArgT0 = const std::string&, typename... ArgT>
@@ -519,7 +519,7 @@ inline void TransactionProto::set_timestamp(uint64_t value) {
   // @@protoc_insertion_point(field_set:alyncoin.TransactionProto.timestamp)
 }
 
-// string signature_dilithium = 5;
+// bytes signature_dilithium = 5;
 inline void TransactionProto::clear_signature_dilithium() {
   _impl_.signature_dilithium_.ClearToEmpty();
 }
@@ -531,7 +531,7 @@ template <typename ArgT0, typename... ArgT>
 inline PROTOBUF_ALWAYS_INLINE
 void TransactionProto::set_signature_dilithium(ArgT0&& arg0, ArgT... args) {
  
- _impl_.signature_dilithium_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+ _impl_.signature_dilithium_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:alyncoin.TransactionProto.signature_dilithium)
 }
 inline std::string* TransactionProto::mutable_signature_dilithium() {
@@ -569,7 +569,7 @@ inline void TransactionProto::set_allocated_signature_dilithium(std::string* sig
   // @@protoc_insertion_point(field_set_allocated:alyncoin.TransactionProto.signature_dilithium)
 }
 
-// string signature_falcon = 6;
+// bytes signature_falcon = 6;
 inline void TransactionProto::clear_signature_falcon() {
   _impl_.signature_falcon_.ClearToEmpty();
 }
@@ -581,7 +581,7 @@ template <typename ArgT0, typename... ArgT>
 inline PROTOBUF_ALWAYS_INLINE
 void TransactionProto::set_signature_falcon(ArgT0&& arg0, ArgT... args) {
  
- _impl_.signature_falcon_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+ _impl_.signature_falcon_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:alyncoin.TransactionProto.signature_falcon)
 }
 inline std::string* TransactionProto::mutable_signature_falcon() {
@@ -669,7 +669,7 @@ inline void TransactionProto::set_allocated_zkproof(std::string* zkproof) {
   // @@protoc_insertion_point(field_set_allocated:alyncoin.TransactionProto.zkproof)
 }
 
-// string sender_pubkey_dilithium = 8;
+// bytes sender_pubkey_dilithium = 8;
 inline void TransactionProto::clear_sender_pubkey_dilithium() {
   _impl_.sender_pubkey_dilithium_.ClearToEmpty();
 }
@@ -681,7 +681,7 @@ template <typename ArgT0, typename... ArgT>
 inline PROTOBUF_ALWAYS_INLINE
 void TransactionProto::set_sender_pubkey_dilithium(ArgT0&& arg0, ArgT... args) {
  
- _impl_.sender_pubkey_dilithium_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+ _impl_.sender_pubkey_dilithium_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:alyncoin.TransactionProto.sender_pubkey_dilithium)
 }
 inline std::string* TransactionProto::mutable_sender_pubkey_dilithium() {
@@ -719,7 +719,7 @@ inline void TransactionProto::set_allocated_sender_pubkey_dilithium(std::string*
   // @@protoc_insertion_point(field_set_allocated:alyncoin.TransactionProto.sender_pubkey_dilithium)
 }
 
-// string sender_pubkey_falcon = 9;
+// bytes sender_pubkey_falcon = 9;
 inline void TransactionProto::clear_sender_pubkey_falcon() {
   _impl_.sender_pubkey_falcon_.ClearToEmpty();
 }
@@ -731,7 +731,7 @@ template <typename ArgT0, typename... ArgT>
 inline PROTOBUF_ALWAYS_INLINE
 void TransactionProto::set_sender_pubkey_falcon(ArgT0&& arg0, ArgT... args) {
  
- _impl_.sender_pubkey_falcon_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+ _impl_.sender_pubkey_falcon_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:alyncoin.TransactionProto.sender_pubkey_falcon)
 }
 inline std::string* TransactionProto::mutable_sender_pubkey_falcon() {

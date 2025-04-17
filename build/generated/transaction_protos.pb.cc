@@ -82,10 +82,10 @@ const char descriptor_table_protodef_transaction_5fprotos_2eproto[] PROTOBUF_SEC
   "\n\030transaction_protos.proto\022\010alyncoin\"\222\002\n"
   "\020TransactionProto\022\016\n\006sender\030\001 \001(\t\022\021\n\trec"
   "ipient\030\002 \001(\t\022\016\n\006amount\030\003 \001(\001\022\021\n\ttimestam"
-  "p\030\004 \001(\004\022\033\n\023signature_dilithium\030\005 \001(\t\022\030\n\020"
-  "signature_falcon\030\006 \001(\t\022\017\n\007zkproof\030\007 \001(\014\022"
-  "\037\n\027sender_pubkey_dilithium\030\010 \001(\t\022\034\n\024send"
-  "er_pubkey_falcon\030\t \001(\t\022\020\n\010metadata\030\n \001(\t"
+  "p\030\004 \001(\004\022\033\n\023signature_dilithium\030\005 \001(\014\022\030\n\020"
+  "signature_falcon\030\006 \001(\014\022\017\n\007zkproof\030\007 \001(\014\022"
+  "\037\n\027sender_pubkey_dilithium\030\010 \001(\014\022\034\n\024send"
+  "er_pubkey_falcon\030\t \001(\014\022\020\n\010metadata\030\n \001(\t"
   "\022\014\n\004hash\030\013 \001(\t\022\021\n\tis_system\030\014 \001(\010b\006proto"
   "3"
   ;
@@ -361,23 +361,21 @@ const char* TransactionProto::_InternalParse(const char* ptr, ::_pbi::ParseConte
         } else
           goto handle_unusual;
         continue;
-      // string signature_dilithium = 5;
+      // bytes signature_dilithium = 5;
       case 5:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 42)) {
           auto str = _internal_mutable_signature_dilithium();
           ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(ptr);
-          CHK_(::_pbi::VerifyUTF8(str, "alyncoin.TransactionProto.signature_dilithium"));
         } else
           goto handle_unusual;
         continue;
-      // string signature_falcon = 6;
+      // bytes signature_falcon = 6;
       case 6:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 50)) {
           auto str = _internal_mutable_signature_falcon();
           ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(ptr);
-          CHK_(::_pbi::VerifyUTF8(str, "alyncoin.TransactionProto.signature_falcon"));
         } else
           goto handle_unusual;
         continue;
@@ -390,23 +388,21 @@ const char* TransactionProto::_InternalParse(const char* ptr, ::_pbi::ParseConte
         } else
           goto handle_unusual;
         continue;
-      // string sender_pubkey_dilithium = 8;
+      // bytes sender_pubkey_dilithium = 8;
       case 8:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 66)) {
           auto str = _internal_mutable_sender_pubkey_dilithium();
           ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(ptr);
-          CHK_(::_pbi::VerifyUTF8(str, "alyncoin.TransactionProto.sender_pubkey_dilithium"));
         } else
           goto handle_unusual;
         continue;
-      // string sender_pubkey_falcon = 9;
+      // bytes sender_pubkey_falcon = 9;
       case 9:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 74)) {
           auto str = _internal_mutable_sender_pubkey_falcon();
           ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(ptr);
-          CHK_(::_pbi::VerifyUTF8(str, "alyncoin.TransactionProto.sender_pubkey_falcon"));
         } else
           goto handle_unusual;
         continue;
@@ -503,23 +499,15 @@ uint8_t* TransactionProto::_InternalSerialize(
     target = ::_pbi::WireFormatLite::WriteUInt64ToArray(4, this->_internal_timestamp(), target);
   }
 
-  // string signature_dilithium = 5;
+  // bytes signature_dilithium = 5;
   if (!this->_internal_signature_dilithium().empty()) {
-    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
-      this->_internal_signature_dilithium().data(), static_cast<int>(this->_internal_signature_dilithium().length()),
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
-      "alyncoin.TransactionProto.signature_dilithium");
-    target = stream->WriteStringMaybeAliased(
+    target = stream->WriteBytesMaybeAliased(
         5, this->_internal_signature_dilithium(), target);
   }
 
-  // string signature_falcon = 6;
+  // bytes signature_falcon = 6;
   if (!this->_internal_signature_falcon().empty()) {
-    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
-      this->_internal_signature_falcon().data(), static_cast<int>(this->_internal_signature_falcon().length()),
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
-      "alyncoin.TransactionProto.signature_falcon");
-    target = stream->WriteStringMaybeAliased(
+    target = stream->WriteBytesMaybeAliased(
         6, this->_internal_signature_falcon(), target);
   }
 
@@ -529,23 +517,15 @@ uint8_t* TransactionProto::_InternalSerialize(
         7, this->_internal_zkproof(), target);
   }
 
-  // string sender_pubkey_dilithium = 8;
+  // bytes sender_pubkey_dilithium = 8;
   if (!this->_internal_sender_pubkey_dilithium().empty()) {
-    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
-      this->_internal_sender_pubkey_dilithium().data(), static_cast<int>(this->_internal_sender_pubkey_dilithium().length()),
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
-      "alyncoin.TransactionProto.sender_pubkey_dilithium");
-    target = stream->WriteStringMaybeAliased(
+    target = stream->WriteBytesMaybeAliased(
         8, this->_internal_sender_pubkey_dilithium(), target);
   }
 
-  // string sender_pubkey_falcon = 9;
+  // bytes sender_pubkey_falcon = 9;
   if (!this->_internal_sender_pubkey_falcon().empty()) {
-    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
-      this->_internal_sender_pubkey_falcon().data(), static_cast<int>(this->_internal_sender_pubkey_falcon().length()),
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
-      "alyncoin.TransactionProto.sender_pubkey_falcon");
-    target = stream->WriteStringMaybeAliased(
+    target = stream->WriteBytesMaybeAliased(
         9, this->_internal_sender_pubkey_falcon(), target);
   }
 
@@ -605,17 +585,17 @@ size_t TransactionProto::ByteSizeLong() const {
         this->_internal_recipient());
   }
 
-  // string signature_dilithium = 5;
+  // bytes signature_dilithium = 5;
   if (!this->_internal_signature_dilithium().empty()) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::BytesSize(
         this->_internal_signature_dilithium());
   }
 
-  // string signature_falcon = 6;
+  // bytes signature_falcon = 6;
   if (!this->_internal_signature_falcon().empty()) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::BytesSize(
         this->_internal_signature_falcon());
   }
 
@@ -626,17 +606,17 @@ size_t TransactionProto::ByteSizeLong() const {
         this->_internal_zkproof());
   }
 
-  // string sender_pubkey_dilithium = 8;
+  // bytes sender_pubkey_dilithium = 8;
   if (!this->_internal_sender_pubkey_dilithium().empty()) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::BytesSize(
         this->_internal_sender_pubkey_dilithium());
   }
 
-  // string sender_pubkey_falcon = 9;
+  // bytes sender_pubkey_falcon = 9;
   if (!this->_internal_sender_pubkey_falcon().empty()) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::BytesSize(
         this->_internal_sender_pubkey_falcon());
   }
 

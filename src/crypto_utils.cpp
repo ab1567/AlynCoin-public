@@ -118,13 +118,13 @@ DilithiumKeyPair generateDilithiumKeys(const std::string &username) {
   if (crypto_sign_keypair(pk, sk) == 0) {
     keypair.publicKey.assign(pk, pk + sizeof(pk));
     keypair.privateKey.assign(sk, sk + sizeof(sk));
-    keypair.publicKeyHex = Crypto::toHex(keypair.publicKey);    // For display/UI only
-    keypair.privateKeyHex = Crypto::toHex(keypair.privateKey);  // For display/UI only
+    keypair.publicKeyHex = Crypto::toHex(keypair.publicKey);
+    keypair.privateKeyHex = Crypto::toHex(keypair.privateKey);
 
     std::string pubPath = KEY_DIR + username + "_dilithium.pub";
     std::string privPath = KEY_DIR + username + "_dilithium.key";
 
-    // Overwrite any old hex-encoded files (if they exist)
+    // Clear any previous data
     std::ofstream(pubPath).close();
     std::ofstream(privPath).close();
 
@@ -153,13 +153,13 @@ FalconKeyPair generateFalconKeys(const std::string &username) {
   if (PQCLEAN_FALCON1024_CLEAN_crypto_sign_keypair(pk, sk) == 0) {
     keypair.publicKey.assign(pk, pk + sizeof(pk));
     keypair.privateKey.assign(sk, sk + sizeof(sk));
-    keypair.publicKeyHex = Crypto::toHex(keypair.publicKey);    // For display/UI only
-    keypair.privateKeyHex = Crypto::toHex(keypair.privateKey);  // For display/UI only
+    keypair.publicKeyHex = Crypto::toHex(keypair.publicKey);
+    keypair.privateKeyHex = Crypto::toHex(keypair.privateKey);
 
     std::string pubPath = KEY_DIR + username + "_falcon.pub";
     std::string privPath = KEY_DIR + username + "_falcon.key";
 
-    // Overwrite any old hex-encoded files (if they exist)
+    // Clear any previous data
     std::ofstream(pubPath).close();
     std::ofstream(privPath).close();
 

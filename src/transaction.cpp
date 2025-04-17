@@ -246,61 +246,60 @@ alyncoin::TransactionProto Transaction::toProto() const {
 
 // ✅ Sign Transaction
 void Transaction::signTransaction(const std::vector<unsigned char> &dilithiumPrivateKey,
-                                  const std::vector<unsigned char> &falconPrivateKey) {
-  std::cout << "[DEBUG] signTransaction() called for sender: " << sender << std::endl;
+                                   const std::vector<unsigned char> &falconPrivateKey) {
+    std::cout << "[DEBUG] signTransaction() called for sender: " << sender << std::endl;
 
-  if (sender == "System") {
-    std::cout << "⛔ [DEBUG] Skipping signing for System transaction.\n";
-    return;
-  }
+    if (sender == "System") {
+        std::cout << "⛔ [DEBUG] Skipping signing for System transaction.\n";
+        return;
+    }
 
-  if (!signatureDilithium.empty() && !signatureFalcon.empty() && !zkProof.empty()) {
-    std::cout << "✅ [DEBUG] Transaction already signed + zkProof present. Skipping re-signing.\n";
-    return;
-  }
+    if (!signatureDilithium.empty() && !signatureFalcon.empty() && !zkProof.empty()) {
+        std::cout << "✅ [DEBUG] Transaction already signed + zkProof present. Skipping re-signing.\n";
+        return;
+    }
 
-  if (dilithiumPrivateKey.empty()) {
-    std::cerr << "❌ [ERROR] Dilithium private key is empty! Signing aborted.\n";
-    return;
-  }
+    if (dilithiumPrivateKey.empty()) {
+        std::cerr << "❌ [ERROR] Dilithium private key is empty! Signing aborted.\n";
+        return;
+    }
 
-  if (falconPrivateKey.empty()) {
-    std::cerr << "❌ [ERROR] Falcon private key is empty! Signing aborted.\n";
-    return;
-  }
+    if (falconPrivateKey.empty()) {
+        std::cerr << "❌ [ERROR] Falcon private key is empty! Signing aborted.\n";
+        return;
+    }
 
-  // ✅ Step 1: Create canonical hash from sender/recipient/amount/timestamp
-  std::ostringstream oss;
-  oss << sender << recipient
-      << std::fixed << std::setprecision(8) << amount
-      << timestamp;
+    // ✅ Step 1: Create canonical hash from sender/recipient/amount/timestamp
+    std::ostringstream oss;
+    oss << sender << recipient
+        << std::fixed << std::setprecision(8) << amount
+        << timestamp;
 
-  hash = Crypto::sha256(oss.str());  // ✅ Store internally
-  std::vector<unsigned char> hashBytes = Crypto::fromHex(hash);
+    hash = Crypto::sha256(oss.str());  // ✅ Store internally
+    std::vector<unsigned char> hashBytes = Crypto::fromHex(hash);
 
-  std::cout << "🔍 [DEBUG] Signing transaction hash: " << hash << std::endl;
+    std::cout << "🔍 [DEBUG] Signing transaction hash: " << hash << std::endl;
 
-  // ✅ Step 2: Sign the transaction
-  std::vector<unsigned char> dilithiumSigVec = Crypto::signWithDilithium(hashBytes, dilithiumPrivateKey);
-  signatureDilithium = Crypto::toHex(dilithiumSigVec);
+    // ✅ Step 2: Sign the transaction
+    std::vector<unsigned char> dilithiumSigVec = Crypto::signWithDilithium(hashBytes, dilithiumPrivateKey);
+    signatureDilithium = Crypto::toHex(dilithiumSigVec);
 
-  std::vector<unsigned char> falconSigVec = Crypto::signWithFalcon(hashBytes, falconPrivateKey);
-  signatureFalcon = Crypto::toHex(falconSigVec);
+    std::vector<unsigned char> falconSigVec = Crypto::signWithFalcon(hashBytes, falconPrivateKey);
+    signatureFalcon = Crypto::toHex(falconSigVec);
 
-  // ✅ Step 3: Attach public keys
-  std::vector<unsigned char> pubDil = Crypto::getPublicKeyDilithium(sender);
-  std::vector<unsigned char> pubFal = Crypto::getPublicKeyFalcon(sender);
-  senderPublicKeyDilithium = std::string(pubDil.begin(), pubDil.end());
-  senderPublicKeyFalcon = std::string(pubFal.begin(), pubFal.end());
+    // ✅ Step 3: Attach public keys as hex
+    std::vector<unsigned char> pubDil = Crypto::getPublicKeyDilithium(sender);
+    std::vector<unsigned char> pubFal = Crypto::getPublicKeyFalcon(sender);
+    senderPublicKeyDilithium = Crypto::toHex(pubDil);
+    senderPublicKeyFalcon = Crypto::toHex(pubFal);
 
-
-  // ✅ Step 4: Generate zk-STARK proof
-  zkProof = WinterfellStark::generateTransactionProof(sender, recipient, amount, timestamp);
-  if (zkProof.empty()) {
-    std::cerr << "❌ [ERROR] zk-STARK proof generation failed!\n";
-  } else {
-    std::cout << "✅ [DEBUG] zk-STARK proof generated. Length: " << zkProof.length() << "\n";
-  }
+    // ✅ Step 4: Generate zk-STARK proof
+    zkProof = WinterfellStark::generateTransactionProof(sender, recipient, amount, timestamp);
+    if (zkProof.empty()) {
+        std::cerr << "❌ [ERROR] zk-STARK proof generation failed!\n";
+    } else {
+        std::cout << "✅ [DEBUG] zk-STARK proof generated. Length: " << zkProof.length() << "\n";
+    }
 }
 
 // ✅ Validate Transaction (Signature Verification)
@@ -321,12 +320,6 @@ bool Transaction::isValid(const std::string &senderPublicKeyDilithium,
 
   if (senderPublicKeyDilithium.empty() || senderPublicKeyFalcon.empty()) {
     std::cerr << "[ERROR] Public keys missing in transaction!\n";
-    return false;
-  }
-
-  if (signatureDilithium.length() % 2 != 0 || signatureFalcon.length() % 2 != 0 ||
-      senderPublicKeyDilithium.length() % 2 != 0 || senderPublicKeyFalcon.length() % 2 != 0) {
-    std::cerr << "[ERROR] Invalid hex length in signature or public key!\n";
     return false;
   }
 

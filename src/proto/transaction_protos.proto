@@ -8,12 +8,12 @@ message TransactionProto {
     double amount = 3;
     uint64 timestamp = 4;
 
-    string signature_dilithium = 5;
-    string signature_falcon = 6;
+    bytes signature_dilithium = 5;
+    bytes signature_falcon = 6;
     bytes zkproof = 7;
 
-    string sender_pubkey_dilithium = 8;
-    string sender_pubkey_falcon = 9;
+    bytes sender_pubkey_dilithium = 8;
+    bytes sender_pubkey_falcon = 9;
     string metadata = 10;
     string hash = 11;
 

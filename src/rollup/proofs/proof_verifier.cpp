@@ -30,17 +30,20 @@ bool ProofVerifier::verifyRollupProof(const std::string& aggregatedProof,
     }
 
     std::string publicInput = Crypto::hybridHashWithDomain(txRoot + stateRootBefore + stateRootAfter, "PublicInput");
-    std::string combinedHash = Crypto::keccak256(txRoot + stateRootBefore + stateRootAfter);
 
-    bool result = WinterfellStark::verifyProof(aggregatedProof, combinedHash, publicInput, combinedHash);
+    // Recompute full trace from transaction + state after
+    std::string traceData;
+    for (const auto& hash : txHashes) traceData += hash;
+    traceData += stateRootAfter;
 
-    if (result) {
-        std::cout << "[INFO] ✅ zk-STARK rollup proof verified.\n";
-    } else {
-        std::cerr << "[ERROR] ❌ zk-STARK rollup proof verification failed.\n";
-    }
+    std::string traceHash = Crypto::keccak256(traceData);
 
-    return result;
+    return WinterfellStark::verifyProof(
+        aggregatedProof,
+        traceHash,      // blockHash
+        publicInput,    // prevHash
+        traceData       // txRoot (trace input)
+    );
 }
 
 bool ProofVerifier::verifyRecursiveProof(const std::string& prevProof,
@@ -51,7 +54,7 @@ bool ProofVerifier::verifyRecursiveProof(const std::string& prevProof,
 }
 
 bool ProofVerifier::validateProofFormat(const std::string& proof, size_t txCount) {
-    size_t minLength = 32 + txCount * 8;  // Conservative lower bound
+    size_t minLength = 32 + txCount * 8;
     if (proof.length() < minLength) {
         std::cerr << "[ERROR] Proof format invalid. Minimum expected: " << minLength
                   << ", got: " << proof.length() << "\n";

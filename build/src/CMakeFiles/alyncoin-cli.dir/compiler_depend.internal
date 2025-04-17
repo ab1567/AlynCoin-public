@@ -30,7 +30,6 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o
  /root/AlynCoin/src/wallet.h
  /root/AlynCoin/src/network/peer_blacklist.h
  /root/AlynCoin/src/nft/nft.h
- /root/AlynCoin/src/zk/recursive_proof_helper.h
  /root/AlynCoin/src/zk/winterfell_stark.h
  /usr/include/alloca.h
  /usr/include/arpa/inet.h

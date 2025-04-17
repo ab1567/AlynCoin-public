@@ -448,18 +448,13 @@ void Network::receiveFullChain(const std::string &senderIP, const std::string &d
     }
 }
 // network node
-bool Network::connectToNode(const std::string &peerIP, int port) {
-    if (peerIP == "127.0.0.1" && port == this->port) {
-        std::cerr << "⚠️ Skipping self-connection attempt.\n";
-        return false;
-    }
-
-    std::string fullPeer = peerIP + ":" + std::to_string(port);
+bool Network::connectToNode(const std::string &ip, int port) {
+    std::string peerKey = ip + ":" + std::to_string(port);
 
     {
         std::lock_guard<std::mutex> lock(peersMutex);
-        if (peerSockets.find(fullPeer) != peerSockets.end()) {
-            std::cerr << "🔁 Already connected to peer: " << fullPeer << "\n";
+        if (peerSockets.find(peerKey) != peerSockets.end()) {
+            std::cout << "🔁 Already connected to peer: " << peerKey << "\n";
             return false;
         }
     }
@@ -467,18 +462,21 @@ bool Network::connectToNode(const std::string &peerIP, int port) {
     try {
         auto socketPtr = std::make_shared<boost::asio::ip::tcp::socket>(ioContext);
         boost::asio::ip::tcp::resolver resolver(ioContext);
-        auto endpoints = resolver.resolve(peerIP, std::to_string(port));
+        auto endpoints = resolver.resolve(ip, std::to_string(port));
         boost::asio::connect(*socketPtr, endpoints);
 
         {
             std::lock_guard<std::mutex> lock(peersMutex);
-            peerSockets[fullPeer] = socketPtr;
+            peerSockets[peerKey] = socketPtr;
         }
 
-        std::cout << "✅ Connected to new peer: " << fullPeer << "\n";
+        std::cout << "✅ Connected to new peer: " << peerKey << "\n";
 
-        // Immediately request their chain
-        sendData(fullPeer, "REQUEST_BLOCKCHAIN");
+        // ✅ Start handling the connection
+        std::thread(&Network::handlePeer, this, socketPtr).detach();
+
+        // Request their chain
+        sendData(peerKey, "REQUEST_BLOCKCHAIN");
         return true;
 
     } catch (const std::exception &e) {
@@ -783,14 +781,13 @@ void Network::handleIncomingData(const std::string &senderIP, std::string data) 
         std::cerr << "[ERROR] Transaction parse failed from " << senderIP << ": " << e.what() << "\n";
     }
 }
-
 // ✅ **Broadcast a mined block to all peers*
 void Network::broadcastBlock(const Block &block) {
     alyncoin::BlockProto blockProto = block.toProtobuf();
     std::string serializedBlock;
     blockProto.SerializeToString(&serializedBlock);
-
-    std::string message = "BLOCK_DATA|" + serializedBlock;
+    std::string base64Block = Crypto::base64Encode(serializedBlock);
+    std::string message = "BLOCK_DATA|" + base64Block;
 
     std::lock_guard<std::mutex> lock(peersMutex);
     for (const auto &peer : peerSockets) {
@@ -1092,34 +1089,31 @@ void Network::loadPeers() {
 
 //
 void Network::scanForPeers() {
-  std::vector<std::string> potentialPeers = {
-      "127.0.0.1:8080",
-      "127.0.0.1:8334",
-      "192.168.1.2:8335"  // Optional external test nodes
-  };
+    std::vector<std::string> potentialPeers = {
+        "127.0.0.1:8080",
+        "127.0.0.1:8334",
+        "192.168.1.2:8335"  // Optional external test nodes
+    };
 
-  std::cout << "🔍 Scanning for active AlynCoin nodes..." << std::endl;
+    std::cout << "🔍 Scanning for active AlynCoin nodes..." << std::endl;
 
-  boost::asio::io_context ioContext;
+    for (const auto &peer : potentialPeers) {
+        std::string ip = peer.substr(0, peer.find(":"));
+        int peerPort = std::stoi(peer.substr(peer.find(":") + 1));
 
-  for (const auto &peer : potentialPeers) {
-    std::string ip = peer.substr(0, peer.find(":"));
-    int peerPort = std::stoi(peer.substr(peer.find(":") + 1));
+        // ✅ Avoid connecting to self to prevent bind errors
+        if (peerPort == this->port)
+            continue;
 
-    // ✅ Avoid connecting to self to prevent bind errors
-    if (peerPort == this->port)
-      continue;
-
-    if (connectToNode(ip, peerPort)) {
-      std::cout << "✅ Found & connected to: " << peer << std::endl;
-      peerSockets[peer] = std::make_shared<tcp::socket>(ioContext);
-      savePeers();
+        if (connectToNode(ip, peerPort)) {
+            std::cout << "✅ Found & connected to: " << peer << std::endl;
+            savePeers();  // Save only after successful connection
+        }
     }
-  }
 
-  if (peerSockets.empty()) {
-    std::cout << "⚠️ No active peers found. Will retry periodically." << std::endl;
-  }
+    if (peerSockets.empty()) {
+        std::cout << "⚠️ No active peers found. Will retry periodically." << std::endl;
+    }
 }
 
 // ✅ **Ensure Peers are Saved Correctly & Safely**

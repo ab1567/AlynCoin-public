@@ -2,10 +2,10 @@
 #include "../circuits/transaction_circuit.h"
 #include "../circuits/state_circuit.h"
 #include "../../zk/winterfell_stark.h"
-#include "../rollup/rollup_utils.h"
-#include <iostream>
-#include <thread>
+#include "../rollup_utils.h"
 #include "../../crypto_utils.h"
+#include <thread>
+#include <iostream>
 
 std::string ProofGenerator::generatePublicInput(const std::string& txRoot,
                                                 const std::string& stateRootBefore,
@@ -19,7 +19,6 @@ std::string ProofGenerator::generateAggregatedProof(const std::vector<Transactio
     TransactionCircuit txCircuit;
     StateCircuit stBefore, stAfter;
 
-    // Parallel processing for better performance
     std::thread txThread([&]() {
         for (const auto& tx : transactions) {
             txCircuit.addTransactionData(tx.getSender(), tx.getRecipient(), tx.getAmount(), tx.getTransactionHash());
@@ -42,31 +41,18 @@ std::string ProofGenerator::generateAggregatedProof(const std::vector<Transactio
     beforeThread.join();
     afterThread.join();
 
-    std::string txMerkleRoot = txCircuit.getMerkleRoot();
-    std::string stRootBefore = stBefore.computeStateRootHash();
-    std::string stRootAfter = stAfter.computeStateRootHash();
+    std::string txRoot = txCircuit.getMerkleRoot();
+    std::string rootBefore = stBefore.computeStateRootHash();
+    std::string rootAfter = stAfter.computeStateRootHash();
+    std::string publicInput = generatePublicInput(txRoot, rootBefore, rootAfter);
 
-    std::string publicInput = generatePublicInput(txMerkleRoot, stRootBefore, stRootAfter);
+    std::string traceData;
+    for (const auto& h : txCircuit.getTrace()) traceData += h;
+    for (const auto& h : stAfter.generateStateTrace()) traceData += h;
 
-    // Trace composition
-    std::string combinedTrace;
-    for (const auto& hash : txCircuit.getTrace()) {
-        combinedTrace += hash;
-    }
-    for (const auto& hash : stAfter.generateStateTrace()) {
-        combinedTrace += hash;
-    }
+    std::string traceHash = Crypto::keccak256(traceData);
 
-    std::string fullTraceHash = Crypto::keccak256(combinedTrace);
-
-    // ✅ Generate real zk-STARK proof from trace & public input
-    std::string zkProof = WinterfellStark::generateProof(fullTraceHash, publicInput, combinedTrace);
-
-    if (zkProof.empty()) {
-        std::cerr << "[ERROR] zk-STARK generation failed\n";
-    }
-
-    return zkProof;
+    return WinterfellStark::generateProof(traceHash, publicInput, traceData);
 }
 
 std::string ProofGenerator::generateRecursiveProof(const std::string& prevProof,

@@ -309,9 +309,7 @@ src/CMakeFiles/alyncoin_lib.dir/rollup/proofs/proof_generator.cpp.o: \
  /root/AlynCoin/src/rollup/proofs/../../zk/winterfell_stark.h \
  /root/AlynCoin/src/rollup/proofs/../../zk/../nft/nft.h \
  /root/AlynCoin/src/generated/nft.pb.h \
- /root/AlynCoin/src/zk/../rollup/rollup_utils.h \
- /usr/include/c++/13/thread /usr/include/c++/13/bits/std_thread.h \
- /usr/include/c++/13/bits/this_thread_sleep.h \
+ /root/AlynCoin/src/rollup/proofs/../rollup_utils.h \
  /root/AlynCoin/src/rollup/proofs/../../crypto_utils.h \
  /usr/include/openssl/err.h /usr/include/openssl/macros.h \
  /usr/include/x86_64-linux-gnu/openssl/opensslconf.h \
@@ -338,4 +336,6 @@ src/CMakeFiles/alyncoin_lib.dir/rollup/proofs/proof_generator.cpp.o: \
  /usr/include/openssl/x509_vfy.h /usr/include/openssl/pkcs7.h \
  /usr/include/openssl/pkcs7err.h /usr/include/openssl/http.h \
  /usr/include/openssl/conf.h /usr/include/openssl/conferr.h \
- /usr/include/openssl/conftypes.h /usr/include/openssl/pemerr.h
+ /usr/include/openssl/conftypes.h /usr/include/openssl/pemerr.h \
+ /usr/include/c++/13/thread /usr/include/c++/13/bits/std_thread.h \
+ /usr/include/c++/13/bits/this_thread_sleep.h

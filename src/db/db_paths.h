@@ -22,4 +22,10 @@ namespace DBPaths {
         const char* env = std::getenv("ALYNCOIN_BLACKLIST_DB");
         return env ? std::string(env) : "/root/.alyncoin/blacklist";
     }
+
+    // ✅ Add this:
+    inline std::string getKeyDir() {
+        const char* env = std::getenv("ALYNCOIN_KEY_DIR");
+        return env ? std::string(env) : "/root/.alyncoin/keys/";
+    }
 }
