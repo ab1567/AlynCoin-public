@@ -57,6 +57,17 @@ public:
         const std::string dummyRoot = "";
         return verifyProof(proofStr, nft.id, dummyPrev, dummyRoot);
     }
-};
 
+};
+class RollupStark {
+public:
+    static std::string generateRollupProof(const std::string& blockHash,
+                                           const std::string& prevHash,
+                                           const std::string& txRoot);
+
+    static bool verifyRollupProof(const std::string& proof,
+                                  const std::string& blockHash,
+                                  const std::string& prevHash,
+                                  const std::string& txRoot);
+};
 #endif // WINTERFELL_STARK_H

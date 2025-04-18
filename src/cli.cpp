@@ -43,6 +43,7 @@ void printMenu() {
   std::cout << "14. View DAO Proposals\n";
   std::cout << "15. Finalize DAO Proposal\n";
   std::cout << "16. View Blockchain Stats\n";
+  std::cout << "17. Generate Rollup Block with Recursive zk-STARK Proof\n";
   std::cout << "Choose an option: ";
 }
 
@@ -873,6 +874,40 @@ int cliMain(int argc, char *argv[]) {
         std::cout << "Dev Fund Balance: " << blockchain.getBalance("DevFundWallet") << " AlynCoin\n";
         break;
     }
+
+    case 17: {
+    if (!wallet) {
+        std::cout << "❌ Load or create a wallet first!\n";
+        break;
+    }
+
+    std::cout << "🔁 Generating Rollup Block with Recursive zk-STARK Proof...\n";
+
+    std::unordered_map<std::string, double> stateBefore = blockchain.getCurrentState();
+    std::vector<Transaction> l2Transactions = blockchain.getPendingL2Transactions();
+    std::unordered_map<std::string, double> stateAfter =
+        blockchain.simulateL2StateUpdate(stateBefore, l2Transactions);
+
+    RollupBlock rollup(
+        blockchain.getRollupChainSize(),
+        blockchain.getLastRollupHash(),
+        l2Transactions
+    );
+
+    std::string prevRecursive = blockchain.getLastRollupProof();
+
+    rollup.generateRollupProof(stateBefore, stateAfter, prevRecursive);
+
+    if (blockchain.isRollupBlockValid(rollup)) {
+        blockchain.addRollupBlock(rollup);
+        std::cout << "✅ Rollup Block with Recursive Proof created successfully!\n";
+        std::cout << "📦 Rollup Hash: " << rollup.getHash() << "\n";
+    } else {
+        std::cerr << "❌ Rollup Block creation failed: Proof invalid.\n";
+    }
+
+    break;
+}
 
     default: std::cout << "Invalid choice! Please select a valid option.\n";
     }

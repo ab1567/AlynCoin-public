@@ -20,6 +20,10 @@ public:
         const std::unordered_map<std::string, double>& after);
 
     static std::string calculateStateRoot(const std::unordered_map<std::string, double>& state);
+
+    // ✅ Persistent metadata helpers
+    static void storeRollupMetadata(const std::string& txRoot, const std::string& blockHash);
+    static std::pair<std::string, std::string> loadRollupMetadata();
 };
 
 #endif // ROLLUP_UTILS_H

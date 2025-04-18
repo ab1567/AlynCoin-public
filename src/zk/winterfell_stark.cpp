@@ -25,8 +25,10 @@ extern "C" void hash_blake3_256(const uint8_t* input, size_t len, uint8_t out[32
 std::string WinterfellStark::generateProof(const std::string& blockHash,
                                            const std::string& prevHash,
                                            const std::string& txRoot) {
+    std::string seed1 = Crypto::blake3(blockHash);
+    std::string seed2 = Crypto::blake3(prevHash);
     std::string seed3 = txRoot.empty() ? "genesis-root" : txRoot;
-    std::string seed = Crypto::blake3(blockHash) + Crypto::blake3(prevHash) + seed3;
+    std::string seed = seed1 + seed2 + seed3;
 
     std::string blakeSeed = Crypto::blake3(seed);
 
@@ -69,20 +71,17 @@ bool WinterfellStark::verifyProof(const std::string& proof,
                                    const std::string& blockHash,
                                    const std::string& prevHash,
                                    const std::string& txRoot) {
-    // 🔍 Early Debug for Input Inspection
     std::cout << "\n[zkSTARK][DEBUG] Verifying Inputs:";
     std::cout << "\n  - proof.size():   " << proof.size();
     std::cout << "\n  - blockHash:      " << (blockHash.empty() ? "(empty)" : blockHash);
     std::cout << "\n  - prevHash:       " << (prevHash.empty() ? "(empty)" : prevHash);
     std::cout << "\n  - txRoot:         " << (txRoot.empty() ? "(empty)" : txRoot) << "\n";
 
-    // ❌ Early exit if any critical input is missing
     if (proof.empty() || blockHash.empty() || prevHash.empty()) {
         std::cerr << "[zkSTARK] ❌ Invalid input for block zk-STARK proof verification.\n";
         return false;
     }
 
-    // 🧪 Reconstruct seed used during proof generation
     std::string seed1 = Crypto::blake3(blockHash);
     std::string seed2 = Crypto::blake3(prevHash);
     std::string seed3 = txRoot.empty() ? "genesis-root" : txRoot;
@@ -92,7 +91,6 @@ bool WinterfellStark::verifyProof(const std::string& proof,
     std::vector<unsigned char> resultHashVec = Crypto::fromHex(resultHashHex);
     std::string resultHash(reinterpret_cast<const char*>(resultHashVec.data()), resultHashVec.size());
 
-    // 📊 Display full debug information
     std::cout << "\n[zkSTARK] 🧪 Block Proof Verification";
     std::cout << "\n  - BlockHash:   " << blockHash;
     std::cout << "\n  - PrevHash:    " << prevHash;
@@ -112,7 +110,6 @@ bool WinterfellStark::verifyProof(const std::string& proof,
 
     std::cout << "\n[zkSTARK] 📤 Calling verify_winterfell_proof()...\n";
 
-    // ✅ Actual proof verification via Rust FFI
     bool result = verify_winterfell_proof(
         proof.c_str(),
         blockHash.c_str(),
@@ -246,4 +243,68 @@ std::string WinterfellStark::generateRecursiveProof(const std::string& address, 
     std::cout << "[zkSTARK] ✅ Recursive proof composed. Size: " << recursiveProof.size() << " bytes\n";
     return recursiveProof;
 }
+// Rollup
 
+std::string RollupStark::generateRollupProof(const std::string& blockHash,
+                                             const std::string& prevHash,
+                                             const std::string& txRoot) {
+    std::string seed1 = Crypto::blake3(blockHash);
+    std::string seed2 = Crypto::blake3(prevHash);
+    std::string seed3 = txRoot.empty() ? "genesis-root" : txRoot;
+    std::string staticSalt = "b9fefa97b3a5995a8d8436a8bb1a06e15ddf5241075199be8d00e6eca7cd5479";
+    std::string finalSeed = seed1 + seed2 + staticSalt + seed3;
+
+    std::string blakeSeed = Crypto::blake3(finalSeed);
+
+    std::cout << "\n[zkSTARK] 📦 Rollup Proof Generation";
+    std::cout << "\n  - blockHash: " << blockHash;
+    std::cout << "\n  - prevHash:  " << prevHash;
+    std::cout << "\n  - txRoot:    " << txRoot;
+    std::cout << "\n  - Seed:      " << finalSeed;
+    std::cout << "\n  - Seed len:  " << finalSeed.size();
+    std::cout << "\n  - BLAKE3(seed): " << blakeSeed << "\n";
+
+    char* proof_cstr = generate_rollup_proof(blockHash.c_str(), prevHash.c_str(), txRoot.c_str());
+
+    if (!proof_cstr) {
+        std::cerr << "[zkSTARK] ❌ Failed to generate rollup proof (null ptr).\n";
+        return "error-rollup-proof:" + blakeSeed;
+    }
+
+    std::string proof(proof_cstr);
+    free(proof_cstr);
+
+    std::cout << "[zkSTARK] ✅ Rollup zk-STARK proof generated. Size: " << proof.size() << " bytes\n";
+    std::cout << "[zkSTARK] 🔍 First 32 proof bytes (hex): ";
+    for (size_t i = 0; i < std::min<size_t>(32, proof.size()); ++i)
+        std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)(unsigned char)proof[i];
+    std::cout << "\n";
+
+    return proof;
+}
+
+bool RollupStark::verifyRollupProof(const std::string& proof,
+                                    const std::string& blockHash,
+                                    const std::string& prevHash,
+                                    const std::string& txRoot) {
+    std::cout << "\n[zkSTARK][DEBUG] Verifying Rollup Inputs:";
+    std::cout << "\n  - proof.size():   " << proof.size();
+    std::cout << "\n  - blockHash:      " << blockHash;
+    std::cout << "\n  - prevHash:       " << prevHash;
+    std::cout << "\n  - txRoot:         " << txRoot << "\n";
+
+    if (proof.empty() || blockHash.empty() || prevHash.empty()) {
+        std::cerr << "[zkSTARK] ❌ Invalid input for rollup zk-STARK proof verification.\n";
+        return false;
+    }
+
+    bool result = verify_rollup_proof(
+        proof.c_str(),
+        blockHash.c_str(),
+        prevHash.c_str(),
+        txRoot.c_str()
+    );
+
+    std::cout << "[zkSTARK] 🔍 Rollup Proof Verification Result: " << (result ? "✅ Passed" : "❌ Failed") << "\n";
+    return result;
+}

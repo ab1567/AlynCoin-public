@@ -1,11 +1,13 @@
 #include "proof_generator.h"
 #include "../circuits/transaction_circuit.h"
 #include "../circuits/state_circuit.h"
-#include "../../zk/winterfell_stark.h"
-#include "../rollup_utils.h"
-#include "../../crypto_utils.h"
+#include "zk/winterfell_stark.h"
+#include "rollup_utils.h"
+#include "crypto_utils.h"
+#include "blockchain.h"
 #include <thread>
 #include <iostream>
+#include "db/db_paths.h"
 
 std::string ProofGenerator::generatePublicInput(const std::string& txRoot,
                                                 const std::string& stateRootBefore,
@@ -20,21 +22,18 @@ std::string ProofGenerator::generateAggregatedProof(const std::vector<Transactio
     StateCircuit stBefore, stAfter;
 
     std::thread txThread([&]() {
-        for (const auto& tx : transactions) {
+        for (const auto& tx : transactions)
             txCircuit.addTransactionData(tx.getSender(), tx.getRecipient(), tx.getAmount(), tx.getTransactionHash());
-        }
     });
 
     std::thread beforeThread([&]() {
-        for (const auto& [addr, bal] : stateBefore) {
+        for (const auto& [addr, bal] : stateBefore)
             stBefore.addAccountState(addr, bal);
-        }
     });
 
     std::thread afterThread([&]() {
-        for (const auto& [addr, bal] : stateAfter) {
+        for (const auto& [addr, bal] : stateAfter)
             stAfter.addAccountState(addr, bal);
-        }
     });
 
     txThread.join();
@@ -42,17 +41,17 @@ std::string ProofGenerator::generateAggregatedProof(const std::vector<Transactio
     afterThread.join();
 
     std::string txRoot = txCircuit.getMerkleRoot();
-    std::string rootBefore = stBefore.computeStateRootHash();
-    std::string rootAfter = stAfter.computeStateRootHash();
-    std::string publicInput = generatePublicInput(txRoot, rootBefore, rootAfter);
+    std::string stateRootBefore = stBefore.computeStateRootHash();
+    std::string stateRootAfter = stAfter.computeStateRootHash();
 
-    std::string traceData;
-    for (const auto& h : txCircuit.getTrace()) traceData += h;
-    for (const auto& h : stAfter.generateStateTrace()) traceData += h;
+    Blockchain& chain = Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), false, false);
+    std::string prevHash = chain.getLatestBlock().getHash();
 
-    std::string traceHash = Crypto::keccak256(traceData);
+    std::string seed1 = Crypto::blake3(txRoot + stateRootBefore + stateRootAfter);
+    std::string blockHash = Crypto::blake3(seed1);
 
-    return WinterfellStark::generateProof(traceHash, publicInput, traceData);
+    RollupUtils::storeRollupMetadata(txRoot, blockHash);
+    return RollupStark::generateRollupProof(blockHash, prevHash, txRoot);
 }
 
 std::string ProofGenerator::generateRecursiveProof(const std::string& prevProof,

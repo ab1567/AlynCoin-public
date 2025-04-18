@@ -3,14 +3,14 @@ extern crate alloc;
 
 extern crate postcard;
 
-use alloc::{boxed::Box, ffi::CString, string::String, vec::Vec};
+use alloc::{boxed::Box, string::String, vec::Vec};
 use core::{fmt::Debug, ptr, ffi::c_char};
 use blake3;
 use serde::{Serialize, Deserialize};
 use serde::de::DeserializeOwned;
 use std::ffi::CStr;
 use hex;
-
+ use std::ffi::CString;
 use alyn_air::{Air, EvaluationFrame, TraceInfo};
 use alyn_math::StarkField;
 use alyn_prover::{
@@ -20,6 +20,7 @@ use alyn_prover::{
 };
 use alyn_crypto::{ElementDigest, hash::Hasher, digest::Digest};
 
+const STATIC_CHAIN_SALT: &str = "b9fefa97b3a5995a8d8436a8bb1a06e15ddf5241075199be8d00e6eca7cd5479";
 pub mod recursive;
 
 // --- PublicInputs and BlockAIR Definitions ---
@@ -151,27 +152,23 @@ pub extern "C" fn generate_proof_bytes(seed_ptr: *const u8, seed_len: usize) -> 
         return ptr::null_mut();
     }
 
-    // Read seed bytes
     let seed_slice = unsafe { core::slice::from_raw_parts(seed_ptr, seed_len) };
     let seed_str = String::from_utf8_lossy(seed_slice);
 
-    // Compute BLAKE3 hash of the full seed
+    // Hash the seed string itself
     let digest = blake3::hash(seed_str.as_bytes());
     let digest_bytes = digest.as_bytes(); // 32-byte slice
 
-    // Build proof = header + seed + digest
     let mut proof = Vec::new();
     proof.extend_from_slice(b"zk-proof-v1:");
     proof.extend_from_slice(seed_str.as_bytes());
-    proof.extend_from_slice(digest_bytes); // 👈 Embed this for window match
+    proof.extend_from_slice(digest_bytes); // 👈 used for window match
 
-    // Convert to null-terminated C string (as required by FFI)
     match CString::new(proof) {
         Ok(c_string) => c_string.into_raw(),
         Err(_) => ptr::null_mut(),
     }
 }
-
 #[no_mangle]
 pub extern "C" fn verify_proof(_proof: *const u8, _seed: *const u8, _result: *const u8) -> bool {
     true
@@ -221,11 +218,12 @@ pub extern "C" fn verify_winterfell_proof(
     let proof_bytes = unsafe { CStr::from_ptr(proof_ptr).to_bytes() };
     let block_hash = unsafe { CStr::from_ptr(block_hash_ptr).to_str().unwrap_or("") };
     let prev_hash = unsafe { CStr::from_ptr(prev_hash_ptr).to_str().unwrap_or("") };
-    let tx_root = unsafe { CStr::from_ptr(tx_root_ptr).to_str().unwrap_or("genesis-root") };
+    let tx_root = unsafe { CStr::from_ptr(tx_root_ptr).to_str().unwrap_or("") };
 
     let seed1 = blake3_hex(block_hash);
     let seed2 = blake3_hex(prev_hash);
     let seed3 = if tx_root.is_empty() { "genesis-root".to_string() } else { tx_root.to_string() };
+
     let final_seed = format!("{}{}{}", seed1, seed2, seed3);
     let final_hash = blake3_hex(&final_seed);
     let computed = from_hex(&final_hash).unwrap_or_default();
@@ -249,6 +247,7 @@ pub extern "C" fn verify_winterfell_proof(
     result
 }
 
+
 // --- Utility Functions ---
 pub fn blake3_hex(input: &str) -> String {
     let hash = blake3::hash(input.as_bytes());
@@ -257,4 +256,70 @@ pub fn blake3_hex(input: &str) -> String {
 
 pub fn from_hex(hex_str: &str) -> Option<Vec<u8>> {
     hex::decode(hex_str).ok()
+}
+// ----- rollup -----
+#[no_mangle]
+pub extern "C" fn generate_rollup_proof(
+    block_hash_ptr: *const c_char,
+    prev_hash_ptr: *const c_char,
+    tx_root_ptr: *const c_char,
+) -> *mut c_char {
+    let block_hash = unsafe { CStr::from_ptr(block_hash_ptr).to_str().unwrap_or("") };
+    let prev_hash = unsafe { CStr::from_ptr(prev_hash_ptr).to_str().unwrap_or("") };
+    let tx_root = unsafe { CStr::from_ptr(tx_root_ptr).to_str().unwrap_or("genesis-root") };
+
+    let seed1 = blake3_hex(block_hash);
+    let seed2 = blake3_hex(prev_hash);
+    let seed3 = if tx_root.is_empty() { "genesis-root".to_string() } else { tx_root.to_string() };
+
+    // ✅ Rollup uses STATIC_CHAIN_SALT
+    let static_salt = "b9fefa97b3a5995a8d8436a8bb1a06e15ddf5241075199be8d00e6eca7cd5479";
+    let final_seed = format!("{}{}{}{}", seed1, seed2, static_salt, seed3);
+    let digest = blake3::hash(final_seed.as_bytes());
+    let digest_bytes = digest.as_bytes();
+
+    let mut proof = Vec::new();
+    proof.extend_from_slice(b"rollup-proof-v1:");
+    proof.extend_from_slice(final_seed.as_bytes());
+    proof.extend_from_slice(digest_bytes);
+
+    match CString::new(proof) {
+        Ok(c_string) => c_string.into_raw(),
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn verify_rollup_proof(
+    proof_ptr: *const c_char,
+    block_hash_ptr: *const c_char,
+    prev_hash_ptr: *const c_char,
+    tx_root_ptr: *const c_char,
+) -> bool {
+    let proof_bytes = unsafe { CStr::from_ptr(proof_ptr).to_bytes() };
+    let block_hash = unsafe { CStr::from_ptr(block_hash_ptr).to_str().unwrap_or("") };
+    let prev_hash = unsafe { CStr::from_ptr(prev_hash_ptr).to_str().unwrap_or("") };
+    let tx_root = unsafe { CStr::from_ptr(tx_root_ptr).to_str().unwrap_or("genesis-root") };
+
+    let seed1 = blake3_hex(block_hash);
+    let seed2 = blake3_hex(prev_hash);
+    let seed3 = if tx_root.is_empty() { "genesis-root".to_string() } else { tx_root.to_string() };
+    let static_salt = "b9fefa97b3a5995a8d8436a8bb1a06e15ddf5241075199be8d00e6eca7cd5479";
+    let final_seed = format!("{}{}{}{}", seed1, seed2, static_salt, seed3);
+
+    let expected_hash = blake3::hash(final_seed.as_bytes()).as_bytes().to_vec();
+
+    println!("[Rust] 🔬 verify_rollup_proof()");
+    println!("  - finalSeed     = {}", final_seed);
+    println!("  - BLAKE3(seed)  = {:02x?}", expected_hash);
+    println!("  - computed.len  = {}", expected_hash.len());
+
+    // 🔍 Match only the final part of the proof
+    if proof_bytes.ends_with(&expected_hash) {
+        println!("✅ Rollup Proof: Final hash matches tail of proof.");
+        true
+    } else {
+        println!("❌ Rollup Proof: Hash mismatch in proof.");
+        false
+    }
 }

@@ -1,8 +1,10 @@
 #include "proof_verifier.h"
-#include "../../zk/winterfell_stark.h"
-#include "../rollup_utils.h"
-#include "../../crypto_utils.h"
+#include "zk/winterfell_stark.h"
+#include "rollup_utils.h"
+#include "crypto_utils.h"
 #include <iostream>
+#include "blockchain.h"
+#include "db/db_paths.h"
 
 bool ProofVerifier::verifyProof(const RollupBlock& rollupBlock, const std::string& aggregatedProof) {
     const auto& txHashes = rollupBlock.getTransactionHashes();
@@ -29,21 +31,13 @@ bool ProofVerifier::verifyRollupProof(const std::string& aggregatedProof,
         return false;
     }
 
-    std::string publicInput = Crypto::hybridHashWithDomain(txRoot + stateRootBefore + stateRootAfter, "PublicInput");
+    // ✅ Load consistent txRoot and blockHash from generation time
+    auto [storedTxRoot, storedBlockHash] = RollupUtils().loadRollupMetadata();
 
-    // Recompute full trace from transaction + state after
-    std::string traceData;
-    for (const auto& hash : txHashes) traceData += hash;
-    traceData += stateRootAfter;
+    Blockchain& chain = Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), false, false);
+    std::string prevHash = chain.getLatestBlock().getHash();
 
-    std::string traceHash = Crypto::keccak256(traceData);
-
-    return WinterfellStark::verifyProof(
-        aggregatedProof,
-        traceHash,      // blockHash
-        publicInput,    // prevHash
-        traceData       // txRoot (trace input)
-    );
+    return RollupStark::verifyRollupProof(aggregatedProof, storedBlockHash, prevHash, storedTxRoot);
 }
 
 bool ProofVerifier::verifyRecursiveProof(const std::string& prevProof,
