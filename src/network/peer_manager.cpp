@@ -79,11 +79,18 @@ std::string PeerManager::getMajorityTipHash() {
         std::istringstream s(response);
         if (Json::parseFromStream(reader, s, &jsonData, &errs) && jsonData["type"] == "tip_hash_response") {
             std::string hash = jsonData["data"].asString();
+
+            // ✅ Filter out empty hashes
+            if (hash.empty() || hash.length() < 64) continue;
+
             hashVotes[hash]++;
         }
     }
 
-    if (hashVotes.empty()) return "";
+    if (hashVotes.empty()) {
+        std::cerr << "⚠️ [PeerManager] No valid tip hashes received from peers.\n";
+        return "";  // Avoid returning garbage
+    }
 
     auto majority = std::max_element(
         hashVotes.begin(), hashVotes.end(),

@@ -1161,6 +1161,15 @@ std::vector<unsigned char> sha256ToBytes(const std::string &input) {
     return fromHex(hashHex);  // 64-char hex → 32-byte vector
 }
 
+bool isLikelyHex(const std::string &input) {
+    if (input.empty() || input.size() % 2 != 0) return false;
+    for (char c : input) {
+        if (!std::isxdigit(c)) return false;
+    }
+    return true;
+}
+
+
 } // namespace Crypto
 //
 std::string getPrivateKeyPath(const std::string &username,

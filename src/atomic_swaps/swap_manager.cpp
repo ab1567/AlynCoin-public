@@ -38,8 +38,8 @@ std::optional<std::string> AtomicSwapManager::initiateSwap(const std::string& se
     std::vector<uint8_t> sigFal = Crypto::signWithFalcon(msgHash, falKeys.privateKey);
     std::vector<uint8_t> sigDil = Crypto::signWithDilithium(msgHash, dilKeys.privateKey);
 
-    swap.falconSignature = Crypto::toHex(sigFal);
-    swap.dilithiumSignature = Crypto::toHex(sigDil);
+    swap.falconSignature = sigFal; 
+    swap.dilithiumSignature = sigDil;
 
     // ✅ Optional: zk-STARK Proof
     std::string seedHash = Crypto::blake3(canonicalData);

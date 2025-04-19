@@ -116,7 +116,7 @@ const char descriptor_table_protodef_block_5fprotos_2eproto[] PROTOBUF_SECTION_V
   "tions\030\003 \003(\0132\032.alyncoin.TransactionProto\022"
   "\014\n\004hash\030\004 \001(\t\022\025\n\rminer_address\030\005 \001(\t\022\r\n\005"
   "nonce\030\006 \001(\004\022\021\n\ttimestamp\030\007 \001(\004\022\022\n\ndiffic"
-  "ulty\030\010 \001(\005\022\027\n\017block_signature\030\t \001(\t\022\023\n\013k"
+  "ulty\030\010 \001(\005\022\027\n\017block_signature\030\t \001(\014\022\023\n\013k"
   "eccak_hash\030\n \001(\t\022\026\n\016zk_stark_proof\030\013 \001(\014"
   "\022\033\n\023dilithium_signature\030\014 \001(\014\022\030\n\020falcon_"
   "signature\030\r \001(\014\022\034\n\024public_key_dilithium\030"
@@ -506,13 +506,12 @@ const char* BlockProto::_InternalParse(const char* ptr, ::_pbi::ParseContext* ct
         } else
           goto handle_unusual;
         continue;
-      // string block_signature = 9;
+      // bytes block_signature = 9;
       case 9:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 74)) {
           auto str = _internal_mutable_block_signature();
           ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(ptr);
-          CHK_(::_pbi::VerifyUTF8(str, "alyncoin.BlockProto.block_signature"));
         } else
           goto handle_unusual;
         continue;
@@ -692,13 +691,9 @@ uint8_t* BlockProto::_InternalSerialize(
     target = ::_pbi::WireFormatLite::WriteInt32ToArray(8, this->_internal_difficulty(), target);
   }
 
-  // string block_signature = 9;
+  // bytes block_signature = 9;
   if (!this->_internal_block_signature().empty()) {
-    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
-      this->_internal_block_signature().data(), static_cast<int>(this->_internal_block_signature().length()),
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
-      "alyncoin.BlockProto.block_signature");
-    target = stream->WriteStringMaybeAliased(
+    target = stream->WriteBytesMaybeAliased(
         9, this->_internal_block_signature(), target);
   }
 
@@ -812,10 +807,10 @@ size_t BlockProto::ByteSizeLong() const {
         this->_internal_miner_address());
   }
 
-  // string block_signature = 9;
+  // bytes block_signature = 9;
   if (!this->_internal_block_signature().empty()) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::BytesSize(
         this->_internal_block_signature());
   }
 

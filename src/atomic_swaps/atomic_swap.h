@@ -31,8 +31,10 @@ struct AtomicSwap {
     SwapState state;
 
     std::optional<std::string> zkProof;
-    std::optional<std::string> falconSignature;
-    std::optional<std::string> dilithiumSignature;
+
+    // ✅ Use binary signature types
+    std::optional<std::vector<unsigned char>> falconSignature;
+    std::optional<std::vector<unsigned char>> dilithiumSignature;
 
     std::string toString() const {
         std::ostringstream oss;
@@ -46,8 +48,8 @@ struct AtomicSwap {
             << "\n  Expires: " << expiresAt
             << "\n  State: " << static_cast<int>(state);
         if (zkProof) oss << "\n  zkProof: " << *zkProof;
-        if (falconSignature) oss << "\n  FalconSig: " << *falconSignature;
-        if (dilithiumSignature) oss << "\n  DilithiumSig: " << *dilithiumSignature;
+        if (falconSignature) oss << "\n  FalconSig (hex): " << Crypto::toHex(*falconSignature);
+        if (dilithiumSignature) oss << "\n  DilithiumSig (hex): " << Crypto::toHex(*dilithiumSignature);
         return oss.str();
     }
 };
@@ -61,8 +63,10 @@ public:
     virtual ~AtomicSwapStore() {}
 };
 
-// ---------------
+// -------------------- Signature Verification --------------------
 inline bool verifySwapSignature(const AtomicSwap& swap) {
+    if (!swap.falconSignature || !swap.dilithiumSignature) return false;
+
     std::string canonicalData = swap.uuid + swap.senderAddress + swap.receiverAddress +
                                 std::to_string(swap.amount) + swap.secretHash +
                                 std::to_string(swap.createdAt) + std::to_string(swap.expiresAt);
@@ -70,13 +74,10 @@ inline bool verifySwapSignature(const AtomicSwap& swap) {
     std::vector<uint8_t> msgHash = Crypto::sha256ToBytes(canonicalData);
 
     std::vector<uint8_t> pubFal = Crypto::getPublicKeyFalcon(swap.senderAddress);
-    std::vector<uint8_t> sigFal = Crypto::fromHex(*swap.falconSignature);
-
     std::vector<uint8_t> pubDil = Crypto::getPublicKeyDilithium(swap.senderAddress);
-    std::vector<uint8_t> sigDil = Crypto::fromHex(*swap.dilithiumSignature);
 
-    return Crypto::verifyWithFalcon(msgHash, sigFal, pubFal) &&
-           Crypto::verifyWithDilithium(msgHash, sigDil, pubDil);
+    return Crypto::verifyWithFalcon(msgHash, *swap.falconSignature, pubFal) &&
+           Crypto::verifyWithDilithium(msgHash, *swap.dilithiumSignature, pubDil);
 }
 
 #endif // ATOMIC_SWAP_H

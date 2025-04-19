@@ -260,7 +260,7 @@ class AtomicSwapProto final :
   std::string* _internal_mutable_secret();
   public:
 
-  // string zkProof = 10;
+  // bytes zkProof = 10;
   void clear_zkproof();
   const std::string& zkproof() const;
   template <typename ArgT0 = const std::string&, typename... ArgT>
@@ -274,7 +274,7 @@ class AtomicSwapProto final :
   std::string* _internal_mutable_zkproof();
   public:
 
-  // string falconSignature = 11;
+  // bytes falconSignature = 11;
   void clear_falconsignature();
   const std::string& falconsignature() const;
   template <typename ArgT0 = const std::string&, typename... ArgT>
@@ -288,7 +288,7 @@ class AtomicSwapProto final :
   std::string* _internal_mutable_falconsignature();
   public:
 
-  // string dilithiumSignature = 12;
+  // bytes dilithiumSignature = 12;
   void clear_dilithiumsignature();
   const std::string& dilithiumsignature() const;
   template <typename ArgT0 = const std::string&, typename... ArgT>
@@ -704,7 +704,7 @@ inline void AtomicSwapProto::set_state(int32_t value) {
   // @@protoc_insertion_point(field_set:atomic.AtomicSwapProto.state)
 }
 
-// string zkProof = 10;
+// bytes zkProof = 10;
 inline void AtomicSwapProto::clear_zkproof() {
   _impl_.zkproof_.ClearToEmpty();
 }
@@ -716,7 +716,7 @@ template <typename ArgT0, typename... ArgT>
 inline PROTOBUF_ALWAYS_INLINE
 void AtomicSwapProto::set_zkproof(ArgT0&& arg0, ArgT... args) {
  
- _impl_.zkproof_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+ _impl_.zkproof_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:atomic.AtomicSwapProto.zkProof)
 }
 inline std::string* AtomicSwapProto::mutable_zkproof() {
@@ -754,7 +754,7 @@ inline void AtomicSwapProto::set_allocated_zkproof(std::string* zkproof) {
   // @@protoc_insertion_point(field_set_allocated:atomic.AtomicSwapProto.zkProof)
 }
 
-// string falconSignature = 11;
+// bytes falconSignature = 11;
 inline void AtomicSwapProto::clear_falconsignature() {
   _impl_.falconsignature_.ClearToEmpty();
 }
@@ -766,7 +766,7 @@ template <typename ArgT0, typename... ArgT>
 inline PROTOBUF_ALWAYS_INLINE
 void AtomicSwapProto::set_falconsignature(ArgT0&& arg0, ArgT... args) {
  
- _impl_.falconsignature_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+ _impl_.falconsignature_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:atomic.AtomicSwapProto.falconSignature)
 }
 inline std::string* AtomicSwapProto::mutable_falconsignature() {
@@ -804,7 +804,7 @@ inline void AtomicSwapProto::set_allocated_falconsignature(std::string* falconsi
   // @@protoc_insertion_point(field_set_allocated:atomic.AtomicSwapProto.falconSignature)
 }
 
-// string dilithiumSignature = 12;
+// bytes dilithiumSignature = 12;
 inline void AtomicSwapProto::clear_dilithiumsignature() {
   _impl_.dilithiumsignature_.ClearToEmpty();
 }
@@ -816,7 +816,7 @@ template <typename ArgT0, typename... ArgT>
 inline PROTOBUF_ALWAYS_INLINE
 void AtomicSwapProto::set_dilithiumsignature(ArgT0&& arg0, ArgT... args) {
  
- _impl_.dilithiumsignature_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+ _impl_.dilithiumsignature_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:atomic.AtomicSwapProto.dilithiumSignature)
 }
 inline std::string* AtomicSwapProto::mutable_dilithiumsignature() {

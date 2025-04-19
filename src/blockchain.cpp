@@ -49,7 +49,8 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath, bool bind
 
     if (bindNetwork) {
         if (Network::isUninitialized()) {
-            network = &Network::getInstance(port, this, nullptr);
+            std::cerr << "❌ [FATAL] Cannot initialize Network without PeerBlacklist!\n";
+            throw std::runtime_error("PeerBlacklist is null");
         } else {
             std::cerr << "⚠️ Warning: Network already initialized. Using existing instance.\n";
             network = Network::getExistingInstance();
@@ -88,11 +89,9 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath, bool bind
 
     if (!found && !isSyncMode) {
         std::cout << "📐 Creating Genesis Block...\n";
-
         Block genesis = createGenesisBlock();  // Already adds the block
         std::cout << "[DEBUG] ♻️ Genesis zkProof size in chain.front(): "
                   << genesis.getZkProof().size() << " bytes\n";
-
         saveToDB();  // ✅ Persist genesis block with correct proof
     } else if (!found) {
         std::cout << "⏳ [INFO] Skipping genesis block — awaiting peer sync...\n";
@@ -123,39 +122,61 @@ Blockchain::~Blockchain() {
 }
 // ✅ **Validate a Transaction**
 bool Blockchain::isTransactionValid(const Transaction &tx) const {
-  std::string sender = tx.getSender();
+    std::string sender = tx.getSender();
+    if (sender == "System") return true;
 
-  if (sender == "System") return true;
+    auto it = vestingMap.find(sender);
+    if (it != vestingMap.end()) {
+        double locked = it->second.lockedAmount;
+        uint64_t unlockTime = it->second.unlockTimestamp;
+        double senderBalance = getBalance(sender);
 
-  auto it = vestingMap.find(sender);
-  if (it != vestingMap.end()) {
-    double locked = it->second.lockedAmount;
-    uint64_t unlockTime = it->second.unlockTimestamp;
-    double senderBalance = getBalance(sender);
-
-    if (std::time(nullptr) < unlockTime && (senderBalance - locked < tx.getAmount())) {
-      std::cerr << "⛔ [VESTING] Transaction rejected! Locked balance in effect for: " << sender << "\n";
-      return false;
+        if (std::time(nullptr) < unlockTime && (senderBalance - locked < tx.getAmount())) {
+            std::cerr << "⛔ [VESTING] Transaction rejected! Locked balance in effect for: " << sender << "\n";
+            return false;
+        }
     }
-  }
 
-  try {
-    std::vector<unsigned char> msgBytes = Crypto::fromHex(tx.getHash());
-    std::vector<unsigned char> sigDilithium = Crypto::fromHex(tx.getSignatureDilithium());
-    std::vector<unsigned char> sigFalcon = Crypto::fromHex(tx.getSignatureFalcon());
-    std::vector<unsigned char> pubKeyDilithium = Crypto::fromHex(tx.getSenderPublicKeyDilithium());
-    std::vector<unsigned char> pubKeyFalcon = Crypto::fromHex(tx.getSenderPublicKeyFalcon());
+    try {
+        std::string canonicalHash = tx.getTransactionHash();  // ✅ Use canonical hash
+        std::vector<unsigned char> hashBytes = Crypto::fromHex(canonicalHash);
+        std::vector<unsigned char> sigDilithium = Crypto::fromHex(tx.getSignatureDilithium());
+        std::vector<unsigned char> sigFalcon = Crypto::fromHex(tx.getSignatureFalcon());
+        std::vector<unsigned char> pubKeyDilithium = Crypto::fromHex(tx.getSenderPublicKeyDilithium());
+        std::vector<unsigned char> pubKeyFalcon = Crypto::fromHex(tx.getSenderPublicKeyFalcon());
 
-    if (!Crypto::verifyWithDilithium(msgBytes, sigDilithium, pubKeyDilithium)) return false;
-    if (!Crypto::verifyWithFalcon(msgBytes, sigFalcon, pubKeyFalcon)) return false;
+        std::cout << "[DEBUG] Verifying TX: " << canonicalHash << "\n";
+        std::cout << "  - Sender: " << sender << "\n";
+        std::cout << "  - Amount: " << tx.getAmount() << "\n";
+        std::cout << "  - zkProof Size: " << tx.getZkProof().size() << " bytes\n";
 
-  } catch (const std::exception &e) {
-    std::cerr << "❌ Exception during isTransactionValid: " << e.what() << "\n";
-    return false;
-  }
+        if (!Crypto::verifyWithDilithium(hashBytes, sigDilithium, pubKeyDilithium)) {
+            std::cerr << "[ERROR] Dilithium signature verification failed!\n";
+            return false;
+        }
 
-  std::cout << "✅ Transaction verified successfully for: " << sender << "\n";
-  return true;
+        if (!Crypto::verifyWithFalcon(hashBytes, sigFalcon, pubKeyFalcon)) {
+            std::cerr << "[ERROR] Falcon signature verification failed!\n";
+            return false;
+        }
+
+        if (tx.getZkProof().empty()) {
+            std::cerr << "[ERROR] Transaction missing zk-STARK proof!\n";
+            return false;
+        }
+
+        if (!WinterfellStark::verifyTransactionProof(tx.getZkProof(), sender, tx.getRecipient(), tx.getAmount(), tx.getTimestamp())) {
+            std::cerr << "[ERROR] zk-STARK proof verification failed!\n";
+            return false;
+        }
+
+    } catch (const std::exception &e) {
+        std::cerr << "❌ Exception during isTransactionValid: " << e.what() << "\n";
+        return false;
+    }
+
+    std::cout << "✅ Transaction verified successfully for: " << sender << "\n";
+    return true;
 }
 
 // ✅ Create the Genesis Block Properly
@@ -268,17 +289,12 @@ bool Blockchain::addBlock(const Block &block) {
         std::cout << "[DEBUG] 🧩 addBlock() zkProof length: " << block.getZkProof().size() << " bytes\n";
     }
 
-    // 🚫 Check for same block hash
     for (const auto &existing : chain) {
         if (existing.getHash() == block.getHash()) {
             std::cerr << "⚠️ Duplicate block hash detected. Skipping add. Hash: "
                       << block.getHash() << "\n";
             return true;
         }
-    }
-
-    // 🚫 Check for same block index (e.g., 2 genesis blocks at height 0)
-    for (const auto &existing : chain) {
         if (existing.getIndex() == block.getIndex()) {
             std::cerr << "⚠️ Block index already exists (Index: " << block.getIndex()
                       << "). Skipping add.\n";
@@ -286,9 +302,11 @@ bool Blockchain::addBlock(const Block &block) {
         }
     }
 
-    // ✅ Unified validation logic (genesis or not)
     if (!isValidNewBlock(block)) {
         std::cerr << "❌ Invalid block detected. Rejecting!\n";
+        std::cerr << "   ↪️ Block Hash       : " << block.getHash() << "\n";
+        std::cerr << "   ↪️ Prev Block Hash  : " << block.getPreviousHash() << "\n";
+        std::cerr << "   ↪️ zkProof Size     : " << block.getZkProof().size() << " bytes\n";
         return false;
     }
 
@@ -297,11 +315,10 @@ bool Blockchain::addBlock(const Block &block) {
     for (const auto &tx : block.getTransactions()) {
         pendingTransactions.erase(
             std::remove_if(pendingTransactions.begin(), pendingTransactions.end(),
-                [&tx](const Transaction &pendingTx) {
-                    return pendingTx.getHash() == tx.getHash();
-                }),
-            pendingTransactions.end()
-        );
+                           [&tx](const Transaction &pendingTx) {
+                               return pendingTx.getHash() == tx.getHash();
+                           }),
+            pendingTransactions.end());
     }
 
     std::cout << "[DEBUG] ✅ Block zkProof length: " << block.getZkProof().size() << " bytes\n";
@@ -576,6 +593,7 @@ Block Blockchain::minePendingTransactions(
     auto falSig = Crypto::signWithFalcon(hashBytes, minerFalconPriv);
     newBlock.setDilithiumSignature(Crypto::toHex(dilSig));
     newBlock.setFalconSignature(Crypto::toHex(falSig));
+    newBlock.setSignature(Crypto::toHex(hashBytes));
 
     std::cout << "[DEBUG] Attempting to addBlock()...\n";
     if (!addBlock(newBlock)) {
@@ -886,11 +904,15 @@ bool Blockchain::loadFromDB() {
     std::unordered_set<std::string> seenHashes;
 
     for (const auto &blockProto : blockchainProto.blocks()) {
-        Block blk = Block::fromProto(blockProto);
-        if (seenHashes.insert(blk.getHash()).second) {
-            chain.push_back(blk);
-        } else {
-            std::cerr << "⚠️ [loadFromDB] Duplicate block skipped. Hash: " << blk.getHash() << "\n";
+        try {
+            Block blk = Block::fromProto(blockProto, true); // allowPartial=true for DB loading
+            if (seenHashes.insert(blk.getHash()).second) {
+                chain.push_back(blk);
+            } else {
+                std::cerr << "⚠️ [loadFromDB] Duplicate block skipped. Hash: " << blk.getHash() << "\n";
+            }
+        } catch (const std::exception &e) {
+            std::cerr << "⚠️ [loadFromDB] Skipping corrupt block: " << e.what() << "\n";
         }
     }
 
@@ -1041,12 +1063,12 @@ bool Blockchain::deserializeBlockchain(const std::string &data) {
     std::cout << "📡 [DEBUG] Received Blockchain Data (Size: " << data.size() << " bytes)\n";
 
     alyncoin::BlockchainProto protoChain;
-    std::cerr << "🧪 [DEBUG] Deserializing blockchain with expected chain_id = " << protoChain.chain_id() << std::endl;
-
     if (!protoChain.ParseFromArray(data.data(), static_cast<int>(data.size()))) {
         std::cerr << "❌ [ERROR] Failed to parse decoded blockchain Protobuf using ParseFromArray.\n";
         return false;
     }
+
+    std::cerr << "🧪 [DEBUG] Parsed blockchain chain_id = " << protoChain.chain_id() << "\n";
 
     return loadFromProto(protoChain);
 }
@@ -1093,23 +1115,29 @@ bool Blockchain::loadFromProto(const alyncoin::BlockchainProto &protoChain) {
     blockReward = protoChain.block_reward();
 
     // Load blocks
-    for (const auto &blockProto : protoChain.blocks()) {
+    for (int i = 0; i < protoChain.blocks_size(); ++i) {
+        const auto &blockProto = protoChain.blocks(i);
+        std::cout << "[DEBUG] 🧱 Parsing Block[" << i << "]...\n";
         try {
             Block block = Block::fromProto(blockProto);
             chain.push_back(block);
         } catch (const std::exception &e) {
-            std::cerr << "❌ [ERROR] Invalid block format during deserialization: " << e.what() << "\n";
+            std::cerr << "❌ [ERROR] Invalid block format during deserialization at index " << i
+                      << ": " << e.what() << "\n";
             return false;
         }
     }
 
     // Load pending transactions
-    for (const auto &txProto : protoChain.pending_transactions()) {
+    for (int i = 0; i < protoChain.pending_transactions_size(); ++i) {
+        const auto &txProto = protoChain.pending_transactions(i);
+        std::cout << "[DEBUG] 🔄 Parsing Pending TX[" << i << "]...\n";
         try {
             Transaction tx = Transaction::fromProto(txProto);
             pendingTransactions.push_back(tx);
         } catch (const std::exception &e) {
-            std::cerr << "❌ [ERROR] Invalid transaction format during deserialization: " << e.what() << "\n";
+            std::cerr << "❌ [ERROR] Invalid transaction format during deserialization at index " << i
+                      << ": " << e.what() << "\n";
             return false;
         }
     }
@@ -1144,9 +1172,15 @@ bool Blockchain::isValidNewBlock(const Block& newBlock) const {
 
     const Block& lastBlock = getLatestBlock();
 
-    if (newBlock.getIndex() != lastBlock.getIndex() + 1) {
-        std::cerr << "❌ Invalid block index. Expected "
-                  << lastBlock.getIndex() + 1 << ", got " << newBlock.getIndex() << "\n";
+    if (newBlock.getIndex() <= lastBlock.getIndex()) {
+        std::cerr << "⚠️ [Blockchain] Rejected duplicate/old block. Index: " << newBlock.getIndex()
+                  << ", Current: " << lastBlock.getIndex() << "\n";
+        return false;
+    }
+
+    if (newBlock.getIndex() > lastBlock.getIndex() + 1) {
+        std::cerr << "⚠️ [Blockchain] Received future block. Index: " << newBlock.getIndex()
+                  << ", Expected: " << lastBlock.getIndex() + 1 << ". Buffering not implemented.\n";
         return false;
     }
 
@@ -1196,22 +1230,15 @@ std::cout << "[DEBUG] Pending tx count: " << pendingTransactions.size() << std::
 Block Blockchain::mineBlock(const std::string &minerAddress) {
     std::cout << "[DEBUG] Entered mineBlock() for: " << minerAddress << "\n";
 
-    // 1) Remove or comment out the "no pending tx" check. We want an empty block if none.
-    // if (pendingTransactions.empty()) {
-    //     std::cout << "⚠️ No pending transactions to mine!\n";
-    //     return Block(); // <-- Remove this
-    // }
-
-    // 2) Load miner keys
+    // Load miner keys
     std::string dilithiumKeyPath = "/root/.alyncoin/keys/" + minerAddress + "_dilithium.key";
     std::string falconKeyPath    = "/root/.alyncoin/keys/" + minerAddress + "_falcon.key";
 
     if (!Crypto::fileExists(dilithiumKeyPath) || !Crypto::fileExists(falconKeyPath)) {
         std::cerr << "❌ Miner key(s) not found for address: " << minerAddress << "\n";
-        return Block(); // fails if we truly can't mine
+        return Block();
     }
 
-    // 3) Load private keys
     std::vector<unsigned char> dilPriv = Crypto::loadDilithiumKeys(minerAddress).privateKey;
     std::vector<unsigned char> falPriv = Crypto::loadFalconKeys(minerAddress).privateKey;
 
@@ -1220,17 +1247,29 @@ Block Blockchain::mineBlock(const std::string &minerAddress) {
         return Block();
     }
 
-    // 4) Call our existing method that does the heavy lifting:
     Block newBlock = minePendingTransactions(minerAddress, dilPriv, falPriv);
 
-    // If minePendingTransactions returns an empty block (hash == ""), handle that
     if (newBlock.getHash().empty()) {
         std::cerr << "⚠️ Mining returned an empty block. Possibly no valid transactions.\n";
-        // But we don’t forcibly fail here – up to you if you want to do so
     }
 
-    // 5) Optionally do further checks or calls:
-    // e.g. recalculate balances or broadcast block if not done within minePendingTransactions
+    // Attach Falcon & Dilithium signatures
+    std::vector<unsigned char> sigMsg = newBlock.getSignatureMessage();
+    std::vector<unsigned char> sigDil = Crypto::signWithDilithium(sigMsg, dilPriv);
+    std::vector<unsigned char> sigFal = Crypto::signWithFalcon(sigMsg, falPriv);
+
+    newBlock.setDilithiumSignature(Crypto::toHex(sigDil));
+    newBlock.setFalconSignature(Crypto::toHex(sigFal));
+
+    // Set public keys as raw bytes converted to string
+    auto dilPubVec = Crypto::loadDilithiumKeys(minerAddress).publicKey;
+    auto falPubVec = Crypto::loadFalconKeys(minerAddress).publicKey;
+    newBlock.setPublicKeyDilithium(std::string(dilPubVec.begin(), dilPubVec.end()));
+    newBlock.setPublicKeyFalcon(std::string(falPubVec.begin(), falPubVec.end()));
+
+    // Set canonical block signature
+    std::string combined = newBlock.getHash() + Crypto::toHex(sigDil) + Crypto::toHex(sigFal);
+    newBlock.setSignature(Crypto::blake3(combined));
 
     std::cout << "[DEBUG] Updating transaction history...\n";
     updateTransactionHistory(newBlock.getTransactions().size());

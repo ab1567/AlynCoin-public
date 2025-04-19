@@ -257,7 +257,7 @@ class BlockProto final :
   std::string* _internal_mutable_miner_address();
   public:
 
-  // string block_signature = 9;
+  // bytes block_signature = 9;
   void clear_block_signature();
   const std::string& block_signature() const;
   template <typename ArgT0 = const std::string&, typename... ArgT>
@@ -742,7 +742,7 @@ inline void BlockProto::set_difficulty(int32_t value) {
   // @@protoc_insertion_point(field_set:alyncoin.BlockProto.difficulty)
 }
 
-// string block_signature = 9;
+// bytes block_signature = 9;
 inline void BlockProto::clear_block_signature() {
   _impl_.block_signature_.ClearToEmpty();
 }
@@ -754,7 +754,7 @@ template <typename ArgT0, typename... ArgT>
 inline PROTOBUF_ALWAYS_INLINE
 void BlockProto::set_block_signature(ArgT0&& arg0, ArgT... args) {
  
- _impl_.block_signature_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+ _impl_.block_signature_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:alyncoin.BlockProto.block_signature)
 }
 inline std::string* BlockProto::mutable_block_signature() {

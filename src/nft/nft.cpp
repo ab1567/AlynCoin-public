@@ -150,7 +150,7 @@ bool NFT::submitMetadataHashTransaction() const {
     return false;
 }
 
-// ✅ Export to Protobuf
+// ✅ NFT::toProto - hex encode dilithium_signature
 NFTProto NFT::toProto() const {
     NFTProto proto;
     proto.set_id(id);
@@ -169,16 +169,16 @@ NFTProto NFT::toProto() const {
     proto.set_encrypted_metadata(encrypted_metadata);
     proto.set_expiry_timestamp(expiry_timestamp);
     proto.set_revoked(revoked);
-    proto.set_dilithium_signature(dilithium_signature.data(), dilithium_signature.size());
+    proto.set_dilithium_signature(Crypto::toHex(dilithium_signature));
 
     for (const auto& a : bundledAssets) proto.add_bundled_assets(a);
     for (const auto& h : transferHistory) proto.add_transferledger(h);
-    for (const auto& prev : previous_versions) proto.add_previous_versions(prev);  // ✅ Add this line
+    for (const auto& prev : previous_versions) proto.add_previous_versions(prev);
 
     return proto;
 }
 
-// ✅ Import from Protobuf
+// ✅ NFT::fromProto - hex decode dilithium_signature
 bool NFT::fromProto(const NFTProto& proto) {
     id = proto.id();
     creator = proto.creator();
@@ -196,7 +196,7 @@ bool NFT::fromProto(const NFTProto& proto) {
     encrypted_metadata = proto.encrypted_metadata();
     expiry_timestamp = proto.expiry_timestamp();
     revoked = proto.revoked();
-    dilithium_signature = std::vector<uint8_t>(proto.dilithium_signature().begin(), proto.dilithium_signature().end());
+    dilithium_signature = Crypto::fromHex(proto.dilithium_signature());
 
     bundledAssets = {proto.bundled_assets().begin(), proto.bundled_assets().end()};
     transferHistory.assign(proto.transferledger().begin(), proto.transferledger().end());
@@ -207,7 +207,6 @@ bool NFT::fromProto(const NFTProto& proto) {
 
     return true;
 }
-
 // ✅ JSON export
 std::string NFT::toJSON() const {
     json j;

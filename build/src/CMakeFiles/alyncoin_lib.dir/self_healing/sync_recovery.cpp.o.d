@@ -1357,4 +1357,4 @@ src/CMakeFiles/alyncoin_lib.dir/self_healing/sync_recovery.cpp.o: \
  /root/AlynCoin/src/network/peer_blacklist.h /root/AlynCoin/src/block.h \
  /root/AlynCoin/src/utils/logger.h \
  /root/AlynCoin/src/zk/winterfell_stark.h \
- /root/AlynCoin/src/zk/rust_bindings.h
+ /root/AlynCoin/src/zk/rust_bindings.h /root/AlynCoin/src/crypto_utils.h

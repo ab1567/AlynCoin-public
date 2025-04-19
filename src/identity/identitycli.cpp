@@ -19,20 +19,20 @@ bool verifyIdentity(const ZkIdentity& id) {
 
     if (id.falconSignature) {
         auto pubFal = Crypto::getPublicKeyFalcon(id.uuid);
-        auto sigFal = Crypto::fromHex(*id.falconSignature);
+        auto sigFal = id.falconSignature.value();
         falValid = Crypto::verifyWithFalcon(msgHash, sigFal, pubFal);
         std::cerr << (falValid ? "✅ Falcon signature verified.\n" : "❌ Falcon signature FAILED.\n");
     }
 
     if (id.dilithiumSignature) {
         auto pubDil = Crypto::getPublicKeyDilithium(id.uuid);
-        auto sigDil = Crypto::fromHex(*id.dilithiumSignature);
+        auto sigDil = id.dilithiumSignature.value();
         dilValid = Crypto::verifyWithDilithium(msgHash, sigDil, pubDil);
         std::cerr << (dilValid ? "✅ Dilithium signature verified.\n" : "❌ Dilithium signature FAILED.\n");
     }
 
     if (id.zkProof) {
-        zkValid = WinterfellStark::verifyIdentityProof(*id.zkProof, id.uuid, id.name, id.metadataHash);
+        zkValid = WinterfellStark::verifyIdentityProof(Crypto::toHex(id.zkProof.value()), id.uuid, id.name, id.metadataHash);
         std::cerr << (zkValid ? "✅ zk-STARK identity proof verified.\n" : "❌ zk-STARK proof FAILED.\n");
     }
 
@@ -107,21 +107,21 @@ int main(int argc, char* argv[]) {
                 return 1;
             }
 
-	} else if (command == "verify" && argc == 3) {
-	    std::string uuid = argv[2];
-	    auto id = store->load(uuid);
-	    if (!id) {
-	        std::cerr << "❌ Identity not found.\n";
-	        return 1;
-	    }
+        } else if (command == "verify" && argc == 3) {
+            std::string uuid = argv[2];
+            auto id = store->load(uuid);
+            if (!id) {
+                std::cerr << "❌ Identity not found.\n";
+                return 1;
+            }
 
-	    if (verifyIdentity(*id)) {
-	        std::cout << "✅ All verifications passed.\n";
-	        return 0;
-	    } else {
-	        std::cerr << "❌ One or more verifications failed.\n";
-	        return 1;
-	    }
+            if (verifyIdentity(*id)) {
+                std::cout << "✅ All verifications passed.\n";
+                return 0;
+            } else {
+                std::cerr << "❌ One or more verifications failed.\n";
+                return 1;
+            }
 
         } else {
            std::cerr << "❌ Invalid command or arguments.\n";

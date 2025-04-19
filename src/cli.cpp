@@ -498,7 +498,7 @@ int cliMain(int argc, char *argv[]) {
   }
 
   Wallet *wallet = nullptr;
-  Blockchain &blockchain = Blockchain::getInstance(port, dbPath);
+  Blockchain &blockchain = Blockchain::getInstance(port, dbPath, false);
   PeerBlacklist peerBlacklist(blacklistPath, 3);
 
   Network *network = nullptr;

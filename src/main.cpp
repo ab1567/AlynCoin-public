@@ -15,7 +15,6 @@ void clearInputBuffer() {
   std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 }
 
-// ✅ Helper function to extract port from args
 unsigned short getPortFromArgsOrDefault(int argc, char *argv[]) {
   for (int i = 1; i < argc; ++i) {
     std::string arg = argv[i];
@@ -30,7 +29,7 @@ int main(int argc, char *argv[]) {
   unsigned short port = DEFAULT_PORT;
   std::string dbPath = DBPaths::getBlockchainDB();
   std::string connectIP = "";
-  std::string walletAddress = "default_wallet"; // or load it properly
+  std::string walletAddress = "default_wallet";
   std::string keyDir = DBPaths::getKeyPath(walletAddress);
   std::string blacklistPath = "/root/.alyncoin/blacklist";
 
@@ -51,32 +50,36 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  Blockchain &blockchain = Blockchain::getInstance(port, dbPath, true);
+  Blockchain &blockchain = Blockchain::getInstance(port, dbPath, false);
   PeerBlacklist blacklist(blacklistPath, 3);
   Network &network = Network::getInstance(port, &blockchain, &blacklist);
 
   blockchain.loadFromDB();
-  // 🧠 Fixed connectToPeer logic to support full IP:PORT string
-if (!connectIP.empty()) {
+
+  // ✅ Full duplex peer connection logic
+  if (!connectIP.empty()) {
     std::string ip;
     short connectPort;
 
     if (connectIP.find(":") != std::string::npos) {
-        size_t colon = connectIP.find(":");
-        ip = connectIP.substr(0, colon);
-        connectPort = std::stoi(connectIP.substr(colon + 1));
+      size_t colon = connectIP.find(":");
+      ip = connectIP.substr(0, colon);
+      connectPort = std::stoi(connectIP.substr(colon + 1));
     } else {
-        ip = connectIP;
-        connectPort = 8333; // fallback default
+      ip = connectIP;
+      connectPort = 8333;
     }
 
     network.connectToPeer(ip, connectPort);
-}
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+
+    // ✅ Back-connect to ensure two-way messaging (Node A to Node B)
+    network.connectToPeer("127.0.0.1", port);
+  }
 
   network.syncWithPeers();
   std::this_thread::sleep_for(std::chrono::seconds(2));
 
-  // 🔁 Self-Healing Setup
   PeerManager *peerManager = network.getPeerManager();
   SelfHealingNode healer(&blockchain, peerManager);
 

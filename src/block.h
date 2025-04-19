@@ -114,7 +114,7 @@ public:
   std::string generateRollupProof(const std::vector<Transaction> &offChainTxs);
 
   // --- Serialization / Deserialization ---
-  static Block fromProto(const alyncoin::BlockProto &proto);
+  static Block fromProto(const alyncoin::BlockProto &proto, bool allowPartial = false);
   alyncoin::BlockProto toProtobuf() const;
   Json::Value toJSON() const;
   static Block fromJSON(const Json::Value &blockJson);

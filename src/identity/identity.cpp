@@ -12,9 +12,9 @@ std::string ZkIdentity::toString() const {
         << "\n  Metadata Hash: " << metadataHash
         << "\n  Created: " << std::ctime(&createdAt);
 
-    if (zkProof) oss << "  zkProof: " << *zkProof << "\n";
-    if (falconSignature) oss << "  Falcon Signature: " << *falconSignature << "\n";
-    if (dilithiumSignature) oss << "  Dilithium Signature: " << *dilithiumSignature << "\n";
+    if (zkProof) oss << "  zkProof: " << Crypto::toHex(*zkProof) << "\n";
+    if (falconSignature) oss << "  Falcon Signature: " << Crypto::toHex(*falconSignature) << "\n";
+    if (dilithiumSignature) oss << "  Dilithium Signature: " << Crypto::toHex(*dilithiumSignature) << "\n";
 
     return oss.str();
 }
@@ -32,8 +32,8 @@ bool ZkIdentity::sign(const std::string& signerAddress) {
     std::vector<uint8_t> sigFalcon = Crypto::signWithFalcon(hashBytes, falKeys.privateKey);
     std::vector<uint8_t> sigDilithium = Crypto::signWithDilithium(hashBytes, dilKeys.privateKey);
 
-    falconSignature = Crypto::toHex(sigFalcon);
-    dilithiumSignature = Crypto::toHex(sigDilithium);
+    falconSignature = sigFalcon;
+    dilithiumSignature = sigDilithium;
 
     std::cerr << "[DEBUG] Falcon Signature Length: " << sigFalcon.size() << "\n";
     std::cerr << "[DEBUG] Dilithium Signature Length: " << sigDilithium.size() << "\n";
@@ -49,11 +49,18 @@ bool ZkIdentity::generateZkProof() {
     std::string seedHash = Crypto::blake3(seed);
     std::cerr << "  - BLAKE3(seed): " << seedHash << "\n";
 
-    zkProof = WinterfellStark::generateIdentityProof(uuid, name, metadataHash);
+    std::optional<std::string> proofStrOpt = WinterfellStark::generateIdentityProof(uuid, name, metadataHash);
+    if (!proofStrOpt.has_value()) {
+        std::cerr << "[ZK] ❌ Proof generation failed (null optional).\n";
+        return false;
+    }
+
+    zkProof = Crypto::fromHex(*proofStrOpt);
     std::cerr << "[ZK] ✅ Proof generated. Size: " << zkProof->size() << " bytes\n";
 
     return !zkProof->empty();
 }
+
 bool ZkIdentity::verifySignature() const {
     std::string dataToVerify = uuid + name + publicKey + metadataHash;
     std::vector<uint8_t> msgHash = Crypto::sha256ToBytes(dataToVerify);
@@ -61,10 +68,10 @@ bool ZkIdentity::verifySignature() const {
     std::cerr << "[DEBUG] Verifying Identity Signature...\n";
 
     std::vector<uint8_t> pubFal = Crypto::getPublicKeyFalcon(uuid);
-    std::vector<uint8_t> sigFal = Crypto::fromHex(*falconSignature);
+    std::vector<uint8_t> sigFal = *falconSignature;
 
     std::vector<uint8_t> pubDil = Crypto::getPublicKeyDilithium(uuid);
-    std::vector<uint8_t> sigDil = Crypto::fromHex(*dilithiumSignature);
+    std::vector<uint8_t> sigDil = *dilithiumSignature;
 
     bool validFalcon = Crypto::verifyWithFalcon(msgHash, sigFal, pubFal);
     bool validDilithium = Crypto::verifyWithDilithium(msgHash, sigDil, pubDil);

@@ -11,10 +11,10 @@ message AtomicSwapProto {
   string secret = 6;
   int64 createdAt = 7;
   int64 expiresAt = 8;
-  int32 state = 9;  // use enum if defined in your C++ code
+  int32 state = 9;
 
-  string zkProof = 10;
+  bytes zkProof = 10;
 
-  string falconSignature = 11;
-  string dilithiumSignature = 12;
+  bytes falconSignature = 11;       
+  bytes dilithiumSignature = 12;    
 }

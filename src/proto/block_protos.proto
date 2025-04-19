@@ -13,17 +13,14 @@ message BlockProto {
     uint64 nonce = 6;
     uint64 timestamp = 7;
     int32 difficulty = 8;
-    string block_signature = 9;
+    bytes block_signature = 9;
     string keccak_hash = 10;
     bytes zk_stark_proof = 11;
-
     bytes dilithium_signature = 12;
     bytes falcon_signature = 13;
     bytes public_key_dilithium = 14;
     bytes public_key_falcon = 15;
-
-    string state_root = 16;
-    string tx_merkle_root = 17;
-
+    string state_root = 16;       
+    string tx_merkle_root = 17;   
     optional double reward = 18;
 }

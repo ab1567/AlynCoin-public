@@ -4,7 +4,7 @@
 #include <chrono>
 #include <iostream>
 #include <sstream>
-#include <json/json.h> // You already use JSON in explorer
+#include <json/json.h>
 #include "db/db_paths.h"
 
 PeerBlacklist::PeerBlacklist(const std::string& path, int threshold) : db_path(path), strike_threshold(threshold) {
@@ -57,7 +57,10 @@ bool PeerBlacklist::removePeer(const std::string& peer_id) {
 
 bool PeerBlacklist::isBlacklisted(const std::string& peer_id) {
     std::lock_guard<std::mutex> lock(db_mutex);
-    if (!db) return false;
+    if (!db) {
+        std::cerr << "❌ [PeerBlacklist] DB pointer is null. Cannot check blacklist for: " << peer_id << std::endl;
+        return false;
+    }
     std::string value;
     rocksdb::Status s = db->Get(rocksdb::ReadOptions(), makeKey(peer_id), &value);
     return s.ok();
@@ -87,7 +90,6 @@ bool PeerBlacklist::incrementStrike(const std::string& peer_id, const std::strin
             entry.timestamp = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
         }
     } else {
-        // First strike
         entry.peer_id = peer_id;
         entry.reason = reason;
         entry.timestamp = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());

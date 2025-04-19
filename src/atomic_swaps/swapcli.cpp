@@ -34,27 +34,23 @@ std::string stateToStr(SwapState s) {
 }
 
 // -------------------- Print Functions --------------------
-void printSwap(const AtomicSwap& swap) {
-    std::cout << "Swap ID: " << swap.uuid << "\n"
-              << "  Sender: " << swap.senderAddress << "\n"
-              << "  Receiver: " << swap.receiverAddress << "\n"
-              << "  Amount: " << swap.amount << "\n"
-              << "  Secret Hash: " << swap.secretHash << "\n"
-              << "  Secret: " << (swap.secret ? *swap.secret : "(not revealed)") << "\n"
-              << "  Created: " << std::ctime(&swap.createdAt)
-              << "  Expires: " << std::ctime(&swap.expiresAt)
-              << "  State: " << stateToStr(swap.state) << "\n";
+void printSwap(const AtomicSwap &swap) {
+    std::cout << swap.toString() << std::endl;
 
-    if (swap.zkProof && !swap.zkProof->empty()) {
-        std::cout << "  zk-STARK Proof: " << *swap.zkProof << "\n";
+    if (swap.falconSignature) {
+        std::cout << "  Falcon Signature (base64): "
+                  << Crypto::base64Encode(std::string(swap.falconSignature->begin(), swap.falconSignature->end()))
+                  << "\n";
     }
 
-    if (swap.falconSignature && !swap.falconSignature->empty()) {
-        std::cout << "  Falcon Signature (base64): " << Crypto::base64Encode(*swap.falconSignature) << "\n";
+    if (swap.dilithiumSignature) {
+        std::cout << "  Dilithium Signature (base64): "
+                  << Crypto::base64Encode(std::string(swap.dilithiumSignature->begin(), swap.dilithiumSignature->end()))
+                  << "\n";
     }
 
-    if (swap.dilithiumSignature && !swap.dilithiumSignature->empty()) {
-        std::cout << "  Dilithium Signature (base64): " << Crypto::base64Encode(*swap.dilithiumSignature) << "\n";
+    if (swap.zkProof) {
+        std::cout << "  zkProof (truncated): " << swap.zkProof->substr(0, 40) << "...\n";
     }
 }
 

@@ -5,6 +5,7 @@
 #include "logger.h"
 #include "zk/winterfell_stark.h"
 #include "zk/rust_bindings.h"
+#include "crypto_utils.h"
 
 SyncRecovery::SyncRecovery(Blockchain* blockchain, PeerManager* peerManager)
     : blockchain_(blockchain), peerManager_(peerManager) {}

@@ -99,6 +99,7 @@ bool deserializeKeysFromProtobuf(const std::string &input,
                                  std::string &privateKey,
                                  std::string &publicKey);
 
+bool isLikelyHex(const std::string &input);
 } // namespace Crypto
 // ✅ Global Key Path Helpers
 std::string getPublicKeyPath(const std::string &username,

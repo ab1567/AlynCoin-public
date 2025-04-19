@@ -18,6 +18,7 @@
 #include <rocksdb/db.h>
 #include <sstream>
 #include <thread>
+#include "crypto_utils.h"
 
 namespace fs = std::filesystem;
 
@@ -73,68 +74,107 @@ std::string Transaction::getTransactionHash() const {
 //
 
 std::string Transaction::getHash() const {
-    if (!hash.empty()) {
-        return hash;
-    }
-    return getTransactionHash();
+    return hash.empty() ? getTransactionHash() : hash;
 }
 
 // ✅ Protobuf Serialization - Ensure all required fields are set
 void Transaction::serializeToProtobuf(alyncoin::TransactionProto &proto) const {
-  proto.set_sender(sender);
-  proto.set_recipient(recipient);
-  proto.set_amount(amount);
-  proto.set_signature_dilithium(signatureDilithium);
-  proto.set_signature_falcon(signatureFalcon);
-  proto.set_sender_pubkey_dilithium(senderPublicKeyDilithium);
-  proto.set_sender_pubkey_falcon(senderPublicKeyFalcon);
-  proto.set_timestamp(timestamp);
-  proto.set_metadata(metadata);
-  proto.set_hash(hash);
+    proto.set_sender(sender);
+    proto.set_recipient(recipient);
+    proto.set_amount(amount);
+
+    if (!signatureDilithium.empty())
+        proto.set_signature_dilithium(Crypto::toHex(std::vector<unsigned char>(signatureDilithium.begin(), signatureDilithium.end())));
+
+    if (!signatureFalcon.empty())
+        proto.set_signature_falcon(Crypto::toHex(std::vector<unsigned char>(signatureFalcon.begin(), signatureFalcon.end())));
+
+    if (!senderPublicKeyDilithium.empty())
+        proto.set_sender_pubkey_dilithium(Crypto::toHex(std::vector<unsigned char>(senderPublicKeyDilithium.begin(), senderPublicKeyDilithium.end())));
+
+    if (!senderPublicKeyFalcon.empty())
+        proto.set_sender_pubkey_falcon(Crypto::toHex(std::vector<unsigned char>(senderPublicKeyFalcon.begin(), senderPublicKeyFalcon.end())));
+
+    proto.set_timestamp(timestamp);
+    proto.set_metadata(metadata);
+    proto.set_zkproof(zkProof);
+    proto.set_hash(hash);
 }
 
 bool Transaction::deserializeFromProtobuf(const alyncoin::TransactionProto &proto) {
-  sender = proto.sender();
-  recipient = proto.recipient();
-  amount = proto.amount();
-  signatureDilithium = proto.signature_dilithium();
-  signatureFalcon = proto.signature_falcon();
-  senderPublicKeyDilithium = proto.sender_pubkey_dilithium();
-  senderPublicKeyFalcon = proto.sender_pubkey_falcon();
-  timestamp = proto.timestamp();
-  metadata = proto.metadata();
-  zkProof = proto.zkproof();
-  hash = proto.hash();
-  if (hash.empty()) {
-    hash = getTransactionHash();
-}
-return true;
+    sender = proto.sender();
+    recipient = proto.recipient();
+    amount = proto.amount();
+
+    std::vector<unsigned char> sigDil = Crypto::fromHex(proto.signature_dilithium());
+    if (!sigDil.empty()) {
+        signatureDilithium = std::string(sigDil.begin(), sigDil.end());
+    } else {
+        std::cerr << "❌ [ERROR] signature_dilithium is empty!" << std::endl;
+    }
+
+    std::vector<unsigned char> sigFal = Crypto::fromHex(proto.signature_falcon());
+    if (!sigFal.empty()) {
+        signatureFalcon = std::string(sigFal.begin(), sigFal.end());
+    } else {
+        std::cerr << "❌ [ERROR] signature_falcon is empty!" << std::endl;
+    }
+
+    std::vector<unsigned char> pubDil = Crypto::fromHex(proto.sender_pubkey_dilithium());
+    if (!pubDil.empty()) {
+        senderPublicKeyDilithium.assign(pubDil.begin(), pubDil.end());
+    } else {
+        std::cerr << "❌ [ERROR] sender_pubkey_dilithium is empty!" << std::endl;
+    }
+
+    std::vector<unsigned char> pubFal = Crypto::fromHex(proto.sender_pubkey_falcon());
+    if (!pubFal.empty()) {
+        senderPublicKeyFalcon.assign(pubFal.begin(), pubFal.end());
+    } else {
+        std::cerr << "❌ [ERROR] sender_pubkey_falcon is empty!" << std::endl;
+    }
+
+    timestamp = proto.timestamp();
+    metadata = proto.metadata();
+    zkProof = proto.zkproof();
+    hash = proto.hash();
+
+    if (hash.empty()) {
+        hash = getTransactionHash();
+    }
+
+    return true;
 }
 
-//
+// ✅ Transaction::fromProto - hex decode required fields
 Transaction Transaction::fromProto(const alyncoin::TransactionProto &proto) {
     auto safeStr = [](const std::string &val, const std::string &label, size_t maxLen = 10000) -> std::string {
         if (val.size() > maxLen) {
-            std::cerr << "❌ [Transaction::fromProto] " << label << " too long (" << val.size() << " bytes). Skipping.\n";
+            std::cerr << "❌ [Transaction::fromProto] " << label << " too long (" << val.size() << " bytes)." << std::endl;
             return "";
         }
         return val;
     };
 
-    Transaction tx(
-        safeStr(proto.sender(), "sender", 4096),
-        safeStr(proto.recipient(), "recipient", 4096),
-        proto.amount(),
-        safeStr(proto.signature_dilithium(), "signature_dilithium", 10000),
-        safeStr(proto.signature_falcon(), "signature_falcon", 10000),
-        proto.timestamp()
-    );
+    std::string sender        = safeStr(proto.sender(), "sender", 4096);
+    std::string recipient     = safeStr(proto.recipient(), "recipient", 4096);
+    std::string sigDilHex     = safeStr(proto.signature_dilithium(), "signature_dilithium", 10000);
+    std::string sigFalHex     = safeStr(proto.signature_falcon(), "signature_falcon", 10000);
+    std::string zkProof       = safeStr(proto.zkproof(), "zkproof", 50000);
+    std::string metadata      = safeStr(proto.metadata(), "metadata", 16384);
+    std::string txHash        = safeStr(proto.hash(), "hash", 1024);
+    std::string dilPKHex      = safeStr(proto.sender_pubkey_dilithium(), "sender_pubkey_dilithium", 10000);
+    std::string falPKHex      = safeStr(proto.sender_pubkey_falcon(), "sender_pubkey_falcon", 10000);
 
-    tx.setZkProof(safeStr(proto.zkproof(), "zkproof", 50000));  // Limit for proof string
-    tx.senderPublicKeyDilithium = safeStr(proto.sender_pubkey_dilithium(), "sender_pubkey_dilithium", 10000);
-    tx.senderPublicKeyFalcon = safeStr(proto.sender_pubkey_falcon(), "sender_pubkey_falcon", 10000);
-    tx.metadata = safeStr(proto.metadata(), "metadata", 16384);
-    tx.hash = safeStr(proto.hash(), "hash", 1024);
+    Transaction tx(sender, recipient, proto.amount(), sigDilHex, sigFalHex, proto.timestamp());
+
+    tx.setZkProof(zkProof);
+    tx.metadata = metadata;
+
+    tx.senderPublicKeyDilithium = dilPKHex.empty() ? "" : dilPKHex;
+    tx.senderPublicKeyFalcon    = falPKHex.empty() ? "" : falPKHex;
+
+    tx.hash = txHash.empty() ? tx.getTransactionHash() : txHash;
 
     return tx;
 }
@@ -233,10 +273,10 @@ alyncoin::TransactionProto Transaction::toProto() const {
     proto.set_sender(sender);
     proto.set_recipient(recipient);
     proto.set_amount(amount);  // ✅ CRITICAL: Must be set
-    proto.set_signature_dilithium(signatureDilithium);
-    proto.set_signature_falcon(signatureFalcon);
-    proto.set_sender_pubkey_dilithium(senderPublicKeyDilithium);
-    proto.set_sender_pubkey_falcon(senderPublicKeyFalcon);
+    proto.set_signature_dilithium(Crypto::toHex(std::vector<unsigned char>(signatureDilithium.begin(), signatureDilithium.end())));
+    proto.set_signature_falcon(Crypto::toHex(std::vector<unsigned char>(signatureFalcon.begin(), signatureFalcon.end())));
+    proto.set_sender_pubkey_dilithium(Crypto::toHex(std::vector<unsigned char>(senderPublicKeyDilithium.begin(), senderPublicKeyDilithium.end())));
+    proto.set_sender_pubkey_falcon(Crypto::toHex(std::vector<unsigned char>(senderPublicKeyFalcon.begin(), senderPublicKeyFalcon.end())));
     proto.set_timestamp(timestamp);
     proto.set_zkproof(zkProof);
     proto.set_metadata(metadata);
@@ -270,12 +310,7 @@ void Transaction::signTransaction(const std::vector<unsigned char> &dilithiumPri
     }
 
     // ✅ Step 1: Create canonical hash from sender/recipient/amount/timestamp
-    std::ostringstream oss;
-    oss << sender << recipient
-        << std::fixed << std::setprecision(8) << amount
-        << timestamp;
-
-    hash = Crypto::sha256(oss.str());  // ✅ Store internally
+   hash = getTransactionHash();
     std::vector<unsigned char> hashBytes = Crypto::fromHex(hash);
 
     std::cout << "🔍 [DEBUG] Signing transaction hash: " << hash << std::endl;
