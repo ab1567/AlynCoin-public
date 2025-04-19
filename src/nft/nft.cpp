@@ -21,45 +21,58 @@
 #include "../db/db_instance.h"
 
 using json = nlohmann::json;
+// 🔧 Helper: build zk-STARK seed for NFTs
+std::string buildZkStarkSeed(const NFT& nft) {
+    std::ostringstream oss;
+    oss << nft.creator << nft.owner << nft.metadata << nft.imageHash << nft.timestamp;
+    return oss.str();
+}
 
 // ✅ Signature Verification (Falcon + optional Dilithium)
 bool NFT::verifySignature() const {
-    std::string dataToVerify = id + creator + owner + metadata + imageHash + std::to_string(timestamp);
-    std::vector<unsigned char> pubKey = Crypto::getPublicKeyFalcon(creator);
+    std::string message = getSignatureMessage();
+    std::vector<uint8_t> msgHash = Crypto::sha256ToBytes(message);
+
+    std::vector<uint8_t> pubKeyFalcon = Crypto::getPublicKeyFalcon(creator);
+    std::vector<uint8_t> sigFalcon = signature;
+
     std::cerr << "\n[DEBUG] Verifying NFT Signature:\n";
-    std::cerr << "  Message Hash (hex): " << Crypto::toHex(Crypto::sha256ToBytes(dataToVerify)) << "\n";
-    std::cerr << "  PublicKey.size: " << pubKey.size() << "\n";
-    std::cerr << "  Signature.size: " << signature.size() << "\n";
+    std::cerr << "  Message Hash (hex): " << Crypto::toHex(msgHash) << "\n";
+    std::cerr << "  FalconPub.size: " << pubKeyFalcon.size() << ", Sig.size: " << sigFalcon.size() << "\n";
 
-    if (pubKey.empty()) {
-        std::cerr << "❌ [NFT] Could not load Falcon public key for creator: " << creator << "\n";
-        return false;
-    }
-
-    bool falconValid = Crypto::verifyWithFalcon(Crypto::sha256ToBytes(dataToVerify), signature, pubKey);
+    bool valid = Crypto::verifyWithFalcon(msgHash, sigFalcon, pubKeyFalcon);
 
     if (!dilithium_signature.empty()) {
-        std::vector<unsigned char> dilithiumPubKey = Crypto::getPublicKeyDilithium(creator);
-        if (!dilithiumPubKey.empty()) {
-            bool dilithiumValid = Crypto::verifyWithDilithium(Crypto::sha256ToBytes(dataToVerify), dilithium_signature, dilithiumPubKey);
-            return falconValid && dilithiumValid;
-        }
+        std::vector<uint8_t> pubKeyDil = Crypto::getPublicKeyDilithium(creator);
+        std::vector<uint8_t> sigDil = dilithium_signature;
+        bool dilValid = Crypto::verifyWithDilithium(msgHash, sigDil, pubKeyDil);
+        return valid && dilValid;
     }
 
-    return falconValid;
+    return valid;
 }
 
 // ✅ zk-STARK
-bool NFT::verifyZkStarkProof() const {
-    return WinterfellStark::verifyNFTZkProof(*this);
+void NFT::generateZkStarkProof() {
+    std::string seed = id + creator + owner + metadata + imageHash + std::to_string(timestamp);
+    std::string txRoot = creator + metadata + std::to_string(timestamp);  // consistent seed input
+    std::string prevHash = "nft-prev";  // can be static unless versioned
+    std::string blockHash = Crypto::blake3(seed);
+
+    std::string proof = WinterfellStark::generateProof(blockHash, prevHash, txRoot);
+    zkStarkProof = std::vector<uint8_t>(proof.begin(), proof.end());
+
+    std::cerr << "✅ [ZK] NFT zk-STARK proof generated. Size: " << zkStarkProof.size() << " bytes\n";
 }
 
-void NFT::generateZkStarkProof() {
-    std::ostringstream seed;
-    seed << creator << owner << metadata << imageHash << timestamp;
-    std::string proof = WinterfellStark::generateTransactionProof(creator, owner, 0.0, timestamp);
-    zkStarkProof = std::vector<uint8_t>(proof.begin(), proof.end());
-    std::cerr << "✅ [ZK] NFT zk-STARK proof generated. Size: " << zkStarkProof.size() << " bytes\n";
+bool NFT::verifyZkStarkProof() const {
+    std::string seed = id + creator + owner + metadata + imageHash + std::to_string(timestamp);
+    std::string txRoot = creator + metadata + std::to_string(timestamp);
+    std::string prevHash = "nft-prev";
+    std::string blockHash = Crypto::blake3(seed);
+
+    std::string proofStr(zkStarkProof.begin(), zkStarkProof.end());
+    return WinterfellStark::verifyProof(proofStr, blockHash, prevHash, txRoot);
 }
 
 // ✅ Submit L2
@@ -297,7 +310,12 @@ std::string calculateHash(const std::string& input) {
 
 // 🔐 zk-STARK generation wrapper
 std::string generateZkStarkProof(const std::string& metadata, const std::string& imageHash, const std::string& creator) {
-    return WinterfellStark::generateTransactionProof(creator, creator, 0.0, std::time(nullptr));
+    int64_t ts = std::time(nullptr);
+    std::string seed = creator + creator + creator + metadata + imageHash + std::to_string(ts);
+    std::string txRoot = creator + metadata + std::to_string(ts);
+    std::string prevHash = "nft-prev";
+    std::string blockHash = Crypto::blake3(seed);
+    return WinterfellStark::generateProof(blockHash, prevHash, txRoot);
 }
 
 // 📤 Metadata hash broadcast (external re-minting version)

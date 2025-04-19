@@ -21,6 +21,17 @@ std::map<std::string, std::string> parseArgs(int argc, char* argv[]) {
     }
     return args;
 }
+//-------
+std::string stateToStr(SwapState s) {
+    switch (s) {
+        case SwapState::INITIATED: return "INITIATED";
+        case SwapState::REDEEMED: return "REDEEMED";
+        case SwapState::REFUNDED: return "REFUNDED";
+        case SwapState::EXPIRED: return "EXPIRED";
+        case SwapState::INVALID: return "INVALID";
+    }
+    return "UNKNOWN";
+}
 
 // -------------------- Print Functions --------------------
 void printSwap(const AtomicSwap& swap) {
@@ -32,7 +43,7 @@ void printSwap(const AtomicSwap& swap) {
               << "  Secret: " << (swap.secret ? *swap.secret : "(not revealed)") << "\n"
               << "  Created: " << std::ctime(&swap.createdAt)
               << "  Expires: " << std::ctime(&swap.expiresAt)
-              << "  State: " << static_cast<int>(swap.state) << "\n";
+              << "  State: " << stateToStr(swap.state) << "\n";
 
     if (swap.zkProof && !swap.zkProof->empty()) {
         std::cout << "  zk-STARK Proof: " << *swap.zkProof << "\n";
@@ -162,6 +173,34 @@ int main(int argc, char* argv[]) {
         } else if (cmd == "state") {
             SwapState state = manager.getSwapState(args["id"]);
             std::cout << "Swap state: " << static_cast<int>(state) << "\n";
+
+        } else if (cmd == "verify") {
+            auto swap = manager.getSwap(args["id"]);
+            if (!swap) {
+                std::cerr << "❌ Swap not found.\n";
+                return 1;
+            }
+            if (verifySwapSignature(*swap)) {
+                std::cout << "✅ Signature Verification PASSED\n";
+            } else {
+                std::cerr << "❌ Signature Verification FAILED\n";
+            }
+
+        } else if (cmd == "verifyproof") {
+            auto swap = manager.getSwap(args["id"]);
+            if (!swap || !swap->zkProof) {
+                std::cerr << "❌ No zk-STARK proof available.\n";
+                return 1;
+            }
+
+            std::string canonicalData = swap->uuid + swap->senderAddress + swap->receiverAddress +
+                                        std::to_string(swap->amount) + swap->secretHash +
+                                        std::to_string(swap->createdAt) + std::to_string(swap->expiresAt);
+            std::string seed = Crypto::blake3(canonicalData);
+            std::string expected = std::to_string(swap->amount);  // Can customize if needed
+
+            bool valid = WinterfellStark::verifyProof(*swap->zkProof, seed, expected, "AtomicSwapProof");
+            std::cout << (valid ? "✅ zk-STARK Proof Verified\n" : "❌ zk-STARK Proof Invalid\n");
 
         } else {
             printUsage();

@@ -65,6 +65,11 @@ public:
 
     // 📦 Export
     bool exportToFile(const std::string& filename = "") const;
+
+   std::string getSignatureMessage() const {
+    return id + creator + owner + metadata + imageHash + std::to_string(timestamp);
+  }
+
 };
 
 // === Standalone utility declarations for reMint ===

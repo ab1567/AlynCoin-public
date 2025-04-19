@@ -242,7 +242,7 @@ class ZkIdentityProto final :
   std::string* _internal_mutable_metadatahash();
   public:
 
-  // string zkProof = 6;
+  // bytes zkProof = 6;
   void clear_zkproof();
   const std::string& zkproof() const;
   template <typename ArgT0 = const std::string&, typename... ArgT>
@@ -256,7 +256,7 @@ class ZkIdentityProto final :
   std::string* _internal_mutable_zkproof();
   public:
 
-  // string falconSignature = 7;
+  // bytes falconSignature = 7;
   void clear_falconsignature();
   const std::string& falconsignature() const;
   template <typename ArgT0 = const std::string&, typename... ArgT>
@@ -270,7 +270,7 @@ class ZkIdentityProto final :
   std::string* _internal_mutable_falconsignature();
   public:
 
-  // string dilithiumSignature = 8;
+  // bytes dilithiumSignature = 8;
   void clear_dilithiumsignature();
   const std::string& dilithiumsignature() const;
   template <typename ArgT0 = const std::string&, typename... ArgT>
@@ -545,7 +545,7 @@ inline void ZkIdentityProto::set_createdat(int64_t value) {
   // @@protoc_insertion_point(field_set:identity.ZkIdentityProto.createdAt)
 }
 
-// string zkProof = 6;
+// bytes zkProof = 6;
 inline void ZkIdentityProto::clear_zkproof() {
   _impl_.zkproof_.ClearToEmpty();
 }
@@ -557,7 +557,7 @@ template <typename ArgT0, typename... ArgT>
 inline PROTOBUF_ALWAYS_INLINE
 void ZkIdentityProto::set_zkproof(ArgT0&& arg0, ArgT... args) {
  
- _impl_.zkproof_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+ _impl_.zkproof_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:identity.ZkIdentityProto.zkProof)
 }
 inline std::string* ZkIdentityProto::mutable_zkproof() {
@@ -595,7 +595,7 @@ inline void ZkIdentityProto::set_allocated_zkproof(std::string* zkproof) {
   // @@protoc_insertion_point(field_set_allocated:identity.ZkIdentityProto.zkProof)
 }
 
-// string falconSignature = 7;
+// bytes falconSignature = 7;
 inline void ZkIdentityProto::clear_falconsignature() {
   _impl_.falconsignature_.ClearToEmpty();
 }
@@ -607,7 +607,7 @@ template <typename ArgT0, typename... ArgT>
 inline PROTOBUF_ALWAYS_INLINE
 void ZkIdentityProto::set_falconsignature(ArgT0&& arg0, ArgT... args) {
  
- _impl_.falconsignature_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+ _impl_.falconsignature_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:identity.ZkIdentityProto.falconSignature)
 }
 inline std::string* ZkIdentityProto::mutable_falconsignature() {
@@ -645,7 +645,7 @@ inline void ZkIdentityProto::set_allocated_falconsignature(std::string* falconsi
   // @@protoc_insertion_point(field_set_allocated:identity.ZkIdentityProto.falconSignature)
 }
 
-// string dilithiumSignature = 8;
+// bytes dilithiumSignature = 8;
 inline void ZkIdentityProto::clear_dilithiumsignature() {
   _impl_.dilithiumsignature_.ClearToEmpty();
 }
@@ -657,7 +657,7 @@ template <typename ArgT0, typename... ArgT>
 inline PROTOBUF_ALWAYS_INLINE
 void ZkIdentityProto::set_dilithiumsignature(ArgT0&& arg0, ArgT... args) {
  
- _impl_.dilithiumsignature_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+ _impl_.dilithiumsignature_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:identity.ZkIdentityProto.dilithiumSignature)
 }
 inline std::string* ZkIdentityProto::mutable_dilithiumsignature() {

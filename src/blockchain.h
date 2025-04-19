@@ -173,7 +173,7 @@ public:
   int getBlockCount() const { return chain.size(); }
   void addVestingForEarlySupporter(const std::string &address, double initialAmount);
   bool castVote(const std::string &voterAddress, const std::string &candidateAddress);
-
+  std::vector<Transaction> getAllTransactionsForAddress(const std::string& address);
   // L2
   std::unordered_map<std::string, double> getCurrentState() const;
   std::unordered_map<std::string, double> simulateL2StateUpdate(
@@ -191,6 +191,8 @@ public:
   bool isL2Transaction(const Transaction &tx) const;
   std::vector<Transaction> getPendingL2Transactions() const;
   void clearChain() { chain.clear(); }
+  time_t getLastRollupTimestamp() const;
+  time_t getFirstPendingL2Timestamp() const;
 };
 
 // ✅ Standalone declaration outside the Blockchain class

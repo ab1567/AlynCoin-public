@@ -7,6 +7,7 @@
 #include <vector>
 #include <sstream>
 #include <cstdint>
+#include "../crypto_utils.h"
 
 // -------------------- Enum for Swap State --------------------
 enum class SwapState {
@@ -59,5 +60,23 @@ public:
     virtual bool updateSwap(const AtomicSwap& swap) = 0;
     virtual ~AtomicSwapStore() {}
 };
+
+// ---------------
+inline bool verifySwapSignature(const AtomicSwap& swap) {
+    std::string canonicalData = swap.uuid + swap.senderAddress + swap.receiverAddress +
+                                std::to_string(swap.amount) + swap.secretHash +
+                                std::to_string(swap.createdAt) + std::to_string(swap.expiresAt);
+
+    std::vector<uint8_t> msgHash = Crypto::sha256ToBytes(canonicalData);
+
+    std::vector<uint8_t> pubFal = Crypto::getPublicKeyFalcon(swap.senderAddress);
+    std::vector<uint8_t> sigFal = Crypto::fromHex(*swap.falconSignature);
+
+    std::vector<uint8_t> pubDil = Crypto::getPublicKeyDilithium(swap.senderAddress);
+    std::vector<uint8_t> sigDil = Crypto::fromHex(*swap.dilithiumSignature);
+
+    return Crypto::verifyWithFalcon(msgHash, sigFal, pubFal) &&
+           Crypto::verifyWithDilithium(msgHash, sigDil, pubDil);
+}
 
 #endif // ATOMIC_SWAP_H

@@ -13,7 +13,6 @@ private:
     std::string timestamp;
     std::string rollupHash;
     std::string nonce;
-
     std::string stateRootBefore;  // ✅ NEW
     std::string stateRootAfter;   // ✅ NEW
 
@@ -41,7 +40,7 @@ public:
     int getIndex() const;
     const std::vector<Transaction>& getTransactions() const;
     std::vector<std::string> getTransactionHashes() const;
-
+    std::string getTimestamp() const { return timestamp; }
     std::string getRollupProof() const { return rollupProof; }
     std::string getMerkleRoot() const { return merkleRoot; }
     std::string getNonce() const { return nonce; }

@@ -1371,4 +1371,5 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
  /root/AlynCoin/src/governance/devfund.h \
  /root/AlynCoin/src/governance/dao_storage.h \
  /root/AlynCoin/src/governance/dao.h /root/AlynCoin/src/db/db_instance.h \
- /root/AlynCoin/src/db/rocksdb_wrapper.h
+ /root/AlynCoin/src/db/rocksdb_wrapper.h \
+ /root/AlynCoin/src/zk/recursive_proof_helper.h

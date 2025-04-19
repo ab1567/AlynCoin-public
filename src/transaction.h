@@ -33,6 +33,10 @@ public:
   std::string getSenderPublicKeyDilithium() const {
     return senderPublicKeyDilithium;
   }
+  bool isL2() const {
+    return metadata.find("L2") == 0 || metadata.find("L2:") == 0;
+  }
+
   std::string getSenderPublicKeyFalcon() const { return senderPublicKeyFalcon; }
     void setSenderPublicKeyDilithium(const std::string &key) { senderPublicKeyDilithium = key; }
     void setSenderPublicKeyFalcon(const std::string &key) { senderPublicKeyFalcon = key; }

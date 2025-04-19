@@ -25,17 +25,25 @@ std::optional<std::string> AtomicSwapManager::initiateSwap(const std::string& se
     swap.expiresAt = swap.createdAt + durationSeconds;
     swap.state = SwapState::INITIATED;
 
-    // Optional: Falcon + Dilithium signatures (on swap metadata)
-    std::string swapData;
-    serializeSwap(swap, swapData);
+    // ✅ Canonical data for hash-based signing
+    std::string canonicalData = swap.uuid + swap.senderAddress + swap.receiverAddress +
+                                std::to_string(swap.amount) + swap.secretHash +
+                                std::to_string(swap.createdAt) + std::to_string(swap.expiresAt);
 
-    std::vector<unsigned char> swapBytes(swapData.begin(), swapData.end());
+    std::vector<uint8_t> msgHash = Crypto::sha256ToBytes(canonicalData);
+
+    // ✅ Sign with Falcon & Dilithium
     auto falKeys = Crypto::loadFalconKeys(sender);
     auto dilKeys = Crypto::loadDilithiumKeys(sender);
+    std::vector<uint8_t> sigFal = Crypto::signWithFalcon(msgHash, falKeys.privateKey);
+    std::vector<uint8_t> sigDil = Crypto::signWithDilithium(msgHash, dilKeys.privateKey);
 
-    swap.falconSignature = Crypto::toHex(Crypto::signWithFalcon(swapBytes, falKeys.privateKey));
-    swap.dilithiumSignature = Crypto::toHex(Crypto::signWithDilithium(swapBytes, dilKeys.privateKey));
+    swap.falconSignature = Crypto::toHex(sigFal);
+    swap.dilithiumSignature = Crypto::toHex(sigDil);
 
+    // ✅ Optional: zk-STARK Proof
+    std::string seedHash = Crypto::blake3(canonicalData);
+    swap.zkProof = WinterfellStark::generateProof(seedHash, "AtomicSwapProof", std::to_string(amount));
 
     bool success = store_->saveSwap(swap);
     return success ? std::optional<std::string>(swap.uuid) : std::nullopt;

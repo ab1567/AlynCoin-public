@@ -6,6 +6,39 @@
 #include <string>
 #include <map>
 #include <limits>
+#include "../zk/winterfell_stark.h"
+
+bool verifyIdentity(const ZkIdentity& id) {
+    std::string data = id.uuid + id.name + id.publicKey + id.metadataHash;
+    std::vector<uint8_t> msgHash = Crypto::sha256ToBytes(data);
+
+    std::cerr << "\n[VERIFY] Identity Verification for UUID: " << id.uuid << "\n";
+    std::cerr << "  Hash Input: " << Crypto::toHex(msgHash) << "\n";
+
+    bool falValid = false, dilValid = false, zkValid = false;
+
+    if (id.falconSignature) {
+        auto pubFal = Crypto::getPublicKeyFalcon(id.uuid);
+        auto sigFal = Crypto::fromHex(*id.falconSignature);
+        falValid = Crypto::verifyWithFalcon(msgHash, sigFal, pubFal);
+        std::cerr << (falValid ? "✅ Falcon signature verified.\n" : "❌ Falcon signature FAILED.\n");
+    }
+
+    if (id.dilithiumSignature) {
+        auto pubDil = Crypto::getPublicKeyDilithium(id.uuid);
+        auto sigDil = Crypto::fromHex(*id.dilithiumSignature);
+        dilValid = Crypto::verifyWithDilithium(msgHash, sigDil, pubDil);
+        std::cerr << (dilValid ? "✅ Dilithium signature verified.\n" : "❌ Dilithium signature FAILED.\n");
+    }
+
+    if (id.zkProof) {
+        zkValid = WinterfellStark::verifyIdentityProof(*id.zkProof, id.uuid, id.name, id.metadataHash);
+        std::cerr << (zkValid ? "✅ zk-STARK identity proof verified.\n" : "❌ zk-STARK proof FAILED.\n");
+    }
+
+    return falValid && dilValid && zkValid;
+}
+
 
 void printMenu() {
     std::cout << "\n[ zk-Identity CLI Menu ]\n"
@@ -13,7 +46,8 @@ void printMenu() {
               << "2. View Identity\n"
               << "3. List All Identities\n"
               << "4. Delete Identity\n"
-              << "5. Exit\n"
+              << "5. Verify Identity\n"
+              << "6. Exit\n"
               << "Choose an option: ";
 }
 
@@ -73,8 +107,24 @@ int main(int argc, char* argv[]) {
                 return 1;
             }
 
+	} else if (command == "verify" && argc == 3) {
+	    std::string uuid = argv[2];
+	    auto id = store->load(uuid);
+	    if (!id) {
+	        std::cerr << "❌ Identity not found.\n";
+	        return 1;
+	    }
+
+	    if (verifyIdentity(*id)) {
+	        std::cout << "✅ All verifications passed.\n";
+	        return 0;
+	    } else {
+	        std::cerr << "❌ One or more verifications failed.\n";
+	        return 1;
+	    }
+
         } else {
-            std::cerr << "❌ Invalid command or arguments.\n";
+           std::cerr << "❌ Invalid command or arguments.\n";
             std::cerr << "Usage:\n"
                       << "  identitycli create <address> <displayName>\n"
                       << "  identitycli view <address>\n"
@@ -141,6 +191,21 @@ int main(int argc, char* argv[]) {
             }
 
         } else if (choice == 5) {
+            std::string address;
+            std::cout << "Enter identity address to verify: ";
+            std::getline(std::cin, address);
+            auto id = store->load(address);
+            if (!id) {
+                std::cout << "❌ Identity not found.\n";
+            } else {
+                if (verifyIdentity(*id)) {
+                    std::cout << "✅ All verifications passed.\n";
+                } else {
+                    std::cout << "❌ One or more verifications failed.\n";
+                }
+            }
+
+        } else if (choice == 6) {
             break;
 
         } else {

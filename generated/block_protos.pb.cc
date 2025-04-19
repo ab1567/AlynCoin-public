@@ -118,9 +118,9 @@ const char descriptor_table_protodef_block_5fprotos_2eproto[] PROTOBUF_SECTION_V
   "nonce\030\006 \001(\004\022\021\n\ttimestamp\030\007 \001(\004\022\022\n\ndiffic"
   "ulty\030\010 \001(\005\022\027\n\017block_signature\030\t \001(\t\022\023\n\013k"
   "eccak_hash\030\n \001(\t\022\026\n\016zk_stark_proof\030\013 \001(\014"
-  "\022\033\n\023dilithium_signature\030\014 \001(\t\022\030\n\020falcon_"
-  "signature\030\r \001(\t\022\034\n\024public_key_dilithium\030"
-  "\016 \001(\t\022\031\n\021public_key_falcon\030\017 \001(\t\022\022\n\nstat"
+  "\022\033\n\023dilithium_signature\030\014 \001(\014\022\030\n\020falcon_"
+  "signature\030\r \001(\014\022\034\n\024public_key_dilithium\030"
+  "\016 \001(\014\022\031\n\021public_key_falcon\030\017 \001(\014\022\022\n\nstat"
   "e_root\030\020 \001(\t\022\026\n\016tx_merkle_root\030\021 \001(\t\022\023\n\006"
   "reward\030\022 \001(\001H\000\210\001\001B\t\n\007_rewardb\006proto3"
   ;
@@ -535,43 +535,39 @@ const char* BlockProto::_InternalParse(const char* ptr, ::_pbi::ParseContext* ct
         } else
           goto handle_unusual;
         continue;
-      // string dilithium_signature = 12;
+      // bytes dilithium_signature = 12;
       case 12:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 98)) {
           auto str = _internal_mutable_dilithium_signature();
           ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(ptr);
-          CHK_(::_pbi::VerifyUTF8(str, "alyncoin.BlockProto.dilithium_signature"));
         } else
           goto handle_unusual;
         continue;
-      // string falcon_signature = 13;
+      // bytes falcon_signature = 13;
       case 13:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 106)) {
           auto str = _internal_mutable_falcon_signature();
           ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(ptr);
-          CHK_(::_pbi::VerifyUTF8(str, "alyncoin.BlockProto.falcon_signature"));
         } else
           goto handle_unusual;
         continue;
-      // string public_key_dilithium = 14;
+      // bytes public_key_dilithium = 14;
       case 14:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 114)) {
           auto str = _internal_mutable_public_key_dilithium();
           ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(ptr);
-          CHK_(::_pbi::VerifyUTF8(str, "alyncoin.BlockProto.public_key_dilithium"));
         } else
           goto handle_unusual;
         continue;
-      // string public_key_falcon = 15;
+      // bytes public_key_falcon = 15;
       case 15:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 122)) {
           auto str = _internal_mutable_public_key_falcon();
           ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(ptr);
-          CHK_(::_pbi::VerifyUTF8(str, "alyncoin.BlockProto.public_key_falcon"));
         } else
           goto handle_unusual;
         continue;
@@ -722,43 +718,27 @@ uint8_t* BlockProto::_InternalSerialize(
         11, this->_internal_zk_stark_proof(), target);
   }
 
-  // string dilithium_signature = 12;
+  // bytes dilithium_signature = 12;
   if (!this->_internal_dilithium_signature().empty()) {
-    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
-      this->_internal_dilithium_signature().data(), static_cast<int>(this->_internal_dilithium_signature().length()),
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
-      "alyncoin.BlockProto.dilithium_signature");
-    target = stream->WriteStringMaybeAliased(
+    target = stream->WriteBytesMaybeAliased(
         12, this->_internal_dilithium_signature(), target);
   }
 
-  // string falcon_signature = 13;
+  // bytes falcon_signature = 13;
   if (!this->_internal_falcon_signature().empty()) {
-    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
-      this->_internal_falcon_signature().data(), static_cast<int>(this->_internal_falcon_signature().length()),
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
-      "alyncoin.BlockProto.falcon_signature");
-    target = stream->WriteStringMaybeAliased(
+    target = stream->WriteBytesMaybeAliased(
         13, this->_internal_falcon_signature(), target);
   }
 
-  // string public_key_dilithium = 14;
+  // bytes public_key_dilithium = 14;
   if (!this->_internal_public_key_dilithium().empty()) {
-    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
-      this->_internal_public_key_dilithium().data(), static_cast<int>(this->_internal_public_key_dilithium().length()),
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
-      "alyncoin.BlockProto.public_key_dilithium");
-    target = stream->WriteStringMaybeAliased(
+    target = stream->WriteBytesMaybeAliased(
         14, this->_internal_public_key_dilithium(), target);
   }
 
-  // string public_key_falcon = 15;
+  // bytes public_key_falcon = 15;
   if (!this->_internal_public_key_falcon().empty()) {
-    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
-      this->_internal_public_key_falcon().data(), static_cast<int>(this->_internal_public_key_falcon().length()),
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
-      "alyncoin.BlockProto.public_key_falcon");
-    target = stream->WriteStringMaybeAliased(
+    target = stream->WriteBytesMaybeAliased(
         15, this->_internal_public_key_falcon(), target);
   }
 
@@ -853,31 +833,31 @@ size_t BlockProto::ByteSizeLong() const {
         this->_internal_zk_stark_proof());
   }
 
-  // string dilithium_signature = 12;
+  // bytes dilithium_signature = 12;
   if (!this->_internal_dilithium_signature().empty()) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::BytesSize(
         this->_internal_dilithium_signature());
   }
 
-  // string falcon_signature = 13;
+  // bytes falcon_signature = 13;
   if (!this->_internal_falcon_signature().empty()) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::BytesSize(
         this->_internal_falcon_signature());
   }
 
-  // string public_key_dilithium = 14;
+  // bytes public_key_dilithium = 14;
   if (!this->_internal_public_key_dilithium().empty()) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::BytesSize(
         this->_internal_public_key_dilithium());
   }
 
-  // string public_key_falcon = 15;
+  // bytes public_key_falcon = 15;
   if (!this->_internal_public_key_falcon().empty()) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::BytesSize(
         this->_internal_public_key_falcon());
   }
 

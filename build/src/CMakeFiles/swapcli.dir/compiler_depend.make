@@ -3,6 +3,7 @@
 
 src/CMakeFiles/swapcli.dir/atomic_swaps/proto_utils.cpp.o: /root/AlynCoin/src/atomic_swaps/proto_utils.cpp \
   generated/atomic_swap.pb.h \
+  /root/AlynCoin/src/crypto_utils.h \
   /root/AlynCoin/src/atomic_swaps/atomic_swap.h \
   /root/AlynCoin/src/atomic_swaps/proto_utils.h \
   /usr/include/alloca.h \
@@ -221,6 +222,54 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/proto_utils.cpp.o: /root/AlynCoin/src/at
   /usr/include/linux/errno.h \
   /usr/include/linux/limits.h \
   /usr/include/locale.h \
+  /usr/include/openssl/asn1.h \
+  /usr/include/openssl/asn1err.h \
+  /usr/include/openssl/bio.h \
+  /usr/include/openssl/bioerr.h \
+  /usr/include/openssl/bn.h \
+  /usr/include/openssl/bnerr.h \
+  /usr/include/openssl/buffer.h \
+  /usr/include/openssl/buffererr.h \
+  /usr/include/openssl/conf.h \
+  /usr/include/openssl/conferr.h \
+  /usr/include/openssl/conftypes.h \
+  /usr/include/openssl/core.h \
+  /usr/include/openssl/core_dispatch.h \
+  /usr/include/openssl/crypto.h \
+  /usr/include/openssl/cryptoerr.h \
+  /usr/include/openssl/cryptoerr_legacy.h \
+  /usr/include/openssl/dh.h \
+  /usr/include/openssl/dherr.h \
+  /usr/include/openssl/dsa.h \
+  /usr/include/openssl/dsaerr.h \
+  /usr/include/openssl/e_os2.h \
+  /usr/include/openssl/ec.h \
+  /usr/include/openssl/ecerr.h \
+  /usr/include/openssl/err.h \
+  /usr/include/openssl/evp.h \
+  /usr/include/openssl/evperr.h \
+  /usr/include/openssl/http.h \
+  /usr/include/openssl/lhash.h \
+  /usr/include/openssl/macros.h \
+  /usr/include/openssl/obj_mac.h \
+  /usr/include/openssl/objects.h \
+  /usr/include/openssl/objectserr.h \
+  /usr/include/openssl/opensslv.h \
+  /usr/include/openssl/params.h \
+  /usr/include/openssl/pem.h \
+  /usr/include/openssl/pemerr.h \
+  /usr/include/openssl/pkcs7.h \
+  /usr/include/openssl/pkcs7err.h \
+  /usr/include/openssl/rsa.h \
+  /usr/include/openssl/rsaerr.h \
+  /usr/include/openssl/safestack.h \
+  /usr/include/openssl/sha.h \
+  /usr/include/openssl/stack.h \
+  /usr/include/openssl/symhacks.h \
+  /usr/include/openssl/types.h \
+  /usr/include/openssl/x509.h \
+  /usr/include/openssl/x509_vfy.h \
+  /usr/include/openssl/x509err.h \
   /usr/include/pthread.h \
   /usr/include/sched.h \
   /usr/include/stdc-predef.h \
@@ -312,6 +361,8 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/proto_utils.cpp.o: /root/AlynCoin/src/at
   /usr/include/x86_64-linux-gnu/c++/13/bits/os_defines.h \
   /usr/include/x86_64-linux-gnu/gnu/stubs-64.h \
   /usr/include/x86_64-linux-gnu/gnu/stubs.h \
+  /usr/include/x86_64-linux-gnu/openssl/configuration.h \
+  /usr/include/x86_64-linux-gnu/openssl/opensslconf.h \
   /usr/include/x86_64-linux-gnu/sys/cdefs.h \
   /usr/include/x86_64-linux-gnu/sys/select.h \
   /usr/include/x86_64-linux-gnu/sys/single_threaded.h \
@@ -323,6 +374,7 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/proto_utils.cpp.o: /root/AlynCoin/src/at
   /usr/lib/gcc/x86_64-linux-gnu/13/include/syslimits.h
 
 src/CMakeFiles/swapcli.dir/atomic_swaps/rocksdb_swap_store.cpp.o: /root/AlynCoin/src/atomic_swaps/rocksdb_swap_store.cpp \
+  /root/AlynCoin/src/crypto_utils.h \
   /root/AlynCoin/src/atomic_swaps/atomic_swap.h \
   /root/AlynCoin/src/atomic_swaps/proto_utils.h \
   /root/AlynCoin/src/atomic_swaps/rocksdb_swap_store.h \
@@ -493,6 +545,54 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/rocksdb_swap_store.cpp.o: /root/AlynCoin
   /usr/include/linux/errno.h \
   /usr/include/linux/limits.h \
   /usr/include/locale.h \
+  /usr/include/openssl/asn1.h \
+  /usr/include/openssl/asn1err.h \
+  /usr/include/openssl/bio.h \
+  /usr/include/openssl/bioerr.h \
+  /usr/include/openssl/bn.h \
+  /usr/include/openssl/bnerr.h \
+  /usr/include/openssl/buffer.h \
+  /usr/include/openssl/buffererr.h \
+  /usr/include/openssl/conf.h \
+  /usr/include/openssl/conferr.h \
+  /usr/include/openssl/conftypes.h \
+  /usr/include/openssl/core.h \
+  /usr/include/openssl/core_dispatch.h \
+  /usr/include/openssl/crypto.h \
+  /usr/include/openssl/cryptoerr.h \
+  /usr/include/openssl/cryptoerr_legacy.h \
+  /usr/include/openssl/dh.h \
+  /usr/include/openssl/dherr.h \
+  /usr/include/openssl/dsa.h \
+  /usr/include/openssl/dsaerr.h \
+  /usr/include/openssl/e_os2.h \
+  /usr/include/openssl/ec.h \
+  /usr/include/openssl/ecerr.h \
+  /usr/include/openssl/err.h \
+  /usr/include/openssl/evp.h \
+  /usr/include/openssl/evperr.h \
+  /usr/include/openssl/http.h \
+  /usr/include/openssl/lhash.h \
+  /usr/include/openssl/macros.h \
+  /usr/include/openssl/obj_mac.h \
+  /usr/include/openssl/objects.h \
+  /usr/include/openssl/objectserr.h \
+  /usr/include/openssl/opensslv.h \
+  /usr/include/openssl/params.h \
+  /usr/include/openssl/pem.h \
+  /usr/include/openssl/pemerr.h \
+  /usr/include/openssl/pkcs7.h \
+  /usr/include/openssl/pkcs7err.h \
+  /usr/include/openssl/rsa.h \
+  /usr/include/openssl/rsaerr.h \
+  /usr/include/openssl/safestack.h \
+  /usr/include/openssl/sha.h \
+  /usr/include/openssl/stack.h \
+  /usr/include/openssl/symhacks.h \
+  /usr/include/openssl/types.h \
+  /usr/include/openssl/x509.h \
+  /usr/include/openssl/x509_vfy.h \
+  /usr/include/openssl/x509err.h \
   /usr/include/pthread.h \
   /usr/include/rocksdb/advanced_options.h \
   /usr/include/rocksdb/block_cache_trace_writer.h \
@@ -629,6 +729,8 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/rocksdb_swap_store.cpp.o: /root/AlynCoin
   /usr/include/x86_64-linux-gnu/c++/13/bits/os_defines.h \
   /usr/include/x86_64-linux-gnu/gnu/stubs-64.h \
   /usr/include/x86_64-linux-gnu/gnu/stubs.h \
+  /usr/include/x86_64-linux-gnu/openssl/configuration.h \
+  /usr/include/x86_64-linux-gnu/openssl/opensslconf.h \
   /usr/include/x86_64-linux-gnu/sys/cdefs.h \
   /usr/include/x86_64-linux-gnu/sys/select.h \
   /usr/include/x86_64-linux-gnu/sys/single_threaded.h \
@@ -1514,65 +1616,11 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/swapcli.cpp.o: /root/AlynCoin/src/atomic
 
 /root/AlynCoin/src/atomic_swaps/swapcli.cpp:
 
-/usr/include/x86_64-linux-gnu/openssl/opensslconf.h:
-
-/usr/include/x86_64-linux-gnu/openssl/configuration.h:
-
-/usr/include/openssl/sha.h:
-
-/usr/include/openssl/safestack.h:
-
-/usr/include/openssl/rsaerr.h:
-
-/usr/include/openssl/rsa.h:
-
-/usr/include/openssl/pkcs7.h:
-
-/usr/include/openssl/params.h:
-
-/usr/include/openssl/macros.h:
-
-/usr/include/openssl/lhash.h:
-
-/usr/include/openssl/x509.h:
-
-/usr/include/openssl/objectserr.h:
-
-/usr/include/openssl/http.h:
-
-/usr/include/openssl/evperr.h:
-
-/usr/include/openssl/ecerr.h:
-
-/usr/include/openssl/ec.h:
-
-/usr/include/openssl/dsaerr.h:
-
-/usr/include/openssl/cryptoerr_legacy.h:
-
-/usr/include/openssl/crypto.h:
-
-/usr/include/openssl/core.h:
-
-/usr/include/openssl/conftypes.h:
-
-/usr/include/openssl/conferr.h:
-
-/usr/include/openssl/conf.h:
-
-/usr/include/openssl/bio.h:
-
-/usr/include/openssl/asn1err.h:
-
 /root/AlynCoin/src/zk/winterfell_stark.h:
 
 /root/AlynCoin/src/nft/nft.h:
 
 /usr/include/rocksdb/wide_columns.h:
-
-/usr/include/openssl/bnerr.h:
-
-/usr/include/rocksdb/utilities/transaction.h:
 
 /usr/include/c++/13/bits/quoted_string.h:
 
@@ -1587,10 +1635,6 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/swapcli.cpp.o: /root/AlynCoin/src/atomic
 /usr/include/rocksdb/system_clock.h:
 
 /usr/include/rocksdb/status.h:
-
-/usr/include/openssl/asn1.h:
-
-/usr/include/rocksdb/sst_file_writer.h:
 
 /usr/include/rocksdb/slice.h:
 
@@ -1634,17 +1678,9 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/swapcli.cpp.o: /root/AlynCoin/src/atomic
 
 /usr/include/rocksdb/advanced_options.h:
 
-/usr/include/openssl/bioerr.h:
-
-/usr/include/c++/13/cstdarg:
-
 /usr/include/c++/13/chrono:
 
 /root/AlynCoin/src/atomic_swaps/rocksdb_swap_store.h:
-
-/usr/include/openssl/dsa.h:
-
-/usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h:
 
 /usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h:
 
@@ -1655,6 +1691,10 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/swapcli.cpp.o: /root/AlynCoin/src/atomic
 /usr/include/x86_64-linux-gnu/sys/single_threaded.h:
 
 /usr/include/x86_64-linux-gnu/sys/cdefs.h:
+
+/usr/include/x86_64-linux-gnu/openssl/opensslconf.h:
+
+/usr/include/x86_64-linux-gnu/openssl/configuration.h:
 
 /usr/include/x86_64-linux-gnu/gnu/stubs.h:
 
@@ -1681,10 +1721,6 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/swapcli.cpp.o: /root/AlynCoin/src/atomic
 /usr/include/x86_64-linux-gnu/bits/wordsize.h:
 
 /usr/include/x86_64-linux-gnu/bits/wctype-wchar.h:
-
-/usr/include/openssl/types.h:
-
-/usr/include/x86_64-linux-gnu/bits/wchar.h:
 
 /usr/include/x86_64-linux-gnu/bits/waitflags.h:
 
@@ -1718,10 +1754,6 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/swapcli.cpp.o: /root/AlynCoin/src/atomic
 
 /usr/include/x86_64-linux-gnu/bits/types/__FILE.h:
 
-/usr/include/openssl/core_dispatch.h:
-
-/usr/include/x86_64-linux-gnu/bits/types/FILE.h:
-
 /usr/include/x86_64-linux-gnu/bits/types.h:
 
 /usr/include/x86_64-linux-gnu/bits/time64.h:
@@ -1730,13 +1762,77 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/swapcli.cpp.o: /root/AlynCoin/src/atomic
 
 /usr/include/x86_64-linux-gnu/bits/struct_mutex.h:
 
-/usr/include/x86_64-linux-gnu/bits/types/struct_tm.h:
+/usr/include/x86_64-linux-gnu/bits/timex.h:
 
-/usr/include/c++/13/ext/atomicity.h:
+/usr/include/x86_64-linux-gnu/bits/stdio_lim.h:
 
-/usr/include/c++/13/cctype:
+/usr/include/x86_64-linux-gnu/c++/13/bits/gthr-default.h:
+
+/usr/include/x86_64-linux-gnu/bits/types/struct_timespec.h:
+
+/usr/include/x86_64-linux-gnu/bits/stdint-uintn.h:
+
+/usr/include/x86_64-linux-gnu/bits/stdint-least.h:
+
+/usr/include/rocksdb/db.h:
+
+/usr/include/x86_64-linux-gnu/bits/time.h:
+
+/usr/include/x86_64-linux-gnu/bits/select.h:
+
+/usr/include/x86_64-linux-gnu/bits/sched.h:
+
+/usr/include/x86_64-linux-gnu/bits/pthreadtypes.h:
+
+/usr/include/x86_64-linux-gnu/bits/pthread_stack_min-dynamic.h:
 
 /usr/include/x86_64-linux-gnu/bits/posix1_lim.h:
+
+/usr/include/x86_64-linux-gnu/bits/local_lim.h:
+
+/usr/include/x86_64-linux-gnu/bits/floatn.h:
+
+/usr/include/x86_64-linux-gnu/bits/endian.h:
+
+/usr/include/x86_64-linux-gnu/bits/byteswap.h:
+
+/usr/include/x86_64-linux-gnu/bits/atomic_wide_counter.h:
+
+/usr/include/x86_64-linux-gnu/asm/errno.h:
+
+/usr/include/x86_64-linux-gnu/bits/setjmp.h:
+
+/usr/include/time.h:
+
+/usr/include/c++/13/iomanip:
+
+/usr/include/strings.h:
+
+/usr/include/string.h:
+
+/usr/include/stdlib.h:
+
+/usr/include/stdc-predef.h:
+
+/usr/include/wctype.h:
+
+/usr/include/sched.h:
+
+/usr/include/pthread.h:
+
+/usr/include/x86_64-linux-gnu/bits/wchar.h:
+
+/usr/include/openssl/types.h:
+
+/usr/include/openssl/sha.h:
+
+/usr/include/openssl/safestack.h:
+
+/usr/include/openssl/rsaerr.h:
+
+/usr/include/openssl/rsa.h:
+
+/usr/include/openssl/pkcs7.h:
 
 /usr/include/c++/13/debug/assertions.h:
 
@@ -1744,23 +1840,23 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/swapcli.cpp.o: /root/AlynCoin/src/atomic
 
 /usr/include/c++/13/bits/charconv.h:
 
+/usr/include/x86_64-linux-gnu/bits/errno.h:
+
+/usr/include/c++/13/bits/stl_pair.h:
+
 /usr/include/c++/13/clocale:
 
 /usr/include/c++/13/cerrno:
-
-/usr/include/x86_64-linux-gnu/bits/stdint-least.h:
 
 /usr/include/c++/13/cstdint:
 
 /usr/include/c++/13/cstdlib:
 
-/usr/include/openssl/buffererr.h:
+/usr/include/c++/13/cctype:
 
-/usr/include/c++/13/bits/stl_function.h:
+/usr/include/x86_64-linux-gnu/bits/types/struct_tm.h:
 
-/usr/include/openssl/buffer.h:
-
-/usr/include/c++/13/bits/uses_allocator_args.h:
+/usr/include/c++/13/ext/atomicity.h:
 
 /usr/include/c++/13/bits/unordered_set.h:
 
@@ -1773,6 +1869,14 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/swapcli.cpp.o: /root/AlynCoin/src/atomic
 /usr/include/c++/13/bits/align.h:
 
 /usr/include/c++/13/bits/streambuf.tcc:
+
+/usr/include/rocksdb/rocksdb_namespace.h:
+
+/usr/include/stdint.h:
+
+/usr/include/endian.h:
+
+/usr/include/openssl/dsaerr.h:
 
 /usr/include/c++/13/bits/unordered_map.h:
 
@@ -1800,7 +1904,13 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/swapcli.cpp.o: /root/AlynCoin/src/atomic
 
 /usr/include/c++/13/bits/stl_relops.h:
 
+/usr/include/stdio.h:
+
+/usr/include/c++/13/bits/stl_iterator_base_types.h:
+
 /usr/include/google/protobuf/any.h:
+
+/usr/include/openssl/macros.h:
 
 /usr/include/x86_64-linux-gnu/bits/types/struct_sched_param.h:
 
@@ -1820,11 +1930,11 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/swapcli.cpp.o: /root/AlynCoin/src/atomic
 
 /usr/include/c++/13/bits/stl_algobase.h:
 
+/usr/include/c++/13/bits/stl_function.h:
+
+/usr/include/openssl/buffererr.h:
+
 /usr/include/c++/13/cstddef:
-
-/usr/include/c++/13/bits/stl_pair.h:
-
-/usr/include/x86_64-linux-gnu/bits/errno.h:
 
 /usr/include/c++/13/bits/uses_allocator.h:
 
@@ -1833,14 +1943,6 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/swapcli.cpp.o: /root/AlynCoin/src/atomic
 /usr/include/c++/13/bits/stl_multiset.h:
 
 /usr/include/c++/13/bits/sstream.tcc:
-
-/usr/include/openssl/cryptoerr.h:
-
-/root/AlynCoin/src/generated/nft.pb.h:
-
-/usr/include/rocksdb/types.h:
-
-/usr/include/c++/13/cwctype:
 
 /usr/include/c++/13/bits/stl_list.h:
 
@@ -1852,11 +1954,9 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/swapcli.cpp.o: /root/AlynCoin/src/atomic
 
 /usr/include/c++/13/bits/string_view.tcc:
 
-/usr/include/openssl/bn.h:
+/usr/include/x86_64-linux-gnu/bits/floatn-common.h:
 
-/usr/include/x86_64-linux-gnu/c++/13/bits/c++allocator.h:
-
-/usr/include/google/protobuf/stubs/once.h:
+/usr/include/c++/13/bits/requires_hosted.h:
 
 /usr/include/c++/13/bits/locale_facets.tcc:
 
@@ -1880,17 +1980,9 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/swapcli.cpp.o: /root/AlynCoin/src/atomic
 
 /usr/include/c++/13/bits/atomic_lockfree_defines.h:
 
-/usr/include/x86_64-linux-gnu/asm/errno.h:
-
 /usr/include/c++/13/bits/locale_facets.h:
 
 /usr/include/c++/13/ext/aligned_buffer.h:
-
-/usr/include/openssl/err.h:
-
-/usr/include/c++/13/bits/utility.h:
-
-/usr/include/x86_64-linux-gnu/bits/pthreadtypes-arch.h:
 
 /usr/include/c++/13/list:
 
@@ -1904,7 +1996,17 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/swapcli.cpp.o: /root/AlynCoin/src/atomic
 
 /usr/include/c++/13/bits/algorithmfwd.h:
 
+/usr/include/openssl/conferr.h:
+
 /usr/include/c++/13/bits/predefined_ops.h:
+
+/usr/include/x86_64-linux-gnu/bits/locale.h:
+
+/usr/include/google/protobuf/stubs/macros.h:
+
+/usr/include/wchar.h:
+
+/usr/include/c++/13/bits/shared_ptr_base.h:
 
 /usr/include/c++/13/bits/basic_ios.h:
 
@@ -1914,6 +2016,8 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/swapcli.cpp.o: /root/AlynCoin/src/atomic
 
 /usr/include/c++/13/mutex:
 
+/usr/include/openssl/ec.h:
+
 /usr/include/openssl/stack.h:
 
 /usr/include/c++/13/bits/allocated_ptr.h:
@@ -1921,6 +2025,10 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/swapcli.cpp.o: /root/AlynCoin/src/atomic
 /usr/include/c++/13/bit:
 
 /usr/include/c++/13/bits/basic_string.tcc:
+
+/usr/include/x86_64-linux-gnu/bits/posix2_lim.h:
+
+/usr/include/c++/13/bits/enable_special_members.h:
 
 /usr/include/x86_64-linux-gnu/bits/uio_lim.h:
 
@@ -1944,11 +2052,29 @@ generated/atomic_swap.pb.h:
 
 /usr/include/c++/13/pstl/glue_algorithm_defs.h:
 
+/usr/include/rocksdb/write_batch_base.h:
+
+/usr/include/c++/13/bits/memoryfwd.h:
+
 /usr/include/openssl/obj_mac.h:
 
 /usr/include/c++/13/backward/binders.h:
 
 /root/AlynCoin/src/atomic_swaps/atomic_swap.h:
+
+/usr/include/rocksdb/port_defs.h:
+
+/usr/include/c++/13/bits/stl_set.h:
+
+/usr/include/c++/13/bits/ostream_insert.h:
+
+/root/AlynCoin/src/generated/nft.pb.h:
+
+/usr/include/rocksdb/types.h:
+
+/usr/include/c++/13/cwctype:
+
+/usr/include/openssl/cryptoerr.h:
 
 /usr/include/x86_64-linux-gnu/sys/select.h:
 
@@ -1958,29 +2084,7 @@ generated/atomic_swap.pb.h:
 
 /usr/include/google/protobuf/stubs/stl_util.h:
 
-/usr/include/c++/13/bits/locale_conv.h:
-
-/usr/include/c++/13/bits/istream.tcc:
-
-/usr/include/c++/13/bits/exception_ptr.h:
-
-/usr/include/x86_64-linux-gnu/bits/types/__locale_t.h:
-
-/usr/include/c++/13/bits/stl_multimap.h:
-
-/usr/include/c++/13/bits/vector.tcc:
-
-/usr/include/c++/13/optional:
-
-/usr/include/openssl/pemerr.h:
-
-/usr/include/x86_64-linux-gnu/c++/13/bits/ctype_inline.h:
-
-/usr/include/c++/13/bits/std_function.h:
-
-/usr/include/c++/13/bits/char_traits.h:
-
-/usr/include/c++/13/bits/hashtable_policy.h:
+/usr/include/assert.h:
 
 /usr/include/rocksdb/write_batch.h:
 
@@ -1989,10 +2093,6 @@ generated/atomic_swap.pb.h:
 /usr/include/google/protobuf/arenaz_sampler.h:
 
 /usr/include/c++/13/bits/basic_string.h:
-
-/usr/include/c++/13/bits/chrono.h:
-
-/usr/include/x86_64-linux-gnu/bits/endianness.h:
 
 /usr/include/c++/13/bits/streambuf_iterator.h:
 
@@ -2014,11 +2114,19 @@ generated/atomic_swap.pb.h:
 
 /usr/include/google/protobuf/endian.h:
 
+/usr/include/x86_64-linux-gnu/bits/types/FILE.h:
+
+/usr/include/openssl/core_dispatch.h:
+
 /usr/include/c++/13/bits/stl_raw_storage_iter.h:
 
 /usr/include/c++/13/algorithm:
 
 /usr/include/c++/13/array:
+
+/usr/include/c++/13/bits/uses_allocator_args.h:
+
+/usr/include/openssl/buffer.h:
 
 /usr/include/c++/13/bits/stl_iterator_base_funcs.h:
 
@@ -2028,11 +2136,33 @@ generated/atomic_swap.pb.h:
 
 /usr/include/c++/13/bits/hash_bytes.h:
 
-/usr/include/assert.h:
+/usr/include/x86_64-linux-gnu/bits/endianness.h:
 
-/usr/include/openssl/dh.h:
+/usr/include/c++/13/bits/chrono.h:
 
-/usr/include/c++/13/backward/auto_ptr.h:
+/usr/include/x86_64-linux-gnu/c++/13/bits/ctype_inline.h:
+
+/usr/include/c++/13/bits/std_function.h:
+
+/usr/include/openssl/pemerr.h:
+
+/usr/include/c++/13/bits/char_traits.h:
+
+/usr/include/c++/13/bits/hashtable_policy.h:
+
+/usr/include/c++/13/bits/locale_conv.h:
+
+/usr/include/c++/13/bits/istream.tcc:
+
+/usr/include/c++/13/bits/exception_ptr.h:
+
+/usr/include/x86_64-linux-gnu/bits/types/__locale_t.h:
+
+/usr/include/c++/13/bits/stl_multimap.h:
+
+/usr/include/c++/13/bits/vector.tcc:
+
+/usr/include/c++/13/optional:
 
 /usr/include/c++/13/bits/localefwd.h:
 
@@ -2046,12 +2176,6 @@ generated/atomic_swap.pb.h:
 
 /usr/include/c++/13/bits/exception.h:
 
-/usr/include/openssl/opensslv.h:
-
-/usr/include/c++/13/condition_variable:
-
-/usr/include/x86_64-linux-gnu/bits/stdlib-float.h:
-
 /usr/include/c++/13/bits/basic_ios.tcc:
 
 /usr/include/c++/13/pstl/execution_defs.h:
@@ -2064,19 +2188,13 @@ generated/atomic_swap.pb.h:
 
 /usr/include/errno.h:
 
+/usr/include/c++/13/backward/auto_ptr.h:
+
+/usr/include/openssl/dh.h:
+
 /usr/include/x86_64-linux-gnu/bits/types/error_t.h:
 
 /usr/include/c++/13/bits/hashtable.h:
-
-/usr/include/rocksdb/port_defs.h:
-
-/usr/include/c++/13/bits/stl_set.h:
-
-/usr/include/c++/13/bits/ostream_insert.h:
-
-/usr/include/openssl/evp.h:
-
-/usr/include/c++/13/bits/ostream.tcc:
 
 /usr/include/x86_64-linux-gnu/bits/uintn-identity.h:
 
@@ -2098,25 +2216,9 @@ generated/atomic_swap.pb.h:
 
 /usr/include/google/protobuf/arena.h:
 
-/usr/include/c++/13/bits/shared_ptr_base.h:
-
-/usr/include/wchar.h:
-
-/usr/include/rocksdb/write_batch_base.h:
-
-/usr/include/c++/13/bits/memoryfwd.h:
-
 /usr/include/x86_64-linux-gnu/gnu/stubs-64.h:
 
 /usr/include/c++/13/bits/node_handle.h:
-
-/usr/include/openssl/objects.h:
-
-/usr/include/x86_64-linux-gnu/bits/types/struct_timeval.h:
-
-/usr/include/c++/13/bits/stl_iterator.h:
-
-/usr/include/c++/13/ext/numeric_traits.h:
 
 /usr/include/rocksdb/transaction_log.h:
 
@@ -2152,15 +2254,9 @@ generated/atomic_swap.pb.h:
 
 /usr/include/c++/13/memory:
 
-/usr/include/x86_64-linux-gnu/bits/floatn.h:
-
 /usr/include/c++/13/exception:
 
 /usr/include/c++/13/pstl/glue_memory_defs.h:
-
-/usr/include/c++/13/iomanip:
-
-/usr/include/strings.h:
 
 /usr/include/rocksdb/cache.h:
 
@@ -2175,6 +2271,10 @@ generated/atomic_swap.pb.h:
 /usr/include/c++/13/sstream:
 
 /usr/include/c++/13/stdexcept:
+
+/usr/include/x86_64-linux-gnu/bits/cpu-set.h:
+
+/usr/include/google/protobuf/implicit_weak_message.h:
 
 /usr/include/rocksdb/write_buffer_manager.h:
 
@@ -2212,9 +2312,9 @@ generated/atomic_swap.pb.h:
 
 /usr/include/c++/13/utility:
 
-/root/AlynCoin/src/crypto_utils.h:
-
 /usr/include/rocksdb/table_properties.h:
+
+/root/AlynCoin/src/crypto_utils.h:
 
 /usr/include/c++/13/vector:
 
@@ -2250,13 +2350,17 @@ generated/atomic_swap.pb.h:
 
 /usr/include/google/protobuf/io/coded_stream.h:
 
+/usr/include/x86_64-linux-gnu/c++/13/bits/c++allocator.h:
+
+/usr/include/google/protobuf/stubs/once.h:
+
+/usr/include/openssl/bn.h:
+
 /usr/include/google/protobuf/io/zero_copy_stream.h:
 
-/usr/include/c++/13/bits/stl_iterator_base_types.h:
-
-/usr/include/stdio.h:
-
 /usr/include/google/protobuf/io/zero_copy_stream_impl_lite.h:
+
+/usr/include/openssl/evperr.h:
 
 /usr/include/google/protobuf/map.h:
 
@@ -2276,19 +2380,25 @@ generated/atomic_swap.pb.h:
 
 /usr/include/google/protobuf/port_undef.inc:
 
-/usr/include/openssl/e_os2.h:
-
-/usr/include/google/protobuf/repeated_field.h:
-
 /usr/include/google/protobuf/repeated_ptr_field.h:
 
 /usr/include/google/protobuf/stubs/callback.h:
 
 /usr/include/google/protobuf/stubs/casts.h:
 
+/usr/include/c++/13/bits/ostream.tcc:
+
+/usr/include/openssl/evp.h:
+
 /usr/include/locale.h:
 
 /usr/include/google/protobuf/stubs/common.h:
+
+/usr/include/openssl/x509.h:
+
+/usr/include/openssl/http.h:
+
+/usr/include/openssl/objectserr.h:
 
 /usr/include/google/protobuf/stubs/hash.h:
 
@@ -2312,74 +2422,66 @@ generated/atomic_swap.pb.h:
 
 /usr/include/linux/errno.h:
 
-/usr/include/x86_64-linux-gnu/bits/pthread_stack_min-dynamic.h:
-
 /usr/include/c++/13/ratio:
 
 /usr/include/linux/limits.h:
 
-/usr/include/rocksdb/rocksdb_namespace.h:
+/usr/include/rocksdb/sst_file_writer.h:
 
-/usr/include/endian.h:
+/usr/include/openssl/asn1.h:
 
-/usr/include/stdint.h:
+/usr/include/openssl/asn1err.h:
 
-/usr/include/c++/13/bits/enable_special_members.h:
+/usr/include/openssl/bio.h:
 
-/usr/include/x86_64-linux-gnu/bits/posix2_lim.h:
+/usr/include/c++/13/cstdarg:
 
-/usr/include/pthread.h:
+/usr/include/openssl/bioerr.h:
 
-/usr/include/wctype.h:
+/usr/include/openssl/lhash.h:
 
-/usr/include/sched.h:
+/usr/include/rocksdb/utilities/transaction.h:
 
-/usr/include/stdc-predef.h:
+/usr/include/openssl/bnerr.h:
 
-/usr/include/stdlib.h:
+/usr/include/openssl/conf.h:
 
-/usr/include/string.h:
+/usr/include/openssl/conftypes.h:
 
-/usr/include/x86_64-linux-gnu/bits/atomic_wide_counter.h:
+/usr/include/openssl/core.h:
 
-/usr/include/x86_64-linux-gnu/bits/byteswap.h:
+/usr/include/openssl/crypto.h:
 
-/usr/include/google/protobuf/implicit_weak_message.h:
+/usr/include/openssl/cryptoerr_legacy.h:
 
-/usr/include/x86_64-linux-gnu/bits/cpu-set.h:
+/usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h:
 
-/usr/include/x86_64-linux-gnu/bits/endian.h:
+/usr/include/openssl/dsa.h:
 
-/usr/include/c++/13/bits/requires_hosted.h:
+/usr/include/google/protobuf/repeated_field.h:
 
-/usr/include/x86_64-linux-gnu/bits/floatn-common.h:
+/usr/include/openssl/e_os2.h:
 
-/usr/include/x86_64-linux-gnu/bits/local_lim.h:
+/usr/include/openssl/ecerr.h:
 
-/usr/include/google/protobuf/stubs/macros.h:
+/usr/include/x86_64-linux-gnu/bits/pthreadtypes-arch.h:
 
-/usr/include/x86_64-linux-gnu/bits/locale.h:
+/usr/include/c++/13/bits/utility.h:
 
-/usr/include/x86_64-linux-gnu/bits/pthreadtypes.h:
+/usr/include/openssl/err.h:
 
-/usr/include/x86_64-linux-gnu/bits/sched.h:
+/usr/include/x86_64-linux-gnu/bits/types/struct_timeval.h:
 
-/usr/include/rocksdb/db.h:
+/usr/include/c++/13/bits/stl_iterator.h:
 
-/usr/include/x86_64-linux-gnu/bits/time.h:
+/usr/include/c++/13/ext/numeric_traits.h:
 
-/usr/include/x86_64-linux-gnu/bits/select.h:
+/usr/include/openssl/objects.h:
 
-/usr/include/time.h:
+/usr/include/c++/13/condition_variable:
 
-/usr/include/x86_64-linux-gnu/bits/setjmp.h:
+/usr/include/x86_64-linux-gnu/bits/stdlib-float.h:
 
-/usr/include/x86_64-linux-gnu/c++/13/bits/gthr-default.h:
+/usr/include/openssl/opensslv.h:
 
-/usr/include/x86_64-linux-gnu/bits/types/struct_timespec.h:
-
-/usr/include/x86_64-linux-gnu/bits/stdint-uintn.h:
-
-/usr/include/x86_64-linux-gnu/bits/timex.h:
-
-/usr/include/x86_64-linux-gnu/bits/stdio_lim.h:
+/usr/include/openssl/params.h:

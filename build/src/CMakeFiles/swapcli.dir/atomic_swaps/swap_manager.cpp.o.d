@@ -163,6 +163,43 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/swap_manager.cpp.o: \
  /usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h /usr/include/stdint.h \
  /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
  /usr/include/x86_64-linux-gnu/bits/stdint-least.h \
+ /root/AlynCoin/src/atomic_swaps/../crypto_utils.h \
+ /usr/include/openssl/err.h /usr/include/openssl/macros.h \
+ /usr/include/x86_64-linux-gnu/openssl/opensslconf.h \
+ /usr/include/x86_64-linux-gnu/openssl/configuration.h \
+ /usr/include/openssl/opensslv.h /usr/include/openssl/e_os2.h \
+ /usr/include/c++/13/stdlib.h /usr/include/openssl/types.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/limits.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/syslimits.h \
+ /usr/include/limits.h /usr/include/x86_64-linux-gnu/bits/posix1_lim.h \
+ /usr/include/x86_64-linux-gnu/bits/local_lim.h \
+ /usr/include/linux/limits.h \
+ /usr/include/x86_64-linux-gnu/bits/posix2_lim.h \
+ /usr/include/x86_64-linux-gnu/bits/xopen_lim.h \
+ /usr/include/x86_64-linux-gnu/bits/uio_lim.h \
+ /usr/include/openssl/safestack.h /usr/include/openssl/stack.h \
+ /usr/include/openssl/bio.h /usr/include/openssl/crypto.h \
+ /usr/include/openssl/cryptoerr.h /usr/include/openssl/symhacks.h \
+ /usr/include/openssl/cryptoerr_legacy.h /usr/include/openssl/core.h \
+ /usr/include/openssl/bioerr.h /usr/include/openssl/lhash.h \
+ /usr/include/openssl/evp.h /usr/include/openssl/core_dispatch.h \
+ /usr/include/openssl/evperr.h /usr/include/openssl/params.h \
+ /usr/include/openssl/bn.h /usr/include/openssl/bnerr.h \
+ /usr/include/openssl/objects.h /usr/include/openssl/obj_mac.h \
+ /usr/include/openssl/asn1.h /usr/include/openssl/asn1err.h \
+ /usr/include/openssl/objectserr.h /usr/include/openssl/pem.h \
+ /usr/include/openssl/x509.h /usr/include/openssl/buffer.h \
+ /usr/include/openssl/buffererr.h /usr/include/openssl/ec.h \
+ /usr/include/string.h /usr/include/strings.h \
+ /usr/include/openssl/ecerr.h /usr/include/openssl/rsa.h \
+ /usr/include/openssl/rsaerr.h /usr/include/openssl/dsa.h \
+ /usr/include/openssl/dh.h /usr/include/openssl/dherr.h \
+ /usr/include/openssl/dsaerr.h /usr/include/openssl/sha.h \
+ /usr/include/openssl/x509err.h /usr/include/openssl/x509_vfy.h \
+ /usr/include/openssl/pkcs7.h /usr/include/openssl/pkcs7err.h \
+ /usr/include/openssl/http.h /usr/include/openssl/conf.h \
+ /usr/include/openssl/conferr.h /usr/include/openssl/conftypes.h \
+ /usr/include/openssl/pemerr.h \
  /root/AlynCoin/src/atomic_swaps/swap_manager.h \
  /root/AlynCoin/src/atomic_swaps/rocksdb_swap_store.h \
  /usr/include/rocksdb/db.h /usr/include/c++/13/map \
@@ -200,18 +237,9 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/swap_manager.cpp.o: \
  /usr/include/c++/13/atomic /usr/include/c++/13/unordered_set \
  /usr/include/c++/13/bits/unordered_set.h /usr/include/rocksdb/status.h \
  /usr/include/rocksdb/slice.h /usr/include/c++/13/cassert \
- /usr/include/c++/13/cstring /usr/include/string.h /usr/include/strings.h \
- /usr/include/rocksdb/cleanable.h /usr/include/rocksdb/memtablerep.h \
- /usr/include/c++/13/stdlib.h /usr/include/rocksdb/universal_compaction.h \
- /usr/include/c++/13/climits \
- /usr/lib/gcc/x86_64-linux-gnu/13/include/limits.h \
- /usr/lib/gcc/x86_64-linux-gnu/13/include/syslimits.h \
- /usr/include/limits.h /usr/include/x86_64-linux-gnu/bits/posix1_lim.h \
- /usr/include/x86_64-linux-gnu/bits/local_lim.h \
- /usr/include/linux/limits.h \
- /usr/include/x86_64-linux-gnu/bits/posix2_lim.h \
- /usr/include/x86_64-linux-gnu/bits/xopen_lim.h \
- /usr/include/x86_64-linux-gnu/bits/uio_lim.h \
+ /usr/include/c++/13/cstring /usr/include/rocksdb/cleanable.h \
+ /usr/include/rocksdb/memtablerep.h \
+ /usr/include/rocksdb/universal_compaction.h /usr/include/c++/13/climits \
  /usr/include/rocksdb/comparator.h /usr/include/rocksdb/env.h \
  /usr/include/c++/13/cstdarg /usr/include/c++/13/functional \
  /usr/include/c++/13/bits/std_function.h /usr/include/c++/13/array \
@@ -246,33 +274,6 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/swap_manager.cpp.o: \
  /usr/include/rocksdb/utilities/transaction_db.h \
  /usr/include/rocksdb/utilities/stackable_db.h \
  /usr/include/rocksdb/utilities/transaction.h \
- /root/AlynCoin/src/atomic_swaps/../crypto_utils.h \
- /usr/include/openssl/err.h /usr/include/openssl/macros.h \
- /usr/include/x86_64-linux-gnu/openssl/opensslconf.h \
- /usr/include/x86_64-linux-gnu/openssl/configuration.h \
- /usr/include/openssl/opensslv.h /usr/include/openssl/e_os2.h \
- /usr/include/openssl/types.h /usr/include/openssl/safestack.h \
- /usr/include/openssl/stack.h /usr/include/openssl/bio.h \
- /usr/include/openssl/crypto.h /usr/include/openssl/cryptoerr.h \
- /usr/include/openssl/symhacks.h /usr/include/openssl/cryptoerr_legacy.h \
- /usr/include/openssl/core.h /usr/include/openssl/bioerr.h \
- /usr/include/openssl/lhash.h /usr/include/openssl/evp.h \
- /usr/include/openssl/core_dispatch.h /usr/include/openssl/evperr.h \
- /usr/include/openssl/params.h /usr/include/openssl/bn.h \
- /usr/include/openssl/bnerr.h /usr/include/openssl/objects.h \
- /usr/include/openssl/obj_mac.h /usr/include/openssl/asn1.h \
- /usr/include/openssl/asn1err.h /usr/include/openssl/objectserr.h \
- /usr/include/openssl/pem.h /usr/include/openssl/x509.h \
- /usr/include/openssl/buffer.h /usr/include/openssl/buffererr.h \
- /usr/include/openssl/ec.h /usr/include/openssl/ecerr.h \
- /usr/include/openssl/rsa.h /usr/include/openssl/rsaerr.h \
- /usr/include/openssl/dsa.h /usr/include/openssl/dh.h \
- /usr/include/openssl/dherr.h /usr/include/openssl/dsaerr.h \
- /usr/include/openssl/sha.h /usr/include/openssl/x509err.h \
- /usr/include/openssl/x509_vfy.h /usr/include/openssl/pkcs7.h \
- /usr/include/openssl/pkcs7err.h /usr/include/openssl/http.h \
- /usr/include/openssl/conf.h /usr/include/openssl/conferr.h \
- /usr/include/openssl/conftypes.h /usr/include/openssl/pemerr.h \
  /root/AlynCoin/src/atomic_swaps/../zk/winterfell_stark.h \
  /usr/include/c++/13/iostream \
  /root/AlynCoin/src/atomic_swaps/../zk/../nft/nft.h \

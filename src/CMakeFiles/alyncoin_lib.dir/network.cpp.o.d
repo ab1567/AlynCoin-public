@@ -1353,6 +1353,8 @@ src/CMakeFiles/alyncoin_lib.dir/network.cpp.o: \
  /usr/include/boost/asio/impl/write_at.hpp \
  /root/AlynCoin/src/db/db_paths.h /usr/include/c++/13/thread \
  /usr/include/c++/13/bits/this_thread_sleep.h \
+ /root/AlynCoin/src/network/peer_manager.h \
+ /root/AlynCoin/src/network/peer_blacklist.h /root/AlynCoin/src/block.h \
  /root/AlynCoin/src/rollup/proofs/proof_verifier.h \
  /root/AlynCoin/src/rollup/proofs/../rollup_block.h \
  /root/AlynCoin/src/syncing.h /usr/include/c++/13/filesystem \
@@ -1364,4 +1366,6 @@ src/CMakeFiles/alyncoin_lib.dir/network.cpp.o: \
  /usr/include/libintl.h /usr/include/c++/13/bits/locale_facets_nonio.tcc \
  /usr/include/c++/13/bits/locale_conv.h /usr/include/c++/13/iomanip \
  /usr/include/c++/13/bits/quoted_string.h /usr/include/c++/13/codecvt \
- /usr/include/c++/13/bits/fs_dir.h /usr/include/c++/13/bits/fs_ops.h
+ /usr/include/c++/13/bits/fs_dir.h /usr/include/c++/13/bits/fs_ops.h \
+ /root/AlynCoin/src/atomic_swaps/proto_utils.h \
+ /root/AlynCoin/src/atomic_swaps/atomic_swap.h

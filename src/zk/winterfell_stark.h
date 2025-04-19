@@ -58,6 +58,9 @@ public:
         return verifyProof(proofStr, nft.id, dummyPrev, dummyRoot);
     }
 
+	static bool verifyIdentityProof(const std::string& proof, const std::string& uuid,
+                                const std::string& name, const std::string& metadataHash);
+
 };
 class RollupStark {
 public:

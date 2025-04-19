@@ -7,7 +7,7 @@ message ZkIdentityProto {
   string publicKey = 3;
   string metadataHash = 4;
   int64 createdAt = 5;
-  string zkProof = 6;
-  string falconSignature = 7;
-  string dilithiumSignature = 8;
+  bytes zkProof = 6;
+  bytes falconSignature = 7;
+  bytes dilithiumSignature = 8;
 }

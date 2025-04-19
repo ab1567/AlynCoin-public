@@ -181,6 +181,21 @@ std::optional<std::string> WinterfellStark::generateIdentityProof(const std::str
     std::cout << "[zkSTARK] ✅ Identity zk-STARK proof generated. Size: " << proof.size() << " bytes\n";
     return proof;
 }
+//
+bool WinterfellStark::verifyIdentityProof(const std::string& proof,
+                                          const std::string& uuid,
+                                          const std::string& name,
+                                          const std::string& metadataHash) {
+    std::string seed = uuid + name + metadataHash;
+    std::string seedHash = Crypto::blake3(seed);
+    std::string expectedResult = seedHash;
+
+    std::cerr << "[ZK VERIFY] Verifying Identity zk-STARK Proof...\n";
+    std::cerr << "  - Seed: " << seed << "\n";
+    std::cerr << "  - Expected Result: " << expectedResult << "\n";
+
+    return WinterfellStark::verifyProof(proof, seed, expectedResult, "identity");
+}
 
 // ✅ Recursive zk-STARK Proof Composition
 std::string WinterfellStark::generateRecursiveProof(const std::string& address, size_t txCount) {

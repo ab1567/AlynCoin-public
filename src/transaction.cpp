@@ -393,22 +393,25 @@ void Transaction::applyBurn(std::string &sender, double &amount,
 // ✅ Load Only Confirmed Transactions from RocksDB
 std::vector<Transaction> Transaction::loadAllFromDB() {
     std::vector<Transaction> loaded;
-    rocksdb::DB* db = nullptr;
+    rocksdb::DB* rawDB = nullptr;
 
     rocksdb::Options options;
     options.create_if_missing = true;
-    rocksdb::Status status = rocksdb::DB::OpenForReadOnly(options, DBPaths::getBlockchainDB(), &db);
 
-    if (!status.ok() || !db) {
+    rocksdb::Status status = rocksdb::DB::OpenForReadOnly(
+        options, DBPaths::getBlockchainDB(), &rawDB);
+
+    if (!status.ok() || !rawDB) {
         std::cerr << "❌ Failed to open RocksDB for reading confirmed transactions.\n";
         return loaded;
     }
 
+    std::unique_ptr<rocksdb::DB> db(rawDB);  // ✅ wrap in smart pointer
     std::unique_ptr<rocksdb::Iterator> it(db->NewIterator(rocksdb::ReadOptions()));
+
     for (it->SeekToFirst(); it->Valid(); it->Next()) {
         std::string key = it->key().ToString();
 
-        // ✅ Confirmed TXs are saved after mining with "tx_<hash>"
         if (key.rfind("tx_", 0) != 0) continue;
 
         std::string val = it->value().ToString();
@@ -429,8 +432,7 @@ std::vector<Transaction> Transaction::loadAllFromDB() {
         }
     }
 
-    delete db;
-    return loaded;
+    return loaded;  // ✅ db auto-cleaned by smart pointer
 }
 
 // ✅ Use Atomic WriteBatch for RocksDB to prevent corruption

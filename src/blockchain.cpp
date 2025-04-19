@@ -1979,3 +1979,30 @@ std::string DBPaths::getKeyPath(const std::string &address) {
     return "/root/.alyncoin/keys/" + address + "_combined.key";
 }
 
+//
+time_t Blockchain::getLastRollupTimestamp() const {
+    if (rollupBlocks.empty()) return 0;
+    return std::stol(rollupBlocks.back().getTimestamp());
+}
+
+//
+time_t Blockchain::getFirstPendingL2Timestamp() const {
+    for (const auto& tx : pendingTransactions) {
+        if (tx.isL2()) return tx.getTimestamp();  // You already tag L2 with "L2:" metadata
+    }
+    return 0;
+}
+
+//
+std::vector<Transaction> Blockchain::getAllTransactionsForAddress(const std::string& address) {
+    std::vector<Transaction> result;
+    for (const Block& blk : this->getAllBlocks()) {
+        for (const Transaction& tx : blk.getTransactions()) {
+            if (tx.getSender() == address || tx.getRecipient() == address) {
+                result.push_back(tx);
+            }
+        }
+    }
+    return result;
+}
+

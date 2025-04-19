@@ -1355,5 +1355,8 @@ src/CMakeFiles/alyncoin_lib.dir/miner.cpp.o: /root/AlynCoin/src/miner.cpp \
  /root/AlynCoin/src/db/db_paths.h /root/AlynCoin/src/blake3.h \
  /root/AlynCoin/src/mining.h /root/AlynCoin/src/difficulty.h \
  /usr/include/c++/13/numeric /usr/include/c++/13/bits/stl_numeric.h \
- /usr/include/c++/13/pstl/glue_numeric_defs.h /usr/include/c++/13/thread \
- /usr/include/c++/13/bits/this_thread_sleep.h
+ /usr/include/c++/13/pstl/glue_numeric_defs.h \
+ /root/AlynCoin/src/network.h /usr/include/c++/13/thread \
+ /usr/include/c++/13/bits/this_thread_sleep.h \
+ /root/AlynCoin/src/network/peer_manager.h \
+ /root/AlynCoin/src/network/peer_blacklist.h /root/AlynCoin/src/block.h

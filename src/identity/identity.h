@@ -18,6 +18,7 @@ struct ZkIdentity {
     std::string toString() const;
     bool sign(const std::string& signerAddress);
     bool generateZkProof();
+    bool verifySignature() const;
 };
 
 #endif // ZK_IDENTITY_H

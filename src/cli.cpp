@@ -17,6 +17,7 @@
 #include <ctime>
 #include <filesystem>
 #include "db/db_instance.h"
+#include "zk/recursive_proof_helper.h"
 
 std::string getCurrentWallet() {
     std::ifstream in("/root/.alyncoin/current_wallet.txt");
@@ -44,6 +45,8 @@ void printMenu() {
   std::cout << "15. Finalize DAO Proposal\n";
   std::cout << "16. View Blockchain Stats\n";
   std::cout << "17. Generate Rollup Block with Recursive zk-STARK Proof\n";
+  std::cout << "18. Auto Rollup Trigger (Idle / Activity / Recursive)\n";
+  std::cout << "19. Generate Recursive zk-STARK Proof (history)\n";
   std::cout << "Choose an option: ";
 }
 
@@ -62,7 +65,7 @@ int cliMain(int argc, char *argv[]);
 int main(int argc, char **argv) {
     std::ios::sync_with_stdio(true);
     std::cout.setf(std::ios::unitbuf);
-    std::string keyDir = "/root/.alyncoin/keys/";
+    std::string keyDir = DBPaths::getKeyDir();
 
     auto hasFlag = [](int argc, char** argv, const std::string& flag) -> bool {
         for (int i = 1; i < argc; ++i)
@@ -145,7 +148,7 @@ int main(int argc, char **argv) {
             std::cout << "📝 Description: " << p.description << "\n";
             std::cout << "🛍 Type: " << static_cast<int>(p.type) << "\n";
             std::cout << "📅 Deadline: " << p.deadline_time << "\n";
-            std::cout << "✅ YES: " << p.yes_votes << " | ❌ NO: " << p.no_votes << "\n";
+            std::cout << "✅ YES: " << static_cast<uint64_t>(p.yes_votes) << " | ❌ NO: " << static_cast<uint64_t>(p.no_votes) << "\n";
             std::cout << "📌 Status: " << static_cast<int>(p.status) << "\n\n";
         }
         std::exit(0);
@@ -298,59 +301,112 @@ int main(int argc, char **argv) {
         std::exit(0);
     }
 
-// === Transaction history by address ===
-if (argc >= 3 && std::string(argv[1]) == "history") {
-    std::string addr = argv[2];
-    Blockchain& b = getBlockchain();
+	// === Transaction history by address ===
+	if (argc >= 3 && std::string(argv[1]) == "history") {
+	    std::string addr = argv[2];
+	    Blockchain& b = getBlockchain();
 
-    std::cout << "🔍 Loading blockchain from DB...\n";
-    b.loadFromDB();
-    b.reloadBlockchainState();
+	    std::cout << "🔍 Loading blockchain from DB...\n";
+	    b.loadFromDB();
+	    b.reloadBlockchainState();
 
-    std::vector<Transaction> relevant;
-    auto blocks = b.getAllBlocks();
-    std::cout << "📦 Total blocks loaded: " << blocks.size() << "\n";
+	    std::vector<Transaction> relevant;
+	    auto blocks = b.getAllBlocks();
+	    std::cout << "📦 Total blocks loaded: " << blocks.size() << "\n";
 
-    for (const auto& blk : blocks) {
-        auto txs = blk.getTransactions();
-        std::cout << "⛏ Block " << blk.getHash() << " has " << txs.size() << " txs.\n";
+	    for (const auto& blk : blocks) {
+	        auto txs = blk.getTransactions();
+	        std::cout << "⛏ Block " << blk.getHash() << " has " << txs.size() << " txs.\n";
 
-        for (const auto& tx : txs) {
-            std::cout << "🔍 Checking tx: " << tx.getHash()
+	        for (const auto& tx : txs) {
+	            std::cout << "🔍 Checking tx: " << tx.getHash()
                       << " | from: " << tx.getSender()
                       << " | to: " << tx.getRecipient() << "\n";
 
-            if (tx.getSender() == addr || tx.getRecipient() == addr) {
-                relevant.push_back(tx);
+	            if (tx.getSender() == addr || tx.getRecipient() == addr) {
+	                relevant.push_back(tx);
             }
         }
     }
 
-    std::cout << "\n=== Transaction History for: " << addr << " ===\n";
-    std::cout << "📜 Found " << relevant.size() << " related transactions.\n\n";
+	    std::cout << "\n=== Transaction History for: " << addr << " ===\n";
+	    std::cout << "📜 Found " << relevant.size() << " related transactions.\n\n";
 
-    for (const auto& tx : relevant) {
-        time_t ts = tx.getTimestamp();
-        std::tm* tmPtr = std::localtime(&ts);
-        char timeStr[64];
-        std::strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", tmPtr);
+	    for (const auto& tx : relevant) {
+	        time_t ts = tx.getTimestamp();
+	        std::tm* tmPtr = std::localtime(&ts);
+	        char timeStr[64];
+	        std::strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", tmPtr);
 
-        std::cout << "🕒 " << timeStr << "\n"
-                  << "From: " << tx.getSender() << "\n"
-                  << "To:   " << tx.getRecipient() << "\n"
-                  << "💰 Amount: " << tx.getAmount() << " AlynCoin\n";
+	        std::cout << "🕒 " << timeStr << "\n"
+	                  << "From: " << tx.getSender() << "\n"
+        	          << "To:   " << tx.getRecipient() << "\n"
+	                  << "💰 Amount: " << tx.getAmount() << " AlynCoin\n";
 
-        if (!tx.getMetadata().empty()) {
-            std::cout << "📎 Metadata: " << tx.getMetadata() << "\n";
+        	if (!tx.getMetadata().empty()) {
+        	    std::cout << "📎 Metadata: " << tx.getMetadata() << "\n";
+        	}
+
+        	std::cout << "🔑 TxHash: " << tx.getHash() << "\n"
+        	          << "------------------------------\n";
+    	}
+
+	    std::exit(0);
+	}
+
+// === Recursive zk-STARK Proof by address (GUI / filtered) ===
+if (argc >= 5 && std::string(argv[1]) == "recursiveproof") {
+    std::string addr = argv[2];
+    int count = 0;
+    std::string outputFile;
+
+    for (int i = 3; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--last" && i + 1 < argc) {
+            try {
+                count = std::stoi(argv[++i]);
+            } catch (...) {
+                std::cerr << "❌ Invalid --last argument.\n";
+                return 1;
+            }
+        } else if (arg == "--out" && i + 1 < argc) {
+            outputFile = argv[++i];
         }
-
-        std::cout << "🔑 TxHash: " << tx.getHash() << "\n"
-                  << "------------------------------\n";
     }
 
-    std::exit(0);
-}
+    if (addr.empty() || count <= 0) {
+        std::cerr << "❌ Invalid address or --last count.\n";
+        return 1;
+    }
 
+    Blockchain& b = getBlockchain();
+    b.loadFromDB();  // ensure block list is populated
+    b.reloadBlockchainState();
+
+    std::vector<std::string> hashes;
+    int selected = 0;
+
+    auto blocks = b.getAllBlocks();
+    for (auto it = blocks.rbegin(); it != blocks.rend() && selected < count; ++it) {
+        auto txs = it->getTransactions();
+        for (const auto& tx : txs) {
+            if (selected >= count) break;
+            if (tx.getSender() == addr || tx.getRecipient() == addr) {
+                hashes.push_back(tx.getHash());
+                selected++;
+            }
+        }
+    }
+
+    if (hashes.empty()) {
+        std::cout << "⚠️ No transactions found for " << addr << ".\n";
+        return 0;
+    }
+
+    std::string result = generateRecursiveProofToFile(hashes, addr, selected, outputFile);
+    std::cout << result << "\n";
+    return 0;
+}
 
     // === Mined block stats ===
     if (argc == 3 && std::string(argv[1]) == "mychain") {
@@ -413,7 +469,7 @@ int cliMain(int argc, char *argv[]) {
   unsigned short port = 8333;
   std::string dbPath = DBPaths::getBlockchainDB();
   std::string connectPeer = "";
-  std::string keyDir = "/root/.alyncoin/keys/";
+  std::string keyDir = DBPaths::getKeyDir();
   std::string blacklistPath = "/root/.alyncoin/blacklist";
   bool skipNetwork = false;
 
@@ -847,7 +903,7 @@ int cliMain(int argc, char *argv[]) {
             std::cout << "📝 Description: " << p.description << "\n";
             std::cout << "🧭 Type: " << static_cast<int>(p.type) << "\n";
             std::cout << "📅 Deadline: " << p.deadline_time << "\n";
-            std::cout << "✅ YES: " << p.yes_votes << " | ❌ NO: " << p.no_votes << "\n";
+            std::cout << "✅ YES: " << static_cast<uint64_t>(p.yes_votes) << " | ❌ NO: " << static_cast<uint64_t>(p.no_votes) << "\n";
             std::cout << "📌 Status: " << static_cast<int>(p.status) << "\n\n";
         }
         break;
@@ -908,6 +964,126 @@ int cliMain(int argc, char *argv[]) {
 
     break;
 }
+    case 18: {
+	    if (!wallet) {
+	        std::cout << "❌ Load or create a wallet first!\n";
+	        break;
+	    }
+
+    std::cout << "\n⚙️ Auto Rollup Trigger Started...\n";
+
+    const int idleThresholdSecs = 300;  // 5 minutes
+    const int midThresholdTxs = 10;
+    const int midThresholdSecs = 20;
+    const int highThresholdTxs = 25;
+    const int highThresholdSecs = 10;
+
+    Blockchain& blockchain = Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true);
+    auto lastRollupTime = blockchain.getLastRollupTimestamp();
+    auto now = std::time(nullptr);
+    auto pendingL2 = blockchain.getPendingL2Transactions();
+
+    bool didRollup = false;
+
+    // 🔁 1. High Activity → Recursive zk-STARK
+    if (pendingL2.size() >= highThresholdTxs &&
+        (now - blockchain.getFirstPendingL2Timestamp()) <= highThresholdSecs) {
+        std::cout << "⚡ High activity detected (≥ 25 tx in 10s). Generating Recursive zk-STARK Rollup...\n";
+        auto stateBefore = blockchain.getCurrentState();
+        auto stateAfter = blockchain.simulateL2StateUpdate(stateBefore, pendingL2);
+
+        RollupBlock rollup(blockchain.getRollupChainSize(), blockchain.getLastRollupHash(), pendingL2);
+        std::string prevRecursive = blockchain.getLastRollupProof();
+        rollup.generateRollupProof(stateBefore, stateAfter, prevRecursive);
+
+        if (blockchain.isRollupBlockValid(rollup)) {
+            blockchain.addRollupBlock(rollup);
+            std::cout << "✅ Recursive Rollup Block created! Hash: " << rollup.getHash() << "\n";
+            didRollup = true;
+        } else {
+            std::cerr << "❌ Recursive Rollup failed validation.\n";
+        }
+    }
+    // 📈 2. Mid Activity → Normal zk-STARK
+    else if (pendingL2.size() >= midThresholdTxs &&
+             (now - blockchain.getFirstPendingL2Timestamp()) <= midThresholdSecs) {
+        std::cout << "📈 Mid activity detected (≥ 10 tx in 20s). Generating Normal zk-STARK Rollup...\n";
+        auto stateBefore = blockchain.getCurrentState();
+        auto stateAfter = blockchain.simulateL2StateUpdate(stateBefore, pendingL2);
+
+        RollupBlock rollup(blockchain.getRollupChainSize(), blockchain.getLastRollupHash(), pendingL2);
+        std::string prevRecursive = blockchain.getLastRollupProof();
+        rollup.generateRollupProof(stateBefore, stateAfter, prevRecursive);
+
+        if (blockchain.isRollupBlockValid(rollup)) {
+            blockchain.addRollupBlock(rollup);
+            std::cout << "✅ Rollup Block created! Hash: " << rollup.getHash() << "\n";
+            didRollup = true;
+        } else {
+            std::cerr << "❌ Mid Activity Rollup failed validation.\n";
+        }
+    }
+    // ⏱️ 3. Idle Trigger → 5 min timeout
+    else if ((now - lastRollupTime) >= idleThresholdSecs && !pendingL2.empty()) {
+        std::cout << "⏱️ Idle trigger (no rollup in 5 minutes). Generating zk-STARK Rollup...\n";
+        auto stateBefore = blockchain.getCurrentState();
+        auto stateAfter = blockchain.simulateL2StateUpdate(stateBefore, pendingL2);
+
+        RollupBlock rollup(blockchain.getRollupChainSize(), blockchain.getLastRollupHash(), pendingL2);
+        std::string prevRecursive = blockchain.getLastRollupProof();
+        rollup.generateRollupProof(stateBefore, stateAfter, prevRecursive);
+
+        if (blockchain.isRollupBlockValid(rollup)) {
+            blockchain.addRollupBlock(rollup);
+            std::cout << "✅ Idle Rollup Block created! Hash: " << rollup.getHash() << "\n";
+            didRollup = true;
+        } else {
+            std::cerr << "❌ Idle Rollup failed validation.\n";
+        }
+    } else {
+        std::cout << "ℹ️ No rollup condition met (Txs: " << pendingL2.size() << ").\n";
+    }
+
+    if (!didRollup) {
+        std::cout << "⚠️ Rollup not generated. All thresholds unmet or no pending L2 transactions.\n";
+    }
+    break;
+	}
+	case 19: {
+    if (!wallet) {
+        std::cout << "❌ Load or create a wallet first!\n";
+        break;
+    }
+
+    std::string addr = wallet->getAddress();
+    int count;
+    std::cout << "How many recent transactions to include in recursive proof? ";
+    std::cin >> count;
+
+    if (count <= 0) {
+        std::cerr << "❌ Invalid transaction count.\n";
+        break;
+    }
+
+    std::vector<Transaction> allTxs = Transaction::loadAllFromDB();
+    std::vector<std::string> hashes;
+
+    for (auto it = allTxs.rbegin(); it != allTxs.rend(); ++it) {
+        if ((it->getSender() == addr || it->getRecipient() == addr) && hashes.size() < (size_t)count) {
+            hashes.push_back(it->getHash());
+        }
+    }
+
+    if (hashes.empty()) {
+        std::cerr << "⚠️ No transactions found for " << addr << ".\n";
+        break;
+    }
+
+    std::string output = generateRecursiveProofToFile(hashes, addr, hashes.size(), "");
+    std::cout << output << "\n";
+    break;
+}
+
 
     default: std::cout << "Invalid choice! Please select a valid option.\n";
     }

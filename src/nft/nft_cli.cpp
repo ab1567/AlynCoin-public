@@ -16,7 +16,14 @@ namespace NFTCLI {
 std::string getLoadedWalletAddress() {
     std::ifstream file("/root/.alyncoin/current_wallet.txt");
     std::string address;
-    std::getline(file, address);
+    if (file.is_open()) {
+        std::getline(file, address);
+        file.close();
+    }
+    if (address.empty()) {
+        std::cerr << "❌ No wallet loaded. Please load a wallet first.\n";
+        return "";
+    }
     return address;
 }
 
@@ -46,81 +53,97 @@ void interactiveMenu() {
         std::cin.ignore();
 
         if (choice == 1) {
-            std::string metadata, imageHash, identity;
-            std::cout << "Enter metadata: ";
-            std::getline(std::cin, metadata);
-            std::cout << "Enter image hash: ";
-            std::getline(std::cin, imageHash);
-            std::cout << "Optional creator identity tag: ";
-            std::getline(std::cin, identity);
+	    std::string metadata, imageHash, identity;
+	    std::cout << "Enter metadata: ";
+	    std::getline(std::cin, metadata);
+	    std::cout << "Enter image hash: ";
+	    std::getline(std::cin, imageHash);
+	    std::cout << "Optional creator identity tag: ";
+	    std::getline(std::cin, identity);
 
-            std::string creator = getLoadedWalletAddress();
-            std::string owner = creator;
-            int64_t ts = std::time(nullptr);
-            std::string id = generateNFTID(creator, imageHash, ts);
+	    std::string creator = getLoadedWalletAddress();
+	if (creator.empty()) {
+	    std::cout << "⚠️ No wallet loaded. Please enter wallet address manually: ";
+	    std::getline(std::cin, creator);
+	    if (creator.empty()) {
+	        std::cerr << "❌ Aborting mint. Wallet address required.\n";
+	        continue;
+	    }
+	}
+	    std::string owner = creator;
+	    int64_t ts = std::time(nullptr);
+	    std::string id = generateNFTID(creator, imageHash, ts);
 
-            std::string dataToSign = id + creator + owner + metadata + imageHash + std::to_string(ts);
-            auto msgHash = Crypto::sha256ToBytes(dataToSign);
-            auto keypair = Crypto::loadFalconKeys(creator);
-            std::vector<uint8_t> sig = Crypto::signWithFalcon(msgHash, keypair.privateKey);
+	    NFT nft{id, creator, owner, metadata, imageHash, ts, {}};
+	    nft.creator_identity = identity;
 
-            NFT nft{id, creator, owner, metadata, imageHash, ts, sig};
-            nft.creator_identity = identity;
-            nft.generateZkStarkProof();
+	    std::string message = nft.getSignatureMessage();
+	    auto msgHash = Crypto::sha256ToBytes(message);
+	    auto keypair = Crypto::loadFalconKeys(creator);
+	    nft.signature = Crypto::signWithFalcon(msgHash, keypair.privateKey);
 
-            if (!nft.submitMetadataHashTransaction()) {
-                std::cerr << "❌ Metadata transaction failed.\n";
-                continue;
-            }
+	    nft.generateZkStarkProof();
 
-            std::cout << "Set expiry timestamp? (0 = no expiry): ";
-            std::cin >> nft.expiry_timestamp;
-            std::cin.ignore();
+	    if (!nft.submitMetadataHashTransaction()) {
+	        std::cerr << "❌ Metadata transaction failed.\n";
+	        continue;
+	    }
 
-            if (!nft.verifySignature() || !NFTStorage::saveNFT(nft, DB::getInstance()->getRawDB())) {
-                std::cerr << "❌ Failed to verify or save NFT.\n";
-                continue;
-            }
+	    std::cout << "Set expiry timestamp? (0 = no expiry): ";
+	    std::cin >> nft.expiry_timestamp;
+	    std::cin.ignore();
 
-            std::cout << "✅ NFT minted! ID: " << id << "\n";
-        }
+	    if (!nft.verifySignature() || !NFTStorage::saveNFT(nft, DB::getInstance()->getRawDB())) {
+	        std::cerr << "❌ Failed to verify or save NFT.\n";
+	        continue;
+	    }
+
+	    std::cout << "✅ NFT minted! ID: " << id << "\n";
+	}
 
         else if (choice == 2) {
-            std::string nftID, newOwner;
-            std::cout << "Enter NFT ID: ";
-            std::getline(std::cin, nftID);
-            std::cout << "Enter new owner address: ";
+	    std::string nftID, newOwner;
+	    std::cout << "Enter NFT ID: ";
+	    std::getline(std::cin, nftID);
+	    std::cout << "Enter new owner address: ";
+	    std::getline(std::cin, newOwner);
 
-            std::getline(std::cin, newOwner);
+	    NFT nft;
+	    if (!NFTStorage::loadNFT(nftID, nft, DB::getInstance()->getRawDB())) {
+	        std::cerr << "❌ NFT not found.\n";
+	        continue;
+	    }
 
-            NFT nft;
-            if (!NFTStorage::loadNFT(nftID, nft, DB::getInstance()->getRawDB())) {
-                std::cerr << "❌ NFT not found.\n";
-                continue;
-            }
+	    std::string current = getLoadedWalletAddress();
+	    if (current.empty()) {
+	    std::cout << "⚠️ No wallet loaded. Please enter your wallet address manually: ";
+	    std::getline(std::cin, current);
+	    if (current.empty()) {
+	        std::cerr << "❌ Aborting. Wallet address required.\n";
+	        continue;
+	    }
+	}
+	    if (nft.owner != current || nft.revoked) {
+	        std::cerr << "❌ Not the owner or NFT is revoked.\n";
+	        continue;
+	    }
 
-            std::string current = getLoadedWalletAddress();
-            if (nft.owner != current || nft.revoked) {
-                std::cerr << "❌ Not the owner or NFT is revoked.\n";
-                continue;
-            }
+	    nft.transferHistory.push_back(current);
+	    nft.owner = newOwner;
+	    nft.timestamp = std::time(nullptr);
 
-            nft.transferHistory.push_back(current);
-            nft.owner = newOwner;
-            nft.timestamp = std::time(nullptr);
+	    std::string message = nft.getSignatureMessage();
+	    auto msgHash = Crypto::sha256ToBytes(message);
+	    auto keypair = Crypto::loadFalconKeys(current);
+	    nft.signature = Crypto::signWithFalcon(msgHash, keypair.privateKey);
 
-            std::string dataToSign = nft.id + nft.creator + nft.owner + nft.metadata + nft.imageHash + std::to_string(nft.timestamp);
-            auto msgHash = Crypto::sha256ToBytes(dataToSign);
-            auto keypair = Crypto::loadFalconKeys(current);
-            nft.signature = Crypto::signWithFalcon(msgHash, keypair.privateKey);
+	    if (!nft.verifySignature() || !NFTStorage::saveNFT(nft, DB::getInstance()->getRawDB())) {
+	        std::cerr << "❌ Failed to verify or save transfer.\n";
+	        continue;
+	    }
 
-            if (!nft.verifySignature() || !NFTStorage::saveNFT(nft, DB::getInstance()->getRawDB())) {
-                std::cerr << "❌ Failed to verify or save transfer.\n";
-                continue;
-            }
-
-            std::cout << "✅ NFT transferred.\n";
-        }
+	    std::cout << "✅ NFT transferred.\n";
+	}
 
         else if (choice == 3 || choice == 4) {
             auto allNFTs = NFTStorage::loadAllNFTs(DB::getInstance()->getRawDB());
@@ -133,14 +156,14 @@ void interactiveMenu() {
         }
 
 	else if (choice == 5) {
-   	  std::cout << "⚠️  Re-minting is an advanced feature used for updating NFT metadata with version tracking.\n";
-  	  std::string confirm;
-  	  std::cout << "Do you want to proceed? (y/n): ";
-  	  std::getline(std::cin, confirm);
-  	  if (confirm != "y" && confirm != "Y") {
-       	 std::cout << "❌ Re-minting canceled.\n";
-      	  continue;
-    	}
+	    std::cout << "⚠️  Re-minting is an advanced feature used for updating NFT metadata with version tracking.\n";
+	    std::string confirm;
+	    std::cout << "Do you want to proceed? (y/n): ";
+	    std::getline(std::cin, confirm);
+	    if (confirm != "y" && confirm != "Y") {
+	        std::cout << "❌ Re-minting canceled.\n";
+	        continue;
+	    }
 
 	    std::string id, newMetadata, reason;
 	    std::cout << "Enter NFT ID: ";
@@ -155,8 +178,8 @@ void interactiveMenu() {
 	    std::string currentUser = getLoadedWalletAddress();
 	    if (nft.owner != currentUser || nft.revoked) {
 	        std::cerr << "❌ You are not the owner of this NFT or it is revoked.\n";
-       	 continue;
-    	}
+	        continue;
+	    }
 
 	    std::cout << "New metadata: ";
 	    std::getline(std::cin, newMetadata);
@@ -170,17 +193,18 @@ void interactiveMenu() {
 
 	    int64_t ts = std::time(nullptr);
 	    std::string newId = generateNFTID(currentUser, nft.imageHash, ts);
-	    std::string dataToSign = newId + currentUser + currentUser + newMetadata + nft.imageHash + std::to_string(ts);
-	    auto msgHash = Crypto::sha256ToBytes(dataToSign);
-	    auto keys = Crypto::loadFalconKeys(currentUser);
-	    std::vector<uint8_t> sig = Crypto::signWithFalcon(msgHash, keys.privateKey);
 
-	    NFT updated{newId, currentUser, currentUser, newMetadata, nft.imageHash, ts, sig};
+	    NFT updated{newId, currentUser, currentUser, newMetadata, nft.imageHash, ts, {}};
 	    updated.version = std::to_string(newVersion);
 	    updated.creator_identity = nft.creator_identity;
 	    updated.expiry_timestamp = nft.expiry_timestamp;
 	    updated.previous_versions = nft.previous_versions;
 	    updated.previous_versions.push_back(nft.id);
+
+	    std::string message = updated.getSignatureMessage();
+	    auto msgHash = Crypto::sha256ToBytes(message);
+	    auto keys = Crypto::loadFalconKeys(currentUser);
+	    updated.signature = Crypto::signWithFalcon(msgHash, keys.privateKey);
 
 	    updated.generateZkStarkProof();
 
@@ -190,31 +214,31 @@ void interactiveMenu() {
 	    if (!submitMetadataHashTransaction(rehash, currentUser, "falcon", true)) {
 	        std::cerr << "❌ Metadata transaction failed.\n";
 	        continue;
-    	}
+	    }
 
-    	if (!updated.verifySignature() || !NFTStorage::saveNFT(updated, DB::getInstance()->getRawDB())) {
-    	    std::cerr << "❌ Failed to verify or save updated NFT.\n";
-    	    continue;
-    	}
+	    if (!updated.verifySignature() || !NFTStorage::saveNFT(updated, DB::getInstance()->getRawDB())) {
+	        std::cerr << "❌ Failed to verify or save updated NFT.\n";
+	        continue;
+	    }
 
-   	 std::cout << "✅ NFT re-minted successfully! New ID: " << newId << "\n";
+	    std::cout << "✅ NFT re-minted successfully! New ID: " << newId << "\n";
 	}
 
-		else if (choice == 6) {
-	            std::string id;
-	            std::cout << "NFT ID to export: ";
-	            std::getline(std::cin, id);
-	            NFT nft;
-	            if (!NFTStorage::loadNFT(id, nft, DB::getInstance()->getRawDB())) {
-	                std::cerr << "❌ Not found.\n";
-	                continue;
-	            }
-        	    nft.exportToFile();
-        	}
-        else if (choice == 7) {
-         auto all = NFTStorage::loadAllNFTs(DB::getInstance()->getRawDB());
-       	    std::string me = getLoadedWalletAddress();
-   	    int total = 0, mine = 0, zk = 0;
+	else if (choice == 6) {
+            std::string id;
+            std::cout << "NFT ID to export: ";
+            std::getline(std::cin, id);
+            NFT nft;
+            if (!NFTStorage::loadNFT(id, nft, DB::getInstance()->getRawDB())) {
+                std::cerr << "❌ Not found.\n";
+                continue;
+            }
+       	    nft.exportToFile();
+       	}
+       else if (choice == 7) {
+        auto all = NFTStorage::loadAllNFTs(DB::getInstance()->getRawDB());
+     	    std::string me = getLoadedWalletAddress();
+  	    int total = 0, mine = 0, zk = 0;
             std::map<std::string, int> typeCount;
 
             for (const auto& nft : all) {

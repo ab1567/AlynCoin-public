@@ -74,9 +74,9 @@ const char descriptor_table_protodef_identity_2eproto[] PROTOBUF_SECTION_VARIABL
   "\n\016identity.proto\022\010identity\"\257\001\n\017ZkIdentit"
   "yProto\022\014\n\004uuid\030\001 \001(\t\022\014\n\004name\030\002 \001(\t\022\021\n\tpu"
   "blicKey\030\003 \001(\t\022\024\n\014metadataHash\030\004 \001(\t\022\021\n\tc"
-  "reatedAt\030\005 \001(\003\022\017\n\007zkProof\030\006 \001(\t\022\027\n\017falco"
-  "nSignature\030\007 \001(\t\022\032\n\022dilithiumSignature\030\010"
-  " \001(\tb\006proto3"
+  "reatedAt\030\005 \001(\003\022\017\n\007zkProof\030\006 \001(\014\022\027\n\017falco"
+  "nSignature\030\007 \001(\014\022\032\n\022dilithiumSignature\030\010"
+  " \001(\014b\006proto3"
   ;
 static ::_pbi::once_flag descriptor_table_identity_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_identity_2eproto = {
@@ -322,33 +322,30 @@ const char* ZkIdentityProto::_InternalParse(const char* ptr, ::_pbi::ParseContex
         } else
           goto handle_unusual;
         continue;
-      // string zkProof = 6;
+      // bytes zkProof = 6;
       case 6:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 50)) {
           auto str = _internal_mutable_zkproof();
           ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(ptr);
-          CHK_(::_pbi::VerifyUTF8(str, "identity.ZkIdentityProto.zkProof"));
         } else
           goto handle_unusual;
         continue;
-      // string falconSignature = 7;
+      // bytes falconSignature = 7;
       case 7:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 58)) {
           auto str = _internal_mutable_falconsignature();
           ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(ptr);
-          CHK_(::_pbi::VerifyUTF8(str, "identity.ZkIdentityProto.falconSignature"));
         } else
           goto handle_unusual;
         continue;
-      // string dilithiumSignature = 8;
+      // bytes dilithiumSignature = 8;
       case 8:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 66)) {
           auto str = _internal_mutable_dilithiumsignature();
           ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(ptr);
-          CHK_(::_pbi::VerifyUTF8(str, "identity.ZkIdentityProto.dilithiumSignature"));
         } else
           goto handle_unusual;
         continue;
@@ -427,33 +424,21 @@ uint8_t* ZkIdentityProto::_InternalSerialize(
     target = ::_pbi::WireFormatLite::WriteInt64ToArray(5, this->_internal_createdat(), target);
   }
 
-  // string zkProof = 6;
+  // bytes zkProof = 6;
   if (!this->_internal_zkproof().empty()) {
-    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
-      this->_internal_zkproof().data(), static_cast<int>(this->_internal_zkproof().length()),
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
-      "identity.ZkIdentityProto.zkProof");
-    target = stream->WriteStringMaybeAliased(
+    target = stream->WriteBytesMaybeAliased(
         6, this->_internal_zkproof(), target);
   }
 
-  // string falconSignature = 7;
+  // bytes falconSignature = 7;
   if (!this->_internal_falconsignature().empty()) {
-    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
-      this->_internal_falconsignature().data(), static_cast<int>(this->_internal_falconsignature().length()),
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
-      "identity.ZkIdentityProto.falconSignature");
-    target = stream->WriteStringMaybeAliased(
+    target = stream->WriteBytesMaybeAliased(
         7, this->_internal_falconsignature(), target);
   }
 
-  // string dilithiumSignature = 8;
+  // bytes dilithiumSignature = 8;
   if (!this->_internal_dilithiumsignature().empty()) {
-    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
-      this->_internal_dilithiumsignature().data(), static_cast<int>(this->_internal_dilithiumsignature().length()),
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
-      "identity.ZkIdentityProto.dilithiumSignature");
-    target = stream->WriteStringMaybeAliased(
+    target = stream->WriteBytesMaybeAliased(
         8, this->_internal_dilithiumsignature(), target);
   }
 
@@ -501,24 +486,24 @@ size_t ZkIdentityProto::ByteSizeLong() const {
         this->_internal_metadatahash());
   }
 
-  // string zkProof = 6;
+  // bytes zkProof = 6;
   if (!this->_internal_zkproof().empty()) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::BytesSize(
         this->_internal_zkproof());
   }
 
-  // string falconSignature = 7;
+  // bytes falconSignature = 7;
   if (!this->_internal_falconsignature().empty()) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::BytesSize(
         this->_internal_falconsignature());
   }
 
-  // string dilithiumSignature = 8;
+  // bytes dilithiumSignature = 8;
   if (!this->_internal_dilithiumsignature().empty()) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::BytesSize(
         this->_internal_dilithiumsignature());
   }
 
