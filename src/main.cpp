@@ -55,6 +55,7 @@ int main(int argc, char *argv[]) {
   Network &network = Network::getInstance(port, &blockchain, &blacklist);
 
   blockchain.loadFromDB();
+  blockchain.reloadBlockchainState();
 
   // ✅ Full duplex peer connection logic
   if (!connectIP.empty()) {

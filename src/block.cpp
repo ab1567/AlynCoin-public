@@ -502,10 +502,11 @@ Block Block::fromJSON(const Json::Value &blockJson) {
 }
 
 //
+
 alyncoin::BlockProto Block::toProtobuf() const {
     alyncoin::BlockProto proto;
 
-    // Prevent crash: fallback signature if empty
+    // Use fallback signature if missing (prevent crash)
     std::string sig = blockSignature.empty()
                       ? Crypto::blake3(hash + dilithiumSignature + falconSignature)
                       : blockSignature;
@@ -521,17 +522,15 @@ alyncoin::BlockProto Block::toProtobuf() const {
     proto.set_keccak_hash(keccakHash);
     proto.set_tx_merkle_root(merkleRoot);
     proto.set_reward(reward);
+
+    // zkProof is raw binary — encode to hex
     proto.set_zk_stark_proof(Crypto::toHex(zkProof));
 
-    // Convert std::string → vector<uint8_t> before toHex()
-    proto.set_dilithium_signature(Crypto::toHex(
-        std::vector<unsigned char>(dilithiumSignature.begin(), dilithiumSignature.end())));
-    proto.set_falcon_signature(Crypto::toHex(
-        std::vector<unsigned char>(falconSignature.begin(), falconSignature.end())));
-    proto.set_public_key_dilithium(Crypto::toHex(
-        std::vector<unsigned char>(publicKeyDilithium.begin(), publicKeyDilithium.end())));
-    proto.set_public_key_falcon(Crypto::toHex(
-        std::vector<unsigned char>(publicKeyFalcon.begin(), publicKeyFalcon.end())));
+    // These fields are already hex-encoded strings
+    proto.set_dilithium_signature(dilithiumSignature);
+    proto.set_falcon_signature(falconSignature);
+    proto.set_public_key_dilithium(publicKeyDilithium);
+    proto.set_public_key_falcon(publicKeyFalcon);
 
     for (const Transaction &tx : transactions) {
         *proto.add_transactions() = tx.toProto();
@@ -548,11 +547,11 @@ Block Block::fromProto(const alyncoin::BlockProto &protoBlock, bool allowPartial
         if (val.empty()) {
             if (!allowPartial)
                 throw std::runtime_error("[fromProto] " + label + " is empty.");
-            std::cerr << "⚠️ [fromProto] " << label << " is empty. Skipping block.\n";
+            std::cerr << "⚠️ [fromProto] " << label << " is empty.\n";
             return "";
         }
         if (val.size() > maxLen) {
-            std::cerr << "⚠️ [fromProto] " << label << " too long: " << val.size() << " bytes. Skipping block.\n";
+            std::cerr << "⚠️ [fromProto] " << label << " too long: " << val.size() << " bytes.\n";
             if (!allowPartial)
                 throw std::runtime_error("[fromProto] " + label + " too long.");
             return "";
@@ -579,48 +578,56 @@ Block Block::fromProto(const alyncoin::BlockProto &protoBlock, bool allowPartial
 
         auto safeHexDecode = [&](const std::string& hex, const std::string& label, size_t maxLen = 100000) -> std::vector<unsigned char> {
             if (hex.empty()) {
-                std::cerr << "⚠️ [fromProto] " << label << " is empty. Skipping.\n";
+                std::cerr << "❌ [fromProto] " << label << " is EMPTY.\n";
+                if (!allowPartial)
+                    throw std::runtime_error("[fromProto] " + label + " is empty.");
                 return {};
             }
             if (hex.size() > maxLen) {
-                std::cerr << "❌ [fromProto] " << label << " too long: " << hex.size() << "\n";
+                std::cerr << "❌ [fromProto] " << label << " too long: " << hex.size() << " bytes.\n";
                 return {};
             }
             if (hex.size() % 2 != 0) {
                 std::cerr << "❌ [fromProto] " << label << " has ODD hex length: " << hex.size() << "\n";
-                std::cerr << "    Value: " << hex << "\n";
                 return {};
             }
-            try {
-                return Crypto::fromHex(hex);
-            } catch (const std::exception& e) {
-                std::cerr << "❌ [fromProto] Failed to decode hex field: " << label << ": " << e.what() << "\n";
-                return {};
+            for (char c : hex) {
+                if (!std::isxdigit(c)) {
+                    std::cerr << "❌ [fromProto] " << label << " contains invalid hex character: " << c << "\n";
+                    return {};
+                }
             }
-        };
-
-        auto safeStringFromHex = [&](const std::string& hex, const std::string& label) -> std::string {
-            std::vector<unsigned char> vec = safeHexDecode(hex, label);
-            return std::string(vec.begin(), vec.end());
+            return Crypto::fromHex(hex);
         };
 
         newBlock.zkProof = safeHexDecode(protoBlock.zk_stark_proof(), "zk_stark_proof");
-        newBlock.dilithiumSignature = safeStringFromHex(protoBlock.dilithium_signature(), "dilithium_signature");
-        newBlock.falconSignature    = safeStringFromHex(protoBlock.falcon_signature(), "falcon_signature");
 
+        // Signatures remain hex strings
+        newBlock.dilithiumSignature = safeStr(protoBlock.dilithium_signature(), "dilithium_signature");
+        newBlock.falconSignature = safeStr(protoBlock.falcon_signature(), "falcon_signature");
+
+        // Decode public keys safely
         std::string pubDilRaw = safeStr(protoBlock.public_key_dilithium(), "public_key_dilithium");
         std::string pubFalRaw = safeStr(protoBlock.public_key_falcon(), "public_key_falcon");
 
         if (!pubDilRaw.empty() && Crypto::isLikelyHex(pubDilRaw)) {
-            std::vector<unsigned char> decoded = Crypto::fromHex(pubDilRaw);
-            newBlock.publicKeyDilithium = std::string(decoded.begin(), decoded.end());
+            std::vector<unsigned char> decoded = safeHexDecode(pubDilRaw, "public_key_dilithium");
+            if (!decoded.empty()) {
+                newBlock.publicKeyDilithium.assign(reinterpret_cast<const char*>(decoded.data()), decoded.size());
+            } else if (!allowPartial) {
+                throw std::runtime_error("[fromProto] Failed to decode public_key_dilithium");
+            }
         } else {
             newBlock.publicKeyDilithium = pubDilRaw;
         }
 
         if (!pubFalRaw.empty() && Crypto::isLikelyHex(pubFalRaw)) {
-            std::vector<unsigned char> decoded = Crypto::fromHex(pubFalRaw);
-            newBlock.publicKeyFalcon = std::string(decoded.begin(), decoded.end());
+            std::vector<unsigned char> decoded = safeHexDecode(pubFalRaw, "public_key_falcon");
+            if (!decoded.empty()) {
+                newBlock.publicKeyFalcon.assign(reinterpret_cast<const char*>(decoded.data()), decoded.size());
+            } else if (!allowPartial) {
+                throw std::runtime_error("[fromProto] Failed to decode public_key_falcon");
+            }
         } else {
             newBlock.publicKeyFalcon = pubFalRaw;
         }
@@ -641,10 +648,11 @@ Block Block::fromProto(const alyncoin::BlockProto &protoBlock, bool allowPartial
             std::cerr << "⚠️ Skipping TX due to error: " << e.what() << "\n";
         }
     }
-    newBlock.setTransactions(txs);
 
+    newBlock.setTransactions(txs);
     return newBlock;
-} 
+}
+
 // Modify Block class to handle rollup block structure
 std::string
 Block::generateRollupProof(const std::vector<Transaction> &offChainTxs) {

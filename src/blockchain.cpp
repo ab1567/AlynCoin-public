@@ -28,6 +28,7 @@
 #include "logger.h"
 
 #define ROLLUP_CHAIN_FILE "rollup_chain.dat"
+static std::map<uint64_t, Block> futureBlocks;
 namespace fs = std::filesystem;
 const std::string BLOCKCHAIN_DB_PATH = DBPaths::getBlockchainDB();
 std::vector<StateChannel> stateChannels;
@@ -302,6 +303,15 @@ bool Blockchain::addBlock(const Block &block) {
         }
     }
 
+    // ✅ Handle future block buffering
+    if (!chain.empty() && block.getIndex() > chain.back().getIndex() + 1) {
+        std::cerr << "⚠️ [Node] Received future block. Index: " << block.getIndex()
+                  << ", Expected: " << (chain.back().getIndex() + 1) << ". Buffering.\n";
+        futureBlocks[block.getIndex()] = block;
+        return false;
+    }
+
+    // ❌ Validate block before adding
     if (!isValidNewBlock(block)) {
         std::cerr << "❌ Invalid block detected. Rejecting!\n";
         std::cerr << "   ↪️ Block Hash       : " << block.getHash() << "\n";
@@ -310,6 +320,7 @@ bool Blockchain::addBlock(const Block &block) {
         return false;
     }
 
+    // ✅ Append to chain
     chain.push_back(block);
 
     for (const auto &tx : block.getTransactions()) {
@@ -323,6 +334,7 @@ bool Blockchain::addBlock(const Block &block) {
 
     std::cout << "[DEBUG] ✅ Block zkProof length: " << block.getZkProof().size() << " bytes\n";
 
+    // ✅ Serialize to DB
     alyncoin::BlockProto protoBlock = block.toProtobuf();
     std::string serializedBlock;
     if (!protoBlock.SerializeToString(&serializedBlock)) {
@@ -357,6 +369,17 @@ bool Blockchain::addBlock(const Block &block) {
     validateChainContinuity();
 
     std::cout << "✅ Block added to blockchain. Pending transactions updated and balances recalculated.\n";
+
+    // ✅ Attempt to apply future buffered blocks (recursive)
+    uint64_t nextIndex = chain.back().getIndex() + 1;
+    while (futureBlocks.count(nextIndex)) {
+        Block buffered = futureBlocks[nextIndex];
+        futureBlocks.erase(nextIndex);
+        std::cout << "📦 Applying buffered future block index: " << nextIndex << "\n";
+        addBlock(buffered);
+        nextIndex++;
+    }
+
     return true;
 }
 
@@ -1145,6 +1168,10 @@ bool Blockchain::loadFromProto(const alyncoin::BlockchainProto &protoChain) {
     std::cout << "✅ Blockchain deserialization completed! Blocks: " << chain.size()
               << ", Pending Transactions: " << pendingTransactions.size() << std::endl;
 
+    // 🔁 Ensure full state is recomputed
+    recalculateBalancesFromChain();
+    validateChainContinuity();
+
     return true;
 }
 
@@ -1178,10 +1205,17 @@ bool Blockchain::isValidNewBlock(const Block& newBlock) const {
         return false;
     }
 
+    // 🔄 Allow mild future drift (common during sync)
     if (newBlock.getIndex() > lastBlock.getIndex() + 1) {
-        std::cerr << "⚠️ [Blockchain] Received future block. Index: " << newBlock.getIndex()
-                  << ", Expected: " << lastBlock.getIndex() + 1 << ". Buffering not implemented.\n";
-        return false;
+        int drift = newBlock.getIndex() - (lastBlock.getIndex() + 1);
+        if (drift <= 2) {
+            std::cout << "⏳ [Blockchain] Slightly future block received. Index: "
+                      << newBlock.getIndex() << ", Expected: " << lastBlock.getIndex() + 1 << "\n";
+        } else {
+            std::cerr << "⚠️ [Blockchain] Received future block. Index: " << newBlock.getIndex()
+                      << ", Expected: " << lastBlock.getIndex() + 1 << ". Buffering not implemented.\n";
+            return false;
+        }
     }
 
     if (newBlock.getPreviousHash() != lastBlock.getHash()) {

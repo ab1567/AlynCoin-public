@@ -805,7 +805,6 @@ void Network::handleIncomingData(const std::string &senderIP, std::string data) 
             }
 
             std::vector<unsigned char> msgBytes = blk.getSignatureMessage();
-
             auto sigDil = Crypto::fromHex(blk.getDilithiumSignature());
             auto pubDil = std::vector<unsigned char>(blk.getPublicKeyDilithium().begin(), blk.getPublicKeyDilithium().end());
             if (!Crypto::verifyWithDilithium(msgBytes, sigDil, pubDil)) {
@@ -825,24 +824,44 @@ void Network::handleIncomingData(const std::string &senderIP, std::string data) 
 
         if (validChain) {
             std::lock_guard<std::mutex> lock(blockchainMutex);
-            mainChain.saveToDB();
-            std::cout << "[INFO] ✅ Blockchain sync complete from peer " << senderIP << "\n";
+            Blockchain &localChain = Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true);
+            localChain.clear(true);  // 👈 force=true ensures full reset
+
+            for (const auto &blk : mainChain.getChain()) {
+                if (!localChain.addBlock(blk)) {
+                    std::cerr << "❌ Failed to re-add block from synced chain. Aborting chain adoption.\n";
+                    return;
+                }
+            }
+
+            for (const auto &tx : mainChain.getPendingTransactions()) {
+                localChain.addTransaction(tx);
+            }
+
+            localChain.saveToDB();
+            localChain.recalculateBalancesFromChain();
+
+            std::cout << "[INFO] ✅ Blockchain fully adopted from peer " << senderIP
+                      << ". New height: " << localChain.getHeight() << "\n";
         } else {
             std::cerr << "[ERROR] ❌ Blockchain rejected due to verification failure.\n";
         }
-
         return;
     }
 
-    // 📨 Fallback: transaction
+    // 📨 Fallback: only allow if JSON
     try {
-        Transaction tx = Transaction::deserialize(data);
-        if (tx.isValid(tx.getSenderPublicKeyDilithium(), tx.getSenderPublicKeyFalcon())) {
-            blockchain->addTransaction(tx);
-            blockchain->savePendingTransactionsToDB();
-            std::cout << "[INFO] Transaction accepted from " << senderIP << "\n";
+        if (!data.empty() && data.front() == '{' && data.back() == '}') {
+            Transaction tx = Transaction::deserialize(data);
+            if (tx.isValid(tx.getSenderPublicKeyDilithium(), tx.getSenderPublicKeyFalcon())) {
+                blockchain->addTransaction(tx);
+                blockchain->savePendingTransactionsToDB();
+                std::cout << "[INFO] Transaction accepted from " << senderIP << "\n";
+            } else {
+                std::cerr << "[ERROR] Invalid transaction received from " << senderIP << "\n";
+            }
         } else {
-            std::cerr << "[ERROR] Invalid transaction received from " << senderIP << "\n";
+            std::cerr << "[DEBUG] Ignored unrecognized non-prefixed message from " << senderIP << "\n";
         }
     } catch (const std::exception &e) {
         std::cerr << "[ERROR] Transaction parse failed from " << senderIP << ": " << e.what() << "\n";

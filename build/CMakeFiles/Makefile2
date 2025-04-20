@@ -253,10 +253,10 @@ src/CMakeFiles/dilithium.dir/clean:
 # Target rules for target src/CMakeFiles/alyncoin_lib.dir
 
 # All Build rule for target.
-src/CMakeFiles/alyncoin_lib.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
-src/CMakeFiles/alyncoin_lib.dir/all: src/CMakeFiles/protobuf_gen.dir/all
-src/CMakeFiles/alyncoin_lib.dir/all: src/CMakeFiles/dilithium.dir/all
 src/CMakeFiles/alyncoin_lib.dir/all: src/CMakeFiles/falcon.dir/all
+src/CMakeFiles/alyncoin_lib.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
+src/CMakeFiles/alyncoin_lib.dir/all: src/CMakeFiles/dilithium.dir/all
+src/CMakeFiles/alyncoin_lib.dir/all: src/CMakeFiles/protobuf_gen.dir/all
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/depend
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50 "Built target alyncoin_lib"
@@ -282,11 +282,11 @@ src/CMakeFiles/alyncoin_lib.dir/clean:
 # Target rules for target src/CMakeFiles/alyncoin.dir
 
 # All Build rule for target.
-src/CMakeFiles/alyncoin.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
-src/CMakeFiles/alyncoin.dir/all: src/CMakeFiles/protobuf_gen.dir/all
-src/CMakeFiles/alyncoin.dir/all: src/CMakeFiles/dilithium.dir/all
 src/CMakeFiles/alyncoin.dir/all: src/CMakeFiles/alyncoin_lib.dir/all
 src/CMakeFiles/alyncoin.dir/all: src/CMakeFiles/falcon.dir/all
+src/CMakeFiles/alyncoin.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
+src/CMakeFiles/alyncoin.dir/all: src/CMakeFiles/dilithium.dir/all
+src/CMakeFiles/alyncoin.dir/all: src/CMakeFiles/protobuf_gen.dir/all
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin.dir/build.make src/CMakeFiles/alyncoin.dir/depend
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin.dir/build.make src/CMakeFiles/alyncoin.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=1 "Built target alyncoin"
@@ -312,11 +312,11 @@ src/CMakeFiles/alyncoin.dir/clean:
 # Target rules for target src/CMakeFiles/alyncoin-cli.dir
 
 # All Build rule for target.
-src/CMakeFiles/alyncoin-cli.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
-src/CMakeFiles/alyncoin-cli.dir/all: src/CMakeFiles/protobuf_gen.dir/all
-src/CMakeFiles/alyncoin-cli.dir/all: src/CMakeFiles/dilithium.dir/all
 src/CMakeFiles/alyncoin-cli.dir/all: src/CMakeFiles/alyncoin_lib.dir/all
 src/CMakeFiles/alyncoin-cli.dir/all: src/CMakeFiles/falcon.dir/all
+src/CMakeFiles/alyncoin-cli.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
+src/CMakeFiles/alyncoin-cli.dir/all: src/CMakeFiles/dilithium.dir/all
+src/CMakeFiles/alyncoin-cli.dir/all: src/CMakeFiles/protobuf_gen.dir/all
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin-cli.dir/build.make src/CMakeFiles/alyncoin-cli.dir/depend
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin-cli.dir/build.make src/CMakeFiles/alyncoin-cli.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=2,3,4,5 "Built target alyncoin-cli"
@@ -342,11 +342,11 @@ src/CMakeFiles/alyncoin-cli.dir/clean:
 # Target rules for target src/CMakeFiles/peer_blacklist_cli.dir
 
 # All Build rule for target.
-src/CMakeFiles/peer_blacklist_cli.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
-src/CMakeFiles/peer_blacklist_cli.dir/all: src/CMakeFiles/protobuf_gen.dir/all
-src/CMakeFiles/peer_blacklist_cli.dir/all: src/CMakeFiles/dilithium.dir/all
 src/CMakeFiles/peer_blacklist_cli.dir/all: src/CMakeFiles/alyncoin_lib.dir/all
 src/CMakeFiles/peer_blacklist_cli.dir/all: src/CMakeFiles/falcon.dir/all
+src/CMakeFiles/peer_blacklist_cli.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
+src/CMakeFiles/peer_blacklist_cli.dir/all: src/CMakeFiles/dilithium.dir/all
+src/CMakeFiles/peer_blacklist_cli.dir/all: src/CMakeFiles/protobuf_gen.dir/all
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/peer_blacklist_cli.dir/build.make src/CMakeFiles/peer_blacklist_cli.dir/depend
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/peer_blacklist_cli.dir/build.make src/CMakeFiles/peer_blacklist_cli.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=92,93 "Built target peer_blacklist_cli"
@@ -372,11 +372,11 @@ src/CMakeFiles/peer_blacklist_cli.dir/clean:
 # Target rules for target src/CMakeFiles/swapcli.dir
 
 # All Build rule for target.
-src/CMakeFiles/swapcli.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
-src/CMakeFiles/swapcli.dir/all: src/CMakeFiles/protobuf_gen.dir/all
-src/CMakeFiles/swapcli.dir/all: src/CMakeFiles/dilithium.dir/all
 src/CMakeFiles/swapcli.dir/all: src/CMakeFiles/alyncoin_lib.dir/all
 src/CMakeFiles/swapcli.dir/all: src/CMakeFiles/falcon.dir/all
+src/CMakeFiles/swapcli.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
+src/CMakeFiles/swapcli.dir/all: src/CMakeFiles/dilithium.dir/all
+src/CMakeFiles/swapcli.dir/all: src/CMakeFiles/protobuf_gen.dir/all
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/swapcli.dir/build.make src/CMakeFiles/swapcli.dir/depend
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/swapcli.dir/build.make src/CMakeFiles/swapcli.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=95,96,97,98,99 "Built target swapcli"
@@ -402,11 +402,11 @@ src/CMakeFiles/swapcli.dir/clean:
 # Target rules for target src/CMakeFiles/identitycli.dir
 
 # All Build rule for target.
-src/CMakeFiles/identitycli.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
-src/CMakeFiles/identitycli.dir/all: src/CMakeFiles/protobuf_gen.dir/all
-src/CMakeFiles/identitycli.dir/all: src/CMakeFiles/dilithium.dir/all
 src/CMakeFiles/identitycli.dir/all: src/CMakeFiles/alyncoin_lib.dir/all
 src/CMakeFiles/identitycli.dir/all: src/CMakeFiles/falcon.dir/all
+src/CMakeFiles/identitycli.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
+src/CMakeFiles/identitycli.dir/all: src/CMakeFiles/dilithium.dir/all
+src/CMakeFiles/identitycli.dir/all: src/CMakeFiles/protobuf_gen.dir/all
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/identitycli.dir/build.make src/CMakeFiles/identitycli.dir/depend
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/identitycli.dir/build.make src/CMakeFiles/identitycli.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=81,82,83,84,85 "Built target identitycli"
@@ -432,11 +432,11 @@ src/CMakeFiles/identitycli.dir/clean:
 # Target rules for target src/CMakeFiles/blacklist_test.dir
 
 # All Build rule for target.
-src/CMakeFiles/blacklist_test.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
-src/CMakeFiles/blacklist_test.dir/all: src/CMakeFiles/protobuf_gen.dir/all
-src/CMakeFiles/blacklist_test.dir/all: src/CMakeFiles/dilithium.dir/all
 src/CMakeFiles/blacklist_test.dir/all: src/CMakeFiles/alyncoin_lib.dir/all
 src/CMakeFiles/blacklist_test.dir/all: src/CMakeFiles/falcon.dir/all
+src/CMakeFiles/blacklist_test.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
+src/CMakeFiles/blacklist_test.dir/all: src/CMakeFiles/dilithium.dir/all
+src/CMakeFiles/blacklist_test.dir/all: src/CMakeFiles/protobuf_gen.dir/all
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/blacklist_test.dir/build.make src/CMakeFiles/blacklist_test.dir/depend
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/blacklist_test.dir/build.make src/CMakeFiles/blacklist_test.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=51 "Built target blacklist_test"
@@ -462,11 +462,11 @@ src/CMakeFiles/blacklist_test.dir/clean:
 # Target rules for target src/CMakeFiles/explorer_server.dir
 
 # All Build rule for target.
-src/CMakeFiles/explorer_server.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
-src/CMakeFiles/explorer_server.dir/all: src/CMakeFiles/protobuf_gen.dir/all
-src/CMakeFiles/explorer_server.dir/all: src/CMakeFiles/dilithium.dir/all
 src/CMakeFiles/explorer_server.dir/all: src/CMakeFiles/alyncoin_lib.dir/all
 src/CMakeFiles/explorer_server.dir/all: src/CMakeFiles/falcon.dir/all
+src/CMakeFiles/explorer_server.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
+src/CMakeFiles/explorer_server.dir/all: src/CMakeFiles/dilithium.dir/all
+src/CMakeFiles/explorer_server.dir/all: src/CMakeFiles/protobuf_gen.dir/all
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/explorer_server.dir/build.make src/CMakeFiles/explorer_server.dir/depend
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/explorer_server.dir/build.make src/CMakeFiles/explorer_server.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=62,63,64,65 "Built target explorer_server"
@@ -492,10 +492,10 @@ src/CMakeFiles/explorer_server.dir/clean:
 # Target rules for target src/nft/CMakeFiles/nftcli.dir
 
 # All Build rule for target.
-src/nft/CMakeFiles/nftcli.dir/all: src/nft/crypto/CMakeFiles/nft_crypto.dir/all
-src/nft/CMakeFiles/nftcli.dir/all: src/CMakeFiles/dilithium.dir/all
 src/nft/CMakeFiles/nftcli.dir/all: src/CMakeFiles/alyncoin_lib.dir/all
 src/nft/CMakeFiles/nftcli.dir/all: src/CMakeFiles/falcon.dir/all
+src/nft/CMakeFiles/nftcli.dir/all: src/CMakeFiles/dilithium.dir/all
+src/nft/CMakeFiles/nftcli.dir/all: src/nft/crypto/CMakeFiles/nft_crypto.dir/all
 	$(MAKE) $(MAKESILENT) -f src/nft/CMakeFiles/nftcli.dir/build.make src/nft/CMakeFiles/nftcli.dir/depend
 	$(MAKE) $(MAKESILENT) -f src/nft/CMakeFiles/nftcli.dir/build.make src/nft/CMakeFiles/nftcli.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=88,89,90,91 "Built target nftcli"

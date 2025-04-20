@@ -470,48 +470,64 @@ bool generatePostQuantumKeys(const std::string &username) {
 
 // buff conversion
 void serializeKeysToProtobuf(const std::string &privateKeyPath, std::string &output) {
-  alyncoin::CryptoKeysProto keyProto;
+    alyncoin::CryptoKeysProto keyProto;
 
-  // 🔐 Binary-safe read
-  std::ifstream privFile(privateKeyPath, std::ios::binary);
-  if (privFile) {
-    std::vector<char> buffer((std::istreambuf_iterator<char>(privFile)), {});
-    keyProto.set_private_key(std::string(buffer.begin(), buffer.end()));
-    privFile.close();
-  } else {
-    std::cerr << "❌ Error: Cannot open private key file: " << privateKeyPath << std::endl;
-    return;
-  }
+    // 🔐 Binary-safe read of private key
+    std::ifstream privFile(privateKeyPath, std::ios::binary);
+    if (privFile) {
+        std::vector<char> buffer((std::istreambuf_iterator<char>(privFile)), {});
+        if (buffer.empty()) {
+            std::cerr << "❌ Error: Private key file is empty: " << privateKeyPath << "\n";
+            return;
+        }
+        keyProto.set_private_key(std::string(buffer.begin(), buffer.end()));
+        privFile.close();
+    } else {
+        std::cerr << "❌ Error: Cannot open private key file: " << privateKeyPath << "\n";
+        return;
+    }
 
-  // 🔓 Infer and read public key
-  std::string publicKeyPath = privateKeyPath;
-  size_t pos = publicKeyPath.find(".key");
-  if (pos != std::string::npos) {
-    publicKeyPath.replace(pos, 4, ".pub");
-  }
+    // 🔓 Infer and read public key
+    std::string publicKeyPath = privateKeyPath;
+    size_t pos = publicKeyPath.find(".key");
+    if (pos != std::string::npos) {
+        publicKeyPath.replace(pos, 4, ".pub");
+    }
 
-  std::ifstream pubFile(publicKeyPath, std::ios::binary);
-  if (pubFile) {
-    std::vector<char> buffer((std::istreambuf_iterator<char>(pubFile)), {});
-    keyProto.set_public_key(std::string(buffer.begin(), buffer.end()));
-    pubFile.close();
-  } else {
-    std::cerr << "⚠️ Warning: Cannot open public key file: " << publicKeyPath << std::endl;
-  }
+    std::ifstream pubFile(publicKeyPath, std::ios::binary);
+    if (pubFile) {
+        std::vector<char> buffer((std::istreambuf_iterator<char>(pubFile)), {});
+        if (buffer.empty()) {
+            std::cerr << "⚠️ Warning: Public key file is empty: " << publicKeyPath << "\n";
+        } else {
+            keyProto.set_public_key(std::string(buffer.begin(), buffer.end()));
+        }
+        pubFile.close();
+    } else {
+        std::cerr << "⚠️ Warning: Cannot open public key file: " << publicKeyPath << "\n";
+    }
 
-  keyProto.SerializeToString(&output);
+    if (!keyProto.SerializeToString(&output)) {
+        std::cerr << "❌ Error: Failed to serialize CryptoKeysProto to string!\n";
+    }
 }
+
 bool deserializeKeysFromProtobuf(const std::string &input,
                                   std::vector<unsigned char> &privateKey,
                                   std::vector<unsigned char> &publicKey) {
     alyncoin::CryptoKeysProto keyProto;
     if (!keyProto.ParseFromString(input)) {
-        std::cerr << "❌ Error: Failed to parse Protobuf key data!" << std::endl;
+        std::cerr << "❌ Error: Failed to parse Protobuf key data!\n";
         return false;
     }
 
     const std::string &privStr = keyProto.private_key();
-    const std::string &pubStr = keyProto.public_key();
+    const std::string &pubStr  = keyProto.public_key();
+
+    if (privStr.empty()) {
+        std::cerr << "❌ Error: Parsed private key is empty.\n";
+        return false;
+    }
 
     privateKey.assign(privStr.begin(), privStr.end());
     publicKey.assign(pubStr.begin(), pubStr.end());
@@ -541,30 +557,55 @@ std::string toHex(const std::vector<unsigned char> &data) {
 
 // Convert hex string back to bytes
 std::vector<unsigned char> fromHex(const std::string &hex) {
-  std::vector<unsigned char> bytes;
+    std::vector<unsigned char> bytes;
 
-  if (hex.empty()) {
-    std::cerr << "❌ [ERROR] fromHex() input is empty!\n";
-    return {};
-  }
+    if (hex.empty()) {
+        std::cerr << "❌ [fromHex] Input is empty.\n";
+        return {};
+    }
 
-  if (hex.length() % 2 != 0) {
-    std::cerr << "❌ [ERROR] fromHex() - hex string must have even length! Got: "
-              << hex.length() << "\n";
-    return {};
-  }
+    if (hex.length() % 2 != 0) {
+        std::cerr << "❌ [fromHex] Hex string has odd length: " << hex.length() << "\n";
+        return {};
+    }
 
-  bytes.reserve(hex.length() / 2);
-  for (size_t i = 0; i < hex.length(); i += 2) {
-    std::string byteStr = hex.substr(i, 2);
-    unsigned char byte = static_cast<unsigned char>(strtol(byteStr.c_str(), nullptr, 16));
-    bytes.push_back(byte);
-  }
+    // Upper safe limit to avoid oversized allocations
+    const size_t MAX_HEX_LENGTH = 1000000;  // 1MB of hex = 500KB binary
+    if (hex.length() > MAX_HEX_LENGTH) {
+        std::cerr << "❌ [fromHex] Hex string too long (" << hex.length() << " chars). Skipping parse.\n";
+        return {};
+    }
 
-  std::cout << "✅ [DEBUG] fromHex() - Parsed " << bytes.size()
-            << " bytes from hex string (expected: " << (hex.length() / 2) << ")\n";
-  return bytes;
+    bytes.reserve(hex.length() / 2);
+
+    auto hexToNibble = [](char c) -> int {
+        if ('0' <= c && c <= '9') return c - '0';
+        if ('a' <= c && c <= 'f') return c - 'a' + 10;
+        if ('A' <= c && c <= 'F') return c - 'A' + 10;
+        return -1;
+    };
+
+    for (size_t i = 0; i < hex.length(); i += 2) {
+        char high = hex[i];
+        char low  = hex[i + 1];
+
+        int highVal = hexToNibble(high);
+        int lowVal  = hexToNibble(low);
+
+        if (highVal == -1 || lowVal == -1) {
+            std::cerr << "❌ [fromHex] Invalid hex characters: '" << high << "' or '" << low
+                      << "' at position " << i << "\n";
+            return {};
+        }
+
+        bytes.push_back(static_cast<unsigned char>((highVal << 4) | lowVal));
+    }
+
+    std::cout << "✅ [DEBUG] fromHex() - Parsed " << bytes.size()
+              << " bytes from hex string (expected: " << (hex.length() / 2) << ")\n";
+    return bytes;
 }
+
 //
 std::vector<unsigned char> stringToBytes(const std::string &input) {
     return std::vector<unsigned char>(input.begin(), input.end());
