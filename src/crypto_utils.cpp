@@ -1187,27 +1187,75 @@ std::string generateRandomHex(size_t length) {
   return result;
 }
 
+//
 std::string blake3Hash(const std::string &input) {
     uint8_t output[BLAKE3_OUT_LEN];
     blake3_hasher hasher;
     blake3_hasher_init(&hasher);
     blake3_hasher_update(&hasher, input.data(), input.size());
     blake3_hasher_finalize(&hasher, output, BLAKE3_OUT_LEN);
-    return std::string(reinterpret_cast<char *>(output), BLAKE3_OUT_LEN);  // ✅ Raw 32-byte
+
+    // 🛠 Correct way: return output as clean std::string (32 bytes)
+    return std::string(reinterpret_cast<const char *>(output), BLAKE3_OUT_LEN);
 }
 
 //
 std::vector<unsigned char> sha256ToBytes(const std::string &input) {
     std::string hashHex = sha256(input);
-    return fromHex(hashHex);  // 64-char hex → 32-byte vector
+    return fromHex(hashHex);
 }
 
-bool isLikelyHex(const std::string &input) {
-    if (input.empty() || input.size() % 2 != 0) return false;
-    for (char c : input) {
-        if (!std::isxdigit(c)) return false;
+bool isLikelyHex(const std::string& str) {
+    if (str.empty()) return false;
+    if (str.size() % 2 != 0) return false;
+
+    for (char c : str) {
+        if (!std::isxdigit(static_cast<unsigned char>(c))) {
+            return false;
+        }
     }
     return true;
+}
+
+// 🚀 Safer Hex Decoder (quiet failure, no std::cerr flood unless you want)
+std::optional<std::vector<unsigned char>> safeFromHex(const std::string& hex, const std::string& context) {
+    if (hex.empty()) {
+        std::cerr << "❌ [safeFromHex] [" << context << "] Empty input.\n";
+        return std::nullopt;
+    }
+
+    if (hex.size() % 2 != 0) {
+        std::cerr << "❌ [safeFromHex] [" << context << "] Odd-length hex string: " << hex.size() << "\n";
+        return std::nullopt;
+    }
+
+    const size_t MAX_SAFE_LENGTH = 1000000; // 1 MB of hex chars
+    if (hex.size() > MAX_SAFE_LENGTH) {
+        std::cerr << "❌ [safeFromHex] [" << context << "] Hex string too long: " << hex.size() << " chars.\n";
+        return std::nullopt;
+    }
+
+    std::vector<unsigned char> bytes;
+    bytes.reserve(hex.size() / 2);
+
+    auto hexToNibble = [](unsigned char c) -> int {
+        if ('0' <= c && c <= '9') return c - '0';
+        if ('a' <= c && c <= 'f') return c - 'a' + 10;
+        if ('A' <= c && c <= 'F') return c - 'A' + 10;
+        return -1;
+    };
+
+    for (size_t i = 0; i < hex.size(); i += 2) {
+        int high = hexToNibble(static_cast<unsigned char>(hex[i]));
+        int low  = hexToNibble(static_cast<unsigned char>(hex[i + 1]));
+        if (high == -1 || low == -1) {
+            std::cerr << "❌ [safeFromHex] [" << context << "] Invalid hex character at pos " << i << ": '" << hex[i] << "' or '" << hex[i+1] << "'\n";
+            return std::nullopt;
+        }
+        bytes.push_back(static_cast<unsigned char>((high << 4) | low));
+    }
+
+    return bytes;
 }
 
 

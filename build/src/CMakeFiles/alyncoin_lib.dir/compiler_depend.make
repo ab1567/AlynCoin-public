@@ -6782,6 +6782,7 @@ src/CMakeFiles/alyncoin_lib.dir/crypto_utils.cpp.o: /root/AlynCoin/src/crypto_ut
   /usr/include/c++/13/mutex \
   /usr/include/c++/13/new \
   /usr/include/c++/13/numeric \
+  /usr/include/c++/13/optional \
   /usr/include/c++/13/ostream \
   /usr/include/c++/13/pstl/execution_defs.h \
   /usr/include/c++/13/pstl/glue_algorithm_defs.h \
@@ -18620,6 +18621,7 @@ src/CMakeFiles/alyncoin_lib.dir/rollup/rollup_utils.cpp.o: /root/AlynCoin/src/ro
   /usr/include/c++/13/iostream \
   /usr/include/c++/13/istream \
   /usr/include/c++/13/new \
+  /usr/include/c++/13/optional \
   /usr/include/c++/13/ostream \
   /usr/include/c++/13/pstl/pstl_config.h \
   /usr/include/c++/13/sstream \

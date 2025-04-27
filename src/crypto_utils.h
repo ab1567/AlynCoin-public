@@ -6,6 +6,7 @@
 #include <openssl/pem.h>
 #include <string>
 #include <vector>
+#include <optional>
 
 // Directory for key storage
 #define KEY_DIR "/root/.alyncoin/keys/"
@@ -99,8 +100,11 @@ bool deserializeKeysFromProtobuf(const std::string &input,
                                  std::string &privateKey,
                                  std::string &publicKey);
 
-bool isLikelyHex(const std::string &input);
+bool isLikelyHex(const std::string& str);
+std::optional<std::vector<unsigned char>> safeFromHex(const std::string& hex, const std::string& context = "");
+
 } // namespace Crypto
+
 // ✅ Global Key Path Helpers
 std::string getPublicKeyPath(const std::string &username,
                              const std::string &baseDir = KEY_DIR);

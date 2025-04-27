@@ -1,0 +1,279 @@
+src/blockchain.cpp:816:    blockchainProto.set_chain_id(1);
+src/blockchain.cpp:854:    blockchainProto.set_difficulty(difficulty);
+src/blockchain.cpp:855:    blockchainProto.set_block_reward(blockReward);
+src/blockchain.cpp:1041:    blockchainProto.set_chain_id(1);
+src/blockchain.cpp:1059:    blockchainProto.set_difficulty(difficulty);
+src/blockchain.cpp:1060:    blockchainProto.set_block_reward(blockReward);
+src/explorer/deps/crow_all.h:6998:                        ret.set_error();
+src/explorer/deps/crow_all.h:7013:                            ret.set_error();
+src/explorer/deps/crow_all.h:7025:                            ret.set_error();
+src/explorer/deps/crow_all.h:7219:                        ret.set_error();
+src/explorer/deps/crow_all.h:7236:                            ret.set_error();
+src/explorer/deps/crow_all.h:7243:                            ret.set_error();
+src/explorer/deps/crow_all.h:7255:                            ret.set_error();
+src/explorer/deps/crow_all.h:7269:                            ret.set_error();
+src/explorer/deps/crow_all.h:7283:                        ret.set_error();
+src/explorer/deps/crow_all.h:9917:                res.set_header("Content-Type", "text/plain; charset=utf-8");
+src/explorer/deps/crow_all.h:10644:            cookies.set_cookie(cookie_);
+src/explorer/deps/crow_all.h:11361:                        res.set_header("connection", "Keep-Alive");
+src/explorer/deps/crow_all.h:11403:                                res.set_header("Content-Encoding", "deflate");
+src/explorer/deps/crow_all.h:11410:                                res.set_header("Content-Encoding", "gzip");
+src/explorer/deps/crow_all.h:11907:                        task_timer.set_default_timeout(timeout_);
+src/explorer/deps/crow_all.h:13689:                    res.set_header("Allow", allow);
+src/explorer/deps/crow_all.h:13717:                        res.set_header("Allow", allow);
+src/explorer/deps/crow_all.h:14595:                    res.set_static_file_info_unsafe(static_dir_ + file_path_partial);
+src/explorer/deps/crow_all.h:14611:                res.set_static_file_info_unsafe(static_dir_ + file_path_partial);
+src/explorer/deps/crow_all.h:14724:            ssl_context_.set_verify_mode(asio::ssl::verify_peer);
+src/explorer/deps/crow_all.h:14725:            ssl_context_.set_verify_mode(asio::ssl::verify_client_once);
+src/explorer/deps/crow_all.h:14728:            ssl_context_.set_options(
+src/explorer/deps/crow_all.h:14737:            ssl_context_.set_verify_mode(asio::ssl::verify_peer);
+src/explorer/deps/crow_all.h:14738:            ssl_context_.set_verify_mode(asio::ssl::verify_client_once);
+src/explorer/deps/crow_all.h:14740:            ssl_context_.set_options(
+src/explorer/deps/crow_all.h:14749:            ssl_context_.set_verify_mode(asio::ssl::verify_peer);
+src/explorer/deps/crow_all.h:14750:            ssl_context_.set_verify_mode(asio::ssl::verify_client_once);
+src/explorer/deps/crow_all.h:14753:            ssl_context_.set_options(
+src/syncing.cpp.bak:11:  requestProto.set_request_type("latest_block");
+src/syncing.cpp.bak:23:  syncProto.set_request_type("full_sync");
+src/crypto_utils.cpp:483:        keyProto.set_private_key(std::string(buffer.begin(), buffer.end()));
+src/crypto_utils.cpp:503:            keyProto.set_public_key(std::string(buffer.begin(), buffer.end()));
+src/transaction.cpp:82:    proto.set_sender(sender);
+src/transaction.cpp:83:    proto.set_recipient(recipient);
+src/transaction.cpp:84:    proto.set_amount(amount);
+src/transaction.cpp:87:        proto.set_signature_dilithium(Crypto::toHex(std::vector<unsigned char>(signatureDilithium.begin(), signatureDilithium.end())));
+src/transaction.cpp:90:        proto.set_signature_falcon(Crypto::toHex(std::vector<unsigned char>(signatureFalcon.begin(), signatureFalcon.end())));
+src/transaction.cpp:93:        proto.set_sender_pubkey_dilithium(Crypto::toHex(std::vector<unsigned char>(senderPublicKeyDilithium.begin(), senderPublicKeyDilithium.end())));
+src/transaction.cpp:96:        proto.set_sender_pubkey_falcon(Crypto::toHex(std::vector<unsigned char>(senderPublicKeyFalcon.begin(), senderPublicKeyFalcon.end())));
+src/transaction.cpp:98:    proto.set_timestamp(timestamp);
+src/transaction.cpp:99:    proto.set_metadata(metadata);
+src/transaction.cpp:100:    proto.set_zkproof(zkProof);
+src/transaction.cpp:101:    proto.set_hash(hash);
+src/transaction.cpp:273:    proto.set_sender(sender);
+src/transaction.cpp:274:    proto.set_recipient(recipient);
+src/transaction.cpp:275:    proto.set_amount(amount);  // ✅ CRITICAL: Must be set
+src/transaction.cpp:276:    proto.set_signature_dilithium(Crypto::toHex(std::vector<unsigned char>(signatureDilithium.begin(), signatureDilithium.end())));
+src/transaction.cpp:277:    proto.set_signature_falcon(Crypto::toHex(std::vector<unsigned char>(signatureFalcon.begin(), signatureFalcon.end())));
+src/transaction.cpp:278:    proto.set_sender_pubkey_dilithium(Crypto::toHex(std::vector<unsigned char>(senderPublicKeyDilithium.begin(), senderPublicKeyDilithium.end())));
+src/transaction.cpp:279:    proto.set_sender_pubkey_falcon(Crypto::toHex(std::vector<unsigned char>(senderPublicKeyFalcon.begin(), senderPublicKeyFalcon.end())));
+src/transaction.cpp:280:    proto.set_timestamp(timestamp);
+src/transaction.cpp:281:    proto.set_zkproof(zkProof);
+src/transaction.cpp:282:    proto.set_metadata(metadata);
+src/transaction.cpp:283:    proto.set_hash(hash);  // Optional but safe
+src/network.cpp:44:        acceptor.set_option(reuseOpt, ec);
+src/nft/nft.cpp:156:    proto.set_id(id);
+src/nft/nft.cpp:157:    proto.set_creator(creator);
+src/nft/nft.cpp:158:    proto.set_owner(owner);
+src/nft/nft.cpp:159:    proto.set_metadata(metadata);
+src/nft/nft.cpp:160:    proto.set_image_hash(imageHash);
+src/nft/nft.cpp:161:    proto.set_timestamp(timestamp);
+src/nft/nft.cpp:162:    proto.set_signature(signature.data(), signature.size());
+src/nft/nft.cpp:163:    proto.set_zk_stark_proof(zkStarkProof.data(), zkStarkProof.size());
+src/nft/nft.cpp:164:    proto.set_creator_identity(creator_identity);
+src/nft/nft.cpp:165:    proto.set_version(version);
+src/nft/nft.cpp:166:    proto.set_nft_type(nft_type);
+src/nft/nft.cpp:167:    proto.set_proof_hash(proof_hash);
+src/nft/nft.cpp:168:    proto.set_extra_data(extra_data);
+src/nft/nft.cpp:169:    proto.set_encrypted_metadata(encrypted_metadata);
+src/nft/nft.cpp:170:    proto.set_expiry_timestamp(expiry_timestamp);
+src/nft/nft.cpp:171:    proto.set_revoked(revoked);
+src/nft/nft.cpp:172:    proto.set_dilithium_signature(Crypto::toHex(dilithium_signature));
+src/identity/proto_utils.cpp:8:    proto.set_uuid(identity.uuid);
+src/identity/proto_utils.cpp:9:    proto.set_name(identity.name);
+src/identity/proto_utils.cpp:10:    proto.set_publickey(identity.publicKey);
+src/identity/proto_utils.cpp:11:    proto.set_metadatahash(identity.metadataHash);
+src/identity/proto_utils.cpp:12:    proto.set_createdat(identity.createdAt);
+src/identity/proto_utils.cpp:15:        proto.set_zkproof(Crypto::toHex(*identity.zkProof));
+src/identity/proto_utils.cpp:18:        proto.set_falconsignature(Crypto::toHex(identity.falconSignature.value()));
+src/identity/proto_utils.cpp:21:        proto.set_dilithiumsignature(Crypto::toHex(identity.dilithiumSignature.value()));
+src/syncing.cpp:17:  requestProto.set_request_type("latest_block");
+src/syncing.cpp:29:  syncProto.set_request_type("full_sync");
+src/governance/api/crow_all.h:6998:                        ret.set_error();
+src/governance/api/crow_all.h:7013:                            ret.set_error();
+src/governance/api/crow_all.h:7025:                            ret.set_error();
+src/governance/api/crow_all.h:7219:                        ret.set_error();
+src/governance/api/crow_all.h:7236:                            ret.set_error();
+src/governance/api/crow_all.h:7243:                            ret.set_error();
+src/governance/api/crow_all.h:7255:                            ret.set_error();
+src/governance/api/crow_all.h:7269:                            ret.set_error();
+src/governance/api/crow_all.h:7283:                        ret.set_error();
+src/governance/api/crow_all.h:9917:                res.set_header("Content-Type", "text/plain; charset=utf-8");
+src/governance/api/crow_all.h:10644:            cookies.set_cookie(cookie_);
+src/governance/api/crow_all.h:11361:                        res.set_header("connection", "Keep-Alive");
+src/governance/api/crow_all.h:11403:                                res.set_header("Content-Encoding", "deflate");
+src/governance/api/crow_all.h:11410:                                res.set_header("Content-Encoding", "gzip");
+src/governance/api/crow_all.h:11907:                        task_timer.set_default_timeout(timeout_);
+src/governance/api/crow_all.h:13689:                    res.set_header("Allow", allow);
+src/governance/api/crow_all.h:13717:                        res.set_header("Allow", allow);
+src/governance/api/crow_all.h:14595:                    res.set_static_file_info_unsafe(static_dir_ + file_path_partial);
+src/governance/api/crow_all.h:14611:                res.set_static_file_info_unsafe(static_dir_ + file_path_partial);
+src/governance/api/crow_all.h:14724:            ssl_context_.set_verify_mode(asio::ssl::verify_peer);
+src/governance/api/crow_all.h:14725:            ssl_context_.set_verify_mode(asio::ssl::verify_client_once);
+src/governance/api/crow_all.h:14728:            ssl_context_.set_options(
+src/governance/api/crow_all.h:14737:            ssl_context_.set_verify_mode(asio::ssl::verify_peer);
+src/governance/api/crow_all.h:14738:            ssl_context_.set_verify_mode(asio::ssl::verify_client_once);
+src/governance/api/crow_all.h:14740:            ssl_context_.set_options(
+src/governance/api/crow_all.h:14749:            ssl_context_.set_verify_mode(asio::ssl::verify_peer);
+src/governance/api/crow_all.h:14750:            ssl_context_.set_verify_mode(asio::ssl::verify_client_once);
+src/governance/api/crow_all.h:14753:            ssl_context_.set_options(
+src/atomic_swaps/proto_utils.cpp:9:    proto.set_uuid(swap.uuid);
+src/atomic_swaps/proto_utils.cpp:10:    proto.set_senderaddress(swap.senderAddress);
+src/atomic_swaps/proto_utils.cpp:11:    proto.set_receiveraddress(swap.receiverAddress);
+src/atomic_swaps/proto_utils.cpp:12:    proto.set_amount(swap.amount);
+src/atomic_swaps/proto_utils.cpp:13:    proto.set_secrethash(swap.secretHash);
+src/atomic_swaps/proto_utils.cpp:14:    if (swap.secret) proto.set_secret(*swap.secret);
+src/atomic_swaps/proto_utils.cpp:15:    proto.set_createdat(swap.createdAt);
+src/atomic_swaps/proto_utils.cpp:16:    proto.set_expiresat(swap.expiresAt);
+src/atomic_swaps/proto_utils.cpp:17:    proto.set_state(static_cast<int>(swap.state));
+src/atomic_swaps/proto_utils.cpp:18:    if (swap.zkProof) proto.set_zkproof(*swap.zkProof);
+src/atomic_swaps/proto_utils.cpp:19:    if (swap.falconSignature) proto.set_falconsignature(Crypto::toHex(swap.falconSignature.value()));
+src/atomic_swaps/proto_utils.cpp:20:    if (swap.dilithiumSignature) proto.set_dilithiumsignature(Crypto::toHex(swap.dilithiumSignature.value()));
+src/block.cpp.bak:390:  proto.set_index(index);
+src/block.cpp.bak:391:  proto.set_previous_hash(previousHash);
+src/block.cpp.bak:392:  proto.set_hash(hash);
+src/block.cpp.bak:393:  proto.set_miner_address(minerAddress);
+src/block.cpp.bak:394:  proto.set_nonce(nonce);
+src/block.cpp.bak:395:  proto.set_difficulty(difficulty);
+src/block.cpp.bak:396:  proto.set_timestamp(timestamp);
+src/block.cpp.bak:397:  proto.set_block_signature(blockSignature);
+src/block.cpp.bak:398:  proto.set_keccak_hash(keccakHash);
+src/block.cpp.bak:407:  proto.set_zk_stark_proof(zkProof);
+src/block.cpp.bak:410:  proto.set_dilithium_signature(dilithiumSignature);
+src/block.cpp.bak:411:  proto.set_falcon_signature(falconSignature);
+src/block.cpp.bak:412:  proto.set_public_key_dilithium(publicKeyDilithium);
+src/block.cpp.bak:413:  proto.set_public_key_falcon(publicKeyFalcon);
+src/block.cpp.bak:484:  protoBlock.set_index(index);
+src/block.cpp.bak:485:  protoBlock.set_timestamp(timestamp);
+src/block.cpp.bak:486:  protoBlock.set_previous_hash(previousHash);
+src/block.cpp.bak:487:  protoBlock.set_hash(hash);
+src/block.cpp.bak:488:  protoBlock.set_miner_address(minerAddress);
+src/block.cpp.bak:489:  protoBlock.set_nonce(nonce);
+src/block.cpp.bak:490:  protoBlock.set_difficulty(difficulty);
+src/block.cpp.bak:491:  protoBlock.set_block_signature(blockSignature);
+src/block.cpp.bak:492:  protoBlock.set_keccak_hash(keccakHash);
+src/deps/CrowInclude/crow_all.h:6998:                        ret.set_error();
+src/deps/CrowInclude/crow_all.h:7013:                            ret.set_error();
+src/deps/CrowInclude/crow_all.h:7025:                            ret.set_error();
+src/deps/CrowInclude/crow_all.h:7219:                        ret.set_error();
+src/deps/CrowInclude/crow_all.h:7236:                            ret.set_error();
+src/deps/CrowInclude/crow_all.h:7243:                            ret.set_error();
+src/deps/CrowInclude/crow_all.h:7255:                            ret.set_error();
+src/deps/CrowInclude/crow_all.h:7269:                            ret.set_error();
+src/deps/CrowInclude/crow_all.h:7283:                        ret.set_error();
+src/deps/CrowInclude/crow_all.h:9917:                res.set_header("Content-Type", "text/plain; charset=utf-8");
+src/deps/CrowInclude/crow_all.h:10644:            cookies.set_cookie(cookie_);
+src/deps/CrowInclude/crow_all.h:11361:                        res.set_header("connection", "Keep-Alive");
+src/deps/CrowInclude/crow_all.h:11403:                                res.set_header("Content-Encoding", "deflate");
+src/deps/CrowInclude/crow_all.h:11410:                                res.set_header("Content-Encoding", "gzip");
+src/deps/CrowInclude/crow_all.h:11907:                        task_timer.set_default_timeout(timeout_);
+src/deps/CrowInclude/crow_all.h:13689:                    res.set_header("Allow", allow);
+src/deps/CrowInclude/crow_all.h:13717:                        res.set_header("Allow", allow);
+src/deps/CrowInclude/crow_all.h:14595:                    res.set_static_file_info_unsafe(static_dir_ + file_path_partial);
+src/deps/CrowInclude/crow_all.h:14611:                res.set_static_file_info_unsafe(static_dir_ + file_path_partial);
+src/deps/CrowInclude/crow_all.h:14724:            ssl_context_.set_verify_mode(asio::ssl::verify_peer);
+src/deps/CrowInclude/crow_all.h:14725:            ssl_context_.set_verify_mode(asio::ssl::verify_client_once);
+src/deps/CrowInclude/crow_all.h:14728:            ssl_context_.set_options(
+src/deps/CrowInclude/crow_all.h:14737:            ssl_context_.set_verify_mode(asio::ssl::verify_peer);
+src/deps/CrowInclude/crow_all.h:14738:            ssl_context_.set_verify_mode(asio::ssl::verify_client_once);
+src/deps/CrowInclude/crow_all.h:14740:            ssl_context_.set_options(
+src/deps/CrowInclude/crow_all.h:14749:            ssl_context_.set_verify_mode(asio::ssl::verify_peer);
+src/deps/CrowInclude/crow_all.h:14750:            ssl_context_.set_verify_mode(asio::ssl::verify_client_once);
+src/deps/CrowInclude/crow_all.h:14753:            ssl_context_.set_options(
+src/deps/CrowInclude/crow.h:6998:                        ret.set_error();
+src/deps/CrowInclude/crow.h:7013:                            ret.set_error();
+src/deps/CrowInclude/crow.h:7025:                            ret.set_error();
+src/deps/CrowInclude/crow.h:7219:                        ret.set_error();
+src/deps/CrowInclude/crow.h:7236:                            ret.set_error();
+src/deps/CrowInclude/crow.h:7243:                            ret.set_error();
+src/deps/CrowInclude/crow.h:7255:                            ret.set_error();
+src/deps/CrowInclude/crow.h:7269:                            ret.set_error();
+src/deps/CrowInclude/crow.h:7283:                        ret.set_error();
+src/deps/CrowInclude/crow.h:9917:                res.set_header("Content-Type", "text/plain; charset=utf-8");
+src/deps/CrowInclude/crow.h:10644:            cookies.set_cookie(cookie_);
+src/deps/CrowInclude/crow.h:11361:                        res.set_header("connection", "Keep-Alive");
+src/deps/CrowInclude/crow.h:11403:                                res.set_header("Content-Encoding", "deflate");
+src/deps/CrowInclude/crow.h:11410:                                res.set_header("Content-Encoding", "gzip");
+src/deps/CrowInclude/crow.h:11907:                        task_timer.set_default_timeout(timeout_);
+src/deps/CrowInclude/crow.h:13689:                    res.set_header("Allow", allow);
+src/deps/CrowInclude/crow.h:13717:                        res.set_header("Allow", allow);
+src/deps/CrowInclude/crow.h:14595:                    res.set_static_file_info_unsafe(static_dir_ + file_path_partial);
+src/deps/CrowInclude/crow.h:14611:                res.set_static_file_info_unsafe(static_dir_ + file_path_partial);
+src/deps/CrowInclude/crow.h:14724:            ssl_context_.set_verify_mode(asio::ssl::verify_peer);
+src/deps/CrowInclude/crow.h:14725:            ssl_context_.set_verify_mode(asio::ssl::verify_client_once);
+src/deps/CrowInclude/crow.h:14728:            ssl_context_.set_options(
+src/deps/CrowInclude/crow.h:14737:            ssl_context_.set_verify_mode(asio::ssl::verify_peer);
+src/deps/CrowInclude/crow.h:14738:            ssl_context_.set_verify_mode(asio::ssl::verify_client_once);
+src/deps/CrowInclude/crow.h:14740:            ssl_context_.set_options(
+src/deps/CrowInclude/crow.h:14749:            ssl_context_.set_verify_mode(asio::ssl::verify_peer);
+src/deps/CrowInclude/crow.h:14750:            ssl_context_.set_verify_mode(asio::ssl::verify_client_once);
+src/deps/CrowInclude/crow.h:14753:            ssl_context_.set_options(
+src/block.cpp:514:    proto.set_index(index);
+src/block.cpp:515:    proto.set_previous_hash(previousHash);
+src/block.cpp:516:    proto.set_hash(hash);
+src/block.cpp:517:    proto.set_miner_address(minerAddress);
+src/block.cpp:518:    proto.set_nonce(nonce);
+src/block.cpp:519:    proto.set_timestamp(timestamp);
+src/block.cpp:520:    proto.set_difficulty(difficulty);
+src/block.cpp:521:    proto.set_block_signature(sig);
+src/block.cpp:522:    proto.set_keccak_hash(keccakHash);
+src/block.cpp:523:    proto.set_tx_merkle_root(merkleRoot);
+src/block.cpp:524:    proto.set_reward(reward);
+src/block.cpp:527:    proto.set_zk_stark_proof(Crypto::toHex(zkProof));
+src/block.cpp:530:    proto.set_dilithium_signature(dilithiumSignature);
+src/block.cpp:531:    proto.set_falcon_signature(falconSignature);
+src/block.cpp:532:    proto.set_public_key_dilithium(publicKeyDilithium);
+src/block.cpp:533:    proto.set_public_key_falcon(publicKeyFalcon);
+src/crypto_utils.cpp.bak:325:    keyProto.set_private_key(buffer.str());
+src/crypto_utils.cpp.bak:343:    keyProto.set_public_key(buffer.str());
+src/explorer/deps/crow_all.h:98:#define GET_IO_CONTEXT(s) ((asio::io_context&)(s).get_executor().context())
+src/explorer/deps/crow_all.h:100:#define GET_IO_CONTEXT(s) ((s).get_io_service())
+src/explorer/deps/crow_all.h:5312:                if (!utility::string_equals(req.get_header_value("upgrade"), "websocket"))
+src/explorer/deps/crow_all.h:5320:                std::string requested_subprotocols_header = req.get_header_value("Sec-WebSocket-Protocol");
+src/explorer/deps/crow_all.h:5351:                std::string magic = req.get_header_value("Sec-WebSocket-Key") + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+src/explorer/deps/crow_all.h:5393:                asio::dispatch(adaptor_.get_io_context(),
+src/explorer/deps/crow_all.h:5402:                asio::post(adaptor_.get_io_context(),
+src/explorer/deps/crow_all.h:10163:            std::string cookies = req.get_header_value("Cookie");
+src/explorer/deps/crow_all.h:10638:            return cookies.get_cookie(cookie_.name());
+src/explorer/deps/crow_all.h:11304:            req_.io_context = &adaptor_.get_io_context();
+src/explorer/deps/crow_all.h:11321:                    if (req_.get_header_value("upgrade").find("h2")==0)
+src/explorer/deps/crow_all.h:11394:                std::string accept_encoding = req_.get_header_value("Accept-Encoding");
+src/explorer/deps/crow_all.h:14037:                        set_header_no_override("Access-Control-Allow-Origin", req.get_header_value("Origin"), res);
+src/rust/src/recursive/recursive_prover.rs:86:    let air = RecursiveAIR::new(trace.get_info(), pub_inputs);
+src/rust/src/recursive/recursive_prover.rs:97:    match prover.prove::<Blake3_256<BaseElement>>(options, air.get_pub_inputs().clone()) {
+src/governance/api/crow_all.h:98:#define GET_IO_CONTEXT(s) ((asio::io_context&)(s).get_executor().context())
+src/governance/api/crow_all.h:100:#define GET_IO_CONTEXT(s) ((s).get_io_service())
+src/governance/api/crow_all.h:5312:                if (!utility::string_equals(req.get_header_value("upgrade"), "websocket"))
+src/governance/api/crow_all.h:5320:                std::string requested_subprotocols_header = req.get_header_value("Sec-WebSocket-Protocol");
+src/governance/api/crow_all.h:5351:                std::string magic = req.get_header_value("Sec-WebSocket-Key") + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+src/governance/api/crow_all.h:5393:                asio::dispatch(adaptor_.get_io_context(),
+src/governance/api/crow_all.h:5402:                asio::post(adaptor_.get_io_context(),
+src/governance/api/crow_all.h:10163:            std::string cookies = req.get_header_value("Cookie");
+src/governance/api/crow_all.h:10638:            return cookies.get_cookie(cookie_.name());
+src/governance/api/crow_all.h:11304:            req_.io_context = &adaptor_.get_io_context();
+src/governance/api/crow_all.h:11321:                    if (req_.get_header_value("upgrade").find("h2")==0)
+src/governance/api/crow_all.h:11394:                std::string accept_encoding = req_.get_header_value("Accept-Encoding");
+src/governance/api/crow_all.h:14037:                        set_header_no_override("Access-Control-Allow-Origin", req.get_header_value("Origin"), res);
+src/deps/CrowInclude/crow_all.h:98:#define GET_IO_CONTEXT(s) ((asio::io_context&)(s).get_executor().context())
+src/deps/CrowInclude/crow_all.h:100:#define GET_IO_CONTEXT(s) ((s).get_io_service())
+src/deps/CrowInclude/crow_all.h:5312:                if (!utility::string_equals(req.get_header_value("upgrade"), "websocket"))
+src/deps/CrowInclude/crow_all.h:5320:                std::string requested_subprotocols_header = req.get_header_value("Sec-WebSocket-Protocol");
+src/deps/CrowInclude/crow_all.h:5351:                std::string magic = req.get_header_value("Sec-WebSocket-Key") + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+src/deps/CrowInclude/crow_all.h:5393:                asio::dispatch(adaptor_.get_io_context(),
+src/deps/CrowInclude/crow_all.h:5402:                asio::post(adaptor_.get_io_context(),
+src/deps/CrowInclude/crow_all.h:10163:            std::string cookies = req.get_header_value("Cookie");
+src/deps/CrowInclude/crow_all.h:10638:            return cookies.get_cookie(cookie_.name());
+src/deps/CrowInclude/crow_all.h:11304:            req_.io_context = &adaptor_.get_io_context();
+src/deps/CrowInclude/crow_all.h:11321:                    if (req_.get_header_value("upgrade").find("h2")==0)
+src/deps/CrowInclude/crow_all.h:11394:                std::string accept_encoding = req_.get_header_value("Accept-Encoding");
+src/deps/CrowInclude/crow_all.h:14037:                        set_header_no_override("Access-Control-Allow-Origin", req.get_header_value("Origin"), res);
+src/deps/CrowInclude/crow.h:98:#define GET_IO_CONTEXT(s) ((asio::io_context&)(s).get_executor().context())
+src/deps/CrowInclude/crow.h:100:#define GET_IO_CONTEXT(s) ((s).get_io_service())
+src/deps/CrowInclude/crow.h:5312:                if (!utility::string_equals(req.get_header_value("upgrade"), "websocket"))
+src/deps/CrowInclude/crow.h:5320:                std::string requested_subprotocols_header = req.get_header_value("Sec-WebSocket-Protocol");
+src/deps/CrowInclude/crow.h:5351:                std::string magic = req.get_header_value("Sec-WebSocket-Key") + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+src/deps/CrowInclude/crow.h:5393:                asio::dispatch(adaptor_.get_io_context(),
+src/deps/CrowInclude/crow.h:5402:                asio::post(adaptor_.get_io_context(),
+src/deps/CrowInclude/crow.h:10163:            std::string cookies = req.get_header_value("Cookie");
+src/deps/CrowInclude/crow.h:10638:            return cookies.get_cookie(cookie_.name());
+src/deps/CrowInclude/crow.h:11304:            req_.io_context = &adaptor_.get_io_context();
+src/deps/CrowInclude/crow.h:11321:                    if (req_.get_header_value("upgrade").find("h2")==0)
+src/deps/CrowInclude/crow.h:11394:                std::string accept_encoding = req_.get_header_value("Accept-Encoding");
+src/deps/CrowInclude/crow.h:14037:                        set_header_no_override("Access-Control-Allow-Origin", req.get_header_value("Origin"), res);

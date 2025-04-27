@@ -1,0 +1,14 @@
+src/explorer/deps/crow_all.h:8678:                                matched.has_end_match = true;
+src/explorer/deps/crow_all.h:13595:                if (bps_found[i]->catchall_rule().has_handler())
+src/explorer/deps/crow_all.h:13612:            if (catchall_rule_.has_handler())
+src/identity/identity.cpp:53:    if (!proofStrOpt.has_value()) {
+src/governance/api/crow_all.h:8678:                                matched.has_end_match = true;
+src/governance/api/crow_all.h:13595:                if (bps_found[i]->catchall_rule().has_handler())
+src/governance/api/crow_all.h:13612:            if (catchall_rule_.has_handler())
+src/deps/CrowInclude/crow_all.h:8678:                                matched.has_end_match = true;
+src/deps/CrowInclude/crow_all.h:13595:                if (bps_found[i]->catchall_rule().has_handler())
+src/deps/CrowInclude/crow_all.h:13612:            if (catchall_rule_.has_handler())
+src/deps/CrowInclude/crow.h:8678:                                matched.has_end_match = true;
+src/deps/CrowInclude/crow.h:13595:                if (bps_found[i]->catchall_rule().has_handler())
+src/deps/CrowInclude/crow.h:13612:            if (catchall_rule_.has_handler())
+src/block.cpp:571:    newBlock.setReward(protoBlock.has_reward() ? protoBlock.reward() : 0.0);

@@ -146,35 +146,64 @@ bool Transaction::deserializeFromProtobuf(const alyncoin::TransactionProto &prot
     return true;
 }
 
-// ✅ Transaction::fromProto - hex decode required fields
+// ✅ Final Hardened Transaction::fromProto()
 Transaction Transaction::fromProto(const alyncoin::TransactionProto &proto) {
     auto safeStr = [](const std::string &val, const std::string &label, size_t maxLen = 10000) -> std::string {
         if (val.size() > maxLen) {
-            std::cerr << "❌ [Transaction::fromProto] " << label << " too long (" << val.size() << " bytes)." << std::endl;
+            std::cerr << "❌ [Transaction::fromProto] " << label << " too long (" << val.size() << " bytes). Resetting.\n";
             return "";
         }
         return val;
     };
 
-    std::string sender        = safeStr(proto.sender(), "sender", 4096);
-    std::string recipient     = safeStr(proto.recipient(), "recipient", 4096);
-    std::string sigDilHex     = safeStr(proto.signature_dilithium(), "signature_dilithium", 10000);
-    std::string sigFalHex     = safeStr(proto.signature_falcon(), "signature_falcon", 10000);
-    std::string zkProof       = safeStr(proto.zkproof(), "zkproof", 50000);
-    std::string metadata      = safeStr(proto.metadata(), "metadata", 16384);
-    std::string txHash        = safeStr(proto.hash(), "hash", 1024);
-    std::string dilPKHex      = safeStr(proto.sender_pubkey_dilithium(), "sender_pubkey_dilithium", 10000);
-    std::string falPKHex      = safeStr(proto.sender_pubkey_falcon(), "sender_pubkey_falcon", 10000);
+    Transaction tx;
 
-    Transaction tx(sender, recipient, proto.amount(), sigDilHex, sigFalHex, proto.timestamp());
+    try {
+        // Core fields
+        tx.sender    = safeStr(proto.sender(), "sender", 4096);
+        tx.recipient = safeStr(proto.recipient(), "recipient", 4096);
+        tx.amount    = proto.amount();
+        tx.timestamp = proto.timestamp();
+        tx.metadata  = safeStr(proto.metadata(), "metadata", 16384);
+        tx.zkProof   = safeStr(proto.zkproof(), "zkproof", 50000);
+        tx.hash      = safeStr(proto.hash(), "hash", 2048);
 
-    tx.setZkProof(zkProof);
-    tx.metadata = metadata;
+        // Cryptographic fields (must hex-decode safely)
+        std::string sigDilHex = safeStr(proto.signature_dilithium(), "signature_dilithium", 10000);
+        std::string sigFalHex = safeStr(proto.signature_falcon(), "signature_falcon", 10000);
+        std::string pubDilHex = safeStr(proto.sender_pubkey_dilithium(), "sender_pubkey_dilithium", 10000);
+        std::string pubFalHex = safeStr(proto.sender_pubkey_falcon(), "sender_pubkey_falcon", 10000);
 
-    tx.senderPublicKeyDilithium = dilPKHex.empty() ? "" : dilPKHex;
-    tx.senderPublicKeyFalcon    = falPKHex.empty() ? "" : falPKHex;
+        if (!sigDilHex.empty()) {
+            std::vector<unsigned char> sigDil = Crypto::fromHex(sigDilHex);
+            tx.signatureDilithium.assign(sigDil.begin(), sigDil.end());
+        }
 
-    tx.hash = txHash.empty() ? tx.getTransactionHash() : txHash;
+        if (!sigFalHex.empty()) {
+            std::vector<unsigned char> sigFal = Crypto::fromHex(sigFalHex);
+            tx.signatureFalcon.assign(sigFal.begin(), sigFal.end());
+        }
+
+        if (!pubDilHex.empty()) {
+            std::vector<unsigned char> pubDil = Crypto::fromHex(pubDilHex);
+            tx.senderPublicKeyDilithium.assign(pubDil.begin(), pubDil.end());
+        }
+
+        if (!pubFalHex.empty()) {
+            std::vector<unsigned char> pubFal = Crypto::fromHex(pubFalHex);
+            tx.senderPublicKeyFalcon.assign(pubFal.begin(), pubFal.end());
+        }
+
+        // Final fallback safety
+        if (tx.hash.empty()) {
+            tx.hash = tx.getTransactionHash();
+        }
+
+    } catch (const std::exception &e) {
+        std::cerr << "❌ [Transaction::fromProto] Exception during parsing: " << e.what() << ". Transaction fields reset.\n";
+        // Reset everything to safe empty values
+        tx = Transaction();
+    }
 
     return tx;
 }
@@ -338,65 +367,87 @@ void Transaction::signTransaction(const std::vector<unsigned char> &dilithiumPri
 }
 
 // ✅ Validate Transaction (Signature Verification)
-
 bool Transaction::isValid(const std::string &senderPublicKeyDilithium,
                           const std::string &senderPublicKeyFalcon) const {
-  if (sender == "System") return true;
+    if (sender == "System") return true;
 
-  if (sender.empty() || recipient.empty() || amount <= 0) {
-    std::cerr << "[ERROR] Invalid transaction: Missing sender, recipient, or amount.\n";
-    return false;
-  }
-
-  if (signatureDilithium.empty() || signatureFalcon.empty()) {
-    std::cerr << "[ERROR] Transaction is missing required signatures!\n";
-    return false;
-  }
-
-  if (senderPublicKeyDilithium.empty() || senderPublicKeyFalcon.empty()) {
-    std::cerr << "[ERROR] Public keys missing in transaction!\n";
-    return false;
-  }
-
-  try {
-    std::vector<unsigned char> hashBytes = Crypto::fromHex(getHash());
-    std::vector<unsigned char> sigDil = Crypto::fromHex(signatureDilithium);
-    std::vector<unsigned char> sigFal = Crypto::fromHex(signatureFalcon);
-    std::vector<unsigned char> pubKeyDil = Crypto::fromHex(senderPublicKeyDilithium);
-    std::vector<unsigned char> pubKeyFal = Crypto::fromHex(senderPublicKeyFalcon);
-
-    std::cout << "[DEBUG] Verifying Dilithium & Falcon signatures for sender: " << sender << "\n";
-    std::cout << "[DEBUG] Hash used for signature: " << getHash() << "\n";
-
-    if (!Crypto::verifyWithDilithium(hashBytes, sigDil, pubKeyDil)) {
-      std::cerr << "[ERROR] Dilithium signature verification failed!\n";
-      return false;
+    if (sender.empty() || recipient.empty() || amount <= 0) {
+        std::cerr << "[ERROR] Invalid transaction: Missing sender, recipient, or amount.\n";
+        return false;
     }
 
-    if (!Crypto::verifyWithFalcon(hashBytes, sigFal, pubKeyFal)) {
-      std::cerr << "[ERROR] Falcon signature verification failed!\n";
-      return false;
+    if (signatureDilithium.empty() || signatureFalcon.empty()) {
+        std::cerr << "[ERROR] Transaction is missing required signatures!\n";
+        return false;
     }
 
-  } catch (const std::exception &ex) {
-    std::cerr << "[ERROR] Signature verification threw exception: " << ex.what() << "\n";
-    return false;
-  }
+    if (senderPublicKeyDilithium.empty() || senderPublicKeyFalcon.empty()) {
+        std::cerr << "[ERROR] Public keys missing in transaction!\n";
+        return false;
+    }
 
-  if (zkProof.empty()) {
-    std::cerr << "[ERROR] Transaction missing zk-STARK proof!\n";
-    return false;
-  }
+    try {
+        std::vector<unsigned char> hashBytes = Crypto::fromHex(getHash());
 
-  std::cout << "[DEBUG] Verifying zk-STARK transaction proof... length = " << zkProof.size() << " bytes\n";
+        if (signatureDilithium.length() > 10000) {
+            std::cerr << "[ERROR] Dilithium signature too long: " << signatureDilithium.length() << "\n";
+            return false;
+        }
 
-  if (!WinterfellStark::verifyTransactionProof(zkProof, sender, recipient, amount, timestamp)) {
-    std::cerr << "[ERROR] zk-STARK proof verification failed!\n";
-    return false;
-  }
+        if (signatureFalcon.length() > 10000) {
+            std::cerr << "[ERROR] Falcon signature too long: " << signatureFalcon.length() << "\n";
+            return false;
+        }
 
-  std::cout << "[DEBUG] Transaction signatures and zk-STARK proof verified successfully!\n";
-  return true;
+        if (senderPublicKeyDilithium.length() > 5000) {
+            std::cerr << "[ERROR] Dilithium public key too long: " << senderPublicKeyDilithium.length() << "\n";
+            return false;
+        }
+
+        if (senderPublicKeyFalcon.length() > 5000) {
+            std::cerr << "[ERROR] Falcon public key too long: " << senderPublicKeyFalcon.length() << "\n";
+            return false;
+        }
+
+        std::vector<unsigned char> sigDil = Crypto::fromHex(signatureDilithium);
+        std::vector<unsigned char> sigFal = Crypto::fromHex(signatureFalcon);
+        std::vector<unsigned char> pubKeyDil = Crypto::fromHex(senderPublicKeyDilithium);
+        std::vector<unsigned char> pubKeyFal = Crypto::fromHex(senderPublicKeyFalcon);
+
+        std::cout << "[DEBUG] Verifying Dilithium & Falcon signatures for sender: " << sender << "\n";
+        std::cout << "[DEBUG] Hash used for signature: " << getHash() << "\n";
+        std::cout << "[DEBUG] Dilithium Sig Len: " << sigDil.size() << ", Falcon Sig Len: " << sigFal.size() << "\n";
+        std::cout << "[DEBUG] Dilithium PubKey Len: " << pubKeyDil.size() << ", Falcon PubKey Len: " << pubKeyFal.size() << "\n";
+
+        if (!Crypto::verifyWithDilithium(hashBytes, sigDil, pubKeyDil)) {
+            std::cerr << "[ERROR] Dilithium signature verification failed!\n";
+            return false;
+        }
+
+        if (!Crypto::verifyWithFalcon(hashBytes, sigFal, pubKeyFal)) {
+            std::cerr << "[ERROR] Falcon signature verification failed!\n";
+            return false;
+        }
+
+    } catch (const std::exception &ex) {
+        std::cerr << "[ERROR] Signature verification threw exception: " << ex.what() << "\n";
+        return false;
+    }
+
+    if (zkProof.empty()) {
+        std::cerr << "[ERROR] Transaction missing zk-STARK proof!\n";
+        return false;
+    }
+
+    std::cout << "[DEBUG] Verifying zk-STARK transaction proof... length = " << zkProof.size() << " bytes\n";
+
+    if (!WinterfellStark::verifyTransactionProof(zkProof, sender, recipient, amount, timestamp)) {
+        std::cerr << "[ERROR] zk-STARK proof verification failed!\n";
+        return false;
+    }
+
+    std::cout << "[DEBUG] Transaction signatures and zk-STARK proof verified successfully!\n";
+    return true;
 }
 
 //

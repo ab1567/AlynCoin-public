@@ -281,8 +281,9 @@ src/nft/CMakeFiles/nftcli.dir/nft.cpp.o: /root/AlynCoin/src/nft/nft.cpp \
  /usr/include/openssl/pkcs7err.h /usr/include/openssl/http.h \
  /usr/include/openssl/conf.h /usr/include/openssl/conferr.h \
  /usr/include/openssl/conftypes.h /usr/include/openssl/pemerr.h \
+ /usr/include/c++/13/optional \
  /root/AlynCoin/src/nft/../zk/winterfell_stark.h \
- /usr/include/c++/13/optional /root/AlynCoin/src/nft/../zk/../nft/nft.h \
+ /root/AlynCoin/src/nft/../zk/../nft/nft.h \
  /root/AlynCoin/src/../src/blockchain.h \
  /root/AlynCoin/src/../src/generated/block_protos.pb.h \
  /root/AlynCoin/src/../src/generated/transaction_protos.pb.h \

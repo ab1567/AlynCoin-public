@@ -34,7 +34,7 @@ using boost::asio::ip::tcp;
 
 class Network;
 
-const double MAX_SUPPLY = 250000000.0;
+const double MAX_SUPPLY = 100000000.0;
 const size_t MAX_PENDING_TRANSACTIONS = 10000;
 
 class Blockchain {

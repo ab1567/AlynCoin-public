@@ -210,7 +210,7 @@ int main(int argc, char **argv) {
 
       b.reloadBlockchainState();  // 🔧 Ensure latest state is loaded before querying balance
 
-      std::cout << "✅ Balance for " << addr << ": " << b.getBalance(addr) << " AlynCoin\n";
+      std::cout << "Balance: " << b.getBalance(addr) << " AlynCoin" << std::endl;
       std::exit(0);
    }
 

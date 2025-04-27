@@ -1,0 +1,1080 @@
+src/blockchain.cpp:142:        std::string canonicalHash = tx.getTransactionHash();  // ✅ Use canonical hash
+src/blockchain.cpp:356:            std::cerr << "❌ Failed to save block by hash: " << statusHash.ToString() << "\n";
+src/blockchain.cpp:477:            std::cerr << "❌ [ERROR] Invalid previous hash at block index " << block.getIndex()
+src/blockchain.cpp:483:            std::cerr << "❌ [ERROR] Block hash mismatch at index " << block.getIndex() << "\n";
+src/blockchain.cpp:588:    std::cout << "[DEBUG] Last block hash: " << lastBlock.getHash() << "\n";
+src/blockchain.cpp:610:    if (hashBytes.size() != 32) {
+src/blockchain.cpp:705:                          << " with hash: " << newBlock.getHash() << "\n";
+src/blockchain.cpp:844:        std::cout << "🧱 [DEBUG] Block[" << blockCount << "] hash = " << block.getHash() << std::endl;
+src/blockchain.cpp:1614:            std::cerr << "❌ [TXDB] Failed to serialize tx[" << i << "] with hash " << tx.getHash() << ". Skipping...\n";
+src/blockchain.cpp:1773:  std::vector<unsigned char> hashBytes(rollupBlock.getHash().begin(),
+src/blockchain.cpp:2074:            if (tx.getSender() == address || tx.getRecipient() == address) {
+src/explorer/explorer_db.cpp:96:        if (protoTx.sender() == address || protoTx.recipient() == address) {
+src/explorer/explorer_db.cpp:147:        if (protoTx.sender() == "System" && protoTx.recipient() == address) {
+src/explorer/explorer_db.cpp:151:        else if (protoTx.recipient() == address) {
+src/explorer/explorer_db.cpp:155:        else if (protoTx.sender() == address) {
+src/explorer/frontend/js/main.js:42:    const hash = document.getElementById('blockHash').value.trim();
+src/explorer/frontend/js/main.js:78:    const hash = document.getElementById('txHash').value.trim();
+src/explorer/frontend/js/main.js:96:    const address = document.getElementById('address').value.trim();
+src/explorer/deps/crow_all.h:5464:                return adaptor_.remote_endpoint().address().to_string();
+src/explorer/deps/crow_all.h:11306:            req_.remote_ip_address = adaptor_.remote_endpoint().address().to_string();
+src/explorer/deps/crow_all.h:11945:                          << acceptor_.local_endpoint().address() << ":" << acceptor_.local_endpoint().port() << " using " << concurrency_ << " threads";
+src/explorer/deps/crow_all.h:14635:                CROW_LOG_ERROR << ec.message() << " - Can not create valid ip address from string: \"" << bindaddr_ << "\"";
+src/explorer/explorer_utils.cpp:17:        if (hash.length() <= 12) return hash;
+src/explorer/explorer_utils.cpp:18:        return hash.substr(0, 6) + "..." + hash.substr(hash.length() - 6);
+src/zk/winterfell_stark.cpp:213:        txData.insert(txData.end(), hashBytes.begin(), hashBytes.end());
+src/zk/winterfell_stark.cpp:247:    const uint8_t* hashPtr = hashBytes.data();
+src/zk/winterfell_stark.cpp:249:    RecursiveProofResult result = compose_recursive_proof_ffi(innerData, combined.size(), hashPtr);
+src/zk/recursive_proof_helper.cpp:63:    blake3_hasher_update(&hasher, address.data(), address.size());
+src/zk/recursive/winterfell_recursive.cpp:24:    uint8_t* result = compose_recursive_proof_ffi(innerData, innerProof.size(), hash);
+src/crypto_utils.cpp:90:  blake3_hasher_update(&hasher, input.data(), input.size());
+src/crypto_utils.cpp:93:  blake3_hasher_finalize(&hasher, output.data(), BLAKE3_OUT_LEN);
+src/crypto_utils.cpp:198:      signature.data(), &siglen,
+src/crypto_utils.cpp:208:  if (siglen == 0 || siglen > signature.size()) {
+src/crypto_utils.cpp:210:              << " (max allowed: " << signature.size() << ")\n";
+src/crypto_utils.cpp:225:  std::cout << "[DEBUG] Signature size: " << signature.size() << " bytes" << std::endl;
+src/crypto_utils.cpp:228:  if (signature.empty() || message.empty() || publicKey.empty()) {
+src/crypto_utils.cpp:239:  int result = crypto_sign_verify(signature.data(), signature.size(),
+src/crypto_utils.cpp:267:        std::cerr << "[ERROR] signWithFalcon() - Message hash size invalid: " << message.size() << " (expected 32)\n";
+src/crypto_utils.cpp:276:        std::cout << "[DEBUG] Calling Falcon crypto_sign_signature()...\n";
+src/crypto_utils.cpp:278:            signature.data(), &actualSigLen,
+src/crypto_utils.cpp:311:    std::cout << "  - Signature Size : " << signature.size() << "\n";
+src/crypto_utils.cpp:315:    if (signature.empty() || message.empty() || publicKey.empty()) {
+src/crypto_utils.cpp:326:        signature.data(), signature.size(),
+src/crypto_utils.cpp:503:            keyProto.set_public_key(std::string(buffer.begin(), buffer.end()));
+src/crypto_utils.cpp:525:    const std::string &pubStr  = keyProto.public_key();
+src/crypto_utils.cpp:1113:    EVP_DigestSignFinal(ctx, signature.data(), &sigLen);
+src/crypto_utils.cpp:1118:    return base64Encode(std::string(signature.begin(), signature.end()));
+src/crypto_utils.cpp:1194:    blake3_hasher_update(&hasher, input.data(), input.size());
+src/mining.cpp:17:  blake3_hasher_update(&hasher, input.data(), input.size());
+src/mining.cpp:28:    hash = calculateBLAKE3Hash(block.getHashInput());
+src/mining.cpp:48:        std::string hash = calculateBLAKE3Hash(candidate.getHashInput());
+src/transaction.cpp:77:    return hash.empty() ? getTransactionHash() : hash;
+src/transaction.cpp:86:    if (!signatureDilithium.empty())
+src/transaction.cpp:87:        proto.set_signature_dilithium(Crypto::toHex(std::vector<unsigned char>(signatureDilithium.begin(), signatureDilithium.end())));
+src/transaction.cpp:89:    if (!signatureFalcon.empty())
+src/transaction.cpp:90:        proto.set_signature_falcon(Crypto::toHex(std::vector<unsigned char>(signatureFalcon.begin(), signatureFalcon.end())));
+src/transaction.cpp:109:    std::vector<unsigned char> sigDil = Crypto::fromHex(proto.signature_dilithium());
+src/transaction.cpp:111:        signatureDilithium = std::string(sigDil.begin(), sigDil.end());
+src/transaction.cpp:116:    std::vector<unsigned char> sigFal = Crypto::fromHex(proto.signature_falcon());
+src/transaction.cpp:118:        signatureFalcon = std::string(sigFal.begin(), sigFal.end());
+src/transaction.cpp:139:    zkProof = proto.zkproof();
+src/transaction.cpp:140:    hash = proto.hash();
+src/transaction.cpp:142:    if (hash.empty()) {
+src/transaction.cpp:161:    std::string sigDilHex     = safeStr(proto.signature_dilithium(), "signature_dilithium", 10000);
+src/transaction.cpp:162:    std::string sigFalHex     = safeStr(proto.signature_falcon(), "signature_falcon", 10000);
+src/transaction.cpp:163:    std::string zkProof       = safeStr(proto.zkproof(), "zkproof", 50000);
+src/transaction.cpp:165:    std::string txHash        = safeStr(proto.hash(), "hash", 1024);
+src/transaction.cpp:177:    tx.hash = txHash.empty() ? tx.getTransactionHash() : txHash;
+src/transaction.cpp:222:    tx.signatureDilithium = Crypto::base64Decode(txJson.get("signatureDilithium", "").asString());
+src/transaction.cpp:223:    tx.signatureFalcon = Crypto::base64Decode(txJson.get("signatureFalcon", "").asString());
+src/transaction.cpp:229:  if (tx.hash.empty()) {
+src/transaction.cpp:230:    tx.hash = tx.getTransactionHash();
+src/transaction.cpp:276:    proto.set_signature_dilithium(Crypto::toHex(std::vector<unsigned char>(signatureDilithium.begin(), signatureDilithium.end())));
+src/transaction.cpp:277:    proto.set_signature_falcon(Crypto::toHex(std::vector<unsigned char>(signatureFalcon.begin(), signatureFalcon.end())));
+src/transaction.cpp:297:    if (!signatureDilithium.empty() && !signatureFalcon.empty() && !zkProof.empty()) {
+src/transaction.cpp:351:  if (signatureDilithium.empty() || signatureFalcon.empty()) {
+src/transaction.cpp:511:  tx.hash = tx.getTransactionHash();
+src/network.cpp:103:        std::string senderIP = socket->remote_endpoint().address().to_string();
+src/network.cpp:296:                std::cerr << "⚠️ Skipping block with empty signature during sync. Hash: " << blk.getHash() << "\n";
+src/network.cpp:760:                  << " | Miner: " << proto.miner_address()
+src/network.cpp:963:    std::cout << "[DEBUG] Block hash: " << newBlock.getHash() << "\n";
+src/network.cpp:1118:        std::string peerId = socket->remote_endpoint().address().to_string() + ":" +
+src/network.cpp:1383:    std::cerr << "Invalid Dilithium signature for block: " << blk.getHash() << std::endl;
+src/network.cpp:1388:    std::cerr << "Invalid Falcon signature for block: " << blk.getHash() << std::endl;
+src/keccak.cpp:13:  EVP_DigestFinal_ex(ctx, hash.data(), &length);
+src/cli.cpp:395:                hashes.push_back(tx.getHash());
+src/cli.cpp:401:    if (hashes.empty()) {
+src/cli.cpp:822:    proposal.proposer_address = wallet->getAddress();
+src/cli.cpp:847:        if (proposal.transfer_amount <= 0 || proposal.target_address.empty()) {
+src/cli.cpp:1072:        if ((it->getSender() == addr || it->getRecipient() == addr) && hashes.size() < (size_t)count) {
+src/cli.cpp:1073:            hashes.push_back(it->getHash());
+src/cli.cpp:1077:    if (hashes.empty()) {
+src/cli.cpp:1082:    std::string output = generateRecursiveProofToFile(hashes, addr, hashes.size(), "");
+src/block_protos.pb.h:380:  _impl_.previous_hash_.ClearToEmpty();
+src/block_protos.pb.h:400:  return _impl_.previous_hash_.Get();
+src/block_protos.pb.h:404:  _impl_.previous_hash_.Set(value, GetArenaForAllocation());
+src/block_protos.pb.h:408:  return _impl_.previous_hash_.Mutable(GetArenaForAllocation());
+src/block_protos.pb.h:412:  return _impl_.previous_hash_.Release();
+src/block_protos.pb.h:420:  _impl_.previous_hash_.SetAllocated(previous_hash, GetArenaForAllocation());
+src/block_protos.pb.h:422:  if (_impl_.previous_hash_.IsDefault()) {
+src/block_protos.pb.h:423:    _impl_.previous_hash_.Set("", GetArenaForAllocation());
+src/block_protos.pb.h:472:  _impl_.miner_address_.ClearToEmpty();
+src/block_protos.pb.h:492:  return _impl_.miner_address_.Get();
+src/block_protos.pb.h:496:  _impl_.miner_address_.Set(value, GetArenaForAllocation());
+src/block_protos.pb.h:500:  return _impl_.miner_address_.Mutable(GetArenaForAllocation());
+src/block_protos.pb.h:504:  return _impl_.miner_address_.Release();
+src/block_protos.pb.h:512:  _impl_.miner_address_.SetAllocated(miner_address, GetArenaForAllocation());
+src/block_protos.pb.h:514:  if (_impl_.miner_address_.IsDefault()) {
+src/block_protos.pb.h:515:    _impl_.miner_address_.Set("", GetArenaForAllocation());
+src/block_protos.pb.h:574:inline void BlockProto::clear_hash() { _impl_.hash_.ClearToEmpty(); }
+src/block_protos.pb.h:593:  return _impl_.hash_.Get();
+src/block_protos.pb.h:597:  _impl_.hash_.Set(value, GetArenaForAllocation());
+src/block_protos.pb.h:601:  return _impl_.hash_.Mutable(GetArenaForAllocation());
+src/block_protos.pb.h:605:  return _impl_.hash_.Release();
+src/block_protos.pb.h:612:  _impl_.hash_.SetAllocated(hash, GetArenaForAllocation());
+src/block_protos.pb.h:614:  if (_impl_.hash_.IsDefault()) {
+src/block_protos.pb.h:615:    _impl_.hash_.Set("", GetArenaForAllocation());
+src/block_protos.pb.h:623:  _impl_.block_signature_.ClearToEmpty();
+src/block_protos.pb.h:643:  return _impl_.block_signature_.Get();
+src/block_protos.pb.h:648:  _impl_.block_signature_.Set(value, GetArenaForAllocation());
+src/block_protos.pb.h:652:  return _impl_.block_signature_.Mutable(GetArenaForAllocation());
+src/block_protos.pb.h:656:  return _impl_.block_signature_.Release();
+src/block_protos.pb.h:667:  if (_impl_.block_signature_.IsDefault()) {
+src/block_protos.pb.h:668:    _impl_.block_signature_.Set("", GetArenaForAllocation());
+src/nft/nft_cli.cpp:23:    if (address.empty()) {
+src/nft/nft.cpp:45:    if (!dilithium_signature.empty()) {
+src/nft/nft.cpp:162:    proto.set_signature(signature.data(), signature.size());
+src/nft/nft.cpp:187:    imageHash = proto.image_hash();
+src/nft/nft.cpp:189:    signature = std::vector<uint8_t>(proto.signature().begin(), proto.signature().end());
+src/nft/nft.cpp:194:    proof_hash = proto.proof_hash();
+src/nft/nft.cpp:199:    dilithium_signature = Crypto::fromHex(proto.dilithium_signature());
+src/network/peer_manager.cpp:81:            std::string hash = jsonData["data"].asString();
+src/network/peer_manager.cpp:84:            if (hash.empty() || hash.length() < 64) continue;
+src/network/peer_manager.cpp:90:    if (hashVotes.empty()) {
+src/network/peer_manager.cpp:96:        hashVotes.begin(), hashVotes.end(),
+src/crypto_protos.pb.cc:158:  _impl_.public_key_.InitDefault();
+src/crypto_protos.pb.cc:160:    _impl_.public_key_.Set("", GetArenaForAllocation());
+src/crypto_protos.pb.cc:162:  if (!from._internal_public_key().empty()) {
+src/crypto_protos.pb.cc:163:    _this->_impl_.public_key_.Set(from._internal_public_key(), 
+src/crypto_protos.pb.cc:182:  _impl_.public_key_.InitDefault();
+src/crypto_protos.pb.cc:184:    _impl_.public_key_.Set("", GetArenaForAllocation());
+src/crypto_protos.pb.cc:200:  _impl_.public_key_.Destroy();
+src/crypto_protos.pb.cc:214:  _impl_.public_key_.ClearToEmpty();
+src/crypto_protos.pb.cc:278:  if (!this->_internal_public_key().empty()) {
+src/crypto_protos.pb.cc:307:  if (!this->_internal_public_key().empty()) {
+src/crypto_protos.pb.cc:334:  if (!from._internal_public_key().empty()) {
+src/crypto_protos.pb.cc:335:    _this->_internal_set_public_key(from._internal_public_key());
+src/crypto_protos.pb.cc:392:  _impl_.signature_.InitDefault();
+src/crypto_protos.pb.cc:394:    _impl_.signature_.Set("", GetArenaForAllocation());
+src/crypto_protos.pb.cc:396:  if (!from._internal_signature().empty()) {
+src/crypto_protos.pb.cc:397:    _this->_impl_.signature_.Set(from._internal_signature(), 
+src/crypto_protos.pb.cc:411:  _impl_.signature_.InitDefault();
+src/crypto_protos.pb.cc:413:    _impl_.signature_.Set("", GetArenaForAllocation());
+src/crypto_protos.pb.cc:428:  _impl_.signature_.Destroy();
+src/crypto_protos.pb.cc:441:  _impl_.signature_.ClearToEmpty();
+src/crypto_protos.pb.cc:490:  if (!this->_internal_signature().empty()) {
+src/crypto_protos.pb.cc:512:  if (!this->_internal_signature().empty()) {
+src/crypto_protos.pb.cc:536:  if (!from._internal_signature().empty()) {
+src/crypto_protos.pb.cc:537:    _this->_internal_set_signature(from._internal_signature());
+src/crypto_protos.pb.cc:590:  _impl_.miner_address_.InitDefault();
+src/crypto_protos.pb.cc:592:    _impl_.miner_address_.Set("", GetArenaForAllocation());
+src/crypto_protos.pb.cc:594:  if (!from._internal_miner_address().empty()) {
+src/crypto_protos.pb.cc:595:    _this->_impl_.miner_address_.Set(from._internal_miner_address(), 
+src/crypto_protos.pb.cc:609:  _impl_.miner_address_.InitDefault();
+src/crypto_protos.pb.cc:611:    _impl_.miner_address_.Set("", GetArenaForAllocation());
+src/crypto_protos.pb.cc:626:  _impl_.miner_address_.Destroy();
+src/crypto_protos.pb.cc:639:  _impl_.miner_address_.ClearToEmpty();
+src/crypto_protos.pb.cc:689:  if (!this->_internal_miner_address().empty()) {
+src/crypto_protos.pb.cc:691:      this->_internal_miner_address().data(), static_cast<int>(this->_internal_miner_address().length()),
+src/crypto_protos.pb.cc:715:  if (!this->_internal_miner_address().empty()) {
+src/crypto_protos.pb.cc:739:  if (!from._internal_miner_address().empty()) {
+src/crypto_protos.pb.cc:740:    _this->_internal_set_miner_address(from._internal_miner_address());
+src/wallet.cpp:111:    return Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true, false).getBalance(address);
+src/crypto/falcon/PQClean/Falcon-1024/clean/inner.h:209: * PQCLEAN_FALCON1024_CLEAN_hash_to_point_vartime().
+src/block_protos.pb.cc:136:  _impl_.previous_hash_.InitDefault();
+src/block_protos.pb.cc:138:    _impl_.previous_hash_.Set("", GetArenaForAllocation());
+src/block_protos.pb.cc:140:  if (!from._internal_previous_hash().empty()) {
+src/block_protos.pb.cc:141:    _this->_impl_.previous_hash_.Set(from._internal_previous_hash(), 
+src/block_protos.pb.cc:144:  _impl_.miner_address_.InitDefault();
+src/block_protos.pb.cc:146:    _impl_.miner_address_.Set("", GetArenaForAllocation());
+src/block_protos.pb.cc:148:  if (!from._internal_miner_address().empty()) {
+src/block_protos.pb.cc:149:    _this->_impl_.miner_address_.Set(from._internal_miner_address(), 
+src/block_protos.pb.cc:152:  _impl_.hash_.InitDefault();
+src/block_protos.pb.cc:154:    _impl_.hash_.Set("", GetArenaForAllocation());
+src/block_protos.pb.cc:156:  if (!from._internal_hash().empty()) {
+src/block_protos.pb.cc:157:    _this->_impl_.hash_.Set(from._internal_hash(), 
+src/block_protos.pb.cc:160:  _impl_.block_signature_.InitDefault();
+src/block_protos.pb.cc:162:    _impl_.block_signature_.Set("", GetArenaForAllocation());
+src/block_protos.pb.cc:164:  if (!from._internal_block_signature().empty()) {
+src/block_protos.pb.cc:165:    _this->_impl_.block_signature_.Set(from._internal_block_signature(), 
+src/block_protos.pb.cc:190:  _impl_.previous_hash_.InitDefault();
+src/block_protos.pb.cc:192:    _impl_.previous_hash_.Set("", GetArenaForAllocation());
+src/block_protos.pb.cc:194:  _impl_.miner_address_.InitDefault();
+src/block_protos.pb.cc:196:    _impl_.miner_address_.Set("", GetArenaForAllocation());
+src/block_protos.pb.cc:198:  _impl_.hash_.InitDefault();
+src/block_protos.pb.cc:200:    _impl_.hash_.Set("", GetArenaForAllocation());
+src/block_protos.pb.cc:202:  _impl_.block_signature_.InitDefault();
+src/block_protos.pb.cc:204:    _impl_.block_signature_.Set("", GetArenaForAllocation());
+src/block_protos.pb.cc:220:  _impl_.previous_hash_.Destroy();
+src/block_protos.pb.cc:221:  _impl_.miner_address_.Destroy();
+src/block_protos.pb.cc:222:  _impl_.hash_.Destroy();
+src/block_protos.pb.cc:223:  _impl_.block_signature_.Destroy();
+src/block_protos.pb.cc:237:  _impl_.previous_hash_.ClearToEmpty();
+src/block_protos.pb.cc:238:  _impl_.miner_address_.ClearToEmpty();
+src/block_protos.pb.cc:239:  _impl_.hash_.ClearToEmpty();
+src/block_protos.pb.cc:240:  _impl_.block_signature_.ClearToEmpty();
+src/block_protos.pb.cc:370:  if (!this->_internal_previous_hash().empty()) {
+src/block_protos.pb.cc:384:  if (!this->_internal_miner_address().empty()) {
+src/block_protos.pb.cc:408:  if (!this->_internal_hash().empty()) {
+src/block_protos.pb.cc:414:  if (!this->_internal_block_signature().empty()) {
+src/block_protos.pb.cc:443:  if (!this->_internal_previous_hash().empty()) {
+src/block_protos.pb.cc:450:  if (!this->_internal_miner_address().empty()) {
+src/block_protos.pb.cc:457:  if (!this->_internal_hash().empty()) {
+src/block_protos.pb.cc:464:  if (!this->_internal_block_signature().empty()) {
+src/block_protos.pb.cc:509:  if (!from._internal_previous_hash().empty()) {
+src/block_protos.pb.cc:510:    _this->_internal_set_previous_hash(from._internal_previous_hash());
+src/block_protos.pb.cc:512:  if (!from._internal_miner_address().empty()) {
+src/block_protos.pb.cc:513:    _this->_internal_set_miner_address(from._internal_miner_address());
+src/block_protos.pb.cc:515:  if (!from._internal_hash().empty()) {
+src/block_protos.pb.cc:516:    _this->_internal_set_hash(from._internal_hash());
+src/block_protos.pb.cc:518:  if (!from._internal_block_signature().empty()) {
+src/block_protos.pb.cc:519:    _this->_internal_set_block_signature(from._internal_block_signature());
+src/identity/proto_utils.cpp:18:        proto.set_falconsignature(Crypto::toHex(identity.falconSignature.value()));
+src/identity/proto_utils.cpp:21:        proto.set_dilithiumsignature(Crypto::toHex(identity.dilithiumSignature.value()));
+src/identity/proto_utils.cpp:33:    identity.metadataHash = proto.metadatahash();
+src/identity/proto_utils.cpp:36:    identity.zkProof = proto.zkproof().empty() ? std::nullopt
+src/identity/proto_utils.cpp:37:                                               : std::make_optional(Crypto::fromHex(proto.zkproof()));
+src/identity/proto_utils.cpp:39:    if (!proto.falconsignature().empty())
+src/identity/proto_utils.cpp:40:        identity.falconSignature = Crypto::fromHex(proto.falconsignature());
+src/identity/proto_utils.cpp:42:    if (!proto.dilithiumsignature().empty())
+src/identity/proto_utils.cpp:43:        identity.dilithiumSignature = Crypto::fromHex(proto.dilithiumsignature());
+src/rust/src/lib.rs:90:        ElementDigest::new(hash_out.as_bytes().to_vec())
+src/rust/src/lib.rs:98:        ElementDigest::new(hash_out.as_bytes().to_vec())
+src/rust/src/lib.rs:107:        ElementDigest::new(hash_out.as_bytes().to_vec())
+src/rust/src/lib.rs:114:        ElementDigest::new(hash_out.as_bytes().to_vec())
+src/rust/src/lib.rs:120:        ElementDigest::new(hash_out.as_bytes().to_vec())
+src/rust/src/lib.rs:159:    let digest = blake3::hash(seed_str.as_bytes());
+src/rust/src/lib.rs:191:    if proof_ptr.is_null() || hash_ptr.is_null() || proof_len == 0 {
+src/rust/src/lib.rs:198:    let hash_array: [u8; 32] = match hash_slice.try_into() {
+src/rust/src/lib.rs:219:    let block_hash = unsafe { CStr::from_ptr(block_hash_ptr).to_str().unwrap_or("") };
+src/rust/src/lib.rs:220:    let prev_hash = unsafe { CStr::from_ptr(prev_hash_ptr).to_str().unwrap_or("") };
+src/rust/src/lib.rs:229:    let computed = from_hex(&final_hash).unwrap_or_default();
+src/rust/src/lib.rs:253:    let hash = blake3::hash(input.as_bytes());
+src/rust/src/lib.rs:254:    hex::encode(hash.as_bytes())
+src/rust/src/lib.rs:267:    let block_hash = unsafe { CStr::from_ptr(block_hash_ptr).to_str().unwrap_or("") };
+src/rust/src/lib.rs:268:    let prev_hash = unsafe { CStr::from_ptr(prev_hash_ptr).to_str().unwrap_or("") };
+src/rust/src/lib.rs:278:    let digest = blake3::hash(final_seed.as_bytes());
+src/rust/src/lib.rs:300:    let block_hash = unsafe { CStr::from_ptr(block_hash_ptr).to_str().unwrap_or("") };
+src/rust/src/lib.rs:301:    let prev_hash = unsafe { CStr::from_ptr(prev_hash_ptr).to_str().unwrap_or("") };
+src/rust/src/lib.rs:310:    let expected_hash = blake3::hash(final_seed.as_bytes()).as_bytes().to_vec();
+src/rust/src/lib.rs:315:    println!("  - computed.len  = {}", expected_hash.len());
+src/rust/src/recursive/recursive_prover.rs:83:    let expected_hash = vec![col0_last]; // ✅ enforce match with col0.last()
+src/rust/src/recursive/ffi_bindings.rs:17:    if inner_ptr.is_null() || inner_len == 0 || hash_ptr.is_null() {
+src/rust/src/recursive/ffi_bindings.rs:27:    let hash_array: [u8; 32] = match hash_slice.try_into() {
+src/hash.cpp:20:      EVP_DigestUpdate(mdctx, input.c_str(), input.size()) != 1 ||
+src/hash.cpp:39:  return ss.str();
+src/rollup/circuits/state_circuit.cpp:13:    if (accountStates.find(address) == accountStates.end()) {
+src/rollup/circuits/transaction_circuit.cpp:11:    std::string hashed = RollupUtils::hybridHashWithDomain(ss.str(), "TxTrace");
+src/rollup/rollup_utils.cpp:51:        std::string hash = hybridHashWithDomain(ss.str(), "StateTrace");
+src/rollup/rollup_block.cpp:85:        hashes.push_back(tx.getHash());
+src/rollup/rollup_block.cpp:160:        std::string addr = d["address"].asString();
+src/governance/api/crow_all.h:5464:                return adaptor_.remote_endpoint().address().to_string();
+src/governance/api/crow_all.h:11306:            req_.remote_ip_address = adaptor_.remote_endpoint().address().to_string();
+src/governance/api/crow_all.h:11945:                          << acceptor_.local_endpoint().address() << ":" << acceptor_.local_endpoint().port() << " using " << concurrency_ << " threads";
+src/governance/api/crow_all.h:14635:                CROW_LOG_ERROR << ec.message() << " - Can not create valid ip address from string: \"" << bindaddr_ << "\"";
+src/wallet_cli.cpp:126:  return Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), false).getBalance(address);
+src/transaction_protos.pb.h:416:  _impl_.signature_.ClearToEmpty();
+src/transaction_protos.pb.h:436:  return _impl_.signature_.Get();
+src/transaction_protos.pb.h:441:  _impl_.signature_.Set(value, GetArenaForAllocation());
+src/transaction_protos.pb.h:445:  return _impl_.signature_.Mutable(GetArenaForAllocation());
+src/transaction_protos.pb.h:449:  return _impl_.signature_.Release();
+src/transaction_protos.pb.h:456:  _impl_.signature_.SetAllocated(signature, GetArenaForAllocation());
+src/transaction_protos.pb.h:458:  if (_impl_.signature_.IsDefault()) {
+src/transaction_protos.pb.h:459:    _impl_.signature_.Set("", GetArenaForAllocation());
+src/blake3.c:467:  //   blake3_hasher_update(&hasher, v.data(), v.size());
+src/blake3.c:581:  //   blake3_hasher_finalize(&hasher, v.data(), v.size());
+src/atomic_swaps/proto_utils.cpp:19:    if (swap.falconSignature) proto.set_falconsignature(Crypto::toHex(swap.falconSignature.value()));
+src/atomic_swaps/proto_utils.cpp:20:    if (swap.dilithiumSignature) proto.set_dilithiumsignature(Crypto::toHex(swap.dilithiumSignature.value()));
+src/atomic_swaps/proto_utils.cpp:30:    out.senderAddress = proto.senderaddress();
+src/atomic_swaps/proto_utils.cpp:31:    out.receiverAddress = proto.receiveraddress();
+src/atomic_swaps/proto_utils.cpp:33:    out.secretHash = proto.secrethash();
+src/atomic_swaps/proto_utils.cpp:38:    out.zkProof = proto.zkproof().empty() ? std::nullopt : std::make_optional(proto.zkproof());
+src/atomic_swaps/proto_utils.cpp:40:    if (!proto.falconsignature().empty())
+src/atomic_swaps/proto_utils.cpp:41:        out.falconSignature = Crypto::fromHex(proto.falconsignature());
+src/atomic_swaps/proto_utils.cpp:43:    if (!proto.dilithiumsignature().empty())
+src/atomic_swaps/proto_utils.cpp:44:        out.dilithiumSignature = Crypto::fromHex(proto.dilithiumsignature());
+src/block.cpp.bak:114:    hash = Crypto::hybridHash(ss.str());
+src/block.cpp.bak:135:  std::vector<unsigned char> hashBytes(hash.begin(), hash.end());
+src/block.cpp.bak:350:    setPreviousHash(protoBlock.previous_hash());
+src/block.cpp.bak:351:    setHash(protoBlock.hash());
+src/block.cpp.bak:352:    setMinerAddress(protoBlock.miner_address());
+src/block.cpp.bak:356:    setSignature(protoBlock.block_signature());
+src/block.cpp.bak:357:    setKeccakHash(protoBlock.keccak_hash());
+src/block.cpp.bak:375:    dilithiumSignature = protoBlock.dilithium_signature();
+src/block.cpp.bak:376:    falconSignature = protoBlock.falcon_signature();
+src/block.cpp.bak:377:    publicKeyDilithium = protoBlock.public_key_dilithium();
+src/block.cpp.bak:378:    publicKeyFalcon = protoBlock.public_key_falcon();
+src/block.cpp.bak:462:  newBlock.setPreviousHash(protoBlock.previous_hash());
+src/block.cpp.bak:463:  newBlock.setHash(protoBlock.hash());
+src/block.cpp.bak:464:  newBlock.setMinerAddress(protoBlock.miner_address());
+src/block.cpp.bak:468:  newBlock.setSignature(protoBlock.block_signature());
+src/block.cpp.bak:469:  newBlock.setKeccakHash(protoBlock.keccak_hash());
+src/deps/CrowInclude/crow_all.h:5464:                return adaptor_.remote_endpoint().address().to_string();
+src/deps/CrowInclude/crow_all.h:11306:            req_.remote_ip_address = adaptor_.remote_endpoint().address().to_string();
+src/deps/CrowInclude/crow_all.h:11945:                          << acceptor_.local_endpoint().address() << ":" << acceptor_.local_endpoint().port() << " using " << concurrency_ << " threads";
+src/deps/CrowInclude/crow_all.h:14635:                CROW_LOG_ERROR << ec.message() << " - Can not create valid ip address from string: \"" << bindaddr_ << "\"";
+src/deps/CrowInclude/crow.h:5464:                return adaptor_.remote_endpoint().address().to_string();
+src/deps/CrowInclude/crow.h:11306:            req_.remote_ip_address = adaptor_.remote_endpoint().address().to_string();
+src/deps/CrowInclude/crow.h:11945:                          << acceptor_.local_endpoint().address() << ":" << acceptor_.local_endpoint().port() << " using " << concurrency_ << " threads";
+src/deps/CrowInclude/crow.h:14635:                CROW_LOG_ERROR << ec.message() << " - Can not create valid ip address from string: \"" << bindaddr_ << "\"";
+src/block.cpp:125:        hash = Crypto::hybridHash(ss.str());
+src/block.cpp:171:        std::cerr << "❌ Invalid signature message length: " << sigMsg.size() << " bytes\n";
+src/block.cpp:385:            std::string(zkProof.begin(), zkProof.end()), hash, previousHash, txRoot)) {
+src/block.cpp:420:        combined += tx.getHash();  // Uses existing hashes
+src/block.cpp:487:  block.hash = blockJson["hash"].asString();
+src/block.cpp:563:    newBlock.setPreviousHash(safeStr(protoBlock.previous_hash(), "previous_hash"));
+src/block.cpp:564:    newBlock.setHash(safeStr(protoBlock.hash(), "hash"));
+src/block.cpp:565:    newBlock.setMinerAddress(safeStr(protoBlock.miner_address(), "miner_address"));
+src/block.cpp:569:    newBlock.setSignature(safeStr(protoBlock.block_signature(), "block_signature"));
+src/block.cpp:570:    newBlock.setKeccakHash(safeStr(protoBlock.keccak_hash(), "keccak_hash"));
+src/block.cpp:576:        std::cout << "  dil_sig: " << protoBlock.dilithium_signature().size() << "\n";
+src/block.cpp:577:        std::cout << "  fal_sig: " << protoBlock.falcon_signature().size() << "\n";
+src/block.cpp:606:        newBlock.dilithiumSignature = safeStr(protoBlock.dilithium_signature(), "dilithium_signature");
+src/block.cpp:607:        newBlock.falconSignature = safeStr(protoBlock.falcon_signature(), "falcon_signature");
+src/block.cpp:610:        std::string pubDilRaw = safeStr(protoBlock.public_key_dilithium(), "public_key_dilithium");
+src/block.cpp:611:        std::string pubFalRaw = safeStr(protoBlock.public_key_falcon(), "public_key_falcon");
+src/generated/nft.pb.h:739:  _impl_.image_hash_.ClearToEmpty();
+src/generated/nft.pb.h:749: _impl_.image_hash_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/nft.pb.h:758:  return _impl_.image_hash_.Get();
+src/generated/nft.pb.h:762:  _impl_.image_hash_.Set(value, GetArenaForAllocation());
+src/generated/nft.pb.h:766:  return _impl_.image_hash_.Mutable(GetArenaForAllocation());
+src/generated/nft.pb.h:770:  return _impl_.image_hash_.Release();
+src/generated/nft.pb.h:778:  _impl_.image_hash_.SetAllocated(image_hash, GetArenaForAllocation());
+src/generated/nft.pb.h:780:  if (_impl_.image_hash_.IsDefault()) {
+src/generated/nft.pb.h:781:    _impl_.image_hash_.Set("", GetArenaForAllocation());
+src/generated/nft.pb.h:809:  _impl_.signature_.ClearToEmpty();
+src/generated/nft.pb.h:819: _impl_.signature_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/nft.pb.h:828:  return _impl_.signature_.Get();
+src/generated/nft.pb.h:832:  _impl_.signature_.Set(value, GetArenaForAllocation());
+src/generated/nft.pb.h:836:  return _impl_.signature_.Mutable(GetArenaForAllocation());
+src/generated/nft.pb.h:840:  return _impl_.signature_.Release();
+src/generated/nft.pb.h:848:  _impl_.signature_.SetAllocated(signature, GetArenaForAllocation());
+src/generated/nft.pb.h:850:  if (_impl_.signature_.IsDefault()) {
+src/generated/nft.pb.h:851:    _impl_.signature_.Set("", GetArenaForAllocation());
+src/generated/nft.pb.h:1009:  _impl_.proof_hash_.ClearToEmpty();
+src/generated/nft.pb.h:1019: _impl_.proof_hash_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/nft.pb.h:1028:  return _impl_.proof_hash_.Get();
+src/generated/nft.pb.h:1032:  _impl_.proof_hash_.Set(value, GetArenaForAllocation());
+src/generated/nft.pb.h:1036:  return _impl_.proof_hash_.Mutable(GetArenaForAllocation());
+src/generated/nft.pb.h:1040:  return _impl_.proof_hash_.Release();
+src/generated/nft.pb.h:1048:  _impl_.proof_hash_.SetAllocated(proof_hash, GetArenaForAllocation());
+src/generated/nft.pb.h:1050:  if (_impl_.proof_hash_.IsDefault()) {
+src/generated/nft.pb.h:1051:    _impl_.proof_hash_.Set("", GetArenaForAllocation());
+src/generated/nft.pb.h:1309:  _impl_.dilithium_signature_.ClearToEmpty();
+src/generated/nft.pb.h:1319: _impl_.dilithium_signature_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/nft.pb.h:1328:  return _impl_.dilithium_signature_.Get();
+src/generated/nft.pb.h:1332:  _impl_.dilithium_signature_.Set(value, GetArenaForAllocation());
+src/generated/nft.pb.h:1336:  return _impl_.dilithium_signature_.Mutable(GetArenaForAllocation());
+src/generated/nft.pb.h:1340:  return _impl_.dilithium_signature_.Release();
+src/generated/nft.pb.h:1348:  _impl_.dilithium_signature_.SetAllocated(dilithium_signature, GetArenaForAllocation());
+src/generated/nft.pb.h:1350:  if (_impl_.dilithium_signature_.IsDefault()) {
+src/generated/nft.pb.h:1351:    _impl_.dilithium_signature_.Set("", GetArenaForAllocation());
+src/generated/block_protos.pb.h:500:  _impl_.previous_hash_.ClearToEmpty();
+src/generated/block_protos.pb.h:510: _impl_.previous_hash_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/block_protos.pb.h:519:  return _impl_.previous_hash_.Get();
+src/generated/block_protos.pb.h:523:  _impl_.previous_hash_.Set(value, GetArenaForAllocation());
+src/generated/block_protos.pb.h:527:  return _impl_.previous_hash_.Mutable(GetArenaForAllocation());
+src/generated/block_protos.pb.h:531:  return _impl_.previous_hash_.Release();
+src/generated/block_protos.pb.h:539:  _impl_.previous_hash_.SetAllocated(previous_hash, GetArenaForAllocation());
+src/generated/block_protos.pb.h:541:  if (_impl_.previous_hash_.IsDefault()) {
+src/generated/block_protos.pb.h:542:    _impl_.previous_hash_.Set("", GetArenaForAllocation());
+src/generated/block_protos.pb.h:587:  _impl_.hash_.ClearToEmpty();
+src/generated/block_protos.pb.h:597: _impl_.hash_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/block_protos.pb.h:606:  return _impl_.hash_.Get();
+src/generated/block_protos.pb.h:610:  _impl_.hash_.Set(value, GetArenaForAllocation());
+src/generated/block_protos.pb.h:614:  return _impl_.hash_.Mutable(GetArenaForAllocation());
+src/generated/block_protos.pb.h:618:  return _impl_.hash_.Release();
+src/generated/block_protos.pb.h:626:  _impl_.hash_.SetAllocated(hash, GetArenaForAllocation());
+src/generated/block_protos.pb.h:628:  if (_impl_.hash_.IsDefault()) {
+src/generated/block_protos.pb.h:629:    _impl_.hash_.Set("", GetArenaForAllocation());
+src/generated/block_protos.pb.h:637:  _impl_.miner_address_.ClearToEmpty();
+src/generated/block_protos.pb.h:647: _impl_.miner_address_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/block_protos.pb.h:656:  return _impl_.miner_address_.Get();
+src/generated/block_protos.pb.h:660:  _impl_.miner_address_.Set(value, GetArenaForAllocation());
+src/generated/block_protos.pb.h:664:  return _impl_.miner_address_.Mutable(GetArenaForAllocation());
+src/generated/block_protos.pb.h:668:  return _impl_.miner_address_.Release();
+src/generated/block_protos.pb.h:676:  _impl_.miner_address_.SetAllocated(miner_address, GetArenaForAllocation());
+src/generated/block_protos.pb.h:678:  if (_impl_.miner_address_.IsDefault()) {
+src/generated/block_protos.pb.h:679:    _impl_.miner_address_.Set("", GetArenaForAllocation());
+src/generated/block_protos.pb.h:747:  _impl_.block_signature_.ClearToEmpty();
+src/generated/block_protos.pb.h:757: _impl_.block_signature_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/block_protos.pb.h:766:  return _impl_.block_signature_.Get();
+src/generated/block_protos.pb.h:770:  _impl_.block_signature_.Set(value, GetArenaForAllocation());
+src/generated/block_protos.pb.h:774:  return _impl_.block_signature_.Mutable(GetArenaForAllocation());
+src/generated/block_protos.pb.h:778:  return _impl_.block_signature_.Release();
+src/generated/block_protos.pb.h:786:  _impl_.block_signature_.SetAllocated(block_signature, GetArenaForAllocation());
+src/generated/block_protos.pb.h:788:  if (_impl_.block_signature_.IsDefault()) {
+src/generated/block_protos.pb.h:789:    _impl_.block_signature_.Set("", GetArenaForAllocation());
+src/generated/block_protos.pb.h:797:  _impl_.keccak_hash_.ClearToEmpty();
+src/generated/block_protos.pb.h:807: _impl_.keccak_hash_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/block_protos.pb.h:816:  return _impl_.keccak_hash_.Get();
+src/generated/block_protos.pb.h:820:  _impl_.keccak_hash_.Set(value, GetArenaForAllocation());
+src/generated/block_protos.pb.h:824:  return _impl_.keccak_hash_.Mutable(GetArenaForAllocation());
+src/generated/block_protos.pb.h:828:  return _impl_.keccak_hash_.Release();
+src/generated/block_protos.pb.h:836:  _impl_.keccak_hash_.SetAllocated(keccak_hash, GetArenaForAllocation());
+src/generated/block_protos.pb.h:838:  if (_impl_.keccak_hash_.IsDefault()) {
+src/generated/block_protos.pb.h:839:    _impl_.keccak_hash_.Set("", GetArenaForAllocation());
+src/generated/block_protos.pb.h:897:  _impl_.dilithium_signature_.ClearToEmpty();
+src/generated/block_protos.pb.h:907: _impl_.dilithium_signature_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/block_protos.pb.h:916:  return _impl_.dilithium_signature_.Get();
+src/generated/block_protos.pb.h:920:  _impl_.dilithium_signature_.Set(value, GetArenaForAllocation());
+src/generated/block_protos.pb.h:924:  return _impl_.dilithium_signature_.Mutable(GetArenaForAllocation());
+src/generated/block_protos.pb.h:928:  return _impl_.dilithium_signature_.Release();
+src/generated/block_protos.pb.h:936:  _impl_.dilithium_signature_.SetAllocated(dilithium_signature, GetArenaForAllocation());
+src/generated/block_protos.pb.h:938:  if (_impl_.dilithium_signature_.IsDefault()) {
+src/generated/block_protos.pb.h:939:    _impl_.dilithium_signature_.Set("", GetArenaForAllocation());
+src/generated/block_protos.pb.h:947:  _impl_.falcon_signature_.ClearToEmpty();
+src/generated/block_protos.pb.h:957: _impl_.falcon_signature_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/block_protos.pb.h:966:  return _impl_.falcon_signature_.Get();
+src/generated/block_protos.pb.h:970:  _impl_.falcon_signature_.Set(value, GetArenaForAllocation());
+src/generated/block_protos.pb.h:974:  return _impl_.falcon_signature_.Mutable(GetArenaForAllocation());
+src/generated/block_protos.pb.h:978:  return _impl_.falcon_signature_.Release();
+src/generated/block_protos.pb.h:986:  _impl_.falcon_signature_.SetAllocated(falcon_signature, GetArenaForAllocation());
+src/generated/block_protos.pb.h:988:  if (_impl_.falcon_signature_.IsDefault()) {
+src/generated/block_protos.pb.h:989:    _impl_.falcon_signature_.Set("", GetArenaForAllocation());
+src/generated/block_protos.pb.h:997:  _impl_.public_key_dilithium_.ClearToEmpty();
+src/generated/block_protos.pb.h:1007: _impl_.public_key_dilithium_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/block_protos.pb.h:1016:  return _impl_.public_key_dilithium_.Get();
+src/generated/block_protos.pb.h:1020:  _impl_.public_key_dilithium_.Set(value, GetArenaForAllocation());
+src/generated/block_protos.pb.h:1024:  return _impl_.public_key_dilithium_.Mutable(GetArenaForAllocation());
+src/generated/block_protos.pb.h:1028:  return _impl_.public_key_dilithium_.Release();
+src/generated/block_protos.pb.h:1036:  _impl_.public_key_dilithium_.SetAllocated(public_key_dilithium, GetArenaForAllocation());
+src/generated/block_protos.pb.h:1038:  if (_impl_.public_key_dilithium_.IsDefault()) {
+src/generated/block_protos.pb.h:1039:    _impl_.public_key_dilithium_.Set("", GetArenaForAllocation());
+src/generated/block_protos.pb.h:1047:  _impl_.public_key_falcon_.ClearToEmpty();
+src/generated/block_protos.pb.h:1057: _impl_.public_key_falcon_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/block_protos.pb.h:1066:  return _impl_.public_key_falcon_.Get();
+src/generated/block_protos.pb.h:1070:  _impl_.public_key_falcon_.Set(value, GetArenaForAllocation());
+src/generated/block_protos.pb.h:1074:  return _impl_.public_key_falcon_.Mutable(GetArenaForAllocation());
+src/generated/block_protos.pb.h:1078:  return _impl_.public_key_falcon_.Release();
+src/generated/block_protos.pb.h:1086:  _impl_.public_key_falcon_.SetAllocated(public_key_falcon, GetArenaForAllocation());
+src/generated/block_protos.pb.h:1088:  if (_impl_.public_key_falcon_.IsDefault()) {
+src/generated/block_protos.pb.h:1089:    _impl_.public_key_falcon_.Set("", GetArenaForAllocation());
+src/generated/crypto_protos.pb.cc:158:  _impl_.public_key_.InitDefault();
+src/generated/crypto_protos.pb.cc:160:    _impl_.public_key_.Set("", GetArenaForAllocation());
+src/generated/crypto_protos.pb.cc:162:  if (!from._internal_public_key().empty()) {
+src/generated/crypto_protos.pb.cc:163:    _this->_impl_.public_key_.Set(from._internal_public_key(), 
+src/generated/crypto_protos.pb.cc:182:  _impl_.public_key_.InitDefault();
+src/generated/crypto_protos.pb.cc:184:    _impl_.public_key_.Set("", GetArenaForAllocation());
+src/generated/crypto_protos.pb.cc:200:  _impl_.public_key_.Destroy();
+src/generated/crypto_protos.pb.cc:214:  _impl_.public_key_.ClearToEmpty();
+src/generated/crypto_protos.pb.cc:284:  if (!this->_internal_public_key().empty()) {
+src/generated/crypto_protos.pb.cc:286:      this->_internal_public_key().data(), static_cast<int>(this->_internal_public_key().length()),
+src/generated/crypto_protos.pb.cc:317:  if (!this->_internal_public_key().empty()) {
+src/generated/crypto_protos.pb.cc:344:  if (!from._internal_public_key().empty()) {
+src/generated/crypto_protos.pb.cc:345:    _this->_internal_set_public_key(from._internal_public_key());
+src/generated/crypto_protos.pb.cc:402:  _impl_.signature_.InitDefault();
+src/generated/crypto_protos.pb.cc:404:    _impl_.signature_.Set("", GetArenaForAllocation());
+src/generated/crypto_protos.pb.cc:406:  if (!from._internal_signature().empty()) {
+src/generated/crypto_protos.pb.cc:407:    _this->_impl_.signature_.Set(from._internal_signature(), 
+src/generated/crypto_protos.pb.cc:421:  _impl_.signature_.InitDefault();
+src/generated/crypto_protos.pb.cc:423:    _impl_.signature_.Set("", GetArenaForAllocation());
+src/generated/crypto_protos.pb.cc:438:  _impl_.signature_.Destroy();
+src/generated/crypto_protos.pb.cc:451:  _impl_.signature_.ClearToEmpty();
+src/generated/crypto_protos.pb.cc:501:  if (!this->_internal_signature().empty()) {
+src/generated/crypto_protos.pb.cc:503:      this->_internal_signature().data(), static_cast<int>(this->_internal_signature().length()),
+src/generated/crypto_protos.pb.cc:527:  if (!this->_internal_signature().empty()) {
+src/generated/crypto_protos.pb.cc:551:  if (!from._internal_signature().empty()) {
+src/generated/crypto_protos.pb.cc:552:    _this->_internal_set_signature(from._internal_signature());
+src/generated/crypto_protos.pb.cc:605:  _impl_.miner_address_.InitDefault();
+src/generated/crypto_protos.pb.cc:607:    _impl_.miner_address_.Set("", GetArenaForAllocation());
+src/generated/crypto_protos.pb.cc:609:  if (!from._internal_miner_address().empty()) {
+src/generated/crypto_protos.pb.cc:610:    _this->_impl_.miner_address_.Set(from._internal_miner_address(), 
+src/generated/crypto_protos.pb.cc:624:  _impl_.miner_address_.InitDefault();
+src/generated/crypto_protos.pb.cc:626:    _impl_.miner_address_.Set("", GetArenaForAllocation());
+src/generated/crypto_protos.pb.cc:641:  _impl_.miner_address_.Destroy();
+src/generated/crypto_protos.pb.cc:654:  _impl_.miner_address_.ClearToEmpty();
+src/generated/crypto_protos.pb.cc:704:  if (!this->_internal_miner_address().empty()) {
+src/generated/crypto_protos.pb.cc:706:      this->_internal_miner_address().data(), static_cast<int>(this->_internal_miner_address().length()),
+src/generated/crypto_protos.pb.cc:730:  if (!this->_internal_miner_address().empty()) {
+src/generated/crypto_protos.pb.cc:754:  if (!from._internal_miner_address().empty()) {
+src/generated/crypto_protos.pb.cc:755:    _this->_internal_set_miner_address(from._internal_miner_address());
+src/generated/block_protos.pb.cc:192:  _impl_.previous_hash_.InitDefault();
+src/generated/block_protos.pb.cc:194:    _impl_.previous_hash_.Set("", GetArenaForAllocation());
+src/generated/block_protos.pb.cc:196:  if (!from._internal_previous_hash().empty()) {
+src/generated/block_protos.pb.cc:197:    _this->_impl_.previous_hash_.Set(from._internal_previous_hash(), 
+src/generated/block_protos.pb.cc:200:  _impl_.hash_.InitDefault();
+src/generated/block_protos.pb.cc:202:    _impl_.hash_.Set("", GetArenaForAllocation());
+src/generated/block_protos.pb.cc:204:  if (!from._internal_hash().empty()) {
+src/generated/block_protos.pb.cc:205:    _this->_impl_.hash_.Set(from._internal_hash(), 
+src/generated/block_protos.pb.cc:208:  _impl_.miner_address_.InitDefault();
+src/generated/block_protos.pb.cc:210:    _impl_.miner_address_.Set("", GetArenaForAllocation());
+src/generated/block_protos.pb.cc:212:  if (!from._internal_miner_address().empty()) {
+src/generated/block_protos.pb.cc:213:    _this->_impl_.miner_address_.Set(from._internal_miner_address(), 
+src/generated/block_protos.pb.cc:216:  _impl_.block_signature_.InitDefault();
+src/generated/block_protos.pb.cc:218:    _impl_.block_signature_.Set("", GetArenaForAllocation());
+src/generated/block_protos.pb.cc:220:  if (!from._internal_block_signature().empty()) {
+src/generated/block_protos.pb.cc:221:    _this->_impl_.block_signature_.Set(from._internal_block_signature(), 
+src/generated/block_protos.pb.cc:224:  _impl_.keccak_hash_.InitDefault();
+src/generated/block_protos.pb.cc:226:    _impl_.keccak_hash_.Set("", GetArenaForAllocation());
+src/generated/block_protos.pb.cc:228:  if (!from._internal_keccak_hash().empty()) {
+src/generated/block_protos.pb.cc:229:    _this->_impl_.keccak_hash_.Set(from._internal_keccak_hash(), 
+src/generated/block_protos.pb.cc:240:  _impl_.dilithium_signature_.InitDefault();
+src/generated/block_protos.pb.cc:242:    _impl_.dilithium_signature_.Set("", GetArenaForAllocation());
+src/generated/block_protos.pb.cc:244:  if (!from._internal_dilithium_signature().empty()) {
+src/generated/block_protos.pb.cc:245:    _this->_impl_.dilithium_signature_.Set(from._internal_dilithium_signature(), 
+src/generated/block_protos.pb.cc:248:  _impl_.falcon_signature_.InitDefault();
+src/generated/block_protos.pb.cc:250:    _impl_.falcon_signature_.Set("", GetArenaForAllocation());
+src/generated/block_protos.pb.cc:252:  if (!from._internal_falcon_signature().empty()) {
+src/generated/block_protos.pb.cc:253:    _this->_impl_.falcon_signature_.Set(from._internal_falcon_signature(), 
+src/generated/block_protos.pb.cc:256:  _impl_.public_key_dilithium_.InitDefault();
+src/generated/block_protos.pb.cc:258:    _impl_.public_key_dilithium_.Set("", GetArenaForAllocation());
+src/generated/block_protos.pb.cc:260:  if (!from._internal_public_key_dilithium().empty()) {
+src/generated/block_protos.pb.cc:261:    _this->_impl_.public_key_dilithium_.Set(from._internal_public_key_dilithium(), 
+src/generated/block_protos.pb.cc:264:  _impl_.public_key_falcon_.InitDefault();
+src/generated/block_protos.pb.cc:266:    _impl_.public_key_falcon_.Set("", GetArenaForAllocation());
+src/generated/block_protos.pb.cc:268:  if (!from._internal_public_key_falcon().empty()) {
+src/generated/block_protos.pb.cc:269:    _this->_impl_.public_key_falcon_.Set(from._internal_public_key_falcon(), 
+src/generated/block_protos.pb.cc:320:  _impl_.previous_hash_.InitDefault();
+src/generated/block_protos.pb.cc:322:    _impl_.previous_hash_.Set("", GetArenaForAllocation());
+src/generated/block_protos.pb.cc:324:  _impl_.hash_.InitDefault();
+src/generated/block_protos.pb.cc:326:    _impl_.hash_.Set("", GetArenaForAllocation());
+src/generated/block_protos.pb.cc:328:  _impl_.miner_address_.InitDefault();
+src/generated/block_protos.pb.cc:330:    _impl_.miner_address_.Set("", GetArenaForAllocation());
+src/generated/block_protos.pb.cc:332:  _impl_.block_signature_.InitDefault();
+src/generated/block_protos.pb.cc:334:    _impl_.block_signature_.Set("", GetArenaForAllocation());
+src/generated/block_protos.pb.cc:336:  _impl_.keccak_hash_.InitDefault();
+src/generated/block_protos.pb.cc:338:    _impl_.keccak_hash_.Set("", GetArenaForAllocation());
+src/generated/block_protos.pb.cc:344:  _impl_.dilithium_signature_.InitDefault();
+src/generated/block_protos.pb.cc:346:    _impl_.dilithium_signature_.Set("", GetArenaForAllocation());
+src/generated/block_protos.pb.cc:348:  _impl_.falcon_signature_.InitDefault();
+src/generated/block_protos.pb.cc:350:    _impl_.falcon_signature_.Set("", GetArenaForAllocation());
+src/generated/block_protos.pb.cc:352:  _impl_.public_key_dilithium_.InitDefault();
+src/generated/block_protos.pb.cc:354:    _impl_.public_key_dilithium_.Set("", GetArenaForAllocation());
+src/generated/block_protos.pb.cc:356:  _impl_.public_key_falcon_.InitDefault();
+src/generated/block_protos.pb.cc:358:    _impl_.public_key_falcon_.Set("", GetArenaForAllocation());
+src/generated/block_protos.pb.cc:382:  _impl_.previous_hash_.Destroy();
+src/generated/block_protos.pb.cc:383:  _impl_.hash_.Destroy();
+src/generated/block_protos.pb.cc:384:  _impl_.miner_address_.Destroy();
+src/generated/block_protos.pb.cc:385:  _impl_.block_signature_.Destroy();
+src/generated/block_protos.pb.cc:386:  _impl_.keccak_hash_.Destroy();
+src/generated/block_protos.pb.cc:388:  _impl_.dilithium_signature_.Destroy();
+src/generated/block_protos.pb.cc:389:  _impl_.falcon_signature_.Destroy();
+src/generated/block_protos.pb.cc:390:  _impl_.public_key_dilithium_.Destroy();
+src/generated/block_protos.pb.cc:391:  _impl_.public_key_falcon_.Destroy();
+src/generated/block_protos.pb.cc:407:  _impl_.previous_hash_.ClearToEmpty();
+src/generated/block_protos.pb.cc:408:  _impl_.hash_.ClearToEmpty();
+src/generated/block_protos.pb.cc:409:  _impl_.miner_address_.ClearToEmpty();
+src/generated/block_protos.pb.cc:410:  _impl_.block_signature_.ClearToEmpty();
+src/generated/block_protos.pb.cc:411:  _impl_.keccak_hash_.ClearToEmpty();
+src/generated/block_protos.pb.cc:413:  _impl_.dilithium_signature_.ClearToEmpty();
+src/generated/block_protos.pb.cc:414:  _impl_.falcon_signature_.ClearToEmpty();
+src/generated/block_protos.pb.cc:415:  _impl_.public_key_dilithium_.ClearToEmpty();
+src/generated/block_protos.pb.cc:416:  _impl_.public_key_falcon_.ClearToEmpty();
+src/generated/block_protos.pb.cc:639:  if (!this->_internal_previous_hash().empty()) {
+src/generated/block_protos.pb.cc:641:      this->_internal_previous_hash().data(), static_cast<int>(this->_internal_previous_hash().length()),
+src/generated/block_protos.pb.cc:657:  if (!this->_internal_hash().empty()) {
+src/generated/block_protos.pb.cc:659:      this->_internal_hash().data(), static_cast<int>(this->_internal_hash().length()),
+src/generated/block_protos.pb.cc:667:  if (!this->_internal_miner_address().empty()) {
+src/generated/block_protos.pb.cc:669:      this->_internal_miner_address().data(), static_cast<int>(this->_internal_miner_address().length()),
+src/generated/block_protos.pb.cc:695:  if (!this->_internal_block_signature().empty()) {
+src/generated/block_protos.pb.cc:701:  if (!this->_internal_keccak_hash().empty()) {
+src/generated/block_protos.pb.cc:703:      this->_internal_keccak_hash().data(), static_cast<int>(this->_internal_keccak_hash().length()),
+src/generated/block_protos.pb.cc:717:  if (!this->_internal_dilithium_signature().empty()) {
+src/generated/block_protos.pb.cc:723:  if (!this->_internal_falcon_signature().empty()) {
+src/generated/block_protos.pb.cc:729:  if (!this->_internal_public_key_dilithium().empty()) {
+src/generated/block_protos.pb.cc:735:  if (!this->_internal_public_key_falcon().empty()) {
+src/generated/block_protos.pb.cc:790:  if (!this->_internal_previous_hash().empty()) {
+src/generated/block_protos.pb.cc:797:  if (!this->_internal_hash().empty()) {
+src/generated/block_protos.pb.cc:804:  if (!this->_internal_miner_address().empty()) {
+src/generated/block_protos.pb.cc:811:  if (!this->_internal_block_signature().empty()) {
+src/generated/block_protos.pb.cc:818:  if (!this->_internal_keccak_hash().empty()) {
+src/generated/block_protos.pb.cc:832:  if (!this->_internal_dilithium_signature().empty()) {
+src/generated/block_protos.pb.cc:839:  if (!this->_internal_falcon_signature().empty()) {
+src/generated/block_protos.pb.cc:846:  if (!this->_internal_public_key_dilithium().empty()) {
+src/generated/block_protos.pb.cc:853:  if (!this->_internal_public_key_falcon().empty()) {
+src/generated/block_protos.pb.cc:918:  if (!from._internal_previous_hash().empty()) {
+src/generated/block_protos.pb.cc:919:    _this->_internal_set_previous_hash(from._internal_previous_hash());
+src/generated/block_protos.pb.cc:921:  if (!from._internal_hash().empty()) {
+src/generated/block_protos.pb.cc:922:    _this->_internal_set_hash(from._internal_hash());
+src/generated/block_protos.pb.cc:924:  if (!from._internal_miner_address().empty()) {
+src/generated/block_protos.pb.cc:925:    _this->_internal_set_miner_address(from._internal_miner_address());
+src/generated/block_protos.pb.cc:927:  if (!from._internal_block_signature().empty()) {
+src/generated/block_protos.pb.cc:928:    _this->_internal_set_block_signature(from._internal_block_signature());
+src/generated/block_protos.pb.cc:930:  if (!from._internal_keccak_hash().empty()) {
+src/generated/block_protos.pb.cc:931:    _this->_internal_set_keccak_hash(from._internal_keccak_hash());
+src/generated/block_protos.pb.cc:936:  if (!from._internal_dilithium_signature().empty()) {
+src/generated/block_protos.pb.cc:937:    _this->_internal_set_dilithium_signature(from._internal_dilithium_signature());
+src/generated/block_protos.pb.cc:939:  if (!from._internal_falcon_signature().empty()) {
+src/generated/block_protos.pb.cc:940:    _this->_internal_set_falcon_signature(from._internal_falcon_signature());
+src/generated/block_protos.pb.cc:942:  if (!from._internal_public_key_dilithium().empty()) {
+src/generated/block_protos.pb.cc:943:    _this->_internal_set_public_key_dilithium(from._internal_public_key_dilithium());
+src/generated/block_protos.pb.cc:945:  if (!from._internal_public_key_falcon().empty()) {
+src/generated/block_protos.pb.cc:946:    _this->_internal_set_public_key_falcon(from._internal_public_key_falcon());
+src/generated/identity.pb.h:480:  _impl_.metadatahash_.ClearToEmpty();
+src/generated/identity.pb.h:490: _impl_.metadatahash_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/identity.pb.h:499:  return _impl_.metadatahash_.Get();
+src/generated/identity.pb.h:503:  _impl_.metadatahash_.Set(value, GetArenaForAllocation());
+src/generated/identity.pb.h:507:  return _impl_.metadatahash_.Mutable(GetArenaForAllocation());
+src/generated/identity.pb.h:511:  return _impl_.metadatahash_.Release();
+src/generated/identity.pb.h:519:  _impl_.metadatahash_.SetAllocated(metadatahash, GetArenaForAllocation());
+src/generated/identity.pb.h:521:  if (_impl_.metadatahash_.IsDefault()) {
+src/generated/identity.pb.h:522:    _impl_.metadatahash_.Set("", GetArenaForAllocation());
+src/generated/identity.pb.h:550:  _impl_.zkproof_.ClearToEmpty();
+src/generated/identity.pb.h:560: _impl_.zkproof_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/identity.pb.h:569:  return _impl_.zkproof_.Get();
+src/generated/identity.pb.h:573:  _impl_.zkproof_.Set(value, GetArenaForAllocation());
+src/generated/identity.pb.h:577:  return _impl_.zkproof_.Mutable(GetArenaForAllocation());
+src/generated/identity.pb.h:581:  return _impl_.zkproof_.Release();
+src/generated/identity.pb.h:589:  _impl_.zkproof_.SetAllocated(zkproof, GetArenaForAllocation());
+src/generated/identity.pb.h:591:  if (_impl_.zkproof_.IsDefault()) {
+src/generated/identity.pb.h:592:    _impl_.zkproof_.Set("", GetArenaForAllocation());
+src/generated/identity.pb.h:600:  _impl_.falconsignature_.ClearToEmpty();
+src/generated/identity.pb.h:610: _impl_.falconsignature_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/identity.pb.h:619:  return _impl_.falconsignature_.Get();
+src/generated/identity.pb.h:623:  _impl_.falconsignature_.Set(value, GetArenaForAllocation());
+src/generated/identity.pb.h:627:  return _impl_.falconsignature_.Mutable(GetArenaForAllocation());
+src/generated/identity.pb.h:631:  return _impl_.falconsignature_.Release();
+src/generated/identity.pb.h:639:  _impl_.falconsignature_.SetAllocated(falconsignature, GetArenaForAllocation());
+src/generated/identity.pb.h:641:  if (_impl_.falconsignature_.IsDefault()) {
+src/generated/identity.pb.h:642:    _impl_.falconsignature_.Set("", GetArenaForAllocation());
+src/generated/identity.pb.h:650:  _impl_.dilithiumsignature_.ClearToEmpty();
+src/generated/identity.pb.h:660: _impl_.dilithiumsignature_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/identity.pb.h:669:  return _impl_.dilithiumsignature_.Get();
+src/generated/identity.pb.h:673:  _impl_.dilithiumsignature_.Set(value, GetArenaForAllocation());
+src/generated/identity.pb.h:677:  return _impl_.dilithiumsignature_.Mutable(GetArenaForAllocation());
+src/generated/identity.pb.h:681:  return _impl_.dilithiumsignature_.Release();
+src/generated/identity.pb.h:689:  _impl_.dilithiumsignature_.SetAllocated(dilithiumsignature, GetArenaForAllocation());
+src/generated/identity.pb.h:691:  if (_impl_.dilithiumsignature_.IsDefault()) {
+src/generated/identity.pb.h:692:    _impl_.dilithiumsignature_.Set("", GetArenaForAllocation());
+src/generated/nft.pb.cc:196:  _impl_.image_hash_.InitDefault();
+src/generated/nft.pb.cc:198:    _impl_.image_hash_.Set("", GetArenaForAllocation());
+src/generated/nft.pb.cc:200:  if (!from._internal_image_hash().empty()) {
+src/generated/nft.pb.cc:201:    _this->_impl_.image_hash_.Set(from._internal_image_hash(), 
+src/generated/nft.pb.cc:204:  _impl_.signature_.InitDefault();
+src/generated/nft.pb.cc:206:    _impl_.signature_.Set("", GetArenaForAllocation());
+src/generated/nft.pb.cc:208:  if (!from._internal_signature().empty()) {
+src/generated/nft.pb.cc:209:    _this->_impl_.signature_.Set(from._internal_signature(), 
+src/generated/nft.pb.cc:236:  _impl_.proof_hash_.InitDefault();
+src/generated/nft.pb.cc:238:    _impl_.proof_hash_.Set("", GetArenaForAllocation());
+src/generated/nft.pb.cc:240:  if (!from._internal_proof_hash().empty()) {
+src/generated/nft.pb.cc:241:    _this->_impl_.proof_hash_.Set(from._internal_proof_hash(), 
+src/generated/nft.pb.cc:260:  _impl_.dilithium_signature_.InitDefault();
+src/generated/nft.pb.cc:262:    _impl_.dilithium_signature_.Set("", GetArenaForAllocation());
+src/generated/nft.pb.cc:264:  if (!from._internal_dilithium_signature().empty()) {
+src/generated/nft.pb.cc:265:    _this->_impl_.dilithium_signature_.Set(from._internal_dilithium_signature(), 
+src/generated/nft.pb.cc:325:  _impl_.image_hash_.InitDefault();
+src/generated/nft.pb.cc:327:    _impl_.image_hash_.Set("", GetArenaForAllocation());
+src/generated/nft.pb.cc:329:  _impl_.signature_.InitDefault();
+src/generated/nft.pb.cc:331:    _impl_.signature_.Set("", GetArenaForAllocation());
+src/generated/nft.pb.cc:345:  _impl_.proof_hash_.InitDefault();
+src/generated/nft.pb.cc:347:    _impl_.proof_hash_.Set("", GetArenaForAllocation());
+src/generated/nft.pb.cc:357:  _impl_.dilithium_signature_.InitDefault();
+src/generated/nft.pb.cc:359:    _impl_.dilithium_signature_.Set("", GetArenaForAllocation());
+src/generated/nft.pb.cc:385:  _impl_.image_hash_.Destroy();
+src/generated/nft.pb.cc:386:  _impl_.signature_.Destroy();
+src/generated/nft.pb.cc:390:  _impl_.proof_hash_.Destroy();
+src/generated/nft.pb.cc:393:  _impl_.dilithium_signature_.Destroy();
+src/generated/nft.pb.cc:414:  _impl_.image_hash_.ClearToEmpty();
+src/generated/nft.pb.cc:415:  _impl_.signature_.ClearToEmpty();
+src/generated/nft.pb.cc:419:  _impl_.proof_hash_.ClearToEmpty();
+src/generated/nft.pb.cc:422:  _impl_.dilithium_signature_.ClearToEmpty();
+src/generated/nft.pb.cc:712:  if (!this->_internal_image_hash().empty()) {
+src/generated/nft.pb.cc:714:      this->_internal_image_hash().data(), static_cast<int>(this->_internal_image_hash().length()),
+src/generated/nft.pb.cc:728:  if (!this->_internal_signature().empty()) {
+src/generated/nft.pb.cc:760:  if (!this->_internal_proof_hash().empty()) {
+src/generated/nft.pb.cc:762:      this->_internal_proof_hash().data(), static_cast<int>(this->_internal_proof_hash().length()),
+src/generated/nft.pb.cc:810:  if (!this->_internal_dilithium_signature().empty()) {
+src/generated/nft.pb.cc:916:  if (!this->_internal_image_hash().empty()) {
+src/generated/nft.pb.cc:923:  if (!this->_internal_signature().empty()) {
+src/generated/nft.pb.cc:951:  if (!this->_internal_proof_hash().empty()) {
+src/generated/nft.pb.cc:972:  if (!this->_internal_dilithium_signature().empty()) {
+src/generated/nft.pb.cc:1035:  if (!from._internal_image_hash().empty()) {
+src/generated/nft.pb.cc:1036:    _this->_internal_set_image_hash(from._internal_image_hash());
+src/generated/nft.pb.cc:1038:  if (!from._internal_signature().empty()) {
+src/generated/nft.pb.cc:1039:    _this->_internal_set_signature(from._internal_signature());
+src/generated/nft.pb.cc:1050:  if (!from._internal_proof_hash().empty()) {
+src/generated/nft.pb.cc:1051:    _this->_internal_set_proof_hash(from._internal_proof_hash());
+src/generated/nft.pb.cc:1059:  if (!from._internal_dilithium_signature().empty()) {
+src/generated/nft.pb.cc:1060:    _this->_internal_set_dilithium_signature(from._internal_dilithium_signature());
+src/generated/atomic_swap.pb.cc:147:  _impl_.senderaddress_.InitDefault();
+src/generated/atomic_swap.pb.cc:149:    _impl_.senderaddress_.Set("", GetArenaForAllocation());
+src/generated/atomic_swap.pb.cc:151:  if (!from._internal_senderaddress().empty()) {
+src/generated/atomic_swap.pb.cc:152:    _this->_impl_.senderaddress_.Set(from._internal_senderaddress(), 
+src/generated/atomic_swap.pb.cc:155:  _impl_.receiveraddress_.InitDefault();
+src/generated/atomic_swap.pb.cc:157:    _impl_.receiveraddress_.Set("", GetArenaForAllocation());
+src/generated/atomic_swap.pb.cc:159:  if (!from._internal_receiveraddress().empty()) {
+src/generated/atomic_swap.pb.cc:160:    _this->_impl_.receiveraddress_.Set(from._internal_receiveraddress(), 
+src/generated/atomic_swap.pb.cc:163:  _impl_.secrethash_.InitDefault();
+src/generated/atomic_swap.pb.cc:165:    _impl_.secrethash_.Set("", GetArenaForAllocation());
+src/generated/atomic_swap.pb.cc:167:  if (!from._internal_secrethash().empty()) {
+src/generated/atomic_swap.pb.cc:168:    _this->_impl_.secrethash_.Set(from._internal_secrethash(), 
+src/generated/atomic_swap.pb.cc:179:  _impl_.zkproof_.InitDefault();
+src/generated/atomic_swap.pb.cc:181:    _impl_.zkproof_.Set("", GetArenaForAllocation());
+src/generated/atomic_swap.pb.cc:183:  if (!from._internal_zkproof().empty()) {
+src/generated/atomic_swap.pb.cc:184:    _this->_impl_.zkproof_.Set(from._internal_zkproof(), 
+src/generated/atomic_swap.pb.cc:187:  _impl_.falconsignature_.InitDefault();
+src/generated/atomic_swap.pb.cc:189:    _impl_.falconsignature_.Set("", GetArenaForAllocation());
+src/generated/atomic_swap.pb.cc:191:  if (!from._internal_falconsignature().empty()) {
+src/generated/atomic_swap.pb.cc:192:    _this->_impl_.falconsignature_.Set(from._internal_falconsignature(), 
+src/generated/atomic_swap.pb.cc:195:  _impl_.dilithiumsignature_.InitDefault();
+src/generated/atomic_swap.pb.cc:197:    _impl_.dilithiumsignature_.Set("", GetArenaForAllocation());
+src/generated/atomic_swap.pb.cc:199:  if (!from._internal_dilithiumsignature().empty()) {
+src/generated/atomic_swap.pb.cc:200:    _this->_impl_.dilithiumsignature_.Set(from._internal_dilithiumsignature(), 
+src/generated/atomic_swap.pb.cc:232:  _impl_.senderaddress_.InitDefault();
+src/generated/atomic_swap.pb.cc:234:    _impl_.senderaddress_.Set("", GetArenaForAllocation());
+src/generated/atomic_swap.pb.cc:236:  _impl_.receiveraddress_.InitDefault();
+src/generated/atomic_swap.pb.cc:238:    _impl_.receiveraddress_.Set("", GetArenaForAllocation());
+src/generated/atomic_swap.pb.cc:240:  _impl_.secrethash_.InitDefault();
+src/generated/atomic_swap.pb.cc:242:    _impl_.secrethash_.Set("", GetArenaForAllocation());
+src/generated/atomic_swap.pb.cc:248:  _impl_.zkproof_.InitDefault();
+src/generated/atomic_swap.pb.cc:250:    _impl_.zkproof_.Set("", GetArenaForAllocation());
+src/generated/atomic_swap.pb.cc:252:  _impl_.falconsignature_.InitDefault();
+src/generated/atomic_swap.pb.cc:254:    _impl_.falconsignature_.Set("", GetArenaForAllocation());
+src/generated/atomic_swap.pb.cc:256:  _impl_.dilithiumsignature_.InitDefault();
+src/generated/atomic_swap.pb.cc:258:    _impl_.dilithiumsignature_.Set("", GetArenaForAllocation());
+src/generated/atomic_swap.pb.cc:274:  _impl_.senderaddress_.Destroy();
+src/generated/atomic_swap.pb.cc:275:  _impl_.receiveraddress_.Destroy();
+src/generated/atomic_swap.pb.cc:276:  _impl_.secrethash_.Destroy();
+src/generated/atomic_swap.pb.cc:278:  _impl_.zkproof_.Destroy();
+src/generated/atomic_swap.pb.cc:279:  _impl_.falconsignature_.Destroy();
+src/generated/atomic_swap.pb.cc:280:  _impl_.dilithiumsignature_.Destroy();
+src/generated/atomic_swap.pb.cc:294:  _impl_.senderaddress_.ClearToEmpty();
+src/generated/atomic_swap.pb.cc:295:  _impl_.receiveraddress_.ClearToEmpty();
+src/generated/atomic_swap.pb.cc:296:  _impl_.secrethash_.ClearToEmpty();
+src/generated/atomic_swap.pb.cc:298:  _impl_.zkproof_.ClearToEmpty();
+src/generated/atomic_swap.pb.cc:299:  _impl_.falconsignature_.ClearToEmpty();
+src/generated/atomic_swap.pb.cc:300:  _impl_.dilithiumsignature_.ClearToEmpty();
+src/generated/atomic_swap.pb.cc:462:  if (!this->_internal_senderaddress().empty()) {
+src/generated/atomic_swap.pb.cc:464:      this->_internal_senderaddress().data(), static_cast<int>(this->_internal_senderaddress().length()),
+src/generated/atomic_swap.pb.cc:472:  if (!this->_internal_receiveraddress().empty()) {
+src/generated/atomic_swap.pb.cc:474:      this->_internal_receiveraddress().data(), static_cast<int>(this->_internal_receiveraddress().length()),
+src/generated/atomic_swap.pb.cc:488:  if (!this->_internal_secrethash().empty()) {
+src/generated/atomic_swap.pb.cc:490:      this->_internal_secrethash().data(), static_cast<int>(this->_internal_secrethash().length()),
+src/generated/atomic_swap.pb.cc:526:  if (!this->_internal_zkproof().empty()) {
+src/generated/atomic_swap.pb.cc:532:  if (!this->_internal_falconsignature().empty()) {
+src/generated/atomic_swap.pb.cc:538:  if (!this->_internal_dilithiumsignature().empty()) {
+src/generated/atomic_swap.pb.cc:567:  if (!this->_internal_senderaddress().empty()) {
+src/generated/atomic_swap.pb.cc:574:  if (!this->_internal_receiveraddress().empty()) {
+src/generated/atomic_swap.pb.cc:581:  if (!this->_internal_secrethash().empty()) {
+src/generated/atomic_swap.pb.cc:595:  if (!this->_internal_zkproof().empty()) {
+src/generated/atomic_swap.pb.cc:602:  if (!this->_internal_falconsignature().empty()) {
+src/generated/atomic_swap.pb.cc:609:  if (!this->_internal_dilithiumsignature().empty()) {
+src/generated/atomic_swap.pb.cc:656:  if (!from._internal_senderaddress().empty()) {
+src/generated/atomic_swap.pb.cc:657:    _this->_internal_set_senderaddress(from._internal_senderaddress());
+src/generated/atomic_swap.pb.cc:659:  if (!from._internal_receiveraddress().empty()) {
+src/generated/atomic_swap.pb.cc:660:    _this->_internal_set_receiveraddress(from._internal_receiveraddress());
+src/generated/atomic_swap.pb.cc:662:  if (!from._internal_secrethash().empty()) {
+src/generated/atomic_swap.pb.cc:663:    _this->_internal_set_secrethash(from._internal_secrethash());
+src/generated/atomic_swap.pb.cc:668:  if (!from._internal_zkproof().empty()) {
+src/generated/atomic_swap.pb.cc:669:    _this->_internal_set_zkproof(from._internal_zkproof());
+src/generated/atomic_swap.pb.cc:671:  if (!from._internal_falconsignature().empty()) {
+src/generated/atomic_swap.pb.cc:672:    _this->_internal_set_falconsignature(from._internal_falconsignature());
+src/generated/atomic_swap.pb.cc:674:  if (!from._internal_dilithiumsignature().empty()) {
+src/generated/atomic_swap.pb.cc:675:    _this->_internal_set_dilithiumsignature(from._internal_dilithiumsignature());
+src/generated/transaction_protos.pb.h:524:  _impl_.signature_dilithium_.ClearToEmpty();
+src/generated/transaction_protos.pb.h:534: _impl_.signature_dilithium_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/transaction_protos.pb.h:543:  return _impl_.signature_dilithium_.Get();
+src/generated/transaction_protos.pb.h:547:  _impl_.signature_dilithium_.Set(value, GetArenaForAllocation());
+src/generated/transaction_protos.pb.h:551:  return _impl_.signature_dilithium_.Mutable(GetArenaForAllocation());
+src/generated/transaction_protos.pb.h:555:  return _impl_.signature_dilithium_.Release();
+src/generated/transaction_protos.pb.h:563:  _impl_.signature_dilithium_.SetAllocated(signature_dilithium, GetArenaForAllocation());
+src/generated/transaction_protos.pb.h:565:  if (_impl_.signature_dilithium_.IsDefault()) {
+src/generated/transaction_protos.pb.h:566:    _impl_.signature_dilithium_.Set("", GetArenaForAllocation());
+src/generated/transaction_protos.pb.h:574:  _impl_.signature_falcon_.ClearToEmpty();
+src/generated/transaction_protos.pb.h:584: _impl_.signature_falcon_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/transaction_protos.pb.h:593:  return _impl_.signature_falcon_.Get();
+src/generated/transaction_protos.pb.h:597:  _impl_.signature_falcon_.Set(value, GetArenaForAllocation());
+src/generated/transaction_protos.pb.h:601:  return _impl_.signature_falcon_.Mutable(GetArenaForAllocation());
+src/generated/transaction_protos.pb.h:605:  return _impl_.signature_falcon_.Release();
+src/generated/transaction_protos.pb.h:613:  _impl_.signature_falcon_.SetAllocated(signature_falcon, GetArenaForAllocation());
+src/generated/transaction_protos.pb.h:615:  if (_impl_.signature_falcon_.IsDefault()) {
+src/generated/transaction_protos.pb.h:616:    _impl_.signature_falcon_.Set("", GetArenaForAllocation());
+src/generated/transaction_protos.pb.h:624:  _impl_.zkproof_.ClearToEmpty();
+src/generated/transaction_protos.pb.h:634: _impl_.zkproof_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/transaction_protos.pb.h:643:  return _impl_.zkproof_.Get();
+src/generated/transaction_protos.pb.h:647:  _impl_.zkproof_.Set(value, GetArenaForAllocation());
+src/generated/transaction_protos.pb.h:651:  return _impl_.zkproof_.Mutable(GetArenaForAllocation());
+src/generated/transaction_protos.pb.h:655:  return _impl_.zkproof_.Release();
+src/generated/transaction_protos.pb.h:663:  _impl_.zkproof_.SetAllocated(zkproof, GetArenaForAllocation());
+src/generated/transaction_protos.pb.h:665:  if (_impl_.zkproof_.IsDefault()) {
+src/generated/transaction_protos.pb.h:666:    _impl_.zkproof_.Set("", GetArenaForAllocation());
+src/generated/transaction_protos.pb.h:824:  _impl_.hash_.ClearToEmpty();
+src/generated/transaction_protos.pb.h:834: _impl_.hash_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/transaction_protos.pb.h:843:  return _impl_.hash_.Get();
+src/generated/transaction_protos.pb.h:847:  _impl_.hash_.Set(value, GetArenaForAllocation());
+src/generated/transaction_protos.pb.h:851:  return _impl_.hash_.Mutable(GetArenaForAllocation());
+src/generated/transaction_protos.pb.h:855:  return _impl_.hash_.Release();
+src/generated/transaction_protos.pb.h:863:  _impl_.hash_.SetAllocated(hash, GetArenaForAllocation());
+src/generated/transaction_protos.pb.h:865:  if (_impl_.hash_.IsDefault()) {
+src/generated/transaction_protos.pb.h:866:    _impl_.hash_.Set("", GetArenaForAllocation());
+src/generated/atomic_swap.pb.h:429:  _impl_.senderaddress_.ClearToEmpty();
+src/generated/atomic_swap.pb.h:439: _impl_.senderaddress_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/atomic_swap.pb.h:448:  return _impl_.senderaddress_.Get();
+src/generated/atomic_swap.pb.h:452:  _impl_.senderaddress_.Set(value, GetArenaForAllocation());
+src/generated/atomic_swap.pb.h:456:  return _impl_.senderaddress_.Mutable(GetArenaForAllocation());
+src/generated/atomic_swap.pb.h:460:  return _impl_.senderaddress_.Release();
+src/generated/atomic_swap.pb.h:468:  _impl_.senderaddress_.SetAllocated(senderaddress, GetArenaForAllocation());
+src/generated/atomic_swap.pb.h:470:  if (_impl_.senderaddress_.IsDefault()) {
+src/generated/atomic_swap.pb.h:471:    _impl_.senderaddress_.Set("", GetArenaForAllocation());
+src/generated/atomic_swap.pb.h:479:  _impl_.receiveraddress_.ClearToEmpty();
+src/generated/atomic_swap.pb.h:489: _impl_.receiveraddress_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/atomic_swap.pb.h:498:  return _impl_.receiveraddress_.Get();
+src/generated/atomic_swap.pb.h:502:  _impl_.receiveraddress_.Set(value, GetArenaForAllocation());
+src/generated/atomic_swap.pb.h:506:  return _impl_.receiveraddress_.Mutable(GetArenaForAllocation());
+src/generated/atomic_swap.pb.h:510:  return _impl_.receiveraddress_.Release();
+src/generated/atomic_swap.pb.h:518:  _impl_.receiveraddress_.SetAllocated(receiveraddress, GetArenaForAllocation());
+src/generated/atomic_swap.pb.h:520:  if (_impl_.receiveraddress_.IsDefault()) {
+src/generated/atomic_swap.pb.h:521:    _impl_.receiveraddress_.Set("", GetArenaForAllocation());
+src/generated/atomic_swap.pb.h:549:  _impl_.secrethash_.ClearToEmpty();
+src/generated/atomic_swap.pb.h:559: _impl_.secrethash_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/atomic_swap.pb.h:568:  return _impl_.secrethash_.Get();
+src/generated/atomic_swap.pb.h:572:  _impl_.secrethash_.Set(value, GetArenaForAllocation());
+src/generated/atomic_swap.pb.h:576:  return _impl_.secrethash_.Mutable(GetArenaForAllocation());
+src/generated/atomic_swap.pb.h:580:  return _impl_.secrethash_.Release();
+src/generated/atomic_swap.pb.h:588:  _impl_.secrethash_.SetAllocated(secrethash, GetArenaForAllocation());
+src/generated/atomic_swap.pb.h:590:  if (_impl_.secrethash_.IsDefault()) {
+src/generated/atomic_swap.pb.h:591:    _impl_.secrethash_.Set("", GetArenaForAllocation());
+src/generated/atomic_swap.pb.h:709:  _impl_.zkproof_.ClearToEmpty();
+src/generated/atomic_swap.pb.h:719: _impl_.zkproof_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/atomic_swap.pb.h:728:  return _impl_.zkproof_.Get();
+src/generated/atomic_swap.pb.h:732:  _impl_.zkproof_.Set(value, GetArenaForAllocation());
+src/generated/atomic_swap.pb.h:736:  return _impl_.zkproof_.Mutable(GetArenaForAllocation());
+src/generated/atomic_swap.pb.h:740:  return _impl_.zkproof_.Release();
+src/generated/atomic_swap.pb.h:748:  _impl_.zkproof_.SetAllocated(zkproof, GetArenaForAllocation());
+src/generated/atomic_swap.pb.h:750:  if (_impl_.zkproof_.IsDefault()) {
+src/generated/atomic_swap.pb.h:751:    _impl_.zkproof_.Set("", GetArenaForAllocation());
+src/generated/atomic_swap.pb.h:759:  _impl_.falconsignature_.ClearToEmpty();
+src/generated/atomic_swap.pb.h:769: _impl_.falconsignature_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/atomic_swap.pb.h:778:  return _impl_.falconsignature_.Get();
+src/generated/atomic_swap.pb.h:782:  _impl_.falconsignature_.Set(value, GetArenaForAllocation());
+src/generated/atomic_swap.pb.h:786:  return _impl_.falconsignature_.Mutable(GetArenaForAllocation());
+src/generated/atomic_swap.pb.h:790:  return _impl_.falconsignature_.Release();
+src/generated/atomic_swap.pb.h:798:  _impl_.falconsignature_.SetAllocated(falconsignature, GetArenaForAllocation());
+src/generated/atomic_swap.pb.h:800:  if (_impl_.falconsignature_.IsDefault()) {
+src/generated/atomic_swap.pb.h:801:    _impl_.falconsignature_.Set("", GetArenaForAllocation());
+src/generated/atomic_swap.pb.h:809:  _impl_.dilithiumsignature_.ClearToEmpty();
+src/generated/atomic_swap.pb.h:819: _impl_.dilithiumsignature_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/atomic_swap.pb.h:828:  return _impl_.dilithiumsignature_.Get();
+src/generated/atomic_swap.pb.h:832:  _impl_.dilithiumsignature_.Set(value, GetArenaForAllocation());
+src/generated/atomic_swap.pb.h:836:  return _impl_.dilithiumsignature_.Mutable(GetArenaForAllocation());
+src/generated/atomic_swap.pb.h:840:  return _impl_.dilithiumsignature_.Release();
+src/generated/atomic_swap.pb.h:848:  _impl_.dilithiumsignature_.SetAllocated(dilithiumsignature, GetArenaForAllocation());
+src/generated/atomic_swap.pb.h:850:  if (_impl_.dilithiumsignature_.IsDefault()) {
+src/generated/atomic_swap.pb.h:851:    _impl_.dilithiumsignature_.Set("", GetArenaForAllocation());
+src/generated/proto/nft.pb.h:591:  _impl_.image_hash_.ClearToEmpty();
+src/generated/proto/nft.pb.h:601: _impl_.image_hash_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/proto/nft.pb.h:610:  return _impl_.image_hash_.Get();
+src/generated/proto/nft.pb.h:614:  _impl_.image_hash_.Set(value, GetArenaForAllocation());
+src/generated/proto/nft.pb.h:618:  return _impl_.image_hash_.Mutable(GetArenaForAllocation());
+src/generated/proto/nft.pb.h:622:  return _impl_.image_hash_.Release();
+src/generated/proto/nft.pb.h:630:  _impl_.image_hash_.SetAllocated(image_hash, GetArenaForAllocation());
+src/generated/proto/nft.pb.h:632:  if (_impl_.image_hash_.IsDefault()) {
+src/generated/proto/nft.pb.h:633:    _impl_.image_hash_.Set("", GetArenaForAllocation());
+src/generated/proto/nft.pb.h:661:  _impl_.signature_.ClearToEmpty();
+src/generated/proto/nft.pb.h:671: _impl_.signature_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/proto/nft.pb.h:680:  return _impl_.signature_.Get();
+src/generated/proto/nft.pb.h:684:  _impl_.signature_.Set(value, GetArenaForAllocation());
+src/generated/proto/nft.pb.h:688:  return _impl_.signature_.Mutable(GetArenaForAllocation());
+src/generated/proto/nft.pb.h:692:  return _impl_.signature_.Release();
+src/generated/proto/nft.pb.h:700:  _impl_.signature_.SetAllocated(signature, GetArenaForAllocation());
+src/generated/proto/nft.pb.h:702:  if (_impl_.signature_.IsDefault()) {
+src/generated/proto/nft.pb.h:703:    _impl_.signature_.Set("", GetArenaForAllocation());
+src/generated/proto/nft.pb.h:861:  _impl_.proof_hash_.ClearToEmpty();
+src/generated/proto/nft.pb.h:871: _impl_.proof_hash_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/proto/nft.pb.h:880:  return _impl_.proof_hash_.Get();
+src/generated/proto/nft.pb.h:884:  _impl_.proof_hash_.Set(value, GetArenaForAllocation());
+src/generated/proto/nft.pb.h:888:  return _impl_.proof_hash_.Mutable(GetArenaForAllocation());
+src/generated/proto/nft.pb.h:892:  return _impl_.proof_hash_.Release();
+src/generated/proto/nft.pb.h:900:  _impl_.proof_hash_.SetAllocated(proof_hash, GetArenaForAllocation());
+src/generated/proto/nft.pb.h:902:  if (_impl_.proof_hash_.IsDefault()) {
+src/generated/proto/nft.pb.h:903:    _impl_.proof_hash_.Set("", GetArenaForAllocation());
+src/generated/proto/nft.pb.cc:167:  _impl_.image_hash_.InitDefault();
+src/generated/proto/nft.pb.cc:169:    _impl_.image_hash_.Set("", GetArenaForAllocation());
+src/generated/proto/nft.pb.cc:171:  if (!from._internal_image_hash().empty()) {
+src/generated/proto/nft.pb.cc:172:    _this->_impl_.image_hash_.Set(from._internal_image_hash(), 
+src/generated/proto/nft.pb.cc:175:  _impl_.signature_.InitDefault();
+src/generated/proto/nft.pb.cc:177:    _impl_.signature_.Set("", GetArenaForAllocation());
+src/generated/proto/nft.pb.cc:179:  if (!from._internal_signature().empty()) {
+src/generated/proto/nft.pb.cc:180:    _this->_impl_.signature_.Set(from._internal_signature(), 
+src/generated/proto/nft.pb.cc:207:  _impl_.proof_hash_.InitDefault();
+src/generated/proto/nft.pb.cc:209:    _impl_.proof_hash_.Set("", GetArenaForAllocation());
+src/generated/proto/nft.pb.cc:211:  if (!from._internal_proof_hash().empty()) {
+src/generated/proto/nft.pb.cc:212:    _this->_impl_.proof_hash_.Set(from._internal_proof_hash(), 
+src/generated/proto/nft.pb.cc:262:  _impl_.image_hash_.InitDefault();
+src/generated/proto/nft.pb.cc:264:    _impl_.image_hash_.Set("", GetArenaForAllocation());
+src/generated/proto/nft.pb.cc:266:  _impl_.signature_.InitDefault();
+src/generated/proto/nft.pb.cc:268:    _impl_.signature_.Set("", GetArenaForAllocation());
+src/generated/proto/nft.pb.cc:282:  _impl_.proof_hash_.InitDefault();
+src/generated/proto/nft.pb.cc:284:    _impl_.proof_hash_.Set("", GetArenaForAllocation());
+src/generated/proto/nft.pb.cc:307:  _impl_.image_hash_.Destroy();
+src/generated/proto/nft.pb.cc:308:  _impl_.signature_.Destroy();
+src/generated/proto/nft.pb.cc:312:  _impl_.proof_hash_.Destroy();
+src/generated/proto/nft.pb.cc:330:  _impl_.image_hash_.ClearToEmpty();
+src/generated/proto/nft.pb.cc:331:  _impl_.signature_.ClearToEmpty();
+src/generated/proto/nft.pb.cc:335:  _impl_.proof_hash_.ClearToEmpty();
+src/generated/proto/nft.pb.cc:533:  if (!this->_internal_image_hash().empty()) {
+src/generated/proto/nft.pb.cc:535:      this->_internal_image_hash().data(), static_cast<int>(this->_internal_image_hash().length()),
+src/generated/proto/nft.pb.cc:549:  if (!this->_internal_signature().empty()) {
+src/generated/proto/nft.pb.cc:581:  if (!this->_internal_proof_hash().empty()) {
+src/generated/proto/nft.pb.cc:583:      this->_internal_proof_hash().data(), static_cast<int>(this->_internal_proof_hash().length()),
+src/generated/proto/nft.pb.cc:645:  if (!this->_internal_image_hash().empty()) {
+src/generated/proto/nft.pb.cc:652:  if (!this->_internal_signature().empty()) {
+src/generated/proto/nft.pb.cc:680:  if (!this->_internal_proof_hash().empty()) {
+src/generated/proto/nft.pb.cc:728:  if (!from._internal_image_hash().empty()) {
+src/generated/proto/nft.pb.cc:729:    _this->_internal_set_image_hash(from._internal_image_hash());
+src/generated/proto/nft.pb.cc:731:  if (!from._internal_signature().empty()) {
+src/generated/proto/nft.pb.cc:732:    _this->_internal_set_signature(from._internal_signature());
+src/generated/proto/nft.pb.cc:743:  if (!from._internal_proof_hash().empty()) {
+src/generated/proto/nft.pb.cc:744:    _this->_internal_set_proof_hash(from._internal_proof_hash());
+src/generated/crypto_protos.pb.h:603:  _impl_.public_key_.ClearToEmpty();
+src/generated/crypto_protos.pb.h:613: _impl_.public_key_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/crypto_protos.pb.h:622:  return _impl_.public_key_.Get();
+src/generated/crypto_protos.pb.h:626:  _impl_.public_key_.Set(value, GetArenaForAllocation());
+src/generated/crypto_protos.pb.h:630:  return _impl_.public_key_.Mutable(GetArenaForAllocation());
+src/generated/crypto_protos.pb.h:634:  return _impl_.public_key_.Release();
+src/generated/crypto_protos.pb.h:642:  _impl_.public_key_.SetAllocated(public_key, GetArenaForAllocation());
+src/generated/crypto_protos.pb.h:644:  if (_impl_.public_key_.IsDefault()) {
+src/generated/crypto_protos.pb.h:645:    _impl_.public_key_.Set("", GetArenaForAllocation());
+src/generated/crypto_protos.pb.h:657:  _impl_.signature_.ClearToEmpty();
+src/generated/crypto_protos.pb.h:667: _impl_.signature_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/crypto_protos.pb.h:676:  return _impl_.signature_.Get();
+src/generated/crypto_protos.pb.h:680:  _impl_.signature_.Set(value, GetArenaForAllocation());
+src/generated/crypto_protos.pb.h:684:  return _impl_.signature_.Mutable(GetArenaForAllocation());
+src/generated/crypto_protos.pb.h:688:  return _impl_.signature_.Release();
+src/generated/crypto_protos.pb.h:696:  _impl_.signature_.SetAllocated(signature, GetArenaForAllocation());
+src/generated/crypto_protos.pb.h:698:  if (_impl_.signature_.IsDefault()) {
+src/generated/crypto_protos.pb.h:699:    _impl_.signature_.Set("", GetArenaForAllocation());
+src/generated/crypto_protos.pb.h:711:  _impl_.miner_address_.ClearToEmpty();
+src/generated/crypto_protos.pb.h:721: _impl_.miner_address_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+src/generated/crypto_protos.pb.h:730:  return _impl_.miner_address_.Get();
+src/generated/crypto_protos.pb.h:734:  _impl_.miner_address_.Set(value, GetArenaForAllocation());
+src/generated/crypto_protos.pb.h:738:  return _impl_.miner_address_.Mutable(GetArenaForAllocation());
+src/generated/crypto_protos.pb.h:742:  return _impl_.miner_address_.Release();
+src/generated/crypto_protos.pb.h:750:  _impl_.miner_address_.SetAllocated(miner_address, GetArenaForAllocation());
+src/generated/crypto_protos.pb.h:752:  if (_impl_.miner_address_.IsDefault()) {
+src/generated/crypto_protos.pb.h:753:    _impl_.miner_address_.Set("", GetArenaForAllocation());
+src/generated/transaction_protos.pb.cc:156:  _impl_.signature_dilithium_.InitDefault();
+src/generated/transaction_protos.pb.cc:158:    _impl_.signature_dilithium_.Set("", GetArenaForAllocation());
+src/generated/transaction_protos.pb.cc:160:  if (!from._internal_signature_dilithium().empty()) {
+src/generated/transaction_protos.pb.cc:161:    _this->_impl_.signature_dilithium_.Set(from._internal_signature_dilithium(), 
+src/generated/transaction_protos.pb.cc:164:  _impl_.signature_falcon_.InitDefault();
+src/generated/transaction_protos.pb.cc:166:    _impl_.signature_falcon_.Set("", GetArenaForAllocation());
+src/generated/transaction_protos.pb.cc:168:  if (!from._internal_signature_falcon().empty()) {
+src/generated/transaction_protos.pb.cc:169:    _this->_impl_.signature_falcon_.Set(from._internal_signature_falcon(), 
+src/generated/transaction_protos.pb.cc:172:  _impl_.zkproof_.InitDefault();
+src/generated/transaction_protos.pb.cc:174:    _impl_.zkproof_.Set("", GetArenaForAllocation());
+src/generated/transaction_protos.pb.cc:176:  if (!from._internal_zkproof().empty()) {
+src/generated/transaction_protos.pb.cc:177:    _this->_impl_.zkproof_.Set(from._internal_zkproof(), 
+src/generated/transaction_protos.pb.cc:204:  _impl_.hash_.InitDefault();
+src/generated/transaction_protos.pb.cc:206:    _impl_.hash_.Set("", GetArenaForAllocation());
+src/generated/transaction_protos.pb.cc:208:  if (!from._internal_hash().empty()) {
+src/generated/transaction_protos.pb.cc:209:    _this->_impl_.hash_.Set(from._internal_hash(), 
+src/generated/transaction_protos.pb.cc:245:  _impl_.signature_dilithium_.InitDefault();
+src/generated/transaction_protos.pb.cc:247:    _impl_.signature_dilithium_.Set("", GetArenaForAllocation());
+src/generated/transaction_protos.pb.cc:249:  _impl_.signature_falcon_.InitDefault();
+src/generated/transaction_protos.pb.cc:251:    _impl_.signature_falcon_.Set("", GetArenaForAllocation());
+src/generated/transaction_protos.pb.cc:253:  _impl_.zkproof_.InitDefault();
+src/generated/transaction_protos.pb.cc:255:    _impl_.zkproof_.Set("", GetArenaForAllocation());
+src/generated/transaction_protos.pb.cc:269:  _impl_.hash_.InitDefault();
+src/generated/transaction_protos.pb.cc:271:    _impl_.hash_.Set("", GetArenaForAllocation());
+src/generated/transaction_protos.pb.cc:288:  _impl_.signature_dilithium_.Destroy();
+src/generated/transaction_protos.pb.cc:289:  _impl_.signature_falcon_.Destroy();
+src/generated/transaction_protos.pb.cc:290:  _impl_.zkproof_.Destroy();
+src/generated/transaction_protos.pb.cc:294:  _impl_.hash_.Destroy();
+src/generated/transaction_protos.pb.cc:309:  _impl_.signature_dilithium_.ClearToEmpty();
+src/generated/transaction_protos.pb.cc:310:  _impl_.signature_falcon_.ClearToEmpty();
+src/generated/transaction_protos.pb.cc:311:  _impl_.zkproof_.ClearToEmpty();
+src/generated/transaction_protos.pb.cc:315:  _impl_.hash_.ClearToEmpty();
+src/generated/transaction_protos.pb.cc:503:  if (!this->_internal_signature_dilithium().empty()) {
+src/generated/transaction_protos.pb.cc:509:  if (!this->_internal_signature_falcon().empty()) {
+src/generated/transaction_protos.pb.cc:515:  if (!this->_internal_zkproof().empty()) {
+src/generated/transaction_protos.pb.cc:543:  if (!this->_internal_hash().empty()) {
+src/generated/transaction_protos.pb.cc:545:      this->_internal_hash().data(), static_cast<int>(this->_internal_hash().length()),
+src/generated/transaction_protos.pb.cc:589:  if (!this->_internal_signature_dilithium().empty()) {
+src/generated/transaction_protos.pb.cc:596:  if (!this->_internal_signature_falcon().empty()) {
+src/generated/transaction_protos.pb.cc:603:  if (!this->_internal_zkproof().empty()) {
+src/generated/transaction_protos.pb.cc:631:  if (!this->_internal_hash().empty()) {
+src/generated/transaction_protos.pb.cc:680:  if (!from._internal_signature_dilithium().empty()) {
+src/generated/transaction_protos.pb.cc:681:    _this->_internal_set_signature_dilithium(from._internal_signature_dilithium());
+src/generated/transaction_protos.pb.cc:683:  if (!from._internal_signature_falcon().empty()) {
+src/generated/transaction_protos.pb.cc:684:    _this->_internal_set_signature_falcon(from._internal_signature_falcon());
+src/generated/transaction_protos.pb.cc:686:  if (!from._internal_zkproof().empty()) {
+src/generated/transaction_protos.pb.cc:687:    _this->_internal_set_zkproof(from._internal_zkproof());
+src/generated/transaction_protos.pb.cc:698:  if (!from._internal_hash().empty()) {
+src/generated/transaction_protos.pb.cc:699:    _this->_internal_set_hash(from._internal_hash());
+src/generated/identity.pb.cc:149:  _impl_.metadatahash_.InitDefault();
+src/generated/identity.pb.cc:151:    _impl_.metadatahash_.Set("", GetArenaForAllocation());
+src/generated/identity.pb.cc:153:  if (!from._internal_metadatahash().empty()) {
+src/generated/identity.pb.cc:154:    _this->_impl_.metadatahash_.Set(from._internal_metadatahash(), 
+src/generated/identity.pb.cc:157:  _impl_.zkproof_.InitDefault();
+src/generated/identity.pb.cc:159:    _impl_.zkproof_.Set("", GetArenaForAllocation());
+src/generated/identity.pb.cc:161:  if (!from._internal_zkproof().empty()) {
+src/generated/identity.pb.cc:162:    _this->_impl_.zkproof_.Set(from._internal_zkproof(), 
+src/generated/identity.pb.cc:165:  _impl_.falconsignature_.InitDefault();
+src/generated/identity.pb.cc:167:    _impl_.falconsignature_.Set("", GetArenaForAllocation());
+src/generated/identity.pb.cc:169:  if (!from._internal_falconsignature().empty()) {
+src/generated/identity.pb.cc:170:    _this->_impl_.falconsignature_.Set(from._internal_falconsignature(), 
+src/generated/identity.pb.cc:173:  _impl_.dilithiumsignature_.InitDefault();
+src/generated/identity.pb.cc:175:    _impl_.dilithiumsignature_.Set("", GetArenaForAllocation());
+src/generated/identity.pb.cc:177:  if (!from._internal_dilithiumsignature().empty()) {
+src/generated/identity.pb.cc:178:    _this->_impl_.dilithiumsignature_.Set(from._internal_dilithiumsignature(), 
+src/generated/identity.pb.cc:212:  _impl_.metadatahash_.InitDefault();
+src/generated/identity.pb.cc:214:    _impl_.metadatahash_.Set("", GetArenaForAllocation());
+src/generated/identity.pb.cc:216:  _impl_.zkproof_.InitDefault();
+src/generated/identity.pb.cc:218:    _impl_.zkproof_.Set("", GetArenaForAllocation());
+src/generated/identity.pb.cc:220:  _impl_.falconsignature_.InitDefault();
+src/generated/identity.pb.cc:222:    _impl_.falconsignature_.Set("", GetArenaForAllocation());
+src/generated/identity.pb.cc:224:  _impl_.dilithiumsignature_.InitDefault();
+src/generated/identity.pb.cc:226:    _impl_.dilithiumsignature_.Set("", GetArenaForAllocation());
+src/generated/identity.pb.cc:244:  _impl_.metadatahash_.Destroy();
+src/generated/identity.pb.cc:245:  _impl_.zkproof_.Destroy();
+src/generated/identity.pb.cc:246:  _impl_.falconsignature_.Destroy();
+src/generated/identity.pb.cc:247:  _impl_.dilithiumsignature_.Destroy();
+src/generated/identity.pb.cc:263:  _impl_.metadatahash_.ClearToEmpty();
+src/generated/identity.pb.cc:264:  _impl_.zkproof_.ClearToEmpty();
+src/generated/identity.pb.cc:265:  _impl_.falconsignature_.ClearToEmpty();
+src/generated/identity.pb.cc:266:  _impl_.dilithiumsignature_.ClearToEmpty();
+src/generated/identity.pb.cc:412:  if (!this->_internal_metadatahash().empty()) {
+src/generated/identity.pb.cc:414:      this->_internal_metadatahash().data(), static_cast<int>(this->_internal_metadatahash().length()),
+src/generated/identity.pb.cc:428:  if (!this->_internal_zkproof().empty()) {
+src/generated/identity.pb.cc:434:  if (!this->_internal_falconsignature().empty()) {
+src/generated/identity.pb.cc:440:  if (!this->_internal_dilithiumsignature().empty()) {
+src/generated/identity.pb.cc:483:  if (!this->_internal_metadatahash().empty()) {
+src/generated/identity.pb.cc:490:  if (!this->_internal_zkproof().empty()) {
+src/generated/identity.pb.cc:497:  if (!this->_internal_falconsignature().empty()) {
+src/generated/identity.pb.cc:504:  if (!this->_internal_dilithiumsignature().empty()) {
+src/generated/identity.pb.cc:542:  if (!from._internal_metadatahash().empty()) {
+src/generated/identity.pb.cc:543:    _this->_internal_set_metadatahash(from._internal_metadatahash());
+src/generated/identity.pb.cc:545:  if (!from._internal_zkproof().empty()) {
+src/generated/identity.pb.cc:546:    _this->_internal_set_zkproof(from._internal_zkproof());
+src/generated/identity.pb.cc:548:  if (!from._internal_falconsignature().empty()) {
+src/generated/identity.pb.cc:549:    _this->_internal_set_falconsignature(from._internal_falconsignature());
+src/generated/identity.pb.cc:551:  if (!from._internal_dilithiumsignature().empty()) {
+src/generated/identity.pb.cc:552:    _this->_internal_set_dilithiumsignature(from._internal_dilithiumsignature());
+src/crypto_protos.pb.h:655:  _impl_.public_key_.ClearToEmpty();
+src/crypto_protos.pb.h:675:  return _impl_.public_key_.Get();
+src/crypto_protos.pb.h:680:  _impl_.public_key_.Set(value, GetArenaForAllocation());
+src/crypto_protos.pb.h:684:  return _impl_.public_key_.Mutable(GetArenaForAllocation());
+src/crypto_protos.pb.h:688:  return _impl_.public_key_.Release();
+src/crypto_protos.pb.h:695:  _impl_.public_key_.SetAllocated(public_key, GetArenaForAllocation());
+src/crypto_protos.pb.h:697:  if (_impl_.public_key_.IsDefault()) {
+src/crypto_protos.pb.h:698:    _impl_.public_key_.Set("", GetArenaForAllocation());
+src/crypto_protos.pb.h:710:  _impl_.signature_.ClearToEmpty();
+src/crypto_protos.pb.h:730:  return _impl_.signature_.Get();
+src/crypto_protos.pb.h:734:  _impl_.signature_.Set(value, GetArenaForAllocation());
+src/crypto_protos.pb.h:738:  return _impl_.signature_.Mutable(GetArenaForAllocation());
+src/crypto_protos.pb.h:742:  return _impl_.signature_.Release();
+src/crypto_protos.pb.h:749:  _impl_.signature_.SetAllocated(signature, GetArenaForAllocation());
+src/crypto_protos.pb.h:751:  if (_impl_.signature_.IsDefault()) {
+src/crypto_protos.pb.h:752:    _impl_.signature_.Set("", GetArenaForAllocation());
+src/crypto_protos.pb.h:764:  _impl_.miner_address_.ClearToEmpty();
+src/crypto_protos.pb.h:784:  return _impl_.miner_address_.Get();
+src/crypto_protos.pb.h:789:  _impl_.miner_address_.Set(value, GetArenaForAllocation());
+src/crypto_protos.pb.h:793:  return _impl_.miner_address_.Mutable(GetArenaForAllocation());
+src/crypto_protos.pb.h:797:  return _impl_.miner_address_.Release();
+src/crypto_protos.pb.h:805:  _impl_.miner_address_.SetAllocated(miner_address, GetArenaForAllocation());
+src/crypto_protos.pb.h:807:  if (_impl_.miner_address_.IsDefault()) {
+src/crypto_protos.pb.h:808:    _impl_.miner_address_.Set("", GetArenaForAllocation());
+src/transaction_protos.pb.cc:130:  _impl_.signature_.InitDefault();
+src/transaction_protos.pb.cc:132:    _impl_.signature_.Set("", GetArenaForAllocation());
+src/transaction_protos.pb.cc:134:  if (!from._internal_signature().empty()) {
+src/transaction_protos.pb.cc:135:    _this->_impl_.signature_.Set(from._internal_signature(), 
+src/transaction_protos.pb.cc:164:  _impl_.signature_.InitDefault();
+src/transaction_protos.pb.cc:166:    _impl_.signature_.Set("", GetArenaForAllocation());
+src/transaction_protos.pb.cc:183:  _impl_.signature_.Destroy();
+src/transaction_protos.pb.cc:198:  _impl_.signature_.ClearToEmpty();
+src/transaction_protos.pb.cc:316:  if (!this->_internal_signature().empty()) {
+src/transaction_protos.pb.cc:358:  if (!this->_internal_signature().empty()) {
+src/transaction_protos.pb.cc:402:  if (!from._internal_signature().empty()) {
+src/transaction_protos.pb.cc:403:    _this->_internal_set_signature(from._internal_signature());
+src/crypto_utils.cpp.bak:90:  blake3_hasher_update(&hasher, input.data(), input.size());
+src/crypto_utils.cpp.bak:93:  blake3_hasher_finalize(&hasher, output.data(), BLAKE3_OUT_LEN);
+src/crypto_utils.cpp.bak:173:  int ret = crypto_sign_signature(signature.data(), &siglen, message.data(),
+src/crypto_utils.cpp.bak:221:      signature.data(), &siglen, message.data(), message.size(),
+src/crypto_utils.cpp.bak:343:    keyProto.set_public_key(buffer.str());
+src/crypto_utils.cpp.bak:363:  publicKey = keyProto.public_key();
+src/crypto_utils.cpp.bak:869:  EVP_DigestSignFinal(ctx, signature.data(), &sigLen);
+src/crypto_utils.cpp.bak:874:  return base64Encode(std::string(signature.begin(), signature.end()));
+src/crypto_utils.cpp.bak:954:  blake3_hasher_update(&hasher, input.data(), input.size());
