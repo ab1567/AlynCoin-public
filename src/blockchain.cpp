@@ -2089,3 +2089,34 @@ std::vector<Transaction> Blockchain::getAllTransactionsForAddress(const std::str
     return result;
 }
 
+//
+int Blockchain::findCommonAncestorIndex(const std::vector<Block>& otherChain) {
+    const std::vector<Block>& localChain = getChain();
+
+    int commonIndex = -1;
+    int minLength = std::min(localChain.size(), otherChain.size());
+
+    for (int i = 0; i < minLength; ++i) {
+        if (localChain[i].getHash() == otherChain[i].getHash()) {
+            commonIndex = i;
+        } else {
+            break;
+        }
+    }
+    return commonIndex;
+}
+//
+bool Blockchain::rollbackToIndex(int index) {
+    if (index < 0 || index >= chain.size()) {
+        std::cerr << "❌ [Blockchain] Invalid rollback index\n";
+        return false;
+    }
+
+    chain.resize(index + 1);  // Keep only up to common ancestor
+    saveToDB();
+    recalculateBalancesFromChain();
+    std::cout << "✅ [Blockchain] Rolled back to index: " << index << "\n";
+    return true;
+}
+
+

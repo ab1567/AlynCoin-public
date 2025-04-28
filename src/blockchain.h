@@ -130,6 +130,8 @@ public:
   Block mineBlock(const std::string &minerAddress);
   bool deserializeBlockchainBase64(const std::string &base64Data);
   bool loadFromProto(const alyncoin::BlockchainProto &protoChain);
+  int findCommonAncestorIndex(const std::vector<Block>& otherChain);
+  bool rollbackToIndex(int index);
   void applyVestingSchedule();
   void startMining(const std::string &minerAddress,
                    const std::string &minerDilithiumKey,
