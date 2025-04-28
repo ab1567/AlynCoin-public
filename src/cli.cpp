@@ -318,7 +318,8 @@ int main(int argc, char **argv) {
 	        auto txs = blk.getTransactions();
 	        std::cout << "⛏ Block " << blk.getHash() << " has " << txs.size() << " txs.\n";
 
-	        for (const auto& tx : txs) {
+	        if (!txs.empty()) {
+		    for (const auto& tx : txs) {
 	            std::cout << "🔍 Checking tx: " << tx.getHash()
                       << " | from: " << tx.getSender()
                       << " | to: " << tx.getRecipient() << "\n";
@@ -326,6 +327,7 @@ int main(int argc, char **argv) {
 	            if (tx.getSender() == addr || tx.getRecipient() == addr) {
 	                relevant.push_back(tx);
             }
+	}
         }
     }
 

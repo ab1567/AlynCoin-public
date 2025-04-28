@@ -96,113 +96,157 @@ void Transaction::serializeToProtobuf(alyncoin::TransactionProto &proto) const {
         proto.set_sender_pubkey_falcon(Crypto::toHex(std::vector<unsigned char>(senderPublicKeyFalcon.begin(), senderPublicKeyFalcon.end())));
 
     proto.set_timestamp(timestamp);
-    proto.set_metadata(metadata);
+
+    // Clamp metadata safely
+    if (metadata.size() > 16384) {
+        std::cerr << "⚠️ [serializeToProtobuf] metadata too large (" << metadata.size() << " bytes). Truncating.\n";
+        proto.set_metadata(metadata.substr(0, 16384));
+    } else {
+        proto.set_metadata(metadata);
+    }
+
     proto.set_zkproof(zkProof);
     proto.set_hash(hash);
 }
 
+//
 bool Transaction::deserializeFromProtobuf(const alyncoin::TransactionProto &proto) {
-    sender = proto.sender();
-    recipient = proto.recipient();
-    amount = proto.amount();
+    try {
+        sender = proto.sender();
+        recipient = proto.recipient();
+        amount = proto.amount();
+        timestamp = proto.timestamp();
 
-    std::vector<unsigned char> sigDil = Crypto::fromHex(proto.signature_dilithium());
-    if (!sigDil.empty()) {
-        signatureDilithium = std::string(sigDil.begin(), sigDil.end());
-    } else {
-        std::cerr << "❌ [ERROR] signature_dilithium is empty!" << std::endl;
+        // Clamp metadata safely
+        {
+            std::string meta = proto.metadata();
+            if (meta.size() > 16384) {
+                std::cerr << "⚠️ [deserializeFromProtobuf] metadata too large (" << meta.size() << " bytes). Truncating.\n";
+                meta.resize(16384);
+            }
+            metadata = meta;
+        }
+
+        zkProof = proto.zkproof();
+        hash = proto.hash();
+
+        if (!proto.signature_dilithium().empty()) {
+            auto sigDil = Crypto::fromHex(proto.signature_dilithium());
+            signatureDilithium.assign(sigDil.begin(), sigDil.end());
+        } else {
+            std::cerr << "⚠️ [deserializeFromProtobuf] Missing dilithium signature.\n";
+        }
+
+        if (!proto.signature_falcon().empty()) {
+            auto sigFal = Crypto::fromHex(proto.signature_falcon());
+            signatureFalcon.assign(sigFal.begin(), sigFal.end());
+        } else {
+            std::cerr << "⚠️ [deserializeFromProtobuf] Missing falcon signature.\n";
+        }
+
+        if (!proto.sender_pubkey_dilithium().empty()) {
+            auto pubDil = Crypto::fromHex(proto.sender_pubkey_dilithium());
+            senderPublicKeyDilithium.assign(pubDil.begin(), pubDil.end());
+        } else {
+            std::cerr << "⚠️ [deserializeFromProtobuf] Missing Dilithium pubkey.\n";
+        }
+
+        if (!proto.sender_pubkey_falcon().empty()) {
+            auto pubFal = Crypto::fromHex(proto.sender_pubkey_falcon());
+            senderPublicKeyFalcon.assign(pubFal.begin(), pubFal.end());
+        } else {
+            std::cerr << "⚠️ [deserializeFromProtobuf] Missing Falcon pubkey.\n";
+        }
+
+        if (hash.empty()) {
+            hash = getTransactionHash();
+        }
+
+        return true;
+    } catch (const std::exception &e) {
+        std::cerr << "❌ [deserializeFromProtobuf] Exception: " << e.what() << "\n";
+        return false;
     }
-
-    std::vector<unsigned char> sigFal = Crypto::fromHex(proto.signature_falcon());
-    if (!sigFal.empty()) {
-        signatureFalcon = std::string(sigFal.begin(), sigFal.end());
-    } else {
-        std::cerr << "❌ [ERROR] signature_falcon is empty!" << std::endl;
-    }
-
-    std::vector<unsigned char> pubDil = Crypto::fromHex(proto.sender_pubkey_dilithium());
-    if (!pubDil.empty()) {
-        senderPublicKeyDilithium.assign(pubDil.begin(), pubDil.end());
-    } else {
-        std::cerr << "❌ [ERROR] sender_pubkey_dilithium is empty!" << std::endl;
-    }
-
-    std::vector<unsigned char> pubFal = Crypto::fromHex(proto.sender_pubkey_falcon());
-    if (!pubFal.empty()) {
-        senderPublicKeyFalcon.assign(pubFal.begin(), pubFal.end());
-    } else {
-        std::cerr << "❌ [ERROR] sender_pubkey_falcon is empty!" << std::endl;
-    }
-
-    timestamp = proto.timestamp();
-    metadata = proto.metadata();
-    zkProof = proto.zkproof();
-    hash = proto.hash();
-
-    if (hash.empty()) {
-        hash = getTransactionHash();
-    }
-
-    return true;
 }
 
-// ✅ Final Hardened Transaction::fromProto()
-Transaction Transaction::fromProto(const alyncoin::TransactionProto &proto) {
-    auto safeStr = [](const std::string &val, const std::string &label, size_t maxLen = 10000) -> std::string {
-        if (val.size() > maxLen) {
-            std::cerr << "❌ [Transaction::fromProto] " << label << " too long (" << val.size() << " bytes). Resetting.\n";
-            return "";
-        }
-        return val;
-    };
-
+// ✅ Transaction fromProto()
+Transaction Transaction::fromProto(const alyncoin::TransactionProto& protoTx) {
     Transaction tx;
 
     try {
-        // Core fields
-        tx.sender    = safeStr(proto.sender(), "sender", 4096);
-        tx.recipient = safeStr(proto.recipient(), "recipient", 4096);
-        tx.amount    = proto.amount();
-        tx.timestamp = proto.timestamp();
-        tx.metadata  = safeStr(proto.metadata(), "metadata", 16384);
-        tx.zkProof   = safeStr(proto.zkproof(), "zkproof", 50000);
-        tx.hash      = safeStr(proto.hash(), "hash", 2048);
-
-        // Cryptographic fields (must hex-decode safely)
-        std::string sigDilHex = safeStr(proto.signature_dilithium(), "signature_dilithium", 10000);
-        std::string sigFalHex = safeStr(proto.signature_falcon(), "signature_falcon", 10000);
-        std::string pubDilHex = safeStr(proto.sender_pubkey_dilithium(), "sender_pubkey_dilithium", 10000);
-        std::string pubFalHex = safeStr(proto.sender_pubkey_falcon(), "sender_pubkey_falcon", 10000);
-
-        if (!sigDilHex.empty()) {
-            std::vector<unsigned char> sigDil = Crypto::fromHex(sigDilHex);
-            tx.signatureDilithium.assign(sigDil.begin(), sigDil.end());
+        // Simple string fields - safe access
+        if (!protoTx.sender().empty()) {
+            tx.sender = protoTx.sender();
+        }
+        if (!protoTx.recipient().empty()) {
+            tx.recipient = protoTx.recipient();
+        }
+        if (!protoTx.metadata().empty()) {
+            tx.metadata = protoTx.metadata();
+        }
+        if (!protoTx.hash().empty()) {
+            tx.hash = protoTx.hash();
         }
 
-        if (!sigFalHex.empty()) {
-            std::vector<unsigned char> sigFal = Crypto::fromHex(sigFalHex);
-            tx.signatureFalcon.assign(sigFal.begin(), sigFal.end());
+        // Safe scalar fields
+        tx.amount = protoTx.amount();
+        tx.timestamp = protoTx.timestamp();
+
+        // Critical field check
+        if (tx.sender.empty() || tx.recipient.empty() || tx.amount <= 0.0) {
+            std::cerr << "⚠️ [Transaction::fromProto] Missing critical field(s). Skipping.\n";
+            return tx;
         }
 
-        if (!pubDilHex.empty()) {
-            std::vector<unsigned char> pubDil = Crypto::fromHex(pubDilHex);
+        // Hex fields decoded
+        auto safeFromHex = [](const std::string& hex, const std::string& label) -> std::vector<unsigned char> {
+            if (hex.empty()) return {};
+            if (hex.size() % 2 != 0) {
+                std::cerr << "⚠️ [safeFromHex] " << label << " has odd length: " << hex.size() << "\n";
+                return {};
+            }
+            try {
+                return Crypto::fromHex(hex);
+            } catch (...) {
+                std::cerr << "⚠️ [safeFromHex] Failed to decode hex for " << label << "\n";
+                return {};
+            }
+        };
+
+        auto pubDil = safeFromHex(protoTx.sender_pubkey_dilithium(), "sender_pubkey_dilithium");
+        if (!pubDil.empty()) {
             tx.senderPublicKeyDilithium.assign(pubDil.begin(), pubDil.end());
         }
 
-        if (!pubFalHex.empty()) {
-            std::vector<unsigned char> pubFal = Crypto::fromHex(pubFalHex);
+        auto pubFal = safeFromHex(protoTx.sender_pubkey_falcon(), "sender_pubkey_falcon");
+        if (!pubFal.empty()) {
             tx.senderPublicKeyFalcon.assign(pubFal.begin(), pubFal.end());
         }
 
-        // Final fallback safety
+        auto sigDil = safeFromHex(protoTx.signature_dilithium(), "signature_dilithium");
+        if (!sigDil.empty()) {
+            tx.signatureDilithium.assign(sigDil.begin(), sigDil.end());
+        }
+
+        auto sigFal = safeFromHex(protoTx.signature_falcon(), "signature_falcon");
+        if (!sigFal.empty()) {
+            tx.signatureFalcon.assign(sigFal.begin(), sigFal.end());
+        }
+
+        auto zkProofHex = safeFromHex(protoTx.zkproof(), "zkproof");
+        if (!zkProofHex.empty()) {
+            tx.zkProof = std::string(zkProofHex.begin(), zkProofHex.end());
+        }
+
+        // Recompute hash if needed
         if (tx.hash.empty()) {
             tx.hash = tx.getTransactionHash();
         }
 
-    } catch (const std::exception &e) {
-        std::cerr << "❌ [Transaction::fromProto] Exception during parsing: " << e.what() << ". Transaction fields reset.\n";
-        // Reset everything to safe empty values
-        tx = Transaction();
+    } catch (const std::exception& ex) {
+        std::cerr << "⚠️ [Transaction::fromProto] Exception: " << ex.what() << "\n";
+    } catch (...) {
+        std::cerr << "⚠️ [Transaction::fromProto] Unknown exception!\n";
     }
 
     return tx;
@@ -301,15 +345,23 @@ alyncoin::TransactionProto Transaction::toProto() const {
     alyncoin::TransactionProto proto;
     proto.set_sender(sender);
     proto.set_recipient(recipient);
-    proto.set_amount(amount);  // ✅ CRITICAL: Must be set
+    proto.set_amount(amount);
     proto.set_signature_dilithium(Crypto::toHex(std::vector<unsigned char>(signatureDilithium.begin(), signatureDilithium.end())));
     proto.set_signature_falcon(Crypto::toHex(std::vector<unsigned char>(signatureFalcon.begin(), signatureFalcon.end())));
     proto.set_sender_pubkey_dilithium(Crypto::toHex(std::vector<unsigned char>(senderPublicKeyDilithium.begin(), senderPublicKeyDilithium.end())));
     proto.set_sender_pubkey_falcon(Crypto::toHex(std::vector<unsigned char>(senderPublicKeyFalcon.begin(), senderPublicKeyFalcon.end())));
     proto.set_timestamp(timestamp);
+
+    if (metadata.size() > 16384) {
+        std::cerr << "⚠️ [toProto] metadata too large (" << metadata.size() << " bytes). Truncating.\n";
+        proto.set_metadata(metadata.substr(0, 16384));
+    } else {
+        proto.set_metadata(metadata);
+    }
+
     proto.set_zkproof(zkProof);
-    proto.set_metadata(metadata);
-    proto.set_hash(hash);  // Optional but safe
+    proto.set_hash(hash);
+
     return proto;
 }
 

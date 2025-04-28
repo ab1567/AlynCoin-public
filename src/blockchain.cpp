@@ -346,14 +346,16 @@ bool Blockchain::addBlock(const Block &block) {
         return false;
     }
 
-    for (const auto &tx : block.getTransactions()) {
-        pendingTransactions.erase(
-            std::remove_if(pendingTransactions.begin(), pendingTransactions.end(),
-                           [&tx](const Transaction &pendingTx) {
-                               return pendingTx.getHash() == tx.getHash();
-                           }),
-            pendingTransactions.end());
-    }
+	if (!block.getTransactions().empty()) {
+	    for (const auto &tx : block.getTransactions()) {
+	        pendingTransactions.erase(
+	            std::remove_if(pendingTransactions.begin(), pendingTransactions.end(),
+	                           [&tx](const Transaction &pendingTx) {
+	                               return pendingTx.getHash() == tx.getHash();
+	                           }),
+	            pendingTransactions.end());
+	    }
+	}
 
     alyncoin::BlockProto protoBlock = block.toProtobuf();
     std::string serializedBlock;
@@ -749,7 +751,11 @@ void Blockchain::printBlockchain() const {
     std::cout << "Miner: " << block.getMinerAddress() << "\n";
     std::cout << "Nonce: " << block.getNonce() << "\n";
     std::cout << "Timestamp: " << block.getTimestamp() << "\n";
-    std::cout << "Transactions: " << block.getTransactions().size() << "\n";
+    if (!block.getTransactions().empty()) {
+	    std::cout << "Transactions: " << block.getTransactions().size() << "\n";
+	} else {
+	    std::cout << "Transactions: 0\n";
+	}
     std::cout << "---------------------------\n";
   }
   std::cout << "===========================\n";
@@ -1887,7 +1893,8 @@ void Blockchain::recalculateBalancesFromChain() {
         }
 
         // Apply transactions
-        for (const auto& tx : block.getTransactions()) {
+        if (!block.getTransactions().empty()) {
+    for (const auto& tx : block.getTransactions()) {
             std::string sender = tx.getSender();
             std::string recipient = tx.getRecipient();
             double amount = tx.getAmount();
@@ -1909,6 +1916,7 @@ void Blockchain::recalculateBalancesFromChain() {
     std::cout << "✅ [DEBUG] Balances recalculated from chain. Unique blocks: "
               << seenBlocks.size() << ", Total Supply: " << totalSupply
               << ", Total Burned: " << totalBurnedSupply << "\n";
+	}
 }
 
 // getCurrentState
@@ -2069,11 +2077,14 @@ time_t Blockchain::getFirstPendingL2Timestamp() const {
 std::vector<Transaction> Blockchain::getAllTransactionsForAddress(const std::string& address) {
     std::vector<Transaction> result;
     for (const Block& blk : this->getAllBlocks()) {
-        for (const Transaction& tx : blk.getTransactions()) {
-            if (tx.getSender() == address || tx.getRecipient() == address) {
-                result.push_back(tx);
-            }
-        }
+	if (!blk.getTransactions().empty()) {
+	    for (const Transaction& tx : blk.getTransactions()) {
+	        if (tx.getSender() == address || tx.getRecipient() == address) {
+	            result.push_back(tx);
+	        }
+	    }
+	}
+
     }
     return result;
 }

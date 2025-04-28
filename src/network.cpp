@@ -579,6 +579,7 @@ std::vector<RollupBlock> deserializeRollupChain(const std::string &data) {
 }
 
 // ✅ **Handle Incoming Data with Protobuf Validation**
+// ✅ **Handle Incoming Data with Protobuf Validation**
 void Network::handleIncomingData(const std::string &senderIP, std::string data) {
     if (data.empty()) {
         std::cerr << "[ERROR] Received empty data from peer: " << senderIP << "!\n";
@@ -589,10 +590,8 @@ void Network::handleIncomingData(const std::string &senderIP, std::string data) 
     data.erase(std::remove(data.begin(), data.end(), '\n'), data.end());
     data.erase(std::remove(data.begin(), data.end(), '\r'), data.end());
 
-    std::cout << "[DEBUG] Incoming Data (" << senderIP << ") Length: "
-              << data.length() << "\n";
-    std::cout << "[DEBUG] First 200 bytes: "
-              << data.substr(0, std::min<size_t>(data.length(), 200)) << "\n";
+    std::cout << "[DEBUG] Incoming Data (" << senderIP << ") Length: " << data.length() << "\n";
+    std::cout << "[DEBUG] First 200 bytes: " << data.substr(0, std::min<size_t>(data.length(), 200)) << "\n";
 
     const std::string reqHeight   = R"({"type": "height_request"})";
     const std::string reqTipHash  = R"({"type": "tip_hash_request"})";
@@ -623,15 +622,13 @@ void Network::handleIncomingData(const std::string &senderIP, std::string data) 
             }
         }
         return;
-    }
-    else if (data == reqHeight) {
-        Json::Value res; 
+    } else if (data == reqHeight) {
+        Json::Value res;
         res["type"] = "height_response";
         res["data"] = blockchain->getHeight();
         sendData(senderIP, Json::writeString(Json::StreamWriterBuilder(), res));
         return;
-    }
-    else if (data == reqTipHash) {
+    } else if (data == reqTipHash) {
         Json::Value res;
         res["type"] = "tip_hash_response";
         res["data"] = blockchain->getLatestBlockHash();
@@ -650,28 +647,23 @@ void Network::handleIncomingData(const std::string &senderIP, std::string data) 
         // Base64 → protobuf bytes
         std::string serialized;
         try {
-            serialized = Crypto::base64Decode(
-                data.substr(blockPrefix.length())
-            );
+            serialized = Crypto::base64Decode(data.substr(blockPrefix.length()));
         } catch (...) {
-            std::cerr << "❌ [ERROR] base64Decode failed from peer: "
-                      << senderIP << "\n";
+            std::cerr << "❌ [ERROR] base64Decode failed from peer: " << senderIP << "\n";
             return;
         }
 
         // Parse BlockProto
         alyncoin::BlockProto proto;
         if (!proto.ParseFromString(serialized)) {
-            std::cerr << "❌ [ERROR] Failed to parse Protobuf Block from peer: "
-                      << senderIP << "\n";
+            std::cerr << "❌ [ERROR] Failed to parse Protobuf Block from peer: " << senderIP << "\n";
             return;
         }
 
         std::cout << "[DEBUG] Parsed Block | Index: " << proto.index()
-                  << " | Miner: "   << proto.miner_address()
-                  << " | TXs: "     << proto.transactions_size()
-                  << " | zkLen: "   << proto.zk_stark_proof().size()
-                  << "\n";
+                  << " | Miner: " << proto.miner_address()
+                  << " | TXs: " << proto.transactions_size()
+                  << " | zkLen: " << proto.zk_stark_proof().size() << "\n";
 
         // Rehydrate into our Block
         Block blk;
@@ -682,7 +674,7 @@ void Network::handleIncomingData(const std::string &senderIP, std::string data) 
             return;
         }
 
-        // Basic completeness check
+        // 🚨 Critical Post-Parse Block Check (Transactions allowed empty if reward block)
         if (blk.getHash().empty() ||
             blk.getMinerAddress().empty() ||
             blk.getZkProof().empty() ||
@@ -691,21 +683,18 @@ void Network::handleIncomingData(const std::string &senderIP, std::string data) 
             blk.getPublicKeyDilithium().empty() ||
             blk.getPublicKeyFalcon().empty())
         {
-            std::cerr << "❌ [ERROR] Parsed block missing critical fields.\n";
+            std::cerr << "❌ [ERROR] Incomplete block received after parsing. Aborting handleNewBlock.\n";
             return;
         }
 
         // 5) zk-STARK verification
-        std::string proofStr(
-            blk.getZkProof().begin(),
-            blk.getZkProof().end()
-        );
+        std::string proofStr(blk.getZkProof().begin(), blk.getZkProof().end());
         if (!WinterfellStark::verifyProof(
                 proofStr,
                 blk.getHash(),
                 blk.getPreviousHash(),
-                blk.getTransactionsHash()
-        )) {
+                blk.getTransactionsHash()))
+        {
             std::cerr << "❌ [ERROR] zk-STARK verification failed!\n";
             return;
         }
@@ -718,15 +707,8 @@ void Network::handleIncomingData(const std::string &senderIP, std::string data) 
             std::cerr << "❌ [ERROR] Dilithium hex decode failed!\n";
             return;
         }
-        std::vector<unsigned char> pubDil(
-            blk.getPublicKeyDilithium().begin(),
-            blk.getPublicKeyDilithium().end()
-        );
-        if (!Crypto::verifyWithDilithium(
-                blk.getSignatureMessage(),
-                sigDil,
-                pubDil
-        )) {
+        std::vector<unsigned char> pubDil(blk.getPublicKeyDilithium().begin(), blk.getPublicKeyDilithium().end());
+        if (!Crypto::verifyWithDilithium(blk.getSignatureMessage(), sigDil, pubDil)) {
             std::cerr << "❌ [ERROR] Invalid Dilithium signature\n";
             return;
         }
@@ -739,15 +721,8 @@ void Network::handleIncomingData(const std::string &senderIP, std::string data) 
             std::cerr << "❌ [ERROR] Falcon hex decode failed!\n";
             return;
         }
-        std::vector<unsigned char> pubFal(
-            blk.getPublicKeyFalcon().begin(),
-            blk.getPublicKeyFalcon().end()
-        );
-        if (!Crypto::verifyWithFalcon(
-                blk.getSignatureMessage(),
-                sigFal,
-                pubFal
-        )) {
+        std::vector<unsigned char> pubFal(blk.getPublicKeyFalcon().begin(), blk.getPublicKeyFalcon().end());
+        if (!Crypto::verifyWithFalcon(blk.getSignatureMessage(), sigFal, pubFal)) {
             std::cerr << "❌ [ERROR] Invalid Falcon signature\n";
             return;
         }
@@ -761,22 +736,16 @@ void Network::handleIncomingData(const std::string &senderIP, std::string data) 
     try {
         if (data.front() == '{' && data.back() == '}') {
             Transaction tx = Transaction::deserialize(data);
-            if (tx.isValid(
-                    tx.getSenderPublicKeyDilithium(),
-                    tx.getSenderPublicKeyFalcon()
-            )) {
+            if (tx.isValid(tx.getSenderPublicKeyDilithium(), tx.getSenderPublicKeyFalcon())) {
                 blockchain->addTransaction(tx);
                 blockchain->savePendingTransactionsToDB();
-                std::cout << "[INFO] ✅ Transaction accepted from "
-                          << senderIP << "\n";
+                std::cout << "[INFO] ✅ Transaction accepted from " << senderIP << "\n";
             } else {
-                std::cerr << "[ERROR] ❌ Invalid transaction from "
-                          << senderIP << "\n";
+                std::cerr << "[ERROR] ❌ Invalid transaction from " << senderIP << "\n";
             }
         }
     } catch (const std::exception &e) {
-        std::cerr << "[ERROR] Exception parsing transaction from "
-                  << senderIP << ": " << e.what() << "\n";
+        std::cerr << "[ERROR] Exception parsing transaction from " << senderIP << ": " << e.what() << "\n";
     }
 }
 
@@ -917,12 +886,25 @@ void Network::handleNewBlock(const Block &newBlock) {
     }
 
     // 4) Add & save
-    if (!blockchain.addBlock(newBlock)) {
-        std::cerr << "❌ Failed to add new block to blockchain!\n";
-        return;
-    }
-    blockchain.saveToDB();
-    std::cout << "✅ Block successfully added to blockchain! Index: " << newBlock.getIndex() << "\n";
+	try {
+	    if (newBlock.getHash().empty() ||
+	        newBlock.getPreviousHash().empty() ||
+	        newBlock.getTransactionsHash().empty() ||
+	        newBlock.getMinerAddress().empty()) {
+	        std::cerr << "❌ [ERROR] New block missing mandatory fields!\n";
+	        return;
+	    }
+
+	    if (!blockchain.addBlock(newBlock)) {
+	        std::cerr << "❌ [ERROR] Failed to add new block to blockchain!\n";
+	        return;
+	    }
+
+	    blockchain.saveToDB();
+	    std::cout << "✅ Block successfully added to blockchain! Index: " << newBlock.getIndex() << "\n";
+	} catch (const std::exception &ex) {
+	    std::cerr << "❌ [EXCEPTION] Adding block failed: " << ex.what() << "\n";
+	}
 
     // 5) Process buffered future blocks
     uint64_t nextIndex = blockchain.getLatestBlock().getIndex() + 1;
