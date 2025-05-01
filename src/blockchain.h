@@ -132,6 +132,7 @@ public:
   bool loadFromProto(const alyncoin::BlockchainProto &protoChain);
   int findCommonAncestorIndex(const std::vector<Block>& otherChain);
   bool rollbackToIndex(int index);
+  bool forceAddBlock(const Block &block);
   void applyVestingSchedule();
   void startMining(const std::string &minerAddress,
                    const std::string &minerDilithiumKey,
@@ -195,6 +196,15 @@ public:
   void clearChain() { chain.clear(); }
   time_t getLastRollupTimestamp() const;
   time_t getFirstPendingL2Timestamp() const;
+
+// New fork sync and comparison helpers
+bool verifyForkSafety(const std::vector<Block>& otherChain) const;
+int findForkCommonAncestor(const std::vector<Block>& otherChain) const;
+uint64_t computeCumulativeDifficulty(const std::vector<Block>& chainRef) const;
+void compareAndMergeChains(const std::vector<Block>& otherChain);
+void saveForkView(const std::vector<Block>& forkChain);
+bool deserializeBlockchainForkView(const std::string& rawData, std::vector<Block>& forkOut) const;
+
 };
 
 // ✅ Standalone declaration outside the Blockchain class

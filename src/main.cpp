@@ -170,7 +170,7 @@ int main(int argc, char *argv[]) {
       break;
 
     case 5:
-      network.syncWithPeers();
+      network.intelligentSync();
       break;
 
     case 6:

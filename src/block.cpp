@@ -602,6 +602,7 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
         newBlock.blockSignature = safeStr(protoBlock.block_signature(), "block_signature");
         newBlock.keccakHash = safeStr(protoBlock.keccak_hash(), "keccak_hash");
         newBlock.reward = protoBlock.has_reward() ? protoBlock.reward() : 0.0;
+        newBlock.transactionsHash = safeStr(protoBlock.tx_merkle_root(), "tx_merkle_root");
 
         if (!protoBlock.zk_stark_proof().empty()) {
             auto proof = safeFromHex(protoBlock.zk_stark_proof(), "zk_stark_proof");
@@ -632,7 +633,6 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
         if (!allowPartial) throw;
     }
 
-    // 🧹 Safely parse transactions with full cleanup
     for (const auto& protoTx : protoBlock.transactions()) {
         try {
             Transaction tx;
@@ -646,14 +646,12 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
                 continue;
             }
 
-            // ✅ Strong field validation
             if (tx.getSender().empty() ||
                 tx.getRecipient().empty() ||
                 tx.getAmount() <= 0.0 ||
                 tx.getSignatureDilithium().empty() ||
                 tx.getSignatureFalcon().empty() ||
-                tx.getZkProof().empty())
-            {
+                tx.getZkProof().empty()) {
                 std::cerr << "⚠️ [fromProto] Skipping invalid transaction (missing sender/recipient/amount/signature/zkProof)\n";
                 continue;
             }
@@ -671,13 +669,10 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
         }
     }
 
-    // ✅ FINAL TRANSACTION SANITY CHECK
-    if (!allowPartial) {
-        if (newBlock.transactions.empty()) {
-            throw std::runtime_error("[fromProto] No valid transactions found after parsing.");
-        }
-    } else {
-        if (newBlock.transactions.empty()) {
+    if (newBlock.transactions.empty()) {
+        if (!allowPartial) {
+            std::cerr << "⚠️ [fromProto] No transactions found, but block-level fields valid. Proceeding (empty block).\n";
+        } else {
             std::cerr << "⚠️ [fromProto] No valid transactions found. (AllowPartial = true)\n";
         }
     }

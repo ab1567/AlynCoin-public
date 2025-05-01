@@ -82,6 +82,7 @@ inline static Network &getInstance(unsigned short port,
   void savePeers();
   void addPeer(const std::string &peer);
   void acceptConnections();
+  void intelligentSync();
   void sendMessageToPeer(const std::string &peer, const std::string &message);
   void sendMessage(std::shared_ptr<tcp::socket> socket,
                    const std::string &message);

@@ -99,23 +99,15 @@ void Network::listenForConnections() {
 
     while (isRunning) {
         std::shared_ptr<tcp::socket> socket = std::make_shared<tcp::socket>(ioContext);
-        acceptor.accept(*socket);
+        boost::system::error_code ec;
+        acceptor.accept(*socket, ec);
 
-        std::string senderIP = socket->remote_endpoint().address().to_string();
-        std::string peerAddr = senderIP + ":" + std::to_string(socket->remote_endpoint().port());
-
-        {
-            std::lock_guard<std::mutex> lock(peersMutex);
-            if (peerSockets.find(peerAddr) == peerSockets.end()) {
-                peerSockets[peerAddr] = socket;
-                if (peerManager) {
-                    peerManager->connectToPeer(peerAddr);  // ✅ Register in PeerManager
-                }
-                savePeers();
-            }
+        if (ec) {
+            std::cerr << "❌ [Network] Accept error: " << ec.message() << "\n";
+            continue;
         }
 
-        std::cout << "📡 New peer connected: " << peerAddr << std::endl;
+        // 👇 Handshake will be parsed in handlePeer()
         std::thread(&Network::handlePeer, this, socket).detach();
     }
 }
@@ -123,8 +115,8 @@ void Network::listenForConnections() {
 //
 
 void Network::start() {
-  startServer();   // Start listening for connections
-  syncWithPeers(); // Automatically sync with peers at startup ✅
+  startServer();
+  intelligentSync();
 }
 
 // ✅ **Auto-Mining Background Thread**
@@ -265,6 +257,41 @@ void Network::syncWithPeers() {
         requestBlockchainSync(peer); // Only send REQUEST_BLOCKCHAIN
     }
 }
+//
+// ✅ New smart sync method
+void Network::intelligentSync() {
+    std::cout << "🔄 [Smart Sync] Starting intelligent sync process...\n";
+
+    if (!peerManager || peerSockets.empty()) {
+        std::cerr << "⚠️ [Smart Sync] No peers or no PeerManager. Skipping sync.\n";
+        return;
+    }
+
+    std::string majorityTipHash = peerManager->getMajorityTipHash();
+    if (majorityTipHash.empty()) {
+        std::cerr << "⚠️ [Smart Sync] No majority tip hash found. Skipping sync.\n";
+        return;
+    }
+
+    int localHeight = blockchain->getHeight();
+    int networkHeight = peerManager->getMedianNetworkHeight();
+
+    if (networkHeight <= localHeight) {
+        std::cout << "✅ [Smart Sync] Local blockchain is up-to-date. No sync needed.\n";
+        return;
+    }
+
+    std::cout << "📡 [Smart Sync] Local height: " << localHeight
+              << ", Network height: " << networkHeight
+              << ". Sync needed.\n";
+
+    // Find a healthy peer to sync from
+    for (const auto &[peer, socket] : peerSockets) {
+        if (peer.empty()) continue;
+        requestBlockchainSync(peer);
+        break;
+    }
+}
 
 //
 void Network::connectToPeer(const std::string &ip, short port) {
@@ -337,12 +364,9 @@ void Network::requestPeerList() {
 void Network::receiveFullChain(const std::string &senderIP, const std::string &data) {
     std::cout << "[INFO] Receiving full blockchain from " << senderIP << std::endl;
 
-    if (!blockchain) {
-        std::cerr << "❌ [ERROR] Blockchain instance is null. Cannot sync.\n";
-        return;
-    }
+    Blockchain &chain = Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true);
 
-    // 1) Base64 decode
+    // 1) Decode base64
     std::string decodedData;
     try {
         decodedData = Crypto::base64Decode(data);
@@ -351,7 +375,7 @@ void Network::receiveFullChain(const std::string &senderIP, const std::string &d
         return;
     }
 
-    // 2) Parse BlockchainProto
+    // 2) Parse into vector<Block>
     alyncoin::BlockchainProto protoChain;
     if (!protoChain.ParseFromString(decodedData)) {
         std::cerr << "❌ [ERROR] Failed to parse BlockchainProto from " << senderIP << "\n";
@@ -363,16 +387,13 @@ void Network::receiveFullChain(const std::string &senderIP, const std::string &d
         return;
     }
 
-    // 3) Rehydrate received blocks
     std::vector<Block> receivedBlocks;
     for (const auto& protoBlock : protoChain.blocks()) {
         try {
-            Block blk = Block::fromProto(protoBlock, /*allowPartial=*/true);
+            Block blk = Block::fromProto(protoBlock, /*allowPartial=*/false);
             receivedBlocks.push_back(blk);
         } catch (const std::exception& e) {
             std::cerr << "⚠️ [Network] Failed to parse block: " << e.what() << "\n";
-        } catch (...) {
-            std::cerr << "⚠️ [Network] Unknown error parsing block.\n";
         }
     }
 
@@ -381,149 +402,144 @@ void Network::receiveFullChain(const std::string &senderIP, const std::string &d
         return;
     }
 
-    // 4) Validate received blocks (zk-STARK + signatures)
-    for (const auto& blk : receivedBlocks) {
-        std::string proofStr(blk.getZkProof().begin(), blk.getZkProof().end());
-        if (!WinterfellStark::verifyProof(proofStr, blk.getHash(), blk.getPreviousHash(), blk.getTransactionsHash())) {
-            std::cerr << "❌ [ERROR] zk-STARK verification failed for block: " << blk.getHash() << "\n";
-            return;
-        }
-
-        try {
-            std::vector<unsigned char> sigDil = Crypto::fromHex(blk.getDilithiumSignature());
-            std::vector<unsigned char> pubDil(blk.getPublicKeyDilithium().begin(), blk.getPublicKeyDilithium().end());
-            if (!Crypto::verifyWithDilithium(blk.getSignatureMessage(), sigDil, pubDil)) {
-                std::cerr << "❌ [ERROR] Dilithium signature verification failed.\n";
-                return;
-            }
-        } catch (...) {
-            std::cerr << "❌ [ERROR] Dilithium decoding/verification error.\n";
-            return;
-        }
-
-        try {
-            std::vector<unsigned char> sigFal = Crypto::fromHex(blk.getFalconSignature());
-            std::vector<unsigned char> pubFal(blk.getPublicKeyFalcon().begin(), blk.getPublicKeyFalcon().end());
-            if (!Crypto::verifyWithFalcon(blk.getSignatureMessage(), sigFal, pubFal)) {
-                std::cerr << "❌ [ERROR] Falcon signature verification failed.\n";
-                return;
-            }
-        } catch (...) {
-            std::cerr << "❌ [ERROR] Falcon decoding/verification error.\n";
-            return;
-        }
-    }
-
-    // 5) Validate genesis match
-    if (blockchain->getChain().empty()) {
-        std::cerr << "❌ [Network] Local blockchain is empty. Cannot compare genesis.\n";
+    // 3) Validate Genesis Match
+    if (!chain.getChain().empty() && chain.getChain()[0].getHash() != receivedBlocks[0].getHash()) {
+        std::cerr << "⚠️ [Network] Genesis mismatch. Aborting sync.\n";
         return;
     }
 
-    if (blockchain->getChain()[0].getHash() != receivedBlocks[0].getHash()) {
-        std::cerr << "⚠️ [Network] Genesis mismatch. Aborting full-chain sync.\n";
+    // 4) Validate entire fork safety BEFORE touching chain
+    if (!chain.verifyForkSafety(receivedBlocks)) {
+        std::cerr << "⚠️ [Network] Received fork is invalid or unsafe. Saving for debug.\n";
+        chain.saveForkView(receivedBlocks); // Save rejected fork
         return;
     }
 
-    // 6) Find common ancestor
-    int commonIndex = blockchain->findCommonAncestorIndex(receivedBlocks);
-    if (commonIndex == -1) {
-        std::cerr << "⚠️ [Network] No common ancestor found. Aborting.\n";
-        return;
-    }
-
-    std::cout << "✅ [Network] Common ancestor at index: " << commonIndex << "\n";
-
-    // 7) Check if received chain extends more
-    if (receivedBlocks.size() <= blockchain->getChain().size()) {
-        std::cerr << "⚠️ [Network] Received chain is not longer than local. Sync skipped.\n";
-        return;
-    }
-
-    // 8) Rollback and append
-    if (!blockchain->rollbackToIndex(commonIndex)) {
-        std::cerr << "❌ [ERROR] Rollback failed.\n";
-        return;
-    }
-
-    bool success = true;
-    for (size_t i = commonIndex + 1; i < receivedBlocks.size(); ++i) {
-        if (!blockchain->addBlock(receivedBlocks[i])) {
-            std::cerr << "❌ [ERROR] Failed to append block " << i << " during merge.\n";
-            success = false;
-            break;
-        }
-    }
-
-    if (success) {
-        blockchain->recalculateBalancesFromChain();
-        blockchain->saveToDB();
-        blockchain->validateChainContinuity();
-        std::cout << "✅ [Network] Blockchain successfully merged and synced.\n";
-    } else {
-        std::cerr << "❌ [Network] Merge failed. Reloading original chain.\n";
-        blockchain->loadFromDB();
-    }
+    // 5) Merge using difficulty-aware fork logic
+    chain.compareAndMergeChains(receivedBlocks);
 }
 
-// network node
-bool Network::connectToNode(const std::string &ip, int port) {
-    std::string peerKey = ip + ":" + std::to_string(port);
+// Handle Peer
+void Network::handlePeer(std::shared_ptr<tcp::socket> socket) {
+    std::string peerId;
+
+    try {
+        boost::asio::streambuf handshakeBuf;
+        boost::asio::read_until(*socket, handshakeBuf, "\n");
+
+        std::istream handshakeStream(&handshakeBuf);
+        std::string handshakeLine;
+        std::getline(handshakeStream, handshakeLine);
+
+        Json::Value root;
+        Json::CharReaderBuilder reader;
+        std::string errs;
+        std::istringstream ss(handshakeLine);
+
+        if (Json::parseFromStream(reader, ss, &root, &errs) &&
+            root.isMember("type") && root["type"].asString() == "handshake" &&
+            root.isMember("port"))
+        {
+            std::string senderIP = socket->remote_endpoint().address().to_string();
+            std::string senderPort = root["port"].asString();
+            peerId = senderIP + ":" + senderPort;
+        } else {
+            // Fallback: treat it as a message, but register socket first
+            std::string senderIP = socket->remote_endpoint().address().to_string();
+            int randomPort = socket->remote_endpoint().port();
+            peerId = senderIP + ":" + std::to_string(randomPort);
+
+            {
+                std::lock_guard<std::mutex> lock(peersMutex);
+                peerSockets[peerId] = socket;
+                if (peerManager) peerManager->connectToPeer(peerId);
+            }
+
+            std::cerr << "⚠️ [handlePeer] No handshake, treating first line as regular message: " << handshakeLine << "\n";
+            handleIncomingData(peerId, handshakeLine);
+            // don't return — continue loop
+        }
+
+    } catch (const std::exception &e) {
+        std::cerr << "⚠️ [handlePeer] Couldn't parse peer handshake: " << e.what() << "\n";
+        return;
+    }
 
     {
         std::lock_guard<std::mutex> lock(peersMutex);
-        if (peerSockets.find(peerKey) != peerSockets.end()) {
-            std::cout << "🔁 Already connected to peer: " << peerKey << "\n";
-            return false;
-        }
+        peerSockets[peerId] = socket;
+        if (peerManager) peerManager->connectToPeer(peerId);
+        std::cout << "✅ [handlePeer] Incoming peer registered: " << peerId << "\n";
     }
+
+    boost::asio::streambuf buf;
+    const size_t MAX_BUFFER_SIZE = 4 * 1024 * 1024;
 
     try {
-        auto socketPtr = std::make_shared<boost::asio::ip::tcp::socket>(ioContext);
-        boost::asio::ip::tcp::resolver resolver(ioContext);
-        auto endpoints = resolver.resolve(ip, std::to_string(port));
-        boost::asio::connect(*socketPtr, endpoints);
+        while (isRunning) {
+            boost::system::error_code ec;
+            std::size_t bytes = boost::asio::read_until(*socket, buf, "\n", ec);
 
-        {
-            std::lock_guard<std::mutex> lock(peersMutex);
-            peerSockets[peerKey] = socketPtr;
+            if (ec == boost::asio::error::eof || ec) {
+                std::cerr << "🔌 Peer disconnected or read error: " << peerId << " (" << ec.message() << ")\n";
+                break;
+            }
+
+            if (buf.size() > MAX_BUFFER_SIZE) {
+                std::cerr << "❌ [handlePeer] Buffer overflow from " << peerId << ". Disconnecting.\n";
+                break;
+            }
+
+            std::istream is(&buf);
+            std::string line;
+            std::getline(is, line);
+
+            if (!line.empty() && line.back() == '\r') {
+                line.pop_back();
+            }
+
+            handleIncomingData(peerId, line);
         }
 
-        std::cout << "✅ Connected to new peer: " << peerKey << "\n";
-
-        // ✅ Start handling the connection
-        std::thread(&Network::handlePeer, this, socketPtr).detach();
-
-        // Request their chain
-        sendData(peerKey, "REQUEST_BLOCKCHAIN");
-        return true;
-
     } catch (const std::exception &e) {
-        std::cerr << "❌ Error connecting to node: " << e.what() << std::endl;
-        return false;
+        std::cerr << "⚠️ Exception in handlePeer for " << peerId << ": " << e.what() << "\n";
     }
+
+    {
+        std::lock_guard<std::mutex> lock(peersMutex);
+        peerSockets.erase(peerId);
+    }
+    std::cout << "🔌 Cleaned up peer socket: " << peerId << "\n";
 }
 
 // ✅ **Run Network Thread**
 void Network::run() {
-  serverThread = std::thread([this]() { startServer(); });
-  serverThread.detach();
+    serverThread = std::thread([this]() { startServer(); });
+    serverThread.detach();
 
-  std::this_thread::sleep_for(std::chrono::seconds(2));
+    std::this_thread::sleep_for(std::chrono::seconds(2));
 
-  requestPeerList();
-  scanForPeers();
-  autoMineBlock();
+    requestPeerList();
+    scanForPeers();
+    autoMineBlock();
 
-  // 🔁 Live periodic sync every 15 seconds
-  std::thread([this]() {
-    while (true) {
-      std::this_thread::sleep_for(std::chrono::seconds(15));
-      periodicSync();
-    }
-  }).detach();
+    // 🔁 Live periodic sync every 15 seconds
+    std::thread([this]() {
+        while (true) {
+            std::this_thread::sleep_for(std::chrono::seconds(15));
+            periodicSync();
+        }
+    }).detach();
+
+    // 🔁 Cleanup dead peers every 20 seconds
+    std::thread([this]() {
+        while (true) {
+            std::this_thread::sleep_for(std::chrono::seconds(20));
+            cleanupPeers();
+        }
+    }).detach();
 }
-//
+
 // ✅ Auto-Discover Peers Instead of Manually Adding Nodes
 std::vector<std::string> Network::discoverPeers() {
     std::vector<std::string> peers;
@@ -579,26 +595,22 @@ void Network::connectToDiscoveredPeers() {
 
 //
 void Network::periodicSync() {
-    std::thread([this]() {
-        while (true) {
-            std::this_thread::sleep_for(std::chrono::seconds(10)); // Adjust frequency if needed
+    while (isRunning) {
+        std::this_thread::sleep_for(std::chrono::seconds(10));
 
-            if (peerSockets.empty()) {
-                std::cerr << "⚠️ [Periodic Sync] No peers available, skipping.\n";
-                continue;
-            }
-
-            for (const auto &peer : peerSockets) {
-                const std::string &peerAddr = peer.first;
-                if (peerAddr.empty()) continue;
-
-                std::cout << "📡 [DEBUG] Periodic sync request to " << peerAddr << "\n";
-
-                // ✅ Only send sync request
-                requestBlockchainSync(peerAddr);
-            }
+        std::lock_guard<std::mutex> lock(peersMutex);
+        if (peerSockets.empty()) {
+            std::cerr << "⚠️ [Periodic Sync] No peers available, skipping.\n";
+            continue;
         }
-    }).detach();
+
+        for (const auto &peer : peerSockets) {
+            const std::string &peerAddr = peer.first;
+            if (peerAddr.empty()) continue;
+            std::cout << "📡 [DEBUG] Periodic sync request to " << peerAddr << "\n";
+            requestBlockchainSync(peerAddr);
+        }
+    }
 }
 
 //
@@ -632,210 +644,139 @@ std::vector<RollupBlock> deserializeRollupChain(const std::string &data) {
 // ✅ **Handle Incoming Data with Protobuf Validation**
 void Network::handleIncomingData(const std::string &senderIP, std::string data) {
     if (data.empty()) {
-        std::cerr << "[ERROR] Received empty data from peer: " << senderIP << "!\n";
+        std::cerr << "❌ [ERROR] Received empty data from peer: " << senderIP << "\n";
         return;
     }
 
-    // Strip newline characters
     data.erase(std::remove(data.begin(), data.end(), '\n'), data.end());
     data.erase(std::remove(data.begin(), data.end(), '\r'), data.end());
 
     std::cout << "[DEBUG] Incoming Data (" << senderIP << ") Length: " << data.length() << "\n";
     std::cout << "[DEBUG] First 200 bytes: " << data.substr(0, std::min<size_t>(data.length(), 200)) << "\n";
 
-    const std::string reqHeight   = R"({"type": "height_request"})";
-    const std::string reqTipHash  = R"({"type": "tip_hash_request"})";
     const std::string chainPrefix = "BLOCKCHAIN_DATA|";
     const std::string blockPrefix = "BLOCK_DATA|";
 
-    // 1) Simple commands
     if (data == "REQUEST_BLOCKCHAIN") {
         std::cout << "📡 [INFO] REQUEST_BLOCKCHAIN received from " << senderIP << "\n";
-        std::shared_ptr<tcp::socket> senderSocket = nullptr;
-        {
-            std::lock_guard<std::mutex> lock(peersMutex);
-            for (auto & [peerAddr, sock] : peerSockets) {
-                if (peerAddr.find(senderIP) != std::string::npos) {
-                    senderSocket = sock;
-                    break;
-                }
-            }
-        }
-        if (senderSocket && blockchain) {
-            std::string rawData;
-            if (blockchain->serializeBlockchain(rawData)) {
-                std::string b64 = Crypto::base64Encode(rawData);
-                sendMessage(senderSocket, chainPrefix + b64);
-                std::cout << "✅ Sent blockchain data to " << senderIP << "\n";
-            } else {
-                std::cerr << "❌ Failed to serialize blockchain\n";
-            }
-        }
-        return;
-    } else if (data == reqHeight) {
-        Json::Value res;
-        res["type"] = "height_response";
-        res["data"] = blockchain->getHeight();
-        sendData(senderIP, Json::writeString(Json::StreamWriterBuilder(), res));
-        return;
-    } else if (data == reqTipHash) {
-        Json::Value res;
-        res["type"] = "tip_hash_response";
-        res["data"] = blockchain->getLatestBlockHash();
-        sendData(senderIP, Json::writeString(Json::StreamWriterBuilder(), res));
+        sendFullChain(senderIP);
         return;
     }
 
-    // 2) Full-chain sync blob
+    // Handle incoming full chain sync
     if (data.rfind(chainPrefix, 0) == 0) {
-	std::string encoded = data.substr(chainPrefix.length());
-	try {
-	    std::string serialized = Crypto::base64Decode(encoded);
-	    alyncoin::BlockchainProto chainProto;
-	    if (!chainProto.ParseFromString(serialized)) {
-	        std::cerr << "❌ [Sync] Failed to parse BlockchainProto.\n";
-	        return;
-	    }
+        std::string base64Data = data.substr(chainPrefix.length());
+        std::string rawData = Crypto::base64Decode(base64Data);
 
-	    std::cout << "📦 [Sync] Received blockchain with " << chainProto.blocks_size() << " blocks.\n";
-
-	    std::vector<Block> receivedBlocks;
-	    for (const auto& protoBlock : chainProto.blocks()) {
-	        try {
-	            Block blk = Block::fromProto(protoBlock, true /* allowPartial */);
-	            receivedBlocks.push_back(blk);
-	        } catch (const std::exception& ex) {
-	            std::cerr << "⚠️ [Sync] Failed to parse a block: " << ex.what() << "\n";
-	        }
-	    }
-
-	    if (receivedBlocks.empty()) {
-	        std::cerr << "❌ [Sync] No valid blocks received.\n";
-	        return;
-	    }
-
-	    if (!blockchain) {
-	        std::cerr << "❌ [Sync] Local blockchain instance is null.\n";
-	        return;
-	    }
-
-	    // ✅ CORRECT: Check if local chain has only Genesis block
-	    if (blockchain->getChain().size() == 1 &&
-	        blockchain->getChain()[0].getHash() == receivedBlocks[0].getHash())
-	    {
-	        std::cout << "🛠️ [Sync] Genesis matches. Rebuilding chain...\n";
-
-	        for (size_t i = 1; i < receivedBlocks.size(); ++i) {
-	            if (!blockchain->addBlock(receivedBlocks[i])) {
-	                std::cerr << "❌ [Sync] Failed to add block at index: " << receivedBlocks[i].getIndex() << "\n";
-	                break;
-	            }
-	        }
-
-	        blockchain->recalculateBalancesFromChain();
-	        std::cout << "✅ [Sync] Chain updated from peer data.\n";
-	    }
-	    else {
-	        std::cerr << "⚠️ [Sync] Genesis mismatch or local chain non-empty. Skipping replacement.\n";
-	    }
-	} catch (const std::exception& ex) {
-	    std::cerr << "❌ [Sync] Exception during full-chain sync: " << ex.what() << "\n";
-	} catch (...) {
-	    std::cerr << "❌ [Sync] Unknown exception during full-chain sync.\n";
-	}
-	return;
-	}
-    // 3) Single-block broadcast
-    if (data.rfind(blockPrefix, 0) == 0) {
-        std::string serialized;
-        try {
-            serialized = Crypto::base64Decode(data.substr(blockPrefix.length()));
-        } catch (...) {
-            std::cerr << "❌ [ERROR] base64Decode failed from peer: " << senderIP << "\n";
+        if (rawData.empty()) {
+            std::cerr << "❌ [SYNC] Base64 decode failed. Raw data is empty.\n";
             return;
         }
 
-        alyncoin::BlockProto proto;
-        if (!proto.ParseFromString(serialized)) {
-            std::cerr << "❌ [ERROR] Failed to parse Protobuf Block from peer: " << senderIP << "\n";
+        std::cout << "📥 [SYNC] Received blockchain data (" << rawData.size() << " bytes), decoding...\n";
+
+        std::vector<Block> forkChain;
+        auto& blockchain = Blockchain::getInstance(this->port, DBPaths::getBlockchainDB(), true, false);
+
+        if (!blockchain.deserializeBlockchainForkView(rawData, forkChain)) {
+            std::cerr << "❌ [SYNC] Fork chain deserialization failed.\n";
             return;
         }
 
-        std::cout << "[DEBUG] Parsed Block | Index: " << proto.index()
-                  << " | Miner: " << proto.miner_address()
-                  << " | TXs: " << proto.transactions_size()
-                  << " | zkLen: " << proto.zk_stark_proof().size() << "\n";
+        std::cout << "🔍 [SYNC] Fork received. Blocks: " << forkChain.size() << "\n";
 
-        Block blk;
-        try {
-            blk = Block::fromProto(proto, /*allowPartial=*/true);
-        } catch (const std::exception &e) {
-            std::cerr << "❌ [ERROR] fromProto() failed: " << e.what() << "\n";
+        if (forkChain.empty()) {
+            std::cerr << "❌ [SYNC] Received empty fork chain. Ignoring.\n";
             return;
         }
 
-        if (blk.getHash().empty() ||
-            blk.getMinerAddress().empty() ||
-            blk.getZkProof().empty() ||
-            blk.getDilithiumSignature().empty() ||
-            blk.getFalconSignature().empty() ||
-            blk.getPublicKeyDilithium().empty() ||
-            blk.getPublicKeyFalcon().empty())
-        {
-            std::cerr << "❌ [ERROR] Incomplete block received after parsing. Aborting handleNewBlock.\n";
-            return;
+        std::string forkGenesis = forkChain[0].getHash();
+
+        if (blockchain.getChain().empty()) {
+            std::cout << "🆕 [SYNC] Local chain is empty. Accepting full fork.\n";
+            blockchain.compareAndMergeChains(forkChain);
+        } else {
+            std::string localGenesis = blockchain.getChain()[0].getHash();
+
+            if (localGenesis == forkGenesis) {
+                std::cout << "🔄 [SYNC] Genesis matches. Comparing and merging chains.\n";
+                blockchain.compareAndMergeChains(forkChain);
+            } else {
+                std::cerr << "❌ [SYNC] Genesis mismatch. Fork rejected.\n";
+            }
         }
 
-        std::string proofStr(blk.getZkProof().begin(), blk.getZkProof().end());
-        if (!WinterfellStark::verifyProof(proofStr, blk.getHash(), blk.getPreviousHash(), blk.getTransactionsHash())) {
-            std::cerr << "❌ [ERROR] zk-STARK verification failed!\n";
-            return;
-        }
-
-        std::vector<unsigned char> sigDil;
-        try {
-            sigDil = Crypto::fromHex(blk.getDilithiumSignature());
-        } catch (...) {
-            std::cerr << "❌ [ERROR] Dilithium hex decode failed!\n";
-            return;
-        }
-        std::vector<unsigned char> pubDil(blk.getPublicKeyDilithium().begin(), blk.getPublicKeyDilithium().end());
-        if (!Crypto::verifyWithDilithium(blk.getSignatureMessage(), sigDil, pubDil)) {
-            std::cerr << "❌ [ERROR] Invalid Dilithium signature\n";
-            return;
-        }
-
-        std::vector<unsigned char> sigFal;
-        try {
-            sigFal = Crypto::fromHex(blk.getFalconSignature());
-        } catch (...) {
-            std::cerr << "❌ [ERROR] Falcon hex decode failed!\n";
-            return;
-        }
-        std::vector<unsigned char> pubFal(blk.getPublicKeyFalcon().begin(), blk.getPublicKeyFalcon().end());
-        if (!Crypto::verifyWithFalcon(blk.getSignatureMessage(), sigFal, pubFal)) {
-            std::cerr << "❌ [ERROR] Invalid Falcon signature\n";
-            return;
-        }
-
-        handleNewBlock(blk);
         return;
     }
 
-    // 4) JSON-encoded transaction fallback
-    try {
-        if (data.front() == '{' && data.back() == '}') {
+    // Handle individual incoming block
+    if (data.rfind(blockPrefix, 0) == 0) {
+        std::string base64Block = data.substr(blockPrefix.length());
+        try {
+            std::string serialized = Crypto::base64Decode(base64Block);
+            alyncoin::BlockProto proto;
+            if (!proto.ParseFromString(serialized)) {
+                std::cerr << "❌ [ERROR] Failed to parse Protobuf Block from peer: " << senderIP << "\n";
+                return;
+            }
+
+            Block blk = Block::fromProto(proto, /*allowPartial=*/false);
+            handleNewBlock(blk);
+
+        } catch (const std::exception &e) {
+            std::cerr << "❌ [ERROR] Exception parsing block from " << senderIP << ": " << e.what() << "\n";
+        } catch (...) {
+            std::cerr << "❌ [ERROR] Unknown error parsing incoming block.\n";
+        }
+        return;
+    }
+
+    // Handle JSON (transaction or API call)
+    if (!data.empty() && data.front() == '{' && data.back() == '}') {
+        try {
+            Json::CharReaderBuilder readerBuilder;
+            Json::Value root;
+            std::string errs;
+
+            std::istringstream s(data);
+            if (!Json::parseFromStream(readerBuilder, s, &root, &errs)) {
+                std::cerr << "❌ [ERROR] Failed to parse incoming JSON: " << errs << "\n";
+                return;
+            }
+
+            std::string type = root["type"].asString();
+            auto& blockchain = Blockchain::getInstance(this->port, DBPaths::getBlockchainDB(), true);
+
+            if (type == "height_request") {
+                Json::Value res;
+                res["type"] = "height_response";
+                res["data"] = blockchain.getHeight();
+                sendData(senderIP, Json::writeString(Json::StreamWriterBuilder(), res));
+                return;
+            }
+
+            if (type == "tip_hash_request") {
+                Json::Value res;
+                res["type"] = "tip_hash_response";
+                res["data"] = blockchain.getLatestBlockHash();
+                sendData(senderIP, Json::writeString(Json::StreamWriterBuilder(), res));
+                return;
+            }
+
+            // Fallback: assume it's a transaction
             Transaction tx = Transaction::deserialize(data);
             if (tx.isValid(tx.getSenderPublicKeyDilithium(), tx.getSenderPublicKeyFalcon())) {
-                blockchain->addTransaction(tx);
-                blockchain->savePendingTransactionsToDB();
-                std::cout << "[INFO] ✅ Transaction accepted from " << senderIP << "\n";
+                blockchain.addTransaction(tx);
+                blockchain.savePendingTransactionsToDB();
+                std::cout << "✅ [INFO] Transaction accepted from " << senderIP << "\n";
             } else {
-                std::cerr << "[ERROR] ❌ Invalid transaction from " << senderIP << "\n";
+                std::cerr << "❌ [ERROR] Invalid transaction received from " << senderIP << "\n";
             }
+
+        } catch (const std::exception &e) {
+            std::cerr << "❌ [ERROR] JSON parse or TX handling failed: " << e.what() << "\n";
         }
-    } catch (const std::exception &e) {
-        std::cerr << "[ERROR] Exception parsing transaction from " << senderIP << ": " << e.what() << "\n";
+        return;
     }
 }
 
@@ -849,15 +790,22 @@ void Network::broadcastBlock(const Block &block) {
     std::string message = "BLOCK_DATA|" + base64Block;
 
     std::lock_guard<std::mutex> lock(peersMutex);
-    for (const auto &peer : peerSockets) {
-        auto socket = peer.second;
+    for (auto it = peerSockets.begin(); it != peerSockets.end(); ) {
+        auto &peer = it->first;
+        auto &socket = it->second;
+
         if (socket && socket->is_open()) {
             try {
                 boost::asio::write(*socket, boost::asio::buffer(message + "\n"));
-                std::cout << "📡 [LIVE BROADCAST] Block sent to: " << peer.first << "\n";
+                std::cout << "📡 [LIVE BROADCAST] Block sent to: " << peer << "\n";
+                ++it;
             } catch (const std::exception &e) {
-                std::cerr << "❌ Failed to send block to " << peer.first << ": " << e.what() << "\n";
+                std::cerr << "❌ Failed to send block to " << peer << ": " << e.what() << "\n";
+                it = peerSockets.erase(it);  // 🧹 Clean dead peer
             }
+        } else {
+            std::cerr << "⚠️ Skipping closed peer: " << peer << "\n";
+            it = peerSockets.erase(it);  // 🧹 Clean dead peer
         }
     }
 }
@@ -895,7 +843,7 @@ void Network::handleNewBlock(const Block &newBlock) {
     Blockchain &blockchain = Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true);
     const int expectedIndex = blockchain.getLatestBlock().getIndex() + 1;
 
-    // 1) PoW check etc.
+    // 1) PoW and zk-STARK check
     if (!newBlock.hasValidProofOfWork()) {
         std::cerr << "❌ [ERROR] Block PoW check failed!\n";
         return;
@@ -905,103 +853,86 @@ void Network::handleNewBlock(const Block &newBlock) {
         return;
     }
     std::string proofStr(newBlock.getZkProof().begin(), newBlock.getZkProof().end());
-    if (!WinterfellStark::verifyProof(
-            proofStr,
-            newBlock.getHash(),
-            newBlock.getPreviousHash(),
-            newBlock.getTransactionsHash())) {
+    if (!WinterfellStark::verifyProof(proofStr, newBlock.getHash(), newBlock.getPreviousHash(), newBlock.getTransactionsHash())) {
         std::cerr << "❌ [ERROR] Invalid zk-STARK proof detected in new block!\n";
         return;
     }
 
-    // 2) Index ordering
+    // 2) Fork detection
+    if (!blockchain.getChain().empty()) {
+        std::string localTipHash = blockchain.getLatestBlockHash();
+        if (newBlock.getPreviousHash() != localTipHash) {
+            std::cerr << "⚠️ [Fork Detected] Previous hash mismatch at incoming block.\n";
+
+            // Instead of blindly requesting full chain,
+            // we should save this incoming block separately if we want future recovery
+            std::vector<Block> forkCandidate = { newBlock };
+            blockchain.saveForkView(forkCandidate);
+
+            // Then request full blockchain from peer(s)
+            for (const auto& peer : peerSockets) {
+                sendData(peer.first, "REQUEST_BLOCKCHAIN");
+            }
+            return;
+        }
+    }
+
+    // 3) Index ordering
     if (newBlock.getIndex() < expectedIndex) {
-        std::cerr << "⚠️ [Node] Ignoring duplicate or old block. Index: "
-                  << newBlock.getIndex() << ", Tip Index: " << expectedIndex - 1 << "\n";
+        std::cerr << "⚠️ [Node] Ignoring duplicate or old block.\n";
         return;
     }
     if (newBlock.getIndex() > expectedIndex) {
-        std::cerr << "⚠️ [Node] Received future block (index " << newBlock.getIndex()
-                  << ", expected " << expectedIndex << "). Buffering.\n";
+        std::cerr << "⚠️ [Node] Received future block. Buffering.\n";
         futureBlockBuffer[newBlock.getIndex()] = newBlock;
+
+        // If too much drift, force re-sync
         if (newBlock.getIndex() > expectedIndex + 5) {
-            for (const auto &peer : peerSockets) {
+            for (const auto& peer : peerSockets) {
                 sendData(peer.first, "REQUEST_BLOCKCHAIN");
             }
         }
         return;
     }
 
-    // 3) Signature validation
+    // 4) Signature validation
     try {
         auto msgBytes = newBlock.getSignatureMessage();
-
-        // Dilithium
-        std::vector<unsigned char> sigDil;
-        try {
-            sigDil = Crypto::fromHex(newBlock.getDilithiumSignature());
-        } catch (...) {
-            std::cerr << "❌ [ERROR] Dilithium signature hex decode failed!\n";
-            return;
-        }
-        std::vector<unsigned char> pubDil(
-            newBlock.getPublicKeyDilithium().begin(),
-            newBlock.getPublicKeyDilithium().end()
-        );
+        std::vector<unsigned char> sigDil = Crypto::fromHex(newBlock.getDilithiumSignature());
+        std::vector<unsigned char> pubDil(newBlock.getPublicKeyDilithium().begin(), newBlock.getPublicKeyDilithium().end());
         if (!Crypto::verifyWithDilithium(msgBytes, sigDil, pubDil)) {
             std::cerr << "❌ Dilithium signature verification failed!\n";
             return;
         }
-
-        // Falcon
-        std::vector<unsigned char> sigFal;
-        try {
-            sigFal = Crypto::fromHex(newBlock.getFalconSignature());
-        } catch (...) {
-            std::cerr << "❌ [ERROR] Falcon signature hex decode failed!\n";
-            return;
-        }
-        std::vector<unsigned char> pubFal(
-            newBlock.getPublicKeyFalcon().begin(),
-            newBlock.getPublicKeyFalcon().end()
-        );
+        std::vector<unsigned char> sigFal = Crypto::fromHex(newBlock.getFalconSignature());
+        std::vector<unsigned char> pubFal(newBlock.getPublicKeyFalcon().begin(), newBlock.getPublicKeyFalcon().end());
         if (!Crypto::verifyWithFalcon(msgBytes, sigFal, pubFal)) {
             std::cerr << "❌ Falcon signature verification failed!\n";
             return;
         }
-
-    } catch (const std::exception &e) {
-        std::cerr << "❌ [Exception] Signature validation error: " << e.what() << "\n";
+    } catch (const std::exception& e) {
+        std::cerr << "❌ [Exception] Signature verification error: " << e.what() << "\n";
         return;
     }
 
-    // 4) Add & save
-	try {
-	    if (newBlock.getHash().empty() ||
-	        newBlock.getPreviousHash().empty() ||
-	        newBlock.getTransactionsHash().empty() ||
-	        newBlock.getMinerAddress().empty()) {
-	        std::cerr << "❌ [ERROR] New block missing mandatory fields!\n";
-	        return;
-	    }
+    // 5) Add and save
+    try {
+        if (!blockchain.addBlock(newBlock)) {
+            std::cerr << "❌ [ERROR] Failed to add new block.\n";
+            return;
+        }
+        blockchain.saveToDB();
+        std::cout << "✅ Block added successfully! Index: " << newBlock.getIndex() << "\n";
+    } catch (const std::exception& ex) {
+        std::cerr << "❌ [EXCEPTION] Block add/save failed: " << ex.what() << "\n";
+    }
 
-	    if (!blockchain.addBlock(newBlock)) {
-	        std::cerr << "❌ [ERROR] Failed to add new block to blockchain!\n";
-	        return;
-	    }
-
-	    blockchain.saveToDB();
-	    std::cout << "✅ Block successfully added to blockchain! Index: " << newBlock.getIndex() << "\n";
-	} catch (const std::exception &ex) {
-	    std::cerr << "❌ [EXCEPTION] Adding block failed: " << ex.what() << "\n";
-	}
-
-    // 5) Process buffered future blocks
+    // 6) Process buffered future blocks
     uint64_t nextIndex = blockchain.getLatestBlock().getIndex() + 1;
     while (futureBlockBuffer.count(nextIndex)) {
         auto nextBlk = futureBlockBuffer[nextIndex];
         futureBlockBuffer.erase(nextIndex);
-        std::cout << "⏩ Processing buffered future block: " << nextIndex << "\n";
+        std::cout << "⏩ Processing buffered block: " << nextIndex << "\n";
         handleNewBlock(nextBlk);
         nextIndex++;
     }
@@ -1021,52 +952,28 @@ bool Network::isBlacklisted(const std::string &peer) {
 bool Network::sendData(const std::string &peer, const std::string &data) {
     auto it = peerSockets.find(peer);
     if (it == peerSockets.end() || !it->second || !it->second->is_open()) {
-        std::cerr << "❌ [ERROR] Peer socket not found or not open: " << peer << "\n";
-
-        // Attempt reconnection fallback
-        try {
-            boost::asio::io_context io_context;
-            boost::asio::ip::tcp::resolver resolver(io_context);
-
-            std::size_t colonPos = peer.find(":");
-            if (colonPos == std::string::npos) {
-                std::cerr << "❌ [ERROR] Invalid peer address: " << peer << "\n";
-                return false;
-            }
-
-            std::string host = peer.substr(0, colonPos);
-            std::string port = peer.substr(colonPos + 1);
-
-            boost::asio::ip::tcp::resolver::results_type endpoints = resolver.resolve(host, port);
-            auto newSocket = std::make_shared<boost::asio::ip::tcp::socket>(io_context);
-            boost::asio::connect(*newSocket, endpoints);
-
-            std::string finalMessage = data;
-            if (finalMessage.back() != '\n') finalMessage += "\n";  // just in case
-
-            boost::asio::write(*newSocket, boost::asio::buffer(finalMessage));
-            peerSockets[peer] = newSocket; // update map
-            std::cout << "📡 [DEBUG] Reconnected and sent message to " << peer << "\n";
-            return true;
-        } catch (const std::exception &e) {
-            std::cerr << "❌ [ERROR] Fallback reconnection failed: " << e.what() << "\n";
-            return false;
-        }
+        std::cerr << "❌ [ERROR] Peer socket not found or closed: " << peer << "\n";
+        return false;
     }
 
-    // Normal path
     try {
         std::string finalMessage = data;
         if (finalMessage.back() != '\n') finalMessage += "\n";  // Ensure newline
-        std::cout << "📡 [DEBUG] Sending message to " << peer << ": "
-                  << finalMessage.substr(0, 200) << "...\n";
+
         boost::asio::write(*it->second, boost::asio::buffer(finalMessage));
+        std::cout << "📡 [DEBUG] Sent message to " << peer << ": " << finalMessage.substr(0, 100) << "...\n";
         return true;
     } catch (const std::exception &e) {
         std::cerr << "❌ [ERROR] Failed to send data to " << peer << ": " << e.what() << "\n";
+        {
+            std::lock_guard<std::mutex> lock(peersMutex);
+            peerSockets.erase(peer);
+            std::cerr << "🧹 [INFO] Removed dead peer: " << peer << "\n";
+        }
         return false;
     }
 }
+
 
 // ✅ **Request Blockchain Sync from Peers**
 std::string Network::requestBlockchainSync(const std::string &peer) {
@@ -1089,14 +996,11 @@ std::string Network::requestBlockchainSync(const std::string &peer) {
 // ✅ **Start Listening for Incoming Connections**
 void Network::startServer() {
   try {
-    std::cout << "🌐 Node is now listening for connections on port: " << port
-              << "\n";
-    listenForConnections();
-    ioContext.run();
+    std::cout << "🌐 Node is now listening for connections on port: " << port << "\n";
+    ioContext.run(); // ✅ Only run ioContext, listenerThread already started
   } catch (const std::exception &e) {
     std::cerr << "❌ [ERROR] Server failed to start: " << e.what() << "\n";
-    std::cerr << "⚠️ Try using a different port or checking if another instance "
-                 "is running.\n";
+    std::cerr << "⚠️ Try using a different port or checking if another instance is running.\n";
   }
 }
 
@@ -1104,29 +1008,63 @@ void Network::startServer() {
 std::string Network::receiveData(const std::string &peer) {
     try {
         auto it = peerSockets.find(peer);
-        if (it == peerSockets.end()) {
-            std::cerr << "❌ [ERROR] Peer not found: " << peer << std::endl;
+        if (it == peerSockets.end() || !it->second) {
+            std::cerr << "❌ [ERROR] Peer not found or socket null: " << peer << std::endl;
             return "";
         }
 
+        std::shared_ptr<tcp::socket> socket = it->second;
         boost::asio::streambuf buf;
-        boost::system::error_code error;
-        boost::asio::read_until(*it->second, buf, "\n", error);
+        boost::system::error_code ec;
 
-        if (error && error != boost::asio::error::eof) {
-            std::cerr << "❌ [ERROR] Error reading data from " << peer << ": "
-                      << error.message() << std::endl;
+        boost::asio::deadline_timer timer(ioContext);
+        bool timed_out = false;
+        bool read_done = false;
+
+        // ✅ Required before any async run cycle
+        ioContext.restart();
+
+        // Start timer
+        timer.expires_from_now(boost::posix_time::seconds(3));
+        timer.async_wait([socket, &timed_out](const boost::system::error_code&) {
+            timed_out = true;
+            if (socket && socket->is_open()) {
+                boost::system::error_code cancel_ec;
+                socket->cancel(cancel_ec);
+            }
+        });
+
+        // Start async read
+        boost::asio::async_read_until(*socket, buf, "\n", [&](const boost::system::error_code& error, std::size_t) {
+            ec = error;
+            read_done = true;
+        });
+
+        // Run IO loop
+        while (!read_done && !timed_out) {
+            ioContext.run_one();
+        }
+
+        if (timed_out) {
+            std::cerr << "⚠️ [receiveData] Timeout from peer: " << peer << "\n";
+            return "";
+        }
+
+        if (ec && ec != boost::asio::error::eof) {
+            std::cerr << "❌ [receiveData] Error from peer " << peer << ": " << ec.message() << "\n";
             return "";
         }
 
         std::istream is(&buf);
         std::string receivedData;
-        std::getline(is, receivedData); // Reads until newline, strips newline
+        std::getline(is, receivedData);
         std::cout << "📥 [DEBUG] Received Data from " << peer << ": "
                   << receivedData.substr(0, 200) << "...\n";
+
         return receivedData;
+
     } catch (const std::exception &e) {
-        std::cerr << "❌ [EXCEPTION] Exception in receiveData: " << e.what() << std::endl;
+        std::cerr << "❌ [EXCEPTION] receiveData: " << e.what() << "\n";
         return "";
     }
 }
@@ -1145,71 +1083,49 @@ void Network::addPeer(const std::string &peer) {
   savePeers(); // ✅ Save immediately
 }
 
-// ✅ Placeholder for handlePeer (implement logic as needed)
-void Network::handlePeer(std::shared_ptr<tcp::socket> socket) {
-    // Precompute peerId
-    std::string peerId;
-    try {
-        peerId = socket->remote_endpoint().address().to_string() + ":" +
-                 std::to_string(socket->remote_endpoint().port());
-    } catch (const std::exception &e) {
-        std::cerr << "⚠️ [handlePeer] Couldn't get peer endpoint: " << e.what() << "\n";
-        return;
-    }
+// Connect to Node
+bool Network::connectToNode(const std::string &ip, int port) {
+    std::string peerKey = ip + ":" + std::to_string(port);
 
-    boost::asio::streambuf buf;
-    const size_t MAX_BUFFER_SIZE = 4 * 1024 * 1024; // 4 MB safety limit
-
-    try {
-        while (isRunning) {
-            boost::system::error_code ec;
-
-            try {
-                std::size_t bytes = boost::asio::read_until(*socket, buf, "\n", ec);
-
-                if (buf.size() > MAX_BUFFER_SIZE) {
-                    std::cerr << "❌ [handlePeer] Buffer overflow from " << peerId
-                              << " (>" << MAX_BUFFER_SIZE << " bytes). Disconnecting.\n";
-                    break;
-                }
-            } catch (const std::exception &e) {
-                std::cerr << "⚠️ [handlePeer] Read exception from " << peerId
-                          << ": " << e.what() << "\n";
-                break;
-            }
-
-            if (ec == boost::asio::error::eof) {
-                std::cout << "🔌 Peer disconnected (EOF): " << peerId << "\n";
-                break;
-            }
-            if (ec) {
-                std::cerr << "⚠️ [handlePeer] Read error from " << peerId
-                          << ": " << ec.message() << "\n";
-                break;
-            }
-
-            // Extract exactly one line
-            std::istream is(&buf);
-            std::string line;
-            std::getline(is, line);
-
-            // Clean trailing carriage return
-            if (!line.empty() && line.back() == '\r') {
-                line.pop_back();
-            }
-
-            handleIncomingData(peerId, line);
-        }
-    } catch (const std::exception &e) {
-        std::cerr << "⚠️ Exception in handlePeer for " << peerId << ": " << e.what() << "\n";
-    }
-
-    // Clean up after exit
     {
         std::lock_guard<std::mutex> lock(peersMutex);
-        peerSockets.erase(peerId);
+        if (peerSockets.find(peerKey) != peerSockets.end()) {
+            std::cout << "🔁 Already connected to peer: " << peerKey << "\n";
+            return false;
+        }
     }
-    std::cout << "🔌 Cleaned up peer socket: " << peerId << "\n";
+
+    try {
+        auto socketPtr = std::make_shared<boost::asio::ip::tcp::socket>(ioContext);
+        boost::asio::ip::tcp::resolver resolver(ioContext);
+        auto endpoints = resolver.resolve(ip, std::to_string(port));
+        boost::asio::connect(*socketPtr, endpoints);
+
+        // ✅ Must send handshake before any message
+        Json::Value handshake;
+        handshake["type"] = "handshake";
+        handshake["port"] = std::to_string(this->port);
+        std::string payload = Json::writeString(Json::StreamWriterBuilder(), handshake);
+        if (!payload.empty() && payload.back() != '\n') payload += "\n";
+
+        boost::asio::write(*socketPtr, boost::asio::buffer(payload));
+
+        {
+            std::lock_guard<std::mutex> lock(peersMutex);
+            peerSockets[peerKey] = socketPtr;
+        }
+
+        std::cout << "✅ Connected to new peer: " << peerKey << "\n";
+
+        // ✅ Start listening to that peer
+        std::thread(&Network::handlePeer, this, socketPtr).detach();
+
+        return true;
+
+    } catch (const std::exception &e) {
+        std::cerr << "❌ Error connecting to node: " << e.what() << "\n";
+        return false;
+    }
 }
 
 //
@@ -1361,20 +1277,32 @@ void Network::sendLatestBlock(const std::string &peerIP) {
     std::cout << "📡 [LIVE BROADCAST] Latest block sent to " << peerIP << " (Dilithium + Falcon signatures included)\n";
 }
 
-// ✅ **Send Full Blockchain to Peer (Binary Storage)**
+// ✅ Always send full chain regardless of length (even genesis-only)
 void Network::sendFullChain(const std::string &peer) {
-    Blockchain &blockchain = Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true);
+    Blockchain &blockchain = Blockchain::getInstance(this->port, DBPaths::getBlockchainDB(), true);
 
-    std::string serialized;
-    if (!blockchain.serializeBlockchain(serialized)) {
-        std::cerr << "❌ [ERROR] Failed to serialize blockchain for sync.\n";
+    // Serialize all blocks
+    const std::vector<Block> &chain = blockchain.getChain();
+    alyncoin::BlockchainProto proto;
+    for (const auto &blk : chain) {
+        try {
+            *proto.add_blocks() = blk.toProtobuf();
+        } catch (const std::exception &e) {
+            std::cerr << "⚠️ [sendFullChain] Skipping block due to serialization error: " << e.what() << "\n";
+        }
+    }
+
+    std::string rawData;
+    if (!proto.SerializeToString(&rawData)) {
+        std::cerr << "❌ [ERROR] Failed to serialize BlockchainProto to string.\n";
         return;
     }
 
-    std::string base64Encoded = Crypto::base64Encode(serialized);
+    std::string base64Encoded = Crypto::base64Encode(rawData);
     std::string message = "BLOCKCHAIN_DATA|" + base64Encoded;
 
-    std::cout << "📡 [SYNC] Sending blockchain (" << base64Encoded.length() << " chars) to " << peer << "\n";
+    std::cout << "📡 [SYNC] Sending blockchain (" << base64Encoded.length()
+              << " chars, Blocks: " << chain.size() << ") to " << peer << "\n";
 
     if (!sendData(peer, message)) {
         std::cerr << "❌ [ERROR] Full chain send failed to peer: " << peer << "\n";

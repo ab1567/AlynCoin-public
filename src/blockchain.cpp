@@ -404,7 +404,37 @@ bool Blockchain::addBlock(const Block &block) {
 
     return true;
 }
+//
+bool Blockchain::forceAddBlock(const Block& block) {
+    // 🚫 No isValidNewBlock call
+    chain.push_back(block);
 
+    // Save to RocksDB
+    if (db) {
+        alyncoin::BlockProto protoBlock = block.toProtobuf();
+        std::string serializedBlock;
+        if (!protoBlock.SerializeToString(&serializedBlock)) {
+            std::cerr << "❌ Failed to serialize block during force add.\n";
+            return false;
+        }
+
+        std::string blockKeyByHeight = "block_height_" + std::to_string(block.getIndex());
+        rocksdb::Status statusHeight = db->Put(rocksdb::WriteOptions(), blockKeyByHeight, serializedBlock);
+        if (!statusHeight.ok()) {
+            std::cerr << "❌ Failed to save block by height during force add: " << statusHeight.ToString() << "\n";
+            return false;
+        }
+
+        std::string blockKeyByHash = "block_" + block.getHash();
+        rocksdb::Status statusHash = db->Put(rocksdb::WriteOptions(), blockKeyByHash, serializedBlock);
+        if (!statusHash.ok()) {
+            std::cerr << "❌ Failed to save block by hash during force add: " << statusHash.ToString() << "\n";
+            return false;
+        }
+    }
+
+    return true;
+}
 
 // ✅ Singleton Instance (network + db)
 Blockchain &Blockchain::getInstance(unsigned short port, const std::string &dbPath, bool bindNetwork, bool isSyncMode) {
@@ -1098,36 +1128,43 @@ bool Blockchain::deserializeBlockchain(const std::string &data) {
         return false;
     }
 
-    std::cerr << "🧪 [DEBUG] Parsed blockchain chain_id = " << protoChain.chain_id() << "\n";
+    std::cout << "🧪 [DEBUG] Parsed blockchain chain_id = " << protoChain.chain_id() << "\n";
 
-    return loadFromProto(protoChain);
+    // Instead of immediately loading, build a temporary receivedChain:
+    std::vector<Block> receivedChain;
+    for (int i = 0; i < protoChain.blocks_size(); ++i) {
+        try {
+            Block blk = Block::fromProto(protoChain.blocks(i));
+            receivedChain.push_back(blk);
+        } catch (const std::exception &e) {
+            std::cerr << "❌ [ERROR] Failed to parse BlockProto at index " << i << ": " << e.what() << "\n";
+            return false;
+        }
+    }
+
+    // 🔥 New: Call fork comparison logic
+    compareAndMergeChains(receivedChain);
+
+    return true;  // Always return true even if fork was weaker (forkView saved)
 }
 
 // ✅ Optional helper for base64 input
 bool Blockchain::deserializeBlockchainBase64(const std::string &base64Str) {
     std::string rawData = Crypto::base64Decode(base64Str);
     if (rawData.empty()) {
-        std::cerr << "[ERROR] Base64 decode returned empty result." << std::endl;
+        std::cerr << "❌ [ERROR] Base64 decode returned empty result.\n";
         return false;
     }
 
-    std::cout << "🧪 [DEBUG] Decoded blockchain data size: " << rawData.size() << " bytes" << std::endl;
+    std::cout << "🧪 [DEBUG] Decoded blockchain data size: " << rawData.size() << " bytes\n";
     std::cout << "🧪 [DEBUG] First 32 bytes (hex): ";
     for (size_t i = 0; i < std::min<size_t>(32, rawData.size()); ++i) {
         printf("%02x", static_cast<unsigned char>(rawData[i]));
     }
     std::cout << std::endl;
 
-    alyncoin::BlockchainProto proto;
-    if (!proto.ParseFromArray(rawData.data(), rawData.size())) {
-        std::cerr << "❌ [ERROR] ParseFromArray failed — trying ParseFromString fallback..." << std::endl;
-        if (!proto.ParseFromString(rawData)) {
-            std::cerr << "❌ [ERROR] Both ParseFromArray and ParseFromString failed!" << std::endl;
-            return false;
-        }
-    }
-
-    return this->loadFromProto(proto);
+    // ✅ Reuse robust logic that compares and merges forks
+    return deserializeBlockchain(rawData);
 }
 
 //
@@ -1874,14 +1911,12 @@ void Blockchain::recalculateBalancesFromChain() {
         const Block& block = chain[i];
         const std::string& blockHash = block.getHash();
 
-        // Prevent duplicate block processing
         if (seenBlocks.count(blockHash)) {
             std::cerr << "⚠️ Duplicate block detected during balance recalculation. Skipping block: " << blockHash << "\n";
             continue;
         }
         seenBlocks.insert(blockHash);
 
-        // Validate chain linkage
         if (i > 0) {
             const std::string expected = chain[i - 1].getHash();
             const std::string received = block.getPreviousHash();
@@ -1892,31 +1927,41 @@ void Blockchain::recalculateBalancesFromChain() {
             }
         }
 
-        // Apply transactions
-        if (!block.getTransactions().empty()) {
-    for (const auto& tx : block.getTransactions()) {
-            std::string sender = tx.getSender();
-            std::string recipient = tx.getRecipient();
-            double amount = tx.getAmount();
+        const auto& txs = block.getTransactions();
+        bool hasSystemTx = false;
 
-            if (sender != "System") {
-                balances[sender] -= amount;
-            } else {
-                totalSupply += amount;
+        if (!txs.empty()) {
+            for (const auto& tx : txs) {
+                std::string sender = tx.getSender();
+                std::string recipient = tx.getRecipient();
+                double amount = tx.getAmount();
+
+                if (sender != "System") {
+                    balances[sender] -= amount;
+                } else {
+                    hasSystemTx = true;
+                    totalSupply += amount;
+                }
+
+                balances[recipient] += amount;
+
+                if (tx.getMetadata() == "burn") {
+                    totalBurnedSupply += amount;
+                }
             }
+        }
 
-            balances[recipient] += amount;
-
-            if (tx.getMetadata() == "burn") {
-                totalBurnedSupply += amount;
-            }
+        // ✅ Add block reward manually if it’s not already in a "System" tx
+        if (!hasSystemTx && block.getMinerAddress() != "System") {
+            double reward = calculateBlockReward();
+            balances[block.getMinerAddress()] += reward;
+            totalSupply += reward;
         }
     }
 
     std::cout << "✅ [DEBUG] Balances recalculated from chain. Unique blocks: "
               << seenBlocks.size() << ", Total Supply: " << totalSupply
               << ", Total Burned: " << totalBurnedSupply << "\n";
-	}
 }
 
 // getCurrentState
@@ -2120,3 +2165,173 @@ bool Blockchain::rollbackToIndex(int index) {
 }
 
 
+// ✅ Verify that the incoming chain is logically sound
+bool Blockchain::verifyForkSafety(const std::vector<Block>& otherChain) const {
+    if (otherChain.empty()) return false;
+
+    if (otherChain.front().getIndex() != 0 ||
+        otherChain.front().getPreviousHash() != "00000000000000000000000000000000") {
+        std::cerr << "❌ [Fork] Invalid genesis block in incoming chain!\n";
+        return false;
+    }
+
+    for (size_t i = 1; i < otherChain.size(); ++i) {
+        if (otherChain[i].getPreviousHash() != otherChain[i-1].getHash()) {
+            std::cerr << "❌ [Fork] Chain continuity error at index " << i << "\n";
+            return false;
+        }
+    }
+
+    return true;
+}
+
+// ✅ Find common ancestor index
+int Blockchain::findForkCommonAncestor(const std::vector<Block>& otherChain) const {
+    int minLength = std::min(chain.size(), otherChain.size());
+    int commonIndex = -1;
+
+    for (int i = 0; i < minLength; ++i) {
+        if (chain[i].getHash() == otherChain[i].getHash()) {
+            commonIndex = i;
+        } else {
+            break;
+        }
+    }
+
+    return commonIndex;
+}
+
+// ✅ Compute total cumulative difficulty of a chain
+uint64_t Blockchain::computeCumulativeDifficulty(const std::vector<Block>& chainRef) const {
+    uint64_t total = 0;
+    for (const Block& blk : chainRef) {
+        if (blk.difficulty >= 0 && blk.difficulty < 64)
+            total += (1ULL << blk.difficulty);
+        else
+            total += 1;
+    }
+    return total;
+}
+
+// ✅ Compare incoming chain and merge if better
+void Blockchain::compareAndMergeChains(const std::vector<Block>& otherChain) {
+    if (!verifyForkSafety(otherChain)) {
+        std::cerr << "❌ [Fork] Incoming chain failed safety checks.\n";
+        return;
+    }
+
+    if (chain.empty() || otherChain.empty()) {
+        std::cerr << "❌ [Fork] One of the chains is empty.\n";
+        return;
+    }
+
+    if (chain[0].getHash() != otherChain[0].getHash()) {
+        std::cerr << "❌ [Fork] Genesis mismatch. Rejecting fork.\n";
+        return;
+    }
+
+    uint64_t localDifficulty = computeCumulativeDifficulty(chain);
+    uint64_t incomingDifficulty = computeCumulativeDifficulty(otherChain);
+
+    std::cout << "🔍 [Fork] Local cumulative difficulty:   " << localDifficulty << "\n";
+    std::cout << "🔍 [Fork] Incoming cumulative difficulty: " << incomingDifficulty << "\n";
+
+    if (incomingDifficulty < localDifficulty) {
+        std::cout << "⚠️ [Fork] Incoming chain weaker. Saving fork view.\n";
+        saveForkView(otherChain);
+        return;
+    }
+
+    if (incomingDifficulty == localDifficulty) {
+        std::cout << "⚠️ [Fork] Equal difficulty. Skipping merge.\n";
+        return;
+    }
+
+    std::cout << "✅ [Fork] Incoming chain is stronger! Attempting merge...\n";
+
+    int commonIndex = findForkCommonAncestor(otherChain);
+
+    if (commonIndex == -1) {
+        std::cerr << "⚠️ [Fork] No common ancestor found beyond genesis.\n";
+        std::cerr << "⚠️ [Fork] Genesis matches. Replacing entire chain with stronger fork...\n";
+
+        chain = otherChain;
+        saveToDB();
+        recalculateBalancesFromChain();
+
+        std::cout << "✅ [Fork] Chain forcibly replaced due to genesis match and higher difficulty.\n";
+        return;
+    }
+
+    std::cout << "🔗 [Fork] Common ancestor found at index: " << commonIndex << "\n";
+
+    rollbackToIndex(commonIndex);
+
+    for (size_t i = commonIndex + 1; i < otherChain.size(); ++i) {
+        if (!addBlock(otherChain[i])) {
+            std::cerr << "❌ [Fork] Failed to add block during fork merge at index " << i << "\n";
+            return;
+        }
+    }
+
+    std::cout << "✅ [Fork] Chain successfully replaced with stronger fork.\n";
+}
+
+
+// ✅ Save forked chain for later inspection
+void Blockchain::saveForkView(const std::vector<Block>& forkChain) {
+    std::ofstream out("fork_view.json");
+    if (!out.is_open()) {
+        std::cerr << "❌ [Fork] Failed to open fork_view.json for writing.\n";
+        return;
+    }
+
+    Json::Value forkJson;
+    forkJson["fork_chain"] = Json::arrayValue;
+    for (const auto& block : forkChain) {
+        forkJson["fork_chain"].append(block.toJSON());
+    }
+
+    Json::StreamWriterBuilder writer;
+    std::string serialized = Json::writeString(writer, forkJson);
+    out << serialized;
+    out.close();
+
+    std::cout << "💾 [Fork] Fork chain saved to fork_view.json\n";
+}
+
+//
+bool Blockchain::deserializeBlockchainForkView(const std::string& rawData, std::vector<Block>& forkOut) const {
+    alyncoin::BlockchainProto protoChain;
+
+    if (!protoChain.ParseFromArray(rawData.data(), static_cast<int>(rawData.size()))) {
+        std::cerr << "❌ [ERROR] Failed to parse fork Protobuf in deserializeBlockchainForkView.\n";
+        return false;
+    }
+
+    forkOut.clear();
+    int totalBlocks = protoChain.blocks_size();
+    std::cout << "📥 [SYNC] Parsing fork chain from peer... Block count: " << totalBlocks << "\n";
+
+    int parsed = 0;
+    for (int i = 0; i < totalBlocks; ++i) {
+        try {
+            const alyncoin::BlockProto& blockProto = protoChain.blocks(i);
+            Block blk = Block::fromProto(blockProto, /*allowPartial=*/true); // 🔧 FIXED
+            forkOut.push_back(blk);
+            std::cout << "✅ Parsed block at index " << blk.getIndex() << " (Hash: " << blk.getHash() << ")\n";
+            parsed++;
+        } catch (const std::exception& e) {
+            std::cerr << "⚠️ [WARN] Skipping block at proto index " << i << ": " << e.what() << "\n";
+            continue;
+        }
+    }
+
+    if (parsed == 0) {
+        std::cerr << "❌ [SYNC] No valid blocks could be parsed from fork chain.\n";
+        return false;
+    }
+
+    std::cout << "🔍 [SYNC] Fork parsing complete. Parsed " << parsed << " / " << totalBlocks << " blocks.\n";
+    return true;
+}
