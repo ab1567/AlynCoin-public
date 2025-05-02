@@ -80,6 +80,7 @@ private:
     bool isActive;
   };
   VotingSession votingSession;
+  std::vector<Block> pendingForkChain;
 
   // --- Private Helper Functions ---
   void checkDevFundActivity();
@@ -95,6 +96,7 @@ public:
                                  bool bindNetwork = true,
                                  bool isSyncMode = false);
   static Blockchain &getInstanceNoNetwork();
+  static Blockchain& getActiveInstance();
   static Blockchain &getInstanceNoDB();
   ~Blockchain();
 
@@ -201,6 +203,9 @@ public:
 bool verifyForkSafety(const std::vector<Block>& otherChain) const;
 int findForkCommonAncestor(const std::vector<Block>& otherChain) const;
 uint64_t computeCumulativeDifficulty(const std::vector<Block>& chainRef) const;
+void setPendingForkChain(const std::vector<Block>& fork);
+const std::vector<Block>& getPendingForkChain() const;
+void clearPendingForkChain();
 void compareAndMergeChains(const std::vector<Block>& otherChain);
 void saveForkView(const std::vector<Block>& forkChain);
 bool deserializeBlockchainForkView(const std::string& rawData, std::vector<Block>& forkOut) const;

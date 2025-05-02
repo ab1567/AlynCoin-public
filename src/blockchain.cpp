@@ -452,6 +452,10 @@ Blockchain& Blockchain::getInstanceNoDB() {
     static Blockchain instance(0, "", false);
     return instance;
 }
+//
+Blockchain& Blockchain::getActiveInstance() {
+    return getInstance(DEFAULT_PORT, DBPaths::getBlockchainDB(), true, false);
+}
 
 //
 const std::vector<Block> &Blockchain::getChain() const { return chain; }
@@ -942,17 +946,13 @@ bool Blockchain::loadFromDB() {
         }
 
         std::cerr << "🪐 Creating Genesis Block...\n";
-        // createGenesisBlock() will itself call addBlock() exactly once:
-        createGenesisBlock(/*force=*/true);
-
+        createGenesisBlock(true);
         std::cout << "⏳ Applying vesting schedule for early supporters...\n";
         applyVestingSchedule();
         db->Put(rocksdb::WriteOptions(), "vesting_initialized", "true");
         std::cout << "✅ Vesting applied & marker set.\n";
-
         return true;
     }
-
 
     alyncoin::BlockchainProto blockchainProto;
     if (!blockchainProto.ParseFromArray(serializedBlockchain.data(), static_cast<int>(serializedBlockchain.size()))) {
@@ -960,29 +960,38 @@ bool Blockchain::loadFromDB() {
         return false;
     }
 
-    chain.clear();
+    std::vector<Block> loadedBlocks;
     std::unordered_set<std::string> seenHashes;
-
-    for (const auto &blockProto : blockchainProto.blocks()) {
+    for (const auto& blockProto : blockchainProto.blocks()) {
         try {
-            Block blk = Block::fromProto(blockProto, true); // allowPartial=true for DB loading
-            if (seenHashes.insert(blk.getHash()).second) {
-                chain.push_back(blk);
-            } else {
-                std::cerr << "⚠️ [loadFromDB] Duplicate block skipped. Hash: " << blk.getHash() << "\n";
-            }
-        } catch (const std::exception &e) {
+            Block blk = Block::fromProto(blockProto, true);
+            if (seenHashes.insert(blk.getHash()).second)
+                loadedBlocks.push_back(blk);
+        } catch (const std::exception& e) {
             std::cerr << "⚠️ [loadFromDB] Skipping corrupt block: " << e.what() << "\n";
         }
     }
 
+    std::cout << "🔁 [loadFromDB] Loaded " << loadedBlocks.size() << " blocks from DB.\n";
+
+    const auto& pendingFork = getPendingForkChain();
+    if (!pendingFork.empty()) {
+        std::cout << "🔎 [Fork] Comparing chains (merge during load)...\n";
+        chain = loadedBlocks;
+        compareAndMergeChains(pendingFork);
+        clearPendingForkChain();
+    } else {
+        chain = loadedBlocks;
+    }
+
     std::string burnedSupplyStr;
-    status = db->Get(rocksdb::ReadOptions(), "burned_supply", &burnedSupplyStr);
-    totalBurnedSupply = status.ok() ? std::stod(burnedSupplyStr) : 0.0;
+    if (db->Get(rocksdb::ReadOptions(), "burned_supply", &burnedSupplyStr).ok())
+        totalBurnedSupply = std::stod(burnedSupplyStr);
+    else
+        totalBurnedSupply = 0.0;
 
     std::string vestingFlag;
-    status = db->Get(rocksdb::ReadOptions(), "vesting_initialized", &vestingFlag);
-    if (status.ok() && vestingFlag == "true") {
+    if (db->Get(rocksdb::ReadOptions(), "vesting_initialized", &vestingFlag).ok() && vestingFlag == "true") {
         std::cout << "⏩ Vesting already initialized. Skipping...\n";
     } else {
         std::cout << "⏳ Applying vesting schedule for early supporters...\n";
@@ -2215,13 +2224,24 @@ uint64_t Blockchain::computeCumulativeDifficulty(const std::vector<Block>& chain
 
 // ✅ Compare incoming chain and merge if better
 void Blockchain::compareAndMergeChains(const std::vector<Block>& otherChain) {
+    std::cout << "🔎 [Fork] Comparing chains: local=" << chain.size()
+              << " blocks, incoming=" << otherChain.size() << " blocks\n";
+
+    if (otherChain.empty()) {
+        std::cerr << "❌ [Fork] Incoming chain is empty.\n";
+        return;
+    }
+
     if (!verifyForkSafety(otherChain)) {
         std::cerr << "❌ [Fork] Incoming chain failed safety checks.\n";
         return;
     }
 
-    if (chain.empty() || otherChain.empty()) {
-        std::cerr << "❌ [Fork] One of the chains is empty.\n";
+    if (chain.empty()) {
+        std::cout << "🆕 [Fork] Local chain is empty. Accepting full chain.\n";
+        chain = otherChain;
+        saveToDB();
+        recalculateBalancesFromChain();
         return;
     }
 
@@ -2230,51 +2250,42 @@ void Blockchain::compareAndMergeChains(const std::vector<Block>& otherChain) {
         return;
     }
 
-    uint64_t localDifficulty = computeCumulativeDifficulty(chain);
-    uint64_t incomingDifficulty = computeCumulativeDifficulty(otherChain);
+    uint64_t localDiff = computeCumulativeDifficulty(chain);
+    uint64_t remoteDiff = computeCumulativeDifficulty(otherChain);
 
-    std::cout << "🔍 [Fork] Local cumulative difficulty:   " << localDifficulty << "\n";
-    std::cout << "🔍 [Fork] Incoming cumulative difficulty: " << incomingDifficulty << "\n";
+    std::cout << "🔍 [Fork] Local difficulty:   " << localDiff << "\n";
+    std::cout << "🔍 [Fork] Incoming difficulty: " << remoteDiff << "\n";
 
-    if (incomingDifficulty < localDifficulty) {
-        std::cout << "⚠️ [Fork] Incoming chain weaker. Saving fork view.\n";
-        saveForkView(otherChain);
+    if (remoteDiff <= localDiff) {
+        std::cout << "⚠️ [Fork] Incoming chain is not stronger. Skipping merge.\n";
         return;
     }
 
-    if (incomingDifficulty == localDifficulty) {
-        std::cout << "⚠️ [Fork] Equal difficulty. Skipping merge.\n";
-        return;
-    }
-
-    std::cout << "✅ [Fork] Incoming chain is stronger! Attempting merge...\n";
+    std::cout << "✅ [Fork] Stronger chain received. Merging...\n";
 
     int commonIndex = findForkCommonAncestor(otherChain);
-
     if (commonIndex == -1) {
-        std::cerr << "⚠️ [Fork] No common ancestor found beyond genesis.\n";
-        std::cerr << "⚠️ [Fork] Genesis matches. Replacing entire chain with stronger fork...\n";
-
+        std::cerr << "⚠️ [Fork] No common ancestor found. Replacing entire chain.\n";
         chain = otherChain;
         saveToDB();
         recalculateBalancesFromChain();
-
-        std::cout << "✅ [Fork] Chain forcibly replaced due to genesis match and higher difficulty.\n";
         return;
     }
 
-    std::cout << "🔗 [Fork] Common ancestor found at index: " << commonIndex << "\n";
-
-    rollbackToIndex(commonIndex);
+    std::cout << "🔗 [Fork] Common ancestor at index: " << commonIndex << "\n";
+    if (!rollbackToIndex(commonIndex)) {
+        std::cerr << "❌ [Fork] Rollback failed. Merge aborted.\n";
+        return;
+    }
 
     for (size_t i = commonIndex + 1; i < otherChain.size(); ++i) {
         if (!addBlock(otherChain[i])) {
-            std::cerr << "❌ [Fork] Failed to add block during fork merge at index " << i << "\n";
+            std::cerr << "❌ [Fork] Failed to add block at index " << i << "\n";
             return;
         }
     }
 
-    std::cout << "✅ [Fork] Chain successfully replaced with stronger fork.\n";
+    std::cout << "✅ [Fork] Merge complete. Chain replaced with stronger fork.\n";
 }
 
 
@@ -2334,4 +2345,16 @@ bool Blockchain::deserializeBlockchainForkView(const std::string& rawData, std::
 
     std::cout << "🔍 [SYNC] Fork parsing complete. Parsed " << parsed << " / " << totalBlocks << " blocks.\n";
     return true;
+}
+//
+void Blockchain::setPendingForkChain(const std::vector<Block>& fork) {
+    pendingForkChain = fork;
+}
+
+void Blockchain::clearPendingForkChain() {
+    pendingForkChain.clear();
+}
+
+const std::vector<Block>& Blockchain::getPendingForkChain() const {
+    return pendingForkChain;
 }
