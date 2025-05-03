@@ -169,7 +169,7 @@ void Network::autoMineBlock() {
 
 //
 void Network::broadcastMessage(const std::string &message) {
-  std::lock_guard<std::mutex> lock(peersMutex); // Thread safety
+  std::lock_guard<std::timed_mutex> lock(peersMutex);
   for (const auto &peer : peerSockets) {
     sendMessageToPeer(peer.first, message);
   }
@@ -298,7 +298,7 @@ void Network::connectToPeer(const std::string &ip, short port) {
     std::string peerKey = ip + ":" + std::to_string(port);
 
     {
-        std::lock_guard<std::mutex> lock(peersMutex);
+        std::lock_guard<std::timed_mutex> lock(peersMutex);
         if (peerSockets.find(peerKey) != peerSockets.end()) {
             std::cout << "🔁 Already connected to peer: " << peerKey << "\n";
             return;
@@ -313,7 +313,7 @@ void Network::connectToPeer(const std::string &ip, short port) {
         boost::asio::connect(*socket, endpoints);
 
         {
-            std::lock_guard<std::mutex> lock(peersMutex);
+            std::lock_guard<std::timed_mutex> lock(peersMutex);
             peerSockets[peerKey] = socket;
         }
 
@@ -327,7 +327,7 @@ void Network::connectToPeer(const std::string &ip, short port) {
 
 // ✅ **Broadcast peer list to all connected nodes**
 void Network::broadcastPeerList() {
-    std::lock_guard<std::mutex> lock(peersMutex);
+    std::lock_guard<std::timed_mutex> lock(peersMutex);
     if (peerSockets.empty()) return;
 
     Json::Value peerListJson;
@@ -445,13 +445,12 @@ void Network::handlePeer(std::shared_ptr<tcp::socket> socket) {
             peerId = senderIP + ":" + senderPort;
 
         } else {
-            // Fallback: treat it as a message, but register socket first
             std::string senderIP = socket->remote_endpoint().address().to_string();
             int randomPort = socket->remote_endpoint().port();
             peerId = senderIP + ":" + std::to_string(randomPort);
 
             {
-                std::lock_guard<std::mutex> lock(peersMutex);
+                std::lock_guard<std::timed_mutex> lock(peersMutex);
                 peerSockets[peerId] = socket;
                 if (peerManager) peerManager->connectToPeer(peerId);
             }
@@ -459,8 +458,6 @@ void Network::handlePeer(std::shared_ptr<tcp::socket> socket) {
             std::cerr << "⚠️ [handlePeer] No handshake, treating first line as regular message: "
                       << handshakeLine << "\n";
             handleIncomingData(peerId, handshakeLine);
-
-            // Still fall through to keep connection open
         }
 
     } catch (const std::exception &e) {
@@ -469,12 +466,24 @@ void Network::handlePeer(std::shared_ptr<tcp::socket> socket) {
     }
 
     {
-        std::lock_guard<std::mutex> lock(peersMutex);
+        std::lock_guard<std::timed_mutex> lock(peersMutex);
         peerSockets[peerId] = socket;
         if (peerManager) peerManager->connectToPeer(peerId);
         std::cout << "✅ [handlePeer] Incoming peer registered: " << peerId << "\n";
 
-        // 🚀 Trigger reverse sync request to peer
+        // ✅ Reverse connect if this peer hasn't already been connected from our side
+        size_t colonPos = peerId.find(':');
+        if (colonPos != std::string::npos) {
+            std::string ip = peerId.substr(0, colonPos);
+            int port = std::stoi(peerId.substr(colonPos + 1));
+
+            std::string selfIP = "127.0.0.1:" + std::to_string(this->port);
+            if (peerId != selfIP) {
+                std::cout << "🔁 [ReverseConnect] Connecting back to " << ip << ":" << port << "\n";
+                connectToPeer(ip, port);
+            }
+        }
+
         std::cout << "📡 [SYNC] Sending REQUEST_BLOCKCHAIN to " << peerId << "\n";
         sendData(peerId, "REQUEST_BLOCKCHAIN");
     }
@@ -513,7 +522,7 @@ void Network::handlePeer(std::shared_ptr<tcp::socket> socket) {
     }
 
     {
-        std::lock_guard<std::mutex> lock(peersMutex);
+        std::lock_guard<std::timed_mutex> lock(peersMutex);
         peerSockets.erase(peerId);
     }
     std::cout << "🔌 Cleaned up peer socket: " << peerId << "\n";
@@ -605,7 +614,7 @@ void Network::periodicSync() {
     while (isRunning) {
         std::this_thread::sleep_for(std::chrono::seconds(10));
 
-        std::lock_guard<std::mutex> lock(peersMutex);
+        std::lock_guard<std::timed_mutex> lock(peersMutex);
         if (peerSockets.empty()) {
             std::cerr << "⚠️ [Periodic Sync] No peers available, skipping.\n";
             continue;
@@ -684,7 +693,8 @@ void Network::handleIncomingData(const std::string& senderIP, std::string data) 
 
         std::cout << "🔍 [SYNC] Received fork of " << forkChain.size() << " blocks.\n";
         blockchain.setPendingForkChain(forkChain);
-        blockchain.loadFromDB();  // Triggers compareAndMergeChains
+        blockchain.compareAndMergeChains(forkChain);  // Merge fork immediately
+        blockchain.clearPendingForkChain();
         return;
     }
 
@@ -752,30 +762,43 @@ void Network::handleIncomingData(const std::string& senderIP, std::string data) 
 
 
 // ✅ **Broadcast a mined block to all peers*
-void Network::broadcastBlock(const Block &block) {
+void Network::broadcastBlock(const Block &block, bool force) {
     alyncoin::BlockProto blockProto = block.toProtobuf();
     std::string serializedBlock;
     blockProto.SerializeToString(&serializedBlock);
     std::string base64Block = Crypto::base64Encode(serializedBlock);
-    std::string message = "BLOCK_DATA|" + base64Block;
+    std::string message = "BLOCK_DATA|" + base64Block + "\n";
 
-    std::lock_guard<std::mutex> lock(peersMutex);
-    for (auto it = peerSockets.begin(); it != peerSockets.end(); ) {
-        auto &peer = it->first;
-        auto &socket = it->second;
+    std::unordered_map<std::string, std::shared_ptr<boost::asio::ip::tcp::socket>> peersCopy;
 
-        if (socket && socket->is_open()) {
-            try {
-                boost::asio::write(*socket, boost::asio::buffer(message + "\n"));
-                std::cout << "📡 [LIVE BROADCAST] Block sent to: " << peer << "\n";
-                ++it;
-            } catch (const std::exception &e) {
-                std::cerr << "❌ Failed to send block to " << peer << ": " << e.what() << "\n";
-                it = peerSockets.erase(it);  // 🧹 Clean dead peer
-            }
-        } else {
-            std::cerr << "⚠️ Skipping closed peer: " << peer << "\n";
-            it = peerSockets.erase(it);  // 🧹 Clean dead peer
+    for (int attempts = 0; attempts < 3; ++attempts) {
+        std::cerr << "[DEBUG] Attempting to acquire peersMutex in broadcastBlock() [Attempt "
+                  << (attempts + 1) << "]\n";
+
+        std::unique_lock<std::timed_mutex> lock(peersMutex, std::defer_lock);
+        if (lock.try_lock_for(std::chrono::milliseconds(300))) {
+            std::cerr << "[DEBUG] Acquired peersMutex in broadcastBlock()\n";
+            peersCopy = peerSockets;
+            break;
+        } else if (attempts == 2) {
+            std::cerr << "❌ [broadcastBlock] Failed to acquire peer lock after 3 attempts. Skipping broadcast.\n";
+            return;
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+
+    for (auto &[peer, socket] : peersCopy) {
+        if (!socket || !socket->is_open()) {
+            std::cerr << "⚠️ [broadcastBlock] Skipping closed or null socket: " << peer << "\n";
+            continue;
+        }
+
+        try {
+            boost::asio::write(*socket, boost::asio::buffer(message));
+            std::cout << "📡 [broadcastBlock] Block sent to " << peer << "\n";
+        } catch (const std::exception &e) {
+            std::cerr << "❌ [broadcastBlock] Failed to send to " << peer << ": " << e.what() << "\n";
         }
     }
 }
@@ -936,7 +959,7 @@ bool Network::sendData(const std::string &peer, const std::string &data) {
     } catch (const std::exception &e) {
         std::cerr << "❌ [ERROR] Failed to send data to " << peer << ": " << e.what() << "\n";
         {
-            std::lock_guard<std::mutex> lock(peersMutex);
+            std::lock_guard<std::timed_mutex> lock(peersMutex);
             peerSockets.erase(peer);
             std::cerr << "🧹 [INFO] Removed dead peer: " << peer << "\n";
         }
@@ -1058,7 +1081,7 @@ bool Network::connectToNode(const std::string &ip, int port) {
     std::string peerKey = ip + ":" + std::to_string(port);
 
     {
-        std::lock_guard<std::mutex> lock(peersMutex);
+        std::lock_guard<std::timed_mutex> lock(peersMutex);
         if (peerSockets.find(peerKey) != peerSockets.end()) {
             std::cout << "🔁 Already connected to peer: " << peerKey << "\n";
             return false;
@@ -1081,7 +1104,7 @@ bool Network::connectToNode(const std::string &ip, int port) {
         boost::asio::write(*socketPtr, boost::asio::buffer(payload));
 
         {
-            std::lock_guard<std::mutex> lock(peersMutex);
+            std::lock_guard<std::timed_mutex> lock(peersMutex);
             peerSockets[peerKey] = socketPtr;
         }
 
@@ -1285,9 +1308,8 @@ void Network::sendFullChain(const std::string &peer) {
 
 // cleanup
 void Network::cleanupPeers() {
-  std::lock_guard<std::mutex> lock(
-      peersMutex); // Always lock before iterating peerSockets
-  std::vector<std::string> inactivePeers;
+    std::lock_guard<std::timed_mutex> lock(peersMutex);
+    std::vector<std::string> inactivePeers;
 
   for (const auto &peer : peerSockets) {
     try {

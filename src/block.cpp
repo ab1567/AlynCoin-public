@@ -580,7 +580,7 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
     auto safeFromHex = [&](const std::string& hex, const std::string& label) -> std::vector<unsigned char> {
         if (hex.empty()) return {};
         if (hex.size() % 2 != 0) {
-            std::cerr << "⚠️ [safeFromHex] " << label << " odd length: " << hex.size() << "\n";
+            std::cerr << "⚠️ [safeFromHex] " << label << " has odd length: " << hex.size() << "\n";
             return {};
         }
         try {
@@ -592,22 +592,21 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
     };
 
     try {
-        newBlock.index = protoBlock.index();
-        newBlock.previousHash = safeStr(protoBlock.previous_hash(), "previous_hash");
-        newBlock.hash = safeStr(protoBlock.hash(), "hash");
-        newBlock.minerAddress = safeStr(protoBlock.miner_address(), "miner_address");
-        newBlock.nonce = protoBlock.nonce();
-        newBlock.timestamp = protoBlock.timestamp();
-        newBlock.difficulty = protoBlock.difficulty();
-        newBlock.blockSignature = safeStr(protoBlock.block_signature(), "block_signature");
-        newBlock.keccakHash = safeStr(protoBlock.keccak_hash(), "keccak_hash");
-        newBlock.reward = protoBlock.has_reward() ? protoBlock.reward() : 0.0;
+        newBlock.index         = protoBlock.index();
+        newBlock.previousHash  = safeStr(protoBlock.previous_hash(), "previous_hash");
+        newBlock.hash          = safeStr(protoBlock.hash(), "hash");
+        newBlock.minerAddress  = safeStr(protoBlock.miner_address(), "miner_address");
+        newBlock.nonce         = protoBlock.nonce();
+        newBlock.timestamp     = protoBlock.timestamp();
+        newBlock.difficulty    = protoBlock.difficulty();
+        newBlock.blockSignature= safeStr(protoBlock.block_signature(), "block_signature");
+        newBlock.keccakHash    = safeStr(protoBlock.keccak_hash(), "keccak_hash");
+        newBlock.reward        = protoBlock.has_reward() ? protoBlock.reward() : 0.0;
         newBlock.transactionsHash = safeStr(protoBlock.tx_merkle_root(), "tx_merkle_root");
 
         if (!protoBlock.zk_stark_proof().empty()) {
             auto proof = safeFromHex(protoBlock.zk_stark_proof(), "zk_stark_proof");
-            if (!proof.empty())
-                newBlock.zkProof = proof;
+            if (!proof.empty()) newBlock.zkProof = proof;
         }
 
         if (!protoBlock.dilithium_signature().empty())
@@ -618,14 +617,12 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
 
         if (!protoBlock.public_key_dilithium().empty()) {
             auto pubDil = safeFromHex(protoBlock.public_key_dilithium(), "public_key_dilithium");
-            if (!pubDil.empty())
-                newBlock.publicKeyDilithium = std::string(pubDil.begin(), pubDil.end());
+            if (!pubDil.empty()) newBlock.publicKeyDilithium.assign(pubDil.begin(), pubDil.end());
         }
 
         if (!protoBlock.public_key_falcon().empty()) {
             auto pubFal = safeFromHex(protoBlock.public_key_falcon(), "public_key_falcon");
-            if (!pubFal.empty())
-                newBlock.publicKeyFalcon = std::string(pubFal.begin(), pubFal.end());
+            if (!pubFal.empty()) newBlock.publicKeyFalcon.assign(pubFal.begin(), pubFal.end());
         }
 
     } catch (const std::exception& ex) {
@@ -635,46 +632,27 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
 
     for (const auto& protoTx : protoBlock.transactions()) {
         try {
-            Transaction tx;
-            try {
-                tx = Transaction::fromProto(protoTx);
-            } catch (const std::exception& ex) {
-                std::cerr << "⚠️ [fromProto] Skipping transaction parsing error: " << ex.what() << "\n";
-                continue;
-            } catch (...) {
-                std::cerr << "⚠️ [fromProto] Skipping unknown transaction parsing error.\n";
-                continue;
-            }
-
+            Transaction tx = Transaction::fromProto(protoTx);
             if (tx.getSender().empty() ||
                 tx.getRecipient().empty() ||
                 tx.getAmount() <= 0.0 ||
                 tx.getSignatureDilithium().empty() ||
                 tx.getSignatureFalcon().empty() ||
                 tx.getZkProof().empty()) {
-                std::cerr << "⚠️ [fromProto] Skipping invalid transaction (missing sender/recipient/amount/signature/zkProof)\n";
+                std::cerr << "⚠️ [fromProto] Skipping incomplete transaction\n";
                 continue;
             }
-
             newBlock.transactions.push_back(std::move(tx));
-
         } catch (const std::exception& ex) {
-            std::cerr << "⚠️ [fromProto] Exception in transaction parsing: " << ex.what() << "\n";
+            std::cerr << "⚠️ [fromProto] Skipping tx: " << ex.what() << "\n";
             if (!allowPartial) throw;
-            continue;
-        } catch (...) {
-            std::cerr << "⚠️ [fromProto] Unknown error in transaction parsing.\n";
-            if (!allowPartial) throw;
-            continue;
         }
     }
 
     if (newBlock.transactions.empty()) {
-        if (!allowPartial) {
-            std::cerr << "⚠️ [fromProto] No transactions found, but block-level fields valid. Proceeding (empty block).\n";
-        } else {
-            std::cerr << "⚠️ [fromProto] No valid transactions found. (AllowPartial = true)\n";
-        }
+        std::cerr << allowPartial
+                  ? "⚠️ [fromProto] No valid transactions found. (AllowPartial = true)\n"
+                  : "⚠️ [fromProto] No transactions found, but proceeding (AllowPartial = false)\n";
     }
 
     return newBlock;

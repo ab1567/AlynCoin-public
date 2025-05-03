@@ -682,6 +682,12 @@ Block Blockchain::minePendingTransactions(
     // ✅ Then save everything clean
     saveToDB();
 
+    std::thread([](Block blockCopy) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    Network::getInstance().broadcastBlock(blockCopy);
+	}, newBlock).detach();
+
+
     std::cout << "✅ Block mined and added successfully. Total burned supply: " << totalBurnedSupply << "\n";
     return newBlock;
 }
@@ -936,52 +942,51 @@ bool Blockchain::loadFromDB() {
 
     std::string serializedBlockchain;
     rocksdb::Status status = db->Get(rocksdb::ReadOptions(), "blockchain", &serializedBlockchain);
-    if (!status.ok()) {
-        std::cerr << "⚠️ RocksDB blockchain not found.\n";
 
-        std::string dbPath = DBPaths::getBlockchainDB();
-        if (dbPath.find("db_node_b") != std::string::npos || dbPath.find("temp") != std::string::npos) {
-            std::cerr << "🧪 [INFO] Peer mode detected — skipping local genesis. Waiting for chain sync.\n";
-            return true;
+    std::vector<Block> loadedBlocks;
+    std::unordered_set<std::string> seenHashes;
+
+    if (status.ok()) {
+        alyncoin::BlockchainProto blockchainProto;
+        if (!blockchainProto.ParseFromArray(serializedBlockchain.data(), static_cast<int>(serializedBlockchain.size()))) {
+            std::cerr << "❌ [ERROR] Failed to parse blockchain Protobuf data!\n";
+            return false;
         }
 
+        for (const auto& blockProto : blockchainProto.blocks()) {
+            try {
+                Block blk = Block::fromProto(blockProto, true);
+                if (seenHashes.insert(blk.getHash()).second)
+                    loadedBlocks.push_back(blk);
+            } catch (const std::exception& e) {
+                std::cerr << "⚠️ [loadFromDB] Skipping corrupt block: " << e.what() << "\n";
+            }
+        }
+        std::cout << "🔁 [loadFromDB] Loaded " << loadedBlocks.size() << " blocks from DB.\n";
+    } else {
+        std::cerr << "⚠️ RocksDB blockchain not found.\n";
+    }
+
+    const auto& pendingFork = getPendingForkChain();
+    if (!pendingFork.empty()) {
+        std::cout << "🔎 [Fork] Detected pending fork during loadFromDB(). Merging...\n";
+        chain = loadedBlocks;
+        compareAndMergeChains(pendingFork);
+        clearPendingForkChain();
+    } else if (!loadedBlocks.empty()) {
+        chain = loadedBlocks;
+    } else {
+        std::string dbPath = DBPaths::getBlockchainDB();
+        if (dbPath.find("db_node_b") != std::string::npos || dbPath.find("temp") != std::string::npos) {
+            std::cerr << "🧪 [INFO] Peer mode detected — no genesis. Waiting for sync.\n";
+            return true;
+        }
         std::cerr << "🪐 Creating Genesis Block...\n";
         createGenesisBlock(true);
         std::cout << "⏳ Applying vesting schedule for early supporters...\n";
         applyVestingSchedule();
         db->Put(rocksdb::WriteOptions(), "vesting_initialized", "true");
         std::cout << "✅ Vesting applied & marker set.\n";
-        return true;
-    }
-
-    alyncoin::BlockchainProto blockchainProto;
-    if (!blockchainProto.ParseFromArray(serializedBlockchain.data(), static_cast<int>(serializedBlockchain.size()))) {
-        std::cerr << "❌ [ERROR] Failed to parse blockchain Protobuf data!\n";
-        return false;
-    }
-
-    std::vector<Block> loadedBlocks;
-    std::unordered_set<std::string> seenHashes;
-    for (const auto& blockProto : blockchainProto.blocks()) {
-        try {
-            Block blk = Block::fromProto(blockProto, true);
-            if (seenHashes.insert(blk.getHash()).second)
-                loadedBlocks.push_back(blk);
-        } catch (const std::exception& e) {
-            std::cerr << "⚠️ [loadFromDB] Skipping corrupt block: " << e.what() << "\n";
-        }
-    }
-
-    std::cout << "🔁 [loadFromDB] Loaded " << loadedBlocks.size() << " blocks from DB.\n";
-
-    const auto& pendingFork = getPendingForkChain();
-    if (!pendingFork.empty()) {
-        std::cout << "🔎 [Fork] Comparing chains (merge during load)...\n";
-        chain = loadedBlocks;
-        compareAndMergeChains(pendingFork);
-        clearPendingForkChain();
-    } else {
-        chain = loadedBlocks;
     }
 
     std::string burnedSupplyStr;
@@ -1317,7 +1322,6 @@ std::cout << "[DEBUG] Pending tx count: " << pendingTransactions.size() << std::
 Block Blockchain::mineBlock(const std::string &minerAddress) {
     std::cout << "[DEBUG] Entered mineBlock() for: " << minerAddress << "\n";
 
-    // Load miner keys
     std::string dilithiumKeyPath = "/root/.alyncoin/keys/" + minerAddress + "_dilithium.key";
     std::string falconKeyPath    = "/root/.alyncoin/keys/" + minerAddress + "_falcon.key";
 
@@ -1339,24 +1343,6 @@ Block Blockchain::mineBlock(const std::string &minerAddress) {
     if (newBlock.getHash().empty()) {
         std::cerr << "⚠️ Mining returned an empty block. Possibly no valid transactions.\n";
     }
-
-    // Attach Falcon & Dilithium signatures
-    std::vector<unsigned char> sigMsg = newBlock.getSignatureMessage();
-    std::vector<unsigned char> sigDil = Crypto::signWithDilithium(sigMsg, dilPriv);
-    std::vector<unsigned char> sigFal = Crypto::signWithFalcon(sigMsg, falPriv);
-
-    newBlock.setDilithiumSignature(Crypto::toHex(sigDil));
-    newBlock.setFalconSignature(Crypto::toHex(sigFal));
-
-    // Set public keys as raw bytes converted to string
-    auto dilPubVec = Crypto::loadDilithiumKeys(minerAddress).publicKey;
-    auto falPubVec = Crypto::loadFalconKeys(minerAddress).publicKey;
-    newBlock.setPublicKeyDilithium(std::string(dilPubVec.begin(), dilPubVec.end()));
-    newBlock.setPublicKeyFalcon(std::string(falPubVec.begin(), falPubVec.end()));
-
-    // Set canonical block signature
-    std::string combined = newBlock.getHash() + Crypto::toHex(sigDil) + Crypto::toHex(sigFal);
-    newBlock.setSignature(Crypto::blake3(combined));
 
     std::cout << "[DEBUG] Updating transaction history...\n";
     updateTransactionHistory(newBlock.getTransactions().size());
@@ -2261,11 +2247,11 @@ void Blockchain::compareAndMergeChains(const std::vector<Block>& otherChain) {
         return;
     }
 
-    std::cout << "✅ [Fork] Stronger chain received. Merging...\n";
+    std::cout << "✅ [Fork] Stronger chain received. Attempting merge...\n";
 
     int commonIndex = findForkCommonAncestor(otherChain);
     if (commonIndex == -1) {
-        std::cerr << "⚠️ [Fork] No common ancestor found. Replacing entire chain.\n";
+        std::cerr << "⚠️ [Fork] No common ancestor. Replacing full chain.\n";
         chain = otherChain;
         saveToDB();
         recalculateBalancesFromChain();
@@ -2273,6 +2259,7 @@ void Blockchain::compareAndMergeChains(const std::vector<Block>& otherChain) {
     }
 
     std::cout << "🔗 [Fork] Common ancestor at index: " << commonIndex << "\n";
+
     if (!rollbackToIndex(commonIndex)) {
         std::cerr << "❌ [Fork] Rollback failed. Merge aborted.\n";
         return;
@@ -2287,7 +2274,6 @@ void Blockchain::compareAndMergeChains(const std::vector<Block>& otherChain) {
 
     std::cout << "✅ [Fork] Merge complete. Chain replaced with stronger fork.\n";
 }
-
 
 // ✅ Save forked chain for later inspection
 void Blockchain::saveForkView(const std::vector<Block>& forkChain) {
