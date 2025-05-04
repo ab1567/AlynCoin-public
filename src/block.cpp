@@ -169,6 +169,7 @@ bool Block::mineBlock(int difficulty) {
 
     // === Step 3: zk-STARK Proof ===
     transactionsHash = computeTransactionsHash();   // ✅ fix: compute and store tx root
+    setTransactionsHash(transactionsHash);          // ✅ critical: preserve for serialization
     std::cout << "🧬 Transactions Merkle Root: " << transactionsHash << "\n";
 
     std::string proofStr = WinterfellStark::generateProof(hash, previousHash, transactionsHash);
@@ -394,8 +395,26 @@ std::string Block::getTransactionsHash() const {
         return transactionsHash;
     }
 
-    std::cerr << "❌ [getTransactionsHash] ERROR: Merkle root is missing!\n";
-    return ""; 
+    if (transactions.empty()) {
+        // Genesis or empty block — no need to log this
+        return "";
+    }
+
+    std::stringstream ss;
+    for (const auto& tx : transactions) {
+        if (tx.getSender().empty() ||
+            tx.getRecipient().empty() ||
+            tx.getAmount() <= 0.0 ||
+            tx.getSignatureDilithium().empty() ||
+            tx.getSignatureFalcon().empty() ||
+            tx.getZkProof().empty()) {
+            std::cerr << "⚠️ [getTransactionsHash] Skipping invalid tx from Merkle root computation\n";
+            continue;
+        }
+        ss << tx.getHash();
+    }
+
+    return Crypto::blake3(ss.str());
 }
 
 //
@@ -607,22 +626,20 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
         newBlock.keccakHash     = safeStr(protoBlock.keccak_hash(), "keccak_hash");
         newBlock.reward         = protoBlock.has_reward() ? protoBlock.reward() : 0.0;
 
-        // ✅ New Check: tx_merkle_root must not be missing
-        if (protoBlock.tx_merkle_root().empty()) {
-            std::cerr << "❌ [fromProto] Missing Merkle root in block!\n";
+        // ✅ Preserve canonical tx_merkle_root
+        std::string merkle = protoBlock.tx_merkle_root();
+        if (merkle.empty()) {
             if (!allowPartial)
-                throw std::runtime_error("Missing tx_merkle_root");
+                throw std::runtime_error("[fromProto] tx_merkle_root is missing.");
+            std::cerr << "⚠️ [fromProto] tx_merkle_root is empty.\n";
         }
-
-        // ✅ Preserve peer's canonical Merkle root
-        newBlock.transactionsHash = safeStr(protoBlock.tx_merkle_root(), "tx_merkle_root");
+        newBlock.transactionsHash = merkle;
 
         // zk-STARK proof
         if (!protoBlock.zk_stark_proof().empty()) {
             auto proof = safeFromHex(protoBlock.zk_stark_proof(), "zk_stark_proof");
             if (!proof.empty()) newBlock.zkProof = proof;
-            else if (!allowPartial)
-                throw std::runtime_error("[fromProto] zkProof decode failed.");
+            else if (!allowPartial) throw std::runtime_error("[fromProto] zkProof decode failed.");
         }
 
         if (!protoBlock.dilithium_signature().empty()) {
