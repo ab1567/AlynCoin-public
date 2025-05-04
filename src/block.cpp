@@ -155,7 +155,7 @@ bool Block::mineBlock(int difficulty) {
         }
 
         std::stringstream ss;
-        ss << index << previousHash << computeTransactionsHash() << timestamp << nonce;
+        ss << index << previousHash << getTransactionsHash() << timestamp << nonce;
         hash = Crypto::hybridHash(ss.str());
     } while (hash.substr(0, difficulty) != std::string(difficulty, '0'));
 
@@ -168,11 +168,10 @@ bool Block::mineBlock(int difficulty) {
     std::cout << "✅ Keccak Hash: " << keccakHash << "\n";
 
     // === Step 3: zk-STARK Proof ===
-    transactionsHash = computeTransactionsHash();   // ✅ fix: compute and store tx root
-    setTransactionsHash(transactionsHash);          // ✅ critical: preserve for serialization
-    std::cout << "🧬 Transactions Merkle Root: " << transactionsHash << "\n";
+    std::string txRoot = getTransactionsHash();   // ✅ now guaranteed to be cached + valid
+    std::cout << "🧬 Transactions Merkle Root: " << txRoot << "\n";
 
-    std::string proofStr = WinterfellStark::generateProof(hash, previousHash, transactionsHash);
+    std::string proofStr = WinterfellStark::generateProof(hash, previousHash, txRoot);
     zkProof = std::vector<uint8_t>(proofStr.begin(), proofStr.end());
     if (zkProof.size() < 64) {
         std::cerr << "❌ [mineBlock] zk-STARK proof too small (" << zkProof.size() << " bytes)\n";
@@ -396,11 +395,13 @@ std::string Block::getTransactionsHash() const {
     }
 
     if (transactions.empty()) {
-        // Genesis or empty block — no need to log this
-        return "";
+        std::cerr << "⚠️ [getTransactionsHash] No transactions. Returning zero Merkle root.\n";
+        transactionsHash = std::string(64, '0');
+        return transactionsHash;
     }
 
     std::stringstream ss;
+    bool anyValid = false;
     for (const auto& tx : transactions) {
         if (tx.getSender().empty() ||
             tx.getRecipient().empty() ||
@@ -412,9 +413,17 @@ std::string Block::getTransactionsHash() const {
             continue;
         }
         ss << tx.getHash();
+        anyValid = true;
     }
 
-    return Crypto::blake3(ss.str());
+    if (!anyValid) {
+        std::cerr << "⚠️ [getTransactionsHash] No valid txs found. Returning zero Merkle root.\n";
+        transactionsHash = std::string(64, '0');
+        return transactionsHash;
+    }
+
+    transactionsHash = Crypto::blake3(ss.str());
+    return transactionsHash;
 }
 
 //
@@ -535,7 +544,11 @@ alyncoin::BlockProto Block::toProtobuf() const {
     proto.set_block_signature(blkSig);
     proto.set_keccak_hash(keccakHash);
 
-    proto.set_tx_merkle_root(getTransactionsHash());
+    // ✅ Always emit canonical Merkle root (even if txs are skipped)
+    proto.set_tx_merkle_root(transactions.empty()
+        ? std::string(64, '0')
+        : getTransactionsHash());
+
     proto.set_reward(reward);
 
     if (!zkProof.empty()) {
@@ -564,7 +577,7 @@ alyncoin::BlockProto Block::toProtobuf() const {
             tx.getAmount() <= 0.0 ||
             tx.getSignatureDilithium().empty() ||
             tx.getSignatureFalcon().empty() ||
-            tx.getZkProof().empty()) 
+            tx.getZkProof().empty())
         {
             skipped++;
             continue;
@@ -626,71 +639,54 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
         newBlock.keccakHash     = safeStr(protoBlock.keccak_hash(), "keccak_hash");
         newBlock.reward         = protoBlock.has_reward() ? protoBlock.reward() : 0.0;
 
-        // ✅ Preserve canonical tx_merkle_root
         std::string merkle = protoBlock.tx_merkle_root();
         if (merkle.empty()) {
+            std::cerr << "⚠️ [fromProto] tx_merkle_root is empty.\n";
             if (!allowPartial)
                 throw std::runtime_error("[fromProto] tx_merkle_root is missing.");
-            std::cerr << "⚠️ [fromProto] tx_merkle_root is empty.\n";
         }
         newBlock.transactionsHash = merkle;
 
-        // zk-STARK proof
-        if (!protoBlock.zk_stark_proof().empty()) {
-            auto proof = safeFromHex(protoBlock.zk_stark_proof(), "zk_stark_proof");
-            if (!proof.empty()) newBlock.zkProof = proof;
-            else if (!allowPartial) throw std::runtime_error("[fromProto] zkProof decode failed.");
-        }
+        if (!protoBlock.zk_stark_proof().empty())
+            newBlock.zkProof = safeFromHex(protoBlock.zk_stark_proof(), "zk_stark_proof");
 
-        if (!protoBlock.dilithium_signature().empty()) {
-            auto sig = safeFromHex(protoBlock.dilithium_signature(), "dilithium_signature");
-            if (!sig.empty()) newBlock.dilithiumSignature = Crypto::toHex(sig);
-            else if (!allowPartial) throw std::runtime_error("[fromProto] dilithium_signature decode failed.");
-        }
+        if (!protoBlock.dilithium_signature().empty())
+            newBlock.dilithiumSignature = protoBlock.dilithium_signature();
 
-        if (!protoBlock.falcon_signature().empty()) {
-            auto sig = safeFromHex(protoBlock.falcon_signature(), "falcon_signature");
-            if (!sig.empty()) newBlock.falconSignature = Crypto::toHex(sig);
-            else if (!allowPartial) throw std::runtime_error("[fromProto] falcon_signature decode failed.");
-        }
+        if (!protoBlock.falcon_signature().empty())
+            newBlock.falconSignature = protoBlock.falcon_signature();
 
-        if (!protoBlock.public_key_dilithium().empty()) {
-            auto pub = safeFromHex(protoBlock.public_key_dilithium(), "public_key_dilithium");
-            if (!pub.empty()) newBlock.publicKeyDilithium.assign(pub.begin(), pub.end());
-            else if (!allowPartial) throw std::runtime_error("[fromProto] public_key_dilithium decode failed.");
-        }
+        if (!protoBlock.public_key_dilithium().empty())
+            newBlock.publicKeyDilithium = safeFromHex(protoBlock.public_key_dilithium(), "public_key_dilithium");
 
-        if (!protoBlock.public_key_falcon().empty()) {
-            auto pub = safeFromHex(protoBlock.public_key_falcon(), "public_key_falcon");
-            if (!pub.empty()) newBlock.publicKeyFalcon.assign(pub.begin(), pub.end());
-            else if (!allowPartial) throw std::runtime_error("[fromProto] public_key_falcon decode failed.");
-        }
+        if (!protoBlock.public_key_falcon().empty())
+            newBlock.publicKeyFalcon = safeFromHex(protoBlock.public_key_falcon(), "public_key_falcon");
 
     } catch (const std::exception& ex) {
         std::cerr << "⚠️ [fromProto] Critical block-level error: " << ex.what() << "\n";
         if (!allowPartial) throw;
     }
 
+    int skipped = 0;
     for (const auto& protoTx : protoBlock.transactions()) {
         try {
             Transaction tx = Transaction::fromProto(protoTx);
-            if (tx.getSender().empty() || tx.getRecipient().empty() ||
-                tx.getAmount() <= 0.0 || tx.getSignatureDilithium().empty() ||
-                tx.getSignatureFalcon().empty() || tx.getZkProof().empty()) {
-                std::cerr << "⚠️ [fromProto] Skipping incomplete transaction\n";
+            if (tx.getSender().empty() || tx.getRecipient().empty() || tx.getAmount() <= 0.0 ||
+                tx.getSignatureDilithium().empty() || tx.getSignatureFalcon().empty() || tx.getZkProof().empty()) {
+                skipped++;
                 continue;
             }
             newBlock.transactions.push_back(std::move(tx));
-        } catch (const std::exception& ex) {
-            std::cerr << "⚠️ [fromProto] Skipping tx: " << ex.what() << "\n";
-            if (!allowPartial) throw;
+        } catch (...) {
+            skipped++;
         }
     }
 
     if (newBlock.transactions.empty()) {
-        std::cerr << (allowPartial
-            ? "⚠️ [fromProto] No valid transactions found. (AllowPartial = true)\n"
-            : "⚠️ [fromProto] No transactions found, but proceeding (AllowPartial = false)\n");
+        std::cerr << "⚠️ [fromProto] No valid transactions parsed. Total skipped: " << skipped << (allowPartial ? " (AllowPartial = true)\n" : "\n");
+        newBlock.transactionsHash = Crypto::blake3("");
+        if (protoBlock.transactions_size() > 0 && !allowPartial)
+            throw std::runtime_error("[fromProto] Transactions present but none parsed.");
     }
 
     return newBlock;

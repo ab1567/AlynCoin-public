@@ -286,10 +286,10 @@ Block Blockchain::createGenesisBlock(bool force) {
 
 // ✅ Adds block, applies smart burn, and broadcasts to peers
 bool Blockchain::addBlock(const Block &block) {
-	if (block.getZkProof().empty()) {
-	    std::cerr << "❌ [ERROR] Cannot add block with EMPTY zkProof! Block Hash: "
-        	      << block.getHash() << "\n";
-	    return false;
+    if (block.getZkProof().empty()) {
+        std::cerr << "❌ [ERROR] Cannot add block with EMPTY zkProof! Block Hash: "
+                  << block.getHash() << "\n";
+        return false;
     } else {
         std::cout << "[DEBUG] 🧩 addBlock() zkProof length: " << block.getZkProof().size() << " bytes\n";
     }
@@ -311,6 +311,15 @@ bool Blockchain::addBlock(const Block &block) {
         std::cerr << "⚠️ [Node] Received future block. Index: " << block.getIndex()
                   << ", Expected: " << (chain.back().getIndex() + 1) << ". Buffering.\n";
         futureBlocks[block.getIndex()] = block;
+        return false;
+    }
+
+    // ✅ Skip PoW check for genesis block
+    if (block.isGenesisBlock()) {
+        std::cout << "🪐 [GENESIS] Adding genesis block without PoW check.\n";
+    } else if (!block.hasValidProofOfWork()) {
+        std::cerr << "❌ Invalid PoW! Block hash " << block.getHash()
+                  << " does not meet difficulty " << block.getDifficulty() << "\n";
         return false;
     }
 
@@ -346,25 +355,27 @@ bool Blockchain::addBlock(const Block &block) {
         return false;
     }
 
-	if (!block.getTransactions().empty()) {
-	    for (const auto &tx : block.getTransactions()) {
-	        pendingTransactions.erase(
-	            std::remove_if(pendingTransactions.begin(), pendingTransactions.end(),
-	                           [&tx](const Transaction &pendingTx) {
-	                               return pendingTx.getHash() == tx.getHash();
-	                           }),
-	            pendingTransactions.end());
-	    }
-	}
-
-    alyncoin::BlockProto protoBlock = block.toProtobuf();
-    std::string serializedBlock;
-    if (!protoBlock.SerializeToString(&serializedBlock)) {
-        std::cerr << "❌ Failed to serialize block using Protobuf.\n";
-        return false;
+    // Remove confirmed transactions
+    if (!block.getTransactions().empty()) {
+        for (const auto &tx : block.getTransactions()) {
+            pendingTransactions.erase(
+                std::remove_if(pendingTransactions.begin(), pendingTransactions.end(),
+                               [&tx](const Transaction &pendingTx) {
+                                   return pendingTx.getHash() == tx.getHash();
+                               }),
+                pendingTransactions.end());
+        }
     }
 
+    // Save block to DB
     if (db) {
+        alyncoin::BlockProto protoBlock = block.toProtobuf();
+        std::string serializedBlock;
+        if (!protoBlock.SerializeToString(&serializedBlock)) {
+            std::cerr << "❌ Failed to serialize block using Protobuf.\n";
+            return false;
+        }
+
         std::string blockKeyByHeight = "block_height_" + std::to_string(block.getIndex());
         rocksdb::Status statusHeight = db->Put(rocksdb::WriteOptions(), blockKeyByHeight, serializedBlock);
         if (!statusHeight.ok()) {
@@ -392,7 +403,7 @@ bool Blockchain::addBlock(const Block &block) {
 
     std::cout << "✅ Block added to blockchain. Pending transactions updated and balances recalculated.\n";
 
-    // Process future buffered blocks
+    // Process buffered future blocks
     uint64_t nextIndex = chain.back().getIndex() + 1;
     while (futureBlocks.count(nextIndex)) {
         Block buffered = futureBlocks[nextIndex];
@@ -404,6 +415,7 @@ bool Blockchain::addBlock(const Block &block) {
 
     return true;
 }
+
 //
 bool Blockchain::forceAddBlock(const Block& block) {
     // 🚫 No isValidNewBlock call
@@ -1005,12 +1017,24 @@ bool Blockchain::loadFromDB() {
         std::cout << "✅ Vesting applied & marker set.\n";
     }
 
+    // Explicitly set blockchain difficulty based on last block
+    if (!chain.empty()) {
+        const Block& latestBlock = chain.back();
+        difficulty = latestBlock.getDifficulty();
+        std::cout << "⚙️ [loadFromDB] Difficulty explicitly set to latest block difficulty: " << difficulty << "\n";
+    } else {
+        difficulty = 1; // Default fallback
+        std::cout << "⚠️ [loadFromDB] Chain empty after loading. Difficulty reset to default: " << difficulty << "\n";
+    }
+
+    // Load burned supply
     std::string burnedSupplyStr;
     if (db->Get(rocksdb::ReadOptions(), "burned_supply", &burnedSupplyStr).ok())
         totalBurnedSupply = std::stod(burnedSupplyStr);
     else
         totalBurnedSupply = 0.0;
 
+    // Check and apply vesting if necessary
     std::string vestingFlag;
     if (db->Get(rocksdb::ReadOptions(), "vesting_initialized", &vestingFlag).ok() && vestingFlag == "true") {
         std::cout << "⏩ Vesting already initialized. Skipping...\n";
@@ -1020,6 +1044,9 @@ bool Blockchain::loadFromDB() {
         db->Put(rocksdb::WriteOptions(), "vesting_initialized", "true");
         std::cout << "✅ Vesting applied & marker set.\n";
     }
+
+    // Always recalculate balances for consistency
+    recalculateBalancesFromChain();
 
     std::cout << "✅ Blockchain loaded successfully!\n";
     return true;
@@ -1279,7 +1306,6 @@ bool Blockchain::isValidNewBlock(const Block& newBlock) const {
         return false;
     }
 
-    // 🔄 Allow mild future drift (common during sync)
     if (newBlock.getIndex() > lastBlock.getIndex() + 1) {
         int drift = newBlock.getIndex() - (lastBlock.getIndex() + 1);
         if (drift <= 2) {
@@ -1299,7 +1325,7 @@ bool Blockchain::isValidNewBlock(const Block& newBlock) const {
         return false;
     }
 
-    return newBlock.isValid(lastBlock.getHash(), difficulty);
+    return newBlock.isValid(lastBlock.getHash(), newBlock.getDifficulty());
 }
 
 //

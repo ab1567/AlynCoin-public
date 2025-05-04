@@ -23,7 +23,7 @@ private:
   std::string minerAddress;
   int nonce;
   time_t timestamp;
-  std::string transactionsHash;
+  mutable std::string transactionsHash;
   std::string blockSignature;
   std::string dilithiumSignature;
   std::string falconSignature;
@@ -69,7 +69,7 @@ public:
   std::vector<unsigned char> getPublicKeyDilithium() const { return publicKeyDilithium; }
   std::vector<unsigned char> getPublicKeyFalcon() const { return publicKeyFalcon; }
   double getReward() const;
-
+  int getDifficulty() const { return difficulty; }
   // --- Setters ---
   void setIndex(int idx) { index = idx; }
   void setPreviousHash(const std::string &prev) { previousHash = prev; }
