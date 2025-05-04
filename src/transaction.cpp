@@ -127,7 +127,8 @@ bool Transaction::deserializeFromProtobuf(const alyncoin::TransactionProto &prot
             metadata = meta;
         }
 
-        zkProof = proto.zkproof();
+        zkProof = proto.zkproof();  // ✅ RAW binary (no fromHex)
+
         hash = proto.hash();
 
         if (!proto.signature_dilithium().empty()) {
@@ -233,9 +234,9 @@ Transaction Transaction::fromProto(const alyncoin::TransactionProto& protoTx) {
             tx.signatureFalcon.assign(sigFal.begin(), sigFal.end());
         }
 
-        auto zkProofHex = safeFromHex(protoTx.zkproof(), "zkproof");
-        if (!zkProofHex.empty()) {
-            tx.zkProof = std::string(zkProofHex.begin(), zkProofHex.end());
+        // ✅ zkProof is stored as raw binary, NOT hex
+        if (!protoTx.zkproof().empty()) {
+            tx.zkProof = protoTx.zkproof();  // direct copy of raw string
         }
 
         // Recompute hash if needed
@@ -343,14 +344,43 @@ std::string Transaction::calculateHash() const {
 //
 alyncoin::TransactionProto Transaction::toProto() const {
     alyncoin::TransactionProto proto;
+
     proto.set_sender(sender);
     proto.set_recipient(recipient);
     proto.set_amount(amount);
-    proto.set_signature_dilithium(Crypto::toHex(std::vector<unsigned char>(signatureDilithium.begin(), signatureDilithium.end())));
-    proto.set_signature_falcon(Crypto::toHex(std::vector<unsigned char>(signatureFalcon.begin(), signatureFalcon.end())));
-    proto.set_sender_pubkey_dilithium(Crypto::toHex(std::vector<unsigned char>(senderPublicKeyDilithium.begin(), senderPublicKeyDilithium.end())));
-    proto.set_sender_pubkey_falcon(Crypto::toHex(std::vector<unsigned char>(senderPublicKeyFalcon.begin(), senderPublicKeyFalcon.end())));
     proto.set_timestamp(timestamp);
+    proto.set_hash(hash);
+
+    if (sender == "System") {
+        // Dev-fund or reward tx: skip keys/signatures
+        if (metadata.size() > 16384) {
+            std::cerr << "⚠️ [toProto] metadata too large (" << metadata.size() << " bytes). Truncating.\n";
+            proto.set_metadata(metadata.substr(0, 16384));
+        } else {
+            proto.set_metadata(metadata);
+        }
+        return proto;
+    }
+
+    // Normal txs with full data (hex for sigs/pubkeys, raw binary for zkProof)
+    proto.set_signature_dilithium(Crypto::toHex({
+        signatureDilithium.begin(), signatureDilithium.end()
+    }));
+
+    proto.set_signature_falcon(Crypto::toHex({
+        signatureFalcon.begin(), signatureFalcon.end()
+    }));
+
+    proto.set_sender_pubkey_dilithium(Crypto::toHex({
+        senderPublicKeyDilithium.begin(), senderPublicKeyDilithium.end()
+    }));
+
+    proto.set_sender_pubkey_falcon(Crypto::toHex({
+        senderPublicKeyFalcon.begin(), senderPublicKeyFalcon.end()
+    }));
+
+    // 🧬 zkproof is raw binary string, directly assigned
+    proto.set_zkproof(zkProof);
 
     if (metadata.size() > 16384) {
         std::cerr << "⚠️ [toProto] metadata too large (" << metadata.size() << " bytes). Truncating.\n";
@@ -358,9 +388,6 @@ alyncoin::TransactionProto Transaction::toProto() const {
     } else {
         proto.set_metadata(metadata);
     }
-
-    proto.set_zkproof(zkProof);
-    proto.set_hash(hash);
 
     return proto;
 }

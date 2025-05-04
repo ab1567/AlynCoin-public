@@ -242,14 +242,14 @@ Block Blockchain::createGenesisBlock(bool force) {
 
     // Protect public key assignment
     if (!dilKeys.publicKey.empty()) {
-        genesis.setPublicKeyDilithium(std::string(dilKeys.publicKey.begin(), dilKeys.publicKey.end()));
+        genesis.setPublicKeyDilithium(dilKeys.publicKey);
     } else {
         std::cerr << "❌ Dilithium public key is empty!\n";
         exit(1);
     }
 
     if (!falKeys.publicKey.empty()) {
-        genesis.setPublicKeyFalcon(std::string(falKeys.publicKey.begin(), falKeys.publicKey.end()));
+        genesis.setPublicKeyFalcon(falKeys.publicKey);
     } else {
         std::cerr << "❌ Falcon public key is empty!\n";
         exit(1);
@@ -589,8 +589,15 @@ Block Blockchain::minePendingTransactions(
     std::cout << "[DEBUG] Validating and preparing transactions...\n";
 
     for (const auto &tx : pendingTransactions) {
-        if (!isTransactionValid(tx)) {
-            std::cerr << "❌ Transaction verification failed. Skipping.\n";
+        // Ensure serialization validity as well as cryptographic validity
+        if (!isTransactionValid(tx) ||
+            tx.getSender().empty() ||
+            tx.getRecipient().empty() ||
+            tx.getAmount() <= 0.0 ||
+            tx.getSignatureDilithium().empty() ||
+            tx.getSignatureFalcon().empty() ||
+            tx.getZkProof().empty()) {
+            std::cerr << "❌ Skipping invalid transaction.\n";
             continue;
         }
 
@@ -603,6 +610,7 @@ Block Blockchain::minePendingTransactions(
             continue;
         }
 
+        // Fee logic
         double txActivity = static_cast<double>(getRecentTransactionCount());
         double burnRate   = std::clamp(txActivity / 1000.0, 0.01, 0.05);
         double rawFee     = amount * 0.01;
@@ -617,9 +625,14 @@ Block Blockchain::minePendingTransactions(
         tempBalances[DEV_FUND_ADDRESS]  += devFundAmt;
         totalBurnedSupply += burnAmount;
 
-        validTx.push_back(tx);
+        validTx.push_back(tx); // Fully valid tx
+
         Transaction devTx = Transaction::createSystemRewardTransaction(DEV_FUND_ADDRESS, devFundAmt);
-        validTx.push_back(devTx);
+        if (!devTx.getRecipient().empty() && devFundAmt > 0.0) {
+            validTx.push_back(devTx);
+        } else {
+            std::cerr << "⚠️ Skipped dev fund tx (invalid or zero amount).\n";
+        }
 
         std::cout << "🔥 Burned: " << burnAmount << " AlynCoin"
                   << ", 💰 Dev Fund: " << devFundAmt << " AlynCoin"
@@ -630,16 +643,22 @@ Block Blockchain::minePendingTransactions(
         std::cout << "⛏️ No valid transactions found, creating empty block.\n";
     }
 
+    // Block reward logic
     double blockRewardVal = 0.0;
     if (totalSupply < MAX_SUPPLY) {
         blockRewardVal = calculateBlockReward();
         if (totalSupply + blockRewardVal > MAX_SUPPLY) {
             blockRewardVal = MAX_SUPPLY - totalSupply;
         }
+
         Transaction rewardTx = Transaction::createSystemRewardTransaction(minerAddress, blockRewardVal);
-        validTx.push_back(rewardTx);
-        totalSupply += blockRewardVal;
-        std::cout << "⛏️ Block reward: " << blockRewardVal << " AlynCoin\n";
+        if (!rewardTx.getRecipient().empty() && blockRewardVal > 0.0) {
+            validTx.push_back(rewardTx);
+            totalSupply += blockRewardVal;
+            std::cout << "⛏️ Block reward: " << blockRewardVal << " AlynCoin\n";
+        } else {
+            std::cerr << "⚠️ Skipped block reward tx (invalid or zero).\n";
+        }
     } else {
         std::cerr << "🚫 Block reward skipped. Max supply reached.\n";
     }
@@ -667,7 +686,7 @@ Block Blockchain::minePendingTransactions(
 
     if (newBlock.getZkProof().empty()) {
         std::cerr << "❌ [ERROR] Mined block has empty zkProof! Aborting mining.\n";
-        return Block(); // 🚨 Return empty block
+        return Block();
     }
 
     std::cout << "[DEBUG] Attempting to addBlock()...\n";
@@ -676,21 +695,18 @@ Block Blockchain::minePendingTransactions(
         return Block();
     }
 
-    // ✅ Proper ordering: first clear pending transactions completely
     clearPendingTransactions();
-
-    // ✅ Then save everything clean
     saveToDB();
 
     std::thread([](Block blockCopy) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    Network::getInstance().broadcastBlock(blockCopy);
-	}, newBlock).detach();
-
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        Network::getInstance().broadcastBlock(blockCopy);
+    }, newBlock).detach();
 
     std::cout << "✅ Block mined and added successfully. Total burned supply: " << totalBurnedSupply << "\n";
     return newBlock;
 }
+
 
 // ✅ **Sync Blockchain**
 void Blockchain::syncChain(const Json::Value &jsonData) {

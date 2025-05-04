@@ -32,8 +32,8 @@ Block::Block()
   timestamp = std::time(nullptr);
   dilithiumSignature = "";
   falconSignature = "";
-  publicKeyDilithium = "";
-  publicKeyFalcon = "";
+  publicKeyDilithium.clear();
+  publicKeyFalcon.clear();
   zkProof = std::vector<uint8_t>();
 }
 
@@ -49,8 +49,8 @@ Block::Block(int index, const std::string &previousHash,
   keccakHash = Crypto::keccak256(hash);
   dilithiumSignature = "";
   falconSignature = "";
-  publicKeyDilithium = "";
-  publicKeyFalcon = "";
+  publicKeyDilithium.clear();
+  publicKeyFalcon.clear();
   zkProof = std::vector<uint8_t>();
 }
 
@@ -223,7 +223,7 @@ void Block::signBlock(const std::string &minerAddress) {
         return;
     }
     dilithiumSignature = Crypto::toHex(sigD);  // ✅ signature is hex
-    publicKeyDilithium = Crypto::toHex(dkeys.publicKey);  // ✅ public key hex-encoded here
+    publicKeyDilithium = dkeys.publicKey;
 
     // === Falcon ===
     if (!Crypto::fileExists("/root/.alyncoin/keys/" + minerAddress + "_falcon.key")) {
@@ -241,7 +241,7 @@ void Block::signBlock(const std::string &minerAddress) {
         return;
     }
     falconSignature = Crypto::toHex(sigF);  // ✅ signature is hex
-    publicKeyFalcon = Crypto::toHex(fkeys.publicKey);  // ✅ public key hex-encoded here
+    publicKeyFalcon = fkeys.publicKey;
 
     std::cout << "✅ [DEBUG] Block signatures applied.\n";
 }
@@ -294,7 +294,7 @@ bool Block::isValid(const std::string &prevHash, int expectedDifficulty) const {
         }
         std::vector<unsigned char> pubKeyDil;
         try {
-            pubKeyDil = Crypto::fromHex(publicKeyDilithium);
+            pubKeyDil = publicKeyDilithium;
         } catch (...) {
             std::cerr << "❌ Dilithium public key hex decode failed!\n";
             return false;
@@ -325,7 +325,7 @@ bool Block::isValid(const std::string &prevHash, int expectedDifficulty) const {
         }
         std::vector<unsigned char> pubKeyFal;
         try {
-            pubKeyFal = Crypto::fromHex(publicKeyFalcon);
+             pubKeyFal = publicKeyFalcon;
         } catch (...) {
             std::cerr << "❌ Falcon public key hex decode failed!\n";
             return false;
@@ -394,12 +394,8 @@ std::string Block::getTransactionsHash() const {
         return transactionsHash;
     }
 
-    // fallback recompute only if empty
-    std::stringstream ss;
-    for (const auto &tx : transactions) {
-        ss << tx.getHash();
-    }
-    return Crypto::blake3(ss.str());
+    std::cerr << "❌ [getTransactionsHash] ERROR: Merkle root is missing!\n";
+    return ""; 
 }
 
 //
@@ -449,8 +445,11 @@ Json::Value Block::toJSON() const {
   block["dilithiumSignature"] = Crypto::base64Encode(dilithiumSignature);
   block["falconSignature"] = Crypto::base64Encode(falconSignature);
   block["zkProof"] = Crypto::base64Encode(std::string(zkProof.begin(), zkProof.end()));
-  block["publicKeyDilithium"] = Crypto::base64Encode(publicKeyDilithium);
-  block["publicKeyFalcon"] = Crypto::base64Encode(publicKeyFalcon);
+  block["publicKeyDilithium"] = Crypto::base64Encode(
+    std::string(publicKeyDilithium.begin(), publicKeyDilithium.end()));
+
+  block["publicKeyFalcon"] = Crypto::base64Encode(
+    std::string(publicKeyFalcon.begin(), publicKeyFalcon.end()));
 
   Json::Value txArray(Json::arrayValue);
   for (const auto &tx : transactions) {
@@ -488,9 +487,14 @@ Block Block::fromJSON(const Json::Value &blockJson) {
   std::string zkStr = Crypto::base64Decode(blockJson.get("zkProof", "").asString());
   block.zkProof = std::vector<uint8_t>(zkStr.begin(), zkStr.end());
 
-  block.publicKeyDilithium = Crypto::base64Decode(blockJson.get("publicKeyDilithium", "").asString());
-  block.publicKeyFalcon = Crypto::base64Decode(blockJson.get("publicKeyFalcon", "").asString());
-
+   {
+    std::string decoded = Crypto::base64Decode(blockJson.get("publicKeyDilithium", "").asString());
+    block.publicKeyDilithium = std::vector<unsigned char>(decoded.begin(), decoded.end());
+  }
+ {
+    std::string decoded = Crypto::base64Decode(blockJson.get("publicKeyFalcon", "").asString());
+    block.publicKeyFalcon = std::vector<unsigned char>(decoded.begin(), decoded.end());
+  }
   return block;
 }
 
@@ -592,37 +596,57 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
     };
 
     try {
-        newBlock.index         = protoBlock.index();
-        newBlock.previousHash  = safeStr(protoBlock.previous_hash(), "previous_hash");
-        newBlock.hash          = safeStr(protoBlock.hash(), "hash");
-        newBlock.minerAddress  = safeStr(protoBlock.miner_address(), "miner_address");
-        newBlock.nonce         = protoBlock.nonce();
-        newBlock.timestamp     = protoBlock.timestamp();
-        newBlock.difficulty    = protoBlock.difficulty();
-        newBlock.blockSignature= safeStr(protoBlock.block_signature(), "block_signature");
-        newBlock.keccakHash    = safeStr(protoBlock.keccak_hash(), "keccak_hash");
-        newBlock.reward        = protoBlock.has_reward() ? protoBlock.reward() : 0.0;
+        newBlock.index          = protoBlock.index();
+        newBlock.previousHash   = safeStr(protoBlock.previous_hash(), "previous_hash");
+        newBlock.hash           = safeStr(protoBlock.hash(), "hash");
+        newBlock.minerAddress   = safeStr(protoBlock.miner_address(), "miner_address");
+        newBlock.nonce          = protoBlock.nonce();
+        newBlock.timestamp      = protoBlock.timestamp();
+        newBlock.difficulty     = protoBlock.difficulty();
+        newBlock.blockSignature = safeStr(protoBlock.block_signature(), "block_signature");
+        newBlock.keccakHash     = safeStr(protoBlock.keccak_hash(), "keccak_hash");
+        newBlock.reward         = protoBlock.has_reward() ? protoBlock.reward() : 0.0;
+
+        // ✅ New Check: tx_merkle_root must not be missing
+        if (protoBlock.tx_merkle_root().empty()) {
+            std::cerr << "❌ [fromProto] Missing Merkle root in block!\n";
+            if (!allowPartial)
+                throw std::runtime_error("Missing tx_merkle_root");
+        }
+
+        // ✅ Preserve peer's canonical Merkle root
         newBlock.transactionsHash = safeStr(protoBlock.tx_merkle_root(), "tx_merkle_root");
 
+        // zk-STARK proof
         if (!protoBlock.zk_stark_proof().empty()) {
             auto proof = safeFromHex(protoBlock.zk_stark_proof(), "zk_stark_proof");
             if (!proof.empty()) newBlock.zkProof = proof;
+            else if (!allowPartial)
+                throw std::runtime_error("[fromProto] zkProof decode failed.");
         }
 
-        if (!protoBlock.dilithium_signature().empty())
-            newBlock.dilithiumSignature = safeStr(protoBlock.dilithium_signature(), "dilithium_signature");
+        if (!protoBlock.dilithium_signature().empty()) {
+            auto sig = safeFromHex(protoBlock.dilithium_signature(), "dilithium_signature");
+            if (!sig.empty()) newBlock.dilithiumSignature = Crypto::toHex(sig);
+            else if (!allowPartial) throw std::runtime_error("[fromProto] dilithium_signature decode failed.");
+        }
 
-        if (!protoBlock.falcon_signature().empty())
-            newBlock.falconSignature = safeStr(protoBlock.falcon_signature(), "falcon_signature");
+        if (!protoBlock.falcon_signature().empty()) {
+            auto sig = safeFromHex(protoBlock.falcon_signature(), "falcon_signature");
+            if (!sig.empty()) newBlock.falconSignature = Crypto::toHex(sig);
+            else if (!allowPartial) throw std::runtime_error("[fromProto] falcon_signature decode failed.");
+        }
 
         if (!protoBlock.public_key_dilithium().empty()) {
-            auto pubDil = safeFromHex(protoBlock.public_key_dilithium(), "public_key_dilithium");
-            if (!pubDil.empty()) newBlock.publicKeyDilithium.assign(pubDil.begin(), pubDil.end());
+            auto pub = safeFromHex(protoBlock.public_key_dilithium(), "public_key_dilithium");
+            if (!pub.empty()) newBlock.publicKeyDilithium.assign(pub.begin(), pub.end());
+            else if (!allowPartial) throw std::runtime_error("[fromProto] public_key_dilithium decode failed.");
         }
 
         if (!protoBlock.public_key_falcon().empty()) {
-            auto pubFal = safeFromHex(protoBlock.public_key_falcon(), "public_key_falcon");
-            if (!pubFal.empty()) newBlock.publicKeyFalcon.assign(pubFal.begin(), pubFal.end());
+            auto pub = safeFromHex(protoBlock.public_key_falcon(), "public_key_falcon");
+            if (!pub.empty()) newBlock.publicKeyFalcon.assign(pub.begin(), pub.end());
+            else if (!allowPartial) throw std::runtime_error("[fromProto] public_key_falcon decode failed.");
         }
 
     } catch (const std::exception& ex) {
@@ -633,12 +657,9 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
     for (const auto& protoTx : protoBlock.transactions()) {
         try {
             Transaction tx = Transaction::fromProto(protoTx);
-            if (tx.getSender().empty() ||
-                tx.getRecipient().empty() ||
-                tx.getAmount() <= 0.0 ||
-                tx.getSignatureDilithium().empty() ||
-                tx.getSignatureFalcon().empty() ||
-                tx.getZkProof().empty()) {
+            if (tx.getSender().empty() || tx.getRecipient().empty() ||
+                tx.getAmount() <= 0.0 || tx.getSignatureDilithium().empty() ||
+                tx.getSignatureFalcon().empty() || tx.getZkProof().empty()) {
                 std::cerr << "⚠️ [fromProto] Skipping incomplete transaction\n";
                 continue;
             }
@@ -650,9 +671,9 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
     }
 
     if (newBlock.transactions.empty()) {
-        std::cerr << allowPartial
-                  ? "⚠️ [fromProto] No valid transactions found. (AllowPartial = true)\n"
-                  : "⚠️ [fromProto] No transactions found, but proceeding (AllowPartial = false)\n";
+        std::cerr << (allowPartial
+            ? "⚠️ [fromProto] No valid transactions found. (AllowPartial = true)\n"
+            : "⚠️ [fromProto] No transactions found, but proceeding (AllowPartial = false)\n");
     }
 
     return newBlock;

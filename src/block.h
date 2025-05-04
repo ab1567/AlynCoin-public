@@ -27,8 +27,8 @@ private:
   std::string blockSignature;
   std::string dilithiumSignature;
   std::string falconSignature;
-  std::string publicKeyDilithium;
-  std::string publicKeyFalcon;
+  std::vector<unsigned char> publicKeyDilithium;
+  std::vector<unsigned char> publicKeyFalcon;
   std::vector<uint8_t> zkProof;
   std::string merkleRoot;
   double reward = 0.0;
@@ -66,9 +66,8 @@ public:
 
   const std::string &getDilithiumSignature() const { return dilithiumSignature; }
   const std::string &getFalconSignature() const { return falconSignature; }
-  const std::string &getPublicKeyDilithium() const { return publicKeyDilithium; }
-  const std::string &getPublicKeyFalcon() const { return publicKeyFalcon; }
-
+  std::vector<unsigned char> getPublicKeyDilithium() const { return publicKeyDilithium; }
+  std::vector<unsigned char> getPublicKeyFalcon() const { return publicKeyFalcon; }
   double getReward() const;
 
   // --- Setters ---
@@ -84,8 +83,8 @@ public:
   void setDifficulty(int diff) { difficulty = diff; }
   void setDilithiumSignature(const std::string &sig) { dilithiumSignature = sig; }
   void setFalconSignature(const std::string &sig) { falconSignature = sig; }
-  void setPublicKeyDilithium(const std::string &pk) { publicKeyDilithium = pk; }
-  void setPublicKeyFalcon(const std::string &pk) { publicKeyFalcon = pk; }
+  void setPublicKeyDilithium(const std::vector<unsigned char> &pk) { publicKeyDilithium = pk; }
+  void setPublicKeyFalcon(const std::vector<unsigned char> &pk) { publicKeyFalcon = pk; }
   void setZkProof(const std::vector<uint8_t> &proof) { zkProof = proof; }
   void setMerkleRoot(const std::string &merkle) { merkleRoot = merkle; }
   void setReward(double r);
