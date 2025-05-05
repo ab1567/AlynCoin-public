@@ -342,8 +342,8 @@ src/CMakeFiles/alyncoin_lib.dir/rollup/proofs/proof_generator.cpp.o: \
  /root/AlynCoin/src/generated/blockchain_protos.pb.h \
  /root/AlynCoin/src/generated/block_protos.pb.h \
  /root/AlynCoin/src/generated/transaction_protos.pb.h \
- /root/AlynCoin/src/block.h /root/AlynCoin/src/crypto_utils.h \
- /root/AlynCoin/src/crypto_protos.pb.h /root/AlynCoin/src/transaction.h \
+ /root/AlynCoin/src/block.h /root/AlynCoin/src/crypto_protos.pb.h \
+ /root/AlynCoin/src/transaction.h \
  /root/AlynCoin/src/zk/winterfell_stark.h \
  /usr/include/jsoncpp/json/json.h \
  /root/AlynCoin/src/layer2/state_channel.h \

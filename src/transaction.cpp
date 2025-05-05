@@ -252,7 +252,6 @@ Transaction Transaction::fromProto(const alyncoin::TransactionProto& protoTx) {
 
     return tx;
 }
-
 //To JSON
 Json::Value Transaction::toJSON() const {
   Json::Value tx;
@@ -362,24 +361,28 @@ alyncoin::TransactionProto Transaction::toProto() const {
         return proto;
     }
 
-    // Normal txs with full data (hex for sigs/pubkeys, raw binary for zkProof)
-    proto.set_signature_dilithium(Crypto::toHex({
-        signatureDilithium.begin(), signatureDilithium.end()
-    }));
+    // ✅ Convert string → vector before calling toHex
+    if (!signatureDilithium.empty()) {
+        proto.set_signature_dilithium(Crypto::toHex(
+            std::vector<unsigned char>(signatureDilithium.begin(), signatureDilithium.end())));
+    }
 
-    proto.set_signature_falcon(Crypto::toHex({
-        signatureFalcon.begin(), signatureFalcon.end()
-    }));
+    if (!signatureFalcon.empty()) {
+        proto.set_signature_falcon(Crypto::toHex(
+            std::vector<unsigned char>(signatureFalcon.begin(), signatureFalcon.end())));
+    }
 
-    proto.set_sender_pubkey_dilithium(Crypto::toHex({
-        senderPublicKeyDilithium.begin(), senderPublicKeyDilithium.end()
-    }));
+    if (!senderPublicKeyDilithium.empty()) {
+        proto.set_sender_pubkey_dilithium(Crypto::toHex(
+            std::vector<unsigned char>(senderPublicKeyDilithium.begin(), senderPublicKeyDilithium.end())));
+    }
 
-    proto.set_sender_pubkey_falcon(Crypto::toHex({
-        senderPublicKeyFalcon.begin(), senderPublicKeyFalcon.end()
-    }));
+    if (!senderPublicKeyFalcon.empty()) {
+        proto.set_sender_pubkey_falcon(Crypto::toHex(
+            std::vector<unsigned char>(senderPublicKeyFalcon.begin(), senderPublicKeyFalcon.end())));
+    }
 
-    // 🧬 zkproof is raw binary string, directly assigned
+    // ✅ zkProof is raw binary
     proto.set_zkproof(zkProof);
 
     if (metadata.size() > 16384) {
@@ -465,56 +468,56 @@ bool Transaction::isValid(const std::string &senderPublicKeyDilithium,
         return false;
     }
 
-    try {
-        std::vector<unsigned char> hashBytes = Crypto::fromHex(getHash());
-
-        if (signatureDilithium.length() > 10000) {
-            std::cerr << "[ERROR] Dilithium signature too long: " << signatureDilithium.length() << "\n";
-            return false;
-        }
-
-        if (signatureFalcon.length() > 10000) {
-            std::cerr << "[ERROR] Falcon signature too long: " << signatureFalcon.length() << "\n";
-            return false;
-        }
-
-        if (senderPublicKeyDilithium.length() > 5000) {
-            std::cerr << "[ERROR] Dilithium public key too long: " << senderPublicKeyDilithium.length() << "\n";
-            return false;
-        }
-
-        if (senderPublicKeyFalcon.length() > 5000) {
-            std::cerr << "[ERROR] Falcon public key too long: " << senderPublicKeyFalcon.length() << "\n";
-            return false;
-        }
-
-        std::vector<unsigned char> sigDil = Crypto::fromHex(signatureDilithium);
-        std::vector<unsigned char> sigFal = Crypto::fromHex(signatureFalcon);
-        std::vector<unsigned char> pubKeyDil = Crypto::fromHex(senderPublicKeyDilithium);
-        std::vector<unsigned char> pubKeyFal = Crypto::fromHex(senderPublicKeyFalcon);
-
-        std::cout << "[DEBUG] Verifying Dilithium & Falcon signatures for sender: " << sender << "\n";
-        std::cout << "[DEBUG] Hash used for signature: " << getHash() << "\n";
-        std::cout << "[DEBUG] Dilithium Sig Len: " << sigDil.size() << ", Falcon Sig Len: " << sigFal.size() << "\n";
-        std::cout << "[DEBUG] Dilithium PubKey Len: " << pubKeyDil.size() << ", Falcon PubKey Len: " << pubKeyFal.size() << "\n";
-
-        if (!Crypto::verifyWithDilithium(hashBytes, sigDil, pubKeyDil)) {
-            std::cerr << "[ERROR] Dilithium signature verification failed!\n";
-            return false;
-        }
-
-        if (!Crypto::verifyWithFalcon(hashBytes, sigFal, pubKeyFal)) {
-            std::cerr << "[ERROR] Falcon signature verification failed!\n";
-            return false;
-        }
-
-    } catch (const std::exception &ex) {
-        std::cerr << "[ERROR] Signature verification threw exception: " << ex.what() << "\n";
+    if (signatureDilithium.length() > 10000 || signatureFalcon.length() > 10000) {
+        std::cerr << "[ERROR] Signature too long: Dilithium(" << signatureDilithium.length()
+                  << "), Falcon(" << signatureFalcon.length() << ")\n";
         return false;
     }
 
+    if (senderPublicKeyDilithium.length() > 5000 || senderPublicKeyFalcon.length() > 5000) {
+        std::cerr << "[ERROR] Public key too long: Dilithium(" << senderPublicKeyDilithium.length()
+                  << "), Falcon(" << senderPublicKeyFalcon.length() << ")\n";
+        return false;
+    }
+
+    std::vector<unsigned char> hashBytes;
+    std::vector<unsigned char> sigDil, sigFal, pubKeyDil, pubKeyFal;
+
+    try {
+        hashBytes = Crypto::fromHex(getHash());
+        sigDil = Crypto::fromHex(signatureDilithium);
+        sigFal = Crypto::fromHex(signatureFalcon);
+        pubKeyDil = Crypto::fromHex(senderPublicKeyDilithium);
+        pubKeyFal = Crypto::fromHex(senderPublicKeyFalcon);
+    } catch (const std::exception &ex) {
+        std::cerr << "[ERROR] Hex decoding failed: " << ex.what() << "\n";
+        return false;
+    }
+
+    std::cout << "[DEBUG] Verifying Dilithium & Falcon signatures for sender: " << sender << "\n";
+    std::cout << "[DEBUG] Hash used for signature: " << getHash() << "\n";
+    std::cout << "[DEBUG] Dilithium Sig Len: " << sigDil.size()
+              << ", Falcon Sig Len: " << sigFal.size() << "\n";
+    std::cout << "[DEBUG] Dilithium PubKey Len: " << pubKeyDil.size()
+              << ", Falcon PubKey Len: " << pubKeyFal.size() << "\n";
+
+    if (!Crypto::verifyWithDilithium(hashBytes, sigDil, pubKeyDil)) {
+        std::cerr << "[ERROR] Dilithium signature verification failed!\n";
+        return false;
+    }
+
+    if (!Crypto::verifyWithFalcon(hashBytes, sigFal, pubKeyFal)) {
+        std::cerr << "[ERROR] Falcon signature verification failed!\n";
+        return false;
+    }
+
+    // 💡 zk-STARK safety check
     if (zkProof.empty()) {
         std::cerr << "[ERROR] Transaction missing zk-STARK proof!\n";
+        return false;
+    }
+    if (zkProof.size() > 5000) {
+        std::cerr << "[ERROR] zk-STARK proof too long: " << zkProof.size() << "\n";
         return false;
     }
 

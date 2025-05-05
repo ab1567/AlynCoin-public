@@ -154,10 +154,10 @@ void Network::autoMineBlock() {
 
         // Validate signatures using raw block hash
         std::vector<unsigned char> msgHash = Crypto::fromHex(minedBlock.getHash());
-        std::vector<unsigned char> sigDil = Crypto::fromHex(minedBlock.getDilithiumSignature());
+        std::vector<unsigned char> sigDil = minedBlock.getDilithiumSignature();
         std::vector<unsigned char> pubDil = Crypto::getPublicKeyDilithium(minedBlock.getMinerAddress());
 
-        std::vector<unsigned char> sigFal = Crypto::fromHex(minedBlock.getFalconSignature());
+        std::vector<unsigned char> sigFal = minedBlock.getFalconSignature();
         std::vector<unsigned char> pubFal = Crypto::getPublicKeyFalcon(minedBlock.getMinerAddress());
         bool validSignatures =
             Crypto::verifyWithDilithium(msgHash, sigDil, pubDil) &&
@@ -698,7 +698,7 @@ std::vector<RollupBlock> deserializeRollupChain(const std::string &data) {
 }
 
 // ✅ **Handle Incoming Data with Protobuf Validation**
-void Network::handleIncomingData(const std::string& senderIP, std::string data) {
+void Network::handleIncomingData(const std::string &senderIP, std::string data) {
     if (data.empty()) {
         std::cerr << "❌ [ERROR] Received empty data from peer: " << senderIP << "\n";
         return;
@@ -767,8 +767,12 @@ void Network::handleIncomingData(const std::string& senderIP, std::string data) 
                 return;
             }
 
+            std::string hashPreview = blk.getHash().empty()
+                ? "<empty>"
+                : blk.getHash().substr(0, std::min<size_t>(12, blk.getHash().size()));
+
             std::cerr << "📥 [BLOCK_DATA] Parsed block. Index: " << blk.getIndex()
-                      << ", Hash: " << blk.getHash().substr(0, 12) << "...\n";
+                      << ", Hash: " << hashPreview << "...\n";
 
             handleNewBlock(blk);
 
@@ -826,7 +830,8 @@ void Network::handleIncomingData(const std::string& senderIP, std::string data) 
     }
 
     // Unknown message fallback
-    std::cerr << "⚠️ [handleIncomingData] Unknown or unhandled message from " << senderIP << ": " << data.substr(0, 100) << "\n";
+    std::cerr << "⚠️ [handleIncomingData] Unknown or unhandled message from "
+              << senderIP << ": " << data.substr(0, std::min<size_t>(100, data.size())) << "\n";
 }
 
 
@@ -914,7 +919,7 @@ bool Network::validatePeer(const std::string &peer) {
 
 // Handle new block
 void Network::handleNewBlock(const Block &newBlock) {
-    Blockchain &blockchain = Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true);
+    Blockchain &blockchain = Blockchain::getInstance(this->port, DBPaths::getBlockchainDB(), true);
     const int expectedIndex = blockchain.getLatestBlock().getIndex() + 1;
 
     // 1) PoW and zk-STARK check
@@ -938,12 +943,9 @@ void Network::handleNewBlock(const Block &newBlock) {
         if (newBlock.getPreviousHash() != localTipHash) {
             std::cerr << "⚠️ [Fork Detected] Previous hash mismatch at incoming block.\n";
 
-            // Instead of blindly requesting full chain,
-            // we should save this incoming block separately if we want future recovery
             std::vector<Block> forkCandidate = { newBlock };
             blockchain.saveForkView(forkCandidate);
 
-            // Then request full blockchain from peer(s)
             for (const auto& peer : peerSockets) {
                 sendData(peer.first, "REQUEST_BLOCKCHAIN");
             }
@@ -960,7 +962,6 @@ void Network::handleNewBlock(const Block &newBlock) {
         std::cerr << "⚠️ [Node] Received future block. Buffering.\n";
         futureBlockBuffer[newBlock.getIndex()] = newBlock;
 
-        // If too much drift, force re-sync
         if (newBlock.getIndex() > expectedIndex + 5) {
             for (const auto& peer : peerSockets) {
                 sendData(peer.first, "REQUEST_BLOCKCHAIN");
@@ -972,18 +973,23 @@ void Network::handleNewBlock(const Block &newBlock) {
     // 4) Signature validation
     try {
         auto msgBytes = newBlock.getSignatureMessage();
-        std::vector<unsigned char> sigDil = Crypto::fromHex(newBlock.getDilithiumSignature());
+
+        std::vector<unsigned char> sigDil(newBlock.getDilithiumSignature().begin(), newBlock.getDilithiumSignature().end());
         std::vector<unsigned char> pubDil = newBlock.getPublicKeyDilithium();
+
         if (!Crypto::verifyWithDilithium(msgBytes, sigDil, pubDil)) {
             std::cerr << "❌ Dilithium signature verification failed!\n";
             return;
         }
-        std::vector<unsigned char> sigFal = Crypto::fromHex(newBlock.getFalconSignature());
+
+        std::vector<unsigned char> sigFal(newBlock.getFalconSignature().begin(), newBlock.getFalconSignature().end());
         std::vector<unsigned char> pubFal = newBlock.getPublicKeyFalcon();
+
         if (!Crypto::verifyWithFalcon(msgBytes, sigFal, pubFal)) {
             std::cerr << "❌ Falcon signature verification failed!\n";
             return;
         }
+
     } catch (const std::exception& e) {
         std::cerr << "❌ [Exception] Signature verification error: " << e.what() << "\n";
         return;
@@ -1454,23 +1460,23 @@ void Network::handleNewRollupBlock(const RollupBlock &newRollupBlock) {
 }
 //
 bool Network::validateBlockSignatures(const Block &blk) {
-  std::vector<unsigned char> msgBytes = blk.getSignatureMessage();
+    std::vector<unsigned char> msgBytes = blk.getSignatureMessage();
 
-  std::vector<unsigned char> sigDil = Crypto::fromHex(blk.getDilithiumSignature());
-  std::vector<unsigned char> sigFal = Crypto::fromHex(blk.getFalconSignature());
+    std::vector<unsigned char> sigDil = blk.getDilithiumSignature();
+    std::vector<unsigned char> sigFal = blk.getFalconSignature();
 
-  std::vector<unsigned char> pubDil = Crypto::getPublicKeyDilithium(blk.getMinerAddress());
-  std::vector<unsigned char> pubFal = Crypto::getPublicKeyFalcon(blk.getMinerAddress());
+    std::vector<unsigned char> pubDil = Crypto::getPublicKeyDilithium(blk.getMinerAddress());
+    std::vector<unsigned char> pubFal = Crypto::getPublicKeyFalcon(blk.getMinerAddress());
 
-  if (!Crypto::verifyWithDilithium(msgBytes, sigDil, pubDil)) {
-    std::cerr << "Invalid Dilithium signature for block: " << blk.getHash() << std::endl;
-    return false;
-  }
+    if (!Crypto::verifyWithDilithium(msgBytes, sigDil, pubDil)) {
+        std::cerr << "Invalid Dilithium signature for block: " << blk.getHash() << std::endl;
+        return false;
+    }
 
-  if (!Crypto::verifyWithFalcon(msgBytes, sigFal, pubFal)) {
-    std::cerr << "Invalid Falcon signature for block: " << blk.getHash() << std::endl;
-    return false;
-  }
+    if (!Crypto::verifyWithFalcon(msgBytes, sigFal, pubFal)) {
+        std::cerr << "Invalid Falcon signature for block: " << blk.getHash() << std::endl;
+        return false;
+    }
 
-  return true;
+    return true;
 }

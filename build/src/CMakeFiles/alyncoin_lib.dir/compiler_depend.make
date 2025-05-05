@@ -11240,7 +11240,6 @@ src/CMakeFiles/alyncoin_lib.dir/miner.cpp.o: /root/AlynCoin/src/miner.cpp \
   /usr/lib/gcc/x86_64-linux-gnu/13/include/syslimits.h
 
 src/CMakeFiles/alyncoin_lib.dir/network.cpp.o: /root/AlynCoin/src/network.cpp \
-  /root/AlynCoin/src/crypto_utils.h \
   /root/AlynCoin/src/atomic_swaps/atomic_swap.h \
   /root/AlynCoin/src/atomic_swaps/proto_utils.h \
   /root/AlynCoin/src/block.h \

@@ -25,8 +25,8 @@ private:
   time_t timestamp;
   mutable std::string transactionsHash;
   std::string blockSignature;
-  std::string dilithiumSignature;
-  std::string falconSignature;
+  std::vector<unsigned char> dilithiumSignature;
+  std::vector<unsigned char> falconSignature;
   std::vector<unsigned char> publicKeyDilithium;
   std::vector<unsigned char> publicKeyFalcon;
   std::vector<uint8_t> zkProof;
@@ -64,8 +64,8 @@ public:
   std::string getTxRoot() const { return getTransactionsHash(); }
   std::vector<uint8_t> getZkProof() const { return zkProof; }
 
-  const std::string &getDilithiumSignature() const { return dilithiumSignature; }
-  const std::string &getFalconSignature() const { return falconSignature; }
+  const std::vector<unsigned char>& getDilithiumSignature() const { return dilithiumSignature; }
+  const std::vector<unsigned char>& getFalconSignature() const    { return falconSignature; }
   std::vector<unsigned char> getPublicKeyDilithium() const { return publicKeyDilithium; }
   std::vector<unsigned char> getPublicKeyFalcon() const { return publicKeyFalcon; }
   double getReward() const;
@@ -81,8 +81,8 @@ public:
   void setTimestamp(time_t ts) { timestamp = ts; }
   void setKeccakHash(const std::string &khash) { keccakHash = khash; }
   void setDifficulty(int diff) { difficulty = diff; }
-  void setDilithiumSignature(const std::string &sig) { dilithiumSignature = sig; }
-  void setFalconSignature(const std::string &sig) { falconSignature = sig; }
+  void setDilithiumSignature(const std::vector<unsigned char> &sig) { dilithiumSignature = sig; }
+  void setFalconSignature(const std::vector<unsigned char> &sig)    { falconSignature = sig; }
   void setPublicKeyDilithium(const std::vector<unsigned char> &pk) { publicKeyDilithium = pk; }
   void setPublicKeyFalcon(const std::vector<unsigned char> &pk) { publicKeyFalcon = pk; }
   void setZkProof(const std::vector<uint8_t> &proof) { zkProof = proof; }

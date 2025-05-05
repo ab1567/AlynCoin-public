@@ -291,7 +291,6 @@ src/nft/CMakeFiles/nftcli.dir/nft.cpp.o: /root/AlynCoin/src/nft/nft.cpp \
  /root/AlynCoin/src/../src/generated/block_protos.pb.h \
  /root/AlynCoin/src/../src/generated/transaction_protos.pb.h \
  /root/AlynCoin/src/../src/block.h \
- /root/AlynCoin/src/../src/crypto_utils.h \
  /root/AlynCoin/src/../src/crypto_protos.pb.h \
  /root/AlynCoin/src/../src/transaction.h \
  /root/AlynCoin/src/nft/../network/peer_blacklist.h \

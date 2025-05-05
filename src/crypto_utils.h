@@ -8,6 +8,15 @@
 #include <vector>
 #include <optional>
 
+#pragma once
+
+#define DILITHIUM_PUBLIC_KEY_BYTES 1312
+#define DILITHIUM_PRIVATE_KEY_BYTES 2528
+
+#define FALCON_PUBLIC_KEY_BYTES 1793
+#define FALCON_PRIVATE_KEY_BYTES 2305
+
+
 // Directory for key storage
 #define KEY_DIR "/root/.alyncoin/keys/"
 

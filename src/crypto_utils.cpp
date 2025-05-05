@@ -35,7 +35,6 @@ extern "C" {
   PQCLEAN_FALCON1024_CLEAN_crypto_sign_signature
 #define falcon_crypto_sign_verify PQCLEAN_FALCON1024_CLEAN_crypto_sign_verify
 
-
 namespace fs = std::filesystem;
 
 namespace Crypto {
@@ -424,6 +423,13 @@ FalconKeyPair loadFalconKeys(const std::string &username) {
                                         std::istreambuf_iterator<char>());
     std::vector<unsigned char> privBytes((std::istreambuf_iterator<char>(priv)),
                                          std::istreambuf_iterator<char>());
+
+    if (pubBytes.size() != PQCLEAN_FALCON1024_CLEAN_CRYPTO_PUBLICKEYBYTES) {
+      std::cerr << "❌ [loadFalconKeys] Public key length mismatch. Got: "
+                << pubBytes.size() << ", Expected: "
+                << PQCLEAN_FALCON1024_CLEAN_CRYPTO_PUBLICKEYBYTES << "\n";
+    }
+
     keypair.publicKey = pubBytes;
     keypair.privateKey = privBytes;
     keypair.publicKeyHex = Crypto::toHex(pubBytes);
@@ -1067,55 +1073,66 @@ std::string signMessage(const std::string &message,
 
   std::vector<unsigned char> privKeyData;
 
-  if (isFilePath) {
-    if (!fs::exists(privateKeyPath)) {
-      std::cerr << "❌ [ERROR] Private key file not found: " << privateKeyPath << std::endl;
+  try {
+    if (isFilePath) {
+      if (!fs::exists(privateKeyPath)) {
+        std::cerr << "❌ [ERROR] Private key file not found: " << privateKeyPath << std::endl;
+        return "";
+      }
+      std::ifstream file(privateKeyPath, std::ios::binary);
+      privKeyData = std::vector<unsigned char>((std::istreambuf_iterator<char>(file)),
+                                               std::istreambuf_iterator<char>());
+    } else {
+      privKeyData = std::vector<unsigned char>(privateKeyPath.begin(), privateKeyPath.end());
+    }
+
+    if (privKeyData.empty()) {
+      std::cerr << "❌ [ERROR] Private key is empty!\n";
       return "";
     }
-    std::ifstream file(privateKeyPath, std::ios::binary);
-    privKeyData = std::vector<unsigned char>((std::istreambuf_iterator<char>(file)),
-                                             std::istreambuf_iterator<char>());
-  } else {
-    privKeyData = std::vector<unsigned char>(privateKeyPath.begin(), privateKeyPath.end());
-  }
 
-  if (privKeyData.empty()) {
-    std::cerr << "❌ [ERROR] Private key is empty!\n";
+    std::vector<unsigned char> messageBytes(message.begin(), message.end());
+
+    if (privateKeyPath.find("falcon") != std::string::npos) {
+      auto sig = Crypto::signWithFalcon(messageBytes, privKeyData);
+      return Crypto::toHex(sig);
+    } else if (privateKeyPath.find("dilithium") != std::string::npos) {
+      auto sig = Crypto::signWithDilithium(messageBytes, privKeyData);
+      return Crypto::toHex(sig);
+    } else {
+      // Assume RSA PEM
+      BIO *bio = BIO_new_mem_buf(privKeyData.data(), privKeyData.size());
+      EVP_PKEY *pkey = PEM_read_bio_PrivateKey(bio, nullptr, nullptr, nullptr);
+      BIO_free(bio);
+
+      if (!pkey) {
+        std::cerr << "❌ [ERROR] Failed to parse private RSA key.\n";
+        return "";
+      }
+
+      EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+      if (!ctx) {
+        EVP_PKEY_free(pkey);
+        std::cerr << "❌ [ERROR] Failed to create EVP context.\n";
+        return "";
+      }
+
+      EVP_DigestSignInit(ctx, nullptr, EVP_sha256(), nullptr, pkey);
+      EVP_DigestSignUpdate(ctx, message.data(), message.size());
+
+      size_t sigLen = 0;
+      EVP_DigestSignFinal(ctx, nullptr, &sigLen);
+      std::vector<unsigned char> signature(sigLen);
+      EVP_DigestSignFinal(ctx, signature.data(), &sigLen);
+
+      EVP_MD_CTX_free(ctx);
+      EVP_PKEY_free(pkey);
+
+      return base64Encode(std::string(signature.begin(), signature.end()));
+    }
+  } catch (const std::exception &ex) {
+    std::cerr << "❌ [ERROR] signMessage threw exception: " << ex.what() << "\n";
     return "";
-  }
-
-  std::vector<unsigned char> messageBytes(message.begin(), message.end());
-
-  if (privateKeyPath.find("falcon") != std::string::npos) {
-    auto sig = Crypto::signWithFalcon(messageBytes, privKeyData);
-    return Crypto::toHex(sig);
-  } else if (privateKeyPath.find("dilithium") != std::string::npos) {
-    auto sig = Crypto::signWithDilithium(messageBytes, privKeyData);
-    return Crypto::toHex(sig);
-  } else {
-    // Assume RSA fallback (PEM)
-    BIO *bio = BIO_new_mem_buf(privKeyData.data(), privKeyData.size());
-    EVP_PKEY *pkey = PEM_read_bio_PrivateKey(bio, nullptr, nullptr, nullptr);
-    BIO_free(bio);
-
-    if (!pkey) {
-      std::cerr << "❌ [ERROR] Failed to parse private key.\n";
-      return "";
-    }
-
-    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
-    EVP_DigestSignInit(ctx, nullptr, EVP_sha256(), nullptr, pkey);
-    EVP_DigestSignUpdate(ctx, message.data(), message.size());
-
-    size_t sigLen = 0;
-    EVP_DigestSignFinal(ctx, nullptr, &sigLen);
-    std::vector<unsigned char> signature(sigLen);
-    EVP_DigestSignFinal(ctx, signature.data(), &sigLen);
-
-    EVP_MD_CTX_free(ctx);
-    EVP_PKEY_free(pkey);
-
-    return base64Encode(std::string(signature.begin(), signature.end()));
   }
 }
 
@@ -1133,34 +1150,45 @@ bool verifyMessage(const std::string &publicKeyPath,
 
   std::vector<unsigned char> msgBytes(message.begin(), message.end());
 
-  if (publicKeyPath.find("falcon") != std::string::npos) {
-    std::vector<unsigned char> sigBytes = Crypto::fromHex(signature);
-    return Crypto::verifyWithFalcon(msgBytes, sigBytes, pubKeyData);
-  } else if (publicKeyPath.find("dilithium") != std::string::npos) {
-    std::vector<unsigned char> sigBytes = Crypto::fromHex(signature);
-    return Crypto::verifyWithDilithium(msgBytes, sigBytes, pubKeyData);
-  } else {
-    std::string decodedSignature = base64Decode(signature);
-    BIO *bio = BIO_new_mem_buf(pubKeyData.data(), pubKeyData.size());
-    EVP_PKEY *pkey = PEM_read_bio_PUBKEY(bio, nullptr, nullptr, nullptr);
-    BIO_free(bio);
+  try {
+    if (publicKeyPath.find("falcon") != std::string::npos) {
+      std::vector<unsigned char> sigBytes = Crypto::fromHex(signature);
+      return Crypto::verifyWithFalcon(msgBytes, sigBytes, pubKeyData);
+    } else if (publicKeyPath.find("dilithium") != std::string::npos) {
+      std::vector<unsigned char> sigBytes = Crypto::fromHex(signature);
+      return Crypto::verifyWithDilithium(msgBytes, sigBytes, pubKeyData);
+    } else {
+      std::string decodedSignature = base64Decode(signature);
+      BIO *bio = BIO_new_mem_buf(pubKeyData.data(), pubKeyData.size());
+      EVP_PKEY *pkey = PEM_read_bio_PUBKEY(bio, nullptr, nullptr, nullptr);
+      BIO_free(bio);
 
-    if (!pkey) {
-      std::cerr << "❌ [ERROR] Failed to parse public key." << std::endl;
-      return false;
+      if (!pkey) {
+        std::cerr << "❌ [ERROR] Failed to parse RSA public key.\n";
+        return false;
+      }
+
+      EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+      if (!ctx) {
+        EVP_PKEY_free(pkey);
+        std::cerr << "❌ [ERROR] Failed to create EVP context.\n";
+        return false;
+      }
+
+      EVP_DigestVerifyInit(ctx, nullptr, EVP_sha256(), nullptr, pkey);
+      EVP_DigestVerifyUpdate(ctx, message.c_str(), message.size());
+
+      bool result = EVP_DigestVerifyFinal(ctx, (unsigned char *)decodedSignature.data(),
+                                          decodedSignature.size()) == 1;
+
+      EVP_MD_CTX_free(ctx);
+      EVP_PKEY_free(pkey);
+
+      return result;
     }
-
-    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
-    EVP_DigestVerifyInit(ctx, nullptr, EVP_sha256(), nullptr, pkey);
-    EVP_DigestVerifyUpdate(ctx, message.c_str(), message.size());
-
-    bool result = EVP_DigestVerifyFinal(ctx, (unsigned char *)decodedSignature.data(),
-                                        decodedSignature.size()) == 1;
-
-    EVP_MD_CTX_free(ctx);
-    EVP_PKEY_free(pkey);
-
-    return result;
+  } catch (const std::exception &ex) {
+    std::cerr << "❌ [ERROR] verifyMessage threw exception: " << ex.what() << "\n";
+    return false;
   }
 }
 

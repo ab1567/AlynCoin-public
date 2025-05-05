@@ -237,23 +237,23 @@ Block Blockchain::createGenesisBlock(bool force) {
         exit(1);
     }
 
-    genesis.setDilithiumSignature(Crypto::toHex(sigDilVec));
-    genesis.setFalconSignature(Crypto::toHex(sigFalVec));
+    genesis.setDilithiumSignature(sigDilVec);
+    genesis.setFalconSignature(sigFalVec);
 
-    // Protect public key assignment
-    if (!dilKeys.publicKey.empty()) {
-        genesis.setPublicKeyDilithium(dilKeys.publicKey);
-    } else {
-        std::cerr << "❌ Dilithium public key is empty!\n";
+    // ✅ Validate and set public keys
+    if (dilKeys.publicKey.size() != DILITHIUM_PUBLIC_KEY_BYTES) {
+        std::cerr << "❌ Dilithium public key size invalid: " << dilKeys.publicKey.size()
+                 << " (expected: " << DILITHIUM_PUBLIC_KEY_BYTES << ")\n";
         exit(1);
     }
+    genesis.setPublicKeyDilithium(dilKeys.publicKey);
 
-    if (!falKeys.publicKey.empty()) {
-        genesis.setPublicKeyFalcon(falKeys.publicKey);
-    } else {
-        std::cerr << "❌ Falcon public key is empty!\n";
+    if (falKeys.publicKey.size() != FALCON_PUBLIC_KEY_BYTES) {
+        std::cerr << "❌ Falcon public key size invalid: " << falKeys.publicKey.size()
+                  << " (expected: " << FALCON_PUBLIC_KEY_BYTES << ")\n";
         exit(1);
     }
+    genesis.setPublicKeyFalcon(falKeys.publicKey);
 
     std::string zkProof = WinterfellStark::generateProof(
         genesis.getHash(),
@@ -314,7 +314,6 @@ bool Blockchain::addBlock(const Block &block) {
         return false;
     }
 
-    // ✅ Skip PoW check for genesis block
     if (block.isGenesisBlock()) {
         std::cout << "🪐 [GENESIS] Adding genesis block without PoW check.\n";
     } else if (!block.hasValidProofOfWork()) {
@@ -328,7 +327,6 @@ bool Blockchain::addBlock(const Block &block) {
         return false;
     }
 
-    // 🚨 New Safety Check before push_back
     if (block.getDilithiumSignature().empty() || block.getFalconSignature().empty()) {
         std::cerr << "❌ [ERROR] Block missing signature(s). Rejecting.\n";
         return false;
@@ -337,25 +335,49 @@ bool Blockchain::addBlock(const Block &block) {
         std::cerr << "❌ [ERROR] Block missing public key(s). Rejecting.\n";
         return false;
     }
+
+    // ✅ Validate expected key lengths
+    if (block.getPublicKeyFalcon().size() != FALCON_PUBLIC_KEY_BYTES) {
+        std::cerr << "❌ [ERROR] Falcon public key length mismatch. Got: "
+                  << block.getPublicKeyFalcon().size()
+                  << ", Expected: " << FALCON_PUBLIC_KEY_BYTES << "\n";
+        return false;
+    }
+
+    // Keep older checks for Dilithium min lengths
     if (block.getDilithiumSignature().size() < 500 || block.getPublicKeyDilithium().size() < 400) {
         std::cerr << "❌ [ERROR] Dilithium signature or public key too small. Rejecting.\n";
         return false;
     }
-    if (block.getFalconSignature().size() < 400 || block.getPublicKeyFalcon().size() < 300) {
-        std::cerr << "❌ [ERROR] Falcon signature or public key too small. Rejecting.\n";
+    if (block.getFalconSignature().size() < 400) {
+        std::cerr << "❌ [ERROR] Falcon signature too small. Rejecting.\n";
         return false;
     }
 
-    // ✅ Safe to push
-    chain.push_back(block);
+    std::cerr << "🧪 [addBlock] Safe push diagnostics:\n";
+    std::cerr << "  - Index: " << block.getIndex() << "\n";
+    std::cerr << "  - Hash: " << block.getHash() << " (" << block.getHash().size() << " bytes)\n";
+    std::cerr << "  - zkProof: " << block.getZkProof().size() << "\n";
+    std::cerr << "  - Dilithium Sig: " << block.getDilithiumSignature().size() << "\n";
+    std::cerr << "  - Falcon Sig: " << block.getFalconSignature().size() << "\n";
+    std::cerr << "  - Dilithium PK: " << block.getPublicKeyDilithium().size() << "\n";
+    std::cerr << "  - Falcon PK: " << block.getPublicKeyFalcon().size() << "\n";
 
-    // ✅ Quick safety check after push
+    try {
+        chain.push_back(block);
+    } catch (const std::exception& e) {
+        std::cerr << "❌ [CRITICAL] push_back failed: " << e.what() << "\n";
+        return false;
+    } catch (...) {
+        std::cerr << "❌ [CRITICAL] push_back triggered unknown fatal error.\n";
+        return false;
+    }
+
     if (chain.back().getHash() != block.getHash()) {
         std::cerr << "❌ [ERROR] After push_back, block hash mismatch. Possible memory error.\n";
         return false;
     }
 
-    // Remove confirmed transactions
     if (!block.getTransactions().empty()) {
         for (const auto &tx : block.getTransactions()) {
             pendingTransactions.erase(
@@ -367,7 +389,6 @@ bool Blockchain::addBlock(const Block &block) {
         }
     }
 
-    // Save block to DB
     if (db) {
         alyncoin::BlockProto protoBlock = block.toProtobuf();
         std::string serializedBlock;
@@ -403,7 +424,6 @@ bool Blockchain::addBlock(const Block &block) {
 
     std::cout << "✅ Block added to blockchain. Pending transactions updated and balances recalculated.\n";
 
-    // Process buffered future blocks
     uint64_t nextIndex = chain.back().getIndex() + 1;
     while (futureBlocks.count(nextIndex)) {
         Block buffered = futureBlocks[nextIndex];
@@ -418,10 +438,40 @@ bool Blockchain::addBlock(const Block &block) {
 
 //
 bool Blockchain::forceAddBlock(const Block& block) {
-    // 🚫 No isValidNewBlock call
-    chain.push_back(block);
+    std::cerr << "🛠️ [forceAddBlock] Forcing block insertion. Index: " << block.getIndex()
+              << ", Hash: " << block.getHash() << "\n";
 
-    // Save to RocksDB
+    if (block.getHash().empty()) {
+        std::cerr << "❌ [forceAddBlock] Block hash is empty.\n";
+        return false;
+    }
+    if (block.getZkProof().empty()) {
+        std::cerr << "❌ [forceAddBlock] zkProof is empty. Unsafe to add.\n";
+        return false;
+    }
+    if (block.getDilithiumSignature().empty() || block.getFalconSignature().empty()) {
+        std::cerr << "❌ [forceAddBlock] Block missing signatures.\n";
+        return false;
+    }
+
+    // ✅ Optional key length check
+    if (block.getPublicKeyFalcon().size() != FALCON_PUBLIC_KEY_BYTES) {
+        std::cerr << "❌ [forceAddBlock] Falcon public key length mismatch. Got: "
+                  << block.getPublicKeyFalcon().size() << ", Expected: "
+                  << FALCON_PUBLIC_KEY_BYTES << "\n";
+        return false;
+    }
+
+    try {
+        chain.push_back(block);
+    } catch (const std::exception& e) {
+        std::cerr << "❌ [forceAddBlock] push_back failed: " << e.what() << "\n";
+        return false;
+    } catch (...) {
+        std::cerr << "❌ [forceAddBlock] push_back triggered unknown exception.\n";
+        return false;
+    }
+
     if (db) {
         alyncoin::BlockProto protoBlock = block.toProtobuf();
         std::string serializedBlock;
@@ -443,8 +493,11 @@ bool Blockchain::forceAddBlock(const Block& block) {
             std::cerr << "❌ Failed to save block by hash during force add: " << statusHash.ToString() << "\n";
             return false;
         }
+    } else {
+        std::cerr << "⚠️ [forceAddBlock] RocksDB disabled. Block only added in memory.\n";
     }
 
+    std::cout << "✅ [forceAddBlock] Block forced into chain successfully.\n";
     return true;
 }
 
@@ -1860,8 +1913,8 @@ Block Blockchain::createRollupBlock(
   std::vector<unsigned char> rollupSigFalcon =
       Crypto::signWithFalcon(hashBytes, dummyKey);
 
-  rollupBlock.setDilithiumSignature(Crypto::toHex(rollupSigDilithium));
-  rollupBlock.setFalconSignature(Crypto::toHex(rollupSigFalcon));
+  rollupBlock.setDilithiumSignature(rollupSigDilithium);
+  rollupBlock.setFalconSignature(rollupSigFalcon);
 
   return rollupBlock;
 }

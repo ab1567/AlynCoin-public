@@ -291,8 +291,8 @@ src/CMakeFiles/alyncoin_lib.dir/zk/winterfell_stark.cpp.o: \
  /root/AlynCoin/src/generated/blockchain_protos.pb.h \
  /root/AlynCoin/src/generated/block_protos.pb.h \
  /root/AlynCoin/src/generated/transaction_protos.pb.h \
- /root/AlynCoin/src/block.h /root/AlynCoin/src/crypto_utils.h \
- /root/AlynCoin/src/crypto_protos.pb.h /root/AlynCoin/src/transaction.h \
+ /root/AlynCoin/src/block.h /root/AlynCoin/src/crypto_protos.pb.h \
+ /root/AlynCoin/src/transaction.h \
  /root/AlynCoin/src/zk/../network/peer_blacklist.h \
  /usr/include/rocksdb/db.h \
  /usr/include/rocksdb/block_cache_trace_writer.h \
