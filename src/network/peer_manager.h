@@ -12,6 +12,8 @@ class Network; // Forward declaration
 class PeerManager {
 private:
     std::vector<std::string> connected_peers;
+    std::map<std::string, int> peerHeights;
+    std::map<std::string, std::string> peerTipHashes;
     PeerBlacklist* blacklist;
     Network* network;
 
@@ -28,6 +30,9 @@ public:
     std::string getMajorityTipHash();
 
     bool fetchBlockAtHeight(int height, Block& outBlock);
+
+    void setPeerHeight(const std::string& peer, int height);
+    void setPeerTipHash(const std::string& peer, const std::string& tipHash);
 };
 
 #endif // PEER_MANAGER_H

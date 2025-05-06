@@ -27,43 +27,61 @@ void Miner::startMiningProcess(const std::string &minerAddress) {
     try {
         std::cout << "🚀 Starting mining process for: " << minerAddress << std::endl;
 
-        if (!miningActive.exchange(true)) {
-            Blockchain &blockchain = Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true);
-
-            while (miningActive) {
-                blockchain.loadPendingTransactionsFromDB();
-                blockchain.reloadBlockchainState();
-
-                Block minedBlock = blockchain.mineBlock(minerAddress);
-
-                if (minedBlock.getHash().empty()) {
-                    std::cerr << "❌ Mining failed. No valid hash generated." << std::endl;
-                    miningActive = false;
-                    break;
-                }
-
-                std::string blockMsg = minedBlock.getHash() + minedBlock.getPreviousHash() +
-                                       minedBlock.getTransactionsHash() + std::to_string(minedBlock.getTimestamp());
-
-                std::vector<unsigned char> pubKeyDil(minedBlock.getPublicKeyDilithium().begin(),
-                                                     minedBlock.getPublicKeyDilithium().end());
-                std::vector<unsigned char> pubKeyFal(minedBlock.getPublicKeyFalcon().begin(),
-                                                     minedBlock.getPublicKeyFalcon().end());
-
-                std::cout << "[SIGN DEBUG] 🔏 Block Message (MINING): " << blockMsg << std::endl;
-                std::cout << "[SIGN DEBUG] 🧬 Dilithium PubKey (MINING): " << Crypto::toHex(pubKeyDil) << std::endl;
-                std::cout << "[SIGN DEBUG] 🧬 Falcon PubKey (MINING): " << Crypto::toHex(pubKeyFal) << std::endl;
-
-                blockchain.addBlock(minedBlock);
-                blockchain.saveToDB();
-
-                // ✅ ✅ NEW: Broadcast mined block to live peers
-                Network::getInstance(8333, &blockchain, nullptr).broadcastBlock(minedBlock);
-                std::cout << "✅ Block mined and broadcasted.\n";
-
-                std::this_thread::sleep_for(std::chrono::seconds(1));
-            }
+        if (miningActive.exchange(true)) {
+            std::cerr << "⚠️ Mining already in progress.\n";
+            return;
         }
+
+        Blockchain &blockchain = Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true);
+
+        blockchain.loadPendingTransactionsFromDB();
+        blockchain.reloadBlockchainState();  // Load once before loop
+
+        while (miningActive) {
+            Block minedBlock = blockchain.mineBlock(minerAddress);
+
+            if (minedBlock.getHash().empty()) {
+                std::cerr << "❌ Mining failed. No valid hash generated.\n";
+                miningActive = false;
+                break;
+            }
+
+            const auto &zk = minedBlock.getZkProof();
+            const auto &dilKey = minedBlock.getPublicKeyDilithium();
+            const auto &falKey = minedBlock.getPublicKeyFalcon();
+
+            if (zk.empty() || dilKey.empty() || falKey.empty()) {
+                std::cerr << "⚠️ Invalid block content. Missing zkProof or public keys.\n";
+                miningActive = false;
+                break;
+            }
+
+            if (zk.size() > 4096 || dilKey.size() > 4096 || falKey.size() > 4096) {
+                std::cerr << "⚠️ Abnormal field size detected. Aborting block.\n";
+                miningActive = false;
+                break;
+            }
+
+            std::string blockMsg = minedBlock.getHash() + minedBlock.getPreviousHash() +
+                                   minedBlock.getTransactionsHash() + std::to_string(minedBlock.getTimestamp());
+
+            std::cout << "[SIGN DEBUG] 🔏 Block Message (MINING): " << blockMsg << std::endl;
+            std::cout << "[SIGN DEBUG] 🧬 Dilithium PubKey (MINING): " << Crypto::toHex(dilKey) << std::endl;
+            std::cout << "[SIGN DEBUG] 🧬 Falcon PubKey (MINING): " << Crypto::toHex(falKey) << std::endl;
+
+            blockchain.addBlock(minedBlock);
+            blockchain.saveToDB();
+
+            // ✅ Only broadcast if network initialized
+            if (!Network::isUninitialized()) {
+                Network::getInstance().broadcastBlock(minedBlock);
+            }
+
+            std::cout << "✅ Block mined and broadcasted.\n";
+
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+
     } catch (const std::exception &e) {
         std::cerr << "❌ Fatal error: " << e.what() << std::endl;
     }

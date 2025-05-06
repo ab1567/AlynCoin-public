@@ -3,7 +3,7 @@
 #include "../crypto_utils.h"
 using namespace atomic;
 
-// ✅ serializeSwap - hex encode optional fields
+// ✅ serializeSwap - raw binary signatures
 bool serializeSwap(const AtomicSwap &swap, std::string &out) {
     atomic::AtomicSwapProto proto;
     proto.set_uuid(swap.uuid);
@@ -16,12 +16,16 @@ bool serializeSwap(const AtomicSwap &swap, std::string &out) {
     proto.set_expiresat(swap.expiresAt);
     proto.set_state(static_cast<int>(swap.state));
     if (swap.zkProof) proto.set_zkproof(*swap.zkProof);
-    if (swap.falconSignature) proto.set_falconsignature(Crypto::toHex(swap.falconSignature.value()));
-    if (swap.dilithiumSignature) proto.set_dilithiumsignature(Crypto::toHex(swap.dilithiumSignature.value()));
+    if (swap.falconSignature) {
+        proto.set_falconsignature(reinterpret_cast<const char*>(swap.falconSignature->data()), swap.falconSignature->size());
+    }
+    if (swap.dilithiumSignature) {
+        proto.set_dilithiumsignature(reinterpret_cast<const char*>(swap.dilithiumSignature->data()), swap.dilithiumSignature->size());
+    }
     return proto.SerializeToString(&out);
 }
 
-// ✅ deserializeSwap - hex decode optional fields
+// ✅ deserializeSwap - raw binary signatures
 bool deserializeSwap(const std::string &data, AtomicSwap &out) {
     atomic::AtomicSwapProto proto;
     if (!proto.ParseFromString(data)) return false;
@@ -37,11 +41,13 @@ bool deserializeSwap(const std::string &data, AtomicSwap &out) {
     out.state = static_cast<SwapState>(proto.state());
     out.zkProof = proto.zkproof().empty() ? std::nullopt : std::make_optional(proto.zkproof());
 
-    if (!proto.falconsignature().empty())
-        out.falconSignature = Crypto::fromHex(proto.falconsignature());
+    if (!proto.falconsignature().empty()) {
+        out.falconSignature = std::vector<unsigned char>(proto.falconsignature().begin(), proto.falconsignature().end());
+    }
 
-    if (!proto.dilithiumsignature().empty())
-        out.dilithiumSignature = Crypto::fromHex(proto.dilithiumsignature());
+    if (!proto.dilithiumsignature().empty()) {
+        out.dilithiumSignature = std::vector<unsigned char>(proto.dilithiumsignature().begin(), proto.dilithiumsignature().end());
+    }
 
     return true;
 }

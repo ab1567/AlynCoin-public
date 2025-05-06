@@ -927,12 +927,19 @@ void Network::handleNewBlock(const Block &newBlock) {
         std::cerr << "❌ [ERROR] Block PoW check failed!\n";
         return;
     }
-    if (newBlock.getZkProof().empty()) {
+
+    const auto& zkVec = newBlock.getZkProof();
+    if (zkVec.empty()) {
         std::cerr << "❌ [ERROR] Missing zkProof in incoming block!\n";
         return;
     }
-    std::string proofStr(newBlock.getZkProof().begin(), newBlock.getZkProof().end());
-    if (!WinterfellStark::verifyProof(proofStr, newBlock.getHash(), newBlock.getPreviousHash(), newBlock.getTransactionsHash())) {
+
+    std::string zkProofStr(zkVec.begin(), zkVec.end());
+    if (!WinterfellStark::verifyProof(
+            zkProofStr,
+            newBlock.getHash(),
+            newBlock.getPreviousHash(),
+            newBlock.getTransactionsHash())) {
         std::cerr << "❌ [ERROR] Invalid zk-STARK proof detected in new block!\n";
         return;
     }

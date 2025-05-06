@@ -41,19 +41,8 @@ uint64_t PeerManager::getMedianNetworkHeight() {
     std::vector<int> heights;
 
     for (const std::string& peer : connected_peers) {
-        std::string msg = R"({"type": "height_request"})";
-        network->sendData(peer, msg);
-
-        std::string response = network->receiveData(peer);
-        if (response.empty()) continue;
-
-        Json::CharReaderBuilder reader;
-        Json::Value jsonData;
-        std::string errs;
-        std::istringstream s(response);
-        if (Json::parseFromStream(reader, s, &jsonData, &errs) && jsonData["type"] == "height_response") {
-            int height = jsonData["data"].asInt();
-            heights.push_back(height);
+        if (peerHeights.count(peer)) {
+            heights.push_back(peerHeights[peer]);
         }
     }
 
@@ -67,29 +56,16 @@ std::string PeerManager::getMajorityTipHash() {
     std::map<std::string, int> hashVotes;
 
     for (const std::string& peer : connected_peers) {
-        std::string msg = R"({"type": "tip_hash_request"})";
-        network->sendData(peer, msg);
-
-        std::string response = network->receiveData(peer);
-        if (response.empty()) continue;
-
-        Json::CharReaderBuilder reader;
-        Json::Value jsonData;
-        std::string errs;
-        std::istringstream s(response);
-        if (Json::parseFromStream(reader, s, &jsonData, &errs) && jsonData["type"] == "tip_hash_response") {
-            std::string hash = jsonData["data"].asString();
-
-            // ✅ Filter out empty hashes
+        if (peerTipHashes.count(peer)) {
+            std::string hash = peerTipHashes[peer];
             if (hash.empty() || hash.length() < 64) continue;
-
             hashVotes[hash]++;
         }
     }
 
     if (hashVotes.empty()) {
         std::cerr << "⚠️ [PeerManager] No valid tip hashes received from peers.\n";
-        return "";  // Avoid returning garbage
+        return "";
     }
 
     auto majority = std::max_element(
@@ -117,4 +93,11 @@ bool PeerManager::fetchBlockAtHeight(int height, Block& outBlock) {
     }
 
     return false;
+}
+void PeerManager::setPeerHeight(const std::string& peer, int height) {
+    peerHeights[peer] = height;
+}
+
+void PeerManager::setPeerTipHash(const std::string& peer, const std::string& tipHash) {
+    peerTipHashes[peer] = tipHash;
 }

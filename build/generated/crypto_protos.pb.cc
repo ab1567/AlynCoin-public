@@ -104,9 +104,9 @@ static const ::_pb::Message* const file_default_instances[] = {
 
 const char descriptor_table_protodef_crypto_5fprotos_2eproto[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) =
   "\n\023crypto_protos.proto\022\010alyncoin\":\n\017Crypt"
-  "oKeysProto\022\023\n\013private_key\030\001 \001(\t\022\022\n\npubli"
-  "c_key\030\002 \001(\t\"#\n\016SignatureProto\022\021\n\tsignatu"
-  "re\030\001 \001(\t\"%\n\014AddressProto\022\025\n\rminer_addres"
+  "oKeysProto\022\023\n\013private_key\030\001 \001(\014\022\022\n\npubli"
+  "c_key\030\002 \001(\014\"#\n\016SignatureProto\022\021\n\tsignatu"
+  "re\030\001 \001(\014\"%\n\014AddressProto\022\025\n\rminer_addres"
   "s\030\001 \001(\tb\006proto3"
   ;
 static ::_pbi::once_flag descriptor_table_crypto_5fprotos_2eproto_once;
@@ -221,23 +221,21 @@ const char* CryptoKeysProto::_InternalParse(const char* ptr, ::_pbi::ParseContex
     uint32_t tag;
     ptr = ::_pbi::ReadTag(ptr, &tag);
     switch (tag >> 3) {
-      // string private_key = 1;
+      // bytes private_key = 1;
       case 1:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 10)) {
           auto str = _internal_mutable_private_key();
           ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(ptr);
-          CHK_(::_pbi::VerifyUTF8(str, "alyncoin.CryptoKeysProto.private_key"));
         } else
           goto handle_unusual;
         continue;
-      // string public_key = 2;
+      // bytes public_key = 2;
       case 2:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 18)) {
           auto str = _internal_mutable_public_key();
           ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(ptr);
-          CHK_(::_pbi::VerifyUTF8(str, "alyncoin.CryptoKeysProto.public_key"));
         } else
           goto handle_unusual;
         continue;
@@ -270,23 +268,15 @@ uint8_t* CryptoKeysProto::_InternalSerialize(
   uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
-  // string private_key = 1;
+  // bytes private_key = 1;
   if (!this->_internal_private_key().empty()) {
-    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
-      this->_internal_private_key().data(), static_cast<int>(this->_internal_private_key().length()),
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
-      "alyncoin.CryptoKeysProto.private_key");
-    target = stream->WriteStringMaybeAliased(
+    target = stream->WriteBytesMaybeAliased(
         1, this->_internal_private_key(), target);
   }
 
-  // string public_key = 2;
+  // bytes public_key = 2;
   if (!this->_internal_public_key().empty()) {
-    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
-      this->_internal_public_key().data(), static_cast<int>(this->_internal_public_key().length()),
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
-      "alyncoin.CryptoKeysProto.public_key");
-    target = stream->WriteStringMaybeAliased(
+    target = stream->WriteBytesMaybeAliased(
         2, this->_internal_public_key(), target);
   }
 
@@ -306,17 +296,17 @@ size_t CryptoKeysProto::ByteSizeLong() const {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // string private_key = 1;
+  // bytes private_key = 1;
   if (!this->_internal_private_key().empty()) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::BytesSize(
         this->_internal_private_key());
   }
 
-  // string public_key = 2;
+  // bytes public_key = 2;
   if (!this->_internal_public_key().empty()) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::BytesSize(
         this->_internal_public_key());
   }
 
@@ -458,13 +448,12 @@ const char* SignatureProto::_InternalParse(const char* ptr, ::_pbi::ParseContext
     uint32_t tag;
     ptr = ::_pbi::ReadTag(ptr, &tag);
     switch (tag >> 3) {
-      // string signature = 1;
+      // bytes signature = 1;
       case 1:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 10)) {
           auto str = _internal_mutable_signature();
           ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(ptr);
-          CHK_(::_pbi::VerifyUTF8(str, "alyncoin.SignatureProto.signature"));
         } else
           goto handle_unusual;
         continue;
@@ -497,13 +486,9 @@ uint8_t* SignatureProto::_InternalSerialize(
   uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
-  // string signature = 1;
+  // bytes signature = 1;
   if (!this->_internal_signature().empty()) {
-    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
-      this->_internal_signature().data(), static_cast<int>(this->_internal_signature().length()),
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
-      "alyncoin.SignatureProto.signature");
-    target = stream->WriteStringMaybeAliased(
+    target = stream->WriteBytesMaybeAliased(
         1, this->_internal_signature(), target);
   }
 
@@ -523,10 +508,10 @@ size_t SignatureProto::ByteSizeLong() const {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // string signature = 1;
+  // bytes signature = 1;
   if (!this->_internal_signature().empty()) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::BytesSize(
         this->_internal_signature());
   }
 

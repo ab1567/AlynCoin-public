@@ -11,14 +11,17 @@ bool serializeIdentity(const ZkIdentity& identity, std::string& out) {
     proto.set_metadatahash(identity.metadataHash);
     proto.set_createdat(identity.createdAt);
 
-    if (identity.zkProof)
-        proto.set_zkproof(Crypto::toHex(*identity.zkProof));
+    if (identity.zkProof && !identity.zkProof->empty()) {
+        proto.set_zkproof(reinterpret_cast<const char*>(identity.zkProof->data()), identity.zkProof->size());
+    }
 
-    if (identity.falconSignature)
-        proto.set_falconsignature(Crypto::toHex(identity.falconSignature.value()));
+    if (identity.falconSignature && !identity.falconSignature->empty()) {
+        proto.set_falconsignature(reinterpret_cast<const char*>(identity.falconSignature->data()), identity.falconSignature->size());
+    }
 
-    if (identity.dilithiumSignature)
-        proto.set_dilithiumsignature(Crypto::toHex(identity.dilithiumSignature.value()));
+    if (identity.dilithiumSignature && !identity.dilithiumSignature->empty()) {
+        proto.set_dilithiumsignature(reinterpret_cast<const char*>(identity.dilithiumSignature->data()), identity.dilithiumSignature->size());
+    }
 
     return proto.SerializeToString(&out);
 }
@@ -33,14 +36,17 @@ bool deserializeIdentity(const std::string& data, ZkIdentity& identity) {
     identity.metadataHash = proto.metadatahash();
     identity.createdAt = proto.createdat();
 
-    identity.zkProof = proto.zkproof().empty() ? std::nullopt
-                                               : std::make_optional(Crypto::fromHex(proto.zkproof()));
+    if (!proto.zkproof().empty()) {
+        identity.zkProof = std::vector<unsigned char>(proto.zkproof().begin(), proto.zkproof().end());
+    }
 
-    if (!proto.falconsignature().empty())
-        identity.falconSignature = Crypto::fromHex(proto.falconsignature());
+    if (!proto.falconsignature().empty()) {
+        identity.falconSignature = std::vector<unsigned char>(proto.falconsignature().begin(), proto.falconsignature().end());
+    }
 
-    if (!proto.dilithiumsignature().empty())
-        identity.dilithiumSignature = Crypto::fromHex(proto.dilithiumsignature());
+    if (!proto.dilithiumsignature().empty()) {
+        identity.dilithiumSignature = std::vector<unsigned char>(proto.dilithiumsignature().begin(), proto.dilithiumsignature().end());
+    }
 
     return true;
 }

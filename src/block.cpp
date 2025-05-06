@@ -561,6 +561,7 @@ alyncoin::BlockProto Block::toProtobuf() const {
 }
 
 //
+
 Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial) {
     Block newBlock;
 
@@ -576,13 +577,21 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
             if (!allowPartial) throw std::runtime_error("[fromProto] " + label + " too long.");
             return "";
         }
-        return val;
+        std::string sanitized;
+        sanitized.reserve(val.size());
+        for (char c : val) {
+            if (std::isprint(static_cast<unsigned char>(c)) && c != '\0')
+                sanitized += c;
+        }
+        return sanitized;
     };
 
     auto safeBinaryField = [&](const std::string& bin, const std::string& label, size_t maxLen = 10000) -> std::vector<unsigned char> {
         std::cerr << "[fromProto] Checking binary field: " << label << " (length = " << bin.size() << ")\n";
-        if (bin.empty()) return {};
-
+        if (bin.empty()) {
+            if (!allowPartial) std::cerr << "❌ [fromProto] Required binary field " << label << " is empty.\n";
+            return {};
+        }
         if (bin.size() > maxLen) {
             std::cerr << "❌ [fromProto] " << label << " too large: " << bin.size() << " bytes\n";
             if (!allowPartial) throw std::runtime_error(label + " too large");
@@ -590,22 +599,28 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
         }
 
         std::vector<unsigned char> binary(bin.begin(), bin.end());
-
         while (!binary.empty() && binary.back() == '\0') {
             std::cerr << "⚠️ [fromProto] Trimming null terminator from " << label << "\n";
             binary.pop_back();
         }
 
-        if (label == "Falcon Public Key" && binary.size() != FALCON_PUBLIC_KEY_BYTES) {
-            std::cerr << "❌ [fromProto] Invalid Falcon Public Key length: " << binary.size()
-                      << " (expected: " << FALCON_PUBLIC_KEY_BYTES << ")\n";
-            if (!allowPartial) throw std::runtime_error("Invalid Falcon public key length.");
+        // Enforce strict lengths for critical keys
+        if (label == "Falcon Public Key") {
+            if (binary.size() != FALCON_PUBLIC_KEY_BYTES) {
+                std::cerr << "❌ [fromProto] Invalid Falcon Public Key length: " << binary.size()
+                          << " (expected: " << FALCON_PUBLIC_KEY_BYTES << ")\n";
+                if (!allowPartial) throw std::runtime_error("Invalid Falcon public key length.");
+                return {};
+            }
         }
 
-        if (label == "Dilithium Public Key" && binary.size() != DILITHIUM_PUBLIC_KEY_BYTES) {
-            std::cerr << "❌ [fromProto] Invalid Dilithium Public Key length: " << binary.size()
-                      << " (expected: " << DILITHIUM_PUBLIC_KEY_BYTES << ")\n";
-            if (!allowPartial) throw std::runtime_error("Invalid Dilithium public key length.");
+        if (label == "Dilithium Public Key") {
+            if (binary.size() != DILITHIUM_PUBLIC_KEY_BYTES) {
+                std::cerr << "❌ [fromProto] Invalid Dilithium Public Key length: " << binary.size()
+                          << " (expected: " << DILITHIUM_PUBLIC_KEY_BYTES << ")\n";
+                if (!allowPartial) throw std::runtime_error("Invalid Dilithium public key length.");
+                return {};
+            }
         }
 
         return binary;
@@ -627,10 +642,10 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
         newBlock.transactionsHash   = safeStr(protoBlock.tx_merkle_root(),    "tx_merkle_root");
 
         newBlock.zkProof            = safeBinaryField(protoBlock.zk_stark_proof(),      "zkProof",             2'000'000);
-        newBlock.dilithiumSignature = safeBinaryField(protoBlock.dilithium_signature(), "Dilithium Signature");
-        newBlock.falconSignature    = safeBinaryField(protoBlock.falcon_signature(),    "Falcon Signature");
-        newBlock.publicKeyDilithium = safeBinaryField(protoBlock.public_key_dilithium(),"Dilithium Public Key");
-        newBlock.publicKeyFalcon    = safeBinaryField(protoBlock.public_key_falcon(),   "Falcon Public Key");
+        newBlock.dilithiumSignature = safeBinaryField(protoBlock.dilithium_signature(), "Dilithium Signature", 5000);
+        newBlock.falconSignature    = safeBinaryField(protoBlock.falcon_signature(),    "Falcon Signature",    2000);
+        newBlock.publicKeyDilithium = safeBinaryField(protoBlock.public_key_dilithium(),"Dilithium Public Key", 2000);
+        newBlock.publicKeyFalcon    = safeBinaryField(protoBlock.public_key_falcon(),   "Falcon Public Key",    2000);
 
     } catch (const std::exception& ex) {
         std::cerr << "❌ [fromProto] Critical error: " << ex.what() << "\n";
@@ -662,7 +677,6 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
             throw std::runtime_error("Transactions present but none valid.");
     }
 
-    // Final check
     std::cerr << "[fromProto] ✅ Final sanity: idx=" << newBlock.index
               << ", txs=" << newBlock.transactions.size()
               << ", zkProof=" << newBlock.zkProof.size()
@@ -672,6 +686,7 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
 
     return newBlock;
 }
+
 // Modify Block class to handle rollup block structure
 std::string
 Block::generateRollupProof(const std::vector<Transaction> &offChainTxs) {

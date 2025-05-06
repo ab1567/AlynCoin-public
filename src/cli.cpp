@@ -114,30 +114,66 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-    // mineloop <minerAddress>
-    if (argc >= 3 && std::string(argv[1]) == "mineloop") {
-        std::string minerAddress = argv[2];
-        Blockchain &b = getBlockchain();
-        if (!b.loadFromDB()) {
-            std::cerr << "❌ Could not load blockchain from DB.\n";
-            return 1;
+// mineloop <minerAddress>
+if (argc >= 3 && std::string(argv[1]) == "mineloop") {
+    std::string minerAddress = argv[2];
+    bool skipDB = hasFlag(argc, argv, "--nodb");
+    bool skipNet = hasFlag(argc, argv, "--nonetwork");
+
+    auto getBlockchain = [&]() -> Blockchain& {
+        if (skipDB) {
+            std::cout << "⚠️ CLI is running in --nodb mode.\n";
+            return Blockchain::getInstanceNoDB();
         }
-        std::cout << "🔁 Starting mining loop for: " << minerAddress << "\n";
-        while (true) {
-            b.loadPendingTransactionsFromDB();
-            Block minedBlock = b.mineBlock(minerAddress);
-            if (!minedBlock.getHash().empty()) {
-                b.saveToDB();
-                b.reloadBlockchainState();
-                std::cout << "✅ Block mined by: " << minerAddress << "\n"
-                          << "🧱 Block Hash: " << minedBlock.getHash() << "\n";
-            } else {
-                std::cerr << "⚠️ Mining failed or no valid transactions.\n";
-            }
-            std::this_thread::sleep_for(std::chrono::seconds(2));
+        if (skipNet) {
+            std::cout << "⚠️ CLI is running in --nonetwork mode (DB OK).\n";
+            return Blockchain::getInstanceNoNetwork();
         }
-        return 0;
+        std::cout << "🌐 CLI is using full network+DB mode.\n";
+        return Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true);  // Use your actual port here
+    };
+
+    Blockchain &b = getBlockchain();
+
+    // ✅ Ensure network singleton is initialized if needed
+    if (!skipNet) {
+        static PeerBlacklist peerBlacklist("/root/.alyncoin/blacklist", 3);
+        Network::getInstance(8333, &b, &peerBlacklist);  // Match port above
     }
+
+    if (!b.loadFromDB()) {
+        std::cerr << "❌ Could not load blockchain from DB.\n";
+        return 1;
+    }
+
+    std::cout << "🔁 Starting mining loop for: " << minerAddress << "\n";
+    while (true) {
+        b.loadPendingTransactionsFromDB();
+        Block minedBlock = b.mineBlock(minerAddress);
+
+        if (!minedBlock.getHash().empty()) {
+            b.saveToDB();
+
+            if (!skipNet) {
+                try {
+                    b.reloadBlockchainState();
+                    Network::getInstance().broadcastBlock(minedBlock);
+                } catch (const std::exception &e) {
+                    std::cerr << "⚠️ reloadBlockchainState() skipped due to network error: " << e.what() << "\n";
+                }
+            }
+
+            std::cout << "✅ Block mined by: " << minerAddress << "\n"
+                      << "🧱 Block Hash: " << minedBlock.getHash() << "\n";
+        } else {
+            std::cerr << "⚠️ Mining failed or no valid transactions.\n";
+        }
+
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+    }
+
+    return 0;
+}
 
     // === DAO viewer ===
     if (argc == 2 && std::string(argv[1]) == "dao-view") {

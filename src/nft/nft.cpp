@@ -159,8 +159,13 @@ NFTProto NFT::toProto() const {
     proto.set_metadata(metadata);
     proto.set_image_hash(imageHash);
     proto.set_timestamp(timestamp);
-    proto.set_signature(signature.data(), signature.size());
-    proto.set_zk_stark_proof(zkStarkProof.data(), zkStarkProof.size());
+
+    // Binary fields
+    proto.set_signature(reinterpret_cast<const char*>(signature.data()), signature.size());
+    proto.set_zk_stark_proof(reinterpret_cast<const char*>(zkStarkProof.data()), zkStarkProof.size());
+    proto.set_dilithium_signature(reinterpret_cast<const char*>(dilithium_signature.data()), dilithium_signature.size());
+
+    // Standard fields
     proto.set_creator_identity(creator_identity);
     proto.set_version(version);
     proto.set_nft_type(nft_type);
@@ -169,8 +174,8 @@ NFTProto NFT::toProto() const {
     proto.set_encrypted_metadata(encrypted_metadata);
     proto.set_expiry_timestamp(expiry_timestamp);
     proto.set_revoked(revoked);
-    proto.set_dilithium_signature(Crypto::toHex(dilithium_signature));
 
+    // Repeated fields
     for (const auto& a : bundledAssets) proto.add_bundled_assets(a);
     for (const auto& h : transferHistory) proto.add_transferledger(h);
     for (const auto& prev : previous_versions) proto.add_previous_versions(prev);
@@ -186,8 +191,13 @@ bool NFT::fromProto(const NFTProto& proto) {
     metadata = proto.metadata();
     imageHash = proto.image_hash();
     timestamp = proto.timestamp();
-    signature = std::vector<uint8_t>(proto.signature().begin(), proto.signature().end());
-    zkStarkProof = std::vector<uint8_t>(proto.zk_stark_proof().begin(), proto.zk_stark_proof().end());
+
+    // Binary fields
+    signature = std::vector<unsigned char>(proto.signature().begin(), proto.signature().end());
+    zkStarkProof = std::vector<unsigned char>(proto.zk_stark_proof().begin(), proto.zk_stark_proof().end());
+    dilithium_signature = std::vector<unsigned char>(proto.dilithium_signature().begin(), proto.dilithium_signature().end());
+
+    // Standard fields
     creator_identity = proto.creator_identity();
     version = proto.version();
     nft_type = proto.nft_type();
@@ -196,8 +206,8 @@ bool NFT::fromProto(const NFTProto& proto) {
     encrypted_metadata = proto.encrypted_metadata();
     expiry_timestamp = proto.expiry_timestamp();
     revoked = proto.revoked();
-    dilithium_signature = Crypto::fromHex(proto.dilithium_signature());
 
+    // Repeated fields
     bundledAssets = {proto.bundled_assets().begin(), proto.bundled_assets().end()};
     transferHistory.assign(proto.transferledger().begin(), proto.transferledger().end());
 
@@ -207,6 +217,7 @@ bool NFT::fromProto(const NFTProto& proto) {
 
     return true;
 }
+
 // ✅ JSON export
 std::string NFT::toJSON() const {
     json j;
