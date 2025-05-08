@@ -23,4 +23,5 @@ message BlockProto {
     string state_root = 16;       
     string tx_merkle_root = 17;   
     optional double reward = 18;
+    repeated TransactionProto l2_transactions = 19;
 }

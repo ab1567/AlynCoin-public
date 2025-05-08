@@ -34,6 +34,9 @@ public:
                              const std::string& prevProof);
 
     bool verifyRollupProof() const;
+    const std::vector<std::pair<std::string, double>>& getCompressedDelta() const {
+	    return compressedDelta;
+	}
 
     std::string getHash() const;
     std::string getPreviousHash() const;

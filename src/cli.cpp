@@ -157,7 +157,10 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
             if (!skipNet) {
                 try {
                     b.reloadBlockchainState();
-                    Network::getInstance().broadcastBlock(minedBlock);
+                    if (!Network::isUninitialized()) {
+		    Network::getInstance().broadcastBlock(minedBlock);
+		}
+
                 } catch (const std::exception &e) {
                     std::cerr << "⚠️ reloadBlockchainState() skipped due to network error: " << e.what() << "\n";
                 }
@@ -694,46 +697,58 @@ int cliMain(int argc, char *argv[]) {
     }
 
     case 5: {  // 🔁 Send L2 Transaction
-      if (!wallet) {
+    if (!wallet) {
         std::cout << "❌ Load or create a wallet first!\n";
         break;
-      }
-
-      std::string recipient;
-      double amount;
-      std::cout << "Enter recipient address (L2): ";
-      std::cin >> recipient;
-      std::cout << "Enter amount: ";
-      std::cin >> amount;
-
-      if (recipient.empty() || amount <= 0) {
-        std::cout << "❌ Invalid input. Address must not be empty and amount must be positive.\n";
-        break;
-      }
-
-      std::string sender = wallet->getAddress();
-      auto dilPriv = Crypto::loadDilithiumKeys(sender);
-      auto falPriv = Crypto::loadFalconKeys(sender);
-
-      Transaction tx(sender, recipient, amount, "", "", time(nullptr));
-      tx.setMetadata("L2");
-      std::cout << "[DEBUG] signTransaction() called for sender: " << sender << "\n";
-      tx.signTransaction(dilPriv.privateKey, falPriv.privateKey);
-
-      if (!tx.getSignatureDilithium().empty() && !tx.getSignatureFalcon().empty()) {
-        blockchain.addTransaction(tx);
-        std::cout << "📦 [DEBUG] Saving pending transactions to RocksDB...\n";
-        blockchain.savePendingTransactionsToDB();  // <-- persists the pool
-        if (network) network->broadcastTransaction(tx);
-        std::cout << "✅ Transactions successfully saved to RocksDB.\n";
-        std::cout << "✅ L2 Transaction created and broadcasted!\n";
-      } else {
-        std::cerr << "❌ Signature failure. L2 Transaction not broadcasted.\n";
-      }
-
-      break;
     }
 
+    std::string recipient;
+    double amount;
+    std::cout << "Enter recipient address (L2): ";
+    std::cin >> recipient;
+    std::cout << "Enter amount: ";
+    std::cin >> amount;
+
+    if (recipient.empty() || amount <= 0) {
+        std::cout << "❌ Invalid input. Address must not be empty and amount must be positive.\n";
+        break;
+    }
+
+    std::string sender = wallet->getAddress();
+    auto dilPriv = Crypto::loadDilithiumKeys(sender);
+    auto falPriv = Crypto::loadFalconKeys(sender);
+
+    Transaction tx(sender, recipient, amount, "", "", time(nullptr));
+    tx.setMetadata("L2");
+
+    std::cout << "[DEBUG] signTransaction() called for sender: " << sender << "\n";
+    tx.signTransaction(dilPriv.privateKey, falPriv.privateKey);
+
+    // 🛡️ Ensure signatures are present
+    if (tx.getSignatureDilithium().empty() || tx.getSignatureFalcon().empty()) {
+        std::cerr << "❌ Signature failure. L2 Transaction not broadcasted.\n";
+        break;
+    }
+
+    // 🔐 zk-STARK proof generation
+    std::string seed = sender + recipient + std::to_string((int)amount) + std::to_string(tx.getTimestamp());
+    std::string proof = WinterfellStark::generateProof(tx.getHash(), tx.getHash(), seed);
+
+    if (proof.empty()) {
+        std::cerr << "❌ [ERROR] zk-STARK proof generation failed!\n";
+        break;
+    }
+
+    tx.setZkProof(proof);  // fix here
+
+    blockchain.addTransaction(tx);
+    std::cout << "📦 [DEBUG] Saving pending transactions to RocksDB...\n";
+    blockchain.savePendingTransactionsToDB();
+    if (network) network->broadcastTransaction(tx);
+    std::cout << "✅ Transactions successfully saved to RocksDB.\n";
+    std::cout << "✅ L2 Transaction created and broadcasted!\n";
+    break;
+}
     case 6: {
       if (!wallet) {
         std::cout << "Load or create a wallet first!\n";

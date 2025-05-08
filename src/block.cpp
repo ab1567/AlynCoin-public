@@ -548,13 +548,22 @@ alyncoin::BlockProto Block::toProtobuf() const {
         proto.set_public_key_falcon(reinterpret_cast<const char*>(publicKeyFalcon.data()), publicKeyFalcon.size());
     }
 
-    // === Transactions ===
+    // === L1 Transactions ===
     for (const auto& tx : transactions) {
         if (tx.getSender().empty() || tx.getRecipient().empty() || tx.getAmount() <= 0.0 ||
             tx.getSignatureDilithium().empty() || tx.getSignatureFalcon().empty() || tx.getZkProof().empty()) {
             continue;
         }
         *proto.add_transactions() = tx.toProto();
+    }
+
+    // === L2 Transactions ===
+    for (const auto& l2tx : l2Transactions) {
+        if (l2tx.getSender().empty() || l2tx.getRecipient().empty() || l2tx.getAmount() <= 0.0 ||
+            l2tx.getSignatureDilithium().empty() || l2tx.getSignatureFalcon().empty() || l2tx.getZkProof().empty()) {
+            continue;
+        }
+        *proto.add_l2_transactions() = l2tx.toProto();
     }
 
     return proto;
@@ -604,23 +613,18 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
             binary.pop_back();
         }
 
-        // Enforce strict lengths for critical keys
-        if (label == "Falcon Public Key") {
-            if (binary.size() != FALCON_PUBLIC_KEY_BYTES) {
-                std::cerr << "❌ [fromProto] Invalid Falcon Public Key length: " << binary.size()
-                          << " (expected: " << FALCON_PUBLIC_KEY_BYTES << ")\n";
-                if (!allowPartial) throw std::runtime_error("Invalid Falcon public key length.");
-                return {};
-            }
+        if (label == "Falcon Public Key" && binary.size() != FALCON_PUBLIC_KEY_BYTES) {
+            std::cerr << "❌ [fromProto] Invalid Falcon Public Key length: " << binary.size()
+                      << " (expected: " << FALCON_PUBLIC_KEY_BYTES << ")\n";
+            if (!allowPartial) throw std::runtime_error("Invalid Falcon public key length.");
+            return {};
         }
 
-        if (label == "Dilithium Public Key") {
-            if (binary.size() != DILITHIUM_PUBLIC_KEY_BYTES) {
-                std::cerr << "❌ [fromProto] Invalid Dilithium Public Key length: " << binary.size()
-                          << " (expected: " << DILITHIUM_PUBLIC_KEY_BYTES << ")\n";
-                if (!allowPartial) throw std::runtime_error("Invalid Dilithium public key length.");
-                return {};
-            }
+        if (label == "Dilithium Public Key" && binary.size() != DILITHIUM_PUBLIC_KEY_BYTES) {
+            std::cerr << "❌ [fromProto] Invalid Dilithium Public Key length: " << binary.size()
+                      << " (expected: " << DILITHIUM_PUBLIC_KEY_BYTES << ")\n";
+            if (!allowPartial) throw std::runtime_error("Invalid Dilithium public key length.");
+            return {};
         }
 
         return binary;
@@ -669,16 +673,31 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
         }
     }
 
-    if (newBlock.transactions.empty()) {
-        std::cerr << "⚠️ [fromProto] No valid transactions parsed. Skipped: " << skipped
-                  << (allowPartial ? " (AllowPartial = true)\n" : "\n");
-        newBlock.transactionsHash = Crypto::blake3("");
-        if (protoBlock.transactions_size() > 0 && !allowPartial)
-            throw std::runtime_error("Transactions present but none valid.");
+    int l2Skipped = 0;
+    for (const auto& protoTx : protoBlock.l2_transactions()) {
+        try {
+            Transaction tx = Transaction::fromProto(protoTx);
+            if (tx.getSender().empty() || tx.getRecipient().empty() || tx.getAmount() <= 0.0 ||
+                tx.getSignatureDilithium().empty() || tx.getSignatureFalcon().empty() || tx.getZkProof().empty()) {
+                std::cerr << "⚠️ [fromProto] Skipping invalid L2 transaction.\n";
+                l2Skipped++;
+                continue;
+            }
+            newBlock.l2Transactions.push_back(std::move(tx));
+        } catch (...) {
+            std::cerr << "⚠️ [fromProto] Error parsing L2 transaction.\n";
+            l2Skipped++;
+        }
+    }
+
+    if (newBlock.transactions.empty() && protoBlock.transactions_size() > 0 && !allowPartial) {
+        std::cerr << "⚠️ [fromProto] No valid L1 transactions parsed.\n";
+        throw std::runtime_error("Transactions present but none valid.");
     }
 
     std::cerr << "[fromProto] ✅ Final sanity: idx=" << newBlock.index
-              << ", txs=" << newBlock.transactions.size()
+              << ", L1 txs=" << newBlock.transactions.size()
+              << ", L2 txs=" << newBlock.l2Transactions.size()
               << ", zkProof=" << newBlock.zkProof.size()
               << ", falSig=" << newBlock.falconSignature.size()
               << ", falPK=" << newBlock.publicKeyFalcon.size()

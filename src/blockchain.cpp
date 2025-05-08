@@ -44,6 +44,7 @@ Blockchain::Blockchain()
 }
 
 // ✅ **Constructor: Open RocksDB**
+// ✅ Constructor: Open RocksDB
 Blockchain::Blockchain(unsigned short port, const std::string &dbPath, bool bindNetwork, bool isSyncMode)
     : difficulty(4), miningReward(10.0), port(port), dbPath(dbPath) {
 
@@ -93,11 +94,11 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath, bool bind
         std::cout << "[DEBUG] ♻️ Genesis zkProof size in chain.front(): "
                   << genesis.getZkProof().size() << " bytes\n";
         saveToDB();  // ✅ Persist genesis block with correct proof
+        recalculateBalancesFromChain(); // Only needed if genesis was manually created
     } else if (!found) {
         std::cout << "⏳ [INFO] Skipping genesis block — awaiting peer sync...\n";
     }
 
-    recalculateBalancesFromChain();
     loadVestingInfoFromDB();
 
     std::string vestingMarker;
@@ -336,15 +337,12 @@ bool Blockchain::addBlock(const Block &block) {
         return false;
     }
 
-    // ✅ Validate expected key lengths
     if (block.getPublicKeyFalcon().size() != FALCON_PUBLIC_KEY_BYTES) {
         std::cerr << "❌ [ERROR] Falcon public key length mismatch. Got: "
                   << block.getPublicKeyFalcon().size()
                   << ", Expected: " << FALCON_PUBLIC_KEY_BYTES << "\n";
         return false;
     }
-
-    // Keep older checks for Dilithium min lengths
     if (block.getDilithiumSignature().size() < 500 || block.getPublicKeyDilithium().size() < 400) {
         std::cerr << "❌ [ERROR] Dilithium signature or public key too small. Rejecting.\n";
         return false;
@@ -419,7 +417,10 @@ bool Blockchain::addBlock(const Block &block) {
         std::cerr << "⚠️ Skipped RocksDB writes: DB not initialized (--nodb mode).\n";
     }
 
+    // ✅ Recalculate L1 + Reapply L2 rollups
     recalculateBalancesFromChain();
+    applyRollupDeltasToBalances();  // ✅ Needed to preserve L2 state
+
     validateChainContinuity();
 
     std::cout << "✅ Block added to blockchain. Pending transactions updated and balances recalculated.\n";
@@ -654,7 +655,6 @@ Block Blockchain::minePendingTransactions(
     std::cout << "[DEBUG] Validating and preparing transactions...\n";
 
     for (const auto &tx : pendingTransactions) {
-        // Ensure serialization validity as well as cryptographic validity
         if (!isTransactionValid(tx) ||
             tx.getSender().empty() ||
             tx.getRecipient().empty() ||
@@ -690,7 +690,7 @@ Block Blockchain::minePendingTransactions(
         tempBalances[DEV_FUND_ADDRESS]  += devFundAmt;
         totalBurnedSupply += burnAmount;
 
-        validTx.push_back(tx); // Fully valid tx
+        validTx.push_back(tx);
 
         Transaction devTx = Transaction::createSystemRewardTransaction(DEV_FUND_ADDRESS, devFundAmt);
         if (!devTx.getRecipient().empty() && devFundAmt > 0.0) {
@@ -765,7 +765,9 @@ Block Blockchain::minePendingTransactions(
 
     std::thread([](Block blockCopy) {
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
-        Network::getInstance().broadcastBlock(blockCopy);
+        if (!Network::isUninitialized()) {
+            Network::getInstance().broadcastBlock(blockCopy);
+        }
     }, newBlock).detach();
 
     std::cout << "✅ Block mined and added successfully. Total burned supply: " << totalBurnedSupply << "\n";
@@ -944,7 +946,7 @@ bool Blockchain::saveToDB() {
 
     if (!db) {
         std::cout << "🛑 Skipping full blockchain save: RocksDB not initialized (--nodb mode).\n";
-        return true;  // Not an error if we're intentionally in --nodb mode
+        return true;
     }
 
     alyncoin::BlockchainProto blockchainProto;
@@ -957,7 +959,7 @@ bool Blockchain::saveToDB() {
         if (zk.empty()) {
             std::cerr << "❌ [saveToDB] Cannot save! Block at index " << block.getIndex()
                       << " has empty zkProof. Aborting full save to prevent corruption.\n";
-            return false; // 🚨 Abort instead of silently skipping
+            return false;
         }
 
         int index = block.getIndex();
@@ -979,11 +981,9 @@ bool Blockchain::saveToDB() {
         std::cout << "🧱 [DEBUG] Block[" << blockCount << "] hash = " << block.getHash() << std::endl;
     }
 
-    int txCount = 0;
     for (const auto &tx : pendingTransactions) {
         alyncoin::TransactionProto *txProto = blockchainProto.add_pending_transactions();
         *txProto = tx.toProto();
-        ++txCount;
     }
 
     blockchainProto.set_difficulty(difficulty);
@@ -1005,15 +1005,58 @@ bool Blockchain::saveToDB() {
         return false;
     }
 
+    // Save burned supply explicitly (again) for consistency
     db->Put(rocksdb::WriteOptions(), "burned_supply", std::to_string(totalBurnedSupply));
+
     saveVestingInfoToDB();
 
+    // 🧹 Clear old rollup_* entries
+    {
+        rocksdb::Iterator* it = db->NewIterator(rocksdb::ReadOptions());
+        int deleted = 0;
+        for (it->SeekToFirst(); it->Valid(); it->Next()) {
+            std::string key = it->key().ToString();
+            if (key.rfind("rollup_", 0) == 0) {
+                db->Delete(rocksdb::WriteOptions(), key);
+                ++deleted;
+            }
+        }
+        delete it;
+        std::cout << "🧹 Removed " << deleted << " old rollup blocks from DB.\n";
+    }
+
+    // ✅ Save rollup blocks with clean re-index
+    int rollupCount = 0;
+    for (const auto& rb : rollupChain) {
+        std::string key = "rollup_" + std::to_string(rollupCount);  // Clean index
+        std::string value = rb.serialize();
+        db->Put(rocksdb::WriteOptions(), key, value);
+        ++rollupCount;
+    }
+    std::cout << "🧱 Saved " << rollupCount << " rollup blocks to DB.\n";
+
+    // ✅ Apply rollup deltas now to ensure balance state includes L2
+    applyRollupDeltasToBalances();
+
+    // ✅ Save final balances
+    int balanceCount = 0;
+    for (const auto& [address, balance] : balances) {
+        db->Put(rocksdb::WriteOptions(), "balance_" + address, std::to_string(balance));
+        ++balanceCount;
+    }
+
+    // ✅ Save supply + burned supply (now AFTER rollup deltas applied)
+    db->Put(rocksdb::WriteOptions(), "total_supply", std::to_string(totalSupply));
+    db->Put(rocksdb::WriteOptions(), "burned_supply", std::to_string(totalBurnedSupply));
+
+    std::cout << "💾 Persisted " << balanceCount << " balances to DB.\n";
     std::cout << "✅ Blockchain saved successfully to RocksDB.\n";
     return true;
 }
 
 // ✅ **Load Blockchain from RocksDB using Protobuf**
 bool Blockchain::loadFromDB() {
+    static bool skipProofVerification = true;
     std::cout << "[DEBUG] Attempting to load blockchain from DB..." << std::endl;
 
     if (!db) {
@@ -1070,38 +1113,53 @@ bool Blockchain::loadFromDB() {
         std::cout << "✅ Vesting applied & marker set.\n";
     }
 
-    // Explicitly set blockchain difficulty based on last block
-    if (!chain.empty()) {
-        const Block& latestBlock = chain.back();
-        difficulty = latestBlock.getDifficulty();
-        std::cout << "⚙️ [loadFromDB] Difficulty explicitly set to latest block difficulty: " << difficulty << "\n";
-    } else {
-        difficulty = 1; // Default fallback
-        std::cout << "⚠️ [loadFromDB] Chain empty after loading. Difficulty reset to default: " << difficulty << "\n";
-    }
+    difficulty = chain.empty() ? 1 : chain.back().getDifficulty();
 
-    // Load burned supply
-    std::string burnedSupplyStr;
-    if (db->Get(rocksdb::ReadOptions(), "burned_supply", &burnedSupplyStr).ok())
-        totalBurnedSupply = std::stod(burnedSupplyStr);
-    else
-        totalBurnedSupply = 0.0;
+    // Load total burned supply
+    std::string burnedStr;
+    if (db->Get(rocksdb::ReadOptions(), "burned_supply", &burnedStr).ok())
+        totalBurnedSupply = std::stod(burnedStr);
 
-    // Check and apply vesting if necessary
-    std::string vestingFlag;
-    if (db->Get(rocksdb::ReadOptions(), "vesting_initialized", &vestingFlag).ok() && vestingFlag == "true") {
-        std::cout << "⏩ Vesting already initialized. Skipping...\n";
-    } else {
-        std::cout << "⏳ Applying vesting schedule for early supporters...\n";
-        applyVestingSchedule();
-        db->Put(rocksdb::WriteOptions(), "vesting_initialized", "true");
-        std::cout << "✅ Vesting applied & marker set.\n";
-    }
-
-    // Always recalculate balances for consistency
+    // 🔁 Step 1: Rebuild balances from L1
     recalculateBalancesFromChain();
 
-    std::cout << "✅ Blockchain loaded successfully!\n";
+    // 🔁 Step 2: Load Rollup blocks and apply L2 deltas
+    std::cout << "🔁 [loadFromDB] Loading rollup blocks from RocksDB...\n";
+    int rollupIndex = 0;
+    rollupChain.clear();
+
+    while (true) {
+        std::string key = "rollup_" + std::to_string(rollupIndex);
+        std::string value;
+        rocksdb::Status status = db->Get(rocksdb::ReadOptions(), key, &value);
+        if (!status.ok()) break;
+
+        try {
+            RollupBlock rb = RollupBlock::deserialize(value);
+            rollupChain.push_back(rb);
+        } catch (...) {
+            std::cerr << "⚠️ [loadFromDB] Failed to parse rollup_" << rollupIndex << "\n";
+        }
+
+        rollupIndex++;
+    }
+
+    // 🔁 Step 3: Apply deltas *after* L1 balances
+    applyRollupDeltasToBalances();
+
+    // 💾 Step 4: Persist final balances
+    if (db) {
+        for (const auto& [addr, bal] : balances)
+            db->Put(rocksdb::WriteOptions(), "balance_" + addr, std::to_string(bal));
+
+        db->Put(rocksdb::WriteOptions(), "total_supply", std::to_string(totalSupply));
+        db->Put(rocksdb::WriteOptions(), "burned_supply", std::to_string(totalBurnedSupply));
+    }
+
+    std::cout << "💾 Final balance state persisted. Total Supply: " << totalSupply
+              << ", Burned: " << totalBurnedSupply
+              << ", Addresses: " << balances.size() << "\n";
+
     return true;
 }
 
@@ -1324,6 +1382,10 @@ bool Blockchain::loadFromProto(const alyncoin::BlockchainProto &protoChain) {
 
     // 🔁 Ensure full state is recomputed
     recalculateBalancesFromChain();
+
+    // 🔁 Restore L2 rollup state
+    applyRollupDeltasToBalances();
+
     validateChainContinuity();
 
     return true;
@@ -1782,18 +1844,59 @@ std::vector<Block> Blockchain::getAllBlocks() {
 
 //
 void Blockchain::addRollupBlock(const RollupBlock &newRollupBlock) {
-  if (isRollupBlockValid(newRollupBlock)) {
-    rollupChain.push_back(newRollupBlock);
-    std::cout << "[INFO] Rollup block added successfully. Index: "
-              << newRollupBlock.getIndex() << std::endl;
-  } else {
-    std::cerr << "[ERROR] Invalid rollup block. Index: "
-              << newRollupBlock.getIndex() << std::endl;
-  }
+    if (isRollupBlockValid(newRollupBlock)) {
+        rollupChain.push_back(newRollupBlock);
+
+        // ✅ Apply and persist L2 deltas
+        for (const auto& [address, delta] : newRollupBlock.getCompressedDelta()) {
+            balances[address] += delta;
+
+            // ✅ Always persist balance after delta
+            if (db) {
+                std::string key = "balance_" + address;
+                std::string value = std::to_string(balances[address]);
+                rocksdb::Status status = db->Put(rocksdb::WriteOptions(), key, value);
+                if (!status.ok()) {
+                    std::cerr << "⚠️ Failed to persist balance for " << address
+                              << ": " << status.ToString() << "\n";
+                }
+            }
+        }
+
+        // ✅ Remove rolled-up txs from pending
+        std::unordered_set<std::string> rolledUpTxHashes;
+        for (const auto& tx : newRollupBlock.getTransactions()) {
+            rolledUpTxHashes.insert(tx.getHash());
+        }
+
+        std::vector<Transaction> newPending;
+        for (const auto& tx : pendingTransactions) {
+            if (!rolledUpTxHashes.count(tx.getHash())) {
+                newPending.push_back(tx);
+            }
+        }
+        pendingTransactions = newPending;
+        savePendingTransactionsToDB();
+
+        // ✅ Save rollup block itself
+        if (db) {
+            std::string key = "rollup_" + std::to_string(newRollupBlock.getIndex());
+            std::string value = newRollupBlock.serialize();
+            db->Put(rocksdb::WriteOptions(), key, value);
+            db->Put(rocksdb::WriteOptions(), "burned_supply", std::to_string(totalBurnedSupply));
+        }
+
+        std::cout << "[INFO] ✅ Rollup block added successfully. Index: "
+                  << newRollupBlock.getIndex() << ". L2 balances updated and persisted.\n";
+    } else {
+        std::cerr << "[ERROR] ❌ Invalid rollup block. Index: "
+                  << newRollupBlock.getIndex() << std::endl;
+    }
 }
+
 //
-bool Blockchain::isRollupBlockValid(const RollupBlock &newRollupBlock) const {
-    // Validate index continuity
+bool Blockchain::isRollupBlockValid(const RollupBlock &newRollupBlock, bool skipProofVerification) const {
+    // ✅ Validate index continuity
     if (newRollupBlock.getIndex() != rollupChain.size()) {
         std::cerr << "[ERROR] Rollup block index mismatch. Expected: "
                   << rollupChain.size() << ", Got: " << newRollupBlock.getIndex()
@@ -1801,20 +1904,26 @@ bool Blockchain::isRollupBlockValid(const RollupBlock &newRollupBlock) const {
         return false;
     }
 
-    // Validate previous hash
+    // ✅ Validate previous hash
     if (!rollupChain.empty() &&
         newRollupBlock.getPreviousHash() != rollupChain.back().getHash()) {
-        std::cerr << "[ERROR] Rollup block previous hash mismatch." << std::endl;
+        std::cerr << "[ERROR] Rollup block previous hash mismatch.\n";
         return false;
     }
 
-    // Extract tx hashes
+    // ✅ Extract tx hashes
     std::vector<std::string> txHashes;
     for (const auto &tx : newRollupBlock.getTransactions()) {
         txHashes.push_back(tx.getHash());
     }
 
-    // DEBUG: Show rollup proof inputs
+    // ✅ Skip zk-STARK proof verification if flag is set (used during DB load)
+    if (skipProofVerification) {
+        std::cout << "⚠️ Skipping proof verification during loadFromDB()\n";
+        return true;
+    }
+
+    // ✅ DEBUG: Show rollup proof inputs
     std::cout << "[DEBUG] Verifying RollupBlock:\n";
     std::cout << " ↪️ Proof Length: " << newRollupBlock.getRollupProof().length() << "\n";
     std::cout << " 🌳 Merkle Root: " << newRollupBlock.getMerkleRoot() << "\n";
@@ -1822,13 +1931,22 @@ bool Blockchain::isRollupBlockValid(const RollupBlock &newRollupBlock) const {
     std::cout << " 🔐 State Root After:  " << newRollupBlock.getStateRootAfter() << "\n";
     std::cout << " 📦 TX Count: " << txHashes.size() << "\n";
 
-    if (!ProofVerifier::verifyRollupProof(
-            newRollupBlock.getRollupProof(),
-            txHashes,
-            newRollupBlock.getMerkleRoot(),
-            newRollupBlock.getStateRootBefore(),
-            newRollupBlock.getStateRootAfter())) {
-        std::cerr << "[ERROR] ❌ Rollup block proof verification failed.\n";
+    // 🔒 Attempt verification with crash protection
+    try {
+        if (!ProofVerifier::verifyRollupProof(
+                newRollupBlock.getRollupProof(),
+                txHashes,
+                newRollupBlock.getMerkleRoot(),
+                newRollupBlock.getStateRootBefore(),
+                newRollupBlock.getStateRootAfter())) {
+            std::cerr << "[ERROR] ❌ Rollup block proof verification failed.\n";
+            return false;
+        }
+    } catch (const std::exception &e) {
+        std::cerr << "[EXCEPTION] Rollup proof verification threw: " << e.what() << "\n";
+        return false;
+    } catch (...) {
+        std::cerr << "[EXCEPTION] Rollup proof verification crashed unexpectedly.\n";
         return false;
     }
 
@@ -1893,31 +2011,22 @@ Blockchain::aggregateOffChainTxs(const std::vector<Transaction> &offChainTxs) {
   return aggregatedTxs;
 }
 // --- Create Rollup Block ---
-Block Blockchain::createRollupBlock(
-    const std::vector<Transaction> &offChainTxs) {
-  std::vector<Transaction> aggregatedTxs = aggregateOffChainTxs(offChainTxs);
+RollupBlock Blockchain::createRollupBlock(const std::vector<Transaction> &offChainTxs) {
+    std::unordered_map<std::string, double> stateBefore = balances;
+    std::unordered_map<std::string, double> stateAfter = simulateL2StateUpdate(stateBefore, offChainTxs);
 
-  Block rollupBlock(chain.size(), getLatestBlock().getHash(), aggregatedTxs,
-                    "System", difficulty, std::time(nullptr),
-                    std::time(nullptr));
-  rollupBlock.mineBlock(difficulty);
+    int rollupIndex = rollupChain.size();
+    std::string prevHash = rollupIndex == 0 ? "GenesisRollup" : rollupChain.back().getHash();
 
-  std::vector<unsigned char> hashBytes(rollupBlock.getHash().begin(),
-                                       rollupBlock.getHash().end());
+    RollupBlock rollupBlock(rollupIndex, prevHash, offChainTxs);
 
-  std::vector<unsigned char> dummyKey(
-      32, 0x01); // Dummy key for demonstration, replace as needed.
+    std::string prevProof = rollupIndex == 0 ? "GenesisProof" : rollupChain.back().getRollupProof();
 
-  std::vector<unsigned char> rollupSigDilithium =
-      Crypto::signWithDilithium(hashBytes, dummyKey);
-  std::vector<unsigned char> rollupSigFalcon =
-      Crypto::signWithFalcon(hashBytes, dummyKey);
+    rollupBlock.generateRollupProof(stateBefore, stateAfter, prevProof);
 
-  rollupBlock.setDilithiumSignature(rollupSigDilithium);
-  rollupBlock.setFalconSignature(rollupSigFalcon);
-
-  return rollupBlock;
+    return rollupBlock;
 }
+
 // Block reward
 double Blockchain::calculateBlockReward() {
     const double maxSupply = 100000000.0; // 100 million cap
@@ -2017,41 +2126,94 @@ void Blockchain::recalculateBalancesFromChain() {
             }
         }
 
-        const auto& txs = block.getTransactions();
+        const auto& txs = block.getTransactions();      // L1 only
+        const auto& l2txs = block.getL2Transactions();  // Ignored here
+
         bool hasSystemTx = false;
 
-        if (!txs.empty()) {
-            for (const auto& tx : txs) {
-                std::string sender = tx.getSender();
-                std::string recipient = tx.getRecipient();
-                double amount = tx.getAmount();
+        for (const auto& tx : txs) {
+            const std::string& sender = tx.getSender();
+            const std::string& recipient = tx.getRecipient();
+            double amount = tx.getAmount();
 
-                if (sender != "System") {
-                    balances[sender] -= amount;
-                } else {
-                    hasSystemTx = true;
-                    totalSupply += amount;
-                }
+            if (!sender.empty() && sender != "System") {
+                balances[sender] -= amount;
+            } else if (sender == "System") {
+                hasSystemTx = true;
+                totalSupply += amount;
+            }
 
+            if (!recipient.empty()) {
                 balances[recipient] += amount;
+            }
 
-                if (tx.getMetadata() == "burn") {
-                    totalBurnedSupply += amount;
-                }
+            if (tx.getMetadata() == "burn") {
+                totalBurnedSupply += amount;
             }
         }
 
-        // ✅ Add block reward manually if it’s not already in a "System" tx
-        if (!hasSystemTx && block.getMinerAddress() != "System") {
+        if (!l2txs.empty()) {
+            std::cout << "⚠️ [DEBUG] Skipping L2 txs in recalc (handled via rollups). Block: " << block.getIndex() << "\n";
+        }
+
+        if (!hasSystemTx && !block.getMinerAddress().empty() && block.getMinerAddress() != "System") {
             double reward = calculateBlockReward();
-            balances[block.getMinerAddress()] += reward;
-            totalSupply += reward;
+            if (reward > 0.0) {
+                balances[block.getMinerAddress()] += reward;
+                totalSupply += reward;
+            }
         }
     }
 
     std::cout << "✅ [DEBUG] Balances recalculated from chain. Unique blocks: "
               << seenBlocks.size() << ", Total Supply: " << totalSupply
               << ", Total Burned: " << totalBurnedSupply << "\n";
+}
+
+//
+void Blockchain::applyRollupDeltasToBalances() {
+    std::cout << "🔄 Applying " << rollupChain.size() << " rollup deltas...\n";
+
+    for (const RollupBlock& rollup : rollupChain) {
+        for (const Transaction& tx : rollup.getTransactions()) {
+            const std::string& sender = tx.getSender();
+            const std::string& recipient = tx.getRecipient();
+            double amount = tx.getAmount();
+            if (sender.empty() || recipient.empty() || amount <= 0.0) continue;
+
+            // Fee calculation
+            double burnRate   = std::clamp(static_cast<double>(rollup.getTransactions().size()) / 1000.0, 0.01, 0.05);
+            double rawFee     = amount * 0.01;
+            double maxFee     = std::min(amount * 0.00005, 1.0);
+            double feeAmount  = std::min(rawFee, maxFee);
+
+            double burnAmount = std::min(feeAmount * burnRate, feeAmount);
+            double devFundAmt = feeAmount - burnAmount;
+            double finalAmount = amount - feeAmount;
+
+            if (sender != "System") {
+                balances[sender] -= amount;
+            } else {
+                totalSupply += amount;
+            }
+
+            balances[recipient] += finalAmount;
+            balances[DEV_FUND_ADDRESS] += devFundAmt;
+            totalBurnedSupply += burnAmount;
+
+            if (tx.getMetadata() == "burn") {
+                totalBurnedSupply += amount;
+            }
+
+            std::cout << "🔥 Rollup Burned: " << burnAmount
+                      << ", 💰 Dev Fund: " << devFundAmt
+                      << ", 📤 Final Sent: " << finalAmount << "\n";
+        }
+    }
+
+    std::cout << "✅ [applyRollupDeltas] L2 rollup balances updated. Total Supply: "
+              << totalSupply << ", Burned: " << totalBurnedSupply
+              << ", Addresses: " << balances.size() << "\n";
 }
 
 // getCurrentState
@@ -2145,11 +2307,22 @@ std::string Blockchain::getLatestBlockHash() const {
 // Filter out and return only L2 transactions
 std::vector<Transaction> Blockchain::getPendingL2Transactions() const {
     std::vector<Transaction> l2txs;
+
+    // Collect hashes of transactions already included in rollup blocks
+    std::unordered_set<std::string> processedHashes;
+    for (const auto& rollupBlock : rollupChain) {
+        for (const auto& tx : rollupBlock.getTransactions()) {
+            processedHashes.insert(tx.getHash());
+        }
+    }
+
+    // Only return L2 txs not yet included in any rollup
     for (const auto& tx : pendingTransactions) {
-        if (isL2Transaction(tx)) {
+        if (isL2Transaction(tx) && processedHashes.find(tx.getHash()) == processedHashes.end()) {
             l2txs.push_back(tx);
         }
     }
+
     return l2txs;
 }
 
@@ -2185,10 +2358,12 @@ bool Blockchain::rollbackToHeight(int height) {
 
     // Recalculate everything post-trim
     recalculateBalancesFromChain();
+    applyRollupDeltasToBalances();
     saveToDB();
 
     return true;
 }
+
 //
 std::string DBPaths::getKeyPath(const std::string &address) {
     return "/root/.alyncoin/keys/" + address + "_combined.key";
@@ -2242,7 +2417,7 @@ int Blockchain::findCommonAncestorIndex(const std::vector<Block>& otherChain) {
 }
 //
 bool Blockchain::rollbackToIndex(int index) {
-    if (index < 0 || index >= chain.size()) {
+    if (index < 0 || index >= static_cast<int>(chain.size())) {
         std::cerr << "❌ [Blockchain] Invalid rollback index\n";
         return false;
     }
@@ -2250,6 +2425,7 @@ bool Blockchain::rollbackToIndex(int index) {
     chain.resize(index + 1);  // Keep only up to common ancestor
     saveToDB();
     recalculateBalancesFromChain();
+    applyRollupDeltasToBalances();
     std::cout << "✅ [Blockchain] Rolled back to index: " << index << "\n";
     return true;
 }
@@ -2323,6 +2499,7 @@ void Blockchain::compareAndMergeChains(const std::vector<Block>& otherChain) {
         chain = otherChain;
         saveToDB();
         recalculateBalancesFromChain();
+        applyRollupDeltasToBalances();
         return;
     }
 
@@ -2350,6 +2527,7 @@ void Blockchain::compareAndMergeChains(const std::vector<Block>& otherChain) {
         chain = otherChain;
         saveToDB();
         recalculateBalancesFromChain();
+        applyRollupDeltasToBalances();
         return;
     }
 
@@ -2366,6 +2544,9 @@ void Blockchain::compareAndMergeChains(const std::vector<Block>& otherChain) {
             return;
         }
     }
+
+    // ✅ Ensure L2 rollups are re-applied after successful merge
+    applyRollupDeltasToBalances();
 
     std::cout << "✅ [Fork] Merge complete. Chain replaced with stronger fork.\n";
 }

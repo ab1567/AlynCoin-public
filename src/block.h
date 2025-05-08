@@ -32,7 +32,7 @@ private:
   std::vector<uint8_t> zkProof;
   std::string merkleRoot;
   double reward = 0.0;
-
+  std::vector<Transaction> l2Transactions;
   std::string transactionsToString() const;
 
 public:
@@ -111,6 +111,10 @@ public:
   }
 
   std::string generateRollupProof(const std::vector<Transaction> &offChainTxs);
+  const std::vector<Transaction>& getL2Transactions() const { return l2Transactions; }
+
+  void setL2Transactions(const std::vector<Transaction>& txs) { l2Transactions = txs; }
+
 
   // --- Serialization / Deserialization ---
   static Block fromProto(const alyncoin::BlockProto &proto, bool allowPartial = false);

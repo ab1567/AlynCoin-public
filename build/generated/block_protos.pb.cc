@@ -26,6 +26,7 @@ PROTOBUF_CONSTEXPR BlockProto::BlockProto(
     /*decltype(_impl_._has_bits_)*/{}
   , /*decltype(_impl_._cached_size_)*/{}
   , /*decltype(_impl_.transactions_)*/{}
+  , /*decltype(_impl_.l2_transactions_)*/{}
   , /*decltype(_impl_.previous_hash_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
   , /*decltype(_impl_.hash_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
   , /*decltype(_impl_.miner_address_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
@@ -82,6 +83,7 @@ const uint32_t TableStruct_block_5fprotos_2eproto::offsets[] PROTOBUF_SECTION_VA
   PROTOBUF_FIELD_OFFSET(::alyncoin::BlockProto, _impl_.state_root_),
   PROTOBUF_FIELD_OFFSET(::alyncoin::BlockProto, _impl_.tx_merkle_root_),
   PROTOBUF_FIELD_OFFSET(::alyncoin::BlockProto, _impl_.reward_),
+  PROTOBUF_FIELD_OFFSET(::alyncoin::BlockProto, _impl_.l2_transactions_),
   ~0u,
   ~0u,
   ~0u,
@@ -100,9 +102,10 @@ const uint32_t TableStruct_block_5fprotos_2eproto::offsets[] PROTOBUF_SECTION_VA
   ~0u,
   ~0u,
   0,
+  ~0u,
 };
 static const ::_pbi::MigrationSchema schemas[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
-  { 0, 24, -1, sizeof(::alyncoin::BlockProto)},
+  { 0, 25, -1, sizeof(::alyncoin::BlockProto)},
 };
 
 static const ::_pb::Message* const file_default_instances[] = {
@@ -111,7 +114,7 @@ static const ::_pb::Message* const file_default_instances[] = {
 
 const char descriptor_table_protodef_block_5fprotos_2eproto[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) =
   "\n\022block_protos.proto\022\010alyncoin\032\030transact"
-  "ion_protos.proto\"\301\003\n\nBlockProto\022\r\n\005index"
+  "ion_protos.proto\"\366\003\n\nBlockProto\022\r\n\005index"
   "\030\001 \001(\005\022\025\n\rprevious_hash\030\002 \001(\t\0220\n\014transac"
   "tions\030\003 \003(\0132\032.alyncoin.TransactionProto\022"
   "\014\n\004hash\030\004 \001(\t\022\025\n\rminer_address\030\005 \001(\t\022\r\n\005"
@@ -122,14 +125,16 @@ const char descriptor_table_protodef_block_5fprotos_2eproto[] PROTOBUF_SECTION_V
   "signature\030\r \001(\014\022\034\n\024public_key_dilithium\030"
   "\016 \001(\014\022\031\n\021public_key_falcon\030\017 \001(\014\022\022\n\nstat"
   "e_root\030\020 \001(\t\022\026\n\016tx_merkle_root\030\021 \001(\t\022\023\n\006"
-  "reward\030\022 \001(\001H\000\210\001\001B\t\n\007_rewardb\006proto3"
+  "reward\030\022 \001(\001H\000\210\001\001\0223\n\017l2_transactions\030\023 \003"
+  "(\0132\032.alyncoin.TransactionProtoB\t\n\007_rewar"
+  "db\006proto3"
   ;
 static const ::_pbi::DescriptorTable* const descriptor_table_block_5fprotos_2eproto_deps[1] = {
   &::descriptor_table_transaction_5fprotos_2eproto,
 };
 static ::_pbi::once_flag descriptor_table_block_5fprotos_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_block_5fprotos_2eproto = {
-    false, false, 516, descriptor_table_protodef_block_5fprotos_2eproto,
+    false, false, 569, descriptor_table_protodef_block_5fprotos_2eproto,
     "block_protos.proto",
     &descriptor_table_block_5fprotos_2eproto_once, descriptor_table_block_5fprotos_2eproto_deps, 1, 1,
     schemas, file_default_instances, TableStruct_block_5fprotos_2eproto::offsets,
@@ -157,6 +162,9 @@ class BlockProto::_Internal {
 void BlockProto::clear_transactions() {
   _impl_.transactions_.Clear();
 }
+void BlockProto::clear_l2_transactions() {
+  _impl_.l2_transactions_.Clear();
+}
 BlockProto::BlockProto(::PROTOBUF_NAMESPACE_ID::Arena* arena,
                          bool is_message_owned)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena, is_message_owned) {
@@ -170,6 +178,7 @@ BlockProto::BlockProto(const BlockProto& from)
       decltype(_impl_._has_bits_){from._impl_._has_bits_}
     , /*decltype(_impl_._cached_size_)*/{}
     , decltype(_impl_.transactions_){from._impl_.transactions_}
+    , decltype(_impl_.l2_transactions_){from._impl_.l2_transactions_}
     , decltype(_impl_.previous_hash_){}
     , decltype(_impl_.hash_){}
     , decltype(_impl_.miner_address_){}
@@ -299,6 +308,7 @@ inline void BlockProto::SharedCtor(
       decltype(_impl_._has_bits_){}
     , /*decltype(_impl_._cached_size_)*/{}
     , decltype(_impl_.transactions_){arena}
+    , decltype(_impl_.l2_transactions_){arena}
     , decltype(_impl_.previous_hash_){}
     , decltype(_impl_.hash_){}
     , decltype(_impl_.miner_address_){}
@@ -379,6 +389,7 @@ BlockProto::~BlockProto() {
 inline void BlockProto::SharedDtor() {
   GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
   _impl_.transactions_.~RepeatedPtrField();
+  _impl_.l2_transactions_.~RepeatedPtrField();
   _impl_.previous_hash_.Destroy();
   _impl_.hash_.Destroy();
   _impl_.miner_address_.Destroy();
@@ -404,6 +415,7 @@ void BlockProto::Clear() {
   (void) cached_has_bits;
 
   _impl_.transactions_.Clear();
+  _impl_.l2_transactions_.Clear();
   _impl_.previous_hash_.ClearToEmpty();
   _impl_.hash_.ClearToEmpty();
   _impl_.miner_address_.ClearToEmpty();
@@ -599,6 +611,19 @@ const char* BlockProto::_InternalParse(const char* ptr, ::_pbi::ParseContext* ct
         } else
           goto handle_unusual;
         continue;
+      // repeated .alyncoin.TransactionProto l2_transactions = 19;
+      case 19:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 154)) {
+          ptr -= 2;
+          do {
+            ptr += 2;
+            ptr = ctx->ParseMessage(_internal_add_l2_transactions(), ptr);
+            CHK_(ptr);
+            if (!ctx->DataAvailable(ptr)) break;
+          } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<154>(ptr));
+        } else
+          goto handle_unusual;
+        continue;
       default:
         goto handle_unusual;
     }  // switch
@@ -763,6 +788,14 @@ uint8_t* BlockProto::_InternalSerialize(
     target = ::_pbi::WireFormatLite::WriteDoubleToArray(18, this->_internal_reward(), target);
   }
 
+  // repeated .alyncoin.TransactionProto l2_transactions = 19;
+  for (unsigned i = 0,
+      n = static_cast<unsigned>(this->_internal_l2_transactions_size()); i < n; i++) {
+    const auto& repfield = this->_internal_l2_transactions(i);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+        InternalWriteMessage(19, repfield, repfield.GetCachedSize(), target, stream);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
         _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
@@ -782,6 +815,13 @@ size_t BlockProto::ByteSizeLong() const {
   // repeated .alyncoin.TransactionProto transactions = 3;
   total_size += 1UL * this->_internal_transactions_size();
   for (const auto& msg : this->_impl_.transactions_) {
+    total_size +=
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(msg);
+  }
+
+  // repeated .alyncoin.TransactionProto l2_transactions = 19;
+  total_size += 2UL * this->_internal_l2_transactions_size();
+  for (const auto& msg : this->_impl_.l2_transactions_) {
     total_size +=
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(msg);
   }
@@ -915,6 +955,7 @@ void BlockProto::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PRO
   (void) cached_has_bits;
 
   _this->_impl_.transactions_.MergeFrom(from._impl_.transactions_);
+  _this->_impl_.l2_transactions_.MergeFrom(from._impl_.l2_transactions_);
   if (!from._internal_previous_hash().empty()) {
     _this->_internal_set_previous_hash(from._internal_previous_hash());
   }
@@ -987,6 +1028,7 @@ void BlockProto::InternalSwap(BlockProto* other) {
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
   _impl_.transactions_.InternalSwap(&other->_impl_.transactions_);
+  _impl_.l2_transactions_.InternalSwap(&other->_impl_.l2_transactions_);
   ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::InternalSwap(
       &_impl_.previous_hash_, lhs_arena,
       &other->_impl_.previous_hash_, rhs_arena

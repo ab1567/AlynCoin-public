@@ -158,7 +158,7 @@ public:
   void requestFullSync();
   bool processStateChannelCommitment(const StateChannel &channel);
   std::vector<Transaction> aggregateOffChainTxs(const std::vector<Transaction> &offChainTxs);
-  Block createRollupBlock(const std::vector<Transaction> &offChainTxs);
+  RollupBlock createRollupBlock(const std::vector<Transaction> &offChainTxs);
   void saveRollupChain() const;
   void loadRollupChain();
   void mergeRollupChain(const std::vector<RollupBlock> &otherChain);
@@ -173,7 +173,7 @@ public:
   const std::vector<Block> &getChain() const;
   Json::Value toJSON() const;
   void addRollupBlock(const RollupBlock &newRollupBlock);
-  bool isRollupBlockValid(const RollupBlock &newRollupBlock) const;
+  bool isRollupBlockValid(const RollupBlock &newRollupBlock, bool skipProofVerification = false) const;
   double getBalance(const std::string &publicKey) const;
   int getBlockCount() const { return chain.size(); }
   void addVestingForEarlySupporter(const std::string &address, double initialAmount);
@@ -198,6 +198,7 @@ public:
   void clearChain() { chain.clear(); }
   time_t getLastRollupTimestamp() const;
   time_t getFirstPendingL2Timestamp() const;
+  void applyRollupDeltasToBalances();
 
 // New fork sync and comparison helpers
 bool verifyForkSafety(const std::vector<Block>& otherChain) const;
