@@ -37,7 +37,7 @@ std::string RollupBlock::calculateHash() const {
 void RollupBlock::generateRollupProof(const std::unordered_map<std::string, double>& stateBefore,
                                       const std::unordered_map<std::string, double>& stateAfter,
                                       const std::string& prevProof) {
-    rollupProof = ProofGenerator::generateAggregatedProof(transactions, stateBefore, stateAfter);
+    rollupProof = ProofGenerator::generateAggregatedProof(transactions, stateBefore, stateAfter, previousHash);
 
     stateRootBefore = RollupUtils::calculateStateRoot(stateBefore);
     stateRootAfter = RollupUtils::calculateStateRoot(stateAfter);
@@ -59,13 +59,14 @@ bool RollupBlock::verifyRollupProof() const {
     std::cout << " 🔐 State Root After:  " << stateRootAfter << "\n";
     std::cout << " 🧾 TX Count: " << txHashes.size() << "\n";
 
-    bool mainProofValid = ProofVerifier::verifyRollupProof(
-        rollupProof,
-        txHashes,
-        merkleRoot,
-        stateRootBefore,
-        stateRootAfter
-    );
+	bool mainProofValid = ProofVerifier::verifyRollupProof(
+	    rollupProof,
+	    txHashes,
+	    merkleRoot,
+	    stateRootBefore,
+	    stateRootAfter,
+	    previousHash
+	);
 
     bool recursiveValid = ProofVerifier::verifyRecursiveProof(
         previousHash,

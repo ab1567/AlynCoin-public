@@ -4,10 +4,8 @@
 #include "zk/winterfell_stark.h"
 #include "rollup_utils.h"
 #include "crypto_utils.h"
-#include "blockchain.h"
 #include <thread>
 #include <iostream>
-#include "db/db_paths.h"
 
 std::string ProofGenerator::generatePublicInput(const std::string& txRoot,
                                                 const std::string& stateRootBefore,
@@ -17,7 +15,8 @@ std::string ProofGenerator::generatePublicInput(const std::string& txRoot,
 
 std::string ProofGenerator::generateAggregatedProof(const std::vector<Transaction>& transactions,
                                                     const std::unordered_map<std::string, double>& stateBefore,
-                                                    const std::unordered_map<std::string, double>& stateAfter) {
+                                                    const std::unordered_map<std::string, double>& stateAfter,
+                                                    const std::string& prevBlockHash) {  // ✅ added arg
     TransactionCircuit txCircuit;
     StateCircuit stBefore, stAfter;
 
@@ -44,14 +43,11 @@ std::string ProofGenerator::generateAggregatedProof(const std::vector<Transactio
     std::string stateRootBefore = stBefore.computeStateRootHash();
     std::string stateRootAfter = stAfter.computeStateRootHash();
 
-    Blockchain& chain = Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), false, false);
-    std::string prevHash = chain.getLatestBlock().getHash();
-
     std::string seed1 = Crypto::blake3(txRoot + stateRootBefore + stateRootAfter);
     std::string blockHash = Crypto::blake3(seed1);
 
-    RollupUtils::storeRollupMetadata(txRoot, blockHash);
-    return RollupStark::generateRollupProof(blockHash, prevHash, txRoot);
+    RollupUtils::storeRollupMetadata(txRoot, blockHash);  // still needed for consistency
+    return RollupStark::generateRollupProof(blockHash, prevBlockHash, txRoot);
 }
 
 std::string ProofGenerator::generateRecursiveProof(const std::string& prevProof,

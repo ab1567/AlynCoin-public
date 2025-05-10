@@ -7,12 +7,16 @@
 
 class ProofVerifier {
 public:
-    static bool verifyProof(const RollupBlock& rollupBlock, const std::string& aggregatedProof);
+    static bool verifyProof(const RollupBlock& rollupBlock,
+                            const std::string& aggregatedProof,
+                            const std::string& prevBlockHash);
+
     static bool verifyRollupProof(const std::string& aggregatedProof,
                                   const std::vector<std::string>& txHashes,
                                   const std::string& txRoot,
                                   const std::string& stateRootBefore,
-                                  const std::string& stateRootAfter);
+                                  const std::string& stateRootAfter,
+                                  const std::string& prevBlockHash);
 
     static bool verifyRecursiveProof(const std::string& prevProof,
                                      const std::string& newProof,

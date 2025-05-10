@@ -506,6 +506,15 @@ if (argc >= 3 && std::string(argv[1]) == "rollup") {
     std::string walletAddr = argv[2];
     Blockchain& blockchain = getBlockchain();
 
+    if (!blockchain.loadFromDB()) {
+        std::cerr << "❌ Could not load blockchain from DB.\n";
+        return 1;
+    }
+
+    blockchain.loadPendingTransactionsFromDB();
+    std::vector<Transaction> allTxs = blockchain.getPendingTransactions();
+    blockchain.setPendingL2TransactionsIfNotInRollups(allTxs);
+
     std::cout << "🔁 Generating Normal Rollup Block...\n";
 
     std::vector<Transaction> l2Transactions = blockchain.getPendingL2Transactions();
@@ -543,6 +552,15 @@ if (argc >= 3 && std::string(argv[1]) == "recursive-rollup") {
     std::string walletAddr = argv[2];
     Blockchain& blockchain = getBlockchain();
 
+    if (!blockchain.loadFromDB()) {
+        std::cerr << "❌ Could not load blockchain from DB.\n";
+        return 1;
+    }
+
+    blockchain.loadPendingTransactionsFromDB();
+    std::vector<Transaction> allTxs = blockchain.getPendingTransactions();
+    blockchain.setPendingL2TransactionsIfNotInRollups(allTxs);
+
     std::cout << "🔁 Generating Rollup Block with Recursive zk-STARK Proof...\n";
 
     std::vector<Transaction> l2Transactions = blockchain.getPendingL2Transactions();
@@ -562,7 +580,7 @@ if (argc >= 3 && std::string(argv[1]) == "recursive-rollup") {
     );
 
     std::string prevRecursive = blockchain.getLastRollupProof();
-    rollup.generateRollupProof(stateBefore, stateAfter, prevRecursive);  // same method
+    rollup.generateRollupProof(stateBefore, stateAfter, prevRecursive);
 
     if (blockchain.isRollupBlockValid(rollup)) {
         blockchain.addRollupBlock(rollup);

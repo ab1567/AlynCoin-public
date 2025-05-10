@@ -3,23 +3,22 @@
 #include "rollup_utils.h"
 #include "crypto_utils.h"
 #include <iostream>
-#include "blockchain.h"
-#include "db/db_paths.h"
 
-bool ProofVerifier::verifyProof(const RollupBlock& rollupBlock, const std::string& aggregatedProof) {
+bool ProofVerifier::verifyProof(const RollupBlock& rollupBlock, const std::string& aggregatedProof, const std::string& prevBlockHash) {
     const auto& txHashes = rollupBlock.getTransactionHashes();
     std::string txRoot = RollupUtils::calculateMerkleRoot(txHashes);
     std::string stateRootBefore = rollupBlock.getStateRootBefore();
     std::string stateRootAfter = rollupBlock.getStateRootAfter();
 
-    return verifyRollupProof(aggregatedProof, txHashes, txRoot, stateRootBefore, stateRootAfter);
+    return verifyRollupProof(aggregatedProof, txHashes, txRoot, stateRootBefore, stateRootAfter, prevBlockHash);
 }
 
 bool ProofVerifier::verifyRollupProof(const std::string& aggregatedProof,
                                       const std::vector<std::string>& txHashes,
                                       const std::string& txRoot,
                                       const std::string& stateRootBefore,
-                                      const std::string& stateRootAfter) {
+                                      const std::string& stateRootAfter,
+                                      const std::string& prevBlockHash) {  // ✅ added arg
     if (aggregatedProof.empty() || txHashes.empty() || txRoot.empty()
         || stateRootBefore.empty() || stateRootAfter.empty()) {
         std::cerr << "[ERROR] Invalid inputs to verifyRollupProof.\n";
@@ -31,13 +30,9 @@ bool ProofVerifier::verifyRollupProof(const std::string& aggregatedProof,
         return false;
     }
 
-    // ✅ Load consistent txRoot and blockHash from generation time
     auto [storedTxRoot, storedBlockHash] = RollupUtils().loadRollupMetadata();
 
-    Blockchain& chain = Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), false, false);
-    std::string prevHash = chain.getLatestBlock().getHash();
-
-    return RollupStark::verifyRollupProof(aggregatedProof, storedBlockHash, prevHash, storedTxRoot);
+    return RollupStark::verifyRollupProof(aggregatedProof, storedBlockHash, prevBlockHash, storedTxRoot);
 }
 
 bool ProofVerifier::verifyRecursiveProof(const std::string& prevProof,

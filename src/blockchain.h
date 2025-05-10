@@ -199,7 +199,7 @@ public:
   time_t getLastRollupTimestamp() const;
   time_t getFirstPendingL2Timestamp() const;
   void applyRollupDeltasToBalances();
-
+  void setPendingL2TransactionsIfNotInRollups(const std::vector<Transaction>& allTxs);
 // New fork sync and comparison helpers
 bool verifyForkSafety(const std::vector<Block>& otherChain) const;
 int findForkCommonAncestor(const std::vector<Block>& otherChain) const;

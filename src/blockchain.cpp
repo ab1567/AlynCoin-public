@@ -655,6 +655,12 @@ Block Blockchain::minePendingTransactions(
     std::cout << "[DEBUG] Validating and preparing transactions...\n";
 
     for (const auto &tx : pendingTransactions) {
+        // 🚫 Skip L2 transactions — they are handled in rollup blocks
+        if (isL2Transaction(tx)) {
+            std::cout << "⚠️ Skipping L2 transaction during L1 mining.\n";
+            continue;
+        }
+
         if (!isTransactionValid(tx) ||
             tx.getSender().empty() ||
             tx.getRecipient().empty() ||
@@ -1112,15 +1118,12 @@ bool Blockchain::loadFromDB() {
 
     difficulty = chain.empty() ? 1 : chain.back().getDifficulty();
 
-    // Load total burned supply
     std::string burnedStr;
     if (db->Get(rocksdb::ReadOptions(), "burned_supply", &burnedStr).ok())
         totalBurnedSupply = std::stod(burnedStr);
 
-    // 🔁 Step 1: Rebuild balances from L1
     recalculateBalancesFromChain();
 
-    // 🔁 Step 2: Load Rollup blocks and apply L2 deltas
     std::cout << "🔁 [loadFromDB] Loading rollup blocks from RocksDB...\n";
     int rollupIndex = 0;
     rollupChain.clear();
@@ -1141,10 +1144,8 @@ bool Blockchain::loadFromDB() {
         rollupIndex++;
     }
 
-    // 🔁 Step 3: Apply deltas *after* L1 balances
     applyRollupDeltasToBalances();
 
-    // 💾 Step 4: Persist final balances
     if (db) {
         for (const auto& [addr, bal] : balances)
             db->Put(rocksdb::WriteOptions(), "balance_" + addr, std::to_string(bal));
@@ -1156,26 +1157,6 @@ bool Blockchain::loadFromDB() {
     std::cout << "💾 Final balance state persisted. Total Supply: " << totalSupply
               << ", Burned: " << totalBurnedSupply
               << ", Addresses: " << balances.size() << "\n";
-
-    // ✅ NEW: Restore unrolled L2 transactions
-    std::vector<Transaction> allTxs = Transaction::loadAllFromDB();
-    for (const auto& tx : allTxs) {
-        if (isL2Transaction(tx)) {
-            bool alreadyIncluded = false;
-            for (const auto& rollup : rollupChain) {
-                for (const auto& includedTx : rollup.getTransactions()) {
-                    if (includedTx.getHash() == tx.getHash()) {
-                        alreadyIncluded = true;
-                        break;
-                    }
-                }
-                if (alreadyIncluded) break;
-            }
-            if (!alreadyIncluded) {
-                pendingTransactions.push_back(tx);
-            }
-        }
-    }
 
     return true;
 }
@@ -1955,7 +1936,9 @@ bool Blockchain::isRollupBlockValid(const RollupBlock &newRollupBlock, bool skip
                 txHashes,
                 newRollupBlock.getMerkleRoot(),
                 newRollupBlock.getStateRootBefore(),
-                newRollupBlock.getStateRootAfter())) {
+                newRollupBlock.getStateRootAfter(),
+                newRollupBlock.getPreviousHash()))  // ✅ Added missing argument
+        {
             std::cerr << "[ERROR] ❌ Rollup block proof verification failed.\n";
             return false;
         }
@@ -2347,6 +2330,26 @@ std::vector<Transaction> Blockchain::getPendingL2Transactions() const {
 bool Blockchain::isL2Transaction(const Transaction& tx) const {
     const std::string& meta = tx.getMetadata();
     return meta == "L2" || (meta.rfind("L2:", 0) == 0);
+}
+//
+void Blockchain::setPendingL2TransactionsIfNotInRollups(const std::vector<Transaction>& allTxs) {
+    for (const auto& tx : allTxs) {
+        if (isL2Transaction(tx)) {
+            bool alreadyIncluded = false;
+            for (const auto& rollup : rollupChain) {
+                for (const auto& includedTx : rollup.getTransactions()) {
+                    if (includedTx.getHash() == tx.getHash()) {
+                        alreadyIncluded = true;
+                        break;
+                    }
+                }
+                if (alreadyIncluded) break;
+            }
+            if (!alreadyIncluded) {
+                pendingTransactions.push_back(tx);
+            }
+        }
+    }
 }
 
 // Get current blockchain height

@@ -10,7 +10,8 @@ class ProofGenerator {
 public:
     static std::string generateAggregatedProof(const std::vector<Transaction>& transactions,
                                                const std::unordered_map<std::string, double>& stateBefore,
-                                               const std::unordered_map<std::string, double>& stateAfter);
+                                               const std::unordered_map<std::string, double>& stateAfter,
+                                               const std::string& prevBlockHash);
 
     static std::string generatePublicInput(const std::string& txRoot,
                                            const std::string& stateRootBefore,
