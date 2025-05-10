@@ -67,6 +67,7 @@ int main(int argc, char **argv) {
     std::cout.setf(std::ios::unitbuf);
     std::string keyDir = DBPaths::getKeyDir();
 
+
     auto hasFlag = [](int argc, char** argv, const std::string& flag) -> bool {
         for (int i = 1; i < argc; ++i)
             if (std::string(argv[i]) == flag)
@@ -240,61 +241,76 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
         std::exit(0);
     }
 
-    // === Balance check (normal or forced) ===
-     if (argc >= 3 && (std::string(argv[1]) == "balance" || std::string(argv[1]) == "balance-force")) {
-      std::string addr = argv[2];
-      Blockchain &b = (std::string(argv[1]) == "balance-force")
-          ? Blockchain::getInstanceNoDB()
-          : getBlockchain();
+	// === Balance check (normal or forced) ===
+	if (argc >= 2 && (std::string(argv[1]) == "balance" || std::string(argv[1]) == "balance-force")) {
+	    if (argc < 3) {
+	        std::cerr << "❌ Usage: balance <address>\n";
+	        return 1;
+	    }
 
-      b.reloadBlockchainState();  // 🔧 Ensure latest state is loaded before querying balance
+	    std::string addr = argv[2];
 
-      std::cout << "Balance: " << b.getBalance(addr) << " AlynCoin" << std::endl;
-      std::exit(0);
-   }
+	    Blockchain &b = Blockchain::getInstanceNoNetwork();
+	    b.reloadBlockchainState();  // 🔧 Ensure latest state is loaded before querying balance
 
-    // === sendl1 / sendl2 ===
-    if ((argc >= 5) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == "sendl2")) {
-        std::string from, to = "metadataSink", metadata;
-        double amount = 0.0;
+	    std::cout << "Balance: " << b.getBalance(addr) << " AlynCoin" << std::endl;
+	    std::exit(0);
+	}
 
-        int cmdIndex = 2;
-        while (cmdIndex < argc && std::string(argv[cmdIndex]).rfind("--", 0) == 0) ++cmdIndex;
+// === sendl1 / sendl2 with duplicate filter ===
+if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == "sendl2")) {
+    std::string from = argv[2];
+    std::string to = argv[3];
+    double amount = 0.0;
+    std::string metadata = argv[5];
 
-        if (argc - cmdIndex == 3) {
-            from = argv[cmdIndex++];
-            amount = std::stod(argv[cmdIndex++]);
-            metadata = argv[cmdIndex++];
-        } else if (argc - cmdIndex == 4) {
-            from = argv[cmdIndex++];
-            to = argv[cmdIndex++];
-            amount = std::stod(argv[cmdIndex++]);
-            metadata = argv[cmdIndex++];
-        } else {
-            std::cerr << "❌ Invalid arguments for sendl1/sendl2\n";
-            return 1;
-        }
-
-        Blockchain &b = getBlockchain();
-
-        auto dil = Crypto::loadDilithiumKeys(from);
-        auto fal = Crypto::loadFalconKeys(from);
-
-        Transaction tx(from, to, amount, "", metadata, time(nullptr));
-        if (std::string(argv[1]) == "sendl2") tx.setMetadata("L2:" + metadata);
-
-        tx.signTransaction(dil.privateKey, fal.privateKey);
-        if (!tx.getSignatureDilithium().empty() && !tx.getSignatureFalcon().empty()) {
-            b.addTransaction(tx);
-            b.savePendingTransactionsToDB();
-            std::cout << "✅ Transaction broadcasted: " << from << " → " << to
-                      << " (" << amount << " AlynCoin, metadata: " << metadata << ")\n";
-        } else {
-            std::cerr << "❌ Transaction signing failed.\n";
-            return 1;
-        }
-        std::exit(0);
+    try {
+        amount = std::stod(argv[4]);
+    } catch (...) {
+        std::cerr << "❌ Invalid amount value\n";
+        return 1;
     }
+
+    Blockchain &b = getBlockchain();
+    double currentBalance = b.getBalance(from);
+    if (amount > currentBalance) {
+        std::cerr << "❌ Insufficient balance. You have " << currentBalance
+                  << " AlynCoin, but tried to send " << amount << ".\n";
+        return 1;
+    }
+
+    auto dil = Crypto::loadDilithiumKeys(from);
+    auto fal = Crypto::loadFalconKeys(from);
+
+    Transaction tx(from, to, amount, "", metadata, time(nullptr));
+    if (std::string(argv[1]) == "sendl2") {
+        tx.setMetadata("L2:" + metadata);
+    }
+
+    for (const auto& existing : b.getPendingTransactions()) {
+        if (existing.getSender() == tx.getSender() &&
+            existing.getRecipient() == tx.getRecipient() &&
+            existing.getAmount() == tx.getAmount() &&
+            existing.getMetadata() == tx.getMetadata()) {
+            std::cerr << "⚠️ Duplicate transaction already exists in mempool.\n";
+            return 1;
+        }
+    }
+
+    tx.signTransaction(dil.privateKey, fal.privateKey);
+    if (!tx.getSignatureDilithium().empty() && !tx.getSignatureFalcon().empty()) {
+        b.addTransaction(tx);
+        b.savePendingTransactionsToDB();
+        std::cout << "✅ Transaction broadcasted: " << from << " → " << to
+                  << " (" << amount << " AlynCoin, metadata: " << metadata << ")\n";
+    } else {
+        std::cerr << "❌ Transaction signing failed.\n";
+        return 1;
+    }
+
+    std::exit(0);
+}
+
     // === DAO proposal submission ===
     if (argc >= 4 && std::string(argv[1]) == "dao-submit") {
         std::string from = argv[2];
@@ -395,59 +411,59 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
 	    std::exit(0);
 	}
 
-// === Recursive zk-STARK Proof by address (GUI / filtered) ===
-if (argc >= 5 && std::string(argv[1]) == "recursiveproof") {
-    std::string addr = argv[2];
-    int count = 0;
-    std::string outputFile;
+	// === Recursive zk-STARK Proof by address (GUI / filtered) ===
+	if (argc >= 5 && std::string(argv[1]) == "recursiveproof") {
+	    std::string addr = argv[2];
+	    int count = 0;
+	    std::string outputFile;
 
-    for (int i = 3; i < argc; ++i) {
-        std::string arg = argv[i];
-        if (arg == "--last" && i + 1 < argc) {
-            try {
-                count = std::stoi(argv[++i]);
-            } catch (...) {
-                std::cerr << "❌ Invalid --last argument.\n";
-                return 1;
-            }
-        } else if (arg == "--out" && i + 1 < argc) {
-            outputFile = argv[++i];
-        }
-    }
+	    for (int i = 3; i < argc; ++i) {
+	        std::string arg = argv[i];
+	        if (arg == "--last" && i + 1 < argc) {
+	            try {
+	                count = std::stoi(argv[++i]);
+	            } catch (...) {
+	                std::cerr << "❌ Invalid --last argument.\n";
+	                return 1;
+	            }
+	        } else if (arg == "--out" && i + 1 < argc) {
+	            outputFile = argv[++i];
+	        }
+	    }
 
-    if (addr.empty() || count <= 0) {
-        std::cerr << "❌ Invalid address or --last count.\n";
-        return 1;
-    }
+	    if (addr.empty() || count <= 0) {
+	        std::cerr << "❌ Invalid address or --last count.\n";
+	        return 1;
+	    }
 
-    Blockchain& b = getBlockchain();
-    b.loadFromDB();  // ensure block list is populated
-    b.reloadBlockchainState();
+	    Blockchain& b = getBlockchain();
+	    b.loadFromDB();  // ensure block list is populated
+	    b.reloadBlockchainState();
 
-    std::vector<std::string> hashes;
-    int selected = 0;
+	    std::vector<std::string> hashes;
+	    int selected = 0;
 
-    auto blocks = b.getAllBlocks();
-    for (auto it = blocks.rbegin(); it != blocks.rend() && selected < count; ++it) {
-        auto txs = it->getTransactions();
-        for (const auto& tx : txs) {
-            if (selected >= count) break;
-            if (tx.getSender() == addr || tx.getRecipient() == addr) {
-                hashes.push_back(tx.getHash());
-                selected++;
-            }
-        }
-    }
+	    auto blocks = b.getAllBlocks();
+	    for (auto it = blocks.rbegin(); it != blocks.rend() && selected < count; ++it) {
+	        auto txs = it->getTransactions();
+	        for (const auto& tx : txs) {
+	            if (selected >= count) break;
+	            if (tx.getSender() == addr || tx.getRecipient() == addr) {
+	                hashes.push_back(tx.getHash());
+	                selected++;
+	            }
+	        }
+	    }
 
-    if (hashes.empty()) {
-        std::cout << "⚠️ No transactions found for " << addr << ".\n";
-        return 0;
-    }
+	    if (hashes.empty()) {
+	        std::cout << "⚠️ No transactions found for " << addr << ".\n";
+	        return 0;
+	    }
 
-    std::string result = generateRecursiveProofToFile(hashes, addr, selected, outputFile);
-    std::cout << result << "\n";
-    return 0;
-}
+	    std::string result = generateRecursiveProofToFile(hashes, addr, selected, outputFile);
+	    std::cout << result << "\n";
+	    return 0;
+	}
 
     // === Mined block stats ===
     if (argc == 3 && std::string(argv[1]) == "mychain") {
@@ -485,26 +501,102 @@ if (argc >= 5 && std::string(argv[1]) == "recursiveproof") {
      std::exit(0);
  }
 
+// === ROLLUP ===
+if (argc >= 3 && std::string(argv[1]) == "rollup") {
+    std::string walletAddr = argv[2];
+    Blockchain& blockchain = getBlockchain();
+
+    std::cout << "🔁 Generating Normal Rollup Block...\n";
+
+    std::vector<Transaction> l2Transactions = blockchain.getPendingL2Transactions();
+    if (l2Transactions.empty()) {
+        std::cout << "⚠️ No pending L2 transactions to roll up.\n";
+        return 0;
+    }
+
+    std::unordered_map<std::string, double> stateBefore = blockchain.getCurrentState();
+    std::unordered_map<std::string, double> stateAfter =
+        blockchain.simulateL2StateUpdate(stateBefore, l2Transactions);
+
+    RollupBlock rollup(
+        blockchain.getRollupChainSize(),
+        blockchain.getLastRollupHash(),
+        l2Transactions
+    );
+
+    std::string prevRecursive = blockchain.getLastRollupProof();
+    rollup.generateRollupProof(stateBefore, stateAfter, prevRecursive);
+
+    if (blockchain.isRollupBlockValid(rollup)) {
+        blockchain.addRollupBlock(rollup);
+        std::cout << "✅ Rollup Block created successfully!\n";
+        std::cout << "📦 Rollup Hash: " << rollup.getHash() << "\n";
+    } else {
+        std::cerr << "❌ Rollup Block creation failed: Proof invalid.\n";
+    }
+
+    return 0;
+}
+
+// === RECURSIVE ROLLUP ===
+if (argc >= 3 && std::string(argv[1]) == "recursive-rollup") {
+    std::string walletAddr = argv[2];
+    Blockchain& blockchain = getBlockchain();
+
+    std::cout << "🔁 Generating Rollup Block with Recursive zk-STARK Proof...\n";
+
+    std::vector<Transaction> l2Transactions = blockchain.getPendingL2Transactions();
+    if (l2Transactions.empty()) {
+        std::cout << "⚠️ No pending L2 transactions to roll up.\n";
+        return 0;
+    }
+
+    std::unordered_map<std::string, double> stateBefore = blockchain.getCurrentState();
+    std::unordered_map<std::string, double> stateAfter =
+        blockchain.simulateL2StateUpdate(stateBefore, l2Transactions);
+
+    RollupBlock rollup(
+        blockchain.getRollupChainSize(),
+        blockchain.getLastRollupHash(),
+        l2Transactions
+    );
+
+    std::string prevRecursive = blockchain.getLastRollupProof();
+    rollup.generateRollupProof(stateBefore, stateAfter, prevRecursive);  // same method
+
+    if (blockchain.isRollupBlockValid(rollup)) {
+        blockchain.addRollupBlock(rollup);
+        std::cout << "✅ Recursive Rollup Block created successfully!\n";
+        std::cout << "📦 Rollup Hash: " << rollup.getHash() << "\n";
+    } else {
+        std::cerr << "❌ Recursive Rollup Block creation failed: Proof invalid.\n";
+    }
+
+    return 0;
+}
+
     // === Fallback guard ===
     int cmdIndex = 1;
     while (cmdIndex < argc && std::string(argv[cmdIndex]).rfind("--", 0) == 0) ++cmdIndex;
     if (cmdIndex < argc) {
         std::string cmd = argv[cmdIndex];
-        bool known = (cmd == "sendl1" || cmd == "sendl2" || cmd == "createwallet" ||
-                      cmd == "loadwallet" || cmd == "balance" || cmd == "dao-view" ||
-                      cmd == "dao-submit" || cmd == "dao-vote" || cmd == "mychain" ||
-                      cmd == "stats" || cmd == "history");
+        bool known = (
+            cmd == "sendl1" || cmd == "sendl2" || cmd == "createwallet" ||
+            cmd == "loadwallet" || cmd == "balance" || cmd == "balance-force" ||
+            cmd == "dao-view" || cmd == "dao-submit" || cmd == "dao-vote" ||
+            cmd == "mychain" || cmd == "stats" || cmd == "history" ||
+            cmd == "mine" || cmd == "mineonce" || cmd == "mineloop" ||
+            cmd == "recursiveproof" || cmd == "rollup" || cmd == "recursive-rollup"
+        );
         if (!known) {
             std::cerr << "❌ Unknown or unsupported command: " << cmd << "\n";
             return 1;
         }
-        std::exit(0);
-    }
-
-    // === Interactive CLI fallback ===
-    return cliMain(argc, argv);
+    std::exit(0);
+	}
+// ✅ Final fallback to interactive CLI if no recognized args
+return cliMain(argc, argv);
 }
-
 
 int cliMain(int argc, char *argv[]) {
   unsigned short port = 8333;
@@ -657,98 +749,107 @@ int cliMain(int argc, char *argv[]) {
     }
 
     case 4: {  // 🔁 Send L1 Transaction
-      if (!wallet) {
-        std::cout << "❌ Load or create a wallet first!\n";
+        if (!wallet) {
+            std::cout << "❌ Load or create a wallet first!\n";
+            break;
+        }
+
+        std::string recipient;
+        double amount;
+        std::cout << "Enter recipient address: ";
+        std::cin >> recipient;
+        std::cout << "Enter amount: ";
+        std::cin >> amount;
+
+        if (recipient.empty() || amount <= 0) {
+            std::cout << "❌ Invalid input. Address must not be empty and amount must be positive.\n";
+            break;
+        }
+
+        double currentBalance = blockchain.getBalance(wallet->getAddress());
+        if (amount > currentBalance) {
+            std::cout << "❌ Insufficient balance. You have " << currentBalance << " AlynCoin, but tried to send " << amount << ".\n";
+            break;
+        }
+
+        std::string sender = wallet->getAddress();
+        auto dilPriv = Crypto::loadDilithiumKeys(sender);
+        auto falPriv = Crypto::loadFalconKeys(sender);
+
+        Transaction tx(sender, recipient, amount, "", "", time(nullptr));
+        std::cout << "[DEBUG] signTransaction() called for sender: " << sender << "\n";
+        tx.signTransaction(dilPriv.privateKey, falPriv.privateKey);
+
+        if (!tx.getSignatureDilithium().empty() && !tx.getSignatureFalcon().empty()) {
+            blockchain.addTransaction(tx);
+            std::cout << "📦 [DEBUG] Saving pending transactions to RocksDB...\n";
+            blockchain.savePendingTransactionsToDB();
+            if (network) network->broadcastTransaction(tx);
+            std::cout << "✅ Transactions successfully saved to RocksDB.\n";
+            std::cout << "✅ Transaction created and broadcasted!\n";
+        } else {
+            std::cerr << "❌ Signature failure. Transaction not broadcasted.\n";
+        }
+
         break;
-      }
-
-      std::string recipient;
-      double amount;
-      std::cout << "Enter recipient address: ";
-      std::cin >> recipient;
-      std::cout << "Enter amount: ";
-      std::cin >> amount;
-
-      if (recipient.empty() || amount <= 0) {
-        std::cout << "❌ Invalid input. Address must not be empty and amount must be positive.\n";
-        break;
-      }
-
-      std::string sender = wallet->getAddress();
-      auto dilPriv = Crypto::loadDilithiumKeys(sender);
-      auto falPriv = Crypto::loadFalconKeys(sender);
-
-      Transaction tx(sender, recipient, amount, "", "", time(nullptr));
-      std::cout << "[DEBUG] signTransaction() called for sender: " << sender << "\n";
-      tx.signTransaction(dilPriv.privateKey, falPriv.privateKey);
-
-      if (!tx.getSignatureDilithium().empty() && !tx.getSignatureFalcon().empty()) {
-        blockchain.addTransaction(tx);
-        std::cout << "📦 [DEBUG] Saving pending transactions to RocksDB...\n";
-        blockchain.savePendingTransactionsToDB();  // <-- this ensures RocksDB write
-        if (network) network->broadcastTransaction(tx);
-        std::cout << "✅ Transactions successfully saved to RocksDB.\n";
-        std::cout << "✅ Transaction created and broadcasted!\n";
-      } else {
-        std::cerr << "❌ Signature failure. Transaction not broadcasted.\n";
-      }
-
-      break;
     }
 
     case 5: {  // 🔁 Send L2 Transaction
-    if (!wallet) {
-        std::cout << "❌ Load or create a wallet first!\n";
+        if (!wallet) {
+            std::cout << "❌ Load or create a wallet first!\n";
+            break;
+        }
+
+        std::string recipient;
+        double amount;
+        std::cout << "Enter recipient address (L2): ";
+        std::cin >> recipient;
+        std::cout << "Enter amount: ";
+        std::cin >> amount;
+
+        if (recipient.empty() || amount <= 0) {
+            std::cout << "❌ Invalid input. Address must not be empty and amount must be positive.\n";
+            break;
+        }
+
+        double currentBalance = blockchain.getBalance(wallet->getAddress());
+        if (amount > currentBalance) {
+            std::cout << "❌ Insufficient balance. You have " << currentBalance << " AlynCoin, but tried to send " << amount << ".\n";
+            break;
+        }
+
+        std::string sender = wallet->getAddress();
+        auto dilPriv = Crypto::loadDilithiumKeys(sender);
+        auto falPriv = Crypto::loadFalconKeys(sender);
+
+        Transaction tx(sender, recipient, amount, "", "", time(nullptr));
+        tx.setMetadata("L2");
+
+        std::cout << "[DEBUG] signTransaction() called for sender: " << sender << "\n";
+        tx.signTransaction(dilPriv.privateKey, falPriv.privateKey);
+
+        if (tx.getSignatureDilithium().empty() || tx.getSignatureFalcon().empty()) {
+            std::cerr << "❌ Signature failure. L2 Transaction not broadcasted.\n";
+            break;
+        }
+
+        std::string seed = sender + recipient + std::to_string((int)amount) + std::to_string(tx.getTimestamp());
+        std::string proof = WinterfellStark::generateProof(tx.getHash(), tx.getHash(), seed);
+        if (proof.empty()) {
+            std::cerr << "❌ [ERROR] zk-STARK proof generation failed!\n";
+            break;
+        }
+
+        tx.setZkProof(proof);
+        blockchain.addTransaction(tx);
+        std::cout << "📦 [DEBUG] Saving pending transactions to RocksDB...\n";
+        blockchain.savePendingTransactionsToDB();
+        if (network) network->broadcastTransaction(tx);
+        std::cout << "✅ Transactions successfully saved to RocksDB.\n";
+        std::cout << "✅ L2 Transaction created and broadcasted!\n";
         break;
     }
 
-    std::string recipient;
-    double amount;
-    std::cout << "Enter recipient address (L2): ";
-    std::cin >> recipient;
-    std::cout << "Enter amount: ";
-    std::cin >> amount;
-
-    if (recipient.empty() || amount <= 0) {
-        std::cout << "❌ Invalid input. Address must not be empty and amount must be positive.\n";
-        break;
-    }
-
-    std::string sender = wallet->getAddress();
-    auto dilPriv = Crypto::loadDilithiumKeys(sender);
-    auto falPriv = Crypto::loadFalconKeys(sender);
-
-    Transaction tx(sender, recipient, amount, "", "", time(nullptr));
-    tx.setMetadata("L2");
-
-    std::cout << "[DEBUG] signTransaction() called for sender: " << sender << "\n";
-    tx.signTransaction(dilPriv.privateKey, falPriv.privateKey);
-
-    // 🛡️ Ensure signatures are present
-    if (tx.getSignatureDilithium().empty() || tx.getSignatureFalcon().empty()) {
-        std::cerr << "❌ Signature failure. L2 Transaction not broadcasted.\n";
-        break;
-    }
-
-    // 🔐 zk-STARK proof generation
-    std::string seed = sender + recipient + std::to_string((int)amount) + std::to_string(tx.getTimestamp());
-    std::string proof = WinterfellStark::generateProof(tx.getHash(), tx.getHash(), seed);
-
-    if (proof.empty()) {
-        std::cerr << "❌ [ERROR] zk-STARK proof generation failed!\n";
-        break;
-    }
-
-    tx.setZkProof(proof);  // fix here
-
-    blockchain.addTransaction(tx);
-    std::cout << "📦 [DEBUG] Saving pending transactions to RocksDB...\n";
-    blockchain.savePendingTransactionsToDB();
-    if (network) network->broadcastTransaction(tx);
-    std::cout << "✅ Transactions successfully saved to RocksDB.\n";
-    std::cout << "✅ L2 Transaction created and broadcasted!\n";
-    break;
-}
     case 6: {
       if (!wallet) {
         std::cout << "Load or create a wallet first!\n";
@@ -822,71 +923,71 @@ int cliMain(int argc, char *argv[]) {
     }
 
     case 10: {
-        if (!wallet) {
-            std::cout << "Load or create a wallet first!\n";
-            break;
-        }
+	    if (!wallet) {
+	        std::cout << "Load or create a wallet first!\n";
+	        break;
+	    }
 
-        // 🔍 Snapshot current L1 state
-        std::unordered_map<std::string, double> stateBefore = blockchain.getCurrentState();
+	    if (!blockchain.loadFromDB()) {
+	        std::cerr << "❌ Could not load blockchain from DB.\n";
+	        break;
+	    }
+	    blockchain.reloadBlockchainState();
 
-        // 📦 Fetch L2 transactions
-        std::vector<Transaction> l2Transactions = blockchain.getPendingL2Transactions();
+	    std::vector<Transaction> l2Transactions = blockchain.getPendingL2Transactions();
+	    if (l2Transactions.empty()) {
+	        std::cout << "⚠️ No pending L2 transactions to roll up.\n";
+	        break;
+	    }
 
-        // 🧮 Simulate L2 state update
-        std::unordered_map<std::string, double> stateAfter =
-            blockchain.simulateL2StateUpdate(stateBefore, l2Transactions);
+	    std::unordered_map<std::string, double> stateBefore = blockchain.getCurrentState();
+	    std::unordered_map<std::string, double> stateAfter =
+	        blockchain.simulateL2StateUpdate(stateBefore, l2Transactions);
 
-        // 🧱 Create Rollup Block
-        RollupBlock rollup(
-            blockchain.getRollupChainSize(),               // Index
-            blockchain.getLastRollupHash(),                // Previous Hash
-            l2Transactions                                  // L2 Transactions
-        );
+	    RollupBlock rollup(
+	        blockchain.getRollupChainSize(),
+	        blockchain.getLastRollupHash(),
+	        l2Transactions
+	    );
 
-        std::string prevRecursive = blockchain.getLastRollupProof(); // Recursive input
+	    std::string prevRecursive = blockchain.getLastRollupProof();
+	    rollup.generateRollupProof(stateBefore, stateAfter, prevRecursive);
 
-        // 🔐 Generate zk-STARK proof + recursive proof
-        rollup.generateRollupProof(stateBefore, stateAfter, prevRecursive);
+	    if (blockchain.isRollupBlockValid(rollup)) {
+	        blockchain.addRollupBlock(rollup);
+	        std::cout << "✅ Rollup Block created successfully!\n";
+	        std::cout << "📦 Rollup Hash: " << rollup.getHash() << "\n";
+	    } else {
+	        std::cerr << "❌ Rollup Block creation failed: Proof invalid.\n";
+	    }
+	    break;
+	}
 
-        // ➕ Add to rollup chain
-     if (blockchain.isRollupBlockValid(rollup)) {
-        blockchain.addRollupBlock(rollup);
-        std::cout << "✅ Rollup Block created successfully!\n";
-        std::cout << "📦 Rollup Hash: " << rollup.getHash() << "\n";
-       } else {
-        std::cerr << "❌ Rollup Block creation failed: Proof invalid.\n";
-    }
+	    case 11: running = false; break;
 
-        std::cout << "📦 Rollup Hash: " << rollup.getHash() << "\n";
-        break;
-    }
+	   case 12: {
+	    if (!wallet) {
+	        std::cout << "Load or create a wallet first!\n";
+	        break;
+	    }
 
-    case 11: running = false; break;
+	    Proposal proposal;
+	    proposal.proposal_id = Crypto::sha256(Crypto::generateRandomHex(16));
+	    proposal.proposer_address = wallet->getAddress();
 
-   case 12: {
-    if (!wallet) {
-        std::cout << "Load or create a wallet first!\n";
-        break;
-    }
+	    std::cin.ignore();
+	    std::cout << "Enter proposal description: ";
+	    std::getline(std::cin, proposal.description);
 
-    Proposal proposal;
-    proposal.proposal_id = Crypto::sha256(Crypto::generateRandomHex(16));
-    proposal.proposer_address = wallet->getAddress();
-
-    std::cin.ignore();
-    std::cout << "Enter proposal description: ";
-    std::getline(std::cin, proposal.description);
-
-    std::cout << "Select Proposal Type:\n"
+	    std::cout << "Select Proposal Type:\n"
               << "1. Protocol Upgrade\n"
               << "2. Fund Allocation\n"
               << "3. Blacklist Appeal\n"
               << "4. Custom Action\n"
               << "Choice: ";
-    int typeChoice;
-    std::cin >> typeChoice;
-    proposal.type = static_cast<ProposalType>(typeChoice - 1);
+	    int typeChoice;
+	    std::cin >> typeChoice;
+	    proposal.type = static_cast<ProposalType>(typeChoice - 1);
 
     // Handle FUND_ALLOCATION-specific input
     if (proposal.type == ProposalType::FUND_ALLOCATION) {
@@ -985,38 +1086,49 @@ int cliMain(int argc, char *argv[]) {
     }
 
     case 17: {
-    if (!wallet) {
-        std::cout << "❌ Load or create a wallet first!\n";
-        break;
-    }
+	    if (!wallet) {
+	        std::cout << "❌ Load or create a wallet first!\n";
+	        break;
+	    }
 
-    std::cout << "🔁 Generating Rollup Block with Recursive zk-STARK Proof...\n";
+	    std::cout << "🔁 Generating Rollup Block with Recursive zk-STARK Proof...\n";
 
-    std::unordered_map<std::string, double> stateBefore = blockchain.getCurrentState();
-    std::vector<Transaction> l2Transactions = blockchain.getPendingL2Transactions();
-    std::unordered_map<std::string, double> stateAfter =
-        blockchain.simulateL2StateUpdate(stateBefore, l2Transactions);
+	    if (!blockchain.loadFromDB()) {
+	        std::cerr << "❌ Could not load blockchain from DB.\n";
+	        break;
+	    }
+	    blockchain.reloadBlockchainState();
 
-    RollupBlock rollup(
+	    std::vector<Transaction> l2Transactions = blockchain.getPendingL2Transactions();
+	    if (l2Transactions.empty()) {
+	        std::cout << "⚠️ No pending L2 transactions to roll up.\n";
+	        break;
+	    }
+
+	    std::unordered_map<std::string, double> stateBefore = blockchain.getCurrentState();
+	    std::unordered_map<std::string, double> stateAfter =
+	        blockchain.simulateL2StateUpdate(stateBefore, l2Transactions);
+
+         RollupBlock rollup(
         blockchain.getRollupChainSize(),
         blockchain.getLastRollupHash(),
         l2Transactions
-    );
+    	);
 
-    std::string prevRecursive = blockchain.getLastRollupProof();
+	    std::string prevRecursive = blockchain.getLastRollupProof();
+	    rollup.generateRollupProof(stateBefore, stateAfter, prevRecursive);
 
-    rollup.generateRollupProof(stateBefore, stateAfter, prevRecursive);
+	    if (blockchain.isRollupBlockValid(rollup)) {
+	        blockchain.addRollupBlock(rollup);
+	        std::cout << "✅ Rollup Block with Recursive Proof created successfully!\n";
+	        std::cout << "📦 Rollup Hash: " << rollup.getHash() << "\n";
+	    } else {
+	        std::cerr << "❌ Rollup Block creation failed: Proof invalid.\n";
+	    }
 
-    if (blockchain.isRollupBlockValid(rollup)) {
-        blockchain.addRollupBlock(rollup);
-        std::cout << "✅ Rollup Block with Recursive Proof created successfully!\n";
-        std::cout << "📦 Rollup Hash: " << rollup.getHash() << "\n";
-    } else {
-        std::cerr << "❌ Rollup Block creation failed: Proof invalid.\n";
-    }
+	    break;
+	}
 
-    break;
-}
     case 18: {
 	    if (!wallet) {
 	        std::cout << "❌ Load or create a wallet first!\n";

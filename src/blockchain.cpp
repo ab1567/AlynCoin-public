@@ -1035,9 +1035,6 @@ bool Blockchain::saveToDB() {
     }
     std::cout << "🧱 Saved " << rollupCount << " rollup blocks to DB.\n";
 
-    // ✅ Apply rollup deltas now to ensure balance state includes L2
-    applyRollupDeltasToBalances();
-
     // ✅ Save final balances
     int balanceCount = 0;
     for (const auto& [address, balance] : balances) {
@@ -1159,6 +1156,26 @@ bool Blockchain::loadFromDB() {
     std::cout << "💾 Final balance state persisted. Total Supply: " << totalSupply
               << ", Burned: " << totalBurnedSupply
               << ", Addresses: " << balances.size() << "\n";
+
+    // ✅ NEW: Restore unrolled L2 transactions
+    std::vector<Transaction> allTxs = Transaction::loadAllFromDB();
+    for (const auto& tx : allTxs) {
+        if (isL2Transaction(tx)) {
+            bool alreadyIncluded = false;
+            for (const auto& rollup : rollupChain) {
+                for (const auto& includedTx : rollup.getTransactions()) {
+                    if (includedTx.getHash() == tx.getHash()) {
+                        alreadyIncluded = true;
+                        break;
+                    }
+                }
+                if (alreadyIncluded) break;
+            }
+            if (!alreadyIncluded) {
+                pendingTransactions.push_back(tx);
+            }
+        }
+    }
 
     return true;
 }
@@ -2328,7 +2345,8 @@ std::vector<Transaction> Blockchain::getPendingL2Transactions() const {
 
 // Determine if a transaction is L2
 bool Blockchain::isL2Transaction(const Transaction& tx) const {
-    return tx.getMetadata() == "L2";
+    const std::string& meta = tx.getMetadata();
+    return meta == "L2" || (meta.rfind("L2:", 0) == 0);
 }
 
 // Get current blockchain height
