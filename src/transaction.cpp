@@ -629,18 +629,34 @@ bool Transaction::saveToDB(const Transaction &tx, int index) {
 }
 
 //
+Transaction Transaction::createSystemRewardTransaction(
+    const std::string &recipient,
+    double amount,
+    time_t ts,
+    const std::string &hashOverride) {
 
-Transaction Transaction::createSystemRewardTransaction(const std::string &recipient, double amount) {
-  Transaction tx;
-  tx.sender = "System";
-  tx.recipient = recipient;
-  tx.amount = amount;
-  tx.timestamp = std::time(nullptr);
-  tx.signatureDilithium = "";
-  tx.signatureFalcon = "";
-  tx.zkProof = "";
-  tx.senderPublicKeyDilithium = "";
-  tx.senderPublicKeyFalcon = "";
-  tx.hash = tx.getTransactionHash();
-  return tx;
+    Transaction tx;
+    tx.sender = "System";
+    tx.recipient = recipient;
+    tx.amount = amount;
+    tx.timestamp = ts;
+    tx.signatureDilithium = "";
+    tx.signatureFalcon = "";
+    tx.zkProof = "";
+    tx.senderPublicKeyDilithium = "";
+    tx.senderPublicKeyFalcon = "";
+    tx.metadata = "MiningReward";
+
+    tx.hash = hashOverride;
+    if (tx.hash.empty()) {
+        tx.hash = tx.getTransactionHash();
+    }
+
+    return tx;
 }
+
+//
+bool Transaction::isMiningRewardFor(const std::string& addr) const {
+    return sender == "System" && recipient == addr && metadata == "MiningReward";
+}
+

@@ -28,7 +28,7 @@ const double MIN_BURN_RATE = 0.01;     // Min 1% burn rate
 // ✅ Default Constructor (No Arguments)
 Block::Block()
     : index(0), previousHash("0000"), minerAddress("System"), hash(""),
-      difficulty(4) {
+      difficulty(4), reward(0.0) {
   timestamp = std::time(nullptr);
   dilithiumSignature.clear();
   falconSignature.clear();
@@ -43,8 +43,8 @@ Block::Block(int index, const std::string &previousHash,
              const std::string &minerAddress, int difficulty,
              uint64_t timestamp, uint64_t nonce)
     : index(index), previousHash(previousHash), transactions(transactions),
-      minerAddress(minerAddress), difficulty(difficulty), timestamp(timestamp),
-      nonce(nonce) {
+      minerAddress(minerAddress), difficulty(difficulty),
+      timestamp(timestamp), nonce(nonce), reward(0.0) {
   hash = calculateHash();
   keccakHash = Crypto::keccak256(hash);
   dilithiumSignature.clear();
@@ -65,7 +65,8 @@ Block::Block(const Block &other)
       falconSignature(other.falconSignature),
       publicKeyDilithium(other.publicKeyDilithium),
       publicKeyFalcon(other.publicKeyFalcon),
-      zkProof(other.zkProof) // ✅ FIX: ensure zkProof is copied
+      zkProof(other.zkProof),
+      reward(other.reward)
 {}
 
 // ✅ Assignment Operator
@@ -85,7 +86,8 @@ Block &Block::operator=(const Block &other) {
         falconSignature = other.falconSignature;
         publicKeyDilithium = other.publicKeyDilithium;
         publicKeyFalcon = other.publicKeyFalcon;
-        zkProof = other.zkProof; // ✅ FIX: ensure zkProof is copied
+        zkProof = other.zkProof;
+        reward = other.reward;
     }
     return *this;
 }
@@ -368,16 +370,21 @@ std::string Block::getTransactionsHash() const {
 
     std::stringstream ss;
     bool anyValid = false;
+
     for (const auto& tx : transactions) {
-        if (tx.getSender().empty() ||
+        bool isRewardTx = (tx.getSender() == "System");
+
+        if (!isRewardTx && (
+            tx.getSender().empty() ||
             tx.getRecipient().empty() ||
             tx.getAmount() <= 0.0 ||
             tx.getSignatureDilithium().empty() ||
             tx.getSignatureFalcon().empty() ||
-            tx.getZkProof().empty()) {
+            tx.getZkProof().empty())) {
             std::cerr << "⚠️ [getTransactionsHash] Skipping invalid tx from Merkle root computation\n";
             continue;
         }
+
         ss << tx.getHash();
         anyValid = true;
     }
@@ -642,7 +649,7 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
         newBlock.difficulty         = protoBlock.difficulty();
         newBlock.blockSignature     = safeStr(protoBlock.block_signature(),   "block_signature");
         newBlock.keccakHash         = safeStr(protoBlock.keccak_hash(),       "keccak_hash");
-        newBlock.reward             = protoBlock.has_reward() ? protoBlock.reward() : 0.0;
+        newBlock.reward             = protoBlock.reward();
         newBlock.transactionsHash   = safeStr(protoBlock.tx_merkle_root(),    "tx_merkle_root");
 
         newBlock.zkProof            = safeBinaryField(protoBlock.zk_stark_proof(),      "zkProof",             2'000'000);

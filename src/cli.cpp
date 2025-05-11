@@ -356,60 +356,127 @@ if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == 
         std::exit(0);
     }
 
-	// === Transaction history by address ===
-	if (argc >= 3 && std::string(argv[1]) == "history") {
-	    std::string addr = argv[2];
-	    Blockchain& b = getBlockchain();
+// === Transaction history by address ===
+// === Transaction history by address ===
+if (argc >= 3 && std::string(argv[1]) == "history") {
+    std::string addr = argv[2];
+    Blockchain& b = getBlockchain();
 
-	    std::cout << "🔍 Loading blockchain from DB...\n";
-	    b.loadFromDB();
-	    b.reloadBlockchainState();
+    std::cout << "🔍 Loading blockchain from DB...\n";
+    b.loadFromDB();
+    b.reloadBlockchainState();
 
-	    std::vector<Transaction> relevant;
-	    auto blocks = b.getAllBlocks();
-	    std::cout << "📦 Total blocks loaded: " << blocks.size() << "\n";
+    std::vector<Transaction> relevant;
+    std::unordered_map<std::string, std::string> txType;
+    std::unordered_set<std::string> seen;
 
-	    for (const auto& blk : blocks) {
-	        auto txs = blk.getTransactions();
-	        std::cout << "⛏ Block " << blk.getHash() << " has " << txs.size() << " txs.\n";
+    auto toLower = [](std::string s) {
+        std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+        return s;
+    };
 
-	        if (!txs.empty()) {
-		    for (const auto& tx : txs) {
-	            std::cout << "🔍 Checking tx: " << tx.getHash()
-                      << " | from: " << tx.getSender()
-                      << " | to: " << tx.getRecipient() << "\n";
+    std::string addrLower = toLower(addr);
 
-	            if (tx.getSender() == addr || tx.getRecipient() == addr) {
-	                relevant.push_back(tx);
+    // ✅ 1. From L1 blocks
+    auto blocks = b.getAllBlocks();
+    std::cout << "📦 Total L1 blocks loaded: " << blocks.size() << "\n";
+    for (const auto& blk : blocks) {
+        std::string blockMiner = toLower(blk.getMinerAddress());
+        double reward = blk.getReward();
+
+        std::cout << "[DEBUG] Block #" << blk.getIndex()
+                  << " | Miner: " << blk.getMinerAddress()
+                  << " | Reward: " << reward
+                  << " | Match? " << (blockMiner == addrLower ? "Yes" : "No") << "\n";
+
+        // Add normal txs
+        for (const auto& tx : blk.getTransactions()) {
+            std::string hash = tx.getHash().empty() ? tx.getTransactionHash() : tx.getHash();
+            if (!seen.count(hash) &&
+                (toLower(tx.getSender()) == addrLower || toLower(tx.getRecipient()) == addrLower)) {
+                relevant.push_back(tx);
+                txType[hash] = "L1";
+                seen.insert(hash);
             }
-	}
+        }
+
+        // ✅ Add mining reward tx if miner matches
+        if (blockMiner == addrLower && reward > 0.0) {
+            Transaction rewardTx = Transaction::createSystemRewardTransaction(
+                blk.getMinerAddress(),
+                reward,
+                blk.getTimestamp(),
+                "mined_" + blk.getHash()
+            );
+            std::string rewardHash = rewardTx.getHash();
+            if (!seen.count(rewardHash)) {
+                std::cout << "[DEBUG] ✅ Added mined reward tx: " << rewardHash << "\n";
+                relevant.push_back(rewardTx);
+                txType[rewardHash] = "Mined";
+                seen.insert(rewardHash);
+            }
         }
     }
 
-	    std::cout << "\n=== Transaction History for: " << addr << " ===\n";
-	    std::cout << "📜 Found " << relevant.size() << " related transactions.\n\n";
+    // ✅ 2. From L2 rollups
+    auto rollups = b.getAllRollupBlocks();
+    std::cout << "📦 Total L2 rollups loaded: " << rollups.size() << "\n";
+    for (const auto& roll : rollups) {
+        for (const auto& tx : roll.getTransactions()) {
+            std::string hash = tx.getHash().empty() ? tx.getTransactionHash() : tx.getHash();
+            if (!seen.count(hash) &&
+                (toLower(tx.getSender()) == addrLower || toLower(tx.getRecipient()) == addrLower)) {
+                relevant.push_back(tx);
+                txType[hash] = "L2";
+                seen.insert(hash);
+            }
+        }
+    }
 
-	    for (const auto& tx : relevant) {
-	        time_t ts = tx.getTimestamp();
-	        std::tm* tmPtr = std::localtime(&ts);
-	        char timeStr[64];
-	        std::strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", tmPtr);
+    // ✅ 3. From RocksDB tx_ keys
+    auto allTxs = Transaction::loadAllFromDB();
+    std::cout << "📦 Total tx_ keys in DB: " << allTxs.size() << "\n";
+    for (const auto& tx : allTxs) {
+        std::string hash = tx.getHash().empty() ? tx.getTransactionHash() : tx.getHash();
+        if (!seen.count(hash) &&
+            (toLower(tx.getSender()) == addrLower || toLower(tx.getRecipient()) == addrLower)) {
+            relevant.push_back(tx);
+            txType[hash] = "L1";
+            seen.insert(hash);
+        }
+    }
 
-	        std::cout << "🕒 " << timeStr << "\n"
-	                  << "From: " << tx.getSender() << "\n"
-        	          << "To:   " << tx.getRecipient() << "\n"
-	                  << "💰 Amount: " << tx.getAmount() << " AlynCoin\n";
+    // ✅ Sort by timestamp
+    std::sort(relevant.begin(), relevant.end(), [](const Transaction& a, const Transaction& b) {
+        return a.getTimestamp() < b.getTimestamp();
+    });
 
-        	if (!tx.getMetadata().empty()) {
-        	    std::cout << "📎 Metadata: " << tx.getMetadata() << "\n";
-        	}
+    // ✅ CLI Output
+    std::cout << "\n=== Transaction History for: " << addr << " ===\n";
+    std::cout << "📜 Found " << relevant.size() << " related transactions.\n\n";
 
-        	std::cout << "🔑 TxHash: " << tx.getHash() << "\n"
-        	          << "------------------------------\n";
-    	}
+    for (const auto& tx : relevant) {
+        std::string hash = tx.getHash().empty() ? tx.getTransactionHash() : tx.getHash();
+        std::string type = txType.count(hash) ? txType[hash] : "Unknown";
 
-	    std::exit(0);
-	}
+        time_t ts = tx.getTimestamp();
+        std::tm* tmPtr = std::localtime(&ts);
+        char timeStr[64];
+        std::strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", tmPtr);
+
+        std::cout << "🕒 " << timeStr << " [" << type << "]\n"
+                  << "From: " << tx.getSender() << "\n"
+                  << "To:   " << tx.getRecipient() << "\n"
+                  << "💰 Amount: " << tx.getAmount() << " AlynCoin\n";
+        if (!tx.getMetadata().empty()) {
+            std::cout << "📎 Metadata: " << tx.getMetadata() << "\n";
+        }
+        std::cout << "🔑 TxHash: " << hash << "\n"
+                  << "------------------------------\n";
+    }
+
+    std::exit(0);
+}
 
 	// === Recursive zk-STARK Proof by address (GUI / filtered) ===
 	if (argc >= 5 && std::string(argv[1]) == "recursiveproof") {

@@ -654,8 +654,9 @@ Block Blockchain::minePendingTransactions(
     std::vector<Transaction> validTx;
     std::cout << "[DEBUG] Validating and preparing transactions...\n";
 
+    std::time_t timestamp = std::time(nullptr);
+
     for (const auto &tx : pendingTransactions) {
-        // 🚫 Skip L2 transactions — they are handled in rollup blocks
         if (isL2Transaction(tx)) {
             std::cout << "⚠️ Skipping L2 transaction during L1 mining.\n";
             continue;
@@ -681,7 +682,6 @@ Block Blockchain::minePendingTransactions(
             continue;
         }
 
-        // Fee logic
         double txActivity = static_cast<double>(getRecentTransactionCount());
         double burnRate   = std::clamp(txActivity / 1000.0, 0.01, 0.05);
         double rawFee     = amount * 0.01;
@@ -698,15 +698,18 @@ Block Blockchain::minePendingTransactions(
 
         validTx.push_back(tx);
 
-        Transaction devTx = Transaction::createSystemRewardTransaction(DEV_FUND_ADDRESS, devFundAmt);
-        if (!devTx.getRecipient().empty() && devFundAmt > 0.0) {
+        if (devFundAmt > 0.0) {
+            Transaction devTx = Transaction::createSystemRewardTransaction(
+                DEV_FUND_ADDRESS,
+                devFundAmt,
+                timestamp,
+                ""
+            );
             validTx.push_back(devTx);
-        } else {
-            std::cerr << "⚠️ Skipped dev fund tx (invalid or zero amount).\n";
         }
 
-        std::cout << "🔥 Burned: " << burnAmount << " AlynCoin"
-                  << ", 💰 Dev Fund: " << devFundAmt << " AlynCoin"
+        std::cout << "🔥 Burned: " << burnAmount
+                  << " AlynCoin, 💰 Dev Fund: " << devFundAmt
                   << ", 📤 Final Sent: " << finalAmount << " AlynCoin\n";
     }
 
@@ -714,21 +717,24 @@ Block Blockchain::minePendingTransactions(
         std::cout << "⛏️ No valid transactions found, creating empty block.\n";
     }
 
-    // Block reward logic
     double blockRewardVal = 0.0;
     if (totalSupply < MAX_SUPPLY) {
         blockRewardVal = calculateBlockReward();
         if (totalSupply + blockRewardVal > MAX_SUPPLY) {
             blockRewardVal = MAX_SUPPLY - totalSupply;
         }
+        std::cout << "[DEBUG] totalSupply = " << totalSupply << ", max = " << MAX_SUPPLY << "\n";
 
-        Transaction rewardTx = Transaction::createSystemRewardTransaction(minerAddress, blockRewardVal);
-        if (!rewardTx.getRecipient().empty() && blockRewardVal > 0.0) {
+        if (blockRewardVal > 0.0) {
+            Transaction rewardTx = Transaction::createSystemRewardTransaction(
+                minerAddress,
+                blockRewardVal,
+                timestamp,
+                ""
+            );
             validTx.push_back(rewardTx);
             totalSupply += blockRewardVal;
-            std::cout << "⛏️ Block reward: " << blockRewardVal << " AlynCoin\n";
-        } else {
-            std::cerr << "⚠️ Skipped block reward tx (invalid or zero).\n";
+            std::cout << "⛏️ Block reward: " << blockRewardVal << " AlynCoin → " << minerAddress << "\n";
         }
     } else {
         std::cerr << "🚫 Block reward skipped. Max supply reached.\n";
@@ -745,10 +751,14 @@ Block Blockchain::minePendingTransactions(
         validTx,
         minerAddress,
         difficulty,
-        std::time(nullptr),
+        timestamp,
         0
     );
+
+    // ✅ Store reward in block
+    std::cout << "[DEBUG] Setting reward in block: " << blockRewardVal << "\n";
     newBlock.setReward(blockRewardVal);
+    std::cout << "[DEBUG] Block reward now: " << newBlock.getReward() << "\n";
 
     if (!newBlock.mineBlock(difficulty)) {
         std::cerr << "❌ Mining process returned false!\n";
@@ -767,6 +777,7 @@ Block Blockchain::minePendingTransactions(
     }
 
     clearPendingTransactions();
+    std::cout << "[DEBUG] About to serialize block with reward = " << newBlock.getReward() << "\n";
     saveToDB();
 
     std::thread([](Block blockCopy) {
@@ -865,31 +876,31 @@ void Blockchain::reloadBlockchainState() {
 
 // ✅ **Print Blockchain**
 void Blockchain::printBlockchain() const {
-  std::unordered_set<std::string> seenHashes; // Track already printed blocks
+    std::unordered_set<std::string> seenHashes;
 
-  std::cout << "=== AlynCoin Blockchain ===\n";
-  for (const Block &block : chain) {
-    if (seenHashes.find(block.getHash()) != seenHashes.end()) {
-      continue; // Skip duplicate blocks
+    std::cout << "=== AlynCoin Blockchain ===\n";
+    for (const Block &block : chain) {
+        if (seenHashes.find(block.getHash()) != seenHashes.end()) {
+            continue;
+        }
+        seenHashes.insert(block.getHash());
+
+        std::cout << "Block Index: " << block.getIndex() << "\n";
+        std::cout << "Hash: " << block.getHash() << "\n";
+        std::cout << "Previous Hash: " << block.getPreviousHash() << "\n";
+        std::cout << "Miner: " << block.getMinerAddress() << "\n";
+        std::cout << "Reward: " << block.getReward() << " AlynCoin\n";
+        std::cout << "Nonce: " << block.getNonce() << "\n";
+        std::cout << "Timestamp: " << block.getTimestamp() << "\n";
+        if (!block.getTransactions().empty()) {
+            std::cout << "Transactions: " << block.getTransactions().size() << "\n";
+        } else {
+            std::cout << "Transactions: 0\n";
+        }
+        std::cout << "---------------------------\n";
     }
-    seenHashes.insert(block.getHash());
-
-    std::cout << "Block Index: " << block.getIndex() << "\n";
-    std::cout << "Hash: " << block.getHash() << "\n";
-    std::cout << "Previous Hash: " << block.getPreviousHash() << "\n";
-    std::cout << "Miner: " << block.getMinerAddress() << "\n";
-    std::cout << "Nonce: " << block.getNonce() << "\n";
-    std::cout << "Timestamp: " << block.getTimestamp() << "\n";
-    if (!block.getTransactions().empty()) {
-	    std::cout << "Transactions: " << block.getTransactions().size() << "\n";
-	} else {
-	    std::cout << "Transactions: 0\n";
-	}
-    std::cout << "---------------------------\n";
-  }
-  std::cout << "===========================\n";
-  std::cout << "🔥 Total Burned Supply: " << totalBurnedSupply
-            << " AlynCoin 🔥\n";
+    std::cout << "===========================\n";
+    std::cout << "🔥 Total Burned Supply: " << totalBurnedSupply << " AlynCoin 🔥\n";
 }
 
 // ✅ **Show pending transactions (before they are mined)**
@@ -2029,36 +2040,33 @@ RollupBlock Blockchain::createRollupBlock(const std::vector<Transaction> &offCha
 
 // Block reward
 double Blockchain::calculateBlockReward() {
-    const double maxSupply = 100000000.0; // 100 million cap
+    const double maxSupply = 100000000.0;
     double circulatingSupply = getTotalSupply();
 
     if (circulatingSupply >= maxSupply) {
         return 0.0;
     }
 
-    // 🔄 1. Supply-based decay (linear)
-    double remainingRatio = (maxSupply - circulatingSupply) / maxSupply;
-    double baseReward = INITIAL_REWARD * remainingRatio;
+    // Halving every 10 million ALYN
+    int halvings = static_cast<int>(circulatingSupply / 10000000.0);
+    double halvingFactor = std::pow(0.5, halvings);
 
-    // 🔍 2. Usage boost from tx count (up to +20%)
+    double baseReward = INITIAL_REWARD * halvingFactor;
+
     double usageFactor = std::min(1.0, getRecentTransactionCount() / 100.0);
     double usageBoost = 0.9 + 0.2 * usageFactor;
 
-    // ⏱️ 3. Block time adjustment
-    double avgBlockTime = getAverageBlockTime(10); // Last 10 blocks
+    double avgBlockTime = getAverageBlockTime(10);
     double timeMultiplier = 1.0;
-
-    if (avgBlockTime > 120) {         // If blocks are slow
-        timeMultiplier = 1.1;         // Slightly boost reward
-    } else if (avgBlockTime < 30) {   // If blocks are too fast
-        timeMultiplier = 0.85;        // Suppress reward
+    if (avgBlockTime > 120) {
+        timeMultiplier = 1.1;
+    } else if (avgBlockTime < 30) {
+        timeMultiplier = 0.85;
     }
 
-    // ⚖️ Final reward (capped min/max)
     double adjustedReward = baseReward * usageBoost * timeMultiplier;
-    adjustedReward = std::clamp(adjustedReward, 0.1, 15.0); // Hard cap max
+    adjustedReward = std::clamp(adjustedReward, 0.1, baseReward);
 
-    // 🧮 Prevent going over supply cap
     if (circulatingSupply + adjustedReward > maxSupply) {
         adjustedReward = maxSupply - circulatingSupply;
     }
@@ -2234,7 +2242,7 @@ void Blockchain::clear(bool force) {
     chain.clear();
     pendingTransactions.clear();
     difficulty = DIFFICULTY;
-    blockReward = 10.0;
+    blockReward = 100.0;
     devFundBalance = 0.0;
     rollupChain.clear();
     balances.clear();
@@ -2350,6 +2358,10 @@ void Blockchain::setPendingL2TransactionsIfNotInRollups(const std::vector<Transa
             }
         }
     }
+}
+//
+std::vector<RollupBlock> Blockchain::getAllRollupBlocks() const {
+    return rollupChain;
 }
 
 // Get current blockchain height
