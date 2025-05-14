@@ -31,7 +31,7 @@
 #endif /* BLAKE3_ATOMICS */
 
 #if BLAKE3_ATOMICS
-#define ATOMIC_INT _Atomic int
+#define ATOMIC_INT volatile int
 #define ATOMIC_LOAD(x) x
 #define ATOMIC_STORE(x, y) x = y
 #elif defined(_MSC_VER)
@@ -115,7 +115,7 @@ static
     get_cpu_features(void) {
 
   /* If TSAN detects a data race here, try compiling with -DBLAKE3_ATOMICS=1 */
-  enum cpu_feature features = ATOMIC_LOAD(g_cpu_features);
+  enum cpu_feature features = (enum cpu_feature)ATOMIC_LOAD(g_cpu_features);
   if (features != UNDEFINED) {
     return features;
   } else {
@@ -123,35 +123,35 @@ static
     uint32_t regs[4] = {0};
     uint32_t *eax = &regs[0], *ebx = &regs[1], *ecx = &regs[2], *edx = &regs[3];
     (void)edx;
-    features = 0;
+    features = (enum cpu_feature)0;
     cpuid(regs, 0);
     const int max_id = *eax;
     cpuid(regs, 1);
 #if defined(__amd64__) || defined(_M_X64)
-    features |= SSE2;
+    features = (enum cpu_feature)(features | SSE2);
 #else
     if (*edx & (1UL << 26))
-      features |= SSE2;
+      features = (enum cpu_feature)(features | SSE2);
 #endif
     if (*ecx & (1UL << 9))
-      features |= SSSE3;
+      features = (enum cpu_feature)(features | SSSE3);
     if (*ecx & (1UL << 19))
-      features |= SSE41;
+      features = (enum cpu_feature)(features | SSE41);
 
     if (*ecx & (1UL << 27)) { // OSXSAVE
       const uint64_t mask = xgetbv();
       if ((mask & 6) == 6) { // SSE and AVX states
         if (*ecx & (1UL << 28))
-          features |= AVX;
+          features = (enum cpu_feature)(features | AVX);
         if (max_id >= 7) {
           cpuidex(regs, 7, 0);
           if (*ebx & (1UL << 5))
-            features |= AVX2;
+            features = (enum cpu_feature)(features | AVX2);
           if ((mask & 224) == 224) { // Opmask, ZMM_Hi256, Hi16_Zmm
             if (*ebx & (1UL << 31))
-              features |= AVX512VL;
+              features = (enum cpu_feature)(features | AVX512VL);
             if (*ebx & (1UL << 16))
-              features |= AVX512F;
+              features = (enum cpu_feature)(features | AVX512F);
           }
         }
       }

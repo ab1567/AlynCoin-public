@@ -1477,7 +1477,6 @@ src/nft/CMakeFiles/nftcli.dir/nft.cpp.o: /root/AlynCoin/src/nft/nft.cpp \
   /usr/include/x86_64-linux-gnu/bits/types/clockid_t.h \
   /usr/include/x86_64-linux-gnu/bits/types/cookie_io_functions_t.h \
   /usr/include/x86_64-linux-gnu/bits/types/error_t.h \
-  /usr/include/x86_64-linux-gnu/bits/types/idtype_t.h \
   /usr/include/x86_64-linux-gnu/bits/types/locale_t.h \
   /usr/include/x86_64-linux-gnu/bits/types/mbstate_t.h \
   /usr/include/x86_64-linux-gnu/bits/types/sig_atomic_t.h \
@@ -1547,7 +1546,6 @@ src/nft/CMakeFiles/nftcli.dir/nft.cpp.o: /root/AlynCoin/src/nft/nft.cpp \
   /usr/include/x86_64-linux-gnu/sys/ucontext.h \
   /usr/include/x86_64-linux-gnu/sys/uio.h \
   /usr/include/x86_64-linux-gnu/sys/un.h \
-  /usr/include/x86_64-linux-gnu/sys/wait.h \
   /usr/lib/gcc/x86_64-linux-gnu/13/include/limits.h \
   /usr/lib/gcc/x86_64-linux-gnu/13/include/stdarg.h \
   /usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h \
@@ -1601,6 +1599,10 @@ src/nft/CMakeFiles/nftcli.dir/nft_cli.cpp.o: /root/AlynCoin/src/nft/nft_cli.cpp 
   /usr/include/c++/13/bits/exception.h \
   /usr/include/c++/13/bits/exception_defines.h \
   /usr/include/c++/13/bits/exception_ptr.h \
+  /usr/include/c++/13/bits/fs_dir.h \
+  /usr/include/c++/13/bits/fs_fwd.h \
+  /usr/include/c++/13/bits/fs_ops.h \
+  /usr/include/c++/13/bits/fs_path.h \
   /usr/include/c++/13/bits/fstream.tcc \
   /usr/include/c++/13/bits/functexcept.h \
   /usr/include/c++/13/bits/functional_hash.h \
@@ -1631,6 +1633,7 @@ src/nft/CMakeFiles/nftcli.dir/nft_cli.cpp.o: /root/AlynCoin/src/nft/nft_cli.cpp 
   /usr/include/c++/13/bits/postypes.h \
   /usr/include/c++/13/bits/predefined_ops.h \
   /usr/include/c++/13/bits/ptr_traits.h \
+  /usr/include/c++/13/bits/quoted_string.h \
   /usr/include/c++/13/bits/range_access.h \
   /usr/include/c++/13/bits/refwrap.h \
   /usr/include/c++/13/bits/regex.h \
@@ -1697,6 +1700,7 @@ src/nft/CMakeFiles/nftcli.dir/nft_cli.cpp.o: /root/AlynCoin/src/nft/nft_cli.cpp 
   /usr/include/c++/13/chrono \
   /usr/include/c++/13/climits \
   /usr/include/c++/13/clocale \
+  /usr/include/c++/13/codecvt \
   /usr/include/c++/13/compare \
   /usr/include/c++/13/condition_variable \
   /usr/include/c++/13/cstdarg \
@@ -1719,9 +1723,11 @@ src/nft/CMakeFiles/nftcli.dir/nft_cli.cpp.o: /root/AlynCoin/src/nft/nft_cli.cpp 
   /usr/include/c++/13/ext/numeric_traits.h \
   /usr/include/c++/13/ext/string_conversions.h \
   /usr/include/c++/13/ext/type_traits.h \
+  /usr/include/c++/13/filesystem \
   /usr/include/c++/13/fstream \
   /usr/include/c++/13/functional \
   /usr/include/c++/13/initializer_list \
+  /usr/include/c++/13/iomanip \
   /usr/include/c++/13/ios \
   /usr/include/c++/13/iosfwd \
   /usr/include/c++/13/iostream \
@@ -2410,8 +2416,6 @@ src/nft/CMakeFiles/nftcli.dir/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 
 /usr/lib/gcc/x86_64-linux-gnu/13/include/stdarg.h:
 
-/usr/include/x86_64-linux-gnu/sys/wait.h:
-
 /usr/include/x86_64-linux-gnu/sys/un.h:
 
 /usr/include/x86_64-linux-gnu/sys/ucontext.h:
@@ -2969,8 +2973,6 @@ src/nft/CMakeFiles/nftcli.dir/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 /usr/include/boost/asio/detail/future.hpp:
 
 /usr/include/boost/date_time/gregorian/greg_duration_types.hpp:
-
-/usr/include/x86_64-linux-gnu/bits/types/idtype_t.h:
 
 /usr/include/boost/asio/posix/descriptor.hpp:
 

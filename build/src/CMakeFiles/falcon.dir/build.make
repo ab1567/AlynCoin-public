@@ -223,10 +223,24 @@ src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/fips202.c.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/fips202.c.s"
 	cd /root/AlynCoin/build/src && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /root/AlynCoin/src/crypto/falcon/PQClean/common/fips202.c -o CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/fips202.c.s
 
+src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.o: src/CMakeFiles/falcon.dir/flags.make
+src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.o: /root/AlynCoin/src/crypto/falcon/PQClean/common/sp800-185.c
+src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.o: src/CMakeFiles/falcon.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_12) "Building C object src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.o"
+	cd /root/AlynCoin/build/src && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.o -MF CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.o.d -o CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.o -c /root/AlynCoin/src/crypto/falcon/PQClean/common/sp800-185.c
+
+src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing C source to CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.i"
+	cd /root/AlynCoin/build/src && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /root/AlynCoin/src/crypto/falcon/PQClean/common/sp800-185.c > CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.i
+
+src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.s"
+	cd /root/AlynCoin/build/src && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /root/AlynCoin/src/crypto/falcon/PQClean/common/sp800-185.c -o CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.s
+
 src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/nistseedexpander.c.o: src/CMakeFiles/falcon.dir/flags.make
 src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/nistseedexpander.c.o: /root/AlynCoin/src/crypto/falcon/PQClean/common/nistseedexpander.c
 src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/nistseedexpander.c.o: src/CMakeFiles/falcon.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_12) "Building C object src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/nistseedexpander.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_13) "Building C object src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/nistseedexpander.c.o"
 	cd /root/AlynCoin/build/src && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/nistseedexpander.c.o -MF CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/nistseedexpander.c.o.d -o CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/nistseedexpander.c.o -c /root/AlynCoin/src/crypto/falcon/PQClean/common/nistseedexpander.c
 
 src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/nistseedexpander.c.i: cmake_force
@@ -240,7 +254,7 @@ src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/nistseedexpander.c.s: cma
 src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/randombytes.c.o: src/CMakeFiles/falcon.dir/flags.make
 src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/randombytes.c.o: /root/AlynCoin/src/crypto/falcon/PQClean/common/randombytes.c
 src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/randombytes.c.o: src/CMakeFiles/falcon.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_13) "Building C object src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/randombytes.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_14) "Building C object src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/randombytes.c.o"
 	cd /root/AlynCoin/build/src && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/randombytes.c.o -MF CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/randombytes.c.o.d -o CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/randombytes.c.o -c /root/AlynCoin/src/crypto/falcon/PQClean/common/randombytes.c
 
 src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/randombytes.c.i: cmake_force
@@ -254,7 +268,7 @@ src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/randombytes.c.s: cmake_fo
 src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sha2.c.o: src/CMakeFiles/falcon.dir/flags.make
 src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sha2.c.o: /root/AlynCoin/src/crypto/falcon/PQClean/common/sha2.c
 src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sha2.c.o: src/CMakeFiles/falcon.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_14) "Building C object src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sha2.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_15) "Building C object src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sha2.c.o"
 	cd /root/AlynCoin/build/src && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sha2.c.o -MF CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sha2.c.o.d -o CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sha2.c.o -c /root/AlynCoin/src/crypto/falcon/PQClean/common/sha2.c
 
 src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sha2.c.i: cmake_force
@@ -264,20 +278,6 @@ src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sha2.c.i: cmake_force
 src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sha2.c.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sha2.c.s"
 	cd /root/AlynCoin/build/src && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /root/AlynCoin/src/crypto/falcon/PQClean/common/sha2.c -o CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sha2.c.s
-
-src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.o: src/CMakeFiles/falcon.dir/flags.make
-src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.o: /root/AlynCoin/src/crypto/falcon/PQClean/common/sp800-185.c
-src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.o: src/CMakeFiles/falcon.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_15) "Building C object src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.o"
-	cd /root/AlynCoin/build/src && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.o -MF CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.o.d -o CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.o -c /root/AlynCoin/src/crypto/falcon/PQClean/common/sp800-185.c
-
-src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing C source to CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.i"
-	cd /root/AlynCoin/build/src && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /root/AlynCoin/src/crypto/falcon/PQClean/common/sp800-185.c > CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.i
-
-src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.s"
-	cd /root/AlynCoin/build/src && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /root/AlynCoin/src/crypto/falcon/PQClean/common/sp800-185.c -o CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.s
 
 src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.c.o: src/CMakeFiles/falcon.dir/flags.make
 src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.c.o: /root/AlynCoin/src/crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.c
@@ -306,10 +306,10 @@ falcon_OBJECTS = \
 "CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/vrfy.c.o" \
 "CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/aes.c.o" \
 "CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/fips202.c.o" \
+"CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.o" \
 "CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/nistseedexpander.c.o" \
 "CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/randombytes.c.o" \
 "CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sha2.c.o" \
-"CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.o" \
 "CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.c.o"
 
 # External object files for target falcon
@@ -326,10 +326,10 @@ src/libfalcon.a: src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/cle
 src/libfalcon.a: src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/Falcon-1024/clean/vrfy.c.o
 src/libfalcon.a: src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/aes.c.o
 src/libfalcon.a: src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/fips202.c.o
+src/libfalcon.a: src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.o
 src/libfalcon.a: src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/nistseedexpander.c.o
 src/libfalcon.a: src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/randombytes.c.o
 src/libfalcon.a: src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sha2.c.o
-src/libfalcon.a: src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/sp800-185.c.o
 src/libfalcon.a: src/CMakeFiles/falcon.dir/crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.c.o
 src/libfalcon.a: src/CMakeFiles/falcon.dir/build.make
 src/libfalcon.a: src/CMakeFiles/falcon.dir/link.txt

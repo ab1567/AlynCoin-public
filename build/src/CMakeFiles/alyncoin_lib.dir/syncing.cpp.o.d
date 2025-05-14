@@ -339,8 +339,7 @@ src/CMakeFiles/alyncoin_lib.dir/syncing.cpp.o: \
  /usr/include/jsoncpp/json/writer.h \
  /root/AlynCoin/src/zk/winterfell_stark.h \
  /root/AlynCoin/src/zk/../nft/nft.h /root/AlynCoin/src/generated/nft.pb.h \
- /usr/include/jsoncpp/json/json.h /root/AlynCoin/src/network.h \
- /root/AlynCoin/src/blockchain.h \
+ /root/AlynCoin/src/network.h /root/AlynCoin/src/blockchain.h \
  /root/AlynCoin/src/layer2/state_channel.h \
  /root/AlynCoin/src/rollup/rollup_block.h \
  /root/AlynCoin/src/rollup/../transaction.h /usr/include/boost/asio.hpp \

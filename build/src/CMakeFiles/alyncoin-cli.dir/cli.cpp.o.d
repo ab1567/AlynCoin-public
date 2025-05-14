@@ -337,7 +337,6 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
  /usr/include/jsoncpp/json/writer.h \
  /root/AlynCoin/src/zk/winterfell_stark.h \
  /root/AlynCoin/src/zk/../nft/nft.h /root/AlynCoin/src/generated/nft.pb.h \
- /usr/include/jsoncpp/json/json.h \
  /root/AlynCoin/src/layer2/state_channel.h \
  /root/AlynCoin/src/rollup/rollup_block.h \
  /root/AlynCoin/src/rollup/../transaction.h /usr/include/boost/asio.hpp \
@@ -1372,4 +1371,7 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
  /root/AlynCoin/src/governance/dao_storage.h \
  /root/AlynCoin/src/governance/dao.h /root/AlynCoin/src/db/db_instance.h \
  /root/AlynCoin/src/db/rocksdb_wrapper.h \
- /root/AlynCoin/src/zk/recursive_proof_helper.h
+ /root/AlynCoin/src/zk/recursive_proof_helper.h \
+ /root/AlynCoin/src/difficulty.h /usr/include/c++/13/numeric \
+ /usr/include/c++/13/bits/stl_numeric.h \
+ /usr/include/c++/13/pstl/glue_numeric_defs.h

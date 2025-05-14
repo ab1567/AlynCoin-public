@@ -260,9 +260,10 @@ src/CMakeFiles/identitycli.dir/identity/identitycli.cpp.o: \
  /usr/include/openssl/pkcs7err.h /usr/include/openssl/http.h \
  /usr/include/openssl/conf.h /usr/include/openssl/conferr.h \
  /usr/include/openssl/conftypes.h /usr/include/openssl/pemerr.h \
- /root/AlynCoin/src/identity/proto_utils.h /usr/include/c++/13/iostream \
- /usr/include/c++/13/istream /usr/include/c++/13/bits/istream.tcc \
+ /root/AlynCoin/src/identity/proto_utils.h \
  /root/AlynCoin/src/identity/../zk/winterfell_stark.h \
+ /usr/include/c++/13/iostream /usr/include/c++/13/istream \
+ /usr/include/c++/13/bits/istream.tcc \
  /root/AlynCoin/src/identity/../zk/../nft/nft.h \
  /root/AlynCoin/src/generated/nft.pb.h \
  /usr/include/google/protobuf/port_def.inc \
@@ -314,4 +315,5 @@ src/CMakeFiles/identitycli.dir/identity/identitycli.cpp.o: \
  /usr/include/google/protobuf/message.h \
  /usr/include/google/protobuf/map.h \
  /usr/include/google/protobuf/map_type_handler.h \
- /usr/include/google/protobuf/extension_set.h
+ /usr/include/google/protobuf/extension_set.h \
+ /root/AlynCoin/src/identity/../db/db_paths.h

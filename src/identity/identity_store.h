@@ -1,11 +1,12 @@
 #pragma once
 #include <rocksdb/db.h>
 #include <mutex>
+#include <optional>
 #include "identity.h"
 
 class IdentityStore {
 public:
-    explicit IdentityStore(const std::string& path);
+    IdentityStore();  // No path param needed; uses DBPaths
     ~IdentityStore();
 
     bool save(const ZkIdentity& id);

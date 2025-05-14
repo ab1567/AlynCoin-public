@@ -340,7 +340,6 @@ src/CMakeFiles/alyncoin_lib.dir/zk/winterfell_stark.cpp.o: \
  /usr/include/c++/13/stack /usr/include/c++/13/bits/stl_stack.h \
  /usr/include/jsoncpp/json/writer.h \
  /root/AlynCoin/src/zk/winterfell_stark.h \
- /usr/include/jsoncpp/json/json.h \
  /root/AlynCoin/src/layer2/state_channel.h \
  /root/AlynCoin/src/rollup/rollup_block.h \
  /root/AlynCoin/src/rollup/../transaction.h /usr/include/boost/asio.hpp \

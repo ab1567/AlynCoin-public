@@ -860,6 +860,30 @@ cli/peer_blacklist_ui.cpp.s:
 	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin-cli.dir/build.make src/CMakeFiles/alyncoin-cli.dir/cli/peer_blacklist_ui.cpp.s
 .PHONY : cli/peer_blacklist_ui.cpp.s
 
+crypto/dilithium/api.o: crypto/dilithium/api.c.o
+.PHONY : crypto/dilithium/api.o
+
+# target to build an object file
+crypto/dilithium/api.c.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/api.c.o
+.PHONY : crypto/dilithium/api.c.o
+
+crypto/dilithium/api.i: crypto/dilithium/api.c.i
+.PHONY : crypto/dilithium/api.i
+
+# target to preprocess a source file
+crypto/dilithium/api.c.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/api.c.i
+.PHONY : crypto/dilithium/api.c.i
+
+crypto/dilithium/api.s: crypto/dilithium/api.c.s
+.PHONY : crypto/dilithium/api.s
+
+# target to generate assembly for a file
+crypto/dilithium/api.c.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/dilithium.dir/build.make src/CMakeFiles/dilithium.dir/crypto/dilithium/api.c.s
+.PHONY : crypto/dilithium/api.c.s
+
 crypto/dilithium/fips202.o: crypto/dilithium/fips202.c.o
 .PHONY : crypto/dilithium/fips202.o
 
@@ -2452,6 +2476,9 @@ help:
 	@echo "... cli/peer_blacklist_ui.o"
 	@echo "... cli/peer_blacklist_ui.i"
 	@echo "... cli/peer_blacklist_ui.s"
+	@echo "... crypto/dilithium/api.o"
+	@echo "... crypto/dilithium/api.i"
+	@echo "... crypto/dilithium/api.s"
 	@echo "... crypto/dilithium/fips202.o"
 	@echo "... crypto/dilithium/fips202.i"
 	@echo "... crypto/dilithium/fips202.s"

@@ -24,7 +24,6 @@
 #include <mutex>
 #include <sys/stat.h>
 #include <thread>
-#include "logger.h"
 
 #define ROLLUP_CHAIN_FILE "rollup_chain.dat"
 static std::map<uint64_t, Block> futureBlocks;
@@ -38,7 +37,7 @@ std::mutex blockchainMutex;
 std::atomic<bool> Blockchain::isMining{false};
 
 Blockchain::Blockchain()
-    : difficulty(4), miningReward(10.0), db(nullptr), totalBurnedSupply(0.0),
+    : difficulty(0), miningReward(100.0), db(nullptr), totalBurnedSupply(0.0),
       network(nullptr) {
   std::cout << "[DEBUG] Default Blockchain constructor called.\n";
 }
@@ -46,7 +45,7 @@ Blockchain::Blockchain()
 // ✅ **Constructor: Open RocksDB**
 // ✅ Constructor: Open RocksDB
 Blockchain::Blockchain(unsigned short port, const std::string &dbPath, bool bindNetwork, bool isSyncMode)
-    : difficulty(4), miningReward(10.0), port(port), dbPath(dbPath) {
+    : difficulty(0), miningReward(100.0), port(port), dbPath(dbPath) {
 
     if (bindNetwork) {
         if (Network::isUninitialized()) {
@@ -191,6 +190,7 @@ Block Blockchain::createGenesisBlock(bool force) {
     std::string prevHash = "00000000000000000000000000000000";
     std::string creator = "System";
     uint64_t fixedTimestamp = 1713120000;
+    difficulty = calculateSmartDifficulty(*this);
 
     Block genesis(0, prevHash, transactions, creator, difficulty, fixedTimestamp, 0);
 
@@ -623,7 +623,7 @@ void Blockchain::mergeWith(const Blockchain &other) {
     if (newChain.size() > chain.size()) {
         std::cout << "✅ Replacing current blockchain with a longer valid chain!\n";
         chain = newChain;
-        adjustDifficulty();  // Recalculate based on new chain via LWMA
+        adjustDifficulty();
         saveToDB();
     } else {
         std::cerr << "⚠️ New chain was not longer. Keeping existing chain.\n";
@@ -1127,7 +1127,7 @@ bool Blockchain::loadFromDB() {
         std::cout << "✅ Vesting applied & marker set.\n";
     }
 
-    difficulty = chain.empty() ? 1 : chain.back().getDifficulty();
+    difficulty = calculateSmartDifficulty(*this);
 
     std::string burnedStr;
     if (db->Get(rocksdb::ReadOptions(), "burned_supply", &burnedStr).ok())
@@ -1540,7 +1540,7 @@ const Block& Blockchain::getLatestBlock() const {
     if (chain.empty()) {
         static Block dummyGenesis;
         dummyGenesis.setHash("00000000000000000000000000000000"); // Optional safe fallback
-        Logger::warn("[⚠️ WARNING] Blockchain chain is empty. Returning dummy genesis block.");
+        std::cerr <<"[⚠️ WARNING] Blockchain chain is empty. Returning dummy genesis block.\n";
         return dummyGenesis;
     }
     return chain.back();
@@ -2076,7 +2076,7 @@ double Blockchain::calculateBlockReward() {
 
 // adjustDifficulty
 void Blockchain::adjustDifficulty() {
-  int newDifficulty = LWMA_calculate_difficulty(*this);
+  int newDifficulty = calculateSmartDifficulty(*this);
   std::cout << "⚙️ Adjusted difficulty from " << difficulty << " → " << newDifficulty << "\n";
   difficulty = newDifficulty;
 }
@@ -2241,7 +2241,7 @@ void Blockchain::clear(bool force) {
 
     chain.clear();
     pendingTransactions.clear();
-    difficulty = DIFFICULTY;
+    difficulty = calculateSmartDifficulty(*this);
     blockReward = 100.0;
     devFundBalance = 0.0;
     rollupChain.clear();

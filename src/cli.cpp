@@ -18,6 +18,7 @@
 #include <filesystem>
 #include "db/db_instance.h"
 #include "zk/recursive_proof_helper.h"
+#include "difficulty.h"
 
 std::string getCurrentWallet() {
     std::ifstream in("/root/.alyncoin/current_wallet.txt");
@@ -199,7 +200,7 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
         Blockchain &b = getBlockchain();
         std::cout << "\n=== Blockchain Stats ===\n";
         std::cout << "Total Blocks: " << b.getBlockCount() << "\n";
-        std::cout << "Difficulty: " << DIFFICULTY << "\n";
+        std::cout << "Difficulty: " << calculateSmartDifficulty(b) << "\n";
         std::cout << "Total Supply: " << b.getTotalSupply() << " AlynCoin\n";
         std::cout << "Total Burned Supply: " << b.getTotalBurnedSupply() << " AlynCoin\n";
         std::cout << "Dev Fund Balance: " << b.getBalance("DevFundWallet") << " AlynCoin\n";
@@ -218,65 +219,76 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
         std::exit(0);
     }
 
-    // === Wallet loading ===
-    if (argc == 3 && std::string(argv[1]) == "loadwallet") {
-        std::string name = argv[2];
-        std::string priv = keyDir + name + "_private.pem";
-        std::string dil = keyDir + name + "_dilithium.key";
-        std::string fal = keyDir + name + "_falcon.key";
+// === Wallet loading ===
+if (argc == 3 && std::string(argv[1]) == "loadwallet") {
+    std::string name = argv[2];
+    std::string priv = keyDir + name + "_private.pem";
+    std::string dil = keyDir + name + "_dilithium.key";
+    std::string fal = keyDir + name + "_falcon.key";
 
-        if (!std::filesystem::exists(priv) || !std::filesystem::exists(dil) || !std::filesystem::exists(fal)) {
-            std::cerr << "❌ Wallet key files not found for: " << name << "\n";
-            return 1;
-        }
-
-        try {
-            Wallet w(priv, keyDir, name);
-            std::ofstream("/root/.alyncoin/current_wallet.txt") << w.getAddress();
-            std::cout << "✅ Wallet loaded: " << w.getAddress() << "\n";
-        } catch (const std::exception &e) {
-            std::cerr << "❌ Wallet load failed: " << e.what() << "\n";
-            return 1;
-        }
-        std::exit(0);
+    if (!std::filesystem::exists(priv) || !std::filesystem::exists(dil) || !std::filesystem::exists(fal)) {
+        std::cerr << "❌ Wallet key files not found for: " << name << std::endl;
+        return 1;
     }
 
-	// === Balance check (normal or forced) ===
-	if (argc >= 2 && (std::string(argv[1]) == "balance" || std::string(argv[1]) == "balance-force")) {
-	    if (argc < 3) {
-	        std::cerr << "❌ Usage: balance <address>\n";
-	        return 1;
-	    }
+    try {
+        Wallet w(priv, keyDir, name);
+        std::ofstream("/root/.alyncoin/current_wallet.txt") << w.getAddress();
+        std::cout << "✅ Wallet loaded: " << w.getAddress() << std::endl;
+    } catch (const std::exception &e) {
+        std::cerr << "❌ Wallet load failed: " << e.what() << std::endl;
+        return 1;
+    }
+    std::exit(0);
+}
 
-	    std::string addr = argv[2];
+// === Balance check (normal or forced) ===
+if (argc >= 2 && (std::string(argv[1]) == "balance" || std::string(argv[1]) == "balance-force")) {
+    if (argc < 3) {
+        std::cerr << "❌ Usage: balance <address>" << std::endl;
+        return 1;
+    }
 
-	    Blockchain &b = Blockchain::getInstanceNoNetwork();
-	    b.reloadBlockchainState();  // 🔧 Ensure latest state is loaded before querying balance
+    std::string addr = argv[2];
 
-	    std::cout << "Balance: " << b.getBalance(addr) << " AlynCoin" << std::endl;
-	    std::exit(0);
-	}
+    Blockchain &b = Blockchain::getInstanceNoNetwork();
+    b.reloadBlockchainState();  // 🔧 Ensure latest state is loaded before querying balance
+
+    std::cout << "Balance: " << b.getBalance(addr) << " AlynCoin" << std::endl;
+    std::exit(0);
+}
 
 // === sendl1 / sendl2 with duplicate filter ===
 if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == "sendl2")) {
     std::string from = argv[2];
     std::string to = argv[3];
-    double amount = 0.0;
+    std::string rawAmount = argv[4];
     std::string metadata = argv[5];
 
+    double amount = -1;
     try {
-        amount = std::stod(argv[4]);
+        amount = std::stod(rawAmount);
     } catch (...) {
-        std::cerr << "❌ Invalid amount value\n";
+        std::cerr << "❌ Invalid amount format: " << rawAmount << "\n";
+        return 1;
+    }
+
+    // ✅ Allow zero amount only for metadataSink transactions
+    if (amount <= 0.0 && to != "metadataSink") {
+        std::cerr << "❌ Invalid amount. Zero allowed only when sending to metadataSink.\n";
         return 1;
     }
 
     Blockchain &b = getBlockchain();
-    double currentBalance = b.getBalance(from);
-    if (amount > currentBalance) {
-        std::cerr << "❌ Insufficient balance. You have " << currentBalance
-                  << " AlynCoin, but tried to send " << amount << ".\n";
-        return 1;
+
+    // ✅ Skip balance check if it's metadata-only (to metadataSink with 0.0)
+    if (!(amount == 0.0 && to == "metadataSink")) {
+        double currentBalance = b.getBalance(from);
+        if (amount > currentBalance) {
+            std::cerr << "❌ Insufficient balance. You have " << currentBalance
+                      << " AlynCoin, but tried to send " << amount << ".\n";
+            return 1;
+        }
     }
 
     auto dil = Crypto::loadDilithiumKeys(from);
@@ -1163,7 +1175,7 @@ int cliMain(int argc, char *argv[]) {
     case 16: {
         std::cout << "\n=== Blockchain Stats ===\n";
         std::cout << "Total Blocks: " << blockchain.getBlockCount() << "\n";
-        std::cout << "Difficulty: " << DIFFICULTY << "\n";
+        std::cout << "Difficulty: " << calculateSmartDifficulty(blockchain) << "\n";
         std::cout << "Total Supply: " << totalSupply << " AlynCoin\n";
         std::cout << "Total Burned Supply: " << blockchain.getTotalBurnedSupply() << " AlynCoin\n";
         std::cout << "Dev Fund Balance: " << blockchain.getBalance("DevFundWallet") << " AlynCoin\n";

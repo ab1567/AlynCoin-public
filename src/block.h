@@ -39,7 +39,7 @@ public:
   std::string keccakHash;
   int difficulty;
 
-  static constexpr double INITIAL_REWARD = 10.0;
+  static constexpr double INITIAL_REWARD = 100.0;
   static constexpr double DECAY_RATE = 0.00005;
 
   // --- Constructors ---

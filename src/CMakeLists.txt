@@ -145,49 +145,53 @@ find_path(ROCKSDB_INCLUDE_DIR rocksdb/db.h)
 include_directories(${ROCKSDB_INCLUDE_DIR})
 
 # --------------------------
-# Protobuf Files
-set(PROTO_SRCS
-    ${GENERATED_DIR}/sync_protos.pb.cc
-    ${GENERATED_DIR}/block_protos.pb.cc
-    ${GENERATED_DIR}/blockchain_protos.pb.cc
-    ${GENERATED_DIR}/crypto_protos.pb.cc
-    ${GENERATED_DIR}/transaction_protos.pb.cc
-    ${GENERATED_DIR}/main_protos.pb.cc
-    ${GENERATED_DIR}/nft.pb.cc
-    ${GENERATED_DIR}/atomic_swap.pb.cc
-    ${GENERATED_DIR}/identity.pb.cc
-)
+# Only generate protobufs if not skipped
+if(NOT SKIP_PROTOBUF_GEN)
 
-set(PROTO_HEADERS
-    ${GENERATED_DIR}/sync_protos.pb.h
-    ${GENERATED_DIR}/block_protos.pb.h
-    ${GENERATED_DIR}/blockchain_protos.pb.h
-    ${GENERATED_DIR}/crypto_protos.pb.h
-    ${GENERATED_DIR}/transaction_protos.pb.h
-    ${GENERATED_DIR}/main_protos.pb.h
-    ${GENERATED_DIR}/nft.pb.h
-    ${GENERATED_DIR}/atomic_swap.pb.h
-    ${GENERATED_DIR}/identity.pb.h
-)
+    set(PROTO_SRCS
+        ${GENERATED_DIR}/sync_protos.pb.cc
+        ${GENERATED_DIR}/block_protos.pb.cc
+        ${GENERATED_DIR}/blockchain_protos.pb.cc
+        ${GENERATED_DIR}/crypto_protos.pb.cc
+        ${GENERATED_DIR}/transaction_protos.pb.cc
+        ${GENERATED_DIR}/main_protos.pb.cc
+        ${GENERATED_DIR}/nft.pb.cc
+        ${GENERATED_DIR}/atomic_swap.pb.cc
+        ${GENERATED_DIR}/identity.pb.cc
+    )
 
-add_custom_command(
-    OUTPUT ${PROTO_HEADERS} ${PROTO_SRCS}
-    COMMAND ${Protobuf_PROTOC_EXECUTABLE} --proto_path=${SOURCE_DIR}/proto
-            --cpp_out=${GENERATED_DIR}
-            ${SOURCE_DIR}/proto/sync_protos.proto
-            ${SOURCE_DIR}/proto/block_protos.proto
-            ${SOURCE_DIR}/proto/blockchain_protos.proto
-            ${SOURCE_DIR}/proto/crypto_protos.proto
-            ${SOURCE_DIR}/proto/transaction_protos.proto
-            ${SOURCE_DIR}/proto/main_protos.proto
-            ${SOURCE_DIR}/proto/nft.proto
-            ${SOURCE_DIR}/proto/atomic_swap.proto
-            ${SOURCE_DIR}/proto/identity.proto
-    DEPENDS ${SOURCE_DIR}/proto/*.proto
-    COMMENT "Generating Protobuf files..."
-)
+    set(PROTO_HEADERS
+        ${GENERATED_DIR}/sync_protos.pb.h
+        ${GENERATED_DIR}/block_protos.pb.h
+        ${GENERATED_DIR}/blockchain_protos.pb.h
+        ${GENERATED_DIR}/crypto_protos.pb.h
+        ${GENERATED_DIR}/transaction_protos.pb.h
+        ${GENERATED_DIR}/main_protos.pb.h
+        ${GENERATED_DIR}/nft.pb.h
+        ${GENERATED_DIR}/atomic_swap.pb.h
+        ${GENERATED_DIR}/identity.pb.h
+    )
 
-add_custom_target(protobuf_gen DEPENDS ${PROTO_SRCS})
+    add_custom_command(
+        OUTPUT ${PROTO_HEADERS} ${PROTO_SRCS}
+        COMMAND ${Protobuf_PROTOC_EXECUTABLE} --proto_path=${SOURCE_DIR}/proto
+                --cpp_out=${GENERATED_DIR}
+                ${SOURCE_DIR}/proto/sync_protos.proto
+                ${SOURCE_DIR}/proto/block_protos.proto
+                ${SOURCE_DIR}/proto/blockchain_protos.proto
+                ${SOURCE_DIR}/proto/crypto_protos.proto
+                ${SOURCE_DIR}/proto/transaction_protos.proto
+                ${SOURCE_DIR}/proto/main_protos.proto
+                ${SOURCE_DIR}/proto/nft.proto
+                ${SOURCE_DIR}/proto/atomic_swap.proto
+                ${SOURCE_DIR}/proto/identity.proto
+        DEPENDS ${SOURCE_DIR}/proto/*.proto
+        COMMENT "Generating Protobuf files..."
+    )
+
+    add_custom_target(protobuf_gen DEPENDS ${PROTO_SRCS})
+
+endif()
 
 # --------------------------
 # Winterfell Rust FFI
@@ -197,31 +201,35 @@ add_custom_target(winterfell_ffi ALL
     COMMENT "Building Winterfell zk-STARK Rust FFI..."
 )
 
-# --------------------------
-# Falcon Static Library
+# === Falcon Static Library ===
 file(GLOB FALCON_CLEAN_SOURCES
     ${SOURCE_DIR}/crypto/falcon/PQClean/Falcon-1024/clean/*.c
 )
 
-file(GLOB FALCON_COMMON_SOURCES
-    ${SOURCE_DIR}/crypto/falcon/PQClean/common/*.c
+# Add manually maintained list of essential common sources
+set(FALCON_COMMON_SOURCES
+    ${SOURCE_DIR}/crypto/falcon/PQClean/common/aes.c
+    ${SOURCE_DIR}/crypto/falcon/PQClean/common/fips202.c
+    ${SOURCE_DIR}/crypto/falcon/PQClean/common/sp800-185.c
+    ${SOURCE_DIR}/crypto/falcon/PQClean/common/nistseedexpander.c
+    ${SOURCE_DIR}/crypto/falcon/PQClean/common/randombytes.c
+    ${SOURCE_DIR}/crypto/falcon/PQClean/common/sha2.c
 )
 
 file(GLOB FALCON_KECCAK4X_SOURCES
     ${SOURCE_DIR}/crypto/falcon/PQClean/common/keccak4x/*.c
 )
 
-list(REMOVE_ITEM FALCON_COMMON_SOURCES
-    ${SOURCE_DIR}/crypto/falcon/PQClean/common/keccak2x/fips202x2.c
-)
-
+# Combine all
 set(FALCON_SOURCES
     ${FALCON_CLEAN_SOURCES}
     ${FALCON_COMMON_SOURCES}
     ${FALCON_KECCAK4X_SOURCES}
+    ${FALCON_GLUE_SOURCES}
 )
 
 add_library(falcon STATIC ${FALCON_SOURCES})
+
 target_include_directories(falcon PUBLIC
     ${SOURCE_DIR}/crypto/falcon/PQClean/Falcon-1024/clean
     ${SOURCE_DIR}/crypto/falcon/PQClean/common
@@ -229,9 +237,16 @@ target_include_directories(falcon PUBLIC
     ${SOURCE_DIR}/crypto/falcon/PQClean/common/keccak4x
 )
 
+# Compile SIMD file with correct flags
 set_source_files_properties(
     ${SOURCE_DIR}/crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.c
     PROPERTIES COMPILE_FLAGS "-mavx2 -msse4.1"
+)
+
+# Correct symbol namespacing for Falcon and SHAKE256 linkage
+target_compile_options(falcon PUBLIC
+    -DPQCLEAN_FALCON1024_CLEAN_NAMESPACE=PQCLEAN_FALCON1024_CLEAN_
+    -DSHAKE256_NAMESPACE=PQCLEAN_FALCON1024_CLEAN_
 )
 
 # --------------------------

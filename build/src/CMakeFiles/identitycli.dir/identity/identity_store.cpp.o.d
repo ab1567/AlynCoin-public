@@ -234,4 +234,5 @@ src/CMakeFiles/identitycli.dir/identity/identity_store.cpp.o: \
  /usr/include/rocksdb/write_batch.h \
  /usr/include/rocksdb/write_batch_base.h \
  /root/AlynCoin/src/identity/identity.h \
- /root/AlynCoin/src/identity/proto_utils.h
+ /root/AlynCoin/src/identity/proto_utils.h \
+ /root/AlynCoin/src/identity/../db/db_paths.h

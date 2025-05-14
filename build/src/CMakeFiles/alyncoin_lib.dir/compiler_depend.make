@@ -5093,7 +5093,6 @@ src/CMakeFiles/alyncoin_lib.dir/blockchain.cpp.o: /root/AlynCoin/src/blockchain.
   /root/AlynCoin/src/rollup/proofs/proof_verifier.h \
   /root/AlynCoin/src/rollup/rollup_block.h \
   /root/AlynCoin/src/transaction.h \
-  /root/AlynCoin/src/utils/logger.h \
   /root/AlynCoin/src/network/peer_blacklist.h \
   /root/AlynCoin/src/nft/nft.h \
   /root/AlynCoin/src/zk/winterfell_stark.h \
@@ -6611,6 +6610,7 @@ src/CMakeFiles/alyncoin_lib.dir/blockchain.cpp.o: /root/AlynCoin/src/blockchain.
 
 src/CMakeFiles/alyncoin_lib.dir/crypto_utils.cpp.o: /root/AlynCoin/src/crypto_utils.cpp \
   /root/AlynCoin/src/blake3.h \
+  /root/AlynCoin/src/crypto/dilithium/api.h \
   /root/AlynCoin/src/crypto/dilithium/config.h \
   /root/AlynCoin/src/crypto/dilithium/params.h \
   /root/AlynCoin/src/crypto/dilithium/poly.h \
@@ -8571,6 +8571,7 @@ src/CMakeFiles/alyncoin_lib.dir/identity/identity.cpp.o: /root/AlynCoin/src/iden
   /usr/lib/gcc/x86_64-linux-gnu/13/include/syslimits.h
 
 src/CMakeFiles/alyncoin_lib.dir/identity/identity_store.cpp.o: /root/AlynCoin/src/identity/identity_store.cpp \
+  /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/identity/identity.h \
   /root/AlynCoin/src/identity/identity_store.h \
   /root/AlynCoin/src/identity/proto_utils.h \
@@ -25747,6 +25748,8 @@ src/CMakeFiles/alyncoin_lib.dir/zk/winterfell_stark.cpp.o: /root/AlynCoin/src/zk
 /root/AlynCoin/src/crypto/dilithium/params.h:
 
 /root/AlynCoin/src/crypto/dilithium/config.h:
+
+/root/AlynCoin/src/crypto/dilithium/api.h:
 
 /root/AlynCoin/src/crypto_utils.cpp:
 

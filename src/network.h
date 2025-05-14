@@ -144,4 +144,8 @@ private:
   bool validateBlockSignatures(const Block &blk);
 };
 
+// 🌐 Expose peerSockets and peersMutex to other files (e.g. difficulty.h)
+extern std::map<std::string, std::shared_ptr<tcp::socket>> peerSockets;
+extern std::timed_mutex peersMutex;
+
 #endif // NETWORK_H

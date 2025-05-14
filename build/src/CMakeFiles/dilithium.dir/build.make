@@ -69,10 +69,24 @@ include src/CMakeFiles/dilithium.dir/progress.make
 # Include the compile flags for this target's objects.
 include src/CMakeFiles/dilithium.dir/flags.make
 
+src/CMakeFiles/dilithium.dir/crypto/dilithium/api.c.o: src/CMakeFiles/dilithium.dir/flags.make
+src/CMakeFiles/dilithium.dir/crypto/dilithium/api.c.o: /root/AlynCoin/src/crypto/dilithium/api.c
+src/CMakeFiles/dilithium.dir/crypto/dilithium/api.c.o: src/CMakeFiles/dilithium.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building C object src/CMakeFiles/dilithium.dir/crypto/dilithium/api.c.o"
+	cd /root/AlynCoin/build/src && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT src/CMakeFiles/dilithium.dir/crypto/dilithium/api.c.o -MF CMakeFiles/dilithium.dir/crypto/dilithium/api.c.o.d -o CMakeFiles/dilithium.dir/crypto/dilithium/api.c.o -c /root/AlynCoin/src/crypto/dilithium/api.c
+
+src/CMakeFiles/dilithium.dir/crypto/dilithium/api.c.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing C source to CMakeFiles/dilithium.dir/crypto/dilithium/api.c.i"
+	cd /root/AlynCoin/build/src && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /root/AlynCoin/src/crypto/dilithium/api.c > CMakeFiles/dilithium.dir/crypto/dilithium/api.c.i
+
+src/CMakeFiles/dilithium.dir/crypto/dilithium/api.c.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/dilithium.dir/crypto/dilithium/api.c.s"
+	cd /root/AlynCoin/build/src && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /root/AlynCoin/src/crypto/dilithium/api.c -o CMakeFiles/dilithium.dir/crypto/dilithium/api.c.s
+
 src/CMakeFiles/dilithium.dir/crypto/dilithium/fips202.c.o: src/CMakeFiles/dilithium.dir/flags.make
 src/CMakeFiles/dilithium.dir/crypto/dilithium/fips202.c.o: /root/AlynCoin/src/crypto/dilithium/fips202.c
 src/CMakeFiles/dilithium.dir/crypto/dilithium/fips202.c.o: src/CMakeFiles/dilithium.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building C object src/CMakeFiles/dilithium.dir/crypto/dilithium/fips202.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building C object src/CMakeFiles/dilithium.dir/crypto/dilithium/fips202.c.o"
 	cd /root/AlynCoin/build/src && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT src/CMakeFiles/dilithium.dir/crypto/dilithium/fips202.c.o -MF CMakeFiles/dilithium.dir/crypto/dilithium/fips202.c.o.d -o CMakeFiles/dilithium.dir/crypto/dilithium/fips202.c.o -c /root/AlynCoin/src/crypto/dilithium/fips202.c
 
 src/CMakeFiles/dilithium.dir/crypto/dilithium/fips202.c.i: cmake_force
@@ -86,7 +100,7 @@ src/CMakeFiles/dilithium.dir/crypto/dilithium/fips202.c.s: cmake_force
 src/CMakeFiles/dilithium.dir/crypto/dilithium/ntt.c.o: src/CMakeFiles/dilithium.dir/flags.make
 src/CMakeFiles/dilithium.dir/crypto/dilithium/ntt.c.o: /root/AlynCoin/src/crypto/dilithium/ntt.c
 src/CMakeFiles/dilithium.dir/crypto/dilithium/ntt.c.o: src/CMakeFiles/dilithium.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building C object src/CMakeFiles/dilithium.dir/crypto/dilithium/ntt.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building C object src/CMakeFiles/dilithium.dir/crypto/dilithium/ntt.c.o"
 	cd /root/AlynCoin/build/src && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT src/CMakeFiles/dilithium.dir/crypto/dilithium/ntt.c.o -MF CMakeFiles/dilithium.dir/crypto/dilithium/ntt.c.o.d -o CMakeFiles/dilithium.dir/crypto/dilithium/ntt.c.o -c /root/AlynCoin/src/crypto/dilithium/ntt.c
 
 src/CMakeFiles/dilithium.dir/crypto/dilithium/ntt.c.i: cmake_force
@@ -100,7 +114,7 @@ src/CMakeFiles/dilithium.dir/crypto/dilithium/ntt.c.s: cmake_force
 src/CMakeFiles/dilithium.dir/crypto/dilithium/packing.c.o: src/CMakeFiles/dilithium.dir/flags.make
 src/CMakeFiles/dilithium.dir/crypto/dilithium/packing.c.o: /root/AlynCoin/src/crypto/dilithium/packing.c
 src/CMakeFiles/dilithium.dir/crypto/dilithium/packing.c.o: src/CMakeFiles/dilithium.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building C object src/CMakeFiles/dilithium.dir/crypto/dilithium/packing.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building C object src/CMakeFiles/dilithium.dir/crypto/dilithium/packing.c.o"
 	cd /root/AlynCoin/build/src && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT src/CMakeFiles/dilithium.dir/crypto/dilithium/packing.c.o -MF CMakeFiles/dilithium.dir/crypto/dilithium/packing.c.o.d -o CMakeFiles/dilithium.dir/crypto/dilithium/packing.c.o -c /root/AlynCoin/src/crypto/dilithium/packing.c
 
 src/CMakeFiles/dilithium.dir/crypto/dilithium/packing.c.i: cmake_force
@@ -114,7 +128,7 @@ src/CMakeFiles/dilithium.dir/crypto/dilithium/packing.c.s: cmake_force
 src/CMakeFiles/dilithium.dir/crypto/dilithium/poly.c.o: src/CMakeFiles/dilithium.dir/flags.make
 src/CMakeFiles/dilithium.dir/crypto/dilithium/poly.c.o: /root/AlynCoin/src/crypto/dilithium/poly.c
 src/CMakeFiles/dilithium.dir/crypto/dilithium/poly.c.o: src/CMakeFiles/dilithium.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building C object src/CMakeFiles/dilithium.dir/crypto/dilithium/poly.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building C object src/CMakeFiles/dilithium.dir/crypto/dilithium/poly.c.o"
 	cd /root/AlynCoin/build/src && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT src/CMakeFiles/dilithium.dir/crypto/dilithium/poly.c.o -MF CMakeFiles/dilithium.dir/crypto/dilithium/poly.c.o.d -o CMakeFiles/dilithium.dir/crypto/dilithium/poly.c.o -c /root/AlynCoin/src/crypto/dilithium/poly.c
 
 src/CMakeFiles/dilithium.dir/crypto/dilithium/poly.c.i: cmake_force
@@ -128,7 +142,7 @@ src/CMakeFiles/dilithium.dir/crypto/dilithium/poly.c.s: cmake_force
 src/CMakeFiles/dilithium.dir/crypto/dilithium/polyvec.c.o: src/CMakeFiles/dilithium.dir/flags.make
 src/CMakeFiles/dilithium.dir/crypto/dilithium/polyvec.c.o: /root/AlynCoin/src/crypto/dilithium/polyvec.c
 src/CMakeFiles/dilithium.dir/crypto/dilithium/polyvec.c.o: src/CMakeFiles/dilithium.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building C object src/CMakeFiles/dilithium.dir/crypto/dilithium/polyvec.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building C object src/CMakeFiles/dilithium.dir/crypto/dilithium/polyvec.c.o"
 	cd /root/AlynCoin/build/src && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT src/CMakeFiles/dilithium.dir/crypto/dilithium/polyvec.c.o -MF CMakeFiles/dilithium.dir/crypto/dilithium/polyvec.c.o.d -o CMakeFiles/dilithium.dir/crypto/dilithium/polyvec.c.o -c /root/AlynCoin/src/crypto/dilithium/polyvec.c
 
 src/CMakeFiles/dilithium.dir/crypto/dilithium/polyvec.c.i: cmake_force
@@ -142,7 +156,7 @@ src/CMakeFiles/dilithium.dir/crypto/dilithium/polyvec.c.s: cmake_force
 src/CMakeFiles/dilithium.dir/crypto/dilithium/randombytes.c.o: src/CMakeFiles/dilithium.dir/flags.make
 src/CMakeFiles/dilithium.dir/crypto/dilithium/randombytes.c.o: /root/AlynCoin/src/crypto/dilithium/randombytes.c
 src/CMakeFiles/dilithium.dir/crypto/dilithium/randombytes.c.o: src/CMakeFiles/dilithium.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building C object src/CMakeFiles/dilithium.dir/crypto/dilithium/randombytes.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building C object src/CMakeFiles/dilithium.dir/crypto/dilithium/randombytes.c.o"
 	cd /root/AlynCoin/build/src && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT src/CMakeFiles/dilithium.dir/crypto/dilithium/randombytes.c.o -MF CMakeFiles/dilithium.dir/crypto/dilithium/randombytes.c.o.d -o CMakeFiles/dilithium.dir/crypto/dilithium/randombytes.c.o -c /root/AlynCoin/src/crypto/dilithium/randombytes.c
 
 src/CMakeFiles/dilithium.dir/crypto/dilithium/randombytes.c.i: cmake_force
@@ -156,7 +170,7 @@ src/CMakeFiles/dilithium.dir/crypto/dilithium/randombytes.c.s: cmake_force
 src/CMakeFiles/dilithium.dir/crypto/dilithium/reduce.c.o: src/CMakeFiles/dilithium.dir/flags.make
 src/CMakeFiles/dilithium.dir/crypto/dilithium/reduce.c.o: /root/AlynCoin/src/crypto/dilithium/reduce.c
 src/CMakeFiles/dilithium.dir/crypto/dilithium/reduce.c.o: src/CMakeFiles/dilithium.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building C object src/CMakeFiles/dilithium.dir/crypto/dilithium/reduce.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building C object src/CMakeFiles/dilithium.dir/crypto/dilithium/reduce.c.o"
 	cd /root/AlynCoin/build/src && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT src/CMakeFiles/dilithium.dir/crypto/dilithium/reduce.c.o -MF CMakeFiles/dilithium.dir/crypto/dilithium/reduce.c.o.d -o CMakeFiles/dilithium.dir/crypto/dilithium/reduce.c.o -c /root/AlynCoin/src/crypto/dilithium/reduce.c
 
 src/CMakeFiles/dilithium.dir/crypto/dilithium/reduce.c.i: cmake_force
@@ -170,7 +184,7 @@ src/CMakeFiles/dilithium.dir/crypto/dilithium/reduce.c.s: cmake_force
 src/CMakeFiles/dilithium.dir/crypto/dilithium/rounding.c.o: src/CMakeFiles/dilithium.dir/flags.make
 src/CMakeFiles/dilithium.dir/crypto/dilithium/rounding.c.o: /root/AlynCoin/src/crypto/dilithium/rounding.c
 src/CMakeFiles/dilithium.dir/crypto/dilithium/rounding.c.o: src/CMakeFiles/dilithium.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building C object src/CMakeFiles/dilithium.dir/crypto/dilithium/rounding.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Building C object src/CMakeFiles/dilithium.dir/crypto/dilithium/rounding.c.o"
 	cd /root/AlynCoin/build/src && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT src/CMakeFiles/dilithium.dir/crypto/dilithium/rounding.c.o -MF CMakeFiles/dilithium.dir/crypto/dilithium/rounding.c.o.d -o CMakeFiles/dilithium.dir/crypto/dilithium/rounding.c.o -c /root/AlynCoin/src/crypto/dilithium/rounding.c
 
 src/CMakeFiles/dilithium.dir/crypto/dilithium/rounding.c.i: cmake_force
@@ -184,7 +198,7 @@ src/CMakeFiles/dilithium.dir/crypto/dilithium/rounding.c.s: cmake_force
 src/CMakeFiles/dilithium.dir/crypto/dilithium/sign.c.o: src/CMakeFiles/dilithium.dir/flags.make
 src/CMakeFiles/dilithium.dir/crypto/dilithium/sign.c.o: /root/AlynCoin/src/crypto/dilithium/sign.c
 src/CMakeFiles/dilithium.dir/crypto/dilithium/sign.c.o: src/CMakeFiles/dilithium.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Building C object src/CMakeFiles/dilithium.dir/crypto/dilithium/sign.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_10) "Building C object src/CMakeFiles/dilithium.dir/crypto/dilithium/sign.c.o"
 	cd /root/AlynCoin/build/src && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT src/CMakeFiles/dilithium.dir/crypto/dilithium/sign.c.o -MF CMakeFiles/dilithium.dir/crypto/dilithium/sign.c.o.d -o CMakeFiles/dilithium.dir/crypto/dilithium/sign.c.o -c /root/AlynCoin/src/crypto/dilithium/sign.c
 
 src/CMakeFiles/dilithium.dir/crypto/dilithium/sign.c.i: cmake_force
@@ -198,7 +212,7 @@ src/CMakeFiles/dilithium.dir/crypto/dilithium/sign.c.s: cmake_force
 src/CMakeFiles/dilithium.dir/crypto/dilithium/symmetric-shake.c.o: src/CMakeFiles/dilithium.dir/flags.make
 src/CMakeFiles/dilithium.dir/crypto/dilithium/symmetric-shake.c.o: /root/AlynCoin/src/crypto/dilithium/symmetric-shake.c
 src/CMakeFiles/dilithium.dir/crypto/dilithium/symmetric-shake.c.o: src/CMakeFiles/dilithium.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_10) "Building C object src/CMakeFiles/dilithium.dir/crypto/dilithium/symmetric-shake.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_11) "Building C object src/CMakeFiles/dilithium.dir/crypto/dilithium/symmetric-shake.c.o"
 	cd /root/AlynCoin/build/src && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT src/CMakeFiles/dilithium.dir/crypto/dilithium/symmetric-shake.c.o -MF CMakeFiles/dilithium.dir/crypto/dilithium/symmetric-shake.c.o.d -o CMakeFiles/dilithium.dir/crypto/dilithium/symmetric-shake.c.o -c /root/AlynCoin/src/crypto/dilithium/symmetric-shake.c
 
 src/CMakeFiles/dilithium.dir/crypto/dilithium/symmetric-shake.c.i: cmake_force
@@ -211,6 +225,7 @@ src/CMakeFiles/dilithium.dir/crypto/dilithium/symmetric-shake.c.s: cmake_force
 
 # Object files for target dilithium
 dilithium_OBJECTS = \
+"CMakeFiles/dilithium.dir/crypto/dilithium/api.c.o" \
 "CMakeFiles/dilithium.dir/crypto/dilithium/fips202.c.o" \
 "CMakeFiles/dilithium.dir/crypto/dilithium/ntt.c.o" \
 "CMakeFiles/dilithium.dir/crypto/dilithium/packing.c.o" \
@@ -225,6 +240,7 @@ dilithium_OBJECTS = \
 # External object files for target dilithium
 dilithium_EXTERNAL_OBJECTS =
 
+src/libdilithium.a: src/CMakeFiles/dilithium.dir/crypto/dilithium/api.c.o
 src/libdilithium.a: src/CMakeFiles/dilithium.dir/crypto/dilithium/fips202.c.o
 src/libdilithium.a: src/CMakeFiles/dilithium.dir/crypto/dilithium/ntt.c.o
 src/libdilithium.a: src/CMakeFiles/dilithium.dir/crypto/dilithium/packing.c.o
@@ -237,7 +253,7 @@ src/libdilithium.a: src/CMakeFiles/dilithium.dir/crypto/dilithium/sign.c.o
 src/libdilithium.a: src/CMakeFiles/dilithium.dir/crypto/dilithium/symmetric-shake.c.o
 src/libdilithium.a: src/CMakeFiles/dilithium.dir/build.make
 src/libdilithium.a: src/CMakeFiles/dilithium.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_11) "Linking C static library libdilithium.a"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_12) "Linking C static library libdilithium.a"
 	cd /root/AlynCoin/build/src && $(CMAKE_COMMAND) -P CMakeFiles/dilithium.dir/cmake_clean_target.cmake
 	cd /root/AlynCoin/build/src && $(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/dilithium.dir/link.txt --verbose=$(VERBOSE)
 

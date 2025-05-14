@@ -4,34 +4,65 @@
 #include "blockchain.h"
 #include <numeric>
 #include <vector>
+#include <iostream>
+#include <cmath>
+#include <algorithm>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <boost/asio.hpp>
 
-// LWMA Difficulty Algorithm Implementation
-inline int LWMA_calculate_difficulty(const Blockchain &chain) {
-  const int N = 60; // Number of blocks to average
-  if (chain.getBlockCount() < N) {
-    return 1; // Minimum difficulty
-  }
+// Forward declare global peer data (defined in network.cpp)
+extern std::map<std::string, std::shared_ptr<boost::asio::ip::tcp::socket>> peerSockets;
+extern std::timed_mutex peersMutex;
 
-  std::vector<int> timestamps;
-  std::vector<int> difficulties;
+// 🔍 Helper: Estimate number of connected miners
+inline int getActiveMinerCount() {
+    std::lock_guard<std::timed_mutex> lock(peersMutex);
+    return std::max(1, static_cast<int>(peerSockets.size()));
+}
 
-  for (int i = chain.getBlockCount() - N; i < chain.getBlockCount(); i++) {
-    timestamps.push_back(chain.getChain()[i].getTimestamp());
-    difficulties.push_back(chain.getChain()[i].difficulty);
-  }
+// 🚀 Unstoppable Difficulty Scaling for AlynCoin
+inline uint64_t calculateSmartDifficulty(const Blockchain &chain) {
+    const int N = 120; // LWMA window
+    if (chain.getBlockCount() < N)
+        return 1;
 
-  int sumWeightedTime = 0;
-  int sumDifficulty =
-      std::accumulate(difficulties.begin(), difficulties.end(), 0);
+    std::vector<int> timestamps;
+    std::vector<int> difficulties;
 
-  for (int i = 1; i < N; i++) {
-    int weightedTime = timestamps[i] - timestamps[i - 1];
-    sumWeightedTime += weightedTime * i; // More weight for newer blocks
-  }
+    for (int i = chain.getBlockCount() - N; i < chain.getBlockCount(); ++i) {
+        timestamps.push_back(chain.getChain()[i].getTimestamp());
+        difficulties.push_back(chain.getChain()[i].difficulty);
+    }
 
-  int adjustedDifficulty = (sumDifficulty * N) / (2 * sumWeightedTime);
-  return std::max(1,
-                  adjustedDifficulty); // Ensure difficulty never drops below 1
+    int sumWeightedTime = 0;
+    uint64_t sumDifficulty = std::accumulate(difficulties.begin(), difficulties.end(), uint64_t(0));
+
+    for (int i = 1; i < N; ++i) {
+        int delta = timestamps[i] - timestamps[i - 1];
+        if (delta < 1) delta = 1;
+        sumWeightedTime += delta * i;
+    }
+
+    if (sumWeightedTime == 0) return 1;
+
+    uint64_t lwma = std::max(uint64_t(1), (sumDifficulty * N) / (2 * sumWeightedTime));
+
+    // 📈 Difficulty scales with circulating supply (exponential curve)
+    double supply = chain.getTotalSupply();
+    const double totalSupply = 100000000.0;
+
+    double supplyRatio = std::clamp(supply / totalSupply, 0.0, 1.0);
+    double exponentialCurve = std::pow(1.0 + supplyRatio * 100.0, 2.5); // Non-linear growth
+
+    // 👥 Miner count adjustment
+    int miners = getActiveMinerCount();
+    double minerFactor = std::min(1.0 + (miners / 50.0), 3.0); // Max 3x boost
+
+    // 🔐 Final unstoppable difficulty
+    uint64_t finalDifficulty = static_cast<uint64_t>(lwma * exponentialCurve * minerFactor);
+    return std::max<uint64_t>(1, finalDifficulty);
 }
 
 #endif // DIFFICULTY_H

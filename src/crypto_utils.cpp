@@ -26,10 +26,10 @@
 #include <unistd.h>
 #include <vector>
 extern "C" {
-#include "api.h"
-#include "sign.h"
+#include "crypto/falcon/PQClean/Falcon-1024/clean/api.h"
+#include "crypto/dilithium/sign.h"
+#include "crypto/dilithium/api.h"
 }
-#define pqcrystals_dilithium2_ref_PUBLICKEYBYTES CRYPTO_PUBLICKEYBYTES
 #define falcon_crypto_sign_keypair PQCLEAN_FALCON1024_CLEAN_crypto_sign_keypair
 #define falcon_crypto_sign_signature                                           \
   PQCLEAN_FALCON1024_CLEAN_crypto_sign_signature

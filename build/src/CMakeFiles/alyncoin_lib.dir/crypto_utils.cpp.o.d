@@ -348,4 +348,5 @@ src/CMakeFiles/alyncoin_lib.dir/crypto_utils.cpp.o: \
  /root/AlynCoin/src/crypto/dilithium/params.h \
  /root/AlynCoin/src/crypto/dilithium/config.h \
  /root/AlynCoin/src/crypto/dilithium/polyvec.h \
- /root/AlynCoin/src/crypto/dilithium/poly.h
+ /root/AlynCoin/src/crypto/dilithium/poly.h \
+ /root/AlynCoin/src/crypto/dilithium/api.h

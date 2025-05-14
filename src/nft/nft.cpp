@@ -8,17 +8,16 @@
 #include <cstdlib>
 #include <fstream>
 #include <unistd.h>
-#include <termios.h>
 #include <csignal>
-#include <sys/wait.h>
 #include <chrono>
 #include <atomic>
 #include <thread>
 #include <future>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/select.h>
 #include "../db/db_instance.h"
+#if defined(__unix__) || defined(__linux__)
+#include <termios.h>
+#include <unistd.h>
+#endif
 
 using json = nlohmann::json;
 // 🔧 Helper: build zk-STARK seed for NFTs
@@ -42,12 +41,14 @@ bool NFT::verifySignature() const {
 
     bool valid = Crypto::verifyWithFalcon(msgHash, sigFalcon, pubKeyFalcon);
 
-    if (!dilithium_signature.empty()) {
-        std::vector<uint8_t> pubKeyDil = Crypto::getPublicKeyDilithium(creator);
-        std::vector<uint8_t> sigDil = dilithium_signature;
-        bool dilValid = Crypto::verifyWithDilithium(msgHash, sigDil, pubKeyDil);
-        return valid && dilValid;
-    }
+	if (!dilithium_signature.empty()) {
+	    std::vector<uint8_t> pubKeyDil = Crypto::getPublicKeyDilithium(creator);
+	    std::vector<uint8_t> sigDil = dilithium_signature;
+	    bool dilValid = Crypto::verifyWithDilithium(msgHash, sigDil, pubKeyDil);
+	    if (!dilValid)
+	        std::cerr << "⚠️ Dilithium signature invalid.\n";
+	    return valid && dilValid;
+	}
 
     return valid;
 }
@@ -89,24 +90,19 @@ bool NFT::submitMetadataHashTransaction() const {
         }
 
         int fd = fileno(pipe);
-        fcntl(fd, F_SETFL, O_NONBLOCK);
-
+        #ifndef _WIN32
+	    fcntl(fd, F_SETFL, O_NONBLOCK);
+	#endif
         std::string output;
         bool success = false;
         char buffer[512];
-
         auto start = std::chrono::steady_clock::now();
-        const int timeoutSeconds = 5;
 
         while (true) {
             fd_set fds;
             FD_ZERO(&fds);
             FD_SET(fd, &fds);
-
-            struct timeval tv;
-            tv.tv_sec = 1;
-            tv.tv_usec = 0;
-
+            struct timeval tv = {1, 0};
             int ready = select(fd + 1, &fds, nullptr, nullptr, &tv);
             if (ready > 0 && FD_ISSET(fd, &fds)) {
                 ssize_t bytes = read(fd, buffer, sizeof(buffer) - 1);
@@ -120,26 +116,35 @@ bool NFT::submitMetadataHashTransaction() const {
                         chunk.find("Transaction added") != std::string::npos ||
                         chunk.find("Transactions successfully saved") != std::string::npos) {
                         success = true;
-                        break;
                     }
                 }
             }
 
-            auto elapsed = std::chrono::steady_clock::now() - start;
-            if (std::chrono::duration_cast<std::chrono::seconds>(elapsed).count() > timeoutSeconds)
+            if (std::chrono::duration_cast<std::chrono::seconds>(
+                    std::chrono::steady_clock::now() - start).count() > 5) {
                 break;
+            }
         }
 
         int exitCode = pclose(pipe);
         std::cerr << "[DEBUG] Metadata TX subprocess exited with code: " << exitCode << "\n";
+
+        // ✅ Accept exitCode 0 as fallback success for metadata-only tx
+        if (!success && exitCode == 0) {
+            std::cout << "✅ Metadata-only transaction presumed successful based on exit code.\n";
+            success = true;
+        }
+
         return success;
     };
 
     std::string metadataHash = Crypto::sha256(metadata);
-    std::string l1 = "/root/AlynCoin/build/alyncoin-cli sendl1 --nonetwork --nodb \"" + creator +
-                     "\" \"metadataSink\" 0.0 \"" + metadataHash + "\"";
-    std::string l2 = "/root/AlynCoin/build/alyncoin-cli sendl2 --nonetwork --nodb \"" + creator +
-                     "\" \"metadataSink\" 0.0 \"" + metadataHash + "\"";
+	std::string cliPath = std::getenv("ALYNCOIN_CLI_PATH")
+	    ? std::getenv("ALYNCOIN_CLI_PATH")
+	    : "/root/AlynCoin/build/alyncoin-cli";
+
+	std::string l1 = cliPath + " --nonetwork sendl1 \"" + creator + "\" \"metadataSink\" 0 \"" + metadataHash + "\"";
+	std::string l2 = cliPath + " --nonetwork sendl2 \"" + creator + "\" \"metadataSink\" 0 \"" + metadataHash + "\"";
 
     if (runCommand(l1)) return true;
 
@@ -333,7 +338,8 @@ bool submitMetadataHashTransaction(const std::string& metadataHash,
                                    const std::string& creator,
                                    const std::string& signatureScheme,
                                    bool isReMint) {
-    DB::closeInstance();
+    DB::closeInstance();  // Close DB before subprocess
+
     auto runCommand = [](const std::string& cmd) -> bool {
         std::cout << "[DEBUG] Submitting metadata tx: " << cmd << std::endl;
         FILE* pipe = popen(cmd.c_str(), "r");
@@ -343,12 +349,13 @@ bool submitMetadataHashTransaction(const std::string& metadataHash,
         }
 
         int fd = fileno(pipe);
+#ifndef _WIN32
         fcntl(fd, F_SETFL, O_NONBLOCK);
+#endif
 
         std::string output;
         bool success = false;
         char buffer[512];
-
         auto start = std::chrono::steady_clock::now();
         const int timeoutSeconds = 5;
 
@@ -384,15 +391,25 @@ bool submitMetadataHashTransaction(const std::string& metadataHash,
 
         int exitCode = pclose(pipe);
         std::cerr << "[DEBUG] Metadata TX subprocess exited with code: " << exitCode << "\n";
+
+        // ✅ Accept exitCode 0 as fallback success for metadata-only tx
+        if (!success && exitCode == 0) {
+            std::cout << "✅ Metadata-only transaction presumed successful based on exit code.\n";
+            success = true;
+        }
+
         return success;
     };
 
-    std::string l1 = "/root/AlynCoin/build/alyncoin-cli sendl1 --nonetwork --nodb \"" +
-                     creator + "\" \"metadataSink\" 0.0 \"" + metadataHash + "\"";
-    std::string l2 = "/root/AlynCoin/build/alyncoin-cli sendl2 --nonetwork --nodb \"" +
-                     creator + "\" \"metadataSink\" 0.0 \"" + metadataHash + "\"";
+	std::string cliPath = std::getenv("ALYNCOIN_CLI_PATH")
+	    ? std::getenv("ALYNCOIN_CLI_PATH")
+	    : "/root/AlynCoin/build/alyncoin-cli";
+
+	std::string l1 = cliPath + " --nonetwork sendl1 \"" + creator + "\" \"metadataSink\" 0 \"" + metadataHash + "\"";
+	std::string l2 = cliPath + " --nonetwork sendl2 \"" + creator + "\" \"metadataSink\" 0 \"" + metadataHash + "\"";
 
     if (runCommand(l1)) return true;
+
     std::cerr << "⚠️ L1 transaction failed or timed out. Trying L2...\n";
     if (runCommand(l2)) return true;
 

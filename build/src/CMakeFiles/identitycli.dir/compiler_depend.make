@@ -375,6 +375,7 @@ src/CMakeFiles/identitycli.dir/identity/identity.cpp.o: /root/AlynCoin/src/ident
   /usr/lib/gcc/x86_64-linux-gnu/13/include/syslimits.h
 
 src/CMakeFiles/identitycli.dir/identity/identity_store.cpp.o: /root/AlynCoin/src/identity/identity_store.cpp \
+  /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/identity/identity.h \
   /root/AlynCoin/src/identity/identity_store.h \
   /root/AlynCoin/src/identity/proto_utils.h \
@@ -687,6 +688,7 @@ src/CMakeFiles/identitycli.dir/identity/identity_store.cpp.o: /root/AlynCoin/src
 src/CMakeFiles/identitycli.dir/identity/identitycli.cpp.o: /root/AlynCoin/src/identity/identitycli.cpp \
   /root/AlynCoin/src/generated/nft.pb.h \
   /root/AlynCoin/src/crypto_utils.h \
+  /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/nft/nft.h \
   /root/AlynCoin/src/zk/winterfell_stark.h \
   /root/AlynCoin/src/identity/identity.h \
@@ -1533,6 +1535,8 @@ src/CMakeFiles/identitycli.dir/identity/proto_utils.cpp.o: /root/AlynCoin/src/id
 /usr/include/c++/13/chrono:
 
 /root/AlynCoin/src/identity/proto_utils.h:
+
+/root/AlynCoin/src/db/db_paths.h:
 
 /usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h:
 

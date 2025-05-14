@@ -1,17 +1,19 @@
 #include "identity_store.h"
 #include "proto_utils.h"
+#include "../db/db_paths.h"
 
-IdentityStore::IdentityStore(const std::string& dbPath) {
+IdentityStore::IdentityStore() {
     rocksdb::Options options;
     options.create_if_missing = true;
-    rocksdb::Status status = rocksdb::DB::Open(options, dbPath, &db);
+    std::string path = DBPaths::getIdentityDB();
+    rocksdb::Status status = rocksdb::DB::Open(options, path, &db);
     if (!status.ok()) {
         throw std::runtime_error("Failed to open identity DB: " + status.ToString());
     }
 }
 
 IdentityStore::~IdentityStore() {
-    delete db;
+    if (db) delete db;
 }
 
 bool IdentityStore::save(const ZkIdentity& id) {

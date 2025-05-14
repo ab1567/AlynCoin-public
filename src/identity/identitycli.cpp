@@ -1,12 +1,14 @@
 #include "identity_store.h"
 #include "../crypto_utils.h"
 #include "proto_utils.h"
+#include "../zk/winterfell_stark.h"
+#include "../db/db_paths.h"  // ✅ Use DBPaths
+
 #include <iostream>
 #include <memory>
 #include <string>
 #include <map>
 #include <limits>
-#include "../zk/winterfell_stark.h"
 
 bool verifyIdentity(const ZkIdentity& id) {
     std::string data = id.uuid + id.name + id.publicKey + id.metadataHash;
@@ -39,7 +41,6 @@ bool verifyIdentity(const ZkIdentity& id) {
     return falValid && dilValid && zkValid;
 }
 
-
 void printMenu() {
     std::cout << "\n[ zk-Identity CLI Menu ]\n"
               << "1. Create Identity\n"
@@ -52,7 +53,8 @@ void printMenu() {
 }
 
 int main(int argc, char* argv[]) {
-    std::unique_ptr<IdentityStore> store = std::make_unique<IdentityStore>("identitydb");
+    std::string dbPath = DBPaths::getIdentityDB();  // ✅ Dynamic DB path
+    std::unique_ptr<IdentityStore> store = std::make_unique<IdentityStore>();
 
     // 🚀 Direct command mode (GUI & scripts)
     if (argc >= 2) {
@@ -124,12 +126,13 @@ int main(int argc, char* argv[]) {
             }
 
         } else {
-           std::cerr << "❌ Invalid command or arguments.\n";
+            std::cerr << "❌ Invalid command or arguments.\n";
             std::cerr << "Usage:\n"
                       << "  identitycli create <address> <displayName>\n"
                       << "  identitycli view <address>\n"
                       << "  identitycli list\n"
-                      << "  identitycli delete <address>\n";
+                      << "  identitycli delete <address>\n"
+                      << "  identitycli verify <address>\n";
             return 1;
         }
     }

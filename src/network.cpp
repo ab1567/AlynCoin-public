@@ -33,6 +33,8 @@ struct ScopedLockTracer {
 #include <vector>
 #include "proto_utils.h"
 
+std::map<std::string, std::shared_ptr<tcp::socket>> peerSockets;
+std::timed_mutex peersMutex;
 #define ENABLE_DEBUG 0
 namespace fs = std::filesystem;
 Network* Network::instancePtr = nullptr;

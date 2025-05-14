@@ -340,7 +340,6 @@ src/nft/CMakeFiles/nftcli.dir/nft.cpp.o: /root/AlynCoin/src/nft/nft.cpp \
  /usr/include/c++/13/stack /usr/include/c++/13/bits/stl_stack.h \
  /usr/include/jsoncpp/json/writer.h \
  /root/AlynCoin/src/../src/zk/winterfell_stark.h \
- /usr/include/jsoncpp/json/json.h \
  /root/AlynCoin/src/../src/layer2/state_channel.h \
  /root/AlynCoin/src/../src/rollup/rollup_block.h \
  /root/AlynCoin/src/../src/rollup/../transaction.h \
@@ -1377,9 +1376,7 @@ src/nft/CMakeFiles/nftcli.dir/nft.cpp.o: /root/AlynCoin/src/nft/nft.cpp \
  /usr/include/c++/13/bits/quoted_string.h /usr/include/c++/13/codecvt \
  /usr/include/c++/13/bits/fs_dir.h /usr/include/c++/13/bits/fs_ops.h \
  /usr/include/c++/13/numeric /usr/include/c++/13/bits/stl_numeric.h \
- /usr/include/c++/13/pstl/glue_numeric_defs.h \
- /usr/include/x86_64-linux-gnu/sys/wait.h \
- /usr/include/x86_64-linux-gnu/bits/types/idtype_t.h \
- /usr/include/c++/13/thread /usr/include/c++/13/bits/this_thread_sleep.h \
+ /usr/include/c++/13/pstl/glue_numeric_defs.h /usr/include/c++/13/thread \
+ /usr/include/c++/13/bits/this_thread_sleep.h \
  /root/AlynCoin/src/nft/../db/db_instance.h \
  /root/AlynCoin/src/nft/../db/rocksdb_wrapper.h

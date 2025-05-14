@@ -3,6 +3,7 @@
 #include "../zk/winterfell_stark.h"
 #include <sstream>
 #include <ctime>
+#include <iostream>
 
 std::string ZkIdentity::toString() const {
     std::ostringstream oss;
@@ -67,14 +68,14 @@ bool ZkIdentity::verifySignature() const {
 
     std::cerr << "[DEBUG] Verifying Identity Signature...\n";
 
-    std::vector<uint8_t> pubFal = Crypto::getPublicKeyFalcon(uuid);
     std::vector<uint8_t> sigFal = *falconSignature;
-
-    std::vector<uint8_t> pubDil = Crypto::getPublicKeyDilithium(uuid);
     std::vector<uint8_t> sigDil = *dilithiumSignature;
 
-    bool validFalcon = Crypto::verifyWithFalcon(msgHash, sigFal, pubFal);
-    bool validDilithium = Crypto::verifyWithDilithium(msgHash, sigDil, pubDil);
+    // Public key is stored as binary string → convert to vector<uint8_t>
+    std::vector<uint8_t> pubKey(publicKey.begin(), publicKey.end());
+
+    bool validFalcon = Crypto::verifyWithFalcon(msgHash, sigFal, pubKey);
+    bool validDilithium = Crypto::verifyWithDilithium(msgHash, sigDil, pubKey);
 
     std::cerr << "  ✅ Falcon Valid: " << validFalcon << ", Dilithium Valid: " << validDilithium << "\n";
 

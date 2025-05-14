@@ -21,14 +21,14 @@
 
 namespace fs = std::filesystem;
 
-const double BASE_BLOCK_REWARD = 10.0; // Fixed block reward per mined block
+const double BASE_BLOCK_REWARD = 100.0; // Fixed block reward per mined block
 const double MAX_BURN_RATE = 0.05;     // Max 5% burn rate
 const double MIN_BURN_RATE = 0.01;     // Min 1% burn rate
 
 // ✅ Default Constructor (No Arguments)
 Block::Block()
     : index(0), previousHash("0000"), minerAddress("System"), hash(""),
-      difficulty(4), reward(0.0) {
+      difficulty(0), reward(0.0) {
   timestamp = std::time(nullptr);
   dilithiumSignature.clear();
   falconSignature.clear();
