@@ -188,7 +188,7 @@ class CryptoKeysProto final :
     kPrivateKeyFieldNumber = 1,
     kPublicKeyFieldNumber = 2,
   };
-  // string private_key = 1;
+  // bytes private_key = 1;
   void clear_private_key();
   const std::string& private_key() const;
   template <typename ArgT0 = const std::string&, typename... ArgT>
@@ -202,7 +202,7 @@ class CryptoKeysProto final :
   std::string* _internal_mutable_private_key();
   public:
 
-  // string public_key = 2;
+  // bytes public_key = 2;
   void clear_public_key();
   const std::string& public_key() const;
   template <typename ArgT0 = const std::string&, typename... ArgT>
@@ -356,7 +356,7 @@ class SignatureProto final :
   enum : int {
     kSignatureFieldNumber = 1,
   };
-  // string signature = 1;
+  // bytes signature = 1;
   void clear_signature();
   const std::string& signature() const;
   template <typename ArgT0 = const std::string&, typename... ArgT>
@@ -548,7 +548,7 @@ class AddressProto final :
 #endif  // __GNUC__
 // CryptoKeysProto
 
-// string private_key = 1;
+// bytes private_key = 1;
 inline void CryptoKeysProto::clear_private_key() {
   _impl_.private_key_.ClearToEmpty();
 }
@@ -560,7 +560,7 @@ template <typename ArgT0, typename... ArgT>
 inline PROTOBUF_ALWAYS_INLINE
 void CryptoKeysProto::set_private_key(ArgT0&& arg0, ArgT... args) {
  
- _impl_.private_key_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+ _impl_.private_key_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:alyncoin.CryptoKeysProto.private_key)
 }
 inline std::string* CryptoKeysProto::mutable_private_key() {
@@ -598,7 +598,7 @@ inline void CryptoKeysProto::set_allocated_private_key(std::string* private_key)
   // @@protoc_insertion_point(field_set_allocated:alyncoin.CryptoKeysProto.private_key)
 }
 
-// string public_key = 2;
+// bytes public_key = 2;
 inline void CryptoKeysProto::clear_public_key() {
   _impl_.public_key_.ClearToEmpty();
 }
@@ -610,7 +610,7 @@ template <typename ArgT0, typename... ArgT>
 inline PROTOBUF_ALWAYS_INLINE
 void CryptoKeysProto::set_public_key(ArgT0&& arg0, ArgT... args) {
  
- _impl_.public_key_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+ _impl_.public_key_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:alyncoin.CryptoKeysProto.public_key)
 }
 inline std::string* CryptoKeysProto::mutable_public_key() {
@@ -652,7 +652,7 @@ inline void CryptoKeysProto::set_allocated_public_key(std::string* public_key) {
 
 // SignatureProto
 
-// string signature = 1;
+// bytes signature = 1;
 inline void SignatureProto::clear_signature() {
   _impl_.signature_.ClearToEmpty();
 }
@@ -664,7 +664,7 @@ template <typename ArgT0, typename... ArgT>
 inline PROTOBUF_ALWAYS_INLINE
 void SignatureProto::set_signature(ArgT0&& arg0, ArgT... args) {
  
- _impl_.signature_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+ _impl_.signature_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:alyncoin.SignatureProto.signature)
 }
 inline std::string* SignatureProto::mutable_signature() {

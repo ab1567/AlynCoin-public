@@ -1,7 +1,8 @@
 #include <filesystem>
 #include <string>
+#include "db/db_paths.h"
 
-const std::string KEY_DIR = "/root/.alyncoin/keys/";
+const std::string KEY_DIR = DBPaths::getKeyDir();
 
 std::string getPrivateKeyPath(const std::string &username) {
   if (!std::filesystem::exists(KEY_DIR)) {

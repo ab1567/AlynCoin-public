@@ -6618,6 +6618,7 @@ src/CMakeFiles/alyncoin_lib.dir/crypto_utils.cpp.o: /root/AlynCoin/src/crypto_ut
   /root/AlynCoin/src/crypto/dilithium/sign.h \
   /root/AlynCoin/src/crypto/falcon/PQClean/Falcon-1024/clean/api.h \
   /root/AlynCoin/src/crypto_utils.h \
+  /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/generated/crypto_protos.pb.h \
   /usr/include/alloca.h \
   /usr/include/asm-generic/errno-base.h \
@@ -8200,6 +8201,7 @@ src/CMakeFiles/alyncoin_lib.dir/governance/devfund.cpp.o: /root/AlynCoin/src/gov
 src/CMakeFiles/alyncoin_lib.dir/identity/identity.cpp.o: /root/AlynCoin/src/identity/identity.cpp \
   /root/AlynCoin/src/generated/nft.pb.h \
   /root/AlynCoin/src/crypto_utils.h \
+  /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/nft/nft.h \
   /root/AlynCoin/src/zk/winterfell_stark.h \
   /root/AlynCoin/src/identity/identity.h \
@@ -8882,8 +8884,9 @@ src/CMakeFiles/alyncoin_lib.dir/identity/identity_store.cpp.o: /root/AlynCoin/sr
   /usr/lib/gcc/x86_64-linux-gnu/13/include/syslimits.h
 
 src/CMakeFiles/alyncoin_lib.dir/identity/proto_utils.cpp.o: /root/AlynCoin/src/identity/proto_utils.cpp \
-  generated/identity.pb.h \
+  /root/AlynCoin/src/generated/identity.pb.h \
   /root/AlynCoin/src/crypto_utils.h \
+  /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/identity/identity.h \
   /root/AlynCoin/src/identity/proto_utils.h \
   /usr/include/alloca.h \
@@ -9498,6 +9501,7 @@ src/CMakeFiles/alyncoin_lib.dir/keccak.cpp.o: /root/AlynCoin/src/keccak.cpp \
   /usr/lib/gcc/x86_64-linux-gnu/13/include/syslimits.h
 
 src/CMakeFiles/alyncoin_lib.dir/key_paths.cpp.o: /root/AlynCoin/src/key_paths.cpp \
+  /root/AlynCoin/src/db/db_paths.h \
   /usr/include/alloca.h \
   /usr/include/asm-generic/errno-base.h \
   /usr/include/asm-generic/errno.h \
@@ -15046,6 +15050,7 @@ src/CMakeFiles/alyncoin_lib.dir/rollup/circuits/transaction_circuit.cpp.o: /root
 
 src/CMakeFiles/alyncoin_lib.dir/rollup/proofs/proof_generator.cpp.o: /root/AlynCoin/src/rollup/proofs/proof_generator.cpp \
   /root/AlynCoin/src/crypto_utils.h \
+  /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/generated/nft.pb.h \
   /root/AlynCoin/src/generated/transaction_protos.pb.h \
   /root/AlynCoin/src/hash.h \
@@ -15496,6 +15501,7 @@ src/CMakeFiles/alyncoin_lib.dir/rollup/proofs/proof_generator.cpp.o: /root/AlynC
 
 src/CMakeFiles/alyncoin_lib.dir/rollup/proofs/proof_verifier.cpp.o: /root/AlynCoin/src/rollup/proofs/proof_verifier.cpp \
   /root/AlynCoin/src/crypto_utils.h \
+  /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/generated/nft.pb.h \
   /root/AlynCoin/src/generated/transaction_protos.pb.h \
   /root/AlynCoin/src/hash.h \
@@ -15945,6 +15951,7 @@ src/CMakeFiles/alyncoin_lib.dir/rollup/rollup_block.cpp.o: /root/AlynCoin/src/ro
   /root/AlynCoin/src/hash.h \
   /root/AlynCoin/src/transaction.h \
   /root/AlynCoin/src/crypto_utils.h \
+  /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/transaction.h \
   /root/AlynCoin/src/rollup/rollup_block.h \
   /root/AlynCoin/src/rollup/proofs/proof_generator.h \
@@ -16388,6 +16395,7 @@ src/CMakeFiles/alyncoin_lib.dir/rollup/rollup_block.cpp.o: /root/AlynCoin/src/ro
 
 src/CMakeFiles/alyncoin_lib.dir/rollup/rollup_utils.cpp.o: /root/AlynCoin/src/rollup/rollup_utils.cpp \
   /root/AlynCoin/src/crypto_utils.h \
+  /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/rollup/rollup_utils.h \
   /usr/include/alloca.h \
   /usr/include/asm-generic/errno-base.h \
@@ -23940,6 +23948,7 @@ src/CMakeFiles/alyncoin_lib.dir/wallet.cpp.o: /root/AlynCoin/src/wallet.cpp \
 
 src/CMakeFiles/alyncoin_lib.dir/zk/recursive_proof_helper.cpp.o: /root/AlynCoin/src/zk/recursive_proof_helper.cpp \
   /root/AlynCoin/src/blake3.h \
+  /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/zk/recursive_proof_helper.h \
   /usr/include/alloca.h \
   /usr/include/asm-generic/errno-base.h \
@@ -25714,6 +25723,8 @@ src/CMakeFiles/alyncoin_lib.dir/zk/winterfell_stark.cpp.o: /root/AlynCoin/src/zk
 /root/AlynCoin/src/miner.cpp:
 
 /root/AlynCoin/src/key_paths.cpp:
+
+/root/AlynCoin/src/generated/identity.pb.h:
 
 /root/AlynCoin/src/identity/proto_utils.h:
 

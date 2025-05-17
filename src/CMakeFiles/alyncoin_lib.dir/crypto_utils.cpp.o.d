@@ -283,6 +283,7 @@ src/CMakeFiles/alyncoin_lib.dir/crypto_utils.cpp.o: \
  /usr/include/openssl/pkcs7err.h /usr/include/openssl/http.h \
  /usr/include/openssl/conf.h /usr/include/openssl/conferr.h \
  /usr/include/openssl/conftypes.h /usr/include/openssl/pemerr.h \
+ /usr/include/c++/13/optional /root/AlynCoin/src/db/db_paths.h \
  /root/AlynCoin/src/blake3.h /usr/include/c++/13/chrono \
  /usr/include/fcntl.h /usr/include/x86_64-linux-gnu/bits/fcntl.h \
  /usr/include/x86_64-linux-gnu/bits/fcntl-linux.h \
@@ -347,4 +348,5 @@ src/CMakeFiles/alyncoin_lib.dir/crypto_utils.cpp.o: \
  /root/AlynCoin/src/crypto/dilithium/params.h \
  /root/AlynCoin/src/crypto/dilithium/config.h \
  /root/AlynCoin/src/crypto/dilithium/polyvec.h \
- /root/AlynCoin/src/crypto/dilithium/poly.h
+ /root/AlynCoin/src/crypto/dilithium/poly.h \
+ /root/AlynCoin/src/crypto/dilithium/api.h

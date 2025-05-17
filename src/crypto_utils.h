@@ -7,18 +7,19 @@
 #include <string>
 #include <vector>
 #include <optional>
+#include "db/db_paths.h"
 
 #pragma once
 
 #define DILITHIUM_PUBLIC_KEY_BYTES 1312
-#define DILITHIUM_PRIVATE_KEY_BYTES 2528
+#define DILITHIUM_PRIVATE_KEY_BYTES 2560
 
 #define FALCON_PUBLIC_KEY_BYTES 1793
 #define FALCON_PRIVATE_KEY_BYTES 2305
 
 
 // Directory for key storage
-#define KEY_DIR "/root/.alyncoin/keys/"
+#define KEY_DIR DBPaths::getKeyDir()
 
 struct DilithiumKeyPair {
     std::vector<uint8_t> publicKey;        // raw

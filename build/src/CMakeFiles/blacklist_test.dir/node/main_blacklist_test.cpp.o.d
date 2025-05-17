@@ -322,7 +322,8 @@ src/CMakeFiles/blacklist_test.dir/node/main_blacklist_test.cpp.o: \
  /usr/include/openssl/pkcs7err.h /usr/include/openssl/http.h \
  /usr/include/openssl/conf.h /usr/include/openssl/conferr.h \
  /usr/include/openssl/conftypes.h /usr/include/openssl/pemerr.h \
- /root/AlynCoin/src/crypto_protos.pb.h /root/AlynCoin/src/transaction.h \
+ /root/AlynCoin/src/db/db_paths.h /root/AlynCoin/src/crypto_protos.pb.h \
+ /root/AlynCoin/src/transaction.h \
  /root/AlynCoin/src/zk/../network/peer_blacklist.h \
  /root/AlynCoin/src/hash.h /usr/include/c++/13/fstream \
  /usr/include/c++/13/bits/codecvt.h \

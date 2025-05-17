@@ -8,6 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
+  "/root/AlynCoin/src/crypto/dilithium/api.c" "src/CMakeFiles/dilithium.dir/crypto/dilithium/api.c.o" "gcc" "src/CMakeFiles/dilithium.dir/crypto/dilithium/api.c.o.d"
   "/root/AlynCoin/src/crypto/dilithium/fips202.c" "src/CMakeFiles/dilithium.dir/crypto/dilithium/fips202.c.o" "gcc" "src/CMakeFiles/dilithium.dir/crypto/dilithium/fips202.c.o.d"
   "/root/AlynCoin/src/crypto/dilithium/ntt.c" "src/CMakeFiles/dilithium.dir/crypto/dilithium/ntt.c.o" "gcc" "src/CMakeFiles/dilithium.dir/crypto/dilithium/ntt.c.o.d"
   "/root/AlynCoin/src/crypto/dilithium/packing.c" "src/CMakeFiles/dilithium.dir/crypto/dilithium/packing.c.o" "gcc" "src/CMakeFiles/dilithium.dir/crypto/dilithium/packing.c.o.d"

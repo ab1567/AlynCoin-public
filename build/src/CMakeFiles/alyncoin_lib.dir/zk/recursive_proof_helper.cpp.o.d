@@ -172,4 +172,4 @@ src/CMakeFiles/alyncoin_lib.dir/zk/recursive_proof_helper.cpp.o: \
  /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
  /usr/include/x86_64-linux-gnu/bits/stdint-least.h \
  /usr/include/c++/13/cstring /usr/include/string.h /usr/include/strings.h \
- /root/AlynCoin/src/blake3.h
+ /root/AlynCoin/src/blake3.h /root/AlynCoin/src/db/db_paths.h

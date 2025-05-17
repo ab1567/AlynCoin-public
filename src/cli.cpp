@@ -21,7 +21,7 @@
 #include "difficulty.h"
 
 std::string getCurrentWallet() {
-    std::ifstream in("/root/.alyncoin/current_wallet.txt");
+    std::ifstream in(DBPaths::getHomePath() + "/.alyncoin/current_wallet.txt");
     std::string addr;
     std::getline(in, addr);
     return addr;
@@ -63,11 +63,11 @@ void printBlacklistMenu() {
 
 int cliMain(int argc, char *argv[]);
 
+
 int main(int argc, char **argv) {
     std::ios::sync_with_stdio(true);
     std::cout.setf(std::ios::unitbuf);
     std::string keyDir = DBPaths::getKeyDir();
-
 
     auto hasFlag = [](int argc, char** argv, const std::string& flag) -> bool {
         for (int i = 1; i < argc; ++i)
@@ -76,72 +76,74 @@ int main(int argc, char **argv) {
         return false;
     };
 
-	bool skipDB = hasFlag(argc, argv, "--nodb");
-	bool skipNet = hasFlag(argc, argv, "--nonetwork");
-
-	auto getBlockchain = [&]() -> Blockchain& {
-	    if (skipDB) {
-	        std::cout << "⚠️ CLI is running in --nodb mode.\n";
-	        return Blockchain::getInstanceNoDB();
-	    }
-	    if (skipNet) {
-	        std::cout << "⚠️ CLI is running in --nonetwork mode (DB OK).\n";
-	        return Blockchain::getInstanceNoNetwork();
-	    }
-
-	    std::cout << "🌐 CLI is using full network+DB mode.\n";
-	    return Blockchain::getInstance(12345, DBPaths::getBlockchainDB(), true);
-	};
-
-   // mineonce <minerAddress>
-    if (argc >= 3 && std::string(argv[1]) == "mineonce") {
-        std::string minerAddress = argv[2];
-        Blockchain &b = getBlockchain();
-        if (!b.loadFromDB()) {
-            std::cerr << "❌ Could not load blockchain from DB.\n";
-            return 1;
-        }
-        b.loadPendingTransactionsFromDB();
-        std::cout << "⛏️ Mining single block for: " << minerAddress << "\n";
-        Block minedBlock = b.mineBlock(minerAddress);
-        if (!minedBlock.getHash().empty()) {
-            b.saveToDB();
-            b.reloadBlockchainState();
-            std::cout << "✅ Block mined by: " << minerAddress << "\n"
-                      << "🧱 Block Hash: " << minedBlock.getHash() << "\n"
-                      << "✅ Block added to chain.\n";
-        } else {
-            std::cerr << "⚠️ Mining failed.\n";
-        }
-        return 0;
-    }
-
-// mineloop <minerAddress>
-if (argc >= 3 && std::string(argv[1]) == "mineloop") {
-    std::string minerAddress = argv[2];
     bool skipDB = hasFlag(argc, argv, "--nodb");
     bool skipNet = hasFlag(argc, argv, "--nonetwork");
 
-    auto getBlockchain = [&]() -> Blockchain& {
-        if (skipDB) {
-            std::cout << "⚠️ CLI is running in --nodb mode.\n";
-            return Blockchain::getInstanceNoDB();
-        }
-        if (skipNet) {
-            std::cout << "⚠️ CLI is running in --nonetwork mode (DB OK).\n";
-            return Blockchain::getInstanceNoNetwork();
-        }
+    Blockchain* chainPtr = nullptr;
+    Network* network = nullptr;
+    std::unique_ptr<PeerBlacklist> peerBlacklistPtr;
+
+    // === Initialize Blockchain ===
+    if (skipDB) {
+        std::cout << "⚠️ CLI is running in --nodb mode.\n";
+        chainPtr = &Blockchain::getInstanceNoDB();
+    } else if (skipNet) {
+        std::cout << "⚠️ CLI is running in --nonetwork mode (DB OK).\n";
+        chainPtr = &Blockchain::getInstanceNoNetwork();
+    } else {
         std::cout << "🌐 CLI is using full network+DB mode.\n";
-        return Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true);  // Use your actual port here
+        chainPtr = &Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), false);
+
+        try {
+            peerBlacklistPtr = std::make_unique<PeerBlacklist>(DBPaths::getBlacklistDB(), 3);
+            network = &Network::getInstance(8333, chainPtr, peerBlacklistPtr.get());
+        } catch (const std::exception& e) {
+            std::cerr << "❌ Failed to initialize PeerBlacklist or Network: " << e.what() << "\n";
+            peerBlacklistPtr = nullptr;
+        }
+    }
+
+    // ✅ Make getBlockchain() available again
+    auto getBlockchain = [&]() -> Blockchain& {
+        return *chainPtr;
     };
 
+    Blockchain& b = *chainPtr; // Optional alias (used only in current scope, not elsewhere)
+
+
+   // mineonce <minerAddress>
+if (argc >= 3 && std::string(argv[1]) == "mineonce") {
+    std::string minerAddress = argv[2];
     Blockchain &b = getBlockchain();
 
-    // ✅ Ensure network singleton is initialized if needed
-    if (!skipNet) {
-        static PeerBlacklist peerBlacklist("/root/.alyncoin/blacklist", 3);
-        Network::getInstance(8333, &b, &peerBlacklist);  // Match port above
+    if (!b.loadFromDB()) {
+        std::cerr << "❌ Could not load blockchain from DB.\n";
+        return 1;
     }
+
+    b.loadPendingTransactionsFromDB();
+    std::cout << "⛏️ Mining single block for: " << minerAddress << "\n";
+    Block minedBlock = b.mineBlock(minerAddress);
+
+    if (!minedBlock.getHash().empty()) {
+        b.saveToDB();
+        b.reloadBlockchainState();
+        if (!Network::isUninitialized()) {
+            Network::getInstance().broadcastBlock(minedBlock);  // ✅ reuse existing Network instance
+        }
+        std::cout << "✅ Block mined by: " << minerAddress << "\n"
+                  << "🧱 Block Hash: " << minedBlock.getHash() << "\n"
+                  << "✅ Block added to chain.\n";
+    } else {
+        std::cerr << "⚠️ Mining failed.\n";
+    }
+
+    return 0;
+}
+// mineloop <minerAddress>
+if (argc >= 3 && std::string(argv[1]) == "mineloop") {
+    std::string minerAddress = argv[2];
+    Blockchain &b = getBlockchain();  // ✅ uses correct Network + peerBlacklist
 
     if (!b.loadFromDB()) {
         std::cerr << "❌ Could not load blockchain from DB.\n";
@@ -156,16 +158,13 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
         if (!minedBlock.getHash().empty()) {
             b.saveToDB();
 
-            if (!skipNet) {
-                try {
-                    b.reloadBlockchainState();
-                    if (!Network::isUninitialized()) {
-		    Network::getInstance().broadcastBlock(minedBlock);
-		}
-
-                } catch (const std::exception &e) {
-                    std::cerr << "⚠️ reloadBlockchainState() skipped due to network error: " << e.what() << "\n";
+            try {
+                b.reloadBlockchainState();
+                if (!Network::isUninitialized()) {
+                    Network::getInstance().broadcastBlock(minedBlock);  // ✅ no conflict
                 }
+            } catch (const std::exception &e) {
+                std::cerr << "⚠️ reloadBlockchainState() skipped due to network error: " << e.what() << "\n";
             }
 
             std::cout << "✅ Block mined by: " << minerAddress << "\n"
@@ -179,7 +178,6 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
 
     return 0;
 }
-
     // === DAO viewer ===
     if (argc == 2 && std::string(argv[1]) == "dao-view") {
         auto proposals = DAOStorage::getAllProposals();
@@ -233,7 +231,7 @@ if (argc == 3 && std::string(argv[1]) == "loadwallet") {
 
     try {
         Wallet w(priv, keyDir, name);
-        std::ofstream("/root/.alyncoin/current_wallet.txt") << w.getAddress();
+        std::ofstream(DBPaths::getHomePath() + "/.alyncoin/current_wallet.txt") << w.getAddress();
         std::cout << "✅ Wallet loaded: " << w.getAddress() << std::endl;
     } catch (const std::exception &e) {
         std::cerr << "❌ Wallet load failed: " << e.what() << std::endl;
@@ -313,7 +311,11 @@ if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == 
     if (!tx.getSignatureDilithium().empty() && !tx.getSignatureFalcon().empty()) {
         b.addTransaction(tx);
         b.savePendingTransactionsToDB();
-        std::cout << "✅ Transaction broadcasted: " << from << " → " << to
+	if (!Network::isUninitialized()) {
+	    Network::getInstance().broadcastTransaction(tx);
+	}
+	std::cout << "✅ Transaction broadcasted: " << from << " → " << to
+
                   << " (" << amount << " AlynCoin, metadata: " << metadata << ")\n";
     } else {
         std::cerr << "❌ Transaction signing failed.\n";
@@ -322,7 +324,6 @@ if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == 
 
     std::exit(0);
 }
-
     // === DAO proposal submission ===
     if (argc >= 4 && std::string(argv[1]) == "dao-submit") {
         std::string from = argv[2];
@@ -617,6 +618,9 @@ if (argc >= 3 && std::string(argv[1]) == "rollup") {
 
     if (blockchain.isRollupBlockValid(rollup)) {
         blockchain.addRollupBlock(rollup);
+	if (!Network::isUninitialized()) {
+    	Network::getInstance().broadcastRollupBlock(rollup);
+	}
         std::cout << "✅ Rollup Block created successfully!\n";
         std::cout << "📦 Rollup Hash: " << rollup.getHash() << "\n";
     } else {
@@ -663,6 +667,9 @@ if (argc >= 3 && std::string(argv[1]) == "recursive-rollup") {
 
     if (blockchain.isRollupBlockValid(rollup)) {
         blockchain.addRollupBlock(rollup);
+	if (!Network::isUninitialized()) {
+	    Network::getInstance().broadcastRollupBlock(rollup);
+	}
         std::cout << "✅ Recursive Rollup Block created successfully!\n";
         std::cout << "📦 Rollup Hash: " << rollup.getHash() << "\n";
     } else {
@@ -685,11 +692,35 @@ if (argc >= 3 && std::string(argv[1]) == "recursive-rollup") {
             cmd == "mine" || cmd == "mineonce" || cmd == "mineloop" ||
             cmd == "recursiveproof" || cmd == "rollup" || cmd == "recursive-rollup"
         );
-        if (!known) {
-            std::cerr << "❌ Unknown or unsupported command: " << cmd << "\n";
-            return 1;
-        }
-    std::exit(0);
+	if (!known) {
+	    if (cmd.find(':') != std::string::npos && cmd.find('.') != std::string::npos) {
+        // 🧠 Looks like host:port passed directly
+        std::string ip = cmd.substr(0, cmd.find(':'));
+        int port = std::stoi(cmd.substr(cmd.find(':') + 1));
+
+        // ✅ Use centralized blockchain + network initialization
+        Blockchain& b = getBlockchain();
+
+        // ✅ Only connect if network is properly initialized
+        if (!Network::isUninitialized()) {
+            Network& net = Network::getInstance();
+            if (net.connectToNode(ip, port)) {
+                std::cout << "✅ Connected to peer " << cmd << "\n";
+            } else {
+                std::cerr << "❌ Could not connect to peer: " << cmd << "\n";
+            }
+        } else {
+            std::cerr << "❌ Network not initialized.\n";
+	        }
+
+        std::exit(0);
+    } else {
+        std::cerr << "❌ Unknown or unsupported command: " << cmd << "\n";
+        return 1;
+   	 }
+	}
+
+	std::exit(0);
 	}
 // ✅ Final fallback to interactive CLI if no recognized args
 return cliMain(argc, argv);
@@ -700,7 +731,7 @@ int cliMain(int argc, char *argv[]) {
   std::string dbPath = DBPaths::getBlockchainDB();
   std::string connectPeer = "";
   std::string keyDir = DBPaths::getKeyDir();
-  std::string blacklistPath = "/root/.alyncoin/blacklist";
+  std::string blacklistPath = DBPaths::getBlacklistDB();
   bool skipNetwork = false;
 
   for (int i = 1; i < argc; ++i) {
@@ -964,7 +995,10 @@ int cliMain(int argc, char *argv[]) {
         std::cout << "❌ Mining failed or returned empty block.\n";
       } else {
         blockchain.saveToDB();
-        std::cout << "✅ Block mined! Hash: " << mined.getHash() << std::endl;
+        if (network) {
+ 	   network->broadcastBlock(mined);
+	}
+	std::cout << "✅ Block mined! Hash: " << mined.getHash() << std::endl;
       }
       break;
     }

@@ -8,6 +8,14 @@
 #include "symmetric.h"
 #include "fips202.h"
 
+#include "config.h"
+
+#define crypto_sign_keypair     PQCLEAN_DILITHIUM2_CLEAN_crypto_sign_keypair
+#define crypto_sign_signature   PQCLEAN_DILITHIUM2_CLEAN_crypto_sign_signature
+#define crypto_sign_verify      PQCLEAN_DILITHIUM2_CLEAN_crypto_sign_verify
+#define crypto_sign_open        PQCLEAN_DILITHIUM2_CLEAN_crypto_sign_open
+#define crypto_sign             PQCLEAN_DILITHIUM2_CLEAN_crypto_sign
+
 /*************************************************
 * Name:        crypto_sign_keypair
 *

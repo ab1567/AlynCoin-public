@@ -18,6 +18,7 @@
 #include <json/json.h>
 #include <sstream>
 #include <thread>
+#include "db/db_paths.h"
 
 namespace fs = std::filesystem;
 
@@ -210,7 +211,7 @@ void Block::signBlock(const std::string &minerAddress) {
     }
 
     // Dilithium
-    if (!Crypto::fileExists("/root/.alyncoin/keys/" + minerAddress + "_dilithium.key")) {
+    if (!Crypto::fileExists(DBPaths::getKeyDir() + minerAddress + "_dilithium.key")) {
         std::cout << "⚠️ Dilithium key missing. Generating...\n";
         Crypto::generateDilithiumKeys(minerAddress);
     }
@@ -228,7 +229,7 @@ void Block::signBlock(const std::string &minerAddress) {
     publicKeyDilithium = dkeys.publicKey;
 
     // Falcon
-    if (!Crypto::fileExists("/root/.alyncoin/keys/" + minerAddress + "_falcon.key")) {
+    if (!Crypto::fileExists(DBPaths::getKeyDir() + minerAddress + "_falcon.key")) {
         std::cout << "⚠️ Falcon key missing. Generating...\n";
         Crypto::generateFalconKeys(minerAddress);
     }

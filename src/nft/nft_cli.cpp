@@ -11,11 +11,13 @@
 #include <regex>
 #include "crypto/aes_utils.h"
 #include <filesystem>
+#include "db/db_paths.h"
+
 namespace fs = std::filesystem;
 namespace NFTCLI {
 
 std::string getLoadedWalletAddress() {
-    const std::string walletFile = "/root/.alyncoin/current_wallet.txt";
+    const std::string walletFile = DBPaths::getHomePath() + "/.alyncoin/current_wallet.txt";
     std::ifstream file(walletFile);
     std::string address;
 
@@ -89,7 +91,7 @@ void interactiveMenu() {
 
 	    std::string message = nft.getSignatureMessage();
 	    auto msgHash = Crypto::sha256ToBytes(message);
-	    if (!fs::exists("/root/.alyncoin/keys/" + creator + "_private.pem")) {
+	    if (!fs::exists(DBPaths::getKeyDir() + creator + "_private.pem")) {
 	    std::cerr << "❌ Missing private key file for: " << creator << "\n";
 	    return;
 	}
@@ -414,7 +416,7 @@ if (cmd == "mint" && argc >= 5) {
     std::string imageHash = argv[4];
     std::string identity = (argc >= 6) ? argv[5] : "";
 
-    std::string privKeyPath = "/root/.alyncoin/keys/" + creator + "_private.pem";
+    std::string privKeyPath = DBPaths::getKeyDir() + creator + "_private.pem";
     if (!fs::exists(privKeyPath)) {
         std::cerr << "❌ Missing private key file for wallet: " << privKeyPath << "\n";
         return 1;

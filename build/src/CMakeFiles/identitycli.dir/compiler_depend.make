@@ -4,6 +4,7 @@
 src/CMakeFiles/identitycli.dir/identity/identity.cpp.o: /root/AlynCoin/src/identity/identity.cpp \
   /root/AlynCoin/src/generated/nft.pb.h \
   /root/AlynCoin/src/crypto_utils.h \
+  /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/nft/nft.h \
   /root/AlynCoin/src/zk/winterfell_stark.h \
   /root/AlynCoin/src/identity/identity.h \
@@ -1108,8 +1109,9 @@ src/CMakeFiles/identitycli.dir/identity/identitycli.cpp.o: /root/AlynCoin/src/id
   /usr/lib/gcc/x86_64-linux-gnu/13/include/syslimits.h
 
 src/CMakeFiles/identitycli.dir/identity/proto_utils.cpp.o: /root/AlynCoin/src/identity/proto_utils.cpp \
-  generated/identity.pb.h \
+  /root/AlynCoin/src/generated/identity.pb.h \
   /root/AlynCoin/src/crypto_utils.h \
+  /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/identity/identity.h \
   /root/AlynCoin/src/identity/proto_utils.h \
   /usr/include/alloca.h \
@@ -1536,8 +1538,6 @@ src/CMakeFiles/identitycli.dir/identity/proto_utils.cpp.o: /root/AlynCoin/src/id
 
 /root/AlynCoin/src/identity/proto_utils.h:
 
-/root/AlynCoin/src/db/db_paths.h:
-
 /usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h:
 
 /usr/lib/gcc/x86_64-linux-gnu/13/include/stdarg.h:
@@ -1710,8 +1710,6 @@ src/CMakeFiles/identitycli.dir/identity/proto_utils.cpp.o: /root/AlynCoin/src/id
 
 /usr/include/c++/13/ext/atomicity.h:
 
-/usr/include/c++/13/bits/unordered_set.h:
-
 /usr/include/c++/13/cstring:
 
 /usr/include/x86_64-linux-gnu/bits/types/mbstate_t.h:
@@ -1842,8 +1840,6 @@ src/CMakeFiles/identitycli.dir/identity/proto_utils.cpp.o: /root/AlynCoin/src/id
 
 /usr/include/c++/13/backward/binders.h:
 
-/usr/include/c++/13/ext/aligned_buffer.h:
-
 /usr/include/c++/13/clocale:
 
 /usr/include/wchar.h:
@@ -1856,6 +1852,8 @@ src/CMakeFiles/identitycli.dir/identity/proto_utils.cpp.o: /root/AlynCoin/src/id
 
 /usr/include/c++/13/bits/algorithmfwd.h:
 
+/root/AlynCoin/src/generated/identity.pb.h:
+
 /usr/include/openssl/conferr.h:
 
 /usr/include/c++/13/bits/alloc_traits.h:
@@ -1863,6 +1861,10 @@ src/CMakeFiles/identitycli.dir/identity/proto_utils.cpp.o: /root/AlynCoin/src/id
 /usr/include/x86_64-linux-gnu/bits/types/__fpos_t.h:
 
 /root/AlynCoin/src/identity/identity.cpp:
+
+/usr/include/x86_64-linux-gnu/gnu/stubs-64.h:
+
+/usr/include/c++/13/bits/node_handle.h:
 
 /root/AlynCoin/src/nft/nft.h:
 
@@ -1899,6 +1901,10 @@ src/CMakeFiles/identitycli.dir/identity/proto_utils.cpp.o: /root/AlynCoin/src/id
 /usr/include/rocksdb/write_batch_base.h:
 
 /usr/include/c++/13/bits/memoryfwd.h:
+
+/usr/include/c++/13/bits/unordered_set.h:
+
+/root/AlynCoin/src/db/db_paths.h:
 
 /usr/include/assert.h:
 
@@ -2058,9 +2064,7 @@ src/CMakeFiles/identitycli.dir/identity/proto_utils.cpp.o: /root/AlynCoin/src/id
 
 /usr/include/google/protobuf/arena.h:
 
-/usr/include/x86_64-linux-gnu/gnu/stubs-64.h:
-
-/usr/include/c++/13/bits/node_handle.h:
+/usr/include/c++/13/ext/aligned_buffer.h:
 
 /usr/include/c++/13/list:
 
@@ -2267,8 +2271,6 @@ src/CMakeFiles/identitycli.dir/identity/proto_utils.cpp.o: /root/AlynCoin/src/id
 /usr/include/c++/13/debug/debug.h:
 
 /usr/include/linux/errno.h:
-
-generated/identity.pb.h:
 
 /usr/include/c++/13/ratio:
 

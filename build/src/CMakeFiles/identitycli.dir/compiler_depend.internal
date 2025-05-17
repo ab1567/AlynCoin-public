@@ -5,6 +5,7 @@ src/CMakeFiles/identitycli.dir/identity/identity.cpp.o
  /root/AlynCoin/src/identity/identity.cpp
  /root/AlynCoin/src/generated/nft.pb.h
  /root/AlynCoin/src/crypto_utils.h
+ /root/AlynCoin/src/db/db_paths.h
  /root/AlynCoin/src/nft/nft.h
  /root/AlynCoin/src/zk/winterfell_stark.h
  /root/AlynCoin/src/identity/identity.h
@@ -1112,8 +1113,9 @@ src/CMakeFiles/identitycli.dir/identity/identitycli.cpp.o
 
 src/CMakeFiles/identitycli.dir/identity/proto_utils.cpp.o
  /root/AlynCoin/src/identity/proto_utils.cpp
- /root/AlynCoin/build/generated/identity.pb.h
+ /root/AlynCoin/src/generated/identity.pb.h
  /root/AlynCoin/src/crypto_utils.h
+ /root/AlynCoin/src/db/db_paths.h
  /root/AlynCoin/src/identity/identity.h
  /root/AlynCoin/src/identity/proto_utils.h
  /usr/include/alloca.h

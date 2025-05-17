@@ -177,7 +177,8 @@ src/CMakeFiles/alyncoin_lib.dir/identity/proto_utils.cpp.o: \
  /usr/include/openssl/http.h /usr/include/openssl/conf.h \
  /usr/include/openssl/conferr.h /usr/include/openssl/conftypes.h \
  /usr/include/openssl/pemerr.h \
- /root/AlynCoin/src/identity/../../build/generated/identity.pb.h \
+ /root/AlynCoin/src/identity/../db/db_paths.h \
+ /root/AlynCoin/src/../src/generated/identity.pb.h \
  /usr/include/c++/13/limits /usr/include/google/protobuf/port_def.inc \
  /usr/include/google/protobuf/port_undef.inc \
  /usr/include/google/protobuf/io/coded_stream.h /usr/include/assert.h \

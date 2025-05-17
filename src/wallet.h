@@ -5,9 +5,10 @@
 #include "transaction.h"
 #include <string>
 #include <vector>
+#include "db/db_paths.h"
 
 const std::string WALLET_KEY_DIR =
-    std::string(getenv("HOME") ? getenv("HOME") : "/root") + "/.alyncoin/keys/";
+    DBPaths::getKeyDir();
 
 class Wallet {
 private:
@@ -15,7 +16,7 @@ private:
   std::string publicKey;
   std::string address;
   std::string keyDirectory;
-  std::string walletName; // Used as ID (same as address)
+  std::string walletName;
 
   DilithiumKeyPair dilithiumKeys;
   FalconKeyPair falconKeys;

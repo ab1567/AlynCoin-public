@@ -5,6 +5,7 @@ src/CMakeFiles/blacklist_test.dir/node/main_blacklist_test.cpp.o: /root/AlynCoin
   /root/AlynCoin/src/block.h \
   /root/AlynCoin/src/crypto_protos.pb.h \
   /root/AlynCoin/src/crypto_utils.h \
+  /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
   /root/AlynCoin/src/generated/nft.pb.h \
@@ -689,11 +690,7 @@ src/CMakeFiles/blacklist_test.dir/node/main_blacklist_test.cpp.o: /root/AlynCoin
 
 /usr/include/openssl/bnerr.h:
 
-/usr/include/c++/13/cctype:
-
-/usr/include/x86_64-linux-gnu/bits/types/struct_tm.h:
-
-/usr/include/c++/13/ext/atomicity.h:
+/usr/include/openssl/bio.h:
 
 /usr/include/x86_64-linux-gnu/bits/pthreadtypes-arch.h:
 
@@ -708,8 +705,6 @@ src/CMakeFiles/blacklist_test.dir/node/main_blacklist_test.cpp.o: /root/AlynCoin
 /usr/include/openssl/buffer.h:
 
 /usr/include/c++/13/bits/uses_allocator_args.h:
-
-/usr/include/c++/13/bits/unordered_set.h:
 
 /usr/include/x86_64-linux-gnu/bits/types/mbstate_t.h:
 
@@ -861,6 +856,10 @@ src/CMakeFiles/blacklist_test.dir/node/main_blacklist_test.cpp.o: /root/AlynCoin
 
 /usr/include/asm-generic/errno-base.h:
 
+/usr/include/c++/13/bits/range_access.h:
+
+/root/AlynCoin/src/validation/transaction_validator.h:
+
 /root/AlynCoin/src/node/main_blacklist_test.cpp:
 
 /usr/include/c++/13/bits/predefined_ops.h:
@@ -891,6 +890,10 @@ src/CMakeFiles/blacklist_test.dir/node/main_blacklist_test.cpp.o: /root/AlynCoin
 
 /root/AlynCoin/src/generated/blockchain_protos.pb.h:
 
+/usr/include/c++/13/bits/unordered_set.h:
+
+/root/AlynCoin/src/db/db_paths.h:
+
 /usr/include/x86_64-linux-gnu/bits/posix2_lim.h:
 
 /usr/include/c++/13/bits/enable_special_members.h:
@@ -908,10 +911,6 @@ src/CMakeFiles/blacklist_test.dir/node/main_blacklist_test.cpp.o: /root/AlynCoin
 /usr/include/google/protobuf/generated_message_util.h:
 
 /usr/include/errno.h:
-
-/usr/include/c++/13/bits/range_access.h:
-
-/root/AlynCoin/src/validation/transaction_validator.h:
 
 /usr/include/c++/13/bits/streambuf_iterator.h:
 
@@ -1047,10 +1046,6 @@ src/CMakeFiles/blacklist_test.dir/node/main_blacklist_test.cpp.o: /root/AlynCoin
 
 /usr/include/google/protobuf/endian.h:
 
-/usr/include/google/protobuf/arena_impl.h:
-
-/usr/include/c++/13/bits/refwrap.h:
-
 /usr/include/c++/13/bits/fstream.tcc:
 
 /usr/include/google/protobuf/parse_context.h:
@@ -1088,6 +1083,16 @@ src/CMakeFiles/blacklist_test.dir/node/main_blacklist_test.cpp.o: /root/AlynCoin
 /usr/include/x86_64-linux-gnu/bits/types/error_t.h:
 
 /usr/include/c++/13/bits/hashtable.h:
+
+/usr/include/c++/13/cctype:
+
+/usr/include/x86_64-linux-gnu/bits/types/struct_tm.h:
+
+/usr/include/c++/13/ext/atomicity.h:
+
+/usr/include/c++/13/bits/refwrap.h:
+
+/usr/include/google/protobuf/arena_impl.h:
 
 /usr/include/c++/13/cerrno:
 
@@ -1346,5 +1351,3 @@ src/CMakeFiles/blacklist_test.dir/node/main_blacklist_test.cpp.o: /root/AlynCoin
 /usr/include/linux/limits.h:
 
 /usr/include/openssl/asn1err.h:
-
-/usr/include/openssl/bio.h:

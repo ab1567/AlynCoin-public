@@ -1858,6 +1858,7 @@ src/CMakeFiles/alyncoin-cli.dir/cli/peer_blacklist_ui.cpp.o: /root/AlynCoin/src/
 
 src/CMakeFiles/alyncoin-cli.dir/zk/recursive_proof_helper.cpp.o: /root/AlynCoin/src/zk/recursive_proof_helper.cpp \
   /root/AlynCoin/src/blake3.h \
+  /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/zk/recursive_proof_helper.h \
   /usr/include/alloca.h \
   /usr/include/asm-generic/errno-base.h \

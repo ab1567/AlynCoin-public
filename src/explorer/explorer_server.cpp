@@ -186,7 +186,7 @@ crow::response ExplorerServer::withCORS(const std::string& body) {
 int main() {
     int port = 8080;
     std::string dbPath = DBPaths::getBlockchainDB();  // Ensure this matches node's DB
-    std::string blacklistPath = "/root/.alyncoin/blacklist";
+    std::string blacklistPath = DBPaths::getBlacklistDB();
 
     ExplorerServer server(port, dbPath, blacklistPath);
     server.startServer();

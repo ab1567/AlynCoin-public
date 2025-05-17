@@ -336,4 +336,5 @@ src/CMakeFiles/alyncoin_lib.dir/rollup/rollup_block.cpp.o: \
  /usr/include/openssl/x509_vfy.h /usr/include/openssl/pkcs7.h \
  /usr/include/openssl/pkcs7err.h /usr/include/openssl/http.h \
  /usr/include/openssl/conf.h /usr/include/openssl/conferr.h \
- /usr/include/openssl/conftypes.h /usr/include/openssl/pemerr.h
+ /usr/include/openssl/conftypes.h /usr/include/openssl/pemerr.h \
+ /root/AlynCoin/src/rollup/proofs/../../db/db_paths.h

@@ -289,8 +289,8 @@ src/CMakeFiles/alyncoin_lib.dir/miner.cpp.o: /root/AlynCoin/src/miner.cpp \
  /usr/include/openssl/pkcs7err.h /usr/include/openssl/http.h \
  /usr/include/openssl/conf.h /usr/include/openssl/conferr.h \
  /usr/include/openssl/conftypes.h /usr/include/openssl/pemerr.h \
- /usr/include/c++/13/optional /root/AlynCoin/src/crypto_protos.pb.h \
- /root/AlynCoin/src/transaction.h \
+ /usr/include/c++/13/optional /root/AlynCoin/src/db/db_paths.h \
+ /root/AlynCoin/src/crypto_protos.pb.h /root/AlynCoin/src/transaction.h \
  /root/AlynCoin/src/zk/../network/peer_blacklist.h \
  /usr/include/rocksdb/db.h \
  /usr/include/rocksdb/block_cache_trace_writer.h \
@@ -1350,8 +1350,7 @@ src/CMakeFiles/alyncoin_lib.dir/miner.cpp.o: /root/AlynCoin/src/miner.cpp \
  /usr/include/boost/asio/windows/stream_handle.hpp \
  /usr/include/boost/asio/writable_pipe.hpp \
  /usr/include/boost/asio/write_at.hpp \
- /usr/include/boost/asio/impl/write_at.hpp \
- /root/AlynCoin/src/db/db_paths.h /root/AlynCoin/src/blake3.h \
+ /usr/include/boost/asio/impl/write_at.hpp /root/AlynCoin/src/blake3.h \
  /root/AlynCoin/src/mining.h /root/AlynCoin/src/difficulty.h \
  /usr/include/c++/13/numeric /usr/include/c++/13/bits/stl_numeric.h \
  /usr/include/c++/13/pstl/glue_numeric_defs.h \

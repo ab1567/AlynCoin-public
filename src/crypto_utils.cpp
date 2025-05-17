@@ -25,6 +25,7 @@
 #include <thread>
 #include <unistd.h>
 #include <vector>
+#include "db/db_paths.h"
 extern "C" {
 #include "crypto/falcon/PQClean/Falcon-1024/clean/api.h"
 #include "crypto/dilithium/sign.h"
@@ -684,7 +685,7 @@ void generateKeysForUser(const std::string &username) {
 std::string generatePrivateKey(const std::string &user,
                                const std::string &passphrase) {
   ensureKeysDirectory();
-  const std::string keyDir = "/root/.alyncoin/keys/";
+  const std::string keyDir = DBPaths::getKeyDir();
   const std::string privateKeyPath = keyDir + user + "_private.pem";
 
   // If the private key already exists, read and return its contents

@@ -200,6 +200,7 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/swapcli.cpp.o: \
  /usr/include/openssl/http.h /usr/include/openssl/conf.h \
  /usr/include/openssl/conferr.h /usr/include/openssl/conftypes.h \
  /usr/include/openssl/pemerr.h \
+ /root/AlynCoin/src/atomic_swaps/../db/db_paths.h \
  /root/AlynCoin/src/atomic_swaps/rocksdb_swap_store.h \
  /usr/include/rocksdb/db.h /usr/include/c++/13/map \
  /usr/include/c++/13/bits/stl_tree.h \

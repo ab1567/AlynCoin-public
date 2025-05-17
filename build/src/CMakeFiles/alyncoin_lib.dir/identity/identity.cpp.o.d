@@ -176,6 +176,7 @@ src/CMakeFiles/alyncoin_lib.dir/identity/identity.cpp.o: \
  /usr/include/openssl/http.h /usr/include/openssl/conf.h \
  /usr/include/openssl/conferr.h /usr/include/openssl/conftypes.h \
  /usr/include/openssl/pemerr.h \
+ /root/AlynCoin/src/identity/../db/db_paths.h \
  /root/AlynCoin/src/identity/../zk/winterfell_stark.h \
  /usr/include/c++/13/cstdint /usr/include/c++/13/iostream \
  /usr/include/c++/13/ostream /usr/include/c++/13/ios \

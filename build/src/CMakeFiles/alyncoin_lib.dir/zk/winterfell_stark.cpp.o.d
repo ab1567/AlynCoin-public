@@ -285,7 +285,7 @@ src/CMakeFiles/alyncoin_lib.dir/zk/winterfell_stark.cpp.o: \
  /usr/include/openssl/pkcs7err.h /usr/include/openssl/http.h \
  /usr/include/openssl/conf.h /usr/include/openssl/conferr.h \
  /usr/include/openssl/conftypes.h /usr/include/openssl/pemerr.h \
- /root/AlynCoin/src/blockchain.h \
+ /root/AlynCoin/src/db/db_paths.h /root/AlynCoin/src/blockchain.h \
  /root/AlynCoin/src/generated/block_protos.pb.h \
  /root/AlynCoin/src/generated/transaction_protos.pb.h \
  /root/AlynCoin/src/generated/blockchain_protos.pb.h \
@@ -1352,8 +1352,8 @@ src/CMakeFiles/alyncoin_lib.dir/zk/winterfell_stark.cpp.o: \
  /usr/include/boost/asio/writable_pipe.hpp \
  /usr/include/boost/asio/write_at.hpp \
  /usr/include/boost/asio/impl/write_at.hpp \
- /root/AlynCoin/src/db/db_paths.h /root/AlynCoin/src/transaction.h \
- /usr/include/c++/13/iomanip /usr/include/c++/13/locale \
+ /root/AlynCoin/src/transaction.h /usr/include/c++/13/iomanip \
+ /usr/include/c++/13/locale \
  /usr/include/c++/13/bits/locale_facets_nonio.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/time_members.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/messages_members.h \

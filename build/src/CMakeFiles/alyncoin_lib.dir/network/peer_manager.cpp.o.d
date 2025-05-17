@@ -321,7 +321,8 @@ src/CMakeFiles/alyncoin_lib.dir/network/peer_manager.cpp.o: \
  /usr/include/openssl/pkcs7err.h /usr/include/openssl/http.h \
  /usr/include/openssl/conf.h /usr/include/openssl/conferr.h \
  /usr/include/openssl/conftypes.h /usr/include/openssl/pemerr.h \
- /root/AlynCoin/src/crypto_protos.pb.h /root/AlynCoin/src/transaction.h \
+ /root/AlynCoin/src/db/db_paths.h /root/AlynCoin/src/crypto_protos.pb.h \
+ /root/AlynCoin/src/transaction.h \
  /root/AlynCoin/src/zk/../network/peer_blacklist.h \
  /root/AlynCoin/src/hash.h /usr/include/c++/13/fstream \
  /usr/include/c++/13/bits/codecvt.h \
@@ -1353,8 +1354,7 @@ src/CMakeFiles/alyncoin_lib.dir/network/peer_manager.cpp.o: \
  /usr/include/boost/asio/windows/stream_handle.hpp \
  /usr/include/boost/asio/writable_pipe.hpp \
  /usr/include/boost/asio/write_at.hpp \
- /usr/include/boost/asio/impl/write_at.hpp \
- /root/AlynCoin/src/db/db_paths.h /usr/include/c++/13/thread \
+ /usr/include/boost/asio/impl/write_at.hpp /usr/include/c++/13/thread \
  /usr/include/c++/13/bits/this_thread_sleep.h \
  /root/AlynCoin/src/network/peer_manager.h \
  /root/AlynCoin/src/blockchain.h /usr/include/c++/13/numeric \

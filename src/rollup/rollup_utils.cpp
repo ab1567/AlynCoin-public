@@ -3,7 +3,8 @@
 #include <iostream>
 #include <unordered_map>
 #include <sstream>
-#include <fstream>  // ✅ Required for ifstream/ofstream
+#include <fstream>
+#include "db/db_paths.h"
 
 std::string RollupUtils::calculateMerkleRoot(const std::vector<std::string>& leafHashes) {
     if (leafHashes.empty()) return "";
@@ -55,7 +56,7 @@ std::string RollupUtils::calculateStateRoot(const std::unordered_map<std::string
 }
 
 void RollupUtils::storeRollupMetadata(const std::string& txRoot, const std::string& blockHash) {
-    std::ofstream file("/root/.alyncoin/rollup_meta.txt");
+    std::ofstream file(DBPaths::getHomePath() + "/.alyncoin/rollup_meta.txt");
     if (file.is_open()) {
         file << txRoot << "\n" << blockHash;
         file.close();
@@ -65,7 +66,7 @@ void RollupUtils::storeRollupMetadata(const std::string& txRoot, const std::stri
 }
 
 std::pair<std::string, std::string> RollupUtils::loadRollupMetadata() {
-    std::ifstream file("/root/.alyncoin/rollup_meta.txt");
+    std::ifstream file(DBPaths::getHomePath() + "/.alyncoin/rollup_meta.txt");
     std::string txRoot, blockHash;
     if (file.is_open()) {
         std::getline(file, txRoot);

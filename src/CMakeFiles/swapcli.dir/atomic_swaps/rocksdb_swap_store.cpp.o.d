@@ -237,62 +237,10 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/rocksdb_swap_store.cpp.o: \
  /usr/include/rocksdb/utilities/transaction_db.h \
  /usr/include/rocksdb/utilities/stackable_db.h \
  /usr/include/rocksdb/utilities/transaction.h \
- /root/AlynCoin/src/atomic_swaps/swap_manager.cpp \
- /root/AlynCoin/src/atomic_swaps/proto_utils.h \
- /root/AlynCoin/generated/atomic_swap.pb.h \
- /usr/include/google/protobuf/port_def.inc \
- /usr/include/google/protobuf/port_undef.inc \
- /usr/include/google/protobuf/io/coded_stream.h \
- /usr/include/google/protobuf/stubs/common.h \
- /usr/include/c++/13/algorithm \
- /usr/include/c++/13/pstl/glue_algorithm_defs.h \
- /usr/include/c++/13/iostream /usr/include/c++/13/istream \
- /usr/include/c++/13/bits/istream.tcc /usr/include/c++/13/set \
- /usr/include/c++/13/bits/stl_set.h \
- /usr/include/c++/13/bits/stl_multiset.h \
- /usr/include/google/protobuf/stubs/macros.h \
- /usr/include/google/protobuf/stubs/platform_macros.h \
- /usr/include/google/protobuf/stubs/port.h /usr/include/byteswap.h \
- /usr/include/google/protobuf/stubs/stringpiece.h \
- /usr/include/google/protobuf/stubs/hash.h \
- /usr/include/google/protobuf/stubs/logging.h \
- /usr/include/google/protobuf/stubs/status.h \
- /usr/include/google/protobuf/stubs/strutil.h \
- /usr/include/google/protobuf/port.h /usr/include/google/protobuf/arena.h \
- /usr/include/google/protobuf/arena_impl.h \
- /usr/include/google/protobuf/arenaz_sampler.h \
- /usr/include/google/protobuf/arenastring.h \
- /usr/include/google/protobuf/explicitly_constructed.h \
- /usr/include/google/protobuf/generated_message_util.h \
- /usr/include/google/protobuf/stubs/once.h \
- /usr/include/google/protobuf/any.h \
- /usr/include/google/protobuf/message_lite.h \
- /usr/include/google/protobuf/metadata_lite.h \
- /usr/include/google/protobuf/has_bits.h \
- /usr/include/google/protobuf/implicit_weak_message.h \
- /usr/include/google/protobuf/repeated_field.h \
- /usr/include/c++/13/iterator /usr/include/c++/13/bits/stream_iterator.h \
- /usr/include/google/protobuf/repeated_ptr_field.h \
- /usr/include/google/protobuf/wire_format_lite.h \
- /usr/include/google/protobuf/stubs/casts.h \
- /usr/include/google/protobuf/generated_message_reflection.h \
- /usr/include/google/protobuf/descriptor.h \
- /usr/include/google/protobuf/stubs/mutex.h \
- /usr/include/google/protobuf/generated_enum_reflection.h \
- /usr/include/google/protobuf/generated_enum_util.h \
- /usr/include/google/protobuf/unknown_field_set.h \
- /usr/include/google/protobuf/io/zero_copy_stream_impl_lite.h \
- /usr/include/google/protobuf/stubs/callback.h \
- /usr/include/google/protobuf/io/zero_copy_stream.h \
- /usr/include/google/protobuf/stubs/stl_util.h \
- /usr/include/google/protobuf/parse_context.h \
- /usr/include/google/protobuf/endian.h \
- /usr/include/google/protobuf/inlined_string_field.h \
- /usr/include/google/protobuf/message.h \
- /usr/include/google/protobuf/map.h \
- /usr/include/google/protobuf/map_type_handler.h \
- /usr/include/google/protobuf/extension_set.h \
- /root/AlynCoin/src/atomic_swaps/swap_manager.h \
+ /root/AlynCoin/src/atomic_swaps/atomic_swap.h \
+ /usr/include/c++/13/sstream /usr/include/c++/13/istream \
+ /usr/include/c++/13/bits/istream.tcc \
+ /usr/include/c++/13/bits/sstream.tcc \
  /root/AlynCoin/src/atomic_swaps/../crypto_utils.h \
  /usr/include/openssl/err.h /usr/include/openssl/macros.h \
  /usr/include/x86_64-linux-gnu/openssl/opensslconf.h \
@@ -320,6 +268,5 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/rocksdb_swap_store.cpp.o: \
  /usr/include/openssl/pkcs7err.h /usr/include/openssl/http.h \
  /usr/include/openssl/conf.h /usr/include/openssl/conferr.h \
  /usr/include/openssl/conftypes.h /usr/include/openssl/pemerr.h \
- /root/AlynCoin/src/atomic_swaps/../zk/winterfell_stark.h \
- /root/AlynCoin/src/atomic_swaps/../zk/../nft/nft.h \
- /root/AlynCoin/src/generated/nft.pb.h
+ /root/AlynCoin/src/atomic_swaps/../db/db_paths.h \
+ /root/AlynCoin/src/atomic_swaps/proto_utils.h

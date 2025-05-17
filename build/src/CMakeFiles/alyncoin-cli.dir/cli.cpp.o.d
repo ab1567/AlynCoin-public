@@ -287,8 +287,8 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
  /usr/include/openssl/pkcs7err.h /usr/include/openssl/http.h \
  /usr/include/openssl/conf.h /usr/include/openssl/conferr.h \
  /usr/include/openssl/conftypes.h /usr/include/openssl/pemerr.h \
- /usr/include/c++/13/optional /root/AlynCoin/src/crypto_protos.pb.h \
- /root/AlynCoin/src/transaction.h \
+ /usr/include/c++/13/optional /root/AlynCoin/src/db/db_paths.h \
+ /root/AlynCoin/src/crypto_protos.pb.h /root/AlynCoin/src/transaction.h \
  /root/AlynCoin/src/zk/../network/peer_blacklist.h \
  /usr/include/rocksdb/db.h \
  /usr/include/rocksdb/block_cache_trace_writer.h \
@@ -1349,7 +1349,6 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: /root/AlynCoin/src/cli.cpp \
  /usr/include/boost/asio/writable_pipe.hpp \
  /usr/include/boost/asio/write_at.hpp \
  /usr/include/boost/asio/impl/write_at.hpp \
- /root/AlynCoin/src/db/db_paths.h \
  /root/AlynCoin/src/cli/peer_blacklist_cli.h \
  /root/AlynCoin/src/cli/../network/peer_blacklist.h \
  /root/AlynCoin/src/network.h /usr/include/c++/13/thread \

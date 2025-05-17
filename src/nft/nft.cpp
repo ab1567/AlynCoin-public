@@ -9,6 +9,7 @@
 #include <fstream>
 #include <unistd.h>
 #include <csignal>
+#include "db/db_paths.h"
 #include <chrono>
 #include <atomic>
 #include <thread>
@@ -141,7 +142,8 @@ bool NFT::submitMetadataHashTransaction() const {
     std::string metadataHash = Crypto::sha256(metadata);
 	std::string cliPath = std::getenv("ALYNCOIN_CLI_PATH")
 	    ? std::getenv("ALYNCOIN_CLI_PATH")
-	    : "/root/AlynCoin/build/alyncoin-cli";
+	    : DBPaths::getHomePath() + "/AlynCoin/AlynCoin/build/alyncoin-cli";
+
 
 	std::string l1 = cliPath + " --nonetwork sendl1 \"" + creator + "\" \"metadataSink\" 0 \"" + metadataHash + "\"";
 	std::string l2 = cliPath + " --nonetwork sendl2 \"" + creator + "\" \"metadataSink\" 0 \"" + metadataHash + "\"";
@@ -403,7 +405,7 @@ bool submitMetadataHashTransaction(const std::string& metadataHash,
 
 	std::string cliPath = std::getenv("ALYNCOIN_CLI_PATH")
 	    ? std::getenv("ALYNCOIN_CLI_PATH")
-	    : "/root/AlynCoin/build/alyncoin-cli";
+	    : DBPaths::getHomePath() + "/AlynCoin/AlynCoin/build/alyncoin-cli";
 
 	std::string l1 = cliPath + " --nonetwork sendl1 \"" + creator + "\" \"metadataSink\" 0 \"" + metadataHash + "\"";
 	std::string l2 = cliPath + " --nonetwork sendl2 \"" + creator + "\" \"metadataSink\" 0 \"" + metadataHash + "\"";

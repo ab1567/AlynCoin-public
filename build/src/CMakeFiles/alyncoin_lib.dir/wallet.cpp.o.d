@@ -171,7 +171,7 @@ src/CMakeFiles/alyncoin_lib.dir/wallet.cpp.o: \
  /usr/include/c++/13/bits/cxxabi_init_exception.h \
  /usr/include/c++/13/typeinfo /usr/include/c++/13/bits/nested_exception.h \
  /usr/include/c++/13/bits/enable_special_members.h \
- /root/AlynCoin/src/transaction.h \
+ /root/AlynCoin/src/db/db_paths.h /root/AlynCoin/src/transaction.h \
  /root/AlynCoin/src/generated/transaction_protos.pb.h \
  /usr/include/c++/13/limits /usr/include/google/protobuf/port_def.inc \
  /usr/include/google/protobuf/port_undef.inc \
@@ -1346,7 +1346,6 @@ src/CMakeFiles/alyncoin_lib.dir/wallet.cpp.o: \
  /usr/include/boost/asio/writable_pipe.hpp \
  /usr/include/boost/asio/write_at.hpp \
  /usr/include/boost/asio/impl/write_at.hpp \
- /root/AlynCoin/src/db/db_paths.h \
  /root/AlynCoin/src/rollup/proofs/proof_generator.h \
  /root/AlynCoin/src/rollup/proofs/../../transaction.h \
  /usr/include/c++/13/filesystem /usr/include/c++/13/bits/fs_fwd.h \

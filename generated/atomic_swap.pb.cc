@@ -84,9 +84,9 @@ const char descriptor_table_protodef_atomic_5fswap_2eproto[] PROTOBUF_SECTION_VA
   " \001(\t\022\027\n\017receiverAddress\030\003 \001(\t\022\016\n\006amount\030"
   "\004 \001(\004\022\022\n\nsecretHash\030\005 \001(\t\022\016\n\006secret\030\006 \001("
   "\t\022\021\n\tcreatedAt\030\007 \001(\003\022\021\n\texpiresAt\030\010 \001(\003\022"
-  "\r\n\005state\030\t \001(\005\022\017\n\007zkProof\030\n \001(\t\022\027\n\017falco"
-  "nSignature\030\013 \001(\t\022\032\n\022dilithiumSignature\030\014"
-  " \001(\tb\006proto3"
+  "\r\n\005state\030\t \001(\005\022\017\n\007zkProof\030\n \001(\014\022\027\n\017falco"
+  "nSignature\030\013 \001(\014\022\032\n\022dilithiumSignature\030\014"
+  " \001(\014b\006proto3"
   ;
 static ::_pbi::once_flag descriptor_table_atomic_5fswap_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_atomic_5fswap_2eproto = {
@@ -392,33 +392,30 @@ const char* AtomicSwapProto::_InternalParse(const char* ptr, ::_pbi::ParseContex
         } else
           goto handle_unusual;
         continue;
-      // string zkProof = 10;
+      // bytes zkProof = 10;
       case 10:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 82)) {
           auto str = _internal_mutable_zkproof();
           ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(ptr);
-          CHK_(::_pbi::VerifyUTF8(str, "atomic.AtomicSwapProto.zkProof"));
         } else
           goto handle_unusual;
         continue;
-      // string falconSignature = 11;
+      // bytes falconSignature = 11;
       case 11:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 90)) {
           auto str = _internal_mutable_falconsignature();
           ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(ptr);
-          CHK_(::_pbi::VerifyUTF8(str, "atomic.AtomicSwapProto.falconSignature"));
         } else
           goto handle_unusual;
         continue;
-      // string dilithiumSignature = 12;
+      // bytes dilithiumSignature = 12;
       case 12:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 98)) {
           auto str = _internal_mutable_dilithiumsignature();
           ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(ptr);
-          CHK_(::_pbi::VerifyUTF8(str, "atomic.AtomicSwapProto.dilithiumSignature"));
         } else
           goto handle_unusual;
         continue;
@@ -525,33 +522,21 @@ uint8_t* AtomicSwapProto::_InternalSerialize(
     target = ::_pbi::WireFormatLite::WriteInt32ToArray(9, this->_internal_state(), target);
   }
 
-  // string zkProof = 10;
+  // bytes zkProof = 10;
   if (!this->_internal_zkproof().empty()) {
-    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
-      this->_internal_zkproof().data(), static_cast<int>(this->_internal_zkproof().length()),
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
-      "atomic.AtomicSwapProto.zkProof");
-    target = stream->WriteStringMaybeAliased(
+    target = stream->WriteBytesMaybeAliased(
         10, this->_internal_zkproof(), target);
   }
 
-  // string falconSignature = 11;
+  // bytes falconSignature = 11;
   if (!this->_internal_falconsignature().empty()) {
-    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
-      this->_internal_falconsignature().data(), static_cast<int>(this->_internal_falconsignature().length()),
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
-      "atomic.AtomicSwapProto.falconSignature");
-    target = stream->WriteStringMaybeAliased(
+    target = stream->WriteBytesMaybeAliased(
         11, this->_internal_falconsignature(), target);
   }
 
-  // string dilithiumSignature = 12;
+  // bytes dilithiumSignature = 12;
   if (!this->_internal_dilithiumsignature().empty()) {
-    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
-      this->_internal_dilithiumsignature().data(), static_cast<int>(this->_internal_dilithiumsignature().length()),
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
-      "atomic.AtomicSwapProto.dilithiumSignature");
-    target = stream->WriteStringMaybeAliased(
+    target = stream->WriteBytesMaybeAliased(
         12, this->_internal_dilithiumsignature(), target);
   }
 
@@ -606,24 +591,24 @@ size_t AtomicSwapProto::ByteSizeLong() const {
         this->_internal_secret());
   }
 
-  // string zkProof = 10;
+  // bytes zkProof = 10;
   if (!this->_internal_zkproof().empty()) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::BytesSize(
         this->_internal_zkproof());
   }
 
-  // string falconSignature = 11;
+  // bytes falconSignature = 11;
   if (!this->_internal_falconsignature().empty()) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::BytesSize(
         this->_internal_falconsignature());
   }
 
-  // string dilithiumSignature = 12;
+  // bytes dilithiumSignature = 12;
   if (!this->_internal_dilithiumsignature().empty()) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::BytesSize(
         this->_internal_dilithiumsignature());
   }
 

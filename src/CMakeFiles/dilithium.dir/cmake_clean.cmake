@@ -1,4 +1,6 @@
 file(REMOVE_RECURSE
+  "CMakeFiles/dilithium.dir/crypto/dilithium/api.c.o"
+  "CMakeFiles/dilithium.dir/crypto/dilithium/api.c.o.d"
   "CMakeFiles/dilithium.dir/crypto/dilithium/fips202.c.o"
   "CMakeFiles/dilithium.dir/crypto/dilithium/fips202.c.o.d"
   "CMakeFiles/dilithium.dir/crypto/dilithium/ntt.c.o"

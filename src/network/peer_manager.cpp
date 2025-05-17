@@ -16,8 +16,25 @@ bool PeerManager::connectToPeer(const std::string& peer_id) {
         return false;
     }
 
-    connected_peers.push_back(peer_id);
+    // Check if already tracked
+    if (std::find(connected_peers.begin(), connected_peers.end(), peer_id) == connected_peers.end()) {
+        connected_peers.push_back(peer_id);
+    }
+
     std::cout << "✅ Connected to peer: " << peer_id << std::endl;
+
+    // ⛓️ If not already connected at socket level, ask Network to connect
+    if (network && !network->sendData(peer_id, "PING")) {
+        std::cout << "🔁 [PeerManager] Forcing reconnection to: " << peer_id << std::endl;
+
+        size_t pos = peer_id.find(":");
+        if (pos != std::string::npos) {
+            std::string ip = peer_id.substr(0, pos);
+            int port = std::stoi(peer_id.substr(pos + 1));
+            network->connectToNode(ip, port);
+        }
+    }
+
     return true;
 }
 

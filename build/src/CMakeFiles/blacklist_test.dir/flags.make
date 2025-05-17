@@ -6,5 +6,5 @@ CXX_DEFINES = -DBLAKE3_NO_AVX512 -DUSE_AVX2 -DUSE_SSE4_1
 
 CXX_INCLUDES = -I/root/AlynCoin/src -I/root/AlynCoin/src/zk -I/root/AlynCoin/src/rollup -I/root/AlynCoin/src/rollup/proofs -I/root/AlynCoin/src/rollup/circuits -I/root/AlynCoin/src/explorer -I/root/AlynCoin/build/generated -I/root/AlynCoin/deps/Crow/include -I/usr/include/jsoncpp -I/usr/include/rocksdb -I/root/AlynCoin/src/crypto/falcon/PQClean/Falcon-1024/clean -I/root/AlynCoin/src/crypto/falcon/PQClean/common -I/root/AlynCoin/src/crypto/dilithium -I/root/AlynCoin/src/crypto/dilithium/ref -I/root/AlynCoin/src/atomic_swaps -I/root/AlynCoin/src/identity -I/root/AlynCoin/src/self_healing -I/root/AlynCoin/src/utils -I/root/AlynCoin/src/network -I/root/AlynCoin/src/crypto/falcon/PQClean/common/keccak2x -I/root/AlynCoin/src/crypto/falcon/PQClean/common/keccak4x
 
-CXX_FLAGS = -std=gnu++17 -DPQCLEAN_FALCON1024_CLEAN_NAMESPACE=PQCLEAN_FALCON1024_CLEAN_ -DSHAKE256_NAMESPACE=PQCLEAN_FALCON1024_CLEAN_
+CXX_FLAGS = -std=gnu++17 -DPQCLEAN_FALCON1024_CLEAN_NAMESPACE=PQCLEAN_FALCON1024_CLEAN_ -DSHAKE256_NAMESPACE=PQCLEAN_FALCON1024_CLEAN_ -DPQCLEAN_DILITHIUM2_CLEAN_NAMESPACE=PQCLEAN_DILITHIUM2_CLEAN_
 

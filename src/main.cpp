@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
         } else if (arg == "--dbpath" && i + 1 < argc) {
             dbPath = argv[++i];
             std::cout << "📁 Using custom DB path: " << dbPath << std::endl;
-        } else if (arg == "--connect" && i + 1 < argc) {
+        } else if ((arg == "--connect" || arg == "--peer") && i + 1 < argc) {
             connectIP = argv[++i];
             std::cout << "🔗 Will connect to peer: " << connectIP << std::endl;
         } else if (arg == "--keypath" && i + 1 < argc) {
@@ -51,22 +51,32 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // ✅ Fix: Use node-specific blacklist directory
     std::string blacklistPath = dbPath + "/blacklist";
     std::filesystem::create_directories(blacklistPath);
 
     Blockchain &blockchain = Blockchain::getInstance(port, dbPath, false);
-    PeerBlacklist blacklist(blacklistPath, 3);
-    Network &network = Network::getInstance(port, &blockchain, &blacklist);
+
+    std::unique_ptr<PeerBlacklist> peerBlacklistPtr;
+    try {
+        peerBlacklistPtr = std::make_unique<PeerBlacklist>(blacklistPath, 3);
+    } catch (const std::exception& e) {
+        std::cerr << "❌ Failed to init PeerBlacklist: " << e.what() << "\n";
+        peerBlacklistPtr = nullptr;
+    }
+
+    Network* network = nullptr;
+    if (peerBlacklistPtr) {
+        network = &Network::getInstance(port, &blockchain, peerBlacklistPtr.get());
+    } else {
+        std::cerr << "⚠️ Network disabled due to PeerBlacklist failure.\n";
+    }
 
     blockchain.loadFromDB();
     blockchain.reloadBlockchainState();
 
-    // ✅ Full duplex peer connection logic
-    if (!connectIP.empty()) {
+    if (network && !connectIP.empty()) {
         std::string ip;
         short connectPort;
-
         if (connectIP.find(":") != std::string::npos) {
             size_t colon = connectIP.find(":");
             ip = connectIP.substr(0, colon);
@@ -76,15 +86,17 @@ int main(int argc, char *argv[]) {
             connectPort = 8333;
         }
 
-        network.connectToPeer(ip, connectPort);
+        network->connectToPeer(ip, connectPort);
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
-        network.connectToPeer("127.0.0.1", port);
+        network->connectToPeer("127.0.0.1", port);
     }
 
-    network.syncWithPeers();
+    if (network) {
+        network->syncWithPeers();
+    }
     std::this_thread::sleep_for(std::chrono::seconds(2));
 
-    PeerManager *peerManager = network.getPeerManager();
+    PeerManager *peerManager = network ? network->getPeerManager() : nullptr;
     SelfHealingNode healer(&blockchain, peerManager);
 
     std::thread autoHealThread([&]() {
@@ -143,7 +155,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 blockchain.addTransaction(tx);
-                network.broadcastTransaction(tx);
+                if (network) network->broadcastTransaction(tx);
                 std::cout << "✅ Transaction added and broadcasted.\n";
                 break;
             }
@@ -155,7 +167,7 @@ int main(int argc, char *argv[]) {
                 if (!mined.getHash().empty()) {
                     blockchain.saveToDB();
                     blockchain.savePendingTransactionsToDB();
-                    network.broadcastBlock(mined);
+                    if (network) network->broadcastBlock(mined);
                     blockchain.reloadBlockchainState();
                     std::cout << "✅ Block mined and broadcasted.\n";
                 }
@@ -173,7 +185,7 @@ int main(int argc, char *argv[]) {
                 break;
 
             case 5:
-                network.intelligentSync();
+                if (network) network->intelligentSync();
                 break;
 
             case 6:
@@ -197,4 +209,3 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
-

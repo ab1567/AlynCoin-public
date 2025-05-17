@@ -1488,8 +1488,9 @@ std::cout << "[DEBUG] Pending tx count: " << pendingTransactions.size() << std::
 Block Blockchain::mineBlock(const std::string &minerAddress) {
     std::cout << "[DEBUG] Entered mineBlock() for: " << minerAddress << "\n";
 
-    std::string dilithiumKeyPath = "/root/.alyncoin/keys/" + minerAddress + "_dilithium.key";
-    std::string falconKeyPath    = "/root/.alyncoin/keys/" + minerAddress + "_falcon.key";
+	std::string dilithiumKeyPath = DBPaths::getKeyDir() + minerAddress + "_dilithium.key";
+	std::string falconKeyPath    = DBPaths::getKeyDir() + minerAddress + "_falcon.key";
+
 
     if (!Crypto::fileExists(dilithiumKeyPath) || !Crypto::fileExists(falconKeyPath)) {
         std::cerr << "❌ Miner key(s) not found for address: " << minerAddress << "\n";
@@ -1782,7 +1783,6 @@ void Blockchain::loadPendingTransactionsFromDB() {
     }
     std::cout << "✅ Transactions loaded successfully! Pending count: " << pendingTransactions.size() << "\n";
 }
-
 //
 void Blockchain::savePendingTransactionsToDB() {
     if (!db) {
@@ -2341,21 +2341,20 @@ bool Blockchain::isL2Transaction(const Transaction& tx) const {
 }
 //
 void Blockchain::setPendingL2TransactionsIfNotInRollups(const std::vector<Transaction>& allTxs) {
+    std::unordered_set<std::string> alreadyRolled;
+
+    for (const auto& rollup : rollupChain) {
+        for (const auto& includedTx : rollup.getTransactions()) {
+            alreadyRolled.insert(includedTx.getHash());
+        }
+    }
+
+    // ✅ Reset pendingTransactions to only unrolled L2 txs
+    pendingTransactions.clear();
+
     for (const auto& tx : allTxs) {
-        if (isL2Transaction(tx)) {
-            bool alreadyIncluded = false;
-            for (const auto& rollup : rollupChain) {
-                for (const auto& includedTx : rollup.getTransactions()) {
-                    if (includedTx.getHash() == tx.getHash()) {
-                        alreadyIncluded = true;
-                        break;
-                    }
-                }
-                if (alreadyIncluded) break;
-            }
-            if (!alreadyIncluded) {
-                pendingTransactions.push_back(tx);
-            }
+        if (isL2Transaction(tx) && !alreadyRolled.count(tx.getHash())) {
+            pendingTransactions.push_back(tx);
         }
     }
 }
@@ -2399,7 +2398,7 @@ bool Blockchain::rollbackToHeight(int height) {
 
 //
 std::string DBPaths::getKeyPath(const std::string &address) {
-    return "/root/.alyncoin/keys/" + address + "_combined.key";
+    return DBPaths::getKeyDir() + address + "_combined.key";
 }
 
 //

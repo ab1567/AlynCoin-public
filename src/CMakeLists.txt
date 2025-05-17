@@ -250,7 +250,7 @@ target_compile_options(falcon PUBLIC
 )
 
 # --------------------------
-# Dilithium Static Library
+# === Dilithium Static Library ===
 file(GLOB DILITHIUM_SOURCES
     ${SOURCE_DIR}/crypto/dilithium/*.c
     ${SOURCE_DIR}/crypto/dilithium/ref/*.c
@@ -259,15 +259,31 @@ file(GLOB DILITHIUM_SOURCES
 add_library(dilithium STATIC ${DILITHIUM_SOURCES})
 target_include_directories(dilithium PUBLIC ${SOURCE_DIR}/crypto/dilithium/ref)
 
-# --------------------------
-# Build AlynCoin Core Library
-add_library(alyncoin_lib STATIC
-    ${SOURCES}
-    ${BLAKE3_SOURCES}
-    ${PROTO_SRCS}
+target_compile_options(dilithium PUBLIC
+    -DPQCLEAN_DILITHIUM2_CLEAN_NAMESPACE=PQCLEAN_DILITHIUM2_CLEAN_
 )
 
-add_dependencies(alyncoin_lib protobuf_gen winterfell_ffi)
+# --------------------------
+# Build AlynCoin Core Library
+if(NOT SKIP_PROTOBUF_GEN)
+    add_library(alyncoin_lib STATIC
+        ${SOURCES}
+        ${BLAKE3_SOURCES}
+        ${PROTO_SRCS}
+    )
+else()
+    add_library(alyncoin_lib STATIC
+        ${SOURCES}
+        ${BLAKE3_SOURCES}
+    )
+endif()
+
+if(NOT SKIP_PROTOBUF_GEN)
+    add_dependencies(alyncoin_lib protobuf_gen)
+endif()
+
+add_dependencies(alyncoin_lib winterfell_ffi)
+
 
 set_source_files_properties(
     ${SOURCE_DIR}/blake3_sse2.c
@@ -301,9 +317,9 @@ add_executable(alyncoin-cli
 )
 add_executable(peer_blacklist_cli ${SOURCE_DIR}/cli/peer_blacklist_cli.cpp)
 
-add_dependencies(alyncoin protobuf_gen winterfell_ffi)
-add_dependencies(alyncoin-cli protobuf_gen winterfell_ffi)
-add_dependencies(peer_blacklist_cli protobuf_gen winterfell_ffi)
+add_dependencies(alyncoin winterfell_ffi)
+add_dependencies(alyncoin-cli winterfell_ffi)
+add_dependencies(peer_blacklist_cli winterfell_ffi)
 
 target_link_libraries(alyncoin alyncoin_lib pthread m dl)
 target_link_libraries(alyncoin-cli alyncoin_lib pthread m dl)
@@ -325,7 +341,7 @@ add_executable(swapcli
     ${SOURCE_DIR}/atomic_swaps/proto_utils.cpp
 )
 
-add_dependencies(swapcli protobuf_gen winterfell_ffi)
+add_dependencies(swapcli winterfell_ffi)
 
 target_link_libraries(swapcli
     alyncoin_lib
@@ -349,7 +365,7 @@ add_executable(identitycli
     ${SOURCE_DIR}/identity/proto_utils.cpp
 )
 
-add_dependencies(identitycli protobuf_gen winterfell_ffi)
+add_dependencies(identitycli winterfell_ffi)
 
 target_link_libraries(identitycli
     alyncoin_lib
@@ -368,7 +384,7 @@ target_link_libraries(identitycli
 # Optional Test Executable
 add_executable(blacklist_test ${SOURCE_DIR}/node/main_blacklist_test.cpp)
 
-add_dependencies(blacklist_test protobuf_gen winterfell_ffi)
+add_dependencies(blacklist_test winterfell_ffi)
 
 target_link_libraries(blacklist_test
     alyncoin_lib
@@ -383,7 +399,7 @@ target_link_libraries(blacklist_test
 # Blockchain Explorer Executable
 add_executable(explorer_server ${EXPLORER_SOURCES})
 
-add_dependencies(explorer_server protobuf_gen winterfell_ffi)
+add_dependencies(explorer_server winterfell_ffi)
 target_include_directories(explorer_server PRIVATE ${SOURCE_DIR}/explorer ${CMAKE_SOURCE_DIR}/deps/Crow/include)
 
 target_link_libraries(explorer_server

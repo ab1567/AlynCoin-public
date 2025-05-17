@@ -289,13 +289,13 @@ src/CMakeFiles/alyncoin_lib.dir/syncing.cpp.o: \
  /usr/include/openssl/pkcs7err.h /usr/include/openssl/http.h \
  /usr/include/openssl/conf.h /usr/include/openssl/conferr.h \
  /usr/include/openssl/conftypes.h /usr/include/openssl/pemerr.h \
+ /usr/include/c++/13/optional /root/AlynCoin/src/db/db_paths.h \
  /root/AlynCoin/src/crypto_protos.pb.h /root/AlynCoin/src/transaction.h \
  /root/AlynCoin/src/zk/../network/peer_blacklist.h \
  /usr/include/rocksdb/db.h \
  /usr/include/rocksdb/block_cache_trace_writer.h \
- /usr/include/rocksdb/options.h /usr/include/c++/13/optional \
- /usr/include/rocksdb/advanced_options.h /usr/include/rocksdb/cache.h \
- /usr/include/rocksdb/compression_type.h \
+ /usr/include/rocksdb/options.h /usr/include/rocksdb/advanced_options.h \
+ /usr/include/rocksdb/cache.h /usr/include/rocksdb/compression_type.h \
  /usr/include/rocksdb/rocksdb_namespace.h \
  /usr/include/rocksdb/data_structure.h \
  /usr/include/rocksdb/memory_allocator.h \
@@ -339,8 +339,7 @@ src/CMakeFiles/alyncoin_lib.dir/syncing.cpp.o: \
  /usr/include/jsoncpp/json/writer.h \
  /root/AlynCoin/src/zk/winterfell_stark.h \
  /root/AlynCoin/src/zk/../nft/nft.h /root/AlynCoin/src/generated/nft.pb.h \
- /usr/include/jsoncpp/json/json.h /root/AlynCoin/src/network.h \
- /root/AlynCoin/src/blockchain.h \
+ /root/AlynCoin/src/network.h /root/AlynCoin/src/blockchain.h \
  /root/AlynCoin/src/layer2/state_channel.h \
  /root/AlynCoin/src/rollup/rollup_block.h \
  /root/AlynCoin/src/rollup/../transaction.h /usr/include/boost/asio.hpp \
@@ -1352,8 +1351,7 @@ src/CMakeFiles/alyncoin_lib.dir/syncing.cpp.o: \
  /usr/include/boost/asio/windows/stream_handle.hpp \
  /usr/include/boost/asio/writable_pipe.hpp \
  /usr/include/boost/asio/write_at.hpp \
- /usr/include/boost/asio/impl/write_at.hpp \
- /root/AlynCoin/src/db/db_paths.h /usr/include/c++/13/thread \
+ /usr/include/boost/asio/impl/write_at.hpp /usr/include/c++/13/thread \
  /usr/include/c++/13/bits/this_thread_sleep.h \
  /root/AlynCoin/src/network/peer_manager.h \
  /root/AlynCoin/src/network/peer_blacklist.h /root/AlynCoin/src/block.h

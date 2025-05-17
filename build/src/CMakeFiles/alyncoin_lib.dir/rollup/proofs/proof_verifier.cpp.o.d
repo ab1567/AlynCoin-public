@@ -336,4 +336,5 @@ src/CMakeFiles/alyncoin_lib.dir/rollup/proofs/proof_verifier.cpp.o: \
  /usr/include/openssl/x509_vfy.h /usr/include/openssl/pkcs7.h \
  /usr/include/openssl/pkcs7err.h /usr/include/openssl/http.h \
  /usr/include/openssl/conf.h /usr/include/openssl/conferr.h \
- /usr/include/openssl/conftypes.h /usr/include/openssl/pemerr.h
+ /usr/include/openssl/conftypes.h /usr/include/openssl/pemerr.h \
+ /root/AlynCoin/src/db/db_paths.h

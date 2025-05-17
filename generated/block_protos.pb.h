@@ -179,6 +179,7 @@ class BlockProto final :
 
   enum : int {
     kTransactionsFieldNumber = 3,
+    kL2TransactionsFieldNumber = 19,
     kPreviousHashFieldNumber = 2,
     kHashFieldNumber = 4,
     kMinerAddressFieldNumber = 5,
@@ -214,6 +215,24 @@ class BlockProto final :
   ::alyncoin::TransactionProto* add_transactions();
   const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::TransactionProto >&
       transactions() const;
+
+  // repeated .alyncoin.TransactionProto l2_transactions = 19;
+  int l2_transactions_size() const;
+  private:
+  int _internal_l2_transactions_size() const;
+  public:
+  void clear_l2_transactions();
+  ::alyncoin::TransactionProto* mutable_l2_transactions(int index);
+  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::TransactionProto >*
+      mutable_l2_transactions();
+  private:
+  const ::alyncoin::TransactionProto& _internal_l2_transactions(int index) const;
+  ::alyncoin::TransactionProto* _internal_add_l2_transactions();
+  public:
+  const ::alyncoin::TransactionProto& l2_transactions(int index) const;
+  ::alyncoin::TransactionProto* add_l2_transactions();
+  const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::TransactionProto >&
+      l2_transactions() const;
 
   // string previous_hash = 2;
   void clear_previous_hash();
@@ -257,7 +276,7 @@ class BlockProto final :
   std::string* _internal_mutable_miner_address();
   public:
 
-  // string block_signature = 9;
+  // bytes block_signature = 9;
   void clear_block_signature();
   const std::string& block_signature() const;
   template <typename ArgT0 = const std::string&, typename... ArgT>
@@ -443,6 +462,7 @@ class BlockProto final :
     ::PROTOBUF_NAMESPACE_ID::internal::HasBits<1> _has_bits_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
     ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::TransactionProto > transactions_;
+    ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::TransactionProto > l2_transactions_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr previous_hash_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr hash_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr miner_address_;
@@ -742,7 +762,7 @@ inline void BlockProto::set_difficulty(int32_t value) {
   // @@protoc_insertion_point(field_set:alyncoin.BlockProto.difficulty)
 }
 
-// string block_signature = 9;
+// bytes block_signature = 9;
 inline void BlockProto::clear_block_signature() {
   _impl_.block_signature_.ClearToEmpty();
 }
@@ -754,7 +774,7 @@ template <typename ArgT0, typename... ArgT>
 inline PROTOBUF_ALWAYS_INLINE
 void BlockProto::set_block_signature(ArgT0&& arg0, ArgT... args) {
  
- _impl_.block_signature_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+ _impl_.block_signature_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
   // @@protoc_insertion_point(field_set:alyncoin.BlockProto.block_signature)
 }
 inline std::string* BlockProto::mutable_block_signature() {
@@ -1218,6 +1238,43 @@ inline void BlockProto::_internal_set_reward(double value) {
 inline void BlockProto::set_reward(double value) {
   _internal_set_reward(value);
   // @@protoc_insertion_point(field_set:alyncoin.BlockProto.reward)
+}
+
+// repeated .alyncoin.TransactionProto l2_transactions = 19;
+inline int BlockProto::_internal_l2_transactions_size() const {
+  return _impl_.l2_transactions_.size();
+}
+inline int BlockProto::l2_transactions_size() const {
+  return _internal_l2_transactions_size();
+}
+inline ::alyncoin::TransactionProto* BlockProto::mutable_l2_transactions(int index) {
+  // @@protoc_insertion_point(field_mutable:alyncoin.BlockProto.l2_transactions)
+  return _impl_.l2_transactions_.Mutable(index);
+}
+inline ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::TransactionProto >*
+BlockProto::mutable_l2_transactions() {
+  // @@protoc_insertion_point(field_mutable_list:alyncoin.BlockProto.l2_transactions)
+  return &_impl_.l2_transactions_;
+}
+inline const ::alyncoin::TransactionProto& BlockProto::_internal_l2_transactions(int index) const {
+  return _impl_.l2_transactions_.Get(index);
+}
+inline const ::alyncoin::TransactionProto& BlockProto::l2_transactions(int index) const {
+  // @@protoc_insertion_point(field_get:alyncoin.BlockProto.l2_transactions)
+  return _internal_l2_transactions(index);
+}
+inline ::alyncoin::TransactionProto* BlockProto::_internal_add_l2_transactions() {
+  return _impl_.l2_transactions_.Add();
+}
+inline ::alyncoin::TransactionProto* BlockProto::add_l2_transactions() {
+  ::alyncoin::TransactionProto* _add = _internal_add_l2_transactions();
+  // @@protoc_insertion_point(field_add:alyncoin.BlockProto.l2_transactions)
+  return _add;
+}
+inline const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::TransactionProto >&
+BlockProto::l2_transactions() const {
+  // @@protoc_insertion_point(field_list:alyncoin.BlockProto.l2_transactions)
+  return _impl_.l2_transactions_;
 }
 
 #ifdef __GNUC__

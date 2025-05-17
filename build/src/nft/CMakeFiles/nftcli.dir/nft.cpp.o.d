@@ -281,7 +281,7 @@ src/nft/CMakeFiles/nftcli.dir/nft.cpp.o: /root/AlynCoin/src/nft/nft.cpp \
  /usr/include/openssl/pkcs7err.h /usr/include/openssl/http.h \
  /usr/include/openssl/conf.h /usr/include/openssl/conferr.h \
  /usr/include/openssl/conftypes.h /usr/include/openssl/pemerr.h \
- /usr/include/c++/13/optional \
+ /usr/include/c++/13/optional /root/AlynCoin/src/../src/db/db_paths.h \
  /root/AlynCoin/src/nft/../zk/winterfell_stark.h \
  /root/AlynCoin/src/nft/../zk/../nft/nft.h \
  /root/AlynCoin/src/../src/blockchain.h \
@@ -1353,7 +1353,6 @@ src/nft/CMakeFiles/nftcli.dir/nft.cpp.o: /root/AlynCoin/src/nft/nft.cpp \
  /usr/include/boost/asio/writable_pipe.hpp \
  /usr/include/boost/asio/write_at.hpp \
  /usr/include/boost/asio/impl/write_at.hpp \
- /root/AlynCoin/src/../src/db/db_paths.h \
  /usr/local/include/nlohmann/json.hpp /usr/include/c++/13/forward_list \
  /usr/include/c++/13/bits/forward_list.h \
  /usr/include/c++/13/bits/forward_list.tcc /usr/include/c++/13/valarray \

@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstring>
 #include "blake3.h"
+#include "db/db_paths.h"
 
 // FFI-compatible struct from Rust
 extern "C" {
@@ -77,7 +78,7 @@ std::string generateRecursiveProofToFile(
     std::string proofDataHex = toHex(result.data, result.len);
 
     std::string filename = customOutFile.empty()
-        ? "/root/.alyncoin/recursive_proof_" + address + "_last" + std::to_string(txCount) + ".json"
+           ? DBPaths::getHomePath() + "/.alyncoin/recursive_proof_" + address + "_last" + std::to_string(txCount) + ".json"
         : customOutFile;
 
     std::ofstream out(filename);

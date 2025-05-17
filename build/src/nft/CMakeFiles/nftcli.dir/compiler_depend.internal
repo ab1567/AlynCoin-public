@@ -1558,9 +1558,9 @@ src/nft/CMakeFiles/nftcli.dir/nft.cpp.o
 src/nft/CMakeFiles/nftcli.dir/nft_cli.cpp.o
  /root/AlynCoin/src/nft/nft_cli.cpp
  /root/AlynCoin/src/crypto_utils.h
+ /root/AlynCoin/src/db/db_paths.h
  /root/AlynCoin/src/generated/nft.pb.h
  /root/AlynCoin/src/db/db_instance.h
- /root/AlynCoin/src/db/db_paths.h
  /root/AlynCoin/src/db/rocksdb_wrapper.h
  /root/AlynCoin/src/nft/nft.h
  /root/AlynCoin/src/nft/nft_storage.h

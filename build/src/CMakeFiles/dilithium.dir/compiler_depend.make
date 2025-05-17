@@ -12,8 +12,6 @@ src/CMakeFiles/dilithium.dir/crypto/dilithium/api.c.o: /root/AlynCoin/src/crypto
   /usr/include/features.h \
   /usr/include/stdc-predef.h \
   /usr/include/stdint.h \
-  /usr/include/string.h \
-  /usr/include/strings.h \
   /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
   /usr/include/x86_64-linux-gnu/bits/long-double.h \
   /usr/include/x86_64-linux-gnu/bits/stdint-intn.h \
@@ -22,8 +20,6 @@ src/CMakeFiles/dilithium.dir/crypto/dilithium/api.c.o: /root/AlynCoin/src/crypto
   /usr/include/x86_64-linux-gnu/bits/time64.h \
   /usr/include/x86_64-linux-gnu/bits/timesize.h \
   /usr/include/x86_64-linux-gnu/bits/types.h \
-  /usr/include/x86_64-linux-gnu/bits/types/__locale_t.h \
-  /usr/include/x86_64-linux-gnu/bits/types/locale_t.h \
   /usr/include/x86_64-linux-gnu/bits/typesizes.h \
   /usr/include/x86_64-linux-gnu/bits/wchar.h \
   /usr/include/x86_64-linux-gnu/bits/wordsize.h \
@@ -372,27 +368,21 @@ src/CMakeFiles/dilithium.dir/crypto/dilithium/symmetric-shake.c.o: /root/AlynCoi
 
 /usr/include/x86_64-linux-gnu/bits/select.h:
 
+/usr/include/x86_64-linux-gnu/bits/getopt_posix.h:
+
 /root/AlynCoin/src/crypto/dilithium/rounding.c:
 
 /usr/include/x86_64-linux-gnu/bits/fcntl-linux.h:
 
-/usr/include/x86_64-linux-gnu/bits/errno.h:
+/usr/include/x86_64-linux-gnu/bits/wordsize.h:
 
-/usr/include/x86_64-linux-gnu/sys/select.h:
-
-/usr/include/x86_64-linux-gnu/bits/environments.h:
-
-/usr/include/x86_64-linux-gnu/bits/endianness.h:
+/usr/include/stdlib.h:
 
 /usr/include/x86_64-linux-gnu/bits/types/timer_t.h:
 
 /usr/include/endian.h:
 
-/usr/include/x86_64-linux-gnu/bits/wordsize.h:
-
-/usr/include/x86_64-linux-gnu/bits/types/locale_t.h:
-
-/usr/include/stdlib.h:
+/usr/include/x86_64-linux-gnu/bits/endianness.h:
 
 /usr/include/x86_64-linux-gnu/bits/types/struct_timeval.h:
 
@@ -402,9 +392,13 @@ src/CMakeFiles/dilithium.dir/crypto/dilithium/symmetric-shake.c.o: /root/AlynCoi
 
 /root/AlynCoin/src/crypto/dilithium/poly.c:
 
+/usr/include/x86_64-linux-gnu/bits/errno.h:
+
 /usr/include/x86_64-linux-gnu/bits/types/sigset_t.h:
 
 /usr/include/x86_64-linux-gnu/bits/time64.h:
+
+/usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h:
 
 /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h:
 
@@ -412,11 +406,11 @@ src/CMakeFiles/dilithium.dir/crypto/dilithium/symmetric-shake.c.o: /root/AlynCoi
 
 /usr/include/x86_64-linux-gnu/gnu/stubs-64.h:
 
-/usr/include/x86_64-linux-gnu/bits/endian.h:
-
-/usr/include/string.h:
-
 /usr/include/x86_64-linux-gnu/bits/stdint-least.h:
+
+/root/AlynCoin/src/crypto/dilithium/sign.c:
+
+/root/AlynCoin/src/crypto/dilithium/fips202.h:
 
 /usr/include/x86_64-linux-gnu/gnu/stubs.h:
 
@@ -430,21 +424,17 @@ src/CMakeFiles/dilithium.dir/crypto/dilithium/symmetric-shake.c.o: /root/AlynCoi
 
 /usr/include/stdint.h:
 
-/root/AlynCoin/src/crypto/dilithium/config.h:
+/usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h:
 
 /usr/include/x86_64-linux-gnu/bits/stdint-intn.h:
-
-/usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h:
 
 /usr/include/x86_64-linux-gnu/bits/fcntl.h:
 
 /usr/include/linux/errno.h:
 
+/root/AlynCoin/src/crypto/dilithium/config.h:
+
 /root/AlynCoin/src/crypto/dilithium/params.h:
-
-/usr/include/x86_64-linux-gnu/bits/getopt_posix.h:
-
-/usr/include/x86_64-linux-gnu/bits/types/__locale_t.h:
 
 /root/AlynCoin/src/crypto/dilithium/poly.h:
 
@@ -486,14 +476,6 @@ src/CMakeFiles/dilithium.dir/crypto/dilithium/symmetric-shake.c.o: /root/AlynCoi
 
 /root/AlynCoin/src/crypto/dilithium/randombytes.h:
 
-/usr/include/strings.h:
-
-/usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h:
-
-/root/AlynCoin/src/crypto/dilithium/sign.c:
-
-/root/AlynCoin/src/crypto/dilithium/fips202.h:
-
 /usr/include/x86_64-linux-gnu/bits/types/clock_t.h:
 
 /root/AlynCoin/src/crypto/dilithium/fips202.c:
@@ -524,11 +506,17 @@ src/CMakeFiles/dilithium.dir/crypto/dilithium/symmetric-shake.c.o: /root/AlynCoi
 
 /usr/include/x86_64-linux-gnu/asm/errno.h:
 
+/usr/include/x86_64-linux-gnu/bits/endian.h:
+
 /usr/include/x86_64-linux-gnu/bits/stat.h:
 
 /usr/include/x86_64-linux-gnu/bits/types.h:
 
 /usr/include/x86_64-linux-gnu/bits/atomic_wide_counter.h:
+
+/usr/include/x86_64-linux-gnu/sys/select.h:
+
+/usr/include/x86_64-linux-gnu/bits/environments.h:
 
 /usr/include/x86_64-linux-gnu/bits/types/__sigset_t.h:
 

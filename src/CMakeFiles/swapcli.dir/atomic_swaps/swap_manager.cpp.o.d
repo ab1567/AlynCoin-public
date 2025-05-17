@@ -1,7 +1,8 @@
 src/CMakeFiles/swapcli.dir/atomic_swaps/swap_manager.cpp.o: \
  /root/AlynCoin/src/atomic_swaps/swap_manager.cpp \
  /usr/include/stdc-predef.h /root/AlynCoin/src/atomic_swaps/proto_utils.h \
- /root/AlynCoin/generated/atomic_swap.pb.h /usr/include/c++/13/limits \
+ /root/AlynCoin/src/atomic_swaps/atomic_swap.h /usr/include/c++/13/string \
+ /usr/include/c++/13/bits/requires_hosted.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/os_defines.h \
  /usr/include/features.h /usr/include/features-time64.h \
@@ -12,8 +13,7 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/swap_manager.cpp.o: \
  /usr/include/x86_64-linux-gnu/gnu/stubs.h \
  /usr/include/x86_64-linux-gnu/gnu/stubs-64.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/cpu_defines.h \
- /usr/include/c++/13/pstl/pstl_config.h /usr/include/c++/13/string \
- /usr/include/c++/13/bits/requires_hosted.h \
+ /usr/include/c++/13/pstl/pstl_config.h \
  /usr/include/c++/13/bits/stringfwd.h \
  /usr/include/c++/13/bits/memoryfwd.h \
  /usr/include/c++/13/bits/char_traits.h \
@@ -116,51 +116,31 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/swap_manager.cpp.o: \
  /usr/include/c++/13/bits/memory_resource.h /usr/include/c++/13/cstddef \
  /usr/include/c++/13/bits/uses_allocator.h \
  /usr/include/c++/13/bits/uses_allocator_args.h /usr/include/c++/13/tuple \
- /usr/include/google/protobuf/port_def.inc \
- /usr/include/google/protobuf/port_undef.inc \
- /usr/include/google/protobuf/io/coded_stream.h /usr/include/assert.h \
- /usr/include/c++/13/atomic /usr/include/c++/13/bits/atomic_base.h \
- /usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h /usr/include/stdint.h \
- /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
- /usr/include/x86_64-linux-gnu/bits/stdint-least.h \
- /usr/include/c++/13/bits/atomic_lockfree_defines.h \
- /usr/include/c++/13/climits \
- /usr/lib/gcc/x86_64-linux-gnu/13/include/limits.h \
- /usr/lib/gcc/x86_64-linux-gnu/13/include/syslimits.h \
- /usr/include/limits.h /usr/include/x86_64-linux-gnu/bits/posix1_lim.h \
- /usr/include/x86_64-linux-gnu/bits/local_lim.h \
- /usr/include/linux/limits.h \
- /usr/include/x86_64-linux-gnu/bits/pthread_stack_min-dynamic.h \
- /usr/include/x86_64-linux-gnu/bits/posix2_lim.h \
- /usr/include/x86_64-linux-gnu/bits/xopen_lim.h \
- /usr/include/x86_64-linux-gnu/bits/uio_lim.h /usr/include/c++/13/cstring \
- /usr/include/string.h /usr/include/strings.h /usr/include/c++/13/utility \
- /usr/include/c++/13/bits/stl_relops.h \
- /usr/include/google/protobuf/stubs/common.h \
- /usr/include/c++/13/algorithm /usr/include/c++/13/bits/stl_algo.h \
- /usr/include/c++/13/bits/algorithmfwd.h \
- /usr/include/c++/13/bits/stl_heap.h \
- /usr/include/c++/13/bits/uniform_int_dist.h \
- /usr/include/c++/13/bits/stl_tempbuf.h \
- /usr/include/c++/13/pstl/glue_algorithm_defs.h \
- /usr/include/c++/13/pstl/execution_defs.h /usr/include/c++/13/iostream \
- /usr/include/c++/13/ostream /usr/include/c++/13/ios \
- /usr/include/c++/13/exception /usr/include/c++/13/bits/exception_ptr.h \
+ /usr/include/c++/13/optional /usr/include/c++/13/exception \
+ /usr/include/c++/13/bits/exception_ptr.h \
  /usr/include/c++/13/bits/cxxabi_init_exception.h \
  /usr/include/c++/13/typeinfo /usr/include/c++/13/bits/nested_exception.h \
+ /usr/include/c++/13/bits/enable_special_members.h \
+ /usr/include/c++/13/ctime /usr/include/time.h \
+ /usr/include/x86_64-linux-gnu/bits/time.h \
+ /usr/include/x86_64-linux-gnu/bits/timex.h \
+ /usr/include/x86_64-linux-gnu/bits/types/struct_tm.h \
+ /usr/include/x86_64-linux-gnu/bits/types/struct_itimerspec.h \
+ /usr/include/c++/13/vector /usr/include/c++/13/bits/stl_uninitialized.h \
+ /usr/include/c++/13/bits/stl_vector.h \
+ /usr/include/c++/13/bits/stl_bvector.h \
+ /usr/include/c++/13/bits/vector.tcc /usr/include/c++/13/sstream \
+ /usr/include/c++/13/istream /usr/include/c++/13/ios \
  /usr/include/c++/13/bits/ios_base.h /usr/include/c++/13/ext/atomicity.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/gthr.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/gthr-default.h \
  /usr/include/pthread.h /usr/include/sched.h \
  /usr/include/x86_64-linux-gnu/bits/sched.h \
  /usr/include/x86_64-linux-gnu/bits/types/struct_sched_param.h \
- /usr/include/x86_64-linux-gnu/bits/cpu-set.h /usr/include/time.h \
- /usr/include/x86_64-linux-gnu/bits/time.h \
- /usr/include/x86_64-linux-gnu/bits/timex.h \
- /usr/include/x86_64-linux-gnu/bits/types/struct_tm.h \
- /usr/include/x86_64-linux-gnu/bits/types/struct_itimerspec.h \
+ /usr/include/x86_64-linux-gnu/bits/cpu-set.h \
  /usr/include/x86_64-linux-gnu/bits/setjmp.h \
  /usr/include/x86_64-linux-gnu/bits/types/struct___jmp_buf_tag.h \
+ /usr/include/x86_64-linux-gnu/bits/pthread_stack_min-dynamic.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/atomic_word.h \
  /usr/include/x86_64-linux-gnu/sys/single_threaded.h \
  /usr/include/c++/13/bits/locale_classes.h \
@@ -176,16 +156,61 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/swap_manager.cpp.o: \
  /usr/include/c++/13/bits/streambuf_iterator.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/ctype_inline.h \
  /usr/include/c++/13/bits/locale_facets.tcc \
- /usr/include/c++/13/bits/basic_ios.tcc \
- /usr/include/c++/13/bits/ostream.tcc /usr/include/c++/13/istream \
- /usr/include/c++/13/bits/istream.tcc /usr/include/c++/13/map \
+ /usr/include/c++/13/bits/basic_ios.tcc /usr/include/c++/13/ostream \
+ /usr/include/c++/13/bits/ostream.tcc \
+ /usr/include/c++/13/bits/istream.tcc \
+ /usr/include/c++/13/bits/sstream.tcc /usr/include/c++/13/cstdint \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h /usr/include/stdint.h \
+ /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
+ /usr/include/x86_64-linux-gnu/bits/stdint-least.h \
+ /root/AlynCoin/src/atomic_swaps/../crypto_utils.h \
+ /usr/include/openssl/err.h /usr/include/openssl/macros.h \
+ /usr/include/x86_64-linux-gnu/openssl/opensslconf.h \
+ /usr/include/x86_64-linux-gnu/openssl/configuration.h \
+ /usr/include/openssl/opensslv.h /usr/include/openssl/e_os2.h \
+ /usr/include/c++/13/stdlib.h /usr/include/openssl/types.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/limits.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/syslimits.h \
+ /usr/include/limits.h /usr/include/x86_64-linux-gnu/bits/posix1_lim.h \
+ /usr/include/x86_64-linux-gnu/bits/local_lim.h \
+ /usr/include/linux/limits.h \
+ /usr/include/x86_64-linux-gnu/bits/posix2_lim.h \
+ /usr/include/x86_64-linux-gnu/bits/xopen_lim.h \
+ /usr/include/x86_64-linux-gnu/bits/uio_lim.h \
+ /usr/include/openssl/safestack.h /usr/include/openssl/stack.h \
+ /usr/include/openssl/bio.h /usr/include/openssl/crypto.h \
+ /usr/include/openssl/cryptoerr.h /usr/include/openssl/symhacks.h \
+ /usr/include/openssl/cryptoerr_legacy.h /usr/include/openssl/core.h \
+ /usr/include/openssl/bioerr.h /usr/include/openssl/lhash.h \
+ /usr/include/openssl/evp.h /usr/include/openssl/core_dispatch.h \
+ /usr/include/openssl/evperr.h /usr/include/openssl/params.h \
+ /usr/include/openssl/bn.h /usr/include/openssl/bnerr.h \
+ /usr/include/openssl/objects.h /usr/include/openssl/obj_mac.h \
+ /usr/include/openssl/asn1.h /usr/include/openssl/asn1err.h \
+ /usr/include/openssl/objectserr.h /usr/include/openssl/pem.h \
+ /usr/include/openssl/x509.h /usr/include/openssl/buffer.h \
+ /usr/include/openssl/buffererr.h /usr/include/openssl/ec.h \
+ /usr/include/string.h /usr/include/strings.h \
+ /usr/include/openssl/ecerr.h /usr/include/openssl/rsa.h \
+ /usr/include/openssl/rsaerr.h /usr/include/openssl/dsa.h \
+ /usr/include/openssl/dh.h /usr/include/openssl/dherr.h \
+ /usr/include/openssl/dsaerr.h /usr/include/openssl/sha.h \
+ /usr/include/openssl/x509err.h /usr/include/openssl/x509_vfy.h \
+ /usr/include/openssl/pkcs7.h /usr/include/openssl/pkcs7err.h \
+ /usr/include/openssl/http.h /usr/include/openssl/conf.h \
+ /usr/include/openssl/conferr.h /usr/include/openssl/conftypes.h \
+ /usr/include/openssl/pemerr.h \
+ /root/AlynCoin/src/atomic_swaps/../db/db_paths.h \
+ /root/AlynCoin/src/atomic_swaps/swap_manager.h \
+ /root/AlynCoin/src/atomic_swaps/rocksdb_swap_store.h \
+ /usr/include/rocksdb/db.h /usr/include/c++/13/map \
  /usr/include/c++/13/bits/stl_tree.h \
  /usr/include/c++/13/ext/aligned_buffer.h \
  /usr/include/c++/13/bits/node_handle.h \
  /usr/include/c++/13/bits/stl_map.h \
  /usr/include/c++/13/bits/stl_multimap.h \
  /usr/include/c++/13/bits/erase_if.h /usr/include/c++/13/memory \
- /usr/include/c++/13/bits/stl_uninitialized.h \
+ /usr/include/c++/13/bits/stl_tempbuf.h \
  /usr/include/c++/13/bits/stl_raw_storage_iter.h \
  /usr/include/c++/13/bits/align.h /usr/include/c++/13/bits/unique_ptr.h \
  /usr/include/c++/13/bits/shared_ptr.h \
@@ -193,26 +218,80 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/swap_manager.cpp.o: \
  /usr/include/c++/13/bits/allocated_ptr.h \
  /usr/include/c++/13/ext/concurrence.h \
  /usr/include/c++/13/bits/shared_ptr_atomic.h \
+ /usr/include/c++/13/bits/atomic_base.h \
+ /usr/include/c++/13/bits/atomic_lockfree_defines.h \
  /usr/include/c++/13/backward/auto_ptr.h \
- /usr/include/c++/13/pstl/glue_memory_defs.h /usr/include/c++/13/set \
- /usr/include/c++/13/bits/stl_set.h \
- /usr/include/c++/13/bits/stl_multiset.h /usr/include/c++/13/vector \
- /usr/include/c++/13/bits/stl_vector.h \
- /usr/include/c++/13/bits/stl_bvector.h \
- /usr/include/c++/13/bits/vector.tcc \
- /usr/include/google/protobuf/stubs/macros.h \
- /usr/include/google/protobuf/stubs/platform_macros.h \
- /usr/include/google/protobuf/stubs/port.h /usr/include/c++/13/cstdint \
- /usr/include/c++/13/stdlib.h /usr/include/byteswap.h \
- /usr/include/google/protobuf/stubs/stringpiece.h \
- /usr/include/google/protobuf/stubs/hash.h \
+ /usr/include/c++/13/pstl/glue_memory_defs.h \
+ /usr/include/c++/13/pstl/execution_defs.h \
  /usr/include/c++/13/unordered_map \
  /usr/include/c++/13/bits/unordered_map.h \
  /usr/include/c++/13/bits/hashtable.h \
  /usr/include/c++/13/bits/hashtable_policy.h \
- /usr/include/c++/13/bits/enable_special_members.h \
- /usr/include/c++/13/unordered_set \
- /usr/include/c++/13/bits/unordered_set.h \
+ /usr/include/rocksdb/block_cache_trace_writer.h \
+ /usr/include/rocksdb/options.h /usr/include/c++/13/limits \
+ /usr/include/rocksdb/advanced_options.h /usr/include/rocksdb/cache.h \
+ /usr/include/rocksdb/compression_type.h \
+ /usr/include/rocksdb/rocksdb_namespace.h \
+ /usr/include/rocksdb/data_structure.h /usr/include/assert.h \
+ /usr/include/rocksdb/memory_allocator.h \
+ /usr/include/rocksdb/customizable.h /usr/include/rocksdb/configurable.h \
+ /usr/include/c++/13/atomic /usr/include/c++/13/unordered_set \
+ /usr/include/c++/13/bits/unordered_set.h /usr/include/rocksdb/status.h \
+ /usr/include/rocksdb/slice.h /usr/include/c++/13/cassert \
+ /usr/include/c++/13/cstring /usr/include/rocksdb/cleanable.h \
+ /usr/include/rocksdb/memtablerep.h \
+ /usr/include/rocksdb/universal_compaction.h /usr/include/c++/13/climits \
+ /usr/include/rocksdb/comparator.h /usr/include/rocksdb/env.h \
+ /usr/include/c++/13/cstdarg /usr/include/c++/13/functional \
+ /usr/include/c++/13/bits/std_function.h /usr/include/c++/13/array \
+ /usr/include/c++/13/compare /usr/include/c++/13/bits/stl_algo.h \
+ /usr/include/c++/13/bits/algorithmfwd.h \
+ /usr/include/c++/13/bits/stl_heap.h \
+ /usr/include/c++/13/bits/uniform_int_dist.h \
+ /usr/include/rocksdb/functor_wrapper.h /usr/include/c++/13/utility \
+ /usr/include/c++/13/bits/stl_relops.h /usr/include/rocksdb/port_defs.h \
+ /usr/include/rocksdb/thread_status.h \
+ /usr/include/rocksdb/file_checksum.h /usr/include/rocksdb/listener.h \
+ /usr/include/c++/13/chrono /usr/include/c++/13/bits/chrono.h \
+ /usr/include/c++/13/ratio /usr/include/c++/13/bits/parse_numbers.h \
+ /usr/include/rocksdb/compaction_job_stats.h \
+ /usr/include/rocksdb/io_status.h /usr/include/rocksdb/table_properties.h \
+ /usr/include/rocksdb/types.h /usr/include/rocksdb/sst_partitioner.h \
+ /usr/include/rocksdb/version.h \
+ /usr/include/rocksdb/write_buffer_manager.h \
+ /usr/include/c++/13/condition_variable \
+ /usr/include/c++/13/bits/std_mutex.h \
+ /usr/include/c++/13/bits/unique_lock.h /usr/include/c++/13/list \
+ /usr/include/c++/13/bits/stl_list.h /usr/include/c++/13/bits/list.tcc \
+ /usr/include/c++/13/mutex /usr/include/rocksdb/system_clock.h \
+ /usr/include/rocksdb/table_reader_caller.h \
+ /usr/include/rocksdb/trace_reader_writer.h \
+ /usr/include/rocksdb/trace_record.h /usr/include/rocksdb/iterator.h \
+ /usr/include/rocksdb/wide_columns.h /usr/include/rocksdb/metadata.h \
+ /usr/include/rocksdb/snapshot.h /usr/include/rocksdb/sst_file_writer.h \
+ /usr/include/rocksdb/transaction_log.h \
+ /usr/include/rocksdb/write_batch.h \
+ /usr/include/rocksdb/write_batch_base.h \
+ /usr/include/rocksdb/utilities/transaction_db.h \
+ /usr/include/rocksdb/utilities/stackable_db.h \
+ /usr/include/rocksdb/utilities/transaction.h \
+ /root/AlynCoin/src/atomic_swaps/../zk/winterfell_stark.h \
+ /usr/include/c++/13/iostream \
+ /root/AlynCoin/src/atomic_swaps/../zk/../nft/nft.h \
+ /root/AlynCoin/src/generated/nft.pb.h \
+ /usr/include/google/protobuf/port_def.inc \
+ /usr/include/google/protobuf/port_undef.inc \
+ /usr/include/google/protobuf/io/coded_stream.h \
+ /usr/include/google/protobuf/stubs/common.h \
+ /usr/include/c++/13/algorithm \
+ /usr/include/c++/13/pstl/glue_algorithm_defs.h /usr/include/c++/13/set \
+ /usr/include/c++/13/bits/stl_set.h \
+ /usr/include/c++/13/bits/stl_multiset.h \
+ /usr/include/google/protobuf/stubs/macros.h \
+ /usr/include/google/protobuf/stubs/platform_macros.h \
+ /usr/include/google/protobuf/stubs/port.h /usr/include/byteswap.h \
+ /usr/include/google/protobuf/stubs/stringpiece.h \
+ /usr/include/google/protobuf/stubs/hash.h \
  /usr/include/google/protobuf/stubs/logging.h \
  /usr/include/google/protobuf/stubs/status.h \
  /usr/include/google/protobuf/stubs/strutil.h \
@@ -222,11 +301,7 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/swap_manager.cpp.o: \
  /usr/include/google/protobuf/arenastring.h \
  /usr/include/google/protobuf/explicitly_constructed.h \
  /usr/include/google/protobuf/generated_message_util.h \
- /usr/include/google/protobuf/stubs/once.h /usr/include/c++/13/mutex \
- /usr/include/c++/13/bits/chrono.h /usr/include/c++/13/ratio \
- /usr/include/c++/13/ctime /usr/include/c++/13/bits/parse_numbers.h \
- /usr/include/c++/13/bits/std_mutex.h \
- /usr/include/c++/13/bits/unique_lock.h \
+ /usr/include/google/protobuf/stubs/once.h \
  /usr/include/google/protobuf/any.h \
  /usr/include/google/protobuf/message_lite.h \
  /usr/include/google/protobuf/metadata_lite.h \
@@ -251,76 +326,6 @@ src/CMakeFiles/swapcli.dir/atomic_swaps/swap_manager.cpp.o: \
  /usr/include/google/protobuf/endian.h \
  /usr/include/google/protobuf/inlined_string_field.h \
  /usr/include/google/protobuf/message.h \
- /usr/include/google/protobuf/map.h /usr/include/c++/13/functional \
- /usr/include/c++/13/bits/std_function.h /usr/include/c++/13/array \
- /usr/include/c++/13/compare \
+ /usr/include/google/protobuf/map.h \
  /usr/include/google/protobuf/map_type_handler.h \
- /usr/include/google/protobuf/extension_set.h /usr/include/c++/13/cassert \
- /root/AlynCoin/src/atomic_swaps/swap_manager.cpp \
- /root/AlynCoin/src/atomic_swaps/swap_manager.h \
- /root/AlynCoin/src/atomic_swaps/rocksdb_swap_store.h \
- /usr/include/rocksdb/db.h \
- /usr/include/rocksdb/block_cache_trace_writer.h \
- /usr/include/rocksdb/options.h /usr/include/c++/13/optional \
- /usr/include/rocksdb/advanced_options.h /usr/include/rocksdb/cache.h \
- /usr/include/rocksdb/compression_type.h \
- /usr/include/rocksdb/rocksdb_namespace.h \
- /usr/include/rocksdb/data_structure.h \
- /usr/include/rocksdb/memory_allocator.h \
- /usr/include/rocksdb/customizable.h /usr/include/rocksdb/configurable.h \
- /usr/include/rocksdb/status.h /usr/include/rocksdb/slice.h \
- /usr/include/rocksdb/cleanable.h /usr/include/rocksdb/memtablerep.h \
- /usr/include/rocksdb/universal_compaction.h \
- /usr/include/rocksdb/comparator.h /usr/include/rocksdb/env.h \
- /usr/include/c++/13/cstdarg /usr/include/rocksdb/functor_wrapper.h \
- /usr/include/rocksdb/port_defs.h /usr/include/rocksdb/thread_status.h \
- /usr/include/rocksdb/file_checksum.h /usr/include/rocksdb/listener.h \
- /usr/include/c++/13/chrono /usr/include/rocksdb/compaction_job_stats.h \
- /usr/include/rocksdb/io_status.h /usr/include/rocksdb/table_properties.h \
- /usr/include/rocksdb/types.h /usr/include/rocksdb/sst_partitioner.h \
- /usr/include/rocksdb/version.h \
- /usr/include/rocksdb/write_buffer_manager.h \
- /usr/include/c++/13/condition_variable /usr/include/c++/13/list \
- /usr/include/c++/13/bits/stl_list.h /usr/include/c++/13/bits/list.tcc \
- /usr/include/rocksdb/system_clock.h \
- /usr/include/rocksdb/table_reader_caller.h \
- /usr/include/rocksdb/trace_reader_writer.h \
- /usr/include/rocksdb/trace_record.h /usr/include/rocksdb/iterator.h \
- /usr/include/rocksdb/wide_columns.h /usr/include/rocksdb/metadata.h \
- /usr/include/rocksdb/snapshot.h /usr/include/rocksdb/sst_file_writer.h \
- /usr/include/rocksdb/transaction_log.h \
- /usr/include/rocksdb/write_batch.h \
- /usr/include/rocksdb/write_batch_base.h \
- /usr/include/rocksdb/utilities/transaction_db.h \
- /usr/include/rocksdb/utilities/stackable_db.h \
- /usr/include/rocksdb/utilities/transaction.h \
- /root/AlynCoin/src/atomic_swaps/../crypto_utils.h \
- /usr/include/openssl/err.h /usr/include/openssl/macros.h \
- /usr/include/x86_64-linux-gnu/openssl/opensslconf.h \
- /usr/include/x86_64-linux-gnu/openssl/configuration.h \
- /usr/include/openssl/opensslv.h /usr/include/openssl/e_os2.h \
- /usr/include/openssl/types.h /usr/include/openssl/safestack.h \
- /usr/include/openssl/stack.h /usr/include/openssl/bio.h \
- /usr/include/openssl/crypto.h /usr/include/openssl/cryptoerr.h \
- /usr/include/openssl/symhacks.h /usr/include/openssl/cryptoerr_legacy.h \
- /usr/include/openssl/core.h /usr/include/openssl/bioerr.h \
- /usr/include/openssl/lhash.h /usr/include/openssl/evp.h \
- /usr/include/openssl/core_dispatch.h /usr/include/openssl/evperr.h \
- /usr/include/openssl/params.h /usr/include/openssl/bn.h \
- /usr/include/openssl/bnerr.h /usr/include/openssl/objects.h \
- /usr/include/openssl/obj_mac.h /usr/include/openssl/asn1.h \
- /usr/include/openssl/asn1err.h /usr/include/openssl/objectserr.h \
- /usr/include/openssl/pem.h /usr/include/openssl/x509.h \
- /usr/include/openssl/buffer.h /usr/include/openssl/buffererr.h \
- /usr/include/openssl/ec.h /usr/include/openssl/ecerr.h \
- /usr/include/openssl/rsa.h /usr/include/openssl/rsaerr.h \
- /usr/include/openssl/dsa.h /usr/include/openssl/dh.h \
- /usr/include/openssl/dherr.h /usr/include/openssl/dsaerr.h \
- /usr/include/openssl/sha.h /usr/include/openssl/x509err.h \
- /usr/include/openssl/x509_vfy.h /usr/include/openssl/pkcs7.h \
- /usr/include/openssl/pkcs7err.h /usr/include/openssl/http.h \
- /usr/include/openssl/conf.h /usr/include/openssl/conferr.h \
- /usr/include/openssl/conftypes.h /usr/include/openssl/pemerr.h \
- /root/AlynCoin/src/atomic_swaps/../zk/winterfell_stark.h \
- /root/AlynCoin/src/atomic_swaps/../zk/../nft/nft.h \
- /root/AlynCoin/src/generated/nft.pb.h
+ /usr/include/google/protobuf/extension_set.h

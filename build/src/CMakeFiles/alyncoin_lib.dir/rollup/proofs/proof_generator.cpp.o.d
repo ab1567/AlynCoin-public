@@ -336,5 +336,6 @@ src/CMakeFiles/alyncoin_lib.dir/rollup/proofs/proof_generator.cpp.o: \
  /usr/include/openssl/pkcs7err.h /usr/include/openssl/http.h \
  /usr/include/openssl/conf.h /usr/include/openssl/conferr.h \
  /usr/include/openssl/conftypes.h /usr/include/openssl/pemerr.h \
- /usr/include/c++/13/thread /usr/include/c++/13/bits/std_thread.h \
+ /root/AlynCoin/src/db/db_paths.h /usr/include/c++/13/thread \
+ /usr/include/c++/13/bits/std_thread.h \
  /usr/include/c++/13/bits/this_thread_sleep.h

@@ -1017,10 +1017,11 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_db.cpp.o: \
  /usr/include/openssl/pkcs7err.h /usr/include/openssl/http.h \
  /usr/include/openssl/conf.h /usr/include/openssl/conferr.h \
  /usr/include/openssl/conftypes.h /usr/include/openssl/pemerr.h \
+ /root/AlynCoin/src/explorer/../db/db_paths.h \
  /root/AlynCoin/src/explorer/../crypto_protos.pb.h \
  /root/AlynCoin/src/explorer/../transaction.h \
  /root/AlynCoin/src/zk/../network/peer_blacklist.h \
- /root/AlynCoin/src/explorer/../hash.h /usr/include/jsoncpp/json/json.h \
+ /root/AlynCoin/src/explorer/../hash.h \
  /root/AlynCoin/src/explorer/../zk/winterfell_stark.h \
  /root/AlynCoin/src/explorer/../zk/../nft/nft.h \
  /root/AlynCoin/src/generated/nft.pb.h \
