@@ -211,7 +211,7 @@ void Network::autoMineBlock() {
         if (blockchain.isValidNewBlock(minedBlock) && validSignatures) {
           {
             std::lock_guard<std::mutex> lock(blockchainMutex);
-            Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true).saveToDB();
+            Blockchain::getInstance(this->port, DBPaths::getBlockchainDB(), true).saveToDB();
           }
           broadcastBlock(minedBlock);
           std::cout << "✅ Mined & broadcasted block: " << minedBlock.getHash() << std::endl;
@@ -399,7 +399,7 @@ void Network::requestPeerList() {
 void Network::receiveFullChain(const std::string &senderIP, const std::string &data) {
     std::cout << "[INFO] Receiving full blockchain from " << senderIP << std::endl;
 
-    Blockchain &chain = Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true);
+    Blockchain &chain = Blockchain::getInstance(this->port, DBPaths::getBlockchainDB(), true);
 
     // 1) Decode base64
     std::string decodedData;
@@ -766,41 +766,42 @@ void Network::handleIncomingData(const std::string &senderIP, std::string data) 
     const std::string rollupPrefix = "ROLLUP_BLOCK|";
 
     // ✅ REQUEST_BLOCKCHAIN handler
-if (data == "REQUEST_BLOCKCHAIN") {
-    std::cout << "📡 [INFO] REQUEST_BLOCKCHAIN received from " << senderIP << "\n";
+    if (data == "REQUEST_BLOCKCHAIN") {
+        std::cout << "📡 [INFO] REQUEST_BLOCKCHAIN received from " << senderIP << "\n";
 
-    std::string matchingPeer;
-    {
-        ScopedLockTracer tracer("handleIncomingData-REQUEST_BLOCKCHAIN");
-        std::lock_guard<std::timed_mutex> lock(peersMutex);
+        std::string matchingPeer;
+        {
+            ScopedLockTracer tracer("handleIncomingData-REQUEST_BLOCKCHAIN");
+            std::lock_guard<std::timed_mutex> lock(peersMutex);
 
-        for (const auto& [peerID, sock] : peerSockets) {
-            try {
-                if (sock && sock->is_open()) {
-                    std::string remoteIP = sock->remote_endpoint().address().to_string();
-                    int remotePort = sock->remote_endpoint().port();
-                    std::string candidate = remoteIP + ":" + std::to_string(remotePort);
+            for (const auto& [peerID, sock] : peerSockets) {
+                try {
+                    if (sock && sock->is_open()) {
+                        std::string remoteIP = sock->remote_endpoint().address().to_string();
+                        int remotePort = sock->remote_endpoint().port();
+                        std::string candidate = remoteIP + ":" + std::to_string(remotePort);
 
-                    if (peerID == candidate) {
-                        matchingPeer = peerID;
-                        break;
+                        // ✅ Match full peerID or allow fallback match on IP
+                        if (peerID == candidate || peerID.find(remoteIP) != std::string::npos) {
+                            matchingPeer = peerID;
+                            break;
+                        }
                     }
+                } catch (...) {
+                    continue;
                 }
-            } catch (...) {
-                continue;
             }
         }
-    }
 
-    if (!matchingPeer.empty()) {
-        std::cout << "✅ [SYNC] Matched peerID for REQUEST_BLOCKCHAIN: " << matchingPeer << "\n";
-        sendFullChain(matchingPeer);
-    } else {
-        std::cerr << "❌ [SYNC] No matching socket found for senderIP: " << senderIP << "\n";
-    }
+        if (!matchingPeer.empty()) {
+            std::cout << "✅ [SYNC] Matched peerID for REQUEST_BLOCKCHAIN: " << matchingPeer << "\n";
+            sendFullChain(matchingPeer);
+        } else {
+            std::cerr << "❌ [SYNC] No matching socket found for senderIP: " << senderIP << "\n";
+        }
 
-    return;
-}
+        return;
+    }
 
     // ✅ Rollup block
     if (data.rfind(rollupPrefix, 0) == 0) {
@@ -852,7 +853,8 @@ if (data == "REQUEST_BLOCKCHAIN") {
 
             Block blk = Block::fromProto(proto, true);
             std::string preview = blk.getHash().empty() ? "<empty>" : blk.getHash().substr(0, 12);
-            std::cerr << "📥 [BLOCK_DATA] Parsed block. Index: " << blk.getIndex() << ", Hash: " << preview << "...\n";
+            std::cerr << "📥 [BLOCK_DATA] Parsed block. Index: " << blk.getIndex()
+                      << ", Hash: " << preview << "...\n";
 
             handleNewBlock(blk);
 
@@ -977,7 +979,7 @@ void Network::receiveTransaction(const Transaction &tx) {
     return; // Already processed
   seenTxHashes.insert(txHash);
 
-  Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true).addTransaction(tx);
+  Blockchain::getInstance(this->port, DBPaths::getBlockchainDB(), true).addTransaction(tx);
   broadcastTransaction(tx); // Re-broadcast to peers
 }
 
@@ -1319,7 +1321,7 @@ bool Network::connectToNode(const std::string &ip, int port) {
 void Network::sendLatestBlockIndex(const std::string &peerIP) {
   Json::Value msg;
   msg["type"] = "latest_block_index";
-  msg["data"] = Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true).getLatestBlock().getIndex();
+  msg["data"] = Blockchain::getInstance(this->port, DBPaths::getBlockchainDB(), true).getLatestBlock().getIndex();
   msg["note"] =
       "Supports Dilithium + Falcon signatures"; // Optional extra clarity
   Json::StreamWriterBuilder writer;
@@ -1327,7 +1329,7 @@ void Network::sendLatestBlockIndex(const std::string &peerIP) {
 }
 //
 void Network::handleReceivedBlockIndex(const std::string &peerIP, int peerBlockIndex) {
-    int localIndex = Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true).getLatestBlock().getIndex();
+    int localIndex = Blockchain::getInstance(this->port, DBPaths::getBlockchainDB(), true).getLatestBlock().getIndex();
     
     if (localIndex <= 0) { // Only genesis present
         std::cout << "⚠️ [Node] Only Genesis block found locally. Requesting full blockchain sync from " << peerIP << "\n";
@@ -1438,7 +1440,7 @@ void Network::savePeers() {
 
 // ✅ **Broadcast Latest Block Correctly (Base64 Encoded)**
 void Network::sendLatestBlock(const std::string &peerIP) {
-    Blockchain &blockchain = Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true);
+    Blockchain &blockchain = Blockchain::getInstance(this->port, DBPaths::getBlockchainDB(), true);
 
     if (blockchain.getChain().empty()) {
         std::cerr << "⚠️ Warning: Blockchain is empty! No block to send.\n";
@@ -1538,15 +1540,15 @@ void Network::receiveRollupBlock(const std::string &data) {
 
   // Deserialize rollup block and handle it
   RollupBlock rollupBlock = deserializeRollupBlock(data);
-  Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true).addRollupBlock(rollupBlock);
+  Blockchain::getInstance(this->port, DBPaths::getBlockchainDB(), true).addRollupBlock(rollupBlock);
   std::cout << "✅ Rollup block received and added to blockchain!\n";
 }
 //
 void Network::handleNewRollupBlock(const RollupBlock &newRollupBlock) {
-  if (Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true).isRollupBlockValid(newRollupBlock)) {
-    Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true).addRollupBlock(newRollupBlock);
+  if (Blockchain::getInstance(this->port, DBPaths::getBlockchainDB(), true).isRollupBlockValid(newRollupBlock)) {
+    Blockchain::getInstance(this->port, DBPaths::getBlockchainDB(), true).addRollupBlock(newRollupBlock);
     std::lock_guard<std::mutex> lock(blockchainMutex);
-    Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true).saveRollupChain();
+    Blockchain::getInstance(this->port, DBPaths::getBlockchainDB(), true).saveRollupChain();
     std::cout << "[INFO] New rollup block added. Index: "
               << newRollupBlock.getIndex() << "\n";
   } else {
