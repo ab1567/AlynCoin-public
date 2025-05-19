@@ -74,26 +74,34 @@ int main(int argc, char *argv[]) {
     blockchain.loadFromDB();
     blockchain.reloadBlockchainState();
 
-    if (network && !connectIP.empty()) {
-        std::string ip;
-        short connectPort;
-        if (connectIP.find(":") != std::string::npos) {
-            size_t colon = connectIP.find(":");
-            ip = connectIP.substr(0, colon);
-            connectPort = std::stoi(connectIP.substr(colon + 1));
-        } else {
-            ip = connectIP;
-            connectPort = 8333;
-        }
-
-        network->connectToPeer(ip, connectPort);
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
-        network->connectToPeer("127.0.0.1", port);
+if (network && !connectIP.empty()) {
+    std::string ip;
+    short connectPort;
+    if (connectIP.find(":") != std::string::npos) {
+        size_t colon = connectIP.find(":");
+        ip = connectIP.substr(0, colon);
+        connectPort = std::stoi(connectIP.substr(colon + 1));
+    } else {
+        ip = connectIP;
+        connectPort = 8333;
     }
 
-    if (network) {
-        network->syncWithPeers();
-    }
+    // 🌐 Attempt peer connection
+    network->connectToPeer(ip, connectPort);
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
+    // 📡 Reconnect self to allow reverse sync
+    network->connectToPeer("127.0.0.1", port);
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
+    // 🔄 Trigger sync now that connection is open
+    std::cout << "🔁 Triggering sync after peer connect...\n";
+    network->syncWithPeers();
+} else if (network) {
+    // No explicit --connect, still try syncing
+    network->syncWithPeers();
+}
+
     std::this_thread::sleep_for(std::chrono::seconds(2));
 
     PeerManager *peerManager = network ? network->getPeerManager() : nullptr;
