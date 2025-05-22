@@ -25,6 +25,7 @@
 #include <sys/stat.h>
 #include <thread>
 
+#define EMPTY_TX_ROOT_HASH "0c11a17c8610d35fe17aed2a5a5c682a6cdfb8b6ecf56a95605ebb1475b345de"
 #define ROLLUP_CHAIN_FILE "rollup_chain.dat"
 static std::map<uint64_t, Block> futureBlocks;
 namespace fs = std::filesystem;
@@ -284,7 +285,6 @@ Block Blockchain::createGenesisBlock(bool force) {
 
     return chain.front();
 }
-
 // ✅ Adds block, applies smart burn, and broadcasts to peers
 bool Blockchain::addBlock(const Block &block) {
     if (block.getZkProof().empty()) {

@@ -15,6 +15,7 @@
 #include "crypto_utils.h"
 #include <filesystem>
 #include <iostream>
+#include <set>
 
 struct ScopedLockTracer {
     std::string name;
@@ -163,7 +164,7 @@ void Network::listenForConnections() {
             std::cerr << "❌ [Network] Accept error: " << ec.message() << "\n";
         }
 
-        // 🔁 Keep listening for the next connection
+        // 🔁 Recursive call to keep the acceptor alive
         listenForConnections();
     });
 }
@@ -443,11 +444,21 @@ void Network::receiveFullChain(const std::string &senderIP, const std::string &d
         return;
     }
 
+    std::cout << "🔍 Local chain length: " << chain.getChain().size()
+              << ", Received: " << receivedBlocks.size() << "\n";
+
     // 4) Validate entire fork safety BEFORE touching chain
     if (!chain.verifyForkSafety(receivedBlocks)) {
-        std::cerr << "⚠️ [Network] Received fork is invalid or unsafe. Saving for debug.\n";
-        chain.saveForkView(receivedBlocks); // Save rejected fork
-        return;
+        std::cerr << "⚠️ [Network] Received fork failed safety check.\n";
+
+        if (receivedBlocks.size() > chain.getChain().size()) {
+            std::cerr << "✅ [Fallback Override] Longer chain with same genesis detected. Proceeding.\n";
+            // continue to merge below
+        } else {
+            std::cerr << "❌ [Reject] Unsafe or shorter fork. Saved for analysis.\n";
+            chain.saveForkView(receivedBlocks);
+            return;
+        }
     }
 
     // 5) Merge using difficulty-aware fork logic
@@ -456,17 +467,15 @@ void Network::receiveFullChain(const std::string &senderIP, const std::string &d
 
 // Handle Peer
 void Network::handlePeer(std::shared_ptr<tcp::socket> socket) {
-    std::string peerId;
-    std::string reverseIP;
+    std::string peerId, reverseIP;
     int reversePort = 0;
-    bool handshakeSuccess = false;
+    std::string handshakeLine;
 
     try {
         boost::asio::streambuf handshakeBuf;
         boost::asio::read_until(*socket, handshakeBuf, "\n");
 
         std::istream handshakeStream(&handshakeBuf);
-        std::string handshakeLine;
         std::getline(handshakeStream, handshakeLine);
 
         Json::Value root;
@@ -476,17 +485,29 @@ void Network::handlePeer(std::shared_ptr<tcp::socket> socket) {
 
         if (Json::parseFromStream(reader, ss, &root, &errs) &&
             root.isMember("type") && root["type"].asString() == "handshake" &&
-            root.isMember("port")) {
+            root.isMember("port") && root.isMember("version")) {
 
             std::string senderIP = socket->remote_endpoint().address().to_string();
-            std::string senderPort = root["port"].asString();
-            peerId = senderIP + ":" + senderPort;
+            peerId = senderIP + ":" + root["port"].asString();
+
             reverseIP = senderIP;
-            reversePort = std::stoi(senderPort);
-            handshakeSuccess = true;
+            reversePort = std::stoi(root["port"].asString());
+
+            std::string remoteVersion = root["version"].asString();
+            std::string remoteNetwork = root.get("network_id", "").asString();
+            std::cout << "🤝 Handshake received from " << peerId
+                      << " | Version: " << remoteVersion
+                      << ", Network: " << remoteNetwork << "\n";
+
+            if (remoteNetwork != "mainnet") {
+                std::cerr << "⚠️ [handlePeer] Ignoring peer from different network: " << remoteNetwork << "\n";
+                return;
+            }
+
         } else {
-            throw std::runtime_error("Invalid or missing handshake JSON");
+            throw std::runtime_error("Invalid or missing handshake fields");
         }
+
     } catch (const std::exception &e) {
         try {
             std::string ip = socket->remote_endpoint().address().to_string();
@@ -494,31 +515,51 @@ void Network::handlePeer(std::shared_ptr<tcp::socket> socket) {
             peerId = ip + ":" + std::to_string(port);
 
             std::cerr << "⚠️ [handlePeer] Handshake failed (" << e.what()
-                      << "), falling back to raw peer: " << peerId << "\n";
+                      << "), registering fallback peer: " << peerId << "\n";
+
+            {
+                ScopedLockTracer tracer("handlePeer");
+                std::lock_guard<std::timed_mutex> lock(peersMutex);
+                peerSockets[peerId] = socket;
+                if (peerManager) peerManager->connectToPeer(peerId);
+            }
+
+            if (!handshakeLine.empty()) {
+                handleIncomingData(peerId, handshakeLine);
+            }
+
         } catch (...) {
-            std::cerr << "❌ [handlePeer] Total failure to register peer: " << e.what() << "\n";
+            std::cerr << "❌ [handlePeer] Total failure to register peer.\n";
             return;
         }
     }
 
-    // ✅ Register socket regardless of handshake
     {
         ScopedLockTracer tracer("handlePeer");
         std::lock_guard<std::timed_mutex> lock(peersMutex);
         peerSockets[peerId] = socket;
+        std::cout << "✅ [handlePeer] Peer socket registered for: " << peerId << "\n";
+
         if (peerManager) peerManager->connectToPeer(peerId);
     }
 
     std::cout << "✅ [handlePeer] Incoming peer registered: " << peerId << "\n";
 
-    // ✅ Immediately request sync info from peer
-    std::cout << "📡 [SYNC] Sending REQUEST_BLOCKCHAIN and state queries to " << peerId << "\n";
-    sendData(peerId, "REQUEST_BLOCKCHAIN");
-    sendData(peerId, R"({"type": "height_request"})");
-    sendData(peerId, R"({"type": "tip_hash_request"})");
+    // Send initial sync requests
+    sendData(peerId, "ALYN|REQUEST_BLOCKCHAIN\n");
 
-    // ✅ Reverse connect if IP and port are known
-    if (!reverseIP.empty() && reversePort > 0 && reversePort <= 65535) {
+    Json::StreamWriterBuilder builder;
+    builder["indentation"] = "";
+
+    Json::Value heightReq;
+    heightReq["type"] = "height_request";
+    sendData(peerId, "ALYN|" + Json::writeString(builder, heightReq) + "\n");
+
+    Json::Value tipReq;
+    tipReq["type"] = "tip_hash_request";
+    sendData(peerId, "ALYN|" + Json::writeString(builder, tipReq) + "\n");
+
+    if (!reverseIP.empty() && reversePort > 0 && reversePort != this->port) {
         std::string selfIP = "127.0.0.1";
         if (!(reverseIP == selfIP && reversePort == this->port)) {
             std::cout << "🔁 [ReverseConnect] Connecting back to " << reverseIP << ":" << reversePort << "\n";
@@ -526,54 +567,55 @@ void Network::handlePeer(std::shared_ptr<tcp::socket> socket) {
         }
     }
 
-    // ✅ Begin receiving loop
-    boost::asio::streambuf buf;
-    const size_t MAX_BUFFER_SIZE = 4 * 1024 * 1024;
+    // ✅ Persistent async read loop using shared_ptr trick
+    std::shared_ptr<boost::asio::streambuf> buf = std::make_shared<boost::asio::streambuf>();
+    std::shared_ptr<tcp::socket> sharedSock = socket;
+    auto self = this;
 
-    try {
-        while (isRunning) {
-            boost::system::error_code ec;
-            std::size_t bytes = boost::asio::read_until(*socket, buf, "\n", ec);
+    std::shared_ptr<std::function<void(const boost::system::error_code&, std::size_t)>> readHandler =
+        std::make_shared<std::function<void(const boost::system::error_code&, std::size_t)>>();
 
-            if (ec == boost::asio::error::eof || ec) {
-                std::cerr << "🔌 Peer disconnected or read error: " << peerId << " (" << ec.message() << ")\n";
-                break;
+    *readHandler = [self, sharedSock, buf, peerId, readHandler](const boost::system::error_code &ec, std::size_t bytesTransferred) {
+        if (ec || !sharedSock || !sharedSock->is_open()) {
+            std::cerr << "🔌 Peer read error/disconnect: " << peerId << " (" << ec.message() << ")\n";
+            {
+                ScopedLockTracer tracer("handlePeer");
+                std::lock_guard<std::timed_mutex> lock(self->peersMutex);
+                self->peerSockets.erase(peerId);
             }
-
-            if (buf.size() > MAX_BUFFER_SIZE) {
-                std::cerr << "❌ [handlePeer] Buffer overflow from " << peerId << ". Disconnecting.\n";
-                break;
-            }
-
-            std::istream is(&buf);
-            std::string line;
-            std::getline(is, line);
-            if (!line.empty() && line.back() == '\r') line.pop_back();
-
-            handleIncomingData(peerId, line);
+            std::cout << "🔌 Cleaned up peer socket: " << peerId << "\n";
+            return;
         }
 
-    } catch (const std::exception &e) {
-        std::cerr << "⚠️ Exception in handlePeer for " << peerId << ": " << e.what() << "\n";
-    }
+        std::istream is(buf.get());
+        std::string line;
+        std::getline(is, line);
 
-    {
-        ScopedLockTracer tracer("handlePeer");
-        std::lock_guard<std::timed_mutex> lock(peersMutex);
-        peerSockets.erase(peerId);
-    }
+        while (!line.empty() && (line.back() == '\n' || line.back() == '\r'))
+            line.pop_back();
 
-    std::cout << "🔌 Cleaned up peer socket: " << peerId << "\n";
+        if (!line.empty()) {
+            std::cout << "📥 Received from " << peerId << ": " << line.substr(0, 100) << "\n";
+            self->handleIncomingData(peerId, line);
+        }
+
+        // 🔁 Continue async read
+        boost::asio::async_read_until(*sharedSock, *buf, "\n", *readHandler);
+    };
+
+    boost::asio::async_read_until(*sharedSock, *buf, "\n", *readHandler);
 }
 
 // ✅ **Run Network Thread**
 void Network::run() {
-    serverThread = std::thread([this]() { startServer(); });
-    serverThread.detach();
+    std::cout << "🚀 [Network] Starting network stack for port " << port << "\n";
 
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    // ✅ Start listener and IO thread from here
+    startServer();  // Runs listen + ioContext in background via listenerThread
 
-    // ✅ 1. Try DNS-based peers first
+    std::this_thread::sleep_for(std::chrono::seconds(2));  // Allow socket layer to bind
+
+    // ✅ 1. DNS-based peer discovery
     std::vector<std::string> dnsPeers = fetchPeersFromDNS("peers.alyncoin.com");
     for (const std::string& peer : dnsPeers) {
         size_t colonPos = peer.find(":");
@@ -586,10 +628,10 @@ void Network::run() {
         }
     }
 
-    // ✅ 2. Fallback: Hardcoded LAN IP of primary node (e.g., your WSL/desktop)
+    // ✅ 2. Fallback LAN/WSL peers
     std::vector<std::string> fallbackLANPeers = {
-        "192.168.1.205:8333", // ✅ Replace with your main PC's LAN IP
-        "172.17.80.1:8333"    // ✅ Optional: fallback to internal WSL IP
+        "192.168.1.205:8333",
+        "172.17.80.1:8333"
     };
 
     for (const auto& peer : fallbackLANPeers) {
@@ -603,12 +645,11 @@ void Network::run() {
         }
     }
 
-    // ✅ 3. Continue with sync and mining as before
+    // ✅ Initial sync tasks
     requestPeerList();
     scanForPeers();
     autoMineBlock();
 
-    // 🔁 Periodic sync every 15 seconds
     std::thread([this]() {
         while (true) {
             std::this_thread::sleep_for(std::chrono::seconds(15));
@@ -616,13 +657,14 @@ void Network::run() {
         }
     }).detach();
 
-    // 🔁 Cleanup dead peers every 20 seconds
     std::thread([this]() {
         while (true) {
             std::this_thread::sleep_for(std::chrono::seconds(20));
             cleanupPeers();
         }
     }).detach();
+
+    std::cout << "✅ [Network] Network loop launched successfully.\n";
 }
 
 // ✅ Auto-Discover Peers Instead of Manually Adding Nodes
@@ -744,95 +786,117 @@ void Network::handleIncomingData(const std::string &peerID, std::string data) {
     std::cout << "📥 handleIncomingData() from " << peerID
               << " | Raw: " << data.substr(0, 100) << "\n";
 
-    // Clean trailing newline or carriage return
-    if (!data.empty() && data.back() == '\n') data.pop_back();
-    if (!data.empty() && data.back() == '\r') data.pop_back();
+    while (!data.empty() && (data.back() == '\n' || data.back() == '\r'))
+        data.pop_back();
 
+    const std::string protocolPrefix = "ALYN|";
     const std::string chainPrefix = "BLOCKCHAIN_DATA|";
-    const std::string blockPrefix = "BLOCK_DATA|";
-    const std::string rollupPrefix = "ROLLUP_BLOCK|";
+    const std::string blockPrefix = "BLOCK_BROADCAST|";
+    const std::string rollupPrefix   = "ROLLUP_BLOCK|";
 
-    // === Handle Blockchain Sync Request ===
-    if (data == "REQUEST_BLOCKCHAIN") {
-        std::cerr << "📡 REQUEST_BLOCKCHAIN from " << peerID << "\n";
-
-        std::shared_ptr<tcp::socket> sock;
-        {
-            ScopedLockTracer tracer("handleIncomingData-REQ");
-            std::lock_guard<std::timed_mutex> lock(peersMutex);
-            auto it = peerSockets.find(peerID);
-            if (it != peerSockets.end() && it->second && it->second->is_open()) {
-                sock = it->second;
-            }
-        }
-
-        if (sock) {
-            std::cout << "✅ [SYNC] Matched socket for " << peerID << "\n";
-            sendFullChain(peerID);
-        } else {
-            std::cerr << "❌ [SYNC] No matching socket for: " << peerID << "\n";
-        }
+    bool hasPrefix = data.rfind(protocolPrefix, 0) == 0;
+    if (hasPrefix) {
+        data = data.substr(protocolPrefix.size());
+    } else if (!(data.front() == '{' && data.back() == '}')) {
+        std::cerr << "❌ [handleIncomingData] Rejected non-prefixed message from " << peerID << "\n";
         return;
     }
 
-    // === Handle Rollup Block ===
+    if (data == "PING") {
+        std::cout << "📡 Received PING from " << peerID << " → responding with PONG\n";
+        sendData(peerID, protocolPrefix + "PONG");
+        return;
+    }
+
+    if (data == "PONG") {
+        std::cout << "📡 Received PONG from " << peerID << "\n";
+        return;
+    }
+
+    if (data == "REQUEST_BLOCKCHAIN") {
+        std::cerr << "📡 REQUEST_BLOCKCHAIN received from " << peerID << "\n";
+
+        std::shared_ptr<tcp::socket> targetSocket = nullptr;
+        std::string matchKey = "";
+
+        {
+            ScopedLockTracer tracer("handleIncomingData");
+            std::lock_guard<std::timed_mutex> lock(peersMutex);
+
+            auto it = peerSockets.find(peerID);
+            if (it != peerSockets.end()) {
+                targetSocket = it->second;
+                matchKey = peerID;
+            } else {
+                std::string peerIP = peerID.substr(0, peerID.find(":"));
+                for (const auto &entry : peerSockets) {
+                    std::string entryIP = entry.first.substr(0, entry.first.find(":"));
+                    if (entryIP == peerIP && entry.second && entry.second->is_open()) {
+                        targetSocket = entry.second;
+                        matchKey = entry.first;
+                        std::cerr << "✅ [SYNC] Matched fallback peer by IP: " << matchKey << "\n";
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (targetSocket && !matchKey.empty()) {
+            std::cout << "✅ [SYNC] Sending full chain to: " << matchKey << "\n";
+            sendFullChain(matchKey);
+        } else {
+            std::cerr << "❌ [SYNC] No valid socket found for " << peerID << "\n";
+        }
+
+        return;
+    }
+
     if (data.rfind(rollupPrefix, 0) == 0) {
         try {
             RollupBlock rb = RollupBlock::deserialize(data.substr(rollupPrefix.size()));
             handleNewRollupBlock(rb);
             std::cout << "✅ Rollup block applied from " << peerID << "\n";
-        } catch (const std::exception& e) {
+        } catch (const std::exception &e) {
             std::cerr << "❌ Rollup parse failed: " << e.what() << "\n";
         }
         return;
     }
 
-    // === Handle Full Blockchain Sync ===
+    // === Handle full blockchain sync ===
     if (data.rfind(chainPrefix, 0) == 0) {
         try {
-            std::string raw = Crypto::base64Decode(data.substr(chainPrefix.size()));
-            if (raw.empty()) throw std::runtime_error("Base64 decode failed");
-
-            std::vector<Block> forkChain;
-            auto& blockchain = Blockchain::getInstance(this->port, DBPaths::getBlockchainDB(), true, false);
-            if (!blockchain.deserializeBlockchainForkView(raw, forkChain)) {
-                std::cerr << "❌ Deserialization failed.\n";
-                return;
-            }
-
-            std::cout << "🔍 [SYNC] Received " << forkChain.size() << " blocks from " << peerID << "\n";
-            blockchain.setPendingForkChain(forkChain);
-            blockchain.compareAndMergeChains(forkChain);
-            blockchain.clearPendingForkChain();
-        } catch (const std::exception& e) {
-            std::cerr << "❌ [SYNC] Blockchain handling error: " << e.what() << "\n";
+            std::string encoded = data.substr(chainPrefix.size());
+            receiveFullChain(peerID, encoded);
+        } catch (const std::exception &e) {
+            std::cerr << "❌ [SYNC] Error in receiveFullChain: " << e.what() << "\n";
         }
         return;
     }
 
-    // === Handle Single Block ===
-    if (data.rfind(blockPrefix, 0) == 0) {
-        try {
-            std::string base64 = data.substr(blockPrefix.size());
-            std::string serialized = Crypto::base64Decode(base64);
-            alyncoin::BlockProto proto;
-            if (!proto.ParseFromString(serialized)) {
-                std::cerr << "❌ Block Protobuf parse failed.\n";
-                return;
-            }
+    // === Handle individual block broadcast ===
 
-            Block blk = Block::fromProto(proto, true);
-            std::cerr << "📥 Block received: #" << blk.getIndex()
-                      << ", Hash: " << blk.getHash().substr(0, 12) << "\n";
-            handleNewBlock(blk);
+if (data.rfind(blockPrefix, 0) == 0) {
+    try {
+        std::string base64 = data.substr(blockPrefix.size());
+        std::string serialized = Crypto::base64Decode(base64);
 
-        } catch (const std::exception& e) {
-            std::cerr << "❌ Block parse failed: " << e.what() << "\n";
+        alyncoin::BlockProto proto;
+        if (!proto.ParseFromString(serialized)) {
+            std::cerr << "❌ Block Protobuf parse failed.\n";
+            return;
         }
-        return;
-    }
 
-    // === Handle JSON (transaction or tip/height requests) ===
+        Block blk = Block::fromProto(proto, true);
+        std::cerr << "📥 Block received: #" << blk.getIndex()
+                  << ", Hash: " << blk.getHash().substr(0, 12) << "\n";
+        handleNewBlock(blk);
+    } catch (const std::exception &e) {
+        std::cerr << "❌ Block parse failed: " << e.what() << "\n";
+    }
+    return;
+}
+
+    // === JSON-based messages ===
     if (!data.empty() && data.front() == '{' && data.back() == '}') {
         try {
             Json::Value root;
@@ -845,14 +909,17 @@ void Network::handleIncomingData(const std::string &peerID, std::string data) {
                 return;
             }
 
-            auto& blockchain = Blockchain::getInstance(this->port, DBPaths::getBlockchainDB(), true);
+            Blockchain &blockchain = Blockchain::getInstance(this->port, DBPaths::getBlockchainDB(), true);
             std::string type = root["type"].asString();
+
+            Json::StreamWriterBuilder builder;
+            builder["indentation"] = "";
 
             if (type == "height_request") {
                 Json::Value res;
                 res["type"] = "height_response";
                 res["data"] = blockchain.getHeight();
-                sendData(peerID, Json::writeString(Json::StreamWriterBuilder(), res));
+                sendData(peerID, protocolPrefix + Json::writeString(builder, res));
                 return;
             }
 
@@ -860,7 +927,7 @@ void Network::handleIncomingData(const std::string &peerID, std::string data) {
                 Json::Value res;
                 res["type"] = "tip_hash_response";
                 res["data"] = blockchain.getLatestBlockHash();
-                sendData(peerID, Json::writeString(Json::StreamWriterBuilder(), res));
+                sendData(peerID, protocolPrefix + Json::writeString(builder, res));
                 return;
             }
 
@@ -873,17 +940,15 @@ void Network::handleIncomingData(const std::string &peerID, std::string data) {
                 std::cerr << "❌ [TX] Invalid from " << peerID << "\n";
             }
 
-        } catch (const std::exception& e) {
+        } catch (const std::exception &e) {
             std::cerr << "❌ JSON exception: " << e.what() << "\n";
         }
         return;
     }
 
-    // === Unknown message fallback ===
     std::cerr << "⚠️ Unknown message from " << peerID
               << ": " << data.substr(0, std::min<size_t>(100, data.size())) << "\n";
 }
-
 
 // ✅ **Broadcast a mined block to all peers*
 void Network::broadcastBlock(const Block &block, bool force) {
@@ -891,7 +956,7 @@ void Network::broadcastBlock(const Block &block, bool force) {
     std::string serializedBlock;
     blockProto.SerializeToString(&serializedBlock);
     std::string base64Block = Crypto::base64Encode(serializedBlock);
-    std::string message = "BLOCK_DATA|" + base64Block + "\n";
+    std::string message = "ALYN|BLOCK_BROADCAST|" + base64Block + "\n";
 
     std::unordered_map<std::string, std::shared_ptr<boost::asio::ip::tcp::socket>> peersCopy;
     bool lockAcquired = false;
@@ -1003,7 +1068,7 @@ void Network::handleNewBlock(const Block &newBlock) {
             blockchain.saveForkView(forkCandidate);
 
             for (const auto& peer : peerSockets) {
-                sendData(peer.first, "REQUEST_BLOCKCHAIN");
+                sendData(peer.first, "ALYN|REQUEST_BLOCKCHAIN");
             }
             return;
         }
@@ -1020,7 +1085,7 @@ void Network::handleNewBlock(const Block &newBlock) {
 
         if (newBlock.getIndex() > expectedIndex + 5) {
             for (const auto& peer : peerSockets) {
-                sendData(peer.first, "REQUEST_BLOCKCHAIN");
+                sendData(peer.first, "ALYN|REQUEST_BLOCKCHAIN");
             }
         }
         return;
@@ -1095,12 +1160,19 @@ bool Network::sendData(const std::string &peer, const std::string &data) {
 
     try {
         std::string finalMessage = data;
+
         if (finalMessage.empty()) {
             std::cerr << "⚠️ [sendData] Skipping empty message to: " << peer << "\n";
             return false;
         }
 
-        if (finalMessage.back() != '\n') finalMessage += "\n";  // enforce newline
+        // 🔧 Strip any trailing newlines before appending a single \n
+        while (!finalMessage.empty() && 
+               (finalMessage.back() == '\n' || finalMessage.back() == '\r')) {
+            finalMessage.pop_back();
+        }
+
+        finalMessage += '\n';  // ✅ Ensure newline-terminated message
 
         boost::asio::write(*it->second, boost::asio::buffer(finalMessage));
         std::cout << "📡 [DEBUG] Sent message to " << peer
@@ -1129,7 +1201,7 @@ std::string Network::requestBlockchainSync(const std::string &peer) {
 
     std::cout << "📡 Requesting blockchain sync from: " << peer << "\n";
 
-    if (!sendData(peer, "REQUEST_BLOCKCHAIN")) {
+    if (!sendData(peer, "ALYN|REQUEST_BLOCKCHAIN")) {
         std::cerr << "❌ Failed to send sync request to " << peer << "\n";
         return "";
     }
@@ -1143,14 +1215,10 @@ void Network::startServer() {
     try {
         std::cout << "🌐 Node is now listening for connections on port: " << port << "\n";
 
-        // ✅ Begin accepting connections
+        ioContext.restart();  // Must come before async_accept
         listenForConnections();
 
-        // ✅ Ensure ioContext is fresh before starting
-        ioContext.restart();
-
-        // ✅ Run IO context in a detached thread
-        listenerThread = std::thread([this]() {
+        std::thread ioThread([this]() {
             std::cout << "🚀 IO context thread started for port " << port << "\n";
             try {
                 ioContext.run();
@@ -1160,8 +1228,7 @@ void Network::startServer() {
             }
         });
 
-        listenerThread.detach();
-
+        ioThread.detach();  // Detach safely
     } catch (const std::exception &e) {
         std::cerr << "❌ [ERROR] Server failed to start: " << e.what() << "\n";
         std::cerr << "⚠️ Try using a different port or checking if another instance is running.\n";
@@ -1249,31 +1316,38 @@ void Network::addPeer(const std::string &peer) {
 
 // Connect to Node
 bool Network::connectToNode(const std::string &ip, int port) {
-    std::string peerKey = ip + ":" + std::to_string(port);
-
-    {
-        ScopedLockTracer tracer("connectToNode");
-        std::lock_guard<std::timed_mutex> lock(peersMutex);
-        if (peerSockets.find(peerKey) != peerSockets.end()) {
-            std::cout << "🔁 Already connected to peer: " << peerKey << "\n";
-            return false;
-        }
-    }
-
     try {
         auto socketPtr = std::make_shared<boost::asio::ip::tcp::socket>(ioContext);
         boost::asio::ip::tcp::resolver resolver(ioContext);
-
         boost::asio::ip::tcp::resolver::query query(ip, std::to_string(port));
         auto endpoints = resolver.resolve(query);
-
         boost::asio::connect(*socketPtr, endpoints);
 
-        // ✅ Send handshake
+        // ✅ USE THE INPUT VALUES AS PEER KEY — NOT remote_endpoint()!
+        std::string peerKey = ip + ":" + std::to_string(port);
+
+        {
+            ScopedLockTracer tracer("connectToNode");
+            std::lock_guard<std::timed_mutex> lock(peersMutex);
+            if (peerSockets.find(peerKey) != peerSockets.end()) {
+                std::cout << "🔁 Already connected to peer: " << peerKey << "\n";
+                return false;
+            }
+        }
+
+        // ✅ Enhanced handshake
         Json::Value handshake;
         handshake["type"] = "handshake";
         handshake["port"] = std::to_string(this->port);
-        std::string payload = Json::writeString(Json::StreamWriterBuilder(), handshake);
+        handshake["version"] = "1.0.0";
+        handshake["network_id"] = "mainnet";
+        handshake["capabilities"] = Json::arrayValue;
+        handshake["capabilities"].append("full");
+        handshake["capabilities"].append("miner");
+
+        Json::StreamWriterBuilder builder;
+        builder["indentation"] = "";  // Compact output
+        std::string payload = Json::writeString(builder, handshake);
         if (!payload.empty() && payload.back() != '\n') payload += "\n";
 
         boost::asio::write(*socketPtr, boost::asio::buffer(payload));
@@ -1287,12 +1361,10 @@ bool Network::connectToNode(const std::string &ip, int port) {
 
         std::cout << "✅ Connected to new peer: " << peerKey << "\n";
 
-        // ✅ Fix: Also listen on this connection (bidirectional)
         std::thread(&Network::handlePeer, this, socketPtr).detach();
 
-        // 🚀 Trigger sync
         std::cout << "📡 [SYNC] Sending REQUEST_BLOCKCHAIN to " << peerKey << "\n";
-        sendData(peerKey, "REQUEST_BLOCKCHAIN");
+        sendData(peerKey, "ALYN|REQUEST_BLOCKCHAIN");
 
         return true;
 
@@ -1318,14 +1390,14 @@ void Network::handleReceivedBlockIndex(const std::string &peerIP, int peerBlockI
     
     if (localIndex <= 0) { // Only genesis present
         std::cout << "⚠️ [Node] Only Genesis block found locally. Requesting full blockchain sync from " << peerIP << "\n";
-        sendData(peerIP, "REQUEST_BLOCKCHAIN");
+        sendData(peerIP, "ALYN|REQUEST_BLOCKCHAIN");
         return;
     }
     
     if (peerBlockIndex > localIndex) {
         std::cout << "📡 Peer " << peerIP
                   << " has longer chain. Requesting sync...\n";
-        sendData(peerIP, "REQUEST_BLOCKCHAIN");
+        sendData(peerIP, "ALYN|REQUEST_BLOCKCHAIN");
     } else {
         std::cout << "✅ Local chain is up-to-date. No sync needed.\n";
     }
@@ -1442,18 +1514,18 @@ void Network::sendLatestBlock(const std::string &peerIP) {
     }
 
     std::string base64Block = Crypto::base64Encode(serializedBlock);
-    sendData(peerIP, "BLOCK_DATA|" + base64Block);  // ✅ NOW base64 encoded!
+    sendData(peerIP, "ALYN|BLOCK_BROADCAST|" + base64Block);
 
     std::cout << "📡 [LIVE BROADCAST] Latest block sent to " << peerIP << " (Dilithium + Falcon signatures included)\n";
 }
 
 // ✅ Always send full chain regardless of length (even genesis-only)
 void Network::sendFullChain(const std::string &peer) {
-    Blockchain &blockchain = Blockchain::getInstance(this->port, DBPaths::getBlockchainDB(), true);
+    Blockchain &blockchain = Blockchain::getInstance(this->port, DBPaths::getBlockchainDB(), true, false);
 
-    // Serialize all blocks
     const std::vector<Block> &chain = blockchain.getChain();
     alyncoin::BlockchainProto proto;
+
     for (const auto &blk : chain) {
         try {
             *proto.add_blocks() = blk.toProtobuf();
@@ -1469,13 +1541,28 @@ void Network::sendFullChain(const std::string &peer) {
     }
 
     std::string base64Encoded = Crypto::base64Encode(rawData);
-    std::string message = "BLOCKCHAIN_DATA|" + base64Encoded;
+    std::string message = "ALYN|BLOCKCHAIN_DATA|" + base64Encoded;
 
-    std::cout << "📡 [SYNC] Sending blockchain (" << base64Encoded.length()
-              << " chars, Blocks: " << chain.size() << ") to " << peer << "\n";
+    std::shared_ptr<tcp::socket> targetSocket;
 
-    if (!sendData(peer, message)) {
-        std::cerr << "❌ [ERROR] Full chain send failed to peer: " << peer << "\n";
+    {
+        std::lock_guard<std::timed_mutex> lock(peersMutex);
+        auto it = peerSockets.find(peer);
+        if (it != peerSockets.end() && it->second && it->second->is_open()) {
+            targetSocket = it->second;
+        }
+    }
+
+    if (targetSocket) {
+        try {
+            boost::asio::write(*targetSocket, boost::asio::buffer(message + "\n"));
+            std::cout << "📡 [SYNC] Sent blockchain (" << chain.size()
+                      << " blocks, " << base64Encoded.length() << " chars) to " << peer << "\n";
+        } catch (const std::exception &e) {
+            std::cerr << "❌ [sendFullChain] Socket write failed for " << peer << ": " << e.what() << "\n";
+        }
+    } else {
+        std::cerr << "❌ [sendFullChain] No open socket for peer: " << peer << "\n";
     }
 }
 
@@ -1485,37 +1572,40 @@ void Network::cleanupPeers() {
     std::lock_guard<std::timed_mutex> lock(peersMutex);
     std::vector<std::string> inactivePeers;
 
-  for (const auto &peer : peerSockets) {
-    try {
-      if (!peer.second || !peer.second->is_open()) {
-        std::cerr << "⚠️ Peer socket closed: " << peer.first << "\n";
-        inactivePeers.push_back(peer.first);
-        continue;
-      }
+    for (const auto &peer : peerSockets) {
+        try {
+            if (!peer.second || !peer.second->is_open()) {
+                std::cerr << "⚠️ Peer socket closed: " << peer.first << "\n";
+                inactivePeers.push_back(peer.first);
+                continue;
+            }
 
-      // Optional: send a ping
-      boost::system::error_code ec;
-      peer.second->send(boost::asio::buffer("PING"), 0, ec);
-      if (ec) {
-        std::cerr << "⚠️ Failed to ping peer: " << peer.first
-                  << " - Marking as inactive.\n";
-        inactivePeers.push_back(peer.first);
-      } else {
-        std::cout << "✅ Peer active: " << peer.first << "\n";
-      }
-    } catch (const std::exception &e) {
-      std::cerr << "⚠️ Exception checking peer " << peer.first << ": "
-                << e.what() << "\n";
-      inactivePeers.push_back(peer.first);
+            // ✅ Use prefixed ping (non-breaking protocol message)
+            std::string ping = "ALYN|PING";
+            boost::system::error_code ec;
+            peer.second->send(boost::asio::buffer(ping + "\n"), 0, ec);
+            if (ec) {
+                std::cerr << "⚠️ Failed to ping peer: " << peer.first
+                          << " - Marking as inactive.\n";
+                inactivePeers.push_back(peer.first);
+            } else {
+                std::cout << "✅ Peer active: " << peer.first << "\n";
+            }
+
+        } catch (const std::exception &e) {
+            std::cerr << "⚠️ Exception checking peer " << peer.first << ": "
+                      << e.what() << "\n";
+            inactivePeers.push_back(peer.first);
+        }
     }
-  }
 
-  // Remove inactive peers
-  for (const auto &peer : inactivePeers) {
-    peerSockets.erase(peer);
-    std::cout << "🗑️ Removed inactive peer: " << peer << "\n";
-  }
+    // Remove inactive peers
+    for (const auto &peer : inactivePeers) {
+        peerSockets.erase(peer);
+        std::cout << "🗑️ Removed inactive peer: " << peer << "\n";
+    }
 }
+
 // Add methods to handle rollup block synchronization
 void Network::receiveRollupBlock(const std::string &data) {
   if (data.empty()) {

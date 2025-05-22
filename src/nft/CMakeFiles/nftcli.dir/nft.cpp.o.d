@@ -281,8 +281,9 @@ src/nft/CMakeFiles/nftcli.dir/nft.cpp.o: /root/AlynCoin/src/nft/nft.cpp \
  /usr/include/openssl/pkcs7err.h /usr/include/openssl/http.h \
  /usr/include/openssl/conf.h /usr/include/openssl/conferr.h \
  /usr/include/openssl/conftypes.h /usr/include/openssl/pemerr.h \
+ /usr/include/c++/13/optional /root/AlynCoin/src/../src/db/db_paths.h \
  /root/AlynCoin/src/nft/../zk/winterfell_stark.h \
- /usr/include/c++/13/optional /root/AlynCoin/src/nft/../zk/../nft/nft.h \
+ /root/AlynCoin/src/nft/../zk/../nft/nft.h \
  /root/AlynCoin/src/../src/blockchain.h \
  /root/AlynCoin/src/../src/generated/block_protos.pb.h \
  /root/AlynCoin/src/../src/generated/transaction_protos.pb.h \
@@ -290,7 +291,6 @@ src/nft/CMakeFiles/nftcli.dir/nft.cpp.o: /root/AlynCoin/src/nft/nft.cpp \
  /root/AlynCoin/src/../src/generated/block_protos.pb.h \
  /root/AlynCoin/src/../src/generated/transaction_protos.pb.h \
  /root/AlynCoin/src/../src/block.h \
- /root/AlynCoin/src/../src/crypto_utils.h \
  /root/AlynCoin/src/../src/crypto_protos.pb.h \
  /root/AlynCoin/src/../src/transaction.h \
  /root/AlynCoin/src/nft/../network/peer_blacklist.h \
@@ -340,7 +340,6 @@ src/nft/CMakeFiles/nftcli.dir/nft.cpp.o: /root/AlynCoin/src/nft/nft.cpp \
  /usr/include/c++/13/stack /usr/include/c++/13/bits/stl_stack.h \
  /usr/include/jsoncpp/json/writer.h \
  /root/AlynCoin/src/../src/zk/winterfell_stark.h \
- /usr/include/jsoncpp/json/json.h \
  /root/AlynCoin/src/../src/layer2/state_channel.h \
  /root/AlynCoin/src/../src/rollup/rollup_block.h \
  /root/AlynCoin/src/../src/rollup/../transaction.h \
@@ -1354,7 +1353,6 @@ src/nft/CMakeFiles/nftcli.dir/nft.cpp.o: /root/AlynCoin/src/nft/nft.cpp \
  /usr/include/boost/asio/writable_pipe.hpp \
  /usr/include/boost/asio/write_at.hpp \
  /usr/include/boost/asio/impl/write_at.hpp \
- /root/AlynCoin/src/../src/db/db_paths.h \
  /usr/local/include/nlohmann/json.hpp /usr/include/c++/13/forward_list \
  /usr/include/c++/13/bits/forward_list.h \
  /usr/include/c++/13/bits/forward_list.tcc /usr/include/c++/13/valarray \
@@ -1377,9 +1375,7 @@ src/nft/CMakeFiles/nftcli.dir/nft.cpp.o: /root/AlynCoin/src/nft/nft.cpp \
  /usr/include/c++/13/bits/quoted_string.h /usr/include/c++/13/codecvt \
  /usr/include/c++/13/bits/fs_dir.h /usr/include/c++/13/bits/fs_ops.h \
  /usr/include/c++/13/numeric /usr/include/c++/13/bits/stl_numeric.h \
- /usr/include/c++/13/pstl/glue_numeric_defs.h \
- /usr/include/x86_64-linux-gnu/sys/wait.h \
- /usr/include/x86_64-linux-gnu/bits/types/idtype_t.h \
- /usr/include/c++/13/thread /usr/include/c++/13/bits/this_thread_sleep.h \
+ /usr/include/c++/13/pstl/glue_numeric_defs.h /usr/include/c++/13/thread \
+ /usr/include/c++/13/bits/this_thread_sleep.h \
  /root/AlynCoin/src/nft/../db/db_instance.h \
  /root/AlynCoin/src/nft/../db/rocksdb_wrapper.h

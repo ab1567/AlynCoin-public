@@ -196,7 +196,8 @@ bool Block::mineBlock(int difficulty) {
     }
 
     std::cout << "✅ Block Signed Successfully.\n";
-    return true;
+    hash = calculateHash();
+	return true;
 }
 
 // --- signBlock: Sign and store binary signatures and public keys
@@ -259,23 +260,29 @@ bool Block::isValid(const std::string &prevHash, int expectedDifficulty) const {
     std::cout << "\n🔍 Validating Block Index: " << index
               << ", Miner: " << minerAddress << "\n";
 
+    // 🔁 Recompute hash using mining input (no delimiters!)
     std::stringstream ss;
     ss << index << previousHash << getTransactionsHash() << timestamp << nonce;
     std::string recomputedHash = Crypto::hybridHash(ss.str());
+
     std::cout << "🔍 Recomputed Hash: " << recomputedHash << "\n";
     std::cout << "🔍 Stored Hash:     " << hash << "\n";
 
     if (recomputedHash != hash) {
         std::cerr << "❌ Invalid Block Hash!\n";
+        std::cerr << "[DEBUG] index: " << index << "\n";
+        std::cerr << "[DEBUG] prevHash: " << previousHash << "\n";
+        std::cerr << "[DEBUG] txRoot: " << getTransactionsHash() << "\n";
+        std::cerr << "[DEBUG] timestamp: " << timestamp << "\n";
+        std::cerr << "[DEBUG] nonce: " << nonce << "\n";
+        std::cerr << "[DEBUG] Full hash input: " << ss.str() << "\n";
         return false;
     }
 
-    {
-        int diffToCheck = (expectedDifficulty > 0) ? expectedDifficulty : difficulty;
-        if (hash.substr(0, diffToCheck) != std::string(diffToCheck, '0')) {
-            std::cerr << "❌ Invalid PoW! Hash doesn't match difficulty " << diffToCheck << "\n";
-            return false;
-        }
+    int diffToCheck = (expectedDifficulty > 0) ? expectedDifficulty : difficulty;
+    if (hash.substr(0, diffToCheck) != std::string(diffToCheck, '0')) {
+        std::cerr << "❌ Invalid PoW! Hash doesn't match difficulty " << diffToCheck << "\n";
+        return false;
     }
 
     if (Crypto::keccak256(hash) != keccakHash) {
@@ -289,57 +296,52 @@ bool Block::isValid(const std::string &prevHash, int expectedDifficulty) const {
         return false;
     }
 
-    // ✅ Dilithium verification — no hex decode!
-    {
-        if (publicKeyDilithium.empty() || dilithiumSignature.empty()) {
-            std::cerr << "❌ Missing Dilithium key or signature!\n";
-            return false;
-        }
-        std::cout << "🧬 Dilithium Public Key Length: " << publicKeyDilithium.size() << "\n";
-        std::cout << "🔏 Dilithium Signature Length: " << dilithiumSignature.size() << "\n";
-
-        if (!Crypto::verifyWithDilithium(msgBytes, dilithiumSignature, publicKeyDilithium)) {
-            std::cerr << "❌ Invalid Dilithium signature!\n";
-            return false;
-        }
-        std::cout << "✅ Dilithium Signature Verified.\n";
+    // ✅ Dilithium
+    if (publicKeyDilithium.empty() || dilithiumSignature.empty()) {
+        std::cerr << "❌ Missing Dilithium key or signature!\n";
+        return false;
     }
 
-    // ✅ Falcon verification — no hex decode!
-    {
-        if (publicKeyFalcon.empty() || falconSignature.empty()) {
-            std::cerr << "❌ Missing Falcon key or signature!\n";
-            return false;
-        }
-        std::cout << "🦅 Falcon Public Key Length: " << publicKeyFalcon.size() << "\n";
-        std::cout << "🔏 Falcon Signature Length: " << falconSignature.size() << "\n";
-
-        if (!Crypto::verifyWithFalcon(msgBytes, falconSignature, publicKeyFalcon)) {
-            std::cerr << "❌ Invalid Falcon signature!\n";
-            return false;
-        }
-        std::cout << "✅ Falcon Signature Verified.\n";
+    if (!Crypto::verifyWithDilithium(msgBytes, dilithiumSignature, publicKeyDilithium)) {
+        std::cerr << "❌ Invalid Dilithium signature!\n";
+        return false;
     }
 
-    for (auto &tx : transactions) {
+    std::cout << "✅ Dilithium Signature Verified.\n";
+
+    // ✅ Falcon
+    if (publicKeyFalcon.empty() || falconSignature.empty()) {
+        std::cerr << "❌ Missing Falcon key or signature!\n";
+        return false;
+    }
+
+    if (!Crypto::verifyWithFalcon(msgBytes, falconSignature, publicKeyFalcon)) {
+        std::cerr << "❌ Invalid Falcon signature!\n";
+        return false;
+    }
+
+    std::cout << "✅ Falcon Signature Verified.\n";
+
+    // ✅ Validate transactions
+    for (const auto &tx : transactions) {
         if (!tx.isValid(tx.getSenderPublicKeyDilithium(), tx.getSenderPublicKeyFalcon())) {
             std::cerr << "❌ Invalid transaction in block!\n";
             return false;
         }
     }
 
+    // ✅ Check parent hash
     if (previousHash != prevHash) {
         std::cerr << "❌ Previous Hash Mismatch! expected: "
                   << prevHash << ", got: " << previousHash << "\n";
         return false;
     }
 
+    // ✅ zk-STARK Proof
     std::string txRoot = getTransactionsHash();
     if (!WinterfellStark::verifyProof(
             std::string(zkProof.begin(), zkProof.end()),
-            hash, previousHash, txRoot
-        ))
-    {
+            hash, previousHash, txRoot)) {
         std::cerr << "❌ Invalid zk-STARK proof!\n";
         return false;
     }
@@ -358,14 +360,18 @@ void Block::setReward(double r) {
 }
 
 // ✅ Adaptive mining reward calculation
+#define EMPTY_TX_ROOT_HASH "0c11a17c8610d35fe17aed2a5a5c682a6cdfb8b6ecf56a95605ebb1475b345de"
+
 std::string Block::getTransactionsHash() const {
+    // ✅ Use cached or loaded value
     if (!transactionsHash.empty()) {
         return transactionsHash;
     }
 
+    // ✅ If no transactions, return empty constant
     if (transactions.empty()) {
-        std::cerr << "⚠️ [getTransactionsHash] No transactions. Returning zero Merkle root.\n";
-        transactionsHash = std::string(64, '0');
+        std::cerr << "⚠️ [getTransactionsHash] No transactions and no stored hash — using EMPTY_TX_ROOT_HASH\n";
+        transactionsHash = EMPTY_TX_ROOT_HASH;
         return transactionsHash;
     }
 
@@ -391,14 +397,14 @@ std::string Block::getTransactionsHash() const {
     }
 
     if (!anyValid) {
-        std::cerr << "⚠️ [getTransactionsHash] No valid txs found. Returning zero Merkle root.\n";
-        transactionsHash = std::string(64, '0');
+        transactionsHash = EMPTY_TX_ROOT_HASH;
         return transactionsHash;
     }
 
     transactionsHash = Crypto::blake3(ss.str());
     return transactionsHash;
 }
+
 
 //
 void Block::setTransactionsHash(const std::string &hash) {
@@ -528,10 +534,7 @@ alyncoin::BlockProto Block::toProtobuf() const {
     proto.set_block_signature(blkSig);
     proto.set_keccak_hash(keccakHash);
 
-    proto.set_tx_merkle_root(transactions.empty()
-        ? std::string(64, '0')
-        : getTransactionsHash());
-
+    proto.set_tx_merkle_root(getTransactionsHash());
     proto.set_reward(reward);
 
     // === Binary fields ===
@@ -651,7 +654,11 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
         newBlock.blockSignature     = safeStr(protoBlock.block_signature(),   "block_signature");
         newBlock.keccakHash         = safeStr(protoBlock.keccak_hash(),       "keccak_hash");
         newBlock.reward             = protoBlock.reward();
-        newBlock.transactionsHash   = safeStr(protoBlock.tx_merkle_root(),    "tx_merkle_root");
+	std::string txRootFromProto = safeStr(protoBlock.tx_merkle_root(), "tx_merkle_root");
+
+	if (!txRootFromProto.empty()) {
+	    newBlock.setTransactionsHash(txRootFromProto);  // ✅ force cache
+	}
 
         newBlock.zkProof            = safeBinaryField(protoBlock.zk_stark_proof(),      "zkProof",             2'000'000);
         newBlock.dilithiumSignature = safeBinaryField(protoBlock.dilithium_signature(), "Dilithium Signature", 5000);

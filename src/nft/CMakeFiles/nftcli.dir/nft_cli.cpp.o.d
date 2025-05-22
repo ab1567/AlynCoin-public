@@ -315,10 +315,10 @@ src/nft/CMakeFiles/nftcli.dir/nft_cli.cpp.o: \
  /usr/include/openssl/pkcs7err.h /usr/include/openssl/http.h \
  /usr/include/openssl/conf.h /usr/include/openssl/conferr.h \
  /usr/include/openssl/conftypes.h /usr/include/openssl/pemerr.h \
+ /root/AlynCoin/src/../src/db/db_paths.h \
  /root/AlynCoin/src/nft/../db/db_instance.h \
  /root/AlynCoin/src/nft/../db/rocksdb_wrapper.h \
- /root/AlynCoin/src/nft/../db/db_paths.h /usr/include/c++/13/fstream \
- /usr/include/c++/13/bits/codecvt.h \
+ /usr/include/c++/13/fstream /usr/include/c++/13/bits/codecvt.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/basic_file.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++io.h \
  /usr/include/c++/13/bits/fstream.tcc /usr/include/c++/13/regex \
@@ -342,4 +342,8 @@ src/nft/CMakeFiles/nftcli.dir/nft_cli.cpp.o: \
  /usr/include/c++/13/bits/regex.h /usr/include/c++/13/bits/regex.tcc \
  /usr/include/c++/13/bits/regex_executor.h \
  /usr/include/c++/13/bits/regex_executor.tcc \
- /root/AlynCoin/src/nft/crypto/aes_utils.h
+ /root/AlynCoin/src/nft/crypto/aes_utils.h /usr/include/c++/13/filesystem \
+ /usr/include/c++/13/bits/fs_fwd.h /usr/include/c++/13/bits/fs_path.h \
+ /usr/include/c++/13/iomanip /usr/include/c++/13/bits/quoted_string.h \
+ /usr/include/c++/13/codecvt /usr/include/c++/13/bits/fs_dir.h \
+ /usr/include/c++/13/bits/fs_ops.h

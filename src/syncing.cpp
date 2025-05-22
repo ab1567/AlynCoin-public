@@ -41,7 +41,8 @@ void Syncing::propagateBlock(const Block &block) {
   std::string serializedBlock;
   blockProto.SerializeToString(&serializedBlock);
 
-  std::string message = "BLOCK_DATA|" + serializedBlock;
+  std::string base64Block = Crypto::base64Encode(serializedBlock);
+  std::string message = "ALYN|BLOCK_BROADCAST|" + base64Block;
 
   Network &net = getNet();
   for (const std::string &peer : net.getPeers()) {

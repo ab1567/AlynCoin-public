@@ -73,6 +73,9 @@ int main(int argc, char *argv[]) {
 
     blockchain.loadFromDB();
     blockchain.reloadBlockchainState();
+if (network) {
+    network->run();
+}
 
 if (network && !connectIP.empty()) {
     std::string ip;
