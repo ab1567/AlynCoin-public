@@ -545,6 +545,8 @@ void Network::handlePeer(std::shared_ptr<tcp::socket> socket) {
 
     std::cout << "✅ [handlePeer] Incoming peer registered: " << peerId << "\n";
 
+	// 🟢 Gossip peer list after every new connection
+	broadcastPeerList();
     // Send initial sync requests
     sendData(peerId, "ALYN|REQUEST_BLOCKCHAIN\n");
 
@@ -663,6 +665,14 @@ void Network::run() {
             cleanupPeers();
         }
     }).detach();
+
+	// 🟢 Periodically request peer lists for gossip mesh
+	std::thread([this]() {
+	    while (true) {
+	        std::this_thread::sleep_for(std::chrono::seconds(30)); // Every 30 sec
+	        this->requestPeerList();
+	    }
+	}).detach();
 
     std::cout << "✅ [Network] Network loop launched successfully.\n";
 }
@@ -946,7 +956,7 @@ if (data.rfind(blockPrefix, 0) == 0) {
         return;
     }
 
-    std::cerr << "⚠️ Unknown message from " << peerID
+	std::cerr << "⚠️ Unknown message from " << peerID
               << ": " << data.substr(0, std::min<size_t>(100, data.size())) << "\n";
 }
 
@@ -1316,6 +1326,10 @@ void Network::addPeer(const std::string &peer) {
 
 // Connect to Node
 bool Network::connectToNode(const std::string &ip, int port) {
+    if (peerSockets.size() > 32) {
+        std::cerr << "⚠️ [connectToNode] Max peer cap reached. Not connecting to: " << ip << ":" << port << "\n";
+        return false;
+    }
     try {
         auto socketPtr = std::make_shared<boost::asio::ip::tcp::socket>(ioContext);
         boost::asio::ip::tcp::resolver resolver(ioContext);
@@ -1604,6 +1618,11 @@ void Network::cleanupPeers() {
         peerSockets.erase(peer);
         std::cout << "🗑️ Removed inactive peer: " << peer << "\n";
     }
+	if (!inactivePeers.empty()) {
+	    broadcastPeerList();
+	    savePeers();
+	}
+
 }
 
 // Add methods to handle rollup block synchronization

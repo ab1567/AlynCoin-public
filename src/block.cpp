@@ -28,6 +28,17 @@ const double BASE_BLOCK_REWARD = 100.0; // Fixed block reward per mined block
 const double MAX_BURN_RATE = 0.05;     // Max 5% burn rate
 const double MIN_BURN_RATE = 0.01;     // Min 1% burn rate
 
+void ensureRootConsistency(const Block& b, int idx) {
+    if (b.merkleRoot != b.transactionsHash) {
+        std::cerr << "❌ CRITICAL: merkleRoot != transactionsHash at block";
+        if (idx >= 0) std::cerr << " index " << idx;
+        std::cerr << "\n";
+        std::cerr << "[Debug] merkleRoot:      " << b.merkleRoot << "\n";
+        std::cerr << "[Debug] transactionsHash:" << b.transactionsHash << "\n";
+        std::abort();
+    }
+}
+
 // ✅ Default Constructor (No Arguments)
 Block::Block()
     : index(0), previousHash("0000"), minerAddress("System"), hash(""),
@@ -70,7 +81,9 @@ Block::Block(const Block &other)
       publicKeyFalcon(other.publicKeyFalcon),
       zkProof(other.zkProof),
       reward(other.reward)
-{}
+{
+    setMerkleRoot(other.merkleRoot);
+}
 
 // ✅ Assignment Operator
 Block &Block::operator=(const Block &other) {
@@ -91,6 +104,7 @@ Block &Block::operator=(const Block &other) {
         publicKeyFalcon = other.publicKeyFalcon;
         zkProof = other.zkProof;
         reward = other.reward;
+        setMerkleRoot(other.merkleRoot);
     }
     return *this;
 }
@@ -142,15 +156,18 @@ std::vector<unsigned char> Block::getSignatureMessage() const {
 
 // Calculate Hash
 std::string Block::calculateHash() const {
-  std::string txRoot = !merkleRoot.empty() ? merkleRoot : getTransactionsHash();
-
-if (txRoot.empty()) {
-    std::cerr << "❌ [calculateHash] Block has empty merkleRoot and transactionsHash! Invalid block state.\n";
-}
-
-std::stringstream ss;
-ss << index << previousHash << txRoot << timestamp << nonce;
-return Crypto::hybridHash(ss.str());
+    // Use stored merkleRoot if set (even for empty blocks!)
+    std::string txRoot;
+    if (!merkleRoot.empty()) {
+        txRoot = merkleRoot;
+    } else if (!transactionsHash.empty()) {
+        txRoot = transactionsHash;
+    } else {
+        txRoot = EMPTY_TX_ROOT_HASH;
+    }
+    std::stringstream ss;
+    ss << index << previousHash << txRoot << timestamp << nonce;
+    return Crypto::hybridHash(ss.str());
 }
 
 // ✅ Mine Block with Protobuf and RocksDB Storage
@@ -158,10 +175,15 @@ bool Block::mineBlock(int difficulty) {
     std::cout << "\n⏳ [mineBlock] Mining block for: " << minerAddress
               << " with difficulty: " << difficulty << "...\n";
 
+    // === Step 0: Set Merkle root and transactionsHash ===
     if (transactions.empty()) {
-        setMerkleRoot(EMPTY_TX_ROOT_HASH);
-        setTransactionsHash(EMPTY_TX_ROOT_HASH);
+        setMerkleRoot(EMPTY_TX_ROOT_HASH);      // Also sets transactionsHash
+    } else {
+        // Compute canonical Merkle root (or use your own real Merkle logic)
+        std::string computedRoot = computeTransactionsHash();
+        setMerkleRoot(computedRoot);            // Also sets transactionsHash
     }
+
     // === Step 1: PoW loop using computed tx root ===
     do {
         nonce++;
@@ -169,7 +191,7 @@ bool Block::mineBlock(int difficulty) {
             std::cout << "\r[Mining] Nonce: " << nonce << std::flush;
         }
 
-        std::string txRoot = getTransactionsHash();  // always consistent
+        std::string txRoot = getTransactionsHash();  // Always consistent/correct here
         std::stringstream ss;
         ss << index << previousHash << txRoot << timestamp << nonce;
         hash = Crypto::hybridHash(ss.str());
@@ -183,26 +205,18 @@ bool Block::mineBlock(int difficulty) {
     keccakHash = Crypto::keccak256(hash);
     std::cout << "✅ Keccak Hash: " << keccakHash << "\n";
 
-    // === Step 3: zk-STARK Proof and Merkle Root ===
-	std::string txRoot;
+    // === Step 3: zk-STARK Proof ===
+    std::string txRoot = getTransactionsHash();
+    ensureRootConsistency(*this, index);
+    std::cout << "🧬 Transactions Merkle Root: " << txRoot << "\n";
 
-	if (!transactionsHash.empty()) {
-	    txRoot = transactionsHash; // use cached if already set explicitly
-	} else {
-	    txRoot = getTransactionsHash(); 
-	    setTransactionsHash(txRoot);
-	}
-
-	merkleRoot = txRoot; // consistent
-	std::cout << "🧬 Transactions Merkle Root: " << txRoot << "\n";
-
-	std::string proofStr = WinterfellStark::generateProof(hash, previousHash, txRoot);
-	zkProof = std::vector<uint8_t>(proofStr.begin(), proofStr.end());
-	if (zkProof.size() < 64) {
-	    std::cerr << "❌ [mineBlock] zk-STARK proof too small (" << zkProof.size() << " bytes)\n";
-	    return false;
-	}
-	std::cout << "✅ zk-STARK Proof Generated. Size: " << zkProof.size() << " bytes\n";
+    std::string proofStr = WinterfellStark::generateProof(hash, previousHash, txRoot);
+    zkProof = std::vector<uint8_t>(proofStr.begin(), proofStr.end());
+    if (zkProof.size() < 64) {
+        std::cerr << "❌ [mineBlock] zk-STARK proof too small (" << zkProof.size() << " bytes)\n";
+        return false;
+    }
+    std::cout << "✅ zk-STARK Proof Generated. Size: " << zkProof.size() << " bytes\n";
 
     // === Step 4: Load Keys and Sign ===
     signBlock(minerAddress);
@@ -218,8 +232,6 @@ bool Block::mineBlock(int difficulty) {
     }
 
     std::cout << "✅ Block Signed Successfully.\n";
-
-    // === Step 6: Final deterministic hash ===
     return true;
 }
 
@@ -275,6 +287,7 @@ void Block::signBlock(const std::string &minerAddress) {
 
 // ✅ Validate Block: Use raw binary, no Crypto::fromHex!
 bool Block::isValid(const std::string &prevHash, int expectedDifficulty) const {
+    ensureRootConsistency(*this, index);
     if (index == 0) {
         std::cout << "✅ Skipping full validation for Genesis block (index 0)\n";
         return true;
@@ -283,12 +296,19 @@ bool Block::isValid(const std::string &prevHash, int expectedDifficulty) const {
     std::cout << "\n🔍 Validating Block Index: " << index
               << ", Miner: " << minerAddress << "\n";
 
-    // 🔁 Recompute hash using mining input (no delimiters!)
-    std::string txRoot = merkleRoot;
-	std::stringstream ss;
-	ss << index << previousHash << txRoot << timestamp << nonce;
-	std::string recomputedHash = Crypto::hybridHash(ss.str());
+    // === Always use merkleRoot if set (including for empty blocks) ===
+    std::string txRoot;
+    if (!merkleRoot.empty()) {
+        txRoot = merkleRoot;
+    } else if (!transactionsHash.empty()) {
+        txRoot = transactionsHash;
+    } else {
+        txRoot = EMPTY_TX_ROOT_HASH;
+    }
 
+    std::stringstream ss;
+    ss << index << previousHash << txRoot << timestamp << nonce;
+    std::string recomputedHash = Crypto::hybridHash(ss.str());
 
     std::cout << "🔍 Recomputed Hash: " << recomputedHash << "\n";
     std::cout << "🔍 Stored Hash:     " << hash << "\n";
@@ -297,7 +317,9 @@ bool Block::isValid(const std::string &prevHash, int expectedDifficulty) const {
         std::cerr << "❌ Invalid Block Hash!\n";
         std::cerr << "[DEBUG] index: " << index << "\n";
         std::cerr << "[DEBUG] prevHash: " << previousHash << "\n";
-        std::cerr << "[DEBUG] txRoot: " << getTransactionsHash() << "\n";
+        std::cerr << "[DEBUG] txRoot (canonical): " << txRoot << "\n";
+        std::cerr << "[DEBUG] merkleRoot: " << merkleRoot << "\n";
+        std::cerr << "[DEBUG] transactionsHash: " << transactionsHash << "\n";
         std::cerr << "[DEBUG] timestamp: " << timestamp << "\n";
         std::cerr << "[DEBUG] nonce: " << nonce << "\n";
         std::cerr << "[DEBUG] Full hash input: " << ss.str() << "\n";
@@ -326,12 +348,10 @@ bool Block::isValid(const std::string &prevHash, int expectedDifficulty) const {
         std::cerr << "❌ Missing Dilithium key or signature!\n";
         return false;
     }
-
     if (!Crypto::verifyWithDilithium(msgBytes, dilithiumSignature, publicKeyDilithium)) {
         std::cerr << "❌ Invalid Dilithium signature!\n";
         return false;
     }
-
     std::cout << "✅ Dilithium Signature Verified.\n";
 
     // ✅ Falcon
@@ -339,12 +359,10 @@ bool Block::isValid(const std::string &prevHash, int expectedDifficulty) const {
         std::cerr << "❌ Missing Falcon key or signature!\n";
         return false;
     }
-
     if (!Crypto::verifyWithFalcon(msgBytes, falconSignature, publicKeyFalcon)) {
         std::cerr << "❌ Invalid Falcon signature!\n";
         return false;
     }
-
     std::cout << "✅ Falcon Signature Verified.\n";
 
     // ✅ Validate transactions
@@ -385,59 +403,28 @@ void Block::setReward(double r) {
 
 // ✅ Adaptive mining reward calculation
 std::string Block::getTransactionsHash() const {
-    // ✅ Use cached or loaded value
     if (!transactionsHash.empty()) {
         return transactionsHash;
     }
-
-    // ✅ If no transactions, and merkleRoot is set, return merkleRoot
-    if (transactions.empty() && !merkleRoot.empty()) {
-        // Fix: Use restored merkleRoot instead of EMPTY_TX_ROOT_HASH if available!
-        transactionsHash = merkleRoot;
-        return transactionsHash;
+    if (!merkleRoot.empty()) {
+        return merkleRoot;
     }
-
-    // ✅ If no transactions and no merkleRoot, fallback
-    if (transactions.empty()) {
-        std::cerr << "⚠️ [getTransactionsHash] No transactions and no stored hash/merkleRoot — using EMPTY_TX_ROOT_HASH\n";
-        transactionsHash = EMPTY_TX_ROOT_HASH;
-        return transactionsHash;
-    }
-
-    std::stringstream ss;
-    bool anyValid = false;
-
-    for (const auto& tx : transactions) {
-        bool isRewardTx = (tx.getSender() == "System");
-
-        if (!isRewardTx && (
-            tx.getSender().empty() ||
-            tx.getRecipient().empty() ||
-            tx.getAmount() <= 0.0 ||
-            tx.getSignatureDilithium().empty() ||
-            tx.getSignatureFalcon().empty() ||
-            tx.getZkProof().empty())) {
-            std::cerr << "⚠️ [getTransactionsHash] Skipping invalid tx from Merkle root computation\n";
-            continue;
-        }
-
-        ss << tx.getHash();
-        anyValid = true;
-    }
-
-    if (!anyValid) {
-        transactionsHash = EMPTY_TX_ROOT_HASH;
-        return transactionsHash;
-    }
-
-    transactionsHash = Crypto::blake3(ss.str());
-    return transactionsHash;
+    std::cerr << "❌ [getTransactionsHash] Neither transactionsHash nor merkleRoot is set! BLOCK CORRUPT.\n";
+    return EMPTY_TX_ROOT_HASH;
 }
 
 
 //
+void Block::setMerkleRoot(const std::string &root) {
+    merkleRoot = root;
+    transactionsHash = root; // Always mirror!
+    ensureRootConsistency(*this, index);
+}
+
 void Block::setTransactionsHash(const std::string &hash) {
     transactionsHash = hash;
+    merkleRoot = hash; // Always mirror!
+    ensureRootConsistency(*this, index);
 }
 
 std::string Block::computeTransactionsHash() const {
@@ -539,19 +526,27 @@ Block Block::fromJSON(const Json::Value &blockJson) {
     std::string decoded = Crypto::base64Decode(blockJson.get("publicKeyFalcon", "").asString());
     block.publicKeyFalcon = std::vector<unsigned char>(decoded.begin(), decoded.end());
   }
+    ensureRootConsistency(block, block.index);
   return block;
 }
 
 //
 alyncoin::BlockProto Block::toProtobuf() const {
+    // --- [ROOT FAILSAFE] Enforce invariant before serialization ---
+    if (merkleRoot.empty() && !transactionsHash.empty())
+        const_cast<Block*>(this)->setMerkleRoot(transactionsHash);
+    if (transactionsHash.empty() && !merkleRoot.empty())
+        const_cast<Block*>(this)->setTransactionsHash(merkleRoot);
+    ensureRootConsistency(*this, index);
+
     alyncoin::BlockProto proto;
 
     std::string blkSig = blockSignature.empty()
-                       ? Crypto::blake3(
-                            hash +
-                            std::string(dilithiumSignature.begin(), dilithiumSignature.end()) +
-                            std::string(falconSignature.begin(), falconSignature.end()))
-                       : blockSignature;
+        ? Crypto::blake3(
+            hash +
+            std::string(dilithiumSignature.begin(), dilithiumSignature.end()) +
+            std::string(falconSignature.begin(), falconSignature.end()))
+        : blockSignature;
 
     proto.set_index(index);
     proto.set_previous_hash(previousHash);
@@ -563,14 +558,33 @@ alyncoin::BlockProto Block::toProtobuf() const {
     proto.set_block_signature(blkSig);
     proto.set_keccak_hash(keccakHash);
 
-    proto.set_tx_merkle_root(getTransactionsHash());
+    // === CRITICAL: Guarantee tx_merkle_root is set and valid ===
+    std::string txRoot = getTransactionsHash();
+
+    bool isGenesis = (index == 0);
+    if (txRoot.empty() ||
+        (txRoot == EMPTY_TX_ROOT_HASH && (!isGenesis && !transactions.empty()))) {
+        std::cerr << "\n\n❌ [toProtobuf] FATAL: Block being serialized without valid Merkle root! index=" << index
+                  << " hash=" << hash << "\n";
+        std::cerr << "    transactionsHash='" << transactionsHash << "'\n";
+        std::cerr << "    merkleRoot='" << merkleRoot << "'\n";
+        std::cerr << "    transactions.size()=" << transactions.size() << "\n";
+        std::cerr << "    l2Transactions.size()=" << l2Transactions.size() << "\n";
+        std::cerr << "    This block will not be serialized. Aborting.\n";
+        abort();
+    }
+
+    if (txRoot.empty()) {
+        txRoot = EMPTY_TX_ROOT_HASH;
+        std::cerr << "[toProtobuf] WARNING: getTransactionsHash() empty, using EMPTY_TX_ROOT_HASH!\n";
+    }
+    proto.set_tx_merkle_root(txRoot);
     proto.set_reward(reward);
 
     // === Binary fields ===
     if (!zkProof.empty()) {
         proto.set_zk_stark_proof(reinterpret_cast<const char*>(zkProof.data()), zkProof.size());
     }
-
     proto.set_dilithium_signature(reinterpret_cast<const char*>(dilithiumSignature.data()), dilithiumSignature.size());
     proto.set_falcon_signature(reinterpret_cast<const char*>(falconSignature.data()), falconSignature.size());
 
@@ -580,7 +594,6 @@ alyncoin::BlockProto Block::toProtobuf() const {
         }
         proto.set_public_key_dilithium(reinterpret_cast<const char*>(publicKeyDilithium.data()), publicKeyDilithium.size());
     }
-
     if (!publicKeyFalcon.empty()) {
         if (publicKeyFalcon.size() != FALCON_PUBLIC_KEY_BYTES) {
             std::cerr << "❌ [toProtobuf] Unexpected Falcon public key size: " << publicKeyFalcon.size() << "\n";
@@ -590,13 +603,16 @@ alyncoin::BlockProto Block::toProtobuf() const {
 
     // === L1 Transactions ===
     for (const auto& tx : transactions) {
+        if (tx.getSender() == "System") {
+            *proto.add_transactions() = tx.toProto();
+            continue;
+        }
         if (tx.getSender().empty() || tx.getRecipient().empty() || tx.getAmount() <= 0.0 ||
             tx.getSignatureDilithium().empty() || tx.getSignatureFalcon().empty() || tx.getZkProof().empty()) {
             continue;
         }
         *proto.add_transactions() = tx.toProto();
     }
-
     // === L2 Transactions ===
     for (const auto& l2tx : l2Transactions) {
         if (l2tx.getSender().empty() || l2tx.getRecipient().empty() || l2tx.getAmount() <= 0.0 ||
@@ -606,6 +622,7 @@ alyncoin::BlockProto Block::toProtobuf() const {
         *proto.add_l2_transactions() = l2tx.toProto();
     }
 
+    std::cerr << "[toProtobuf] index=" << index << " tx_merkle_root=" << txRoot << std::endl;
     return proto;
 }
 
@@ -646,27 +663,23 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
             if (!allowPartial) throw std::runtime_error(label + " too large");
             return {};
         }
-
         std::vector<unsigned char> binary(bin.begin(), bin.end());
         while (!binary.empty() && binary.back() == '\0') {
             std::cerr << "⚠️ [fromProto] Trimming null terminator from " << label << "\n";
             binary.pop_back();
         }
-
         if (label == "Falcon Public Key" && binary.size() != FALCON_PUBLIC_KEY_BYTES) {
             std::cerr << "❌ [fromProto] Invalid Falcon Public Key length: " << binary.size()
                       << " (expected: " << FALCON_PUBLIC_KEY_BYTES << ")\n";
             if (!allowPartial) throw std::runtime_error("Invalid Falcon public key length.");
             return {};
         }
-
         if (label == "Dilithium Public Key" && binary.size() != DILITHIUM_PUBLIC_KEY_BYTES) {
             std::cerr << "❌ [fromProto] Invalid Dilithium Public Key length: " << binary.size()
                       << " (expected: " << DILITHIUM_PUBLIC_KEY_BYTES << ")\n";
             if (!allowPartial) throw std::runtime_error("Invalid Dilithium public key length.");
             return {};
         }
-
         return binary;
     };
 
@@ -684,24 +697,18 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
         newBlock.keccakHash         = safeStr(protoBlock.keccak_hash(),       "keccak_hash");
         newBlock.reward             = protoBlock.reward();
 
-	std::string txRootFromProto = safeStr(protoBlock.tx_merkle_root(), "tx_merkle_root");
-
-	if (!txRootFromProto.empty()) {
-	    newBlock.setMerkleRoot(txRootFromProto);
-	    newBlock.setTransactionsHash(txRootFromProto);
-	    std::cerr << "[fromProto] Restored tx_merkle_root: " << txRootFromProto
-              << " (idx=" << newBlock.index << ")\n";
-	} else if (protoBlock.transactions_size() == 0 && protoBlock.l2_transactions_size() == 0) {
-	    // Only allow EMPTY_TX_ROOT_HASH for truly empty blocks!
-	    newBlock.setMerkleRoot(EMPTY_TX_ROOT_HASH);
-	    newBlock.setTransactionsHash(EMPTY_TX_ROOT_HASH);
-	    std::cerr << "[fromProto] Empty block: set merkleRoot/txRoot to EMPTY_TX_ROOT_HASH (idx=" << newBlock.index << ")\n";
-	} else {
-	    // This is an error: Non-empty block missing merkle root!
-	    std::cerr << "❌ [fromProto] CRITICAL: Non-empty block is missing tx_merkle_root! idx="
-	              << newBlock.index << "\n";
-	    throw std::runtime_error("Non-empty block missing tx_merkle_root in proto!");
-	}
+        // === CRITICAL: RESTORE ROOTS EXACTLY, NEVER RECOMPUTE! ===
+        std::string protoTxRoot = safeStr(protoBlock.tx_merkle_root(), "tx_merkle_root", 128);
+        if (!protoTxRoot.empty()) {
+            newBlock.setMerkleRoot(protoTxRoot); // Always use setter!
+        } else {
+            newBlock.setMerkleRoot(EMPTY_TX_ROOT_HASH);
+            std::cerr << "[fromProto] WARNING: tx_merkle_root missing, set to EMPTY_TX_ROOT_HASH (idx=" << newBlock.index << ")\n";
+        }
+        std::cerr << "[fromProto] Restored merkleRoot: " << newBlock.merkleRoot
+                  << " | transactionsHash: " << newBlock.transactionsHash
+                  << " (idx=" << newBlock.index << ")\n";
+        // === END CRITICAL ===
 
         newBlock.zkProof            = safeBinaryField(protoBlock.zk_stark_proof(),      "zkProof",             2'000'000);
         newBlock.dilithiumSignature = safeBinaryField(protoBlock.dilithium_signature(), "Dilithium Signature", 5000);
@@ -718,8 +725,10 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
     for (const auto& protoTx : protoBlock.transactions()) {
         try {
             Transaction tx = Transaction::fromProto(protoTx);
-            if (tx.getSender().empty() || tx.getRecipient().empty() || tx.getAmount() <= 0.0 ||
-                tx.getSignatureDilithium().empty() || tx.getSignatureFalcon().empty() || tx.getZkProof().empty()) {
+            bool isReward = (tx.getSender() == "System");
+            if (!isReward &&
+                (tx.getSender().empty() || tx.getRecipient().empty() || tx.getAmount() <= 0.0 ||
+                 tx.getSignatureDilithium().empty() || tx.getSignatureFalcon().empty() || tx.getZkProof().empty())) {
                 std::cerr << "⚠️ [fromProto] Skipping tx with missing or invalid fields.\n";
                 skipped++;
                 continue;
@@ -760,6 +769,10 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
               << ", falSig=" << newBlock.falconSignature.size()
               << ", falPK=" << newBlock.publicKeyFalcon.size()
               << "\n";
+
+    // NO RECOMPUTE: Only check consistency if you need, but DO NOT recompute root!
+    // If you have an ensureRootConsistency() function, make sure it does NOT change the root fields.
+    // ensureRootConsistency(newBlock, newBlock.index);
 
     return newBlock;
 }

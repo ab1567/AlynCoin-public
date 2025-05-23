@@ -36,6 +36,7 @@ private:
   std::string transactionsToString() const;
 
 public:
+  friend void ensureRootConsistency(const Block& b, int idx);
   std::string keccakHash;
   int difficulty;
 
@@ -86,9 +87,11 @@ public:
   void setPublicKeyDilithium(const std::vector<unsigned char> &pk) { publicKeyDilithium = pk; }
   void setPublicKeyFalcon(const std::vector<unsigned char> &pk) { publicKeyFalcon = pk; }
   void setZkProof(const std::vector<uint8_t> &proof) { zkProof = proof; }
-  void setMerkleRoot(const std::string &merkle) { merkleRoot = merkle; }
+  //void setMerkleRoot(const std::string &merkle) { merkleRoot = merkle; }
   void setReward(double r);
 
+  void setMerkleRoot(const std::string &root);
+  void setTransactionsHash(const std::string &hash);
   // --- Other Functions ---
   bool isGenesisBlock() const {
     return index == 0 && previousHash == "00000000000000000000000000000000";
@@ -96,7 +99,6 @@ public:
 
   void incrementNonce() { nonce++; }
   std::string getTransactionsHash() const;
-  void setTransactionsHash(const std::string &hash);
   std::string computeTransactionsHash() const;
   std::string calculateHash() const;
   bool mineBlock(int difficulty);
