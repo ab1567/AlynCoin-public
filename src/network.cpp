@@ -37,6 +37,9 @@ struct ScopedLockTracer {
 #include <cstdlib>
 #include <cstdio>
 
+static std::unordered_set<std::string> seenTxHashes;
+static std::mutex seenTxMutex;
+
 std::vector<std::string> fetchPeersFromDNS(const std::string& domain) {
     std::vector<std::string> peers;
 
@@ -298,6 +301,23 @@ void Network::broadcastTransaction(const Transaction &tx) {
     }
   }
 }
+// Broadcast transaction to all peers except sender (to prevent echo storms)
+void Network::broadcastTransactionToAllExcept(const Transaction &tx, const std::string &excludePeer) {
+    std::string txData = tx.serialize();
+    for (const auto &peer : peerSockets) {
+        if (peer.first == excludePeer) continue;
+        auto socket = peer.second;
+        if (socket && socket->is_open()) {
+            try {
+                boost::asio::write(*socket, boost::asio::buffer(txData + "\n"));
+                std::cout << "📡 [TX] Rebroadcast to peer: " << peer.first << std::endl;
+            } catch (const std::exception &e) {
+                std::cerr << "❌ [ERROR] Failed to broadcast tx to " << peer.first << ": " << e.what() << std::endl;
+            }
+        }
+    }
+}
+
 
 // sync with peers
 void Network::syncWithPeers() {
@@ -802,7 +822,7 @@ void Network::handleIncomingData(const std::string &peerID, std::string data) {
     const std::string protocolPrefix = "ALYN|";
     const std::string chainPrefix = "BLOCKCHAIN_DATA|";
     const std::string blockPrefix = "BLOCK_BROADCAST|";
-    const std::string rollupPrefix   = "ROLLUP_BLOCK|";
+    const std::string rollupPrefix = "ROLLUP_BLOCK|";
 
     bool hasPrefix = data.rfind(protocolPrefix, 0) == 0;
     if (hasPrefix) {
@@ -857,7 +877,6 @@ void Network::handleIncomingData(const std::string &peerID, std::string data) {
         } else {
             std::cerr << "❌ [SYNC] No valid socket found for " << peerID << "\n";
         }
-
         return;
     }
 
@@ -884,27 +903,26 @@ void Network::handleIncomingData(const std::string &peerID, std::string data) {
     }
 
     // === Handle individual block broadcast ===
+    if (data.rfind(blockPrefix, 0) == 0) {
+        try {
+            std::string base64 = data.substr(blockPrefix.size());
+            std::string serialized = Crypto::base64Decode(base64);
 
-if (data.rfind(blockPrefix, 0) == 0) {
-    try {
-        std::string base64 = data.substr(blockPrefix.size());
-        std::string serialized = Crypto::base64Decode(base64);
+            alyncoin::BlockProto proto;
+            if (!proto.ParseFromString(serialized)) {
+                std::cerr << "❌ Block Protobuf parse failed.\n";
+                return;
+            }
 
-        alyncoin::BlockProto proto;
-        if (!proto.ParseFromString(serialized)) {
-            std::cerr << "❌ Block Protobuf parse failed.\n";
-            return;
+            Block blk = Block::fromProto(proto, true);
+            std::cerr << "📥 Block received: #" << blk.getIndex()
+                      << ", Hash: " << blk.getHash().substr(0, 12) << "\n";
+            handleNewBlock(blk);
+        } catch (const std::exception &e) {
+            std::cerr << "❌ Block parse failed: " << e.what() << "\n";
         }
-
-        Block blk = Block::fromProto(proto, true);
-        std::cerr << "📥 Block received: #" << blk.getIndex()
-                  << ", Hash: " << blk.getHash().substr(0, 12) << "\n";
-        handleNewBlock(blk);
-    } catch (const std::exception &e) {
-        std::cerr << "❌ Block parse failed: " << e.what() << "\n";
+        return;
     }
-    return;
-}
 
     // === JSON-based messages ===
     if (!data.empty() && data.front() == '{' && data.back() == '}') {
@@ -925,6 +943,50 @@ if (data.rfind(blockPrefix, 0) == 0) {
             Json::StreamWriterBuilder builder;
             builder["indentation"] = "";
 
+            // --- GOSSIP PEER LIST HANDLING ---
+            if (type == "peer_list") {
+                const Json::Value& peers = root["data"];
+                int connectedNow = 0;
+                for (const auto& peer : peers) {
+                    std::string peerStr = peer.asString();
+                    if (peerStr.find(":") == std::string::npos) continue;
+                    if (peerStr == ("127.0.0.1:" + std::to_string(this->port))) continue;
+                    if (peerSockets.count(peerStr)) continue;
+                    if (peerSockets.size() > 32) break; // Cap peers
+
+                    size_t colon = peerStr.find(":");
+                    std::string ip = peerStr.substr(0, colon);
+                    int prt = std::stoi(peerStr.substr(colon + 1));
+                    if (ip == "127.0.0.1" && prt == this->port) continue;
+
+                    std::cout << "🌐 [GOSSIP] Connecting to new peer from gossip: " << peerStr << std::endl;
+                    connectToNode(ip, prt);
+                    connectedNow++;
+                }
+                // Save new peers for next restart
+                if (connectedNow > 0) savePeers();
+                return;
+            }
+
+            // --- RESPOND TO PEER LIST REQUESTS ---
+            if (type == "request_peers") {
+                Json::Value peerListJson;
+                peerListJson["type"] = "peer_list";
+                peerListJson["data"] = Json::arrayValue;
+                {
+                    std::lock_guard<std::timed_mutex> lock(peersMutex);
+                    for (const auto &[peerAddr, _] : peerSockets) {
+                        if (peerAddr.find(":") != std::string::npos)
+                            peerListJson["data"].append(peerAddr);
+                    }
+                }
+                Json::StreamWriterBuilder writer;
+                std::string peerListMessage = Json::writeString(writer, peerListJson);
+                sendData(peerID, peerListMessage);
+                std::cout << "✅ [GOSSIP] Responded with peer list to " << peerID << "\n";
+                return;
+            }
+
             if (type == "height_request") {
                 Json::Value res;
                 res["type"] = "height_response";
@@ -941,14 +1003,33 @@ if (data.rfind(blockPrefix, 0) == 0) {
                 return;
             }
 
-            Transaction tx = Transaction::fromJSON(root);
-            if (tx.isValid(tx.getSenderPublicKeyDilithium(), tx.getSenderPublicKeyFalcon())) {
-                blockchain.addTransaction(tx);
-                blockchain.savePendingTransactionsToDB();
-                std::cout << "✅ [TX] Accepted from " << peerID << "\n";
-            } else {
-                std::cerr << "❌ [TX] Invalid from " << peerID << "\n";
-            }
+	// --- Accept and propagate transaction ---
+	if (root.isMember("txid")) {
+	    Transaction tx = Transaction::fromJSON(root);
+	    const std::string txHash = tx.getHash();
+
+	    // Deduplication guard (thread safe)
+	    {
+	        std::lock_guard<std::mutex> lock(seenTxMutex);
+	        if (seenTxHashes.count(txHash) > 0) {
+	            std::cout << "⚠️ [TX] Duplicate received from " << peerID << "\n";
+	            return;
+	        }
+	        seenTxHashes.insert(txHash);
+	    }
+
+    if (tx.isValid(tx.getSenderPublicKeyDilithium(), tx.getSenderPublicKeyFalcon())) {
+        blockchain.addTransaction(tx);
+        blockchain.savePendingTransactionsToDB();
+        std::cout << "✅ [TX] Accepted and saved from " << peerID << "\n";
+
+        // Propagate to peers (except origin)
+        broadcastTransactionToAllExcept(tx, peerID);
+    } else {
+        std::cerr << "❌ [TX] Invalid transaction from " << peerID << "\n";
+    }
+    return;
+}
 
         } catch (const std::exception &e) {
             std::cerr << "❌ JSON exception: " << e.what() << "\n";
@@ -956,7 +1037,7 @@ if (data.rfind(blockPrefix, 0) == 0) {
         return;
     }
 
-	std::cerr << "⚠️ Unknown message from " << peerID
+    std::cerr << "⚠️ Unknown message from " << peerID
               << ": " << data.substr(0, std::min<size_t>(100, data.size())) << "\n";
 }
 
@@ -1016,13 +1097,16 @@ void Network::broadcastBlock(const Block &block, bool force) {
 
 //
 void Network::receiveTransaction(const Transaction &tx) {
-  std::string txHash = tx.getHash();
-  if (seenTxHashes.count(txHash) > 0)
-    return; // Already processed
-  seenTxHashes.insert(txHash);
+    std::string txHash = tx.getHash();
+    {
+        std::lock_guard<std::mutex> lock(seenTxMutex);
+        if (seenTxHashes.count(txHash) > 0)
+            return;
+        seenTxHashes.insert(txHash);
+    }
 
-  Blockchain::getInstance(this->port, DBPaths::getBlockchainDB(), true).addTransaction(tx);
-  broadcastTransaction(tx); // Re-broadcast to peers
+    Blockchain::getInstance(this->port, DBPaths::getBlockchainDB(), true).addTransaction(tx);
+    broadcastTransaction(tx);
 }
 
 // Valid peer

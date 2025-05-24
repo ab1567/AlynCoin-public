@@ -43,18 +43,18 @@ Blockchain::Blockchain()
   std::cout << "[DEBUG] Default Blockchain constructor called.\n";
 }
 
-// ✅ **Constructor: Open RocksDB**
 // ✅ Constructor: Open RocksDB
 Blockchain::Blockchain(unsigned short port, const std::string &dbPath, bool bindNetwork, bool isSyncMode)
     : difficulty(0), miningReward(100.0), port(port), dbPath(dbPath) {
 
+    // Only set network pointer if asked AND it's already initialized, otherwise nullptr
     if (bindNetwork) {
-        if (Network::isUninitialized()) {
-            std::cerr << "❌ [FATAL] Cannot initialize Network without PeerBlacklist!\n";
-            throw std::runtime_error("PeerBlacklist is null");
-        } else {
-            std::cerr << "⚠️ Warning: Network already initialized. Using existing instance.\n";
+        if (!Network::isUninitialized()) {
             network = Network::getExistingInstance();
+            std::cerr << "⚠️ Warning: Network already initialized. Using existing instance.\n";
+        } else {
+            network = nullptr;
+            std::cerr << "⚠️ Network is not initialized; running in limited (local) mode.\n";
         }
     } else {
         network = nullptr;
@@ -437,7 +437,8 @@ bool Blockchain::addBlock(const Block &block) {
     return true;
 }
 
-//
+// WARNING: This method is for manual testing or recovery only!
+// It is NOT used by network, fork, or mining code.
 bool Blockchain::forceAddBlock(const Block& block) {
     std::cerr << "🛠️ [forceAddBlock] Forcing block insertion. Index: " << block.getIndex()
               << ", Hash: " << block.getHash() << "\n";
@@ -509,7 +510,7 @@ Blockchain &Blockchain::getInstance(unsigned short port, const std::string &dbPa
 }
 // ✅ Used when you want RocksDB, but no P2P
 Blockchain& Blockchain::getInstanceNoNetwork() {
-    static Blockchain instance(0, DBPaths::getBlockchainDB(), false);
+        static Blockchain instance(0, DBPaths::getBlockchainDB(), true);
     return instance;
 }
 
@@ -1216,14 +1217,10 @@ void Blockchain::loadVestingInfoFromDB() {
         info.lockedAmount = vestingJson["lockedAmount"].asDouble();
         info.unlockTimestamp = vestingJson["unlockTimestamp"].asUInt64();
         vestingMap[address] = info;
-      } else {
-        std::cerr << "⚠️ Invalid vesting JSON for address: " << address
-                  << ", skipping.\n";
       }
-    } else {
-      std::cerr << "⚠️ JSON parsing error for vesting key: " << key
-                << " Error: " << errs << "\n";
+      // ❌ No else/invalid warning, just skip invalid/incomplete JSON
     }
+    // ❌ No JSON parsing error warning, just skip
   }
   delete it;
 }
@@ -1240,9 +1237,9 @@ void Blockchain::addVestingForEarlySupporter(const std::string &address,
 }
 //
 void Blockchain::applyVestingSchedule() {
-  for (int i = 1; i <= 10; ++i) {
+  for (int i = 1; i <= 100; ++i) {
     std::string supporterAddress = "supporter" + std::to_string(i);
-    double initialAmount = 10.0; // Keep same allocation logic
+    double initialAmount = 100.0; // Keep same allocation logic
     addVestingForEarlySupporter(supporterAddress, initialAmount);
   }
   saveVestingInfoToDB();
@@ -2651,4 +2648,21 @@ void Blockchain::clearPendingForkChain() {
 
 const std::vector<Block>& Blockchain::getPendingForkChain() const {
     return pendingForkChain;
+}
+//
+bool Blockchain::openDB(bool readOnly) {
+    if (db) return true;
+    rocksdb::Options options;
+    options.create_if_missing = true;
+    rocksdb::Status status;
+    if (readOnly)
+        status = rocksdb::DB::OpenForReadOnly(options, dbPath, &db);
+    else
+        status = rocksdb::DB::Open(options, dbPath, &db);
+    if (!status.ok()) {
+        std::cerr << "❌ [Blockchain] Failed to open RocksDB: " << status.ToString() << std::endl;
+        db = nullptr;
+        return false;
+    }
+    return true;
 }

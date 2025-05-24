@@ -76,7 +76,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include "fips202.h"
+
 /*
  * Some computations with floating-point elements, in particular
  * rounding to the nearest integer, rely on operations using _exactly_
@@ -114,6 +114,7 @@ set_fpu_cw(unsigned x) {
 #define inner_shake256_flip(sc)               shake256_inc_finalize(sc)
 #define inner_shake256_extract(sc, out, len)  shake256_inc_squeeze(out, len, sc)
 #define inner_shake256_ctx_release(sc)        shake256_inc_ctx_release(sc)
+
 /* ==================================================================== */
 /*
  * Encoding/decoding functions (codec.c).

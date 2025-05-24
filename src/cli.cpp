@@ -20,6 +20,9 @@
 #include "zk/recursive_proof_helper.h"
 #include "difficulty.h"
 
+#include <unordered_set>
+static std::unordered_set<std::string> cliSeenTxHashes;
+
 std::string getCurrentWallet() {
     std::ifstream in(DBPaths::getHomePath() + "/.alyncoin/current_wallet.txt");
     std::string addr;
@@ -69,46 +72,48 @@ int main(int argc, char **argv) {
     std::cout.setf(std::ios::unitbuf);
     std::string keyDir = DBPaths::getKeyDir();
 
-    auto hasFlag = [](int argc, char** argv, const std::string& flag) -> bool {
-        for (int i = 1; i < argc; ++i)
-            if (std::string(argv[i]) == flag)
-                return true;
-        return false;
-    };
+    // Helper to check command
+    auto cmd = (argc >= 2) ? std::string(argv[1]) : "";
+    auto isQuery =
+        cmd == "balance" || cmd == "balance-force" ||
+        cmd == "history" || cmd == "stats" ||
+        cmd == "dao-view" || cmd == "mychain" ||
+        cmd == "recursiveproof" ||
+        cmd == "createwallet" || cmd == "loadwallet";
 
-    bool skipDB = hasFlag(argc, argv, "--nodb");
-    bool skipNet = hasFlag(argc, argv, "--nonetwork");
+    // Helper: mining/send/rollup always need full DB+network
+    auto isFullNet =
+        cmd == "mine" || cmd == "mineonce" || cmd == "mineloop" ||
+        cmd == "sendl1" || cmd == "sendl2" ||
+        cmd == "dao-submit" || cmd == "dao-vote" ||
+        cmd == "rollup" || cmd == "recursive-rollup" ||
+        // Peer connect if host:port in arg
+        (cmd.find(':') != std::string::npos && cmd.find('.') != std::string::npos);
 
     Blockchain* chainPtr = nullptr;
     Network* network = nullptr;
     std::unique_ptr<PeerBlacklist> peerBlacklistPtr;
 
-    // === Initialize Blockchain ===
-    if (skipDB) {
-        std::cout << "⚠️ CLI is running in --nodb mode.\n";
-        chainPtr = &Blockchain::getInstanceNoDB();
-    } else if (skipNet) {
-        std::cout << "⚠️ CLI is running in --nonetwork mode (DB OK).\n";
-        chainPtr = &Blockchain::getInstanceNoNetwork();
-    } else {
-        std::cout << "🌐 CLI is using full network+DB mode.\n";
-        chainPtr = &Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), false);
-
-        try {
-            peerBlacklistPtr = std::make_unique<PeerBlacklist>(DBPaths::getBlacklistDB(), 3);
+	// == Init Blockchain Only As Needed ==
+  if (isFullNet) {
+    chainPtr = &Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), false);
+    try {
+        peerBlacklistPtr = std::make_unique<PeerBlacklist>(DBPaths::getBlacklistDB(), 3);
+        if (peerBlacklistPtr) {
             network = &Network::getInstance(8333, chainPtr, peerBlacklistPtr.get());
-        } catch (const std::exception& e) {
-            std::cerr << "❌ Failed to initialize PeerBlacklist or Network: " << e.what() << "\n";
-            peerBlacklistPtr = nullptr;
         }
+    } catch (const std::exception& e) {
+        std::cerr << "❌ Failed to initialize PeerBlacklist or Network: " << e.what() << "\n";
+        peerBlacklistPtr = nullptr;
+        // Do NOT try to initialize Network if PeerBlacklist failed!
     }
+  } else {
+    chainPtr = &Blockchain::getInstanceNoNetwork();
+    // Do NOT initialize network or peerBlacklist in read-only mode!
+  }
 
-    // ✅ Make getBlockchain() available again
-    auto getBlockchain = [&]() -> Blockchain& {
-        return *chainPtr;
-    };
-
-    Blockchain& b = *chainPtr; // Optional alias (used only in current scope, not elsewhere)
+    auto getBlockchain = [&]() -> Blockchain& { return *chainPtr; };
+    Blockchain& b = *chainPtr;
 
 
    // mineonce <minerAddress>
@@ -178,8 +183,8 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
 
     return 0;
 }
-    // === DAO viewer ===
-    if (argc == 2 && std::string(argv[1]) == "dao-view") {
+    // === DAO view ===
+    if (cmd == "dao-view" && argc == 2) {
         auto proposals = DAOStorage::getAllProposals();
         std::cout << "\n=== DAO Proposals ===\n";
         for (const auto &p : proposals) {
@@ -190,23 +195,20 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
             std::cout << "✅ YES: " << static_cast<uint64_t>(p.yes_votes) << " | ❌ NO: " << static_cast<uint64_t>(p.no_votes) << "\n";
             std::cout << "📌 Status: " << static_cast<int>(p.status) << "\n\n";
         }
-        std::exit(0);
+        return 0;
     }
-
     // === Blockchain stats ===
-    if (argc >= 2 && std::string(argv[1]) == "stats") {
-        Blockchain &b = getBlockchain();
+    if (cmd == "stats" && argc >= 2) {
         std::cout << "\n=== Blockchain Stats ===\n";
         std::cout << "Total Blocks: " << b.getBlockCount() << "\n";
         std::cout << "Difficulty: " << calculateSmartDifficulty(b) << "\n";
         std::cout << "Total Supply: " << b.getTotalSupply() << " AlynCoin\n";
         std::cout << "Total Burned Supply: " << b.getTotalBurnedSupply() << " AlynCoin\n";
         std::cout << "Dev Fund Balance: " << b.getBalance("DevFundWallet") << " AlynCoin\n";
-        std::exit(0);
+        return 0;
     }
-
-    // === Wallet creation ===
-    if (argc == 3 && std::string(argv[1]) == "createwallet") {
+    // Wallet create/load
+    if (cmd == "createwallet" && argc == 3) {
         try {
             Wallet w(argv[2], keyDir);
             std::cout << "✅ Wallet created: " << w.getAddress() << "\n";
@@ -214,48 +216,37 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
             std::cerr << "❌ Wallet creation failed: " << e.what() << "\n";
             return 1;
         }
-        std::exit(0);
+        return 0;
     }
-
-// === Wallet loading ===
-if (argc == 3 && std::string(argv[1]) == "loadwallet") {
-    std::string name = argv[2];
-    std::string priv = keyDir + name + "_private.pem";
-    std::string dil = keyDir + name + "_dilithium.key";
-    std::string fal = keyDir + name + "_falcon.key";
-
-    if (!std::filesystem::exists(priv) || !std::filesystem::exists(dil) || !std::filesystem::exists(fal)) {
-        std::cerr << "❌ Wallet key files not found for: " << name << std::endl;
-        return 1;
+    if (cmd == "loadwallet" && argc == 3) {
+        std::string name = argv[2];
+        std::string priv = keyDir + name + "_private.pem";
+        std::string dil = keyDir + name + "_dilithium.key";
+        std::string fal = keyDir + name + "_falcon.key";
+        if (!std::filesystem::exists(priv) || !std::filesystem::exists(dil) || !std::filesystem::exists(fal)) {
+            std::cerr << "❌ Wallet key files not found for: " << name << std::endl;
+            return 1;
+        }
+        try {
+            Wallet w(priv, keyDir, name);
+            std::ofstream(DBPaths::getHomePath() + "/.alyncoin/current_wallet.txt") << w.getAddress();
+            std::cout << "✅ Wallet loaded: " << w.getAddress() << std::endl;
+        } catch (const std::exception &e) {
+            std::cerr << "❌ Wallet load failed: " << e.what() << std::endl;
+            return 1;
+        }
+        return 0;
     }
-
-    try {
-        Wallet w(priv, keyDir, name);
-        std::ofstream(DBPaths::getHomePath() + "/.alyncoin/current_wallet.txt") << w.getAddress();
-        std::cout << "✅ Wallet loaded: " << w.getAddress() << std::endl;
-    } catch (const std::exception &e) {
-        std::cerr << "❌ Wallet load failed: " << e.what() << std::endl;
-        return 1;
-    }
-    std::exit(0);
-}
 
 // === Balance check (normal or forced) ===
-if (argc >= 2 && (std::string(argv[1]) == "balance" || std::string(argv[1]) == "balance-force")) {
-    if (argc < 3) {
-        std::cerr << "❌ Usage: balance <address>" << std::endl;
-        return 1;
+    if ((cmd == "balance" || cmd == "balance-force") && argc >= 3) {
+        std::string addr = argv[2];
+        // Use the no-network singleton to avoid DB locks
+        Blockchain &bb = *chainPtr;
+        if (cmd == "balance-force") bb.reloadBlockchainState();
+        std::cout << "Balance: " << bb.getBalance(addr) << " AlynCoin" << std::endl;
+        return 0;
     }
-
-    std::string addr = argv[2];
-
-    Blockchain &b = Blockchain::getInstanceNoNetwork();
-    b.reloadBlockchainState();  // 🔧 Ensure latest state is loaded before querying balance
-
-    std::cout << "Balance: " << b.getBalance(addr) << " AlynCoin" << std::endl;
-    std::exit(0);
-}
-
 // === sendl1 / sendl2 with duplicate filter ===
 if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == "sendl2")) {
     std::string from = argv[2];
@@ -297,6 +288,13 @@ if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == 
         tx.setMetadata("L2:" + metadata);
     }
 
+    // Hash-based deduplication for CLI too (mirrors network, prevents resending on retry)
+    std::string txHash = tx.getHash();
+    if (cliSeenTxHashes.count(txHash)) {
+        std::cerr << "⚠️ Transaction already submitted by this CLI session (hash dedupe).\n";
+        return 1;
+    }
+
     for (const auto& existing : b.getPendingTransactions()) {
         if (existing.getSender() == tx.getSender() &&
             existing.getRecipient() == tx.getRecipient() &&
@@ -306,6 +304,7 @@ if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == 
             return 1;
         }
     }
+    cliSeenTxHashes.insert(txHash);
 
     tx.signTransaction(dil.privateKey, fal.privateKey);
     if (!tx.getSignatureDilithium().empty() && !tx.getSignatureFalcon().empty()) {
@@ -369,41 +368,59 @@ if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == 
         std::exit(0);
     }
 
-// === Transaction history by address ===
-// === Transaction history by address ===
-if (argc >= 3 && std::string(argv[1]) == "history") {
-    std::string addr = argv[2];
-    Blockchain& b = getBlockchain();
-
-    std::cout << "🔍 Loading blockchain from DB...\n";
-    b.loadFromDB();
-    b.reloadBlockchainState();
-
-    std::vector<Transaction> relevant;
-    std::unordered_map<std::string, std::string> txType;
-    std::unordered_set<std::string> seen;
-
-    auto toLower = [](std::string s) {
-        std::transform(s.begin(), s.end(), s.begin(), ::tolower);
-        return s;
-    };
-
-    std::string addrLower = toLower(addr);
-
-    // ✅ 1. From L1 blocks
-    auto blocks = b.getAllBlocks();
-    std::cout << "📦 Total L1 blocks loaded: " << blocks.size() << "\n";
-    for (const auto& blk : blocks) {
-        std::string blockMiner = toLower(blk.getMinerAddress());
-        double reward = blk.getReward();
-
-        std::cout << "[DEBUG] Block #" << blk.getIndex()
-                  << " | Miner: " << blk.getMinerAddress()
-                  << " | Reward: " << reward
-                  << " | Match? " << (blockMiner == addrLower ? "Yes" : "No") << "\n";
-
-        // Add normal txs
-        for (const auto& tx : blk.getTransactions()) {
+  // === Transaction history ===
+    if (cmd == "history" && argc >= 3) {
+        std::string addr = argv[2];
+        Blockchain& bb = Blockchain::getInstanceNoNetwork();
+        std::cout << "🔍 Loading blockchain from DB...\n";
+        bb.loadFromDB();
+        bb.reloadBlockchainState();
+        std::vector<Transaction> relevant;
+        std::unordered_map<std::string, std::string> txType;
+        std::unordered_set<std::string> seen;
+        auto toLower = [](std::string s) {
+            std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+            return s;
+        };
+        std::string addrLower = toLower(addr);
+        auto blocks = bb.getAllBlocks();
+        for (const auto& blk : blocks) {
+            std::string blockMiner = toLower(blk.getMinerAddress());
+            double reward = blk.getReward();
+            for (const auto& tx : blk.getTransactions()) {
+                std::string hash = tx.getHash().empty() ? tx.getTransactionHash() : tx.getHash();
+                if (!seen.count(hash) &&
+                    (toLower(tx.getSender()) == addrLower || toLower(tx.getRecipient()) == addrLower)) {
+                    relevant.push_back(tx);
+                    txType[hash] = "L1";
+                    seen.insert(hash);
+                }
+            }
+            if (blockMiner == addrLower && reward > 0.0) {
+                Transaction rewardTx = Transaction::createSystemRewardTransaction(
+                    blk.getMinerAddress(), reward, blk.getTimestamp(), "mined_" + blk.getHash());
+                std::string rewardHash = rewardTx.getHash();
+                if (!seen.count(rewardHash)) {
+                    relevant.push_back(rewardTx);
+                    txType[rewardHash] = "Mined";
+                    seen.insert(rewardHash);
+                }
+            }
+        }
+        auto rollups = bb.getAllRollupBlocks();
+        for (const auto& roll : rollups) {
+            for (const auto& tx : roll.getTransactions()) {
+                std::string hash = tx.getHash().empty() ? tx.getTransactionHash() : tx.getHash();
+                if (!seen.count(hash) &&
+                    (toLower(tx.getSender()) == addrLower || toLower(tx.getRecipient()) == addrLower)) {
+                    relevant.push_back(tx);
+                    txType[hash] = "L2";
+                    seen.insert(hash);
+                }
+            }
+        }
+        auto allTxs = Transaction::loadAllFromDB();
+        for (const auto& tx : allTxs) {
             std::string hash = tx.getHash().empty() ? tx.getTransactionHash() : tx.getHash();
             if (!seen.count(hash) &&
                 (toLower(tx.getSender()) == addrLower || toLower(tx.getRecipient()) == addrLower)) {
@@ -412,84 +429,28 @@ if (argc >= 3 && std::string(argv[1]) == "history") {
                 seen.insert(hash);
             }
         }
-
-        // ✅ Add mining reward tx if miner matches
-        if (blockMiner == addrLower && reward > 0.0) {
-            Transaction rewardTx = Transaction::createSystemRewardTransaction(
-                blk.getMinerAddress(),
-                reward,
-                blk.getTimestamp(),
-                "mined_" + blk.getHash()
-            );
-            std::string rewardHash = rewardTx.getHash();
-            if (!seen.count(rewardHash)) {
-                std::cout << "[DEBUG] ✅ Added mined reward tx: " << rewardHash << "\n";
-                relevant.push_back(rewardTx);
-                txType[rewardHash] = "Mined";
-                seen.insert(rewardHash);
-            }
-        }
-    }
-
-    // ✅ 2. From L2 rollups
-    auto rollups = b.getAllRollupBlocks();
-    std::cout << "📦 Total L2 rollups loaded: " << rollups.size() << "\n";
-    for (const auto& roll : rollups) {
-        for (const auto& tx : roll.getTransactions()) {
+        std::sort(relevant.begin(), relevant.end(), [](const Transaction& a, const Transaction& b) {
+            return a.getTimestamp() < b.getTimestamp();
+        });
+        std::cout << "\n=== Transaction History for: " << addr << " ===\n";
+        std::cout << "📜 Found " << relevant.size() << " related transactions.\n\n";
+        for (const auto& tx : relevant) {
             std::string hash = tx.getHash().empty() ? tx.getTransactionHash() : tx.getHash();
-            if (!seen.count(hash) &&
-                (toLower(tx.getSender()) == addrLower || toLower(tx.getRecipient()) == addrLower)) {
-                relevant.push_back(tx);
-                txType[hash] = "L2";
-                seen.insert(hash);
-            }
+            std::string type = txType.count(hash) ? txType[hash] : "Unknown";
+            time_t ts = tx.getTimestamp();
+            std::tm* tmPtr = std::localtime(&ts);
+            char timeStr[64];
+            std::strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", tmPtr);
+            std::cout << "🕒 " << timeStr << " [" << type << "]\n"
+                    << "From: " << tx.getSender() << "\n"
+                    << "To:   " << tx.getRecipient() << "\n"
+                    << "💰 Amount: " << tx.getAmount() << " AlynCoin\n";
+            if (!tx.getMetadata().empty()) std::cout << "📎 Metadata: " << tx.getMetadata() << "\n";
+            std::cout << "🔑 TxHash: " << hash << "\n"
+                    << "------------------------------\n";
         }
+        return 0;
     }
-
-    // ✅ 3. From RocksDB tx_ keys
-    auto allTxs = Transaction::loadAllFromDB();
-    std::cout << "📦 Total tx_ keys in DB: " << allTxs.size() << "\n";
-    for (const auto& tx : allTxs) {
-        std::string hash = tx.getHash().empty() ? tx.getTransactionHash() : tx.getHash();
-        if (!seen.count(hash) &&
-            (toLower(tx.getSender()) == addrLower || toLower(tx.getRecipient()) == addrLower)) {
-            relevant.push_back(tx);
-            txType[hash] = "L1";
-            seen.insert(hash);
-        }
-    }
-
-    // ✅ Sort by timestamp
-    std::sort(relevant.begin(), relevant.end(), [](const Transaction& a, const Transaction& b) {
-        return a.getTimestamp() < b.getTimestamp();
-    });
-
-    // ✅ CLI Output
-    std::cout << "\n=== Transaction History for: " << addr << " ===\n";
-    std::cout << "📜 Found " << relevant.size() << " related transactions.\n\n";
-
-    for (const auto& tx : relevant) {
-        std::string hash = tx.getHash().empty() ? tx.getTransactionHash() : tx.getHash();
-        std::string type = txType.count(hash) ? txType[hash] : "Unknown";
-
-        time_t ts = tx.getTimestamp();
-        std::tm* tmPtr = std::localtime(&ts);
-        char timeStr[64];
-        std::strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", tmPtr);
-
-        std::cout << "🕒 " << timeStr << " [" << type << "]\n"
-                  << "From: " << tx.getSender() << "\n"
-                  << "To:   " << tx.getRecipient() << "\n"
-                  << "💰 Amount: " << tx.getAmount() << " AlynCoin\n";
-        if (!tx.getMetadata().empty()) {
-            std::cout << "📎 Metadata: " << tx.getMetadata() << "\n";
-        }
-        std::cout << "🔑 TxHash: " << hash << "\n"
-                  << "------------------------------\n";
-    }
-
-    std::exit(0);
-}
 
 	// === Recursive zk-STARK Proof by address (GUI / filtered) ===
 	if (argc >= 5 && std::string(argv[1]) == "recursiveproof") {
@@ -679,29 +640,10 @@ if (argc >= 3 && std::string(argv[1]) == "recursive-rollup") {
     return 0;
 }
 
-    // === Fallback guard ===
-    int cmdIndex = 1;
-    while (cmdIndex < argc && std::string(argv[cmdIndex]).rfind("--", 0) == 0) ++cmdIndex;
-    if (cmdIndex < argc) {
-        std::string cmd = argv[cmdIndex];
-        bool known = (
-            cmd == "sendl1" || cmd == "sendl2" || cmd == "createwallet" ||
-            cmd == "loadwallet" || cmd == "balance" || cmd == "balance-force" ||
-            cmd == "dao-view" || cmd == "dao-submit" || cmd == "dao-vote" ||
-            cmd == "mychain" || cmd == "stats" || cmd == "history" ||
-            cmd == "mine" || cmd == "mineonce" || cmd == "mineloop" ||
-            cmd == "recursiveproof" || cmd == "rollup" || cmd == "recursive-rollup"
-        );
-	if (!known) {
-	    if (cmd.find(':') != std::string::npos && cmd.find('.') != std::string::npos) {
-        // 🧠 Looks like host:port passed directly
+   if (cmd.find(':') != std::string::npos && cmd.find('.') != std::string::npos && argc == 2) {
         std::string ip = cmd.substr(0, cmd.find(':'));
         int port = std::stoi(cmd.substr(cmd.find(':') + 1));
-
-        // ✅ Use centralized blockchain + network initialization
         Blockchain& b = getBlockchain();
-
-        // ✅ Only connect if network is properly initialized
         if (!Network::isUninitialized()) {
             Network& net = Network::getInstance();
             if (net.connectToNode(ip, port)) {
@@ -711,17 +653,9 @@ if (argc >= 3 && std::string(argv[1]) == "recursive-rollup") {
             }
         } else {
             std::cerr << "❌ Network not initialized.\n";
-	        }
-
-        std::exit(0);
-    } else {
-        std::cerr << "❌ Unknown or unsupported command: " << cmd << "\n";
-        return 1;
-   	 }
-	}
-
-	std::exit(0);
-	}
+        }
+        return 0;
+    }
 // ✅ Final fallback to interactive CLI if no recognized args
 return cliMain(argc, argv);
 }
@@ -876,107 +810,141 @@ int cliMain(int argc, char *argv[]) {
       break;
     }
 
-    case 4: {  // 🔁 Send L1 Transaction
-        if (!wallet) {
-            std::cout << "❌ Load or create a wallet first!\n";
-            break;
-        }
+	case 4: {  // 🔁 Send L1 Transaction
+	    if (!wallet) {
+	        std::cout << "❌ Load or create a wallet first!\n";
+	        break;
+	    }
 
-        std::string recipient;
-        double amount;
-        std::cout << "Enter recipient address: ";
-        std::cin >> recipient;
-        std::cout << "Enter amount: ";
-        std::cin >> amount;
+	    std::string recipient;
+	    double amount;
+	    std::cout << "Enter recipient address: ";
+	    std::cin >> recipient;
+	    std::cout << "Enter amount: ";
+	    std::cin >> amount;
 
-        if (recipient.empty() || amount <= 0) {
-            std::cout << "❌ Invalid input. Address must not be empty and amount must be positive.\n";
-            break;
-        }
+	    if (recipient.empty() || amount <= 0) {
+	        std::cout << "❌ Invalid input. Address must not be empty and amount must be positive.\n";
+	        break;
+	    }
 
-        double currentBalance = blockchain.getBalance(wallet->getAddress());
-        if (amount > currentBalance) {
-            std::cout << "❌ Insufficient balance. You have " << currentBalance << " AlynCoin, but tried to send " << amount << ".\n";
-            break;
-        }
+	    double currentBalance = blockchain.getBalance(wallet->getAddress());
+	    if (amount > currentBalance) {
+	        std::cout << "❌ Insufficient balance. You have " << currentBalance << " AlynCoin, but tried to send " << amount << ".\n";
+	        break;
+	    }
 
-        std::string sender = wallet->getAddress();
-        auto dilPriv = Crypto::loadDilithiumKeys(sender);
-        auto falPriv = Crypto::loadFalconKeys(sender);
+	    std::string sender = wallet->getAddress();
+	    auto dilPriv = Crypto::loadDilithiumKeys(sender);
+	    auto falPriv = Crypto::loadFalconKeys(sender);
 
-        Transaction tx(sender, recipient, amount, "", "", time(nullptr));
-        std::cout << "[DEBUG] signTransaction() called for sender: " << sender << "\n";
-        tx.signTransaction(dilPriv.privateKey, falPriv.privateKey);
+	    Transaction tx(sender, recipient, amount, "", "", time(nullptr));
+	    std::cout << "[DEBUG] signTransaction() called for sender: " << sender << "\n";
+	    tx.signTransaction(dilPriv.privateKey, falPriv.privateKey);
 
-        if (!tx.getSignatureDilithium().empty() && !tx.getSignatureFalcon().empty()) {
-            blockchain.addTransaction(tx);
-            std::cout << "📦 [DEBUG] Saving pending transactions to RocksDB...\n";
-            blockchain.savePendingTransactionsToDB();
-            if (network) network->broadcastTransaction(tx);
-            std::cout << "✅ Transactions successfully saved to RocksDB.\n";
-            std::cout << "✅ Transaction created and broadcasted!\n";
-        } else {
-            std::cerr << "❌ Signature failure. Transaction not broadcasted.\n";
-        }
+	    // === New: Deduplication block (session-level and mempool) ===
+	    std::string txHash = tx.getHash();
+	    if (cliSeenTxHashes.count(txHash)) {
+	        std::cerr << "⚠️ Transaction already submitted by this CLI session (hash dedupe).\n";
+	        break;
+	    }
+	    for (const auto& existing : blockchain.getPendingTransactions()) {
+	        if (existing.getSender() == tx.getSender() &&
+	            existing.getRecipient() == tx.getRecipient() &&
+	            existing.getAmount() == tx.getAmount() &&
+	            existing.getMetadata() == tx.getMetadata()) {
+	            std::cerr << "⚠️ Duplicate transaction already exists in mempool.\n";
+	            break;
+	        }
+	    }
+	    cliSeenTxHashes.insert(txHash);
 
-        break;
-    }
+	    if (!tx.getSignatureDilithium().empty() && !tx.getSignatureFalcon().empty()) {
+	        blockchain.addTransaction(tx);
+	        std::cout << "📦 [DEBUG] Saving pending transactions to RocksDB...\n";
+	        blockchain.savePendingTransactionsToDB();
+	        if (network) network->broadcastTransaction(tx);
+	        std::cout << "✅ Transactions successfully saved to RocksDB.\n";
+	        std::cout << "✅ Transaction created and broadcasted!\n";
+	    } else {
+	        std::cerr << "❌ Signature failure. Transaction not broadcasted.\n";
+	    }
 
-    case 5: {  // 🔁 Send L2 Transaction
-        if (!wallet) {
-            std::cout << "❌ Load or create a wallet first!\n";
-            break;
-        }
+	    break;
+	}
 
-        std::string recipient;
-        double amount;
-        std::cout << "Enter recipient address (L2): ";
-        std::cin >> recipient;
-        std::cout << "Enter amount: ";
-        std::cin >> amount;
+	case 5: {  // 🔁 Send L2 Transaction
+	    if (!wallet) {
+	        std::cout << "❌ Load or create a wallet first!\n";
+	        break;
+	    }
 
-        if (recipient.empty() || amount <= 0) {
-            std::cout << "❌ Invalid input. Address must not be empty and amount must be positive.\n";
-            break;
-        }
+	    std::string recipient;
+	    double amount;
+	    std::cout << "Enter recipient address (L2): ";
+	    std::cin >> recipient;
+	    std::cout << "Enter amount: ";
+	    std::cin >> amount;
 
-        double currentBalance = blockchain.getBalance(wallet->getAddress());
-        if (amount > currentBalance) {
-            std::cout << "❌ Insufficient balance. You have " << currentBalance << " AlynCoin, but tried to send " << amount << ".\n";
-            break;
-        }
+	    if (recipient.empty() || amount <= 0) {
+	        std::cout << "❌ Invalid input. Address must not be empty and amount must be positive.\n";
+	        break;
+	    }
 
-        std::string sender = wallet->getAddress();
-        auto dilPriv = Crypto::loadDilithiumKeys(sender);
-        auto falPriv = Crypto::loadFalconKeys(sender);
+	    double currentBalance = blockchain.getBalance(wallet->getAddress());
+	    if (amount > currentBalance) {
+	        std::cout << "❌ Insufficient balance. You have " << currentBalance << " AlynCoin, but tried to send " << amount << ".\n";
+	        break;
+	    }
 
-        Transaction tx(sender, recipient, amount, "", "", time(nullptr));
-        tx.setMetadata("L2");
+	    std::string sender = wallet->getAddress();
+	    auto dilPriv = Crypto::loadDilithiumKeys(sender);
+	    auto falPriv = Crypto::loadFalconKeys(sender);
 
-        std::cout << "[DEBUG] signTransaction() called for sender: " << sender << "\n";
-        tx.signTransaction(dilPriv.privateKey, falPriv.privateKey);
+	    Transaction tx(sender, recipient, amount, "", "", time(nullptr));
+	    tx.setMetadata("L2");
 
-        if (tx.getSignatureDilithium().empty() || tx.getSignatureFalcon().empty()) {
-            std::cerr << "❌ Signature failure. L2 Transaction not broadcasted.\n";
-            break;
-        }
+	    std::cout << "[DEBUG] signTransaction() called for sender: " << sender << "\n";
+	    tx.signTransaction(dilPriv.privateKey, falPriv.privateKey);
 
-        std::string seed = sender + recipient + std::to_string((int)amount) + std::to_string(tx.getTimestamp());
-        std::string proof = WinterfellStark::generateProof(tx.getHash(), tx.getHash(), seed);
-        if (proof.empty()) {
-            std::cerr << "❌ [ERROR] zk-STARK proof generation failed!\n";
-            break;
-        }
+	    // === New: Deduplication block (session-level and mempool) ===
+	    std::string txHash = tx.getHash();
+	    if (cliSeenTxHashes.count(txHash)) {
+	        std::cerr << "⚠️ Transaction already submitted by this CLI session (hash dedupe).\n";
+	        break;
+	    }
+	    for (const auto& existing : blockchain.getPendingTransactions()) {
+	        if (existing.getSender() == tx.getSender() &&
+	            existing.getRecipient() == tx.getRecipient() &&
+	            existing.getAmount() == tx.getAmount() &&
+	            existing.getMetadata() == tx.getMetadata()) {
+	            std::cerr << "⚠️ Duplicate transaction already exists in mempool.\n";
+	            break;
+	        }
+	    }
+	    cliSeenTxHashes.insert(txHash);
 
-        tx.setZkProof(proof);
-        blockchain.addTransaction(tx);
-        std::cout << "📦 [DEBUG] Saving pending transactions to RocksDB...\n";
-        blockchain.savePendingTransactionsToDB();
-        if (network) network->broadcastTransaction(tx);
-        std::cout << "✅ Transactions successfully saved to RocksDB.\n";
-        std::cout << "✅ L2 Transaction created and broadcasted!\n";
-        break;
-    }
+	    if (tx.getSignatureDilithium().empty() || tx.getSignatureFalcon().empty()) {
+	        std::cerr << "❌ Signature failure. L2 Transaction not broadcasted.\n";
+	        break;
+	    }
+
+	    std::string seed = sender + recipient + std::to_string((int)amount) + std::to_string(tx.getTimestamp());
+	    std::string proof = WinterfellStark::generateProof(tx.getHash(), tx.getHash(), seed);
+	    if (proof.empty()) {
+	        std::cerr << "❌ [ERROR] zk-STARK proof generation failed!\n";
+	        break;
+	    }
+
+	    tx.setZkProof(proof);
+	    blockchain.addTransaction(tx);
+	    std::cout << "📦 [DEBUG] Saving pending transactions to RocksDB...\n";
+	    blockchain.savePendingTransactionsToDB();
+	    if (network) network->broadcastTransaction(tx);
+	    std::cout << "✅ Transactions successfully saved to RocksDB.\n";
+	    std::cout << "✅ L2 Transaction created and broadcasted!\n";
+	    break;
+	}
 
     case 6: {
       if (!wallet) {

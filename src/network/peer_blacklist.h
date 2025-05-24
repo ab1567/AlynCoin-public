@@ -19,6 +19,7 @@ private:
     std::string db_path;
     std::mutex db_mutex;
     int strike_threshold;
+    bool blacklistEnabled;  // <== Add this flag
 
     std::string makeKey(const std::string& peer_id) const;
 

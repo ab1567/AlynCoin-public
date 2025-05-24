@@ -179,7 +179,8 @@ public:
   void addVestingForEarlySupporter(const std::string &address, double initialAmount);
   bool castVote(const std::string &voterAddress, const std::string &candidateAddress);
   std::vector<Transaction> getAllTransactionsForAddress(const std::string& address);
-  // L2
+	bool openDB(bool readOnly = false);
+	// L2
   std::unordered_map<std::string, double> getCurrentState() const;
   std::unordered_map<std::string, double> simulateL2StateUpdate(
       const std::unordered_map<std::string, double> &currentState,

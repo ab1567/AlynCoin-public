@@ -118,6 +118,7 @@ public:
   inline static Network *getExistingInstance() {
     return instancePtr;
   }
+	void broadcastTransactionToAllExcept(const Transaction &tx, const std::string &excludePeer);
 
 private:
   unsigned short port;

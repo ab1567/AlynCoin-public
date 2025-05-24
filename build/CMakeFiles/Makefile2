@@ -254,8 +254,8 @@ src/CMakeFiles/dilithium.dir/clean:
 
 # All Build rule for target.
 src/CMakeFiles/alyncoin_lib.dir/all: src/CMakeFiles/protobuf_gen.dir/all
-src/CMakeFiles/alyncoin_lib.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
 src/CMakeFiles/alyncoin_lib.dir/all: src/CMakeFiles/falcon.dir/all
+src/CMakeFiles/alyncoin_lib.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
 src/CMakeFiles/alyncoin_lib.dir/all: src/CMakeFiles/dilithium.dir/all
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/depend
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/build
@@ -282,8 +282,8 @@ src/CMakeFiles/alyncoin_lib.dir/clean:
 # Target rules for target src/CMakeFiles/alyncoin.dir
 
 # All Build rule for target.
-src/CMakeFiles/alyncoin.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
 src/CMakeFiles/alyncoin.dir/all: src/CMakeFiles/falcon.dir/all
+src/CMakeFiles/alyncoin.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
 src/CMakeFiles/alyncoin.dir/all: src/CMakeFiles/dilithium.dir/all
 src/CMakeFiles/alyncoin.dir/all: src/CMakeFiles/alyncoin_lib.dir/all
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin.dir/build.make src/CMakeFiles/alyncoin.dir/depend
@@ -311,8 +311,8 @@ src/CMakeFiles/alyncoin.dir/clean:
 # Target rules for target src/CMakeFiles/alyncoin-cli.dir
 
 # All Build rule for target.
-src/CMakeFiles/alyncoin-cli.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
 src/CMakeFiles/alyncoin-cli.dir/all: src/CMakeFiles/falcon.dir/all
+src/CMakeFiles/alyncoin-cli.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
 src/CMakeFiles/alyncoin-cli.dir/all: src/CMakeFiles/dilithium.dir/all
 src/CMakeFiles/alyncoin-cli.dir/all: src/CMakeFiles/alyncoin_lib.dir/all
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin-cli.dir/build.make src/CMakeFiles/alyncoin-cli.dir/depend
@@ -340,8 +340,8 @@ src/CMakeFiles/alyncoin-cli.dir/clean:
 # Target rules for target src/CMakeFiles/peer_blacklist_cli.dir
 
 # All Build rule for target.
-src/CMakeFiles/peer_blacklist_cli.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
 src/CMakeFiles/peer_blacklist_cli.dir/all: src/CMakeFiles/falcon.dir/all
+src/CMakeFiles/peer_blacklist_cli.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
 src/CMakeFiles/peer_blacklist_cli.dir/all: src/CMakeFiles/dilithium.dir/all
 src/CMakeFiles/peer_blacklist_cli.dir/all: src/CMakeFiles/alyncoin_lib.dir/all
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/peer_blacklist_cli.dir/build.make src/CMakeFiles/peer_blacklist_cli.dir/depend
@@ -369,8 +369,8 @@ src/CMakeFiles/peer_blacklist_cli.dir/clean:
 # Target rules for target src/CMakeFiles/swapcli.dir
 
 # All Build rule for target.
-src/CMakeFiles/swapcli.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
 src/CMakeFiles/swapcli.dir/all: src/CMakeFiles/falcon.dir/all
+src/CMakeFiles/swapcli.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
 src/CMakeFiles/swapcli.dir/all: src/CMakeFiles/dilithium.dir/all
 src/CMakeFiles/swapcli.dir/all: src/CMakeFiles/alyncoin_lib.dir/all
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/swapcli.dir/build.make src/CMakeFiles/swapcli.dir/depend
@@ -398,8 +398,8 @@ src/CMakeFiles/swapcli.dir/clean:
 # Target rules for target src/CMakeFiles/identitycli.dir
 
 # All Build rule for target.
-src/CMakeFiles/identitycli.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
 src/CMakeFiles/identitycli.dir/all: src/CMakeFiles/falcon.dir/all
+src/CMakeFiles/identitycli.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
 src/CMakeFiles/identitycli.dir/all: src/CMakeFiles/dilithium.dir/all
 src/CMakeFiles/identitycli.dir/all: src/CMakeFiles/alyncoin_lib.dir/all
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/identitycli.dir/build.make src/CMakeFiles/identitycli.dir/depend
@@ -427,8 +427,8 @@ src/CMakeFiles/identitycli.dir/clean:
 # Target rules for target src/CMakeFiles/blacklist_test.dir
 
 # All Build rule for target.
-src/CMakeFiles/blacklist_test.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
 src/CMakeFiles/blacklist_test.dir/all: src/CMakeFiles/falcon.dir/all
+src/CMakeFiles/blacklist_test.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
 src/CMakeFiles/blacklist_test.dir/all: src/CMakeFiles/dilithium.dir/all
 src/CMakeFiles/blacklist_test.dir/all: src/CMakeFiles/alyncoin_lib.dir/all
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/blacklist_test.dir/build.make src/CMakeFiles/blacklist_test.dir/depend
@@ -456,8 +456,8 @@ src/CMakeFiles/blacklist_test.dir/clean:
 # Target rules for target src/CMakeFiles/explorer_server.dir
 
 # All Build rule for target.
-src/CMakeFiles/explorer_server.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
 src/CMakeFiles/explorer_server.dir/all: src/CMakeFiles/falcon.dir/all
+src/CMakeFiles/explorer_server.dir/all: src/CMakeFiles/winterfell_ffi.dir/all
 src/CMakeFiles/explorer_server.dir/all: src/CMakeFiles/dilithium.dir/all
 src/CMakeFiles/explorer_server.dir/all: src/CMakeFiles/alyncoin_lib.dir/all
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/explorer_server.dir/build.make src/CMakeFiles/explorer_server.dir/depend

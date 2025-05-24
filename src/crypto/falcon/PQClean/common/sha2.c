@@ -495,7 +495,7 @@ static const uint8_t iv_512[64] = {
 };
 
 void sha224_inc_init(sha224ctx *state) {
-    state->ctx = (uint8_t *)malloc(PQC_SHA256CTX_BYTES);
+    state->ctx = malloc(PQC_SHA256CTX_BYTES);
     if (state->ctx == NULL) {
         exit(111);
     }
@@ -508,7 +508,7 @@ void sha224_inc_init(sha224ctx *state) {
 }
 
 void sha256_inc_init(sha256ctx *state) {
-    state->ctx = (uint8_t *)malloc(PQC_SHA256CTX_BYTES);
+    state->ctx = malloc(PQC_SHA256CTX_BYTES);
     if (state->ctx == NULL) {
         exit(111);
     }
@@ -563,7 +563,7 @@ void sha256_inc_ctx_clone(sha256ctx *stateout, const sha256ctx *statein) {
 }
 
 void sha384_inc_ctx_clone(sha384ctx *stateout, const sha384ctx *statein) {
-    stateout->ctx = (uint8_t *)malloc(PQC_SHA512CTX_BYTES);
+    stateout->ctx = malloc(PQC_SHA512CTX_BYTES);
     if (stateout->ctx == NULL) {
         exit(111);
     }
@@ -571,7 +571,7 @@ void sha384_inc_ctx_clone(sha384ctx *stateout, const sha384ctx *statein) {
 }
 
 void sha512_inc_ctx_clone(sha512ctx *stateout, const sha512ctx *statein) {
-    stateout->ctx = (uint8_t *)malloc(PQC_SHA512CTX_BYTES);
+    stateout->ctx = malloc(PQC_SHA512CTX_BYTES);
     if (stateout->ctx == NULL) {
         exit(111);
     }

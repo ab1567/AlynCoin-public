@@ -143,33 +143,47 @@ if (network && !connectIP.empty()) {
         }
 
         switch (choice) {
-            case 1: {
-                std::string sender, recipient;
-                double amount;
-                std::cout << "Enter sender: ";
-                std::cin >> sender;
-                std::cout << "Enter recipient: ";
-                std::cin >> recipient;
-                std::cout << "Enter amount: ";
-                std::cin >> amount;
+	case 1: {
+	    std::string sender, recipient;
+	    double amount;
+	    std::cout << "Enter sender: ";
+	    std::cin >> sender;
+	    std::cout << "Enter recipient: ";
+	    std::cin >> recipient;
+	    std::cout << "Enter amount: ";
+	    std::cin >> amount;
 
-                Crypto::ensureUserKeys(sender);
-                DilithiumKeyPair dilKeys = Crypto::loadDilithiumKeys(sender);
-                FalconKeyPair falKeys = Crypto::loadFalconKeys(sender);
+	    Crypto::ensureUserKeys(sender);
+	    DilithiumKeyPair dilKeys = Crypto::loadDilithiumKeys(sender);
+	    FalconKeyPair falKeys = Crypto::loadFalconKeys(sender);
 
-                Transaction tx(sender, recipient, amount, "", "", time(nullptr));
-                tx.signTransaction(dilKeys.privateKey, falKeys.privateKey);
+	    Transaction tx(sender, recipient, amount, "", "", time(nullptr));
+	    tx.signTransaction(dilKeys.privateKey, falKeys.privateKey);
 
-                if (!tx.isValid(Crypto::toHex(dilKeys.publicKey), Crypto::toHex(falKeys.publicKey))) {
-                    std::cout << "❌ Invalid transaction (signature check failed).\n";
-                    break;
-                }
+	    // 🚫 Prevent duplicate in pending transactions
+	    bool duplicate = false;
+	    for (const auto& existing : blockchain.getPendingTransactions()) {
+	        if (existing.getSender() == tx.getSender() &&
+	            existing.getRecipient() == tx.getRecipient() &&
+	            existing.getAmount() == tx.getAmount() &&
+	            existing.getMetadata() == tx.getMetadata()) {
+	            std::cout << "⚠️ Duplicate transaction already exists in mempool.\n";
+	            duplicate = true;
+	            break;
+	        }
+	    }
+	    if (duplicate) break;
 
-                blockchain.addTransaction(tx);
-                if (network) network->broadcastTransaction(tx);
-                std::cout << "✅ Transaction added and broadcasted.\n";
-                break;
-            }
+	    if (!tx.isValid(Crypto::toHex(dilKeys.publicKey), Crypto::toHex(falKeys.publicKey))) {
+	        std::cout << "❌ Invalid transaction (signature check failed).\n";
+	        break;
+	    }
+
+	    blockchain.addTransaction(tx);
+	    if (network) network->broadcastTransaction(tx);
+	    std::cout << "✅ Transaction added and broadcasted.\n";
+	    break;
+	}
 
             case 2: {
                 std::cout << "Enter miner address: ";

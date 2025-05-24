@@ -163,19 +163,4 @@ void sha3_512_inc_ctx_release(sha3_512incctx *state);
 /* One-stop SHA3-512 shop */
 void sha3_512(uint8_t *output, const uint8_t *input, size_t inlen);
 
-#ifdef SHAKE256_NAMESPACE
-#define shake256_init SHAKE256_NAMESPACE##shake256_init
-#define shake256_absorb SHAKE256_NAMESPACE##shake256_absorb
-#define shake256_finalize SHAKE256_NAMESPACE##shake256_finalize
-#define shake256_squeezeblocks SHAKE256_NAMESPACE##shake256_squeezeblocks
-#define shake256_ctx_release SHAKE256_NAMESPACE##shake256_ctx_release
-#define shake256_ctx_clone SHAKE256_NAMESPACE##shake256_ctx_clone
-#define shake256_inc_init SHAKE256_NAMESPACE##shake256_inc_init
-#define shake256_inc_absorb SHAKE256_NAMESPACE##shake256_inc_absorb
-#define shake256_inc_finalize SHAKE256_NAMESPACE##shake256_inc_finalize
-#define shake256_inc_squeeze SHAKE256_NAMESPACE##shake256_inc_squeeze
-#define shake256_inc_ctx_clone SHAKE256_NAMESPACE##shake256_inc_ctx_clone
-#define shake256_inc_ctx_release SHAKE256_NAMESPACE##shake256_inc_ctx_release
-#define shake256 SHAKE256_NAMESPACE##shake256
-#endif
 #endif

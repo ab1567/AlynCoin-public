@@ -7,18 +7,23 @@
 #include <json/json.h>
 #include "db/db_paths.h"
 
-PeerBlacklist::PeerBlacklist(const std::string& path, int threshold) : db_path(path), strike_threshold(threshold) {
+PeerBlacklist::PeerBlacklist(const std::string& path, int threshold)
+    : db(nullptr), db_path(path), strike_threshold(threshold), blacklistEnabled(true)
+{
     rocksdb::Options options;
     options.create_if_missing = true;
     rocksdb::Status status = rocksdb::DB::Open(options, db_path, &db);
     if (!status.ok()) {
-        std::cerr << "Failed to open peer blacklist DB: " << status.ToString() << std::endl;
+        std::cerr << "⚠️ [PeerBlacklist] Could not open blacklist DB (" << db_path << "): "
+                  << status.ToString() << "\n";
+        std::cerr << "⚠️ [PeerBlacklist] Peer banning is DISABLED for this session.\n";
         db = nullptr;
+        blacklistEnabled = false;
     }
 }
 
 PeerBlacklist::~PeerBlacklist() {
-    delete db;
+    if (db) delete db;
 }
 
 std::string PeerBlacklist::makeKey(const std::string& peer_id) const {
@@ -27,7 +32,7 @@ std::string PeerBlacklist::makeKey(const std::string& peer_id) const {
 
 bool PeerBlacklist::addPeer(const std::string& peer_id, const std::string& reason) {
     std::lock_guard<std::mutex> lock(db_mutex);
-    if (!db) return false;
+    if (!blacklistEnabled || db == nullptr) return false;
 
     BlacklistEntry entry;
     entry.peer_id = peer_id;
@@ -50,17 +55,14 @@ bool PeerBlacklist::addPeer(const std::string& peer_id, const std::string& reaso
 
 bool PeerBlacklist::removePeer(const std::string& peer_id) {
     std::lock_guard<std::mutex> lock(db_mutex);
-    if (!db) return false;
+    if (!blacklistEnabled || db == nullptr) return false;
     rocksdb::Status s = db->Delete(rocksdb::WriteOptions(), makeKey(peer_id));
     return s.ok();
 }
 
 bool PeerBlacklist::isBlacklisted(const std::string& peer_id) {
     std::lock_guard<std::mutex> lock(db_mutex);
-    if (!db) {
-        std::cerr << "❌ [PeerBlacklist] DB pointer is null. Cannot check blacklist for: " << peer_id << std::endl;
-        return false;
-    }
+    if (!blacklistEnabled || db == nullptr) return false;
     std::string value;
     rocksdb::Status s = db->Get(rocksdb::ReadOptions(), makeKey(peer_id), &value);
     return s.ok();
@@ -68,7 +70,7 @@ bool PeerBlacklist::isBlacklisted(const std::string& peer_id) {
 
 bool PeerBlacklist::incrementStrike(const std::string& peer_id, const std::string& reason) {
     std::lock_guard<std::mutex> lock(db_mutex);
-    if (!db) return false;
+    if (!blacklistEnabled || db == nullptr) return false;
 
     std::string value;
     rocksdb::Status s = db->Get(rocksdb::ReadOptions(), makeKey(peer_id), &value);
@@ -112,7 +114,7 @@ bool PeerBlacklist::incrementStrike(const std::string& peer_id, const std::strin
 std::vector<BlacklistEntry> PeerBlacklist::getAllEntries() {
     std::lock_guard<std::mutex> lock(db_mutex);
     std::vector<BlacklistEntry> entries;
-    if (!db) return entries;
+    if (!blacklistEnabled || db == nullptr) return entries;
 
     rocksdb::Iterator* it = db->NewIterator(rocksdb::ReadOptions());
     for (it->SeekToFirst(); it->Valid(); it->Next()) {
@@ -138,7 +140,7 @@ std::vector<BlacklistEntry> PeerBlacklist::getAllEntries() {
 
 bool PeerBlacklist::clearBlacklist() {
     std::lock_guard<std::mutex> lock(db_mutex);
-    if (!db) return false;
+    if (!blacklistEnabled || db == nullptr) return false;
 
     rocksdb::WriteBatch batch;
     rocksdb::Iterator* it = db->NewIterator(rocksdb::ReadOptions());
