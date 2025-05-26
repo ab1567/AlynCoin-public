@@ -220,5 +220,5 @@ bool deserializeBlockchainForkView(const std::string& rawData, std::vector<Block
 namespace DBPaths {
     std::string getKeyPath(const std::string &address);
 }
-
+Blockchain& getBlockchain();
 #endif // BLOCKCHAIN_H

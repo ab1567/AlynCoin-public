@@ -45,7 +45,6 @@ endif()
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
   include("/root/AlynCoin/build/src/cmake_install.cmake")
-  include("/root/AlynCoin/build/src/nft/cmake_install.cmake")
 
 endif()
 

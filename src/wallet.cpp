@@ -8,16 +8,18 @@
 
 namespace fs = std::filesystem;
 
+// Default wallet constructor
 Wallet::Wallet() : Wallet("defaultWallet", KEY_DIR) {}
-//
+
+// Main constructor: create or load keys for an address
 Wallet::Wallet(const std::string& address, const std::string& keyDirectoryPath)
     : keyDirectory(keyDirectoryPath), walletName(address), address(address) {
-
     Crypto::ensureKeysDirectory();
 
     std::string privPath = keyDirectory + address + "_private.pem";
     std::string pubPath  = keyDirectory + address + "_public.pem";
 
+    // Generate keys if missing
     if (!fs::exists(privPath) || !fs::exists(pubPath)) {
         std::cout << "🔐 Generating RSA key pair for address: " << address << std::endl;
         Crypto::generateKeysForUser(address);
@@ -26,16 +28,15 @@ Wallet::Wallet(const std::string& address, const std::string& keyDirectoryPath)
     privateKey = loadKeyFile(privPath);
     publicKey  = loadKeyFile(pubPath);
 
-    // Load Dilithium
-    std::string dilPrefix = keyDirectory + address + "_dilithium";
-    dilithiumKeys = Crypto::loadDilithiumKeys(dilPrefix);
+    // --- Dilithium ---
+    dilithiumKeys = Crypto::loadDilithiumKeys(address);
     if (dilithiumKeys.privateKey.empty() || dilithiumKeys.publicKey.empty()) {
         std::cout << "⚠️ Missing Dilithium keys. Generating...\n";
         Crypto::generateDilithiumKeys(address);
-        dilithiumKeys = Crypto::loadDilithiumKeys(dilPrefix);
+        dilithiumKeys = Crypto::loadDilithiumKeys(address);
     }
 
-    // Load Falcon
+    // --- Falcon ---
     falconKeys = Crypto::loadFalconKeys(address);
     if (falconKeys.privateKey.empty() || falconKeys.publicKey.empty()) {
         std::cout << "⚠️ Missing Falcon keys. Generating...\n";
@@ -45,10 +46,10 @@ Wallet::Wallet(const std::string& address, const std::string& keyDirectoryPath)
 
     std::cout << "✅ Wallet created successfully!\nAddress: " << address << std::endl;
 }
-//
+
+// Alternate constructor: load wallet from explicit private key path
 Wallet::Wallet(const std::string& privateKeyPath, const std::string& keyDirectoryPath, const std::string& walletName)
     : keyDirectory(keyDirectoryPath), walletName(walletName), address(walletName) {
-
     // Load RSA private key
     if (!fs::exists(privateKeyPath)) {
         throw std::runtime_error("❌ Private key file not found: " + privateKeyPath);
@@ -66,13 +67,13 @@ Wallet::Wallet(const std::string& privateKeyPath, const std::string& keyDirector
     }
     publicKey = loadKeyFile(publicKeyPath);
 
-    // Load Dilithium keys
+    // --- Dilithium ---
     dilithiumKeys = Crypto::loadDilithiumKeys(walletName);
     if (dilithiumKeys.privateKey.empty() || dilithiumKeys.publicKey.empty()) {
         throw std::runtime_error("❌ Dilithium keys missing for wallet: " + walletName);
     }
 
-    // Load Falcon keys
+    // --- Falcon ---
     falconKeys = Crypto::loadFalconKeys(walletName);
     if (falconKeys.privateKey.empty() || falconKeys.publicKey.empty()) {
         throw std::runtime_error("❌ Falcon keys missing for wallet: " + walletName);
@@ -87,7 +88,7 @@ Wallet::Wallet(const std::string& privateKeyPath, const std::string& keyDirector
     std::cout << "✅ Wallet loaded successfully!\nAddress: " << address << std::endl;
 }
 
-//
+// Key loader
 std::string Wallet::loadKeyFile(const std::string& path) {
     std::ifstream file(path);
     if (!file.is_open())
@@ -110,7 +111,8 @@ std::string Wallet::getPrivateKey() const { return privateKey; }
 double Wallet::getBalance() const {
     return Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true, false).getBalance(address);
 }
-//
+
+// Transaction creation
 Transaction Wallet::createTransaction(const std::string& recipient, double amount) {
     if (amount <= 0)
         throw std::runtime_error("❌ Amount must be greater than zero.");
@@ -122,7 +124,7 @@ Transaction Wallet::createTransaction(const std::string& recipient, double amoun
 
     std::cout << "🔥 Burned: " << burnAmount << " AlynCoin (" << (burnRate * 100) << "%)\n";
 
-    // ✅ Prepare binary transaction hash
+    // Prepare transaction hash
     std::string txHashStr;
     {
         std::ostringstream data;
@@ -131,11 +133,11 @@ Transaction Wallet::createTransaction(const std::string& recipient, double amoun
     }
     std::vector<unsigned char> hashBytes = Crypto::fromHex(txHashStr);
 
-    // ✅ Sign with Dilithium and Falcon
+    // Signatures
     std::vector<unsigned char> sig_dilithium = Crypto::signWithDilithium(hashBytes, dilithiumKeys.privateKey);
     std::vector<unsigned char> sig_falcon    = Crypto::signWithFalcon(hashBytes, falconKeys.privateKey);
 
-    // ✅ Generate zk-STARK proof
+    // zk-STARK proof
     std::string zkProof = WinterfellStark::generateTransactionProof(address, recipient, amount, std::time(nullptr));
 
     Transaction tx(address, recipient, amount,
@@ -147,7 +149,7 @@ Transaction Wallet::createTransaction(const std::string& recipient, double amoun
     return tx;
 }
 
-//
+// Sign arbitrary message with this wallet's private key
 std::string Wallet::signWithPrivateKey(const std::string& message) {
     if (privateKey.empty()) {
         std::cerr << "❌ RSA private key missing.\n";
@@ -156,6 +158,7 @@ std::string Wallet::signWithPrivateKey(const std::string& message) {
     return Crypto::signMessage(message, privateKey, false);
 }
 
+// Address generator
 std::string Wallet::generateAddress(const std::string& publicKey) {
     return Crypto::keccak256(publicKey).substr(0, 40);
 }

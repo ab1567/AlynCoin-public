@@ -12,6 +12,8 @@
 #include "db/db_paths.h"
 #include <chrono>
 #include <atomic>
+#include "blockchain.h"
+#include "network.h"
 #include <thread>
 #include <future>
 #include "../db/db_instance.h"
@@ -79,26 +81,69 @@ bool NFT::verifyZkStarkProof() const {
 
 // ✅ Submit L2
 bool NFT::submitMetadataHashTransaction() const {
-    DB::closeInstance();  // Ensure RocksDB instance is closed before subprocess call
+    Blockchain& b = getBlockchain();
+    double amount = 0.0;
+    std::string from = creator;
+    std::string to = "metadataSink";
+    std::string meta = metadata;
+    time_t timestamp = time(nullptr);
+
+    Transaction tx(from, to, amount, "", meta, timestamp);
+    tx.setMetadata(meta);
+
+    static std::unordered_set<std::string> localSeenHashes;
+    std::string txHash = tx.getHash();
+    if (localSeenHashes.count(txHash)) {
+        std::cerr << "⚠️ Transaction already submitted by this session (NFT dedupe).\n";
+        return false;
+    }
+    for (const auto& existing : b.getPendingTransactions()) {
+        if (existing.getSender() == tx.getSender() &&
+            existing.getRecipient() == tx.getRecipient() &&
+            existing.getAmount() == tx.getAmount() &&
+            existing.getMetadata() == tx.getMetadata()) {
+            std::cerr << "⚠️ Duplicate transaction already exists in mempool.\n";
+            return false;
+        }
+    }
+    localSeenHashes.insert(txHash);
+
+    auto dil = Crypto::loadDilithiumKeys(from);
+    auto fal = Crypto::loadFalconKeys(from);
+    tx.signTransaction(dil.privateKey, fal.privateKey);
+    if (!tx.getSignatureDilithium().empty() && !tx.getSignatureFalcon().empty()) {
+        b.addTransaction(tx);
+        b.savePendingTransactionsToDB();
+        if (!Network::isUninitialized()) {
+            Network::getInstance().broadcastTransaction(tx);
+        }
+        std::cout << "✅ Transaction broadcasted (internal L1): " << from << " → " << to
+                  << " (" << amount << " AlynCoin, metadata: " << meta << ")\n";
+        return true;
+    } else {
+        std::cerr << "❌ Transaction signing failed.\n";
+        return false;
+    }
+}
+//sub
+bool NFT::submitMetadataHashTransactioncli() const {
 
     auto runCommand = [](const std::string& cmd) -> bool {
         std::cout << "[DEBUG] Submitting metadata tx: " << cmd << std::endl;
-
         FILE* pipe = popen(cmd.c_str(), "r");
         if (!pipe) {
             std::cerr << "❌ Failed to open subprocess.\n";
             return false;
         }
-
         int fd = fileno(pipe);
-        #ifndef _WIN32
-	    fcntl(fd, F_SETFL, O_NONBLOCK);
-	#endif
+#ifndef _WIN32
+        fcntl(fd, F_SETFL, O_NONBLOCK);
+#endif
         std::string output;
         bool success = false;
         char buffer[512];
         auto start = std::chrono::steady_clock::now();
-
+        const int timeoutSeconds = 5;
         while (true) {
             fd_set fds;
             FD_ZERO(&fds);
@@ -112,50 +157,45 @@ bool NFT::submitMetadataHashTransaction() const {
                     std::string chunk(buffer);
                     std::cout << "[NFT TX] " << chunk;
                     output += chunk;
-
                     if (chunk.find("✅ Transaction broadcasted") != std::string::npos ||
                         chunk.find("Transaction added") != std::string::npos ||
                         chunk.find("Transactions successfully saved") != std::string::npos) {
                         success = true;
+                        break;
                     }
                 }
             }
-
             if (std::chrono::duration_cast<std::chrono::seconds>(
-                    std::chrono::steady_clock::now() - start).count() > 5) {
+                    std::chrono::steady_clock::now() - start).count() > timeoutSeconds) {
+                std::cerr << "⚠️ Output timeout reached.\n";
                 break;
             }
         }
-
         int exitCode = pclose(pipe);
         std::cerr << "[DEBUG] Metadata TX subprocess exited with code: " << exitCode << "\n";
-
-        // ✅ Accept exitCode 0 as fallback success for metadata-only tx
         if (!success && exitCode == 0) {
             std::cout << "✅ Metadata-only transaction presumed successful based on exit code.\n";
             success = true;
         }
-
         return success;
     };
 
     std::string metadataHash = Crypto::sha256(metadata);
-	std::string cliPath = std::getenv("ALYNCOIN_CLI_PATH")
-	    ? std::getenv("ALYNCOIN_CLI_PATH")
-	    : DBPaths::getHomePath() + "/AlynCoin/AlynCoin/build/alyncoin-cli";
+    std::string cliPath = std::getenv("ALYNCOIN_CLI_PATH")
+        ? std::getenv("ALYNCOIN_CLI_PATH")
+        : DBPaths::getHomePath() + "/AlynCoin/AlynCoin/build/alyncoin-cli";
 
-
-	std::string l1 = cliPath + " --nonetwork sendl1 \"" + creator + "\" \"metadataSink\" 0 \"" + metadataHash + "\"";
-	std::string l2 = cliPath + " --nonetwork sendl2 \"" + creator + "\" \"metadataSink\" 0 \"" + metadataHash + "\"";
+    std::string l1 = cliPath + " --nonetwork sendl1 \"" + creator + "\" \"metadataSink\" 0 \"" + metadataHash + "\"";
+    std::string l2 = cliPath + " --nonetwork sendl2 \"" + creator + "\" \"metadataSink\" 0 \"" + metadataHash + "\"";
 
     if (runCommand(l1)) return true;
-
     std::cerr << "⚠️ L1 transaction failed or timed out. Trying L2...\n";
     if (runCommand(l2)) return true;
-
     std::cerr << "❌ Metadata transaction failed.\n";
     return false;
 }
+
+
 
 // ✅ NFT::toProto - hex encode dilithium_signature
 NFTProto NFT::toProto() const {
@@ -336,11 +376,63 @@ std::string generateZkStarkProof(const std::string& metadata, const std::string&
 }
 
 // 📤 Metadata hash broadcast (external re-minting version)
-bool submitMetadataHashTransaction(const std::string& metadataHash,
-                                   const std::string& creator,
-                                   const std::string& signatureScheme,
-                                   bool isReMint) {
-    DB::closeInstance();  // Close DB before subprocess
+bool submitMetadataHashTransaction(
+    const std::string& metadataHash,
+    const std::string& creator,
+    const std::string& signatureScheme,
+    bool isReMint)
+{
+    Blockchain& b = getBlockchain();
+    double amount = 0.0;
+    std::string from = creator;
+    std::string to = "metadataSink";
+    std::string meta = metadataHash;
+    time_t timestamp = time(nullptr);
+
+    Transaction tx(from, to, amount, "", meta, timestamp);
+    tx.setMetadata(meta);
+
+    static std::unordered_set<std::string> localSeenHashes;
+    std::string txHash = tx.getHash();
+    if (localSeenHashes.count(txHash)) {
+        std::cerr << "⚠️ Transaction already submitted by this session (NFT dedupe).\n";
+        return false;
+    }
+    for (const auto& existing : b.getPendingTransactions()) {
+        if (existing.getSender() == tx.getSender() &&
+            existing.getRecipient() == tx.getRecipient() &&
+            existing.getAmount() == tx.getAmount() &&
+            existing.getMetadata() == tx.getMetadata()) {
+            std::cerr << "⚠️ Duplicate transaction already exists in mempool.\n";
+            return false;
+        }
+    }
+    localSeenHashes.insert(txHash);
+
+    auto dil = Crypto::loadDilithiumKeys(from);
+    auto fal = Crypto::loadFalconKeys(from);
+    tx.signTransaction(dil.privateKey, fal.privateKey);
+    if (!tx.getSignatureDilithium().empty() && !tx.getSignatureFalcon().empty()) {
+        b.addTransaction(tx);
+        b.savePendingTransactionsToDB();
+        if (!Network::isUninitialized()) {
+            Network::getInstance().broadcastTransaction(tx);
+        }
+        std::cout << "✅ Transaction broadcasted (internal L1): " << from << " → " << to
+                  << " (" << amount << " AlynCoin, metadata: " << meta << ")\n";
+        return true;
+    } else {
+        std::cerr << "❌ Transaction signing failed.\n";
+        return false;
+    }
+}
+//sub
+bool submitMetadataHashTransactioncli(
+    const std::string& metadataHash,
+    const std::string& creator,
+    const std::string& signatureScheme,
+    bool isReMint)
+{
 
     auto runCommand = [](const std::string& cmd) -> bool {
         std::cout << "[DEBUG] Submitting metadata tx: " << cmd << std::endl;
@@ -349,18 +441,15 @@ bool submitMetadataHashTransaction(const std::string& metadataHash,
             std::cerr << "❌ Failed to open subprocess.\n";
             return false;
         }
-
         int fd = fileno(pipe);
 #ifndef _WIN32
         fcntl(fd, F_SETFL, O_NONBLOCK);
 #endif
-
         std::string output;
         bool success = false;
         char buffer[512];
         auto start = std::chrono::steady_clock::now();
         const int timeoutSeconds = 5;
-
         while (true) {
             fd_set fds;
             FD_ZERO(&fds);
@@ -374,7 +463,6 @@ bool submitMetadataHashTransaction(const std::string& metadataHash,
                     std::string chunk(buffer);
                     std::cout << "[NFT TX] " << chunk;
                     output += chunk;
-
                     if (chunk.find("✅ Transaction broadcasted") != std::string::npos ||
                         chunk.find("Transaction added") != std::string::npos ||
                         chunk.find("Transactions successfully saved") != std::string::npos) {
@@ -383,38 +471,31 @@ bool submitMetadataHashTransaction(const std::string& metadataHash,
                     }
                 }
             }
-
             if (std::chrono::duration_cast<std::chrono::seconds>(
                     std::chrono::steady_clock::now() - start).count() > timeoutSeconds) {
                 std::cerr << "⚠️ Output timeout reached.\n";
                 break;
             }
         }
-
         int exitCode = pclose(pipe);
         std::cerr << "[DEBUG] Metadata TX subprocess exited with code: " << exitCode << "\n";
-
-        // ✅ Accept exitCode 0 as fallback success for metadata-only tx
         if (!success && exitCode == 0) {
             std::cout << "✅ Metadata-only transaction presumed successful based on exit code.\n";
             success = true;
         }
-
         return success;
     };
 
-	std::string cliPath = std::getenv("ALYNCOIN_CLI_PATH")
-	    ? std::getenv("ALYNCOIN_CLI_PATH")
-	    : DBPaths::getHomePath() + "/AlynCoin/AlynCoin/build/alyncoin-cli";
+    std::string cliPath = std::getenv("ALYNCOIN_CLI_PATH")
+        ? std::getenv("ALYNCOIN_CLI_PATH")
+        : DBPaths::getHomePath() + "/AlynCoin/AlynCoin/build/alyncoin-cli";
 
-	std::string l1 = cliPath + " --nonetwork sendl1 \"" + creator + "\" \"metadataSink\" 0 \"" + metadataHash + "\"";
-	std::string l2 = cliPath + " --nonetwork sendl2 \"" + creator + "\" \"metadataSink\" 0 \"" + metadataHash + "\"";
+    std::string l1 = cliPath + " --nonetwork sendl1 \"" + creator + "\" \"metadataSink\" 0 \"" + metadataHash + "\"";
+    std::string l2 = cliPath + " --nonetwork sendl2 \"" + creator + "\" \"metadataSink\" 0 \"" + metadataHash + "\"";
 
     if (runCommand(l1)) return true;
-
     std::cerr << "⚠️ L1 transaction failed or timed out. Trying L2...\n";
     if (runCommand(l2)) return true;
-
     std::cerr << "❌ Metadata transaction failed.\n";
     return false;
 }

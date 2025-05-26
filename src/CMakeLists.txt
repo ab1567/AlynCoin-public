@@ -87,6 +87,14 @@ list(APPEND SOURCES
 
 list(APPEND SOURCES
     ${SOURCE_DIR}/db/rocksdb_wrapper.cpp
+    ${SOURCE_DIR}/db/db_instance.cpp
+)
+
+list(APPEND SOURCES
+    ${SOURCE_DIR}/nft/nft.cpp
+    ${SOURCE_DIR}/nft/nft_storage.cpp
+    ${SOURCE_DIR}/nft/crypto/aes_utils.cpp
+    ${SOURCE_DIR}/nft/nft_utils.cpp
 )
 
 file(GLOB EXPLORER_SOURCES ${SOURCE_DIR}/explorer/*.cpp)
@@ -119,7 +127,7 @@ include_directories(
     ${SOURCE_DIR}/rollup/circuits
     ${SOURCE_DIR}/explorer
     ${GENERATED_DIR}
-    ${CMAKE_SOURCE_DIR}/deps/Crow/include
+    ${CMAKE_SOURCE_DIR}/Crow/include
     /usr/include/jsoncpp
     /usr/include/rocksdb
     ${SOURCE_DIR}/crypto/falcon/PQClean/Falcon-1024/clean
@@ -284,7 +292,6 @@ endif()
 
 add_dependencies(alyncoin_lib winterfell_ffi)
 
-
 set_source_files_properties(
     ${SOURCE_DIR}/blake3_sse2.c
     ${SOURCE_DIR}/blake3_sse41.c
@@ -321,6 +328,7 @@ add_dependencies(alyncoin winterfell_ffi)
 add_dependencies(alyncoin-cli winterfell_ffi)
 add_dependencies(peer_blacklist_cli winterfell_ffi)
 
+target_compile_definitions(alyncoin PRIVATE ALYNCOIN_MAIN_PROCESS)
 target_link_libraries(alyncoin alyncoin_lib pthread m dl)
 target_link_libraries(alyncoin-cli alyncoin_lib pthread m dl)
 target_link_libraries(peer_blacklist_cli
@@ -380,6 +388,31 @@ target_link_libraries(identitycli
     ${Protobuf_LIBRARIES}
 )
 
+#---------------------------
+add_executable(nftcli
+    ${SOURCE_DIR}/nft/main.cpp
+    ${SOURCE_DIR}/nft/nft_cli.cpp
+    ${SOURCE_DIR}/nft/nft.cpp
+    ${SOURCE_DIR}/nft/nft_storage.cpp
+    ${SOURCE_DIR}/nft/crypto/aes_utils.cpp
+)
+
+add_dependencies(nftcli winterfell_ffi)
+
+target_link_libraries(nftcli
+    alyncoin_lib
+    ${JSONCPP_LIBRARIES}
+    ${ROCKSDB_LIB}
+    pthread
+    crypto
+    m
+    dl
+    OpenSSL::Crypto
+    falcon
+    dilithium
+    ${Protobuf_LIBRARIES}
+)
+
 # --------------------------
 # Optional Test Executable
 add_executable(blacklist_test ${SOURCE_DIR}/node/main_blacklist_test.cpp)
@@ -400,7 +433,7 @@ target_link_libraries(blacklist_test
 add_executable(explorer_server ${EXPLORER_SOURCES})
 
 add_dependencies(explorer_server winterfell_ffi)
-target_include_directories(explorer_server PRIVATE ${SOURCE_DIR}/explorer ${CMAKE_SOURCE_DIR}/deps/Crow/include)
+target_include_directories(explorer_server PRIVATE ${SOURCE_DIR}/explorer ${CMAKE_SOURCE_DIR}/Crow/include)
 
 target_link_libraries(explorer_server
     alyncoin_lib

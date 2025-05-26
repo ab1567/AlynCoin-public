@@ -281,18 +281,6 @@ alyncoin_SOURCE_DIR:STATIC=/root/AlynCoin/src
 //Dependencies for the target
 alyncoin_lib_LIB_DEPENDS:STATIC=general;OpenSSL::Crypto;general;jsoncpp;general;pthread;general;crypto;general;m;general;dl;general;/usr/lib/x86_64-linux-gnu/librocksdb.so;general;/usr/lib/x86_64-linux-gnu/libprotobuf.so;general;falcon;general;dilithium;general;/root/AlynCoin/src/rust/target/release/libzk_winterfell.a;
 
-//Dependencies for the target
-nft_crypto_LIB_DEPENDS:STATIC=general;OpenSSL::Crypto;
-
-//Value Computed by CMake
-nftcli_BINARY_DIR:STATIC=/root/AlynCoin/build/src/nft
-
-//Value Computed by CMake
-nftcli_IS_TOP_LEVEL:STATIC=OFF
-
-//Value Computed by CMake
-nftcli_SOURCE_DIR:STATIC=/root/AlynCoin/src/nft
-
 //Path to a library.
 pkgcfg_lib_JSONCPP_jsoncpp:FILEPATH=/usr/lib/x86_64-linux-gnu/libjsoncpp.so
 
@@ -409,7 +397,7 @@ CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_NM
 CMAKE_NM-ADVANCED:INTERNAL=1
 //number of local generators
-CMAKE_NUMBER_OF_MAKEFILES:INTERNAL=4
+CMAKE_NUMBER_OF_MAKEFILES:INTERNAL=2
 //ADVANCED property for variable: CMAKE_OBJCOPY
 CMAKE_OBJCOPY-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_OBJDUMP

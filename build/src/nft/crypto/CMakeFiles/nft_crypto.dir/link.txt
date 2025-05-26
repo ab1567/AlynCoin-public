@@ -1,2 +1,0 @@
-/usr/bin/ar qc libnft_crypto.a CMakeFiles/nft_crypto.dir/aes_utils.cpp.o
-/usr/bin/ranlib libnft_crypto.a

@@ -90,30 +90,49 @@ int main(int argc, char **argv) {
         // Peer connect if host:port in arg
         (cmd.find(':') != std::string::npos && cmd.find('.') != std::string::npos);
 
-    Blockchain* chainPtr = nullptr;
-    Network* network = nullptr;
-    std::unique_ptr<PeerBlacklist> peerBlacklistPtr;
+// ==== Robust CLI initialization block ====
 
-	// == Init Blockchain Only As Needed ==
-  if (isFullNet) {
-    chainPtr = &Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), false);
+// Helper for flags
+auto hasFlag = [](int argc, char** argv, const std::string& flag) -> bool {
+    for (int i = 1; i < argc; ++i)
+        if (std::string(argv[i]) == flag)
+            return true;
+    return false;
+};
+
+bool skipDB = hasFlag(argc, argv, "--nodb");
+bool skipNet = hasFlag(argc, argv, "--nonetwork");
+
+Blockchain* chainPtr = nullptr;
+Network* network = nullptr;
+std::unique_ptr<PeerBlacklist> peerBlacklistPtr;
+
+// === Initialize Blockchain ===
+if (skipDB) {
+    std::cout << "⚠️ CLI is running in --nodb mode.\n";
+    chainPtr = &Blockchain::getInstanceNoDB();
+} else if (skipNet) {
+    std::cout << "⚠️ CLI is running in --nonetwork mode (DB OK).\n";
+    chainPtr = &Blockchain::getInstanceNoNetwork();
+} else {
+    std::cout << "🌐 CLI is using full network+DB mode.\n";
+    chainPtr = &Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true);
+
     try {
         peerBlacklistPtr = std::make_unique<PeerBlacklist>(DBPaths::getBlacklistDB(), 3);
-        if (peerBlacklistPtr) {
-            network = &Network::getInstance(8333, chainPtr, peerBlacklistPtr.get());
-        }
+        network = &Network::getInstance(8333, chainPtr, peerBlacklistPtr.get());
     } catch (const std::exception& e) {
         std::cerr << "❌ Failed to initialize PeerBlacklist or Network: " << e.what() << "\n";
         peerBlacklistPtr = nullptr;
-        // Do NOT try to initialize Network if PeerBlacklist failed!
     }
-  } else {
-    chainPtr = &Blockchain::getInstanceNoNetwork();
-    // Do NOT initialize network or peerBlacklist in read-only mode!
-  }
+}
 
-    auto getBlockchain = [&]() -> Blockchain& { return *chainPtr; };
-    Blockchain& b = *chainPtr;
+// ✅ Make getBlockchain() available again
+auto getBlockchain = [&]() -> Blockchain& {
+    return *chainPtr;
+};
+
+Blockchain& b = *chainPtr; // Optional alias (used only in current scope, not elsewhere)
 
 
    // mineonce <minerAddress>

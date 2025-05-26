@@ -115,9 +115,9 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_server.cpp.o: \
  /usr/include/c++/13/bits/memory_resource.h /usr/include/c++/13/cstddef \
  /usr/include/c++/13/bits/uses_allocator.h \
  /usr/include/c++/13/bits/uses_allocator_args.h /usr/include/c++/13/tuple \
- /root/AlynCoin/deps/Crow/include/crow.h \
- /root/AlynCoin/deps/Crow/include/crow/query_string.h \
- /usr/include/string.h /usr/include/strings.h /usr/include/c++/13/vector \
+ /root/AlynCoin/Crow/include/crow.h \
+ /root/AlynCoin/Crow/include/crow/query_string.h /usr/include/string.h \
+ /usr/include/strings.h /usr/include/c++/13/vector \
  /usr/include/c++/13/bits/stl_uninitialized.h \
  /usr/include/c++/13/bits/stl_vector.h \
  /usr/include/c++/13/bits/stl_bvector.h \
@@ -182,7 +182,7 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_server.cpp.o: \
  /usr/include/c++/13/backward/auto_ptr.h \
  /usr/include/c++/13/pstl/glue_memory_defs.h \
  /usr/include/c++/13/pstl/execution_defs.h \
- /root/AlynCoin/deps/Crow/include/crow/http_parser_merged.h \
+ /root/AlynCoin/Crow/include/crow/http_parser_merged.h \
  /usr/include/assert.h /usr/lib/gcc/x86_64-linux-gnu/13/include/limits.h \
  /usr/lib/gcc/x86_64-linux-gnu/13/include/syslimits.h \
  /usr/include/limits.h /usr/include/x86_64-linux-gnu/bits/posix1_lim.h \
@@ -191,12 +191,11 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_server.cpp.o: \
  /usr/include/x86_64-linux-gnu/bits/posix2_lim.h \
  /usr/include/x86_64-linux-gnu/bits/xopen_lim.h \
  /usr/include/x86_64-linux-gnu/bits/uio_lim.h \
- /root/AlynCoin/deps/Crow/include/crow/common.h \
- /root/AlynCoin/deps/Crow/include/crow/utility.h \
- /usr/include/c++/13/cstdint /usr/include/c++/13/cstring \
- /usr/include/c++/13/functional /usr/include/c++/13/bits/std_function.h \
- /usr/include/c++/13/array /usr/include/c++/13/compare \
- /usr/include/c++/13/bits/stl_algo.h \
+ /root/AlynCoin/Crow/include/crow/common.h \
+ /root/AlynCoin/Crow/include/crow/utility.h /usr/include/c++/13/cstdint \
+ /usr/include/c++/13/cstring /usr/include/c++/13/functional \
+ /usr/include/c++/13/bits/std_function.h /usr/include/c++/13/array \
+ /usr/include/c++/13/compare /usr/include/c++/13/bits/stl_algo.h \
  /usr/include/c++/13/bits/algorithmfwd.h \
  /usr/include/c++/13/bits/stl_heap.h \
  /usr/include/c++/13/bits/uniform_int_dist.h /usr/include/c++/13/sstream \
@@ -231,7 +230,7 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_server.cpp.o: \
  /usr/include/c++/13/pstl/glue_numeric_defs.h \
  /usr/include/c++/13/algorithm \
  /usr/include/c++/13/pstl/glue_algorithm_defs.h \
- /root/AlynCoin/deps/Crow/include/crow/settings.h \
+ /root/AlynCoin/Crow/include/crow/settings.h \
  /usr/include/c++/13/filesystem /usr/include/c++/13/bits/fs_fwd.h \
  /usr/include/c++/13/bits/chrono.h /usr/include/c++/13/ratio \
  /usr/include/c++/13/ctime /usr/include/c++/13/bits/parse_numbers.h \
@@ -244,10 +243,10 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_server.cpp.o: \
  /usr/include/c++/13/bits/locale_conv.h /usr/include/c++/13/iomanip \
  /usr/include/c++/13/bits/quoted_string.h /usr/include/c++/13/codecvt \
  /usr/include/c++/13/bits/fs_dir.h /usr/include/c++/13/bits/fs_ops.h \
- /root/AlynCoin/deps/Crow/include/crow/ci_map.h \
- /root/AlynCoin/deps/Crow/include/crow/TinySHA1.hpp \
- /root/AlynCoin/deps/Crow/include/crow/socket_adaptors.h \
- /usr/include/asio.hpp /usr/include/asio/any_completion_executor.hpp \
+ /root/AlynCoin/Crow/include/crow/ci_map.h \
+ /root/AlynCoin/Crow/include/crow/TinySHA1.hpp \
+ /root/AlynCoin/Crow/include/crow/socket_adaptors.h /usr/include/asio.hpp \
+ /usr/include/asio/any_completion_executor.hpp \
  /usr/include/asio/detail/config.hpp /usr/include/c++/13/version \
  /usr/include/unistd.h /usr/include/x86_64-linux-gnu/bits/posix_opt.h \
  /usr/include/x86_64-linux-gnu/bits/environments.h \
@@ -858,39 +857,36 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_server.cpp.o: \
  /usr/include/asio/windows/stream_handle.hpp \
  /usr/include/asio/writable_pipe.hpp /usr/include/asio/write.hpp \
  /usr/include/asio/write_at.hpp /usr/include/asio/impl/write_at.hpp \
- /usr/include/asio/version.hpp \
- /root/AlynCoin/deps/Crow/include/crow/json.h /usr/include/c++/13/cfloat \
+ /usr/include/asio/version.hpp /root/AlynCoin/Crow/include/crow/json.h \
+ /usr/include/c++/13/cfloat \
  /usr/lib/gcc/x86_64-linux-gnu/13/include/float.h \
- /root/AlynCoin/deps/Crow/include/crow/returnable.h \
- /root/AlynCoin/deps/Crow/include/crow/logging.h \
- /root/AlynCoin/deps/Crow/include/crow/mustache.h \
- /usr/include/c++/13/fstream \
+ /root/AlynCoin/Crow/include/crow/returnable.h \
+ /root/AlynCoin/Crow/include/crow/logging.h \
+ /root/AlynCoin/Crow/include/crow/mustache.h /usr/include/c++/13/fstream \
  /usr/include/x86_64-linux-gnu/c++/13/bits/basic_file.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++io.h \
  /usr/include/c++/13/bits/fstream.tcc \
- /root/AlynCoin/deps/Crow/include/crow/task_timer.h \
- /usr/include/c++/13/map /usr/include/c++/13/bits/stl_tree.h \
- /usr/include/c++/13/bits/stl_map.h \
+ /root/AlynCoin/Crow/include/crow/task_timer.h /usr/include/c++/13/map \
+ /usr/include/c++/13/bits/stl_tree.h /usr/include/c++/13/bits/stl_map.h \
  /usr/include/c++/13/bits/stl_multimap.h \
- /root/AlynCoin/deps/Crow/include/crow/http_request.h \
- /root/AlynCoin/deps/Crow/include/crow/websocket.h \
- /root/AlynCoin/deps/Crow/include/crow/TinySHA1.hpp \
- /root/AlynCoin/deps/Crow/include/crow/parser.h \
- /root/AlynCoin/deps/Crow/include/crow/http_response.h \
- /root/AlynCoin/deps/Crow/include/crow/mime_types.h \
- /root/AlynCoin/deps/Crow/include/crow/multipart.h \
- /root/AlynCoin/deps/Crow/include/crow/exceptions.h \
- /root/AlynCoin/deps/Crow/include/crow/multipart_view.h \
- /usr/include/c++/13/charconv \
- /root/AlynCoin/deps/Crow/include/crow/routing.h \
- /root/AlynCoin/deps/Crow/include/crow/middleware.h \
- /root/AlynCoin/deps/Crow/include/crow/middleware_context.h \
- /root/AlynCoin/deps/Crow/include/crow/compression.h \
- /root/AlynCoin/deps/Crow/include/crow/http_connection.h \
- /root/AlynCoin/deps/Crow/include/crow/compression.h \
- /root/AlynCoin/deps/Crow/include/crow/http_server.h \
- /root/AlynCoin/deps/Crow/include/crow/version.h \
- /root/AlynCoin/deps/Crow/include/crow/app.h /usr/include/c++/13/thread \
+ /root/AlynCoin/Crow/include/crow/http_request.h \
+ /root/AlynCoin/Crow/include/crow/websocket.h \
+ /root/AlynCoin/Crow/include/crow/TinySHA1.hpp \
+ /root/AlynCoin/Crow/include/crow/parser.h \
+ /root/AlynCoin/Crow/include/crow/http_response.h \
+ /root/AlynCoin/Crow/include/crow/mime_types.h \
+ /root/AlynCoin/Crow/include/crow/multipart.h \
+ /root/AlynCoin/Crow/include/crow/exceptions.h \
+ /root/AlynCoin/Crow/include/crow/multipart_view.h \
+ /usr/include/c++/13/charconv /root/AlynCoin/Crow/include/crow/routing.h \
+ /root/AlynCoin/Crow/include/crow/middleware.h \
+ /root/AlynCoin/Crow/include/crow/middleware_context.h \
+ /root/AlynCoin/Crow/include/crow/compression.h \
+ /root/AlynCoin/Crow/include/crow/http_connection.h \
+ /root/AlynCoin/Crow/include/crow/compression.h \
+ /root/AlynCoin/Crow/include/crow/http_server.h \
+ /root/AlynCoin/Crow/include/crow/version.h \
+ /root/AlynCoin/Crow/include/crow/app.h /usr/include/c++/13/thread \
  /usr/include/c++/13/bits/this_thread_sleep.h \
  /root/AlynCoin/src/explorer/explorer_db.h \
  /usr/include/jsoncpp/json/json.h /usr/include/jsoncpp/json/config.h \

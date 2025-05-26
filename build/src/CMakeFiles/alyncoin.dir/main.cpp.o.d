@@ -1348,15 +1348,14 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
  /usr/include/boost/asio/windows/stream_handle.hpp \
  /usr/include/boost/asio/writable_pipe.hpp \
  /usr/include/boost/asio/write_at.hpp \
- /usr/include/boost/asio/impl/write_at.hpp /root/AlynCoin/src/miner.h \
+ /usr/include/boost/asio/impl/write_at.hpp \
+ /root/AlynCoin/src/cli/peer_blacklist_cli.h \
+ /root/AlynCoin/src/cli/../network/peer_blacklist.h \
  /root/AlynCoin/src/network.h /usr/include/c++/13/thread \
  /usr/include/c++/13/bits/this_thread_sleep.h \
  /root/AlynCoin/src/network/peer_manager.h \
  /root/AlynCoin/src/network/peer_blacklist.h /root/AlynCoin/src/block.h \
- /root/AlynCoin/src/self_healing/self_healing_node.h \
- /root/AlynCoin/src/self_healing/health_monitor.h \
- /root/AlynCoin/src/self_healing/sync_recovery.h \
- /root/AlynCoin/src/network/peer_blacklist.h \
+ /root/AlynCoin/src/network/peer_blacklist.h /root/AlynCoin/src/wallet.h \
  /usr/include/c++/13/filesystem /usr/include/c++/13/bits/fs_fwd.h \
  /usr/include/c++/13/bits/fs_path.h /usr/include/c++/13/locale \
  /usr/include/c++/13/bits/locale_facets_nonio.h \
@@ -1365,4 +1364,57 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
  /usr/include/libintl.h /usr/include/c++/13/bits/locale_facets_nonio.tcc \
  /usr/include/c++/13/bits/locale_conv.h /usr/include/c++/13/iomanip \
  /usr/include/c++/13/bits/quoted_string.h /usr/include/c++/13/codecvt \
- /usr/include/c++/13/bits/fs_dir.h /usr/include/c++/13/bits/fs_ops.h
+ /usr/include/c++/13/bits/fs_dir.h /usr/include/c++/13/bits/fs_ops.h \
+ /root/AlynCoin/src/governance/dao.h \
+ /root/AlynCoin/src/governance/devfund.h \
+ /root/AlynCoin/src/governance/dao_storage.h \
+ /root/AlynCoin/src/governance/dao.h /root/AlynCoin/src/db/db_instance.h \
+ /root/AlynCoin/src/db/rocksdb_wrapper.h \
+ /root/AlynCoin/src/zk/recursive_proof_helper.h \
+ /root/AlynCoin/src/difficulty.h /usr/include/c++/13/numeric \
+ /usr/include/c++/13/bits/stl_numeric.h \
+ /usr/include/c++/13/pstl/glue_numeric_defs.h /root/AlynCoin/src/miner.h \
+ /root/AlynCoin/src/self_healing/self_healing_node.h \
+ /root/AlynCoin/src/self_healing/health_monitor.h \
+ /root/AlynCoin/src/self_healing/sync_recovery.h \
+ /root/AlynCoin/src/httplib.h /usr/include/ifaddrs.h \
+ /usr/include/resolv.h /usr/include/x86_64-linux-gnu/sys/param.h \
+ /usr/include/x86_64-linux-gnu/bits/param.h /usr/include/linux/param.h \
+ /usr/include/x86_64-linux-gnu/asm/param.h \
+ /usr/include/asm-generic/param.h /usr/include/arpa/nameser.h \
+ /usr/include/arpa/nameser_compat.h \
+ /usr/include/x86_64-linux-gnu/bits/types/res_state.h \
+ /usr/include/x86_64-linux-gnu/sys/mman.h \
+ /usr/include/x86_64-linux-gnu/bits/mman.h \
+ /usr/include/x86_64-linux-gnu/bits/mman-map-flags-generic.h \
+ /usr/include/x86_64-linux-gnu/bits/mman-linux.h \
+ /usr/include/x86_64-linux-gnu/bits/mman-shared.h \
+ /usr/include/x86_64-linux-gnu/bits/mman_ext.h /usr/include/c++/13/random \
+ /usr/include/c++/13/bits/random.h \
+ /usr/include/x86_64-linux-gnu/c++/13/bits/opt_random.h \
+ /usr/include/c++/13/bits/random.tcc /usr/include/c++/13/regex \
+ /usr/include/c++/13/bitset /usr/include/c++/13/bits/regex_constants.h \
+ /usr/include/c++/13/bits/regex_error.h \
+ /usr/include/c++/13/bits/regex_automaton.h \
+ /usr/include/c++/13/bits/regex_automaton.tcc \
+ /usr/include/c++/13/bits/regex_scanner.h \
+ /usr/include/c++/13/bits/regex_scanner.tcc \
+ /usr/include/c++/13/bits/regex_compiler.h \
+ /usr/include/c++/13/bits/regex_compiler.tcc \
+ /usr/include/c++/13/bits/regex.h /usr/include/c++/13/bits/regex.tcc \
+ /usr/include/c++/13/bits/regex_executor.h \
+ /usr/include/c++/13/bits/regex_executor.tcc /root/AlynCoin/src/json.hpp \
+ /usr/include/c++/13/forward_list /usr/include/c++/13/bits/forward_list.h \
+ /usr/include/c++/13/bits/forward_list.tcc /usr/include/c++/13/valarray \
+ /usr/include/c++/13/bits/valarray_array.h \
+ /usr/include/c++/13/bits/valarray_array.tcc \
+ /usr/include/c++/13/bits/valarray_before.h \
+ /usr/include/c++/13/bits/slice_array.h \
+ /usr/include/c++/13/bits/valarray_after.h \
+ /usr/include/c++/13/bits/gslice.h \
+ /usr/include/c++/13/bits/gslice_array.h \
+ /usr/include/c++/13/bits/mask_array.h \
+ /usr/include/c++/13/bits/indirect_array.h /root/AlynCoin/src/nft/nft.h \
+ /root/AlynCoin/src/nft/nft_storage.h /root/AlynCoin/src/nft/nft.h \
+ /root/AlynCoin/src/nft/crypto/aes_utils.h \
+ /root/AlynCoin/src/nft/nft_utils.h

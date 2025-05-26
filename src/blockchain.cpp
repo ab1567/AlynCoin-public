@@ -33,6 +33,11 @@ const std::string BLOCKCHAIN_DB_PATH = DBPaths::getBlockchainDB();
 std::vector<StateChannel> stateChannels;
 std::vector<RollupBlock> rollupBlocks;
 double totalSupply = 0.0;
+
+Blockchain& getBlockchain() {
+ return Blockchain::getActiveInstance();
+}
+
 // Global mutex for blockchain safety
 std::mutex blockchainMutex;
 std::atomic<bool> Blockchain::isMining{false};

@@ -438,7 +438,7 @@ if (cmd == "mint" && argc >= 5) {
     nft.creator_identity = identity;
     nft.generateZkStarkProof();
 
-    if (!nft.submitMetadataHashTransaction()) {
+    if (!nft.submitMetadataHashTransactioncli()) {
         std::cerr << "❌ Metadata transaction failed.\n";
         return 1;
     }
@@ -535,7 +535,7 @@ if (cmd == "remint" && argc >= 5) {
     updated.generateZkStarkProof();
 
     std::string rehash = Crypto::sha256(updated.metadata + updated.imageHash + updated.version);
-    if (!submitMetadataHashTransaction(rehash, currentUser, "falcon", true)) {
+    if (!submitMetadataHashTransactioncli(rehash, currentUser, "falcon", true)) {
         std::cerr << "❌ Metadata transaction failed.\n";
         return 1;
     }

@@ -5,41 +5,14 @@
 #include "db_paths.h"
 
 namespace DB {
-    static RocksDBWrapper* instance = nullptr;
-    static RocksDBWrapper* readonlyInstance = nullptr;
+    extern RocksDBWrapper* instance;
+    extern RocksDBWrapper* readonlyInstance;
 
-    // Regular full access (read/write)
-    inline RocksDBWrapper* getInstance() {
-        if (!instance) {
-            static RocksDBWrapper wrapper(DBPaths::getBlockchainDB());
-            instance = &wrapper;
-        }
-        return instance;
-    }
+    RocksDBWrapper* getInstance();
+    RocksDBWrapper* getInstanceNoLock();
 
-    // Read-only safe access (for NFT CLI or stats)
-    inline RocksDBWrapper* getInstanceNoLock() {
-        if (!readonlyInstance) {
-            static RocksDBWrapper wrapper(DBPaths::getBlockchainDB(), /* readOnly */ true);
-            readonlyInstance = &wrapper;
-        }
-        return readonlyInstance;
-    }
-
-    // Close DB instance to release lock (for subprocess calls)
-    inline void closeInstance() {
-        if (instance) {
-            instance->close();
-            instance = nullptr;
-        }
-    }
-
-    inline void closeReadonlyInstance() {
-        if (readonlyInstance) {
-            readonlyInstance->close();
-            readonlyInstance = nullptr;
-        }
-    }
+    void closeInstance();
+    void closeReadonlyInstance();
 }
 
 #endif // DB_INSTANCE_H

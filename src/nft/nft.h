@@ -60,26 +60,38 @@ public:
     // ⚙️ Proof generation
     void generateZkStarkProof();
 
-    // 📤 Metadata submission
-    bool submitMetadataHashTransaction() const;
+    // === 📤 Metadata submission (main process direct, and CLI subprocess) ===
+    bool submitMetadataHashTransaction() const;          // Main node process only (direct DB)
+    bool submitMetadataHashTransactioncli() const;       // CLI/GUI/subprocess only (no DB)
 
     // 📦 Export
     bool exportToFile(const std::string& filename = "") const;
 
-   std::string getSignatureMessage() const {
-    return id + creator + owner + metadata + imageHash + std::to_string(timestamp);
-  }
-
+    std::string getSignatureMessage() const {
+        return id + creator + owner + metadata + imageHash + std::to_string(timestamp);
+    }
 };
 
-// === Standalone utility declarations for reMint ===
+// === Standalone utility declarations for reMint and CLI helpers ===
 std::string calculateHash(const std::string& input);
 std::string generateZkStarkProof(const std::string& metadata, const std::string& imageHash, const std::string& creator);
-bool submitMetadataHashTransaction(const std::string& metadataHash, const std::string& creator,
-                                   const std::string& signatureScheme, bool isReMint);
+
+// Main node process only (direct DB)
+bool submitMetadataHashTransaction(const std::string& metadataHash,
+                                   const std::string& creator,
+                                   const std::string& signatureScheme,
+                                   bool isReMint);
+
+// CLI/GUI/subprocess only (no DB, uses alyncoin-cli subprocess)
+bool submitMetadataHashTransactioncli(const std::string& metadataHash,
+                                      const std::string& creator,
+                                      const std::string& signatureScheme,
+                                      bool isReMint);
+
 void exportNFTtoFile(const std::string& filename, const std::string& metadataHash,
                      const std::string& creator, const std::string& version,
                      const std::string& zkProof);
+
 bool reMintNFT(const std::string& creator,
                const std::string& prevNftId,
                const std::string& newMetadata,

@@ -396,11 +396,13 @@ void Network::broadcastPeerList() {
     }
 
     Json::StreamWriterBuilder writer;
+     writer["indentation"] = "";
     std::string peerListMessage = Json::writeString(writer, peerListJson);
 
     for (const auto &[peerAddr, _] : peerSockets) {
-        sendData(peerAddr, peerListMessage);
-    }
+    	sendData(peerAddr, "ALYN|" + peerListMessage);
+	}
+
 }
 
 //
@@ -411,8 +413,8 @@ PeerManager* Network::getPeerManager() {
 // ✅ **Request peer list from connected nodes**
 void Network::requestPeerList() {
   for (const auto &[peerAddr, socket] : peerSockets) {
-    sendData(peerAddr, R"({"type": "request_peers"})");
-  }
+    sendData(peerAddr, "ALYN|{\"type\": \"request_peers\"}");
+	}
 
   std::cout << "📡 Requesting peer list from all known peers..." << std::endl;
 }
@@ -969,23 +971,24 @@ void Network::handleIncomingData(const std::string &peerID, std::string data) {
             }
 
             // --- RESPOND TO PEER LIST REQUESTS ---
-            if (type == "request_peers") {
-                Json::Value peerListJson;
-                peerListJson["type"] = "peer_list";
-                peerListJson["data"] = Json::arrayValue;
-                {
-                    std::lock_guard<std::timed_mutex> lock(peersMutex);
-                    for (const auto &[peerAddr, _] : peerSockets) {
-                        if (peerAddr.find(":") != std::string::npos)
-                            peerListJson["data"].append(peerAddr);
-                    }
-                }
-                Json::StreamWriterBuilder writer;
-                std::string peerListMessage = Json::writeString(writer, peerListJson);
-                sendData(peerID, peerListMessage);
-                std::cout << "✅ [GOSSIP] Responded with peer list to " << peerID << "\n";
-                return;
-            }
+	if (type == "request_peers") {
+	    Json::Value peerListJson;
+	    peerListJson["type"] = "peer_list";
+	    peerListJson["data"] = Json::arrayValue;
+	    {
+	        std::lock_guard<std::timed_mutex> lock(peersMutex);
+	        for (const auto &[peerAddr, _] : peerSockets) {
+	            if (peerAddr.find(":") != std::string::npos)
+	                peerListJson["data"].append(peerAddr);
+	        }
+	    }
+	    Json::StreamWriterBuilder writer;
+	    writer["indentation"] = "";
+	    std::string peerListMessage = Json::writeString(writer, peerListJson);
+	    sendData(peerID, "ALYN|" + peerListMessage);
+	    std::cout << "✅ [GOSSIP] Responded with peer list to " << peerID << "\n";
+	    return;
+	}
 
             if (type == "height_request") {
                 Json::Value res;
