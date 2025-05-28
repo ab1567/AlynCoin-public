@@ -17,7 +17,6 @@
 #include "governance/devfund.h"
 #include "governance/dao_storage.h"
 #include <ctime>
-#include <filesystem>
 #include "db/db_instance.h"
 #include "zk/recursive_proof_helper.h"
 #include "difficulty.h"
@@ -53,12 +52,49 @@ svr.Post("/rpc", [blockchain, network](const httplib::Request& req, httplib::Res
     auto params = input.value("params", nlohmann::json::array());
 
     try {
-        // Balance Query
+        // Wallet
         if (method == "balance") {
             std::string addr = params.at(0);
             double bal = blockchain->getBalance(addr);
             output = {{"result", bal}};
         }
+	else if (method == "createwallet") {
+	    if (params.size() < 1) {
+	        output = {{"error", "Missing wallet name parameter"}};
+	    } else {
+	        std::string name = params.at(0);
+	        try {
+	            Wallet w(name, DBPaths::getKeyDir());
+	            output = {{"result", w.getAddress()}};
+	        } catch (const std::exception &e) {
+	            output = {{"error", std::string("Wallet creation failed: ") + e.what()}};
+	        }
+	    }
+	}
+	else if (method == "loadwallet") {
+	    if (params.size() < 1) {
+	        output = {{"error", "Missing wallet name parameter"}};
+	    } else {
+	        std::string name = params.at(0);
+	        std::string priv = DBPaths::getKeyDir() + name + "_private.pem";
+	        std::string dil = DBPaths::getKeyDir() + name + "_dilithium.key";
+	        std::string fal = DBPaths::getKeyDir() + name + "_falcon.key";
+	        if (!std::filesystem::exists(priv) ||
+	            !std::filesystem::exists(dil) ||
+	            !std::filesystem::exists(fal)) {
+	            output = {{"error", "Wallet key files not found for: " + name}};
+	        } else {
+	            try {
+	                Wallet w(priv, DBPaths::getKeyDir(), name);
+	                // Save as current wallet for convenience
+	                std::ofstream(DBPaths::getHomePath() + "/.alyncoin/current_wallet.txt") << w.getAddress();
+	                output = {{"result", w.getAddress()}};
+	            } catch (const std::exception &e) {
+	                output = {{"error", std::string("Wallet load failed: ") + e.what()}};
+	            }
+	        }
+	    }
+	}
         // Mine One Block
         else if (method == "mineonce") {
             std::string miner = params.at(0);
@@ -154,81 +190,106 @@ svr.Post("/rpc", [blockchain, network](const httplib::Request& req, httplib::Res
             }
         }
         // Transaction History
-        else if (method == "history") {
-            std::string addr = params.at(0);
-            Blockchain& bb = Blockchain::getInstanceNoNetwork();
-            bb.loadFromDB();
-            bb.reloadBlockchainState();
-            std::vector<nlohmann::json> relevant;
-            std::unordered_map<std::string, std::string> txType;
-            std::unordered_set<std::string> seen;
-            auto toLower = [](std::string s) {
-                std::transform(s.begin(), s.end(), s.begin(), ::tolower);
-                return s;
-            };
-            std::string addrLower = toLower(addr);
-            auto blocks = bb.getAllBlocks();
-            for (const auto& blk : blocks) {
-                std::string blockMiner = toLower(blk.getMinerAddress());
-                double reward = blk.getReward();
-                for (const auto& tx : blk.getTransactions()) {
-                    std::string hash = tx.getHash().empty() ? tx.getTransactionHash() : tx.getHash();
-                    if (!seen.count(hash) &&
-                        (toLower(tx.getSender()) == addrLower || toLower(tx.getRecipient()) == addrLower)) {
-                        relevant.push_back({
-                            {"from", tx.getSender()},
-                            {"to", tx.getRecipient()},
-                            {"amount", tx.getAmount()},
-                            {"metadata", tx.getMetadata()},
-                            {"hash", hash},
-                            {"timestamp", tx.getTimestamp()},
-                            {"type", "L1"}
-                        });
-                        txType[hash] = "L1";
-                        seen.insert(hash);
-                    }
-                }
-                if (blockMiner == addrLower && reward > 0.0) {
-                    Transaction rewardTx = Transaction::createSystemRewardTransaction(
-                        blk.getMinerAddress(), reward, blk.getTimestamp(), "mined_" + blk.getHash());
-                    std::string rewardHash = rewardTx.getHash();
-                    if (!seen.count(rewardHash)) {
-                        relevant.push_back({
-                            {"from", "system"},
-                            {"to", rewardTx.getRecipient()},
-                            {"amount", rewardTx.getAmount()},
-                            {"metadata", rewardTx.getMetadata()},
-                            {"hash", rewardHash},
-                            {"timestamp", rewardTx.getTimestamp()},
-                            {"type", "Mined"}
-                        });
-                        txType[rewardHash] = "Mined";
-                        seen.insert(rewardHash);
-                    }
-                }
-            }
-            auto rollups = bb.getAllRollupBlocks();
-            for (const auto& roll : rollups) {
-                for (const auto& tx : roll.getTransactions()) {
-                    std::string hash = tx.getHash().empty() ? tx.getTransactionHash() : tx.getHash();
-                    if (!seen.count(hash) &&
-                        (toLower(tx.getSender()) == addrLower || toLower(tx.getRecipient()) == addrLower)) {
-                        relevant.push_back({
-                            {"from", tx.getSender()},
-                            {"to", tx.getRecipient()},
-                            {"amount", tx.getAmount()},
-                            {"metadata", tx.getMetadata()},
-                            {"hash", hash},
-                            {"timestamp", tx.getTimestamp()},
-                            {"type", "L2"}
-                        });
-                        txType[hash] = "L2";
-                        seen.insert(hash);
-                    }
-                }
-            }
-            output = {{"result", relevant}};
-        }
+	else if (method == "history") {
+	    std::string addr = params.at(0);
+	Blockchain &b = getBlockchain();
+	    b.loadFromDB();
+	    b.reloadBlockchainState();
+	    std::vector<nlohmann::json> relevant;
+	    std::unordered_map<std::string, std::string> txType;
+	    std::unordered_set<std::string> seen;
+	    auto toLower = [](std::string s) {
+	        std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+	        return s;
+	    };
+	    std::string addrLower = toLower(addr);
+	    auto blocks = b.getAllBlocks();
+	    for (const auto& blk : blocks) {
+	        std::string blockMiner = toLower(blk.getMinerAddress());
+	        double reward = blk.getReward();
+	        for (const auto& tx : blk.getTransactions()) {
+	            std::string hash = tx.getHash().empty() ? tx.getTransactionHash() : tx.getHash();
+	            if (!seen.count(hash) &&
+	                (toLower(tx.getSender()) == addrLower || toLower(tx.getRecipient()) == addrLower)) {
+	                relevant.push_back({
+	                    {"from", tx.getSender()},
+	                    {"to", tx.getRecipient()},
+	                    {"amount", tx.getAmount()},
+	                    {"metadata", tx.getMetadata()},
+	                    {"hash", hash},
+	                    {"timestamp", tx.getTimestamp()},
+	                    {"type", "L1"}
+	                });
+	                txType[hash] = "L1";
+	                seen.insert(hash);
+	            }
+	        }
+	        if (blockMiner == addrLower && reward > 0.0) {
+	            Transaction rewardTx = Transaction::createSystemRewardTransaction(
+	                blk.getMinerAddress(), reward, blk.getTimestamp(), "mined_" + blk.getHash());
+	            std::string rewardHash = rewardTx.getHash();
+	            if (!seen.count(rewardHash)) {
+	                relevant.push_back({
+	                    {"from", "system"},
+	                    {"to", rewardTx.getRecipient()},
+	                    {"amount", rewardTx.getAmount()},
+	                    {"metadata", rewardTx.getMetadata()},
+	                    {"hash", rewardHash},
+	                    {"timestamp", rewardTx.getTimestamp()},
+	                    {"type", "Mined"}
+	                });
+	                txType[rewardHash] = "Mined";
+	                seen.insert(rewardHash);
+	            }
+	        }
+	    }
+	    auto rollups = b.getAllRollupBlocks();
+	    for (const auto& roll : rollups) {
+	        for (const auto& tx : roll.getTransactions()) {
+	            std::string hash = tx.getHash().empty() ? tx.getTransactionHash() : tx.getHash();
+	            if (!seen.count(hash) &&
+	                (toLower(tx.getSender()) == addrLower || toLower(tx.getRecipient()) == addrLower)) {
+	                relevant.push_back({
+	                    {"from", tx.getSender()},
+	                    {"to", tx.getRecipient()},
+	                    {"amount", tx.getAmount()},
+	                    {"metadata", tx.getMetadata()},
+	                    {"hash", hash},
+	                    {"timestamp", tx.getTimestamp()},
+	                    {"type", "L2"}
+	                });
+	                txType[hash] = "L2";
+	                seen.insert(hash);
+	            }
+	        }
+	    }
+	    // Add mempool or DB-only txs (optional, if used in your chain)
+	    auto allTxs = Transaction::loadAllFromDB();
+	    for (const auto& tx : allTxs) {
+	        std::string hash = tx.getHash().empty() ? tx.getTransactionHash() : tx.getHash();
+	        if (!seen.count(hash) &&
+	            (toLower(tx.getSender()) == addrLower || toLower(tx.getRecipient()) == addrLower)) {
+	            relevant.push_back({
+	                {"from", tx.getSender()},
+	                {"to", tx.getRecipient()},
+	                {"amount", tx.getAmount()},
+	                {"metadata", tx.getMetadata()},
+	                {"hash", hash},
+	                {"timestamp", tx.getTimestamp()},
+	                {"type", "L1"}
+            });
+	            txType[hash] = "L1";
+	            seen.insert(hash);
+	        }
+	    }
+	    // Sort by timestamp ascending
+	    std::sort(relevant.begin(), relevant.end(), [](const nlohmann::json& a, const nlohmann::json& b) {
+	        return a.value("timestamp", 0) < b.value("timestamp", 0);
+	    });
+	    // Return as JSON array
+	    output = {{"result", relevant}};
+	}
+
         // DAO Proposal Submission
         else if (method == "dao-submit") {
             std::string from = params.at(0);
@@ -309,7 +370,7 @@ svr.Post("/rpc", [blockchain, network](const httplib::Request& req, httplib::Res
 
                 if (!nft.submitMetadataHashTransaction()) {
                     output = {{"error", "Metadata transaction failed"}};
-                } else if (!nft.verifySignature() || !NFTStorage::saveNFT(nft, DB::getInstance()->getRawDB())) {
+                } else if (!nft.verifySignature() || !NFTStorage::saveNFT(nft, blockchain->getRawDB())) {
                     output = {{"error", "Failed to verify or save NFT"}};
                 } else {
                     output = {{"result", id}};
@@ -322,7 +383,7 @@ svr.Post("/rpc", [blockchain, network](const httplib::Request& req, httplib::Res
             std::string newOwner = params.at(1);
             std::string current = params.at(2);
             NFT nft;
-            if (!NFTStorage::loadNFT(nftID, nft, DB::getInstance()->getRawDB())) {
+            if (!NFTStorage::loadNFT(nftID, nft, blockchain->getRawDB())) {
                 output = {{"error", "NFT not found"}};
             } else if (nft.owner != current || nft.revoked) {
                 output = {{"error", "Not the owner or NFT is revoked"}};
@@ -335,7 +396,7 @@ svr.Post("/rpc", [blockchain, network](const httplib::Request& req, httplib::Res
                 auto keypair = Crypto::loadFalconKeys(current);
                 nft.signature = Crypto::signWithFalcon(msgHash, keypair.privateKey);
 
-                if (!nft.verifySignature() || !NFTStorage::saveNFT(nft, DB::getInstance()->getRawDB())) {
+                if (!nft.verifySignature() || !NFTStorage::saveNFT(nft, blockchain->getRawDB())) {
                     output = {{"error", "Failed to verify or save transfer"}};
                 } else {
                     output = {{"result", "NFT transferred"}};
@@ -353,7 +414,7 @@ svr.Post("/rpc", [blockchain, network](const httplib::Request& req, httplib::Res
                 output = {{"error", "No wallet loaded or passed"}};
             } else {
                 NFT nft;
-                if (!NFTStorage::loadNFT(id, nft, DB::getInstance()->getRawDB())) {
+                if (!NFTStorage::loadNFT(id, nft, blockchain->getRawDB())) {
                     output = {{"error", "NFT not found"}};
                 } else if (nft.owner != currentUser || nft.revoked) {
                     output = {{"error", "You are not the owner or NFT is revoked"}};
@@ -381,7 +442,7 @@ svr.Post("/rpc", [blockchain, network](const httplib::Request& req, httplib::Res
                     std::string rehash = Crypto::sha256(updated.metadata + updated.imageHash + updated.version);
                     if (!submitMetadataHashTransaction(rehash, currentUser, "falcon", true)) {
                         output = {{"error", "Metadata transaction failed"}};
-                    } else if (!updated.verifySignature() || !NFTStorage::saveNFT(updated, DB::getInstance()->getRawDB())) {
+                    } else if (!updated.verifySignature() || !NFTStorage::saveNFT(updated, blockchain->getRawDB())) {
                         output = {{"error", "Failed to verify or save updated NFT"}};
                     } else {
                         output = {{"result", newId}};
@@ -393,7 +454,7 @@ svr.Post("/rpc", [blockchain, network](const httplib::Request& req, httplib::Res
             // params: [id]
             std::string id = params.at(0);
             NFT nft;
-            if (!NFTStorage::loadNFT(id, nft, DB::getInstance()->getRawDB())) {
+            if (!NFTStorage::loadNFT(id, nft, blockchain->getRawDB())) {
                 output = {{"error", "NFT not found"}};
             } else {
                 nft.exportToFile();
@@ -406,11 +467,11 @@ svr.Post("/rpc", [blockchain, network](const httplib::Request& req, httplib::Res
             std::string plaintext = params.at(1);
             std::string password = params.at(2);
             NFT nft;
-            if (!NFTStorage::loadNFT(id, nft, DB::getInstance()->getRawDB())) {
+            if (!NFTStorage::loadNFT(id, nft, blockchain->getRawDB())) {
                 output = {{"error", "NFT not found"}};
             } else {
                 nft.encrypted_metadata = AES::encrypt(plaintext, password);
-                NFTStorage::saveNFT(nft, DB::getInstance()->getRawDB());
+                NFTStorage::saveNFT(nft, blockchain->getRawDB());
                 output = {{"result", "Encrypted metadata stored"}};
             }
         }
@@ -419,7 +480,7 @@ svr.Post("/rpc", [blockchain, network](const httplib::Request& req, httplib::Res
             std::string id = params.at(0);
             std::string password = params.at(1);
             NFT nft;
-            if (!NFTStorage::loadNFT(id, nft, DB::getInstance()->getRawDB())) {
+            if (!NFTStorage::loadNFT(id, nft, blockchain->getRawDB())) {
                 output = {{"error", "NFT not found"}};
             } else if (nft.encrypted_metadata.empty()) {
                 output = {{"result", "No encrypted metadata"}};
@@ -435,7 +496,7 @@ svr.Post("/rpc", [blockchain, network](const httplib::Request& req, httplib::Res
         else if (method == "nft-my") {
             // params: [walletAddress]
             std::string current = params.at(0);
-            auto all = NFTStorage::loadAllNFTs(DB::getInstance()->getRawDB());
+            auto all = NFTStorage::loadAllNFTs(blockchain->getRawDB());
             std::vector<nlohmann::json> owned;
             for (const auto& nft : all) {
                 if (nft.owner == current) owned.push_back(nlohmann::json::parse(nft.toJSON()));
@@ -444,7 +505,7 @@ svr.Post("/rpc", [blockchain, network](const httplib::Request& req, httplib::Res
         }
         else if (method == "nft-all") {
             // params: []
-            auto all = NFTStorage::loadAllNFTs(DB::getInstance()->getRawDB());
+            auto all = NFTStorage::loadAllNFTs(blockchain->getRawDB());
             std::vector<nlohmann::json> allJson;
             for (const auto& nft : all) {
                 allJson.push_back(nlohmann::json::parse(nft.toJSON()));
@@ -453,7 +514,7 @@ svr.Post("/rpc", [blockchain, network](const httplib::Request& req, httplib::Res
         }
         else if (method == "nft-stats") {
             // params: []
-            auto all = NFTStorage::loadAllNFTs(DB::getInstance()->getRawDB());
+            auto all = NFTStorage::loadAllNFTs(blockchain->getRawDB());
             int total = 0, zk = 0;
             std::map<std::string, int> typeCount;
             for (const auto& nft : all) {
@@ -479,7 +540,7 @@ svr.Post("/rpc", [blockchain, network](const httplib::Request& req, httplib::Res
                 buffer << file.rdbuf();
                 std::string contents = buffer.str();
                 std::string fileHash = Crypto::sha256(contents);
-                auto all = NFTStorage::loadAllNFTs(DB::getInstance()->getRawDB());
+                auto all = NFTStorage::loadAllNFTs(blockchain->getRawDB());
                 bool found = false;
                 for (const auto& nft : all) {
                     if (nft.imageHash == fileHash) {
@@ -507,7 +568,6 @@ svr.Post("/rpc", [blockchain, network](const httplib::Request& req, httplib::Res
     svr.listen("127.0.0.1", rpc_port);
 }
 
-static std::unordered_set<std::string> cliSeenTxHashes;
 void clearInputBuffer() {
     std::cin.clear();
     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
@@ -824,10 +884,10 @@ if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == 
   // === Transaction history ===
     if (cmd == "history" && argc >= 3) {
         std::string addr = argv[2];
-        Blockchain& bb = Blockchain::getInstanceNoNetwork();
+    Blockchain &b = getBlockchain();
         std::cout << "🔍 Loading blockchain from DB...\n";
-        bb.loadFromDB();
-        bb.reloadBlockchainState();
+        b.loadFromDB();
+        b.reloadBlockchainState();
         std::vector<Transaction> relevant;
         std::unordered_map<std::string, std::string> txType;
         std::unordered_set<std::string> seen;
@@ -836,7 +896,7 @@ if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == 
             return s;
         };
         std::string addrLower = toLower(addr);
-        auto blocks = bb.getAllBlocks();
+        auto blocks = b.getAllBlocks();
         for (const auto& blk : blocks) {
             std::string blockMiner = toLower(blk.getMinerAddress());
             double reward = blk.getReward();
@@ -860,7 +920,7 @@ if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == 
                 }
             }
         }
-        auto rollups = bb.getAllRollupBlocks();
+        auto rollups = b.getAllRollupBlocks();
         for (const auto& roll : rollups) {
             for (const auto& tx : roll.getTransactions()) {
                 std::string hash = tx.getHash().empty() ? tx.getTransactionHash() : tx.getHash();
@@ -1125,7 +1185,7 @@ if (cmd == "nft-mint" && argc >= 5) {
         return 1;
     }
 
-    if (!nft.verifySignature() || !NFTStorage::saveNFT(nft, DB::getInstance()->getRawDB())) {
+    if (!nft.verifySignature() || !NFTStorage::saveNFT(nft, blockchain.getRawDB())) {
         std::cerr << "❌ Failed to verify or save NFT.\n";
         return 1;
     }
@@ -1139,7 +1199,7 @@ if (cmd == "nft-transfer" && argc >= 4) {
     std::string nftID = argv[2];
     std::string newOwner = argv[3];
     NFT nft;
-    if (!NFTStorage::loadNFT(nftID, nft, DB::getInstance()->getRawDB())) {
+    if (!NFTStorage::loadNFT(nftID, nft, blockchain.getRawDB())) {
         std::cerr << "❌ NFT not found.\n";
         return 1;
     }
@@ -1159,7 +1219,7 @@ if (cmd == "nft-transfer" && argc >= 4) {
     auto keypair = Crypto::loadFalconKeys(current);
     nft.signature = Crypto::signWithFalcon(msgHash, keypair.privateKey);
 
-    if (!nft.verifySignature() || !NFTStorage::saveNFT(nft, DB::getInstance()->getRawDB())) {
+    if (!nft.verifySignature() || !NFTStorage::saveNFT(nft, blockchain.getRawDB())) {
         std::cerr << "❌ Failed to verify or save transfer.\n";
         return 1;
     }
@@ -1186,7 +1246,7 @@ if (cmd == "nft-remint" && argc >= 5) {
     }
 
     NFT nft;
-    if (!NFTStorage::loadNFT(id, nft, DB::getInstance()->getRawDB())) {
+    if (!NFTStorage::loadNFT(id, nft, blockchain.getRawDB())) {
         std::cerr << "❌ NFT not found.\n";
         return 1;
     }
@@ -1223,7 +1283,7 @@ if (cmd == "nft-remint" && argc >= 5) {
         return 1;
     }
 
-    if (!updated.verifySignature() || !NFTStorage::saveNFT(updated, DB::getInstance()->getRawDB())) {
+    if (!updated.verifySignature() || !NFTStorage::saveNFT(updated, blockchain.getRawDB())) {
         std::cerr << "❌ Failed to verify or save updated NFT.\n";
         return 1;
     }
@@ -1235,7 +1295,7 @@ if (cmd == "nft-remint" && argc >= 5) {
 if (cmd == "nft-export" && argc >= 3) {
     std::string id = argv[2];
     NFT nft;
-    if (!NFTStorage::loadNFT(id, nft, DB::getInstance()->getRawDB())) {
+    if (!NFTStorage::loadNFT(id, nft, blockchain.getRawDB())) {
         std::cerr << "❌ Not found.\n";
         return 1;
     }
@@ -1248,12 +1308,12 @@ if (cmd == "nft-encrypt" && argc >= 5) {
     std::string plaintext = argv[3];
     std::string password = argv[4];
     NFT nft;
-    if (!NFTStorage::loadNFT(id, nft, DB::getInstance()->getRawDB())) {
+    if (!NFTStorage::loadNFT(id, nft, blockchain.getRawDB())) {
         std::cerr << "❌ NFT not found.\n";
         return 1;
     }
     nft.encrypted_metadata = AES::encrypt(plaintext, password);
-    NFTStorage::saveNFT(nft, DB::getInstance()->getRawDB());
+    NFTStorage::saveNFT(nft, blockchain.getRawDB());
     std::cout << "✅ Encrypted metadata stored.\n";
     return 0;
 }
@@ -1263,7 +1323,7 @@ if (cmd == "nft-decrypt" && argc >= 4) {
     std::string id = argv[2];
     std::string password = argv[3];
     NFT nft;
-    if (!NFTStorage::loadNFT(id, nft, DB::getInstance()->getRawDB())) {
+    if (!NFTStorage::loadNFT(id, nft, blockchain.getRawDB())) {
         std::cerr << "❌ NFT not found.\n";
         return 1;
     }
@@ -1283,7 +1343,7 @@ if (cmd == "nft-decrypt" && argc >= 4) {
 
 //  NFT Stats
 if (cmd == "nft-stats") {
-    auto all = NFTStorage::loadAllNFTs(DB::getInstance()->getRawDB());
+    auto all = NFTStorage::loadAllNFTs(blockchain.getRawDB());
     std::string me = getLoadedWalletAddress();
 
     if (me.empty()) {
@@ -1324,7 +1384,7 @@ if (cmd == "nft-my") {
         std::cerr << "❌ No wallet loaded. Please ensure current_wallet.txt is set or pass wallet as argument.\n";
         return 1;
     }
-    auto all = NFTStorage::loadAllNFTs(DB::getInstance()->getRawDB());
+    auto all = NFTStorage::loadAllNFTs(blockchain.getRawDB());
     for (const auto& nft : all) {
         if (nft.owner == current) {
             std::cout << nft.toJSON() << "\n\n";
@@ -1333,7 +1393,7 @@ if (cmd == "nft-my") {
     return 0;
 }
 if (cmd == "nft-all") {
-    auto all = NFTStorage::loadAllNFTs(DB::getInstance()->getRawDB());
+    auto all = NFTStorage::loadAllNFTs(blockchain.getRawDB());
     for (const auto& nft : all) {
         std::cout << nft.toJSON() << "\n\n";
     }
@@ -1352,7 +1412,7 @@ if (cmd == "nft-verifyhash" && argc >= 3) {
     std::string contents = buffer.str();
     std::string fileHash = Crypto::sha256(contents);
 
-    auto all = NFTStorage::loadAllNFTs(DB::getInstance()->getRawDB());
+    auto all = NFTStorage::loadAllNFTs(blockchain.getRawDB());
     for (const auto& nft : all) {
         if (nft.imageHash == fileHash) {
             std::cout << "✅ NFT found for file!\n" << nft.toJSON() << "\n";
@@ -1379,7 +1439,7 @@ if (cmd == "nft-verifyhash" && argc >= 3) {
             connectPort = std::stoi(connectIP.substr(colon + 1));
         } else {
             ip = connectIP;
-            connectPort = 8333;
+            connectPort = 15671;
         }
 
         // 🌐 Attempt peer connection

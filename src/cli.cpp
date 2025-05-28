@@ -116,11 +116,11 @@ if (skipDB) {
     chainPtr = &Blockchain::getInstanceNoNetwork();
 } else {
     std::cout << "🌐 CLI is using full network+DB mode.\n";
-    chainPtr = &Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true);
+    chainPtr = &Blockchain::getInstance(15671, DBPaths::getBlockchainDB(), true);
 
     try {
         peerBlacklistPtr = std::make_unique<PeerBlacklist>(DBPaths::getBlacklistDB(), 3);
-        network = &Network::getInstance(8333, chainPtr, peerBlacklistPtr.get());
+        network = &Network::getInstance(15671, chainPtr, peerBlacklistPtr.get());
     } catch (const std::exception& e) {
         std::cerr << "❌ Failed to initialize PeerBlacklist or Network: " << e.what() << "\n";
         peerBlacklistPtr = nullptr;
@@ -680,7 +680,7 @@ return cliMain(argc, argv);
 }
 
 int cliMain(int argc, char *argv[]) {
-  unsigned short port = 8333;
+  unsigned short port = 15671;
   std::string dbPath = DBPaths::getBlockchainDB();
   std::string connectPeer = "";
   std::string keyDir = DBPaths::getKeyDir();
@@ -1261,7 +1261,7 @@ int cliMain(int argc, char *argv[]) {
     const int highThresholdTxs = 25;
     const int highThresholdSecs = 10;
 
-    Blockchain& blockchain = Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true);
+    Blockchain& blockchain = Blockchain::getInstance(15671, DBPaths::getBlockchainDB(), true);
     auto lastRollupTime = blockchain.getLastRollupTimestamp();
     auto now = std::time(nullptr);
     auto pendingL2 = blockchain.getPendingL2Transactions();

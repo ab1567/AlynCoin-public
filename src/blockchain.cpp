@@ -528,7 +528,10 @@ Blockchain& Blockchain::getInstanceNoDB() {
 Blockchain& Blockchain::getActiveInstance() {
     return getInstance(DEFAULT_PORT, DBPaths::getBlockchainDB(), true, false);
 }
-
+//
+rocksdb::DB* Blockchain::getRawDB() {
+  return this->db;
+}
 //
 const std::vector<Block> &Blockchain::getChain() const { return chain; }
 //

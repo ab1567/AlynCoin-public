@@ -109,7 +109,7 @@ std::string Wallet::getPublicKey() const { return publicKey; }
 std::string Wallet::getPrivateKey() const { return privateKey; }
 
 double Wallet::getBalance() const {
-    return Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true, false).getBalance(address);
+    return Blockchain::getInstance(15671, DBPaths::getBlockchainDB(), true, false).getBalance(address);
 }
 
 // Transaction creation
@@ -117,7 +117,7 @@ Transaction Wallet::createTransaction(const std::string& recipient, double amoun
     if (amount <= 0)
         throw std::runtime_error("❌ Amount must be greater than zero.");
 
-    int txCount = Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), true, false).getRecentTransactionCount();
+    int txCount = Blockchain::getInstance(15671, DBPaths::getBlockchainDB(), true, false).getRecentTransactionCount();
     double burnRate = Transaction::calculateBurnRate(txCount);
     double burnAmount = amount * burnRate;
     amount -= burnAmount;

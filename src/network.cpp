@@ -654,8 +654,8 @@ void Network::run() {
 
     // ✅ 2. Fallback LAN/WSL peers
     std::vector<std::string> fallbackLANPeers = {
-        "192.168.1.205:8333",
-        "172.17.80.1:8333"
+        "192.168.1.205:15671",
+        "172.17.80.1:15671"
     };
 
     for (const auto& peer : fallbackLANPeers) {
@@ -1412,20 +1412,23 @@ void Network::addPeer(const std::string &peer) {
 }
 
 // Connect to Node
-bool Network::connectToNode(const std::string &ip, int port) {
+bool Network::connectToNode(const std::string &host, int port) {
     if (peerSockets.size() > 32) {
-        std::cerr << "⚠️ [connectToNode] Max peer cap reached. Not connecting to: " << ip << ":" << port << "\n";
+        std::cerr << "⚠️ [connectToNode] Max peer cap reached. Not connecting to: " << host << ":" << port << "\n";
         return false;
     }
     try {
+        std::cout << "[PEER_CONNECT] Attempting to connect to: " << host << ":" << port << std::endl;
+
         auto socketPtr = std::make_shared<boost::asio::ip::tcp::socket>(ioContext);
         boost::asio::ip::tcp::resolver resolver(ioContext);
-        boost::asio::ip::tcp::resolver::query query(ip, std::to_string(port));
-        auto endpoints = resolver.resolve(query);
+
+        // Accept both domain names and IPs:
+        auto endpoints = resolver.resolve(host, std::to_string(port));
         boost::asio::connect(*socketPtr, endpoints);
 
-        // ✅ USE THE INPUT VALUES AS PEER KEY — NOT remote_endpoint()!
-        std::string peerKey = ip + ":" + std::to_string(port);
+        // Use host:port as the key (domain or IP)
+        std::string peerKey = host + ":" + std::to_string(port);
 
         {
             ScopedLockTracer tracer("connectToNode");
@@ -1436,7 +1439,7 @@ bool Network::connectToNode(const std::string &ip, int port) {
             }
         }
 
-        // ✅ Enhanced handshake
+        // Build and send handshake
         Json::Value handshake;
         handshake["type"] = "handshake";
         handshake["port"] = std::to_string(this->port);
@@ -1461,7 +1464,6 @@ bool Network::connectToNode(const std::string &ip, int port) {
         }
 
         std::cout << "✅ Connected to new peer: " << peerKey << "\n";
-
         std::thread(&Network::handlePeer, this, socketPtr).detach();
 
         std::cout << "📡 [SYNC] Sending REQUEST_BLOCKCHAIN to " << peerKey << "\n";
@@ -1470,7 +1472,7 @@ bool Network::connectToNode(const std::string &ip, int port) {
         return true;
 
     } catch (const std::exception &e) {
-        std::cerr << "❌ Error connecting to node: " << e.what() << "\n";
+        std::cerr << "❌ [connectToNode] Error connecting to node " << host << ":" << port << " — " << e.what() << "\n";
         return false;
     }
 }
