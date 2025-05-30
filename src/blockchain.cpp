@@ -33,7 +33,7 @@ const std::string BLOCKCHAIN_DB_PATH = DBPaths::getBlockchainDB();
 std::vector<StateChannel> stateChannels;
 std::vector<RollupBlock> rollupBlocks;
 double totalSupply = 0.0;
-
+static Blockchain* g_blockchain_singleton = nullptr;
 Blockchain& getBlockchain() {
  return Blockchain::getActiveInstance();
 }
@@ -511,8 +511,14 @@ bool Blockchain::forceAddBlock(const Block& block) {
 // ✅ Singleton Instance (network + db)
 Blockchain &Blockchain::getInstance(unsigned short port, const std::string &dbPath, bool bindNetwork, bool isSyncMode) {
     static Blockchain instance(port, dbPath, bindNetwork, isSyncMode);
+	g_blockchain_singleton = &instance;
     return instance;
 }
+Blockchain &Blockchain::getInstance() {
+    if (!g_blockchain_singleton) throw std::runtime_error("Blockchain singleton not initialized!");
+    return *g_blockchain_singleton;
+}
+
 // ✅ Used when you want RocksDB, but no P2P
 Blockchain& Blockchain::getInstanceNoNetwork() {
         static Blockchain instance(0, DBPaths::getBlockchainDB(), true);

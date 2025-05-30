@@ -192,7 +192,7 @@ svr.Post("/rpc", [blockchain, network](const httplib::Request& req, httplib::Res
         // Transaction History
 	else if (method == "history") {
 	    std::string addr = params.at(0);
-	Blockchain &b = getBlockchain();
+	Blockchain &b = Blockchain::getInstance();
 	    b.loadFromDB();
 	    b.reloadBlockchainState();
 	    std::vector<nlohmann::json> relevant;
@@ -624,8 +624,8 @@ int main(int argc, char *argv[]) {
 
     // ---- Helpers for CLI block ----
     static std::unordered_set<std::string> cliSeenTxHashes;
-    auto getBlockchain = [&]() -> Blockchain& { return blockchain; };
-    Blockchain* chainPtr = &blockchain;
+    auto getBlockchain = []() -> Blockchain& { return Blockchain::getInstance(); };
+    Blockchain* chainPtr = &Blockchain::getInstance();
     std::string cmd = (argc >= 2) ? std::string(argv[1]) : "";
 
     // ================= CLI COMMAND HANDLERS START =================
@@ -633,7 +633,7 @@ std::string currentBinPath = argv[0];
        // mineonce <minerAddress>
 if (argc >= 3 && std::string(argv[1]) == "mineonce") {
     std::string minerAddress = argv[2];
-    Blockchain &b = getBlockchain();
+    Blockchain &b = Blockchain::getInstance();
 
     if (!b.loadFromDB()) {
         std::cerr << "❌ Could not load blockchain from DB.\n";
@@ -662,7 +662,7 @@ if (argc >= 3 && std::string(argv[1]) == "mineonce") {
 // mineloop <minerAddress>
 if (argc >= 3 && std::string(argv[1]) == "mineloop") {
     std::string minerAddress = argv[2];
-    Blockchain &b = getBlockchain();  // ✅ uses correct Network + peerBlacklist
+    Blockchain &b = Blockchain::getInstance();
 
     if (!b.loadFromDB()) {
         std::cerr << "❌ Could not load blockchain from DB.\n";
@@ -713,7 +713,7 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
     }
     // === Blockchain stats ===
     if (cmd == "stats" && argc >= 2) {
-	Blockchain &b = getBlockchain();
+	Blockchain &b = Blockchain::getInstance();
         std::cout << "\n=== Blockchain Stats ===\n";
         std::cout << "Total Blocks: " << b.getBlockCount() << "\n";
         std::cout << "Difficulty: " << calculateSmartDifficulty(b) << "\n";
@@ -756,7 +756,7 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
     if ((cmd == "balance" || cmd == "balance-force") && argc >= 3) {
         std::string addr = argv[2];
         // Use the no-network singleton to avoid DB locks
-        Blockchain &bb = *chainPtr;
+        Blockchain &bb = Blockchain::getInstance();
         if (cmd == "balance-force") bb.reloadBlockchainState();
         std::cout << "Balance: " << bb.getBalance(addr) << " AlynCoin" << std::endl;
         return 0;
@@ -782,7 +782,7 @@ if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == 
         return 1;
     }
 
-    Blockchain &b = getBlockchain();
+    Blockchain &b = Blockchain::getInstance();
 
     // ✅ Skip balance check if it's metadata-only (to metadataSink with 0.0)
     if (!(amount == 0.0 && to == "metadataSink")) {
@@ -872,7 +872,7 @@ if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == 
         std::string vote = argv[4];
         bool yes = (vote == "yes" || vote == "y");
 
-        Blockchain &b = getBlockchain();
+        Blockchain &b = Blockchain::getInstance();
         double weight = b.getBalance(from);
         if (DAO::castVote(propID, yes, static_cast<uint64_t>(weight))) {
             std::cout << "✅ Vote cast!\n";
@@ -884,7 +884,7 @@ if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == 
   // === Transaction history ===
     if (cmd == "history" && argc >= 3) {
         std::string addr = argv[2];
-    Blockchain &b = getBlockchain();
+    Blockchain &b = Blockchain::getInstance();
         std::cout << "🔍 Loading blockchain from DB...\n";
         b.loadFromDB();
         b.reloadBlockchainState();
@@ -1022,7 +1022,7 @@ if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == 
     // === Mined block stats ===
     if (argc == 3 && std::string(argv[1]) == "mychain") {
         std::string addr = argv[2];
-        Blockchain &b = getBlockchain();
+        Blockchain &b = Blockchain::getInstance();
         int count = 0;
         double reward = 0.0;
         for (const auto &blk : b.getAllBlocks()) {
@@ -1042,7 +1042,7 @@ if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == 
      auto dil = Crypto::loadDilithiumKeys(minerAddr);
      auto fal = Crypto::loadFalconKeys(minerAddr);
 
-     Blockchain &b = getBlockchain();
+     Blockchain &b = Blockchain::getInstance();
      Block mined = b.minePendingTransactions(minerAddr, dil.privateKey, fal.privateKey);
 
      if (mined.getHash().empty()) {

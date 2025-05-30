@@ -1,4 +1,4 @@
 # Hashes of file build rules.
-11255b6f10c8bac86d9aa842599fb471 generated/sync_protos.pb.h
+e82975142fa2d8f44106580520982e78 generated/sync_protos.pb.h
 d83ae46464bad68fd878c23568b60dcf src/CMakeFiles/protobuf_gen
 ee39c8f2090131cb57b41a1d551ab433 src/CMakeFiles/winterfell_ffi

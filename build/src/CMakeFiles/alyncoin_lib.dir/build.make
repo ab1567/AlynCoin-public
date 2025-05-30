@@ -71,7 +71,7 @@ include src/CMakeFiles/alyncoin_lib.dir/flags.make
 
 generated/sync_protos.pb.h: /root/AlynCoin/src/proto/*.proto
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Generating Protobuf files..."
-	cd /root/AlynCoin/build/src && /usr/bin/protoc --proto_path=/root/AlynCoin/src/proto --cpp_out=/root/AlynCoin/build/generated /root/AlynCoin/src/proto/sync_protos.proto /root/AlynCoin/src/proto/block_protos.proto /root/AlynCoin/src/proto/blockchain_protos.proto /root/AlynCoin/src/proto/crypto_protos.proto /root/AlynCoin/src/proto/transaction_protos.proto /root/AlynCoin/src/proto/main_protos.proto /root/AlynCoin/src/proto/nft.proto /root/AlynCoin/src/proto/atomic_swap.proto /root/AlynCoin/src/proto/identity.proto
+	cd /root/AlynCoin/build/src && /usr/bin/protoc --proto_path=/root/AlynCoin/src/proto --cpp_out=/root/AlynCoin/build/generated --experimental_allow_proto3_optional /root/AlynCoin/src/proto/sync_protos.proto /root/AlynCoin/src/proto/block_protos.proto /root/AlynCoin/src/proto/blockchain_protos.proto /root/AlynCoin/src/proto/crypto_protos.proto /root/AlynCoin/src/proto/transaction_protos.proto /root/AlynCoin/src/proto/main_protos.proto /root/AlynCoin/src/proto/nft.proto /root/AlynCoin/src/proto/atomic_swap.proto /root/AlynCoin/src/proto/identity.proto
 
 generated/block_protos.pb.h: generated/sync_protos.pb.h
 	@$(CMAKE_COMMAND) -E touch_nocreate generated/block_protos.pb.h

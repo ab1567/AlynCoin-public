@@ -95,6 +95,7 @@ public:
                                  const std::string &dbPath = DBPaths::getBlockchainDB(),
                                  bool bindNetwork = true,
                                  bool isSyncMode = false);
+  static Blockchain &getInstance();
   static Blockchain &getInstanceNoNetwork();
   static Blockchain& getActiveInstance();
   static Blockchain &getInstanceNoDB();

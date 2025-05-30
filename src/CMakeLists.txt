@@ -184,6 +184,7 @@ if(NOT SKIP_PROTOBUF_GEN)
         OUTPUT ${PROTO_HEADERS} ${PROTO_SRCS}
         COMMAND ${Protobuf_PROTOC_EXECUTABLE} --proto_path=${SOURCE_DIR}/proto
                 --cpp_out=${GENERATED_DIR}
+		--experimental_allow_proto3_optional
                 ${SOURCE_DIR}/proto/sync_protos.proto
                 ${SOURCE_DIR}/proto/block_protos.proto
                 ${SOURCE_DIR}/proto/blockchain_protos.proto

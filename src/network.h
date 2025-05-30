@@ -79,11 +79,12 @@ public:
   void scanForPeers();
   void processReceivedData(const std::string &senderIP, const std::string &data);
   void startServer();
-  void handleIncomingData(const std::string &senderIP, std::string data);
+  void handleIncomingData(const std::string &senderIP, std::string data, std::shared_ptr<tcp::socket> socket);
   void sendLatestBlock(const std::string &peerIP);
   void sendLatestBlockIndex(const std::string &peerIP);
   void handleReceivedBlockIndex(const std::string &peerIP, int peerBlockIndex);
   void sendFullChain(const std::string &peerIP);
+  void sendFullChain(std::shared_ptr<tcp::socket> socket);
   void loadPeers();
   void savePeers();
   void addPeer(const std::string &peer);
@@ -93,6 +94,7 @@ public:
   void sendMessage(std::shared_ptr<tcp::socket> socket, const std::string &message);
   std::vector<std::string> getPeers();
   bool sendData(const std::string &peer, const std::string &data);
+  bool sendData(std::shared_ptr<tcp::socket> socket, const std::string &data);
   void receiveTransaction(const Transaction &tx);
   void broadcastPeerList();
   void run();
