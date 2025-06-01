@@ -136,6 +136,7 @@ public:
   int findCommonAncestorIndex(const std::vector<Block>& otherChain);
   bool rollbackToIndex(int index);
   bool forceAddBlock(const Block &block);
+  bool hasBlock(const std::string &hash) const;
   void applyVestingSchedule();
   void startMining(const std::string &minerAddress,
                    const std::string &minerDilithiumKey,

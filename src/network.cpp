@@ -16,6 +16,8 @@
 #include <filesystem>
 #include <iostream>
 #include <set>
+#include <unordered_map>
+static std::unordered_map<std::string, std::vector<Block>> incomingChains;
 
 struct ScopedLockTracer {
     std::string name;
@@ -229,11 +231,11 @@ void Network::autoMineBlock() {
 
 //
 void Network::broadcastMessage(const std::string &message) {
-  ScopedLockTracer tracer("broadcastMessage");
-  std::lock_guard<std::timed_mutex> lock(peersMutex);
-  for (const auto &peer : peerSockets) {
-    sendMessageToPeer(peer.first, message);
-  }
+    ScopedLockTracer tracer("broadcastMessage");
+    std::lock_guard<std::timed_mutex> lock(peersMutex);
+    for (const auto &peer : peerSockets) {
+        sendMessageToPeer(peer.first, message);
+    }
 }
 
 // ✅ **Getter function for syncing status**
@@ -285,22 +287,22 @@ void Network::sendMessageToPeer(const std::string &peer,
 // ✅ **Broadcast a transaction to all peers**
 
 void Network::broadcastTransaction(const Transaction &tx) {
-  std::string txData = tx.serialize();
+    std::string txData = tx.serialize();
 
-  for (const auto &peer : peerSockets) {
-    auto socket = peer.second;
-    if (socket && socket->is_open()) {
-      try {
-        boost::asio::write(*socket, boost::asio::buffer(txData + "\n"));
-        std::cout << "📡 Transaction broadcasted to peer: " << peer.first
-                  << std::endl;
-      } catch (const std::exception &e) {
-        std::cerr << "❌ [ERROR] Failed to broadcast transaction to "
-                  << peer.first << ": " << e.what() << std::endl;
-      }
+    for (const auto &peer : peerSockets) {
+        auto socket = peer.second;
+        if (socket && socket->is_open()) {
+            try {
+                boost::asio::write(*socket, boost::asio::buffer(txData + "\n"));
+                std::cout << "📡 Transaction broadcasted to peer: " << peer.first << std::endl;
+            } catch (const std::exception &e) {
+                std::cerr << "❌ [ERROR] Failed to broadcast transaction to "
+                          << peer.first << ": " << e.what() << std::endl;
+            }
+        }
     }
-  }
 }
+
 // Broadcast transaction to all peers except sender (to prevent echo storms)
 void Network::broadcastTransactionToAllExcept(const Transaction &tx, const std::string &excludePeer) {
     std::string txData = tx.serialize();
@@ -373,17 +375,9 @@ void Network::intelligentSync() {
 
 //
 void Network::connectToPeer(const std::string &ip, short port) {
-    if (port <= 0 || port > 65535) {
-        std::cerr << "❌ Invalid port in connectToPeer: " << port << "\n";
-        return;
-    }
-    // Block all localhost connects except self (if you want, otherwise just always block)
-    if ((ip == "127.0.0.1" || ip == "localhost") && port == this->port) {
-        std::cerr << "⚠️ [connectToPeer] Skipping self connect: " << ip << ":" << port << "\n";
-        return;
-    }
-    if (ip == "127.0.0.1" || ip == "localhost") {
-        std::cerr << "⚠️ [connectToPeer] Skipping localhost peer: " << ip << ":" << port << "\n";
+    std::string peerKey = ip + ":" + std::to_string(port);
+    if (isSelfPeer(peerKey)) {
+        std::cerr << "⚠️ [connectToPeer] Skipping self connect: " << peerKey << "\n";
         return;
     }
     connectToNode(ip, port);
@@ -423,7 +417,7 @@ PeerManager* Network::getPeerManager() {
 void Network::requestPeerList() {
   for (const auto &[peerAddr, socket] : peerSockets) {
     sendData(peerAddr, "ALYN|{\"type\": \"request_peers\"}");
-	}
+        }
 
   std::cout << "📡 Requesting peer list from all known peers..." << std::endl;
 }
@@ -528,13 +522,13 @@ void Network::receiveFullChain(const std::string &senderIP, const std::string &d
 }
 // Handle Peer
 void Network::handlePeer(std::shared_ptr<tcp::socket> socket) {
-    std::string realPeerId, claimedPeerId;
-    std::string handshakeLine;
+    std::string realPeerId, claimedPeerId, handshakeLine;
     std::string claimedPort, claimedVersion, claimedNetwork, claimedIP;
 
     auto selfAddr = [this]() -> std::string {
-        // Use your public/LAN IP for prod, here keep as 127.0.0.1:<port> for testing/dev
-        return "127.0.0.1:" + std::to_string(this->port);
+        return this->publicPeerId.empty()
+            ? "127.0.0.1:" + std::to_string(this->port)
+            : this->publicPeerId;
     };
 
     try {
@@ -572,7 +566,6 @@ void Network::handlePeer(std::shared_ptr<tcp::socket> socket) {
                 std::cerr << "⚠️ [handlePeer] Ignoring peer from different network: " << claimedNetwork << "\n";
                 return;
             }
-
         } else {
             throw std::runtime_error("Invalid or missing handshake fields");
         }
@@ -590,14 +583,11 @@ void Network::handlePeer(std::shared_ptr<tcp::socket> socket) {
                 std::cout << "🛑 Not registering self as peer: " << realPeerId << "\n";
                 return;
             }
-
             {
                 ScopedLockTracer tracer("handlePeer");
                 std::lock_guard<std::timed_mutex> lock(peersMutex);
                 peerSockets[realPeerId] = socket;
-                if (peerManager) peerManager->connectToPeer(realPeerId);
             }
-
             if (!handshakeLine.empty()) {
                 handleIncomingData(realPeerId, handshakeLine, socket);
             }
@@ -608,34 +598,22 @@ void Network::handlePeer(std::shared_ptr<tcp::socket> socket) {
         return;
     }
 
-    	if (claimedPeerId == selfAddr()) {
-    	std::cout << "🛑 Not registering self as peer: " << claimedPeerId << "\n";
-    	return;
-	}
+    // Prevent self-connect based on claimed or real
+    if (claimedPeerId == selfAddr() || realPeerId == selfAddr()) {
+        std::cout << "🛑 Not registering self as peer: " << claimedPeerId << "\n";
+        return;
+    }
 
-
+    // Always register peer under their CLAIMED peerId (public IP:port)
     {
         ScopedLockTracer tracer("handlePeer");
         std::lock_guard<std::timed_mutex> lock(peersMutex);
 
-        if (!claimedPeerId.empty()) {
-            if (!peerSockets.count(claimedPeerId) || peerSockets[claimedPeerId] != socket)
-                peerSockets[claimedPeerId] = socket;
-        } else {
-            if (!peerSockets.count(realPeerId) || peerSockets[realPeerId] != socket)
-                peerSockets[realPeerId] = socket;
-        }
+        peerSockets[claimedPeerId] = socket;
 
-        std::cout << "✅ [handlePeer] Peer socket registered for: "
-                  << (!claimedPeerId.empty() ? claimedPeerId : realPeerId) << "\n";
-        if (peerManager) {
-            if (!claimedPeerId.empty())
-                peerManager->connectToPeer(claimedPeerId);
-            else
-                peerManager->connectToPeer(realPeerId);
-        }
+        if (peerManager) peerManager->connectToPeer(claimedPeerId);
 
-        // Debug
+        std::cout << "✅ [handlePeer] Peer socket registered for: " << claimedPeerId << " (real: " << realPeerId << ")\n";
         std::cout << "=== [peerSockets] Registered Peers ===\n";
         for (const auto& kv : peerSockets) {
             std::cout << "   " << kv.first
@@ -644,12 +622,10 @@ void Network::handlePeer(std::shared_ptr<tcp::socket> socket) {
         std::cout << "======================================\n";
     }
 
-    std::cout << "✅ [handlePeer] Incoming peer registered: " << realPeerId << " (claimed: " << claimedPeerId << ")\n";
-
     // Broadcast peer list after every new connection
     broadcastPeerList();
 
-    // Always trigger sync requests in both directions (bidirectional)
+    // Trigger initial sync requests to the claimed peerId
     auto sendInitialRequests = [&](const std::string &peerId) {
         sendData(peerId, "ALYN|REQUEST_BLOCKCHAIN\n");
 
@@ -668,31 +644,23 @@ void Network::handlePeer(std::shared_ptr<tcp::socket> socket) {
         peersReq["type"] = "request_peers";
         sendData(peerId, "ALYN|" + Json::writeString(builder, peersReq) + "\n");
     };
-    // 🚀 Trigger both outbound and inbound syncs
-    if (!claimedPeerId.empty())
-        sendInitialRequests(claimedPeerId);
-    else
-        sendInitialRequests(realPeerId);
+    sendInitialRequests(claimedPeerId);
 
-    // Reverse connect if claimed port differs and is not our own port
+    // Reverse connect if claimed port is valid and not our own
     if (!claimedPort.empty()) {
         int peerClaimedPort = 0;
         try { peerClaimedPort = std::stoi(claimedPort); } catch (...) {}
-        std::string reverseIP = socket->remote_endpoint().address().to_string();
+        std::string reverseIP = claimedIP;
 
         if (peerClaimedPort > 0 &&
             peerClaimedPort != this->port &&
-            peerClaimedPort != socket->remote_endpoint().port()) {
-
-            std::string reversePeer = reverseIP + ":" + std::to_string(peerClaimedPort);
-            if (reversePeer != selfAddr()) {
-                std::cout << "🔁 [ReverseConnect] Connecting back to " << reverseIP << ":" << peerClaimedPort << "\n";
-                connectToPeer(reverseIP, peerClaimedPort);
-            }
+            claimedPeerId != selfAddr() && !peerSockets.count(claimedPeerId)) {
+            std::cout << "🔁 [ReverseConnect] Connecting back to " << reverseIP << ":" << peerClaimedPort << "\n";
+            connectToPeer(reverseIP, peerClaimedPort);
         }
     }
 
-    // Async persistent read loop (unchanged)
+    // === Async persistent read loop, always using claimedPeerId ===
     std::shared_ptr<boost::asio::streambuf> buf = std::make_shared<boost::asio::streambuf>();
     std::shared_ptr<tcp::socket> sharedSock = socket;
     auto self = this;
@@ -700,16 +668,15 @@ void Network::handlePeer(std::shared_ptr<tcp::socket> socket) {
     std::shared_ptr<std::function<void(const boost::system::error_code&, std::size_t)>> readHandler =
         std::make_shared<std::function<void(const boost::system::error_code&, std::size_t)>>();
 
-    *readHandler = [self, sharedSock, buf, claimedPeerId, realPeerId, readHandler](const boost::system::error_code &ec, std::size_t bytesTransferred) {
+    *readHandler = [self, sharedSock, buf, claimedPeerId, readHandler](const boost::system::error_code &ec, std::size_t /*bytesTransferred*/) {
         if (ec || !sharedSock || !sharedSock->is_open()) {
-            std::cerr << "🔌 Peer read error/disconnect: " << realPeerId << " (" << ec.message() << ")\n";
+            std::cerr << "🔌 Peer read error/disconnect: " << claimedPeerId << " (" << ec.message() << ")\n";
             {
                 ScopedLockTracer tracer("handlePeer");
                 std::lock_guard<std::timed_mutex> lock(self->peersMutex);
-                if (!claimedPeerId.empty()) self->peerSockets.erase(claimedPeerId);
-                self->peerSockets.erase(realPeerId);
+                self->peerSockets.erase(claimedPeerId);
             }
-            std::cout << "🔌 Cleaned up peer socket: " << realPeerId << " (claimed: " << claimedPeerId << ")\n";
+            std::cout << "🔌 Cleaned up peer socket: " << claimedPeerId << "\n";
             return;
         }
 
@@ -721,8 +688,8 @@ void Network::handlePeer(std::shared_ptr<tcp::socket> socket) {
             line.pop_back();
 
         if (!line.empty()) {
-            std::cout << "📥 Received from " << realPeerId << ": " << line.substr(0, 100) << "\n";
-            self->handleIncomingData(!claimedPeerId.empty() ? claimedPeerId : realPeerId, line, sharedSock);
+            std::cout << "📥 Received from " << claimedPeerId << ": " << line.substr(0, 100) << "\n";
+            self->handleIncomingData(claimedPeerId, line, sharedSock);
         }
 
         boost::asio::async_read_until(*sharedSock, *buf, "\n", *readHandler);
@@ -798,32 +765,19 @@ std::vector<std::string> Network::discoverPeers() {
 
 //
 void Network::connectToDiscoveredPeers() {
-  std::vector<std::string> peers = discoverPeers();
-  for (const std::string &peer : peers) {
-    if (peer.empty()) continue;
-
-    std::string ip = peer;
-    int port = DEFAULT_PORT;
-
-    if (peer.find(":") != std::string::npos) {
-      size_t pos = peer.find(":");
-      ip = peer.substr(0, pos);
-      try {
-        port = std::stoi(peer.substr(pos + 1));
-      } catch (...) {
-        std::cerr << "⚠️ [WARNING] Invalid port for peer: " << peer << "\n";
-        continue;
-      }
+    std::vector<std::string> peers = discoverPeers();
+    for (const std::string &peer : peers) {
+        size_t pos = peer.find(":");
+        if (pos == std::string::npos) continue;
+        std::string ip = peer.substr(0, pos);
+        int port = std::stoi(peer.substr(pos + 1));
+        std::string peerKey = ip + ":" + std::to_string(port);
+        if (isSelfPeer(peerKey)) {
+            std::cout << "⚠️ Skipping self in discovered peers: " << peerKey << "\n";
+            continue;
+        }
+        connectToNode(ip, port);
     }
-
-	if ((ip == "127.0.0.1" || ip == "localhost") && port == this->port) {
-	    std::cout << "⚠️ Skipping self in discovered peers: " << peer << "\n";
-	    continue;
-	}
-	if (ip == "127.0.0.1" || ip == "localhost") continue;
-	connectToNode(ip, port);
-
-  }
 }
 
 //
@@ -889,6 +843,7 @@ void Network::handleIncomingData(const std::string &peerID, std::string data, st
     const std::string endPrefix   = "BLOCKCHAIN_END";
     const std::string rollupPrefix = "ROLLUP_BLOCK|";
 
+    // Ensure protocol prefix unless JSON
     bool hasPrefix = data.rfind(protocolPrefix, 0) == 0;
     if (hasPrefix) {
         data = data.substr(protocolPrefix.size());
@@ -897,6 +852,7 @@ void Network::handleIncomingData(const std::string &peerID, std::string data, st
         return;
     }
 
+    // --- PING/PONG ---
     if (data == "PING") {
         std::cout << "📡 Received PING from " << peerID << " → responding with PONG\n";
         if (socket && socket->is_open()) {
@@ -909,18 +865,19 @@ void Network::handleIncomingData(const std::string &peerID, std::string data, st
         return;
     }
 
-    // ===== BLOCKCHAIN REQUEST =====
+    // --- Blockchain Sync: Request ---
     if (data == "REQUEST_BLOCKCHAIN") {
         std::cerr << "📡 REQUEST_BLOCKCHAIN received from " << peerID << "\n";
+        // **Always respond on the correct socket (never by peerID lookup)**
         if (socket && socket->is_open()) {
-            sendFullChain(socket); // <-- Send block-by-block + BLOCKCHAIN_END
+            sendFullChain(socket); // Send block-by-block + BLOCKCHAIN_END
         } else {
             std::cerr << "❌ [SYNC] No valid socket found for direct reply to " << peerID << "\n";
         }
         return;
     }
 
-    // ==== Rollup block
+    // --- Rollup Block ---
     if (data.rfind(rollupPrefix, 0) == 0) {
         try {
             RollupBlock rb = RollupBlock::deserialize(data.substr(rollupPrefix.size()));
@@ -932,7 +889,7 @@ void Network::handleIncomingData(const std::string &peerID, std::string data, st
         return;
     }
 
-    // ==== Individual block broadcast ====
+    // --- Block-by-block Sync: Buffer blocks ---
     if (data.rfind(blockPrefix, 0) == 0) {
         try {
             std::string base64 = data.substr(blockPrefix.size());
@@ -947,21 +904,47 @@ void Network::handleIncomingData(const std::string &peerID, std::string data, st
             Block blk = Block::fromProto(proto, true);
             std::cerr << "📥 Block received: #" << blk.getIndex()
                       << ", Hash: " << blk.getHash().substr(0, 12) << "\n";
-            handleNewBlock(blk);
+
+            Blockchain &blockchain = Blockchain::getInstance(this->port, DBPaths::getBlockchainDB(), true);
+
+            // --- If this is an orphan and we're not synced, re-request full chain ---
+            if (blk.getIndex() > 0 && !blockchain.hasBlocks()) {
+                std::cerr << "⚠️ [Orphan Block] Parent missing for block " << blk.getIndex()
+                          << " (" << blk.getHash().substr(0,12)
+                          << "), requesting full chain from " << peerID << "\n";
+                if (socket && socket->is_open()) {
+                    boost::asio::write(*socket, boost::asio::buffer("ALYN|REQUEST_BLOCKCHAIN\n"));
+                }
+                // Optionally, store orphan for later retry
+                return;
+            }
+
+            // --- Buffer block for this peer (sync) ---
+            incomingChains[peerID].push_back(blk);
         } catch (const std::exception &e) {
             std::cerr << "❌ Block parse failed: " << e.what() << "\n";
         }
         return;
     }
 
-    // ==== BLOCKCHAIN END MARKER ====
+    // --- Block Sync: End marker, trigger merge ---
     if (data == endPrefix) {
         std::cout << "✅ [SYNC] BLOCKCHAIN_END marker received from " << peerID << "\n";
-        // Optionally, handle end-of-chain logic here
+        if (incomingChains.count(peerID)) {
+            const std::vector<Block>& peerChain = incomingChains[peerID];
+            Blockchain& blockchain = Blockchain::getInstance(this->port, DBPaths::getBlockchainDB(), true);
+            if (!peerChain.empty()) {
+                blockchain.compareAndMergeChains(peerChain);
+                std::cout << "✅ [SYNC] compareAndMergeChains() called for peer " << peerID << "\n";
+            } else {
+                std::cerr << "⚠️ [SYNC] Peer chain buffer empty on END for " << peerID << "\n";
+            }
+            incomingChains.erase(peerID);
+        }
         return;
     }
 
-    // ==== JSON-based messages ====
+    // --- JSON-based messages (peer gossip, tx, etc) ---
     if (!data.empty() && data.front() == '{' && data.back() == '}') {
         try {
             Json::Value root;
@@ -980,7 +963,7 @@ void Network::handleIncomingData(const std::string &peerID, std::string data, st
             Json::StreamWriterBuilder builder;
             builder["indentation"] = "";
 
-            // GOSSIP peer list
+            // --- Peer List Gossip ---
             if (type == "peer_list") {
                 const Json::Value& peers = root["data"];
                 int connectedNow = 0;
@@ -1004,7 +987,7 @@ void Network::handleIncomingData(const std::string &peerID, std::string data, st
                 return;
             }
 
-            // Respond to peer list requests
+            // --- Respond to peer list requests ---
             if (type == "request_peers") {
                 Json::Value peerListJson;
                 peerListJson["type"] = "peer_list";
@@ -1046,7 +1029,7 @@ void Network::handleIncomingData(const std::string &peerID, std::string data, st
                 return;
             }
 
-            // Accept and propagate transaction
+            // --- Accept and propagate transaction ---
             if (root.isMember("txid")) {
                 Transaction tx = Transaction::fromJSON(root);
                 const std::string txHash = tx.getHash();
@@ -1076,6 +1059,7 @@ void Network::handleIncomingData(const std::string &peerID, std::string data, st
         return;
     }
 
+    // --- Unknown ---
     std::cerr << "⚠️ Unknown message from " << peerID
               << ": " << data.substr(0, std::min<size_t>(100, data.size())) << "\n";
 }
@@ -1119,40 +1103,39 @@ void Network::broadcastBlock(const Block &block, bool force) {
 
     std::cerr << "📡 [broadcastBlock] Broadcasting to " << peersCopy.size() << " peers...\n";
 
-	std::set<std::shared_ptr<boost::asio::ip::tcp::socket>> sentSockets;
-	for (auto &[peer, socket] : peersCopy) {
-	    // Don't send to yourself (check peer address)
-	    if (isSelfPeer(peer)) continue; // implement this utility!
-
-	    if (!socket || !socket->is_open()) {
-	        std::cerr << "⚠️ [broadcastBlock] Skipping closed or null socket: " << peer << "\n";
-	        continue;
-	    }
-
-	    if (sentSockets.count(socket)) continue; // Already sent to this socket in this round
-	    sentSockets.insert(socket);
-
-	    try {
-	        boost::asio::write(*socket, boost::asio::buffer(message));
-	        std::cout << "✅ [broadcastBlock] Block sent to " << peer << "\n";
-	    } catch (const std::exception &e) {
-	        std::cerr << "❌ [broadcastBlock] Failed to send to " << peer << ": " << e.what() << "\n";
-	    }
-	}
-
+    std::set<std::shared_ptr<boost::asio::ip::tcp::socket>> sentSockets;
+    for (auto &[peer, socket] : peersCopy) {
+        if (isSelfPeer(peer)) continue; // Don't send to yourself
+        if (!socket || !socket->is_open()) {
+            std::cerr << "⚠️ [broadcastBlock] Skipping closed or null socket: " << peer << "\n";
+            continue;
+        }
+        if (sentSockets.count(socket)) continue;
+        sentSockets.insert(socket);
+        try {
+            boost::asio::write(*socket, boost::asio::buffer(message));
+            std::cout << "✅ [broadcastBlock] Block sent to " << peer << "\n";
+        } catch (const std::exception &e) {
+            std::cerr << "❌ [broadcastBlock] Failed to send to " << peer << ": " << e.what() << "\n";
+        }
+    }
 }
+
 //
 bool Network::isSelfPeer(const std::string& peer) const {
-    // List all possible local addresses/ports
     std::string selfAddr = getSelfAddressAndPort();
-    return peer == selfAddr || peer == "127.0.0.1:" + std::to_string(this->port) ||
-           peer == "localhost:" + std::to_string(this->port);
+    return
+        peer == selfAddr ||
+        peer == "127.0.0.1:" + std::to_string(this->port) ||
+        peer == "localhost:" + std::to_string(this->port);
 }
 
 std::string Network::getSelfAddressAndPort() const {
-    // For proxy/prod use your known public peer ID (set via config/env/CLI param)
-    return this->publicPeerId; // e.g., "124.123.181.242:15671"
-    // Or fallback to 127.0.0.1:port for dev
+    // Prefer explicit publicPeerId if set
+    if (!publicPeerId.empty())
+        return publicPeerId;
+    // Fallback: localhost + port
+    return "127.0.0.1:" + std::to_string(this->port);
 }
 
 void Network::setPublicPeerId(const std::string& peerId) {
@@ -1469,15 +1452,16 @@ void Network::addPeer(const std::string &peer) {
 // Connect to Node
 bool Network::connectToNode(const std::string &host, int port) {
     if (peerSockets.size() > 32) {
-        std::cerr << "⚠️ [connectToNode] Max peer cap reached. Not connecting to: " << host << ":" << port << "\n";
+        std::cerr << "⚠️ [connectToNode] Max peer cap reached. Not connecting to: "
+                  << host << ":" << port << "\n";
         return false;
     }
     try {
-        std::cout << "[PEER_CONNECT] Attempting to connect to: " << host << ":" << port << std::endl;
+        std::cout << "[PEER_CONNECT] Attempting to connect to: "
+                  << host << ":" << port << std::endl;
 
         auto socketPtr = std::make_shared<boost::asio::ip::tcp::socket>(ioContext);
         boost::asio::ip::tcp::resolver resolver(ioContext);
-
         auto endpoints = resolver.resolve(host, std::to_string(port));
         boost::asio::connect(*socketPtr, endpoints);
 
@@ -1490,12 +1474,11 @@ bool Network::connectToNode(const std::string &host, int port) {
                 std::cout << "🔁 Already connected to peer: " << peerKey << "\n";
                 return false;
             }
-            // Register socket as soon as connected (in case handshake is slow)
             peerSockets[peerKey] = socketPtr;
             if (peerManager) peerManager->connectToPeer(peerKey);
         }
 
-        // Send handshake as before
+        // --- Send handshake ---
         Json::Value handshake;
         handshake["type"] = "handshake";
         handshake["port"] = std::to_string(this->port);
@@ -1506,22 +1489,62 @@ bool Network::connectToNode(const std::string &host, int port) {
         handshake["capabilities"].append("miner");
 
         Json::StreamWriterBuilder builder;
-        builder["indentation"] = "";  // Compact output
+        builder["indentation"] = "";
         std::string payload = Json::writeString(builder, handshake);
         if (!payload.empty() && payload.back() != '\n') payload += "\n";
 
         boost::asio::write(*socketPtr, boost::asio::buffer(payload));
+        std::cout << "🤝 Sent handshake to " << peerKey << ": " << payload << std::endl;
 
         std::cout << "✅ Connected to new peer: " << peerKey << "\n";
-        std::thread(&Network::handlePeer, this, socketPtr).detach();
 
+        // --- Start async read loop ---
+        auto buf = std::make_shared<boost::asio::streambuf>();
+        std::shared_ptr<tcp::socket> sharedSock = socketPtr;
+        auto self = this;
+        std::string realPeerId = peerKey;
+
+        std::shared_ptr<std::function<void(const boost::system::error_code&, std::size_t)>> readHandler =
+            std::make_shared<std::function<void(const boost::system::error_code&, std::size_t)>>();
+
+        *readHandler = [self, sharedSock, buf, realPeerId, readHandler](const boost::system::error_code &ec, std::size_t /*bytesTransferred*/) {
+            if (ec || !sharedSock || !sharedSock->is_open()) {
+                std::cerr << "🔌 Peer read error/disconnect (outgoing): " << realPeerId
+                          << " (" << ec.message() << ")\n";
+                {
+                    ScopedLockTracer tracer("connectToNode");
+                    std::lock_guard<std::timed_mutex> lock(self->peersMutex);
+                    self->peerSockets.erase(realPeerId);
+                }
+                std::cout << "🔌 Cleaned up outgoing peer socket: " << realPeerId << "\n";
+                return;
+            }
+
+            std::istream is(buf.get());
+            std::string line;
+            std::getline(is, line);
+            while (!line.empty() && (line.back() == '\n' || line.back() == '\r'))
+                line.pop_back();
+
+            if (!line.empty()) {
+                std::cout << "📥 [OUT] Received from " << realPeerId << ": "
+                          << line.substr(0, 100) << "\n";
+                self->handleIncomingData(realPeerId, line, sharedSock);
+            }
+
+            boost::asio::async_read_until(*sharedSock, *buf, "\n", *readHandler);
+        };
+        boost::asio::async_read_until(*sharedSock, *buf, "\n", *readHandler);
+
+        // --- Initiate sync ---
         std::cout << "📡 [SYNC] Sending REQUEST_BLOCKCHAIN to " << peerKey << "\n";
         sendData(peerKey, "ALYN|REQUEST_BLOCKCHAIN");
 
         return true;
 
     } catch (const std::exception &e) {
-        std::cerr << "❌ [connectToNode] Error connecting to node " << host << ":" << port << " — " << e.what() << "\n";
+        std::cerr << "❌ [connectToNode] Error connecting to node "
+                  << host << ":" << port << " — " << e.what() << "\n";
         return false;
     }
 }
@@ -1664,7 +1687,6 @@ void Network::sendLatestBlock(const std::string &peerIP) {
     std::cout << "📡 [LIVE BROADCAST] Latest block sent to " << peerIP << " (Dilithium + Falcon signatures included)\n";
 }
 
-// ✅ Always send full chain regardless of length (even genesis-only)
 // === sendFullChain: By peerId (string) ===
 void Network::sendFullChain(const std::string &peerId) {
     std::shared_ptr<tcp::socket> targetSocket = nullptr;
@@ -1674,12 +1696,12 @@ void Network::sendFullChain(const std::string &peerId) {
         if (it != peerSockets.end() && it->second && it->second->is_open()) {
             targetSocket = it->second;
         }
-        // DEBUG: Print all available peer IDs for diagnostics
         if (!targetSocket) {
             std::cerr << "[sendFullChain] PeerId not found: " << peerId << "\n";
             std::cerr << "[sendFullChain] Available peer IDs in peerSockets:\n";
             for (const auto& kv : peerSockets) {
-                std::cerr << "  • " << kv.first << (kv.second && kv.second->is_open() ? " [open]" : " [closed/null]") << "\n";
+                std::cerr << "  • " << kv.first
+                          << (kv.second && kv.second->is_open() ? " [open]" : " [closed/null]") << "\n";
             }
         }
     }
@@ -1687,14 +1709,6 @@ void Network::sendFullChain(const std::string &peerId) {
         sendFullChain(targetSocket);
     } else {
         std::cerr << "❌ [sendFullChain] No open socket for peer: " << peerId << " (exact match required)\n";
-        // // Optional: Fallback to search by partial match if you know part of the ID matches
-        // for (const auto& kv : peerSockets) {
-        //     if (kv.first.find(peerId) != std::string::npos && kv.second && kv.second->is_open()) {
-        //         std::cerr << "⚠️ [sendFullChain] Fallback: Found socket by partial match: " << kv.first << "\n";
-        //         sendFullChain(kv.second);
-        //         return;
-        //     }
-        // }
     }
 }
 
@@ -1708,7 +1722,6 @@ void Network::sendFullChain(std::shared_ptr<tcp::socket> socket) {
     Blockchain &blockchain = Blockchain::getInstance(this->port, DBPaths::getBlockchainDB(), true);
     const std::vector<Block> &chain = blockchain.getChain();
 
-    // DEBUG: Announce sending full chain
     std::cout << "[sendFullChain] Sending full blockchain (" << chain.size() << " blocks)...\n";
 
     for (const auto &blk : chain) {
@@ -1722,18 +1735,20 @@ void Network::sendFullChain(std::shared_ptr<tcp::socket> socket) {
             std::string base64Block = Crypto::base64Encode(rawBlock);
             std::string message = "ALYN|BLOCK_BROADCAST|" + base64Block + "\n";
             boost::asio::write(*socket, boost::asio::buffer(message));
-            std::cout << "📡 [SYNC] Sent block " << blk.getIndex() << " to peer (" << rawBlock.size() << " bytes raw)\n";
+            std::cout << "📡 [SYNC] Sent block " << blk.getIndex()
+                      << " to peer (" << rawBlock.size() << " bytes raw)\n";
         } catch (const std::exception &e) {
-            std::cerr << "⚠️ [sendFullChain] Skipping block " << blk.getIndex() << ": " << e.what() << "\n";
+            std::cerr << "⚠️ [sendFullChain] Skipping block " << blk.getIndex()
+                      << ": " << e.what() << "\n";
         }
     }
-    // Send explicit chain-end marker (important for receiver)
     try {
         std::string endMsg = "ALYN|BLOCKCHAIN_END\n";
         boost::asio::write(*socket, boost::asio::buffer(endMsg));
         std::cout << "📡 [SYNC] Sent CHAIN END marker to peer.\n";
     } catch (const std::exception& e) {
-        std::cerr << "❌ [sendFullChain] Failed to send CHAIN END marker: " << e.what() << "\n";
+        std::cerr << "❌ [sendFullChain] Failed to send CHAIN END marker: "
+                  << e.what() << "\n";
     }
 }
 

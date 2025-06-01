@@ -18,4 +18,6 @@ message TransactionProto {
     string hash = 11;
 
     bool is_system = 12;
+
+    string amount_str = 13;
 }

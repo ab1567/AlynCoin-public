@@ -292,6 +292,7 @@ Block Blockchain::createGenesisBlock(bool force) {
 }
 // ✅ Adds block, applies smart burn, and broadcasts to peers
 bool Blockchain::addBlock(const Block &block) {
+    // 1. Sanity: zkProof required
     if (block.getZkProof().empty()) {
         std::cerr << "❌ [ERROR] Cannot add block with EMPTY zkProof! Block Hash: "
                   << block.getHash() << "\n";
@@ -300,26 +301,38 @@ bool Blockchain::addBlock(const Block &block) {
         std::cout << "[DEBUG] 🧩 addBlock() zkProof length: " << block.getZkProof().size() << " bytes\n";
     }
 
+    // 2. Prevent duplicate hash globally (do NOT allow same block hash in chain)
     for (const auto &existing : chain) {
         if (existing.getHash() == block.getHash()) {
             std::cerr << "⚠️ Duplicate block hash detected. Skipping add. Hash: "
                       << block.getHash() << "\n";
-            return true;
+            return true;  // This is not a critical error, just a duplicate
         }
-        if (existing.getIndex() == block.getIndex()) {
-            std::cerr << "⚠️ Block index already exists (Index: " << block.getIndex()
-                      << "). Skipping add.\n";
+    }
+
+    // 3. Prevent duplicate index ONLY if not replacing (i.e. not after rollback)
+    if (!chain.empty()) {
+        uint64_t expectedIndex = chain.back().getIndex() + 1;
+        if (block.getIndex() < expectedIndex) {
+            std::cerr << "⚠️ Block index already exists or is stale (Index: " << block.getIndex()
+                      << ", Tip: " << chain.back().getIndex() << "). Skipping add.\n";
+            return false;
+        }
+        if (block.getIndex() > expectedIndex) {
+            std::cerr << "⚠️ [Node] Received future block. Index: " << block.getIndex()
+                      << ", Expected: " << expectedIndex << ". Buffering.\n";
+            futureBlocks[block.getIndex()] = block;
+            return false;
+        }
+    } else {
+        // Only the genesis block is allowed at index 0
+        if (!block.isGenesisBlock() && block.getIndex() != 0) {
+            std::cerr << "❌ [ERROR] First block must be genesis block (index 0).\n";
             return false;
         }
     }
 
-    if (!chain.empty() && block.getIndex() > chain.back().getIndex() + 1) {
-        std::cerr << "⚠️ [Node] Received future block. Index: " << block.getIndex()
-                  << ", Expected: " << (chain.back().getIndex() + 1) << ". Buffering.\n";
-        futureBlocks[block.getIndex()] = block;
-        return false;
-    }
-
+    // 4. Proof-of-Work and signature checks
     if (block.isGenesisBlock()) {
         std::cout << "🪐 [GENESIS] Adding genesis block without PoW check.\n";
     } else if (!block.hasValidProofOfWork()) {
@@ -328,11 +341,13 @@ bool Blockchain::addBlock(const Block &block) {
         return false;
     }
 
+    // 5. Chain continuity/sanity
     if (!isValidNewBlock(block)) {
         std::cerr << "❌ Invalid block detected. Rejecting!\n";
         return false;
     }
 
+    // 6. Signature and public key checks
     if (block.getDilithiumSignature().empty() || block.getFalconSignature().empty()) {
         std::cerr << "❌ [ERROR] Block missing signature(s). Rejecting.\n";
         return false;
@@ -341,7 +356,6 @@ bool Blockchain::addBlock(const Block &block) {
         std::cerr << "❌ [ERROR] Block missing public key(s). Rejecting.\n";
         return false;
     }
-
     if (block.getPublicKeyFalcon().size() != FALCON_PUBLIC_KEY_BYTES) {
         std::cerr << "❌ [ERROR] Falcon public key length mismatch. Got: "
                   << block.getPublicKeyFalcon().size()
@@ -357,6 +371,7 @@ bool Blockchain::addBlock(const Block &block) {
         return false;
     }
 
+    // 7. Diagnostics
     std::cerr << "🧪 [addBlock] Safe push diagnostics:\n";
     std::cerr << "  - Index: " << block.getIndex() << "\n";
     std::cerr << "  - Hash: " << block.getHash() << " (" << block.getHash().size() << " bytes)\n";
@@ -366,6 +381,7 @@ bool Blockchain::addBlock(const Block &block) {
     std::cerr << "  - Dilithium PK: " << block.getPublicKeyDilithium().size() << "\n";
     std::cerr << "  - Falcon PK: " << block.getPublicKeyFalcon().size() << "\n";
 
+    // 8. Actually add the block
     try {
         chain.push_back(block);
     } catch (const std::exception& e) {
@@ -381,6 +397,7 @@ bool Blockchain::addBlock(const Block &block) {
         return false;
     }
 
+    // 9. Remove pending txs included in this block
     if (!block.getTransactions().empty()) {
         for (const auto &tx : block.getTransactions()) {
             pendingTransactions.erase(
@@ -392,6 +409,7 @@ bool Blockchain::addBlock(const Block &block) {
         }
     }
 
+    // 10. RocksDB persist
     if (db) {
         alyncoin::BlockProto protoBlock = block.toProtobuf();
         std::string serializedBlock;
@@ -399,21 +417,18 @@ bool Blockchain::addBlock(const Block &block) {
             std::cerr << "❌ Failed to serialize block using Protobuf.\n";
             return false;
         }
-
         std::string blockKeyByHeight = "block_height_" + std::to_string(block.getIndex());
         rocksdb::Status statusHeight = db->Put(rocksdb::WriteOptions(), blockKeyByHeight, serializedBlock);
         if (!statusHeight.ok()) {
             std::cerr << "❌ Failed to save block by height: " << statusHeight.ToString() << "\n";
             return false;
         }
-
         std::string blockKeyByHash = "block_" + block.getHash();
         rocksdb::Status statusHash = db->Put(rocksdb::WriteOptions(), blockKeyByHash, serializedBlock);
         if (!statusHash.ok()) {
             std::cerr << "❌ Failed to save block by hash: " << statusHash.ToString() << "\n";
             return false;
         }
-
         if (!saveToDB()) {
             std::cerr << "❌ Failed to save blockchain to database after adding block.\n";
             return false;
@@ -422,14 +437,14 @@ bool Blockchain::addBlock(const Block &block) {
         std::cerr << "⚠️ Skipped RocksDB writes: DB not initialized (--nodb mode).\n";
     }
 
-    // ✅ Recalculate L1 + Reapply L2 rollups
+    // 11. Balances/L2 state
     recalculateBalancesFromChain();
-    applyRollupDeltasToBalances();  // ✅ Needed to preserve L2 state
-
+    applyRollupDeltasToBalances();
     validateChainContinuity();
 
     std::cout << "✅ Block added to blockchain. Pending transactions updated and balances recalculated.\n";
 
+    // 12. Try to add any future buffered blocks
     uint64_t nextIndex = chain.back().getIndex() + 1;
     while (futureBlocks.count(nextIndex)) {
         Block buffered = futureBlocks[nextIndex];
@@ -598,6 +613,15 @@ void Blockchain::clearPendingTransactions() {
             std::cout << "✅ [TXDB] No pending TX entries found to delete.\n";
         }
     }
+}
+//
+bool Blockchain::hasBlock(const std::string &hash) const {
+    for (const Block &blk : chain) {
+        if (blk.getHash() == hash) {
+            return true;
+        }
+    }
+    return false;
 }
 
 // ✅ Helper function to check if a file exists
@@ -1414,14 +1438,37 @@ bool Blockchain::loadFromProto(const alyncoin::BlockchainProto &protoChain) {
 
 // ✅ **Replace blockchain if a longer valid chain is found**
 void Blockchain::replaceChain(const std::vector<Block> &newChain) {
-  std::lock_guard<std::mutex> lock(blockchainMutex);
-  if (newChain.size() > chain.size()) {
-    chain = newChain;
-    saveToDB();
-    std::cout << "✅ Blockchain replaced with a longer valid chain!"
-              << std::endl;
-  }
+    std::lock_guard<std::mutex> lock(blockchainMutex);
+
+    if (newChain.size() > chain.size()) {
+        // 1. Check genesis block matches our chain
+        if (chain.size() > 0 && newChain[0].getHash() != chain[0].getHash()) {
+            std::cerr << "❌ [replaceChain] Genesis block mismatch. Rejecting chain.\n";
+            return;
+        }
+
+        // 2. Validate linkage and block validity
+        for (size_t i = 1; i < newChain.size(); ++i) {
+            if (newChain[i].getPreviousHash() != newChain[i-1].getHash()) {
+                std::cerr << "❌ [replaceChain] Invalid block linkage at idx " << i << ". Rejecting chain.\n";
+                return;
+            }
+            if (!newChain[i].isValid(newChain[i-1].getHash(), newChain[i].getDifficulty())) {
+                std::cerr << "❌ [replaceChain] Block invalid at idx " << i << ". Rejecting chain.\n";
+                return;
+            }
+        }
+
+        // 3. Replace and update
+        chain = newChain;
+        recalculateBalancesFromChain();
+        saveToDB();
+        std::cout << "✅ [replaceChain] Blockchain replaced with a longer, validated chain!\n";
+    } else {
+        std::cout << "ℹ️ [replaceChain] Not replacing: local chain is longer or equal.\n";
+    }
 }
+
 //
 bool Blockchain::isValidNewBlock(const Block& newBlock) const {
     if (chain.empty()) {
@@ -2513,15 +2560,17 @@ int Blockchain::findForkCommonAncestor(const std::vector<Block>& otherChain) con
 // ✅ Compute total cumulative difficulty of a chain
 uint64_t Blockchain::computeCumulativeDifficulty(const std::vector<Block>& chainRef) const {
     uint64_t total = 0;
-    for (const Block& blk : chainRef) {
+    for (size_t i = 0; i < chainRef.size(); ++i) {
+        const Block& blk = chainRef[i];
         if (blk.difficulty >= 0 && blk.difficulty < 64)
             total += (1ULL << blk.difficulty);
         else
             total += 1;
+        std::cerr << "[DIFF] Block idx=" << blk.getIndex() << " hash=" << blk.getHash().substr(0,12)
+                  << " diff=" << blk.difficulty << " total=" << total << "\n";
     }
     return total;
 }
-
 // ✅ Compare incoming chain and merge if better
 void Blockchain::compareAndMergeChains(const std::vector<Block>& otherChain) {
     std::cout << "🔎 [Fork] Comparing chains: local=" << chain.size()
@@ -2548,6 +2597,8 @@ void Blockchain::compareAndMergeChains(const std::vector<Block>& otherChain) {
 
     if (chain[0].getHash() != otherChain[0].getHash()) {
         std::cerr << "❌ [Fork] Genesis mismatch. Rejecting fork.\n";
+        std::cerr << "  Local:  " << chain[0].getHash() << "\n";
+        std::cerr << "  Remote: " << otherChain[0].getHash() << "\n";
         return;
     }
 
@@ -2567,10 +2618,16 @@ void Blockchain::compareAndMergeChains(const std::vector<Block>& otherChain) {
     int commonIndex = findForkCommonAncestor(otherChain);
     if (commonIndex == -1) {
         std::cerr << "⚠️ [Fork] No common ancestor. Replacing full chain.\n";
+        for (size_t i = 0; i < otherChain.size(); ++i) {
+            std::cerr << "[MERGE] Block idx=" << otherChain[i].getIndex()
+                      << " hash=" << otherChain[i].getHash().substr(0,12)
+                      << " prev=" << otherChain[i].getPreviousHash().substr(0,12) << "\n";
+        }
         chain = otherChain;
         saveToDB();
         recalculateBalancesFromChain();
         applyRollupDeltasToBalances();
+        std::cout << "✅ [Fork] Merge complete: full chain replaced.\n";
         return;
     }
 
@@ -2582,18 +2639,20 @@ void Blockchain::compareAndMergeChains(const std::vector<Block>& otherChain) {
     }
 
     for (size_t i = commonIndex + 1; i < otherChain.size(); ++i) {
+        std::cerr << "[ADD] Attempting to add block idx=" << otherChain[i].getIndex()
+                  << " hash=" << otherChain[i].getHash().substr(0,12)
+                  << " prev=" << otherChain[i].getPreviousHash().substr(0,12) << "\n";
         if (!addBlock(otherChain[i])) {
-            std::cerr << "❌ [Fork] Failed to add block at index " << i << "\n";
+            std::cerr << "❌ [Fork] Failed to add block at index " << i
+                      << " (hash=" << otherChain[i].getHash() << ")\n";
+            // Add deeper reason here by printing inside addBlock!
             return;
         }
     }
 
-    // ✅ Ensure L2 rollups are re-applied after successful merge
     applyRollupDeltasToBalances();
-
     std::cout << "✅ [Fork] Merge complete. Chain replaced with stronger fork.\n";
 }
-
 // ✅ Save forked chain for later inspection
 void Blockchain::saveForkView(const std::vector<Block>& forkChain) {
     std::ofstream out("fork_view.json");

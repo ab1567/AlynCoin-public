@@ -186,6 +186,7 @@ class TransactionProto final :
     kSenderPubkeyFalconFieldNumber = 9,
     kMetadataFieldNumber = 10,
     kHashFieldNumber = 11,
+    kAmountStrFieldNumber = 13,
     kAmountFieldNumber = 3,
     kTimestampFieldNumber = 4,
     kIsSystemFieldNumber = 12,
@@ -316,6 +317,20 @@ class TransactionProto final :
   std::string* _internal_mutable_hash();
   public:
 
+  // string amount_str = 13;
+  void clear_amount_str();
+  const std::string& amount_str() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_amount_str(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_amount_str();
+  PROTOBUF_NODISCARD std::string* release_amount_str();
+  void set_allocated_amount_str(std::string* amount_str);
+  private:
+  const std::string& _internal_amount_str() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_amount_str(const std::string& value);
+  std::string* _internal_mutable_amount_str();
+  public:
+
   // double amount = 3;
   void clear_amount();
   double amount() const;
@@ -360,6 +375,7 @@ class TransactionProto final :
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr sender_pubkey_falcon_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr metadata_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr hash_;
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr amount_str_;
     double amount_;
     uint64_t timestamp_;
     bool is_system_;
@@ -887,6 +903,56 @@ inline void TransactionProto::_internal_set_is_system(bool value) {
 inline void TransactionProto::set_is_system(bool value) {
   _internal_set_is_system(value);
   // @@protoc_insertion_point(field_set:alyncoin.TransactionProto.is_system)
+}
+
+// string amount_str = 13;
+inline void TransactionProto::clear_amount_str() {
+  _impl_.amount_str_.ClearToEmpty();
+}
+inline const std::string& TransactionProto::amount_str() const {
+  // @@protoc_insertion_point(field_get:alyncoin.TransactionProto.amount_str)
+  return _internal_amount_str();
+}
+template <typename ArgT0, typename... ArgT>
+inline PROTOBUF_ALWAYS_INLINE
+void TransactionProto::set_amount_str(ArgT0&& arg0, ArgT... args) {
+ 
+ _impl_.amount_str_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:alyncoin.TransactionProto.amount_str)
+}
+inline std::string* TransactionProto::mutable_amount_str() {
+  std::string* _s = _internal_mutable_amount_str();
+  // @@protoc_insertion_point(field_mutable:alyncoin.TransactionProto.amount_str)
+  return _s;
+}
+inline const std::string& TransactionProto::_internal_amount_str() const {
+  return _impl_.amount_str_.Get();
+}
+inline void TransactionProto::_internal_set_amount_str(const std::string& value) {
+  
+  _impl_.amount_str_.Set(value, GetArenaForAllocation());
+}
+inline std::string* TransactionProto::_internal_mutable_amount_str() {
+  
+  return _impl_.amount_str_.Mutable(GetArenaForAllocation());
+}
+inline std::string* TransactionProto::release_amount_str() {
+  // @@protoc_insertion_point(field_release:alyncoin.TransactionProto.amount_str)
+  return _impl_.amount_str_.Release();
+}
+inline void TransactionProto::set_allocated_amount_str(std::string* amount_str) {
+  if (amount_str != nullptr) {
+    
+  } else {
+    
+  }
+  _impl_.amount_str_.SetAllocated(amount_str, GetArenaForAllocation());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (_impl_.amount_str_.IsDefault()) {
+    _impl_.amount_str_.Set("", GetArenaForAllocation());
+  }
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.TransactionProto.amount_str)
 }
 
 #ifdef __GNUC__

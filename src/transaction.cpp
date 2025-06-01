@@ -66,10 +66,17 @@ std::string Transaction::getZkProof() const { return zkProof; }
 void Transaction::setZkProof(const std::string &proof) { zkProof = proof; }
 
 // Transaction Hash:
+inline std::string canonicalAmount(double amount) {
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(8) << amount;
+    return oss.str();
+}
+
+// 2. Transaction hash: canonicalize all fields for hash, including amount
 std::string Transaction::getTransactionHash() const {
-  std::ostringstream data;
-  data << sender << recipient << amount << timestamp;
-  return Crypto::hybridHash(data.str());
+    std::ostringstream data;
+    data << sender << recipient << canonicalAmount(amount) << timestamp;
+    return Crypto::hybridHash(data.str());
 }
 //
 
@@ -78,10 +85,14 @@ std::string Transaction::getHash() const {
 }
 
 // ✅ Protobuf Serialization - Ensure all required fields are set
+// 3. When serializing to Protobuf, also save canonicalAmount as a string field
 void Transaction::serializeToProtobuf(alyncoin::TransactionProto &proto) const {
     proto.set_sender(sender);
     proto.set_recipient(recipient);
     proto.set_amount(amount);
+
+    // --- New: store canonicalAmount as string ---
+    proto.set_amount_str(canonicalAmount(amount));
 
     if (!signatureDilithium.empty())
         proto.set_signature_dilithium(Crypto::toHex(std::vector<unsigned char>(signatureDilithium.begin(), signatureDilithium.end())));
@@ -106,10 +117,10 @@ void Transaction::serializeToProtobuf(alyncoin::TransactionProto &proto) const {
     }
 
     proto.set_zkproof(zkProof);
-    proto.set_hash(hash);
+    proto.set_hash(getTransactionHash()); // always recalculate canonical hash
 }
 
-//
+// 4. Protobuf deserialization: always restore amount from both double and string
 bool Transaction::deserializeFromProtobuf(const alyncoin::TransactionProto &proto) {
     try {
         sender = proto.sender();
@@ -128,6 +139,9 @@ bool Transaction::deserializeFromProtobuf(const alyncoin::TransactionProto &prot
         }
 
         zkProof = proto.zkproof();  // ✅ RAW binary (no fromHex)
+
+        // --- New: always use amount_str if present for hash calculation
+        std::string amount_str = !proto.amount_str().empty() ? proto.amount_str() : canonicalAmount(amount);
 
         hash = proto.hash();
 
@@ -159,8 +173,13 @@ bool Transaction::deserializeFromProtobuf(const alyncoin::TransactionProto &prot
             std::cerr << "⚠️ [deserializeFromProtobuf] Missing Falcon pubkey.\n";
         }
 
-        if (hash.empty()) {
-            hash = getTransactionHash();
+        // --- Always recalc hash from canonical fields
+        std::ostringstream data;
+        data << sender << recipient << amount_str << timestamp;
+        std::string canonical_hash = Crypto::hybridHash(data.str());
+        if (hash.empty() || hash != canonical_hash) {
+            std::cerr << "⚠️ [Transaction::deserializeFromProtobuf] Hash mismatch or empty! Recomputing canonical.\n";
+            hash = canonical_hash;
         }
 
         return true;
@@ -169,7 +188,6 @@ bool Transaction::deserializeFromProtobuf(const alyncoin::TransactionProto &prot
         return false;
     }
 }
-
 // ✅ Transaction fromProto()
 Transaction Transaction::fromProto(const alyncoin::TransactionProto& protoTx) {
     Transaction tx;
