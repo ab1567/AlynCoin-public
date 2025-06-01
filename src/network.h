@@ -63,6 +63,7 @@ public:
     return *blockchain;
   }
 
+    void setPublicPeerId(const std::string& peerId);
   void start();
   void startListening();
   void syncWithPeers();
@@ -112,7 +113,8 @@ public:
   void blacklistPeer(const std::string &peer);
   bool isBlacklisted(const std::string &peer);
   void cleanupPeers();
-
+  bool isSelfPeer(const std::string& peer) const;
+  std::string getSelfAddressAndPort() const;
   inline static bool isUninitialized() {
     return instancePtr == nullptr;
   }
@@ -136,7 +138,7 @@ private:
   std::thread listenerThread;
   std::thread serverThread;
   PeerManager *peerManager = nullptr;
-
+  std::string publicPeerId;
   std::unordered_map<std::string, std::shared_ptr<tcp::socket>> peerSockets;
   std::unordered_set<std::string> bannedPeers;
   PeerBlacklist *blacklist;
