@@ -257,6 +257,20 @@ identitycli/fast:
 .PHONY : identitycli/fast
 
 # Convenience name for target.
+src/CMakeFiles/nftcli.dir/rule:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 src/CMakeFiles/nftcli.dir/rule
+.PHONY : src/CMakeFiles/nftcli.dir/rule
+
+# Convenience name for target.
+nftcli: src/CMakeFiles/nftcli.dir/rule
+.PHONY : nftcli
+
+# fast build rule for target.
+nftcli/fast:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/nftcli.dir/build.make src/CMakeFiles/nftcli.dir/build
+.PHONY : nftcli/fast
+
+# Convenience name for target.
 src/CMakeFiles/blacklist_test.dir/rule:
 	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 src/CMakeFiles/blacklist_test.dir/rule
 .PHONY : src/CMakeFiles/blacklist_test.dir/rule
@@ -1532,6 +1546,30 @@ crypto_utils.cpp.s:
 	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/crypto_utils.cpp.s
 .PHONY : crypto_utils.cpp.s
 
+db/db_instance.o: db/db_instance.cpp.o
+.PHONY : db/db_instance.o
+
+# target to build an object file
+db/db_instance.cpp.o:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/db/db_instance.cpp.o
+.PHONY : db/db_instance.cpp.o
+
+db/db_instance.i: db/db_instance.cpp.i
+.PHONY : db/db_instance.i
+
+# target to preprocess a source file
+db/db_instance.cpp.i:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/db/db_instance.cpp.i
+.PHONY : db/db_instance.cpp.i
+
+db/db_instance.s: db/db_instance.cpp.s
+.PHONY : db/db_instance.s
+
+# target to generate assembly for a file
+db/db_instance.cpp.s:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/db/db_instance.cpp.s
+.PHONY : db/db_instance.cpp.s
+
 db/rocksdb_wrapper.o: db/rocksdb_wrapper.cpp.o
 .PHONY : db/rocksdb_wrapper.o
 
@@ -1973,6 +2011,159 @@ network/peer_manager.cpp.s:
 	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/network/peer_manager.cpp.s
 .PHONY : network/peer_manager.cpp.s
 
+nft/crypto/aes_utils.o: nft/crypto/aes_utils.cpp.o
+.PHONY : nft/crypto/aes_utils.o
+
+# target to build an object file
+nft/crypto/aes_utils.cpp.o:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/nft/crypto/aes_utils.cpp.o
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/nftcli.dir/build.make src/CMakeFiles/nftcli.dir/nft/crypto/aes_utils.cpp.o
+.PHONY : nft/crypto/aes_utils.cpp.o
+
+nft/crypto/aes_utils.i: nft/crypto/aes_utils.cpp.i
+.PHONY : nft/crypto/aes_utils.i
+
+# target to preprocess a source file
+nft/crypto/aes_utils.cpp.i:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/nft/crypto/aes_utils.cpp.i
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/nftcli.dir/build.make src/CMakeFiles/nftcli.dir/nft/crypto/aes_utils.cpp.i
+.PHONY : nft/crypto/aes_utils.cpp.i
+
+nft/crypto/aes_utils.s: nft/crypto/aes_utils.cpp.s
+.PHONY : nft/crypto/aes_utils.s
+
+# target to generate assembly for a file
+nft/crypto/aes_utils.cpp.s:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/nft/crypto/aes_utils.cpp.s
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/nftcli.dir/build.make src/CMakeFiles/nftcli.dir/nft/crypto/aes_utils.cpp.s
+.PHONY : nft/crypto/aes_utils.cpp.s
+
+nft/main.o: nft/main.cpp.o
+.PHONY : nft/main.o
+
+# target to build an object file
+nft/main.cpp.o:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/nftcli.dir/build.make src/CMakeFiles/nftcli.dir/nft/main.cpp.o
+.PHONY : nft/main.cpp.o
+
+nft/main.i: nft/main.cpp.i
+.PHONY : nft/main.i
+
+# target to preprocess a source file
+nft/main.cpp.i:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/nftcli.dir/build.make src/CMakeFiles/nftcli.dir/nft/main.cpp.i
+.PHONY : nft/main.cpp.i
+
+nft/main.s: nft/main.cpp.s
+.PHONY : nft/main.s
+
+# target to generate assembly for a file
+nft/main.cpp.s:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/nftcli.dir/build.make src/CMakeFiles/nftcli.dir/nft/main.cpp.s
+.PHONY : nft/main.cpp.s
+
+nft/nft.o: nft/nft.cpp.o
+.PHONY : nft/nft.o
+
+# target to build an object file
+nft/nft.cpp.o:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/nft/nft.cpp.o
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/nftcli.dir/build.make src/CMakeFiles/nftcli.dir/nft/nft.cpp.o
+.PHONY : nft/nft.cpp.o
+
+nft/nft.i: nft/nft.cpp.i
+.PHONY : nft/nft.i
+
+# target to preprocess a source file
+nft/nft.cpp.i:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/nft/nft.cpp.i
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/nftcli.dir/build.make src/CMakeFiles/nftcli.dir/nft/nft.cpp.i
+.PHONY : nft/nft.cpp.i
+
+nft/nft.s: nft/nft.cpp.s
+.PHONY : nft/nft.s
+
+# target to generate assembly for a file
+nft/nft.cpp.s:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/nft/nft.cpp.s
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/nftcli.dir/build.make src/CMakeFiles/nftcli.dir/nft/nft.cpp.s
+.PHONY : nft/nft.cpp.s
+
+nft/nft_cli.o: nft/nft_cli.cpp.o
+.PHONY : nft/nft_cli.o
+
+# target to build an object file
+nft/nft_cli.cpp.o:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/nftcli.dir/build.make src/CMakeFiles/nftcli.dir/nft/nft_cli.cpp.o
+.PHONY : nft/nft_cli.cpp.o
+
+nft/nft_cli.i: nft/nft_cli.cpp.i
+.PHONY : nft/nft_cli.i
+
+# target to preprocess a source file
+nft/nft_cli.cpp.i:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/nftcli.dir/build.make src/CMakeFiles/nftcli.dir/nft/nft_cli.cpp.i
+.PHONY : nft/nft_cli.cpp.i
+
+nft/nft_cli.s: nft/nft_cli.cpp.s
+.PHONY : nft/nft_cli.s
+
+# target to generate assembly for a file
+nft/nft_cli.cpp.s:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/nftcli.dir/build.make src/CMakeFiles/nftcli.dir/nft/nft_cli.cpp.s
+.PHONY : nft/nft_cli.cpp.s
+
+nft/nft_storage.o: nft/nft_storage.cpp.o
+.PHONY : nft/nft_storage.o
+
+# target to build an object file
+nft/nft_storage.cpp.o:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/nft/nft_storage.cpp.o
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/nftcli.dir/build.make src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o
+.PHONY : nft/nft_storage.cpp.o
+
+nft/nft_storage.i: nft/nft_storage.cpp.i
+.PHONY : nft/nft_storage.i
+
+# target to preprocess a source file
+nft/nft_storage.cpp.i:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/nft/nft_storage.cpp.i
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/nftcli.dir/build.make src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.i
+.PHONY : nft/nft_storage.cpp.i
+
+nft/nft_storage.s: nft/nft_storage.cpp.s
+.PHONY : nft/nft_storage.s
+
+# target to generate assembly for a file
+nft/nft_storage.cpp.s:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/nft/nft_storage.cpp.s
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/nftcli.dir/build.make src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.s
+.PHONY : nft/nft_storage.cpp.s
+
+nft/nft_utils.o: nft/nft_utils.cpp.o
+.PHONY : nft/nft_utils.o
+
+# target to build an object file
+nft/nft_utils.cpp.o:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/nft/nft_utils.cpp.o
+.PHONY : nft/nft_utils.cpp.o
+
+nft/nft_utils.i: nft/nft_utils.cpp.i
+.PHONY : nft/nft_utils.i
+
+# target to preprocess a source file
+nft/nft_utils.cpp.i:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/nft/nft_utils.cpp.i
+.PHONY : nft/nft_utils.cpp.i
+
+nft/nft_utils.s: nft/nft_utils.cpp.s
+.PHONY : nft/nft_utils.s
+
+# target to generate assembly for a file
+nft/nft_utils.cpp.s:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/nft/nft_utils.cpp.s
+.PHONY : nft/nft_utils.cpp.s
+
 node/main_blacklist_test.o: node/main_blacklist_test.cpp.o
 .PHONY : node/main_blacklist_test.o
 
@@ -2402,6 +2593,7 @@ help:
 	@echo "... explorer_server"
 	@echo "... falcon"
 	@echo "... identitycli"
+	@echo "... nftcli"
 	@echo "... peer_blacklist_cli"
 	@echo "... swapcli"
 	@echo "... __/generated/atomic_swap.pb.o"
@@ -2560,6 +2752,9 @@ help:
 	@echo "... crypto_utils.o"
 	@echo "... crypto_utils.i"
 	@echo "... crypto_utils.s"
+	@echo "... db/db_instance.o"
+	@echo "... db/db_instance.i"
+	@echo "... db/db_instance.s"
 	@echo "... db/rocksdb_wrapper.o"
 	@echo "... db/rocksdb_wrapper.i"
 	@echo "... db/rocksdb_wrapper.s"
@@ -2614,6 +2809,24 @@ help:
 	@echo "... network/peer_manager.o"
 	@echo "... network/peer_manager.i"
 	@echo "... network/peer_manager.s"
+	@echo "... nft/crypto/aes_utils.o"
+	@echo "... nft/crypto/aes_utils.i"
+	@echo "... nft/crypto/aes_utils.s"
+	@echo "... nft/main.o"
+	@echo "... nft/main.i"
+	@echo "... nft/main.s"
+	@echo "... nft/nft.o"
+	@echo "... nft/nft.i"
+	@echo "... nft/nft.s"
+	@echo "... nft/nft_cli.o"
+	@echo "... nft/nft_cli.i"
+	@echo "... nft/nft_cli.s"
+	@echo "... nft/nft_storage.o"
+	@echo "... nft/nft_storage.i"
+	@echo "... nft/nft_storage.s"
+	@echo "... nft/nft_utils.o"
+	@echo "... nft/nft_utils.i"
+	@echo "... nft/nft_utils.s"
 	@echo "... node/main_blacklist_test.o"
 	@echo "... node/main_blacklist_test.i"
 	@echo "... node/main_blacklist_test.s"

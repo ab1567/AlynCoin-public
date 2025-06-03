@@ -172,6 +172,9 @@ std::string Block::calculateHash() const {
 
 // ✅ Mine Block with Protobuf and RocksDB Storage
 bool Block::mineBlock(int difficulty) {
+    std::cerr << "[mineBlock] START for idx=" << getIndex()
+              << ", prev=" << getPreviousHash() << std::endl;
+
     std::cout << "\n⏳ [mineBlock] Mining block for: " << minerAddress
               << " with difficulty: " << difficulty << "...\n";
 
@@ -230,6 +233,12 @@ bool Block::mineBlock(int difficulty) {
         std::cerr << "❌ [mineBlock] Critical: Falcon signature/public key missing after signing. Aborting mining!\n";
         return false;
     }
+
+    // === Final status log ===
+    std::cerr << "[mineBlock] DONE for idx=" << getIndex()
+              << ", hash=" << getHash()
+              << ", prev=" << getPreviousHash()
+              << ", zkProof=" << zkProof.size() << std::endl;
 
     std::cout << "✅ Block Signed Successfully.\n";
     return true;

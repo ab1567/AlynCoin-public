@@ -124,6 +124,8 @@ public:
   }
 	void broadcastTransactionToAllExcept(const Transaction &tx, const std::string &excludePeer);
 
+  void autoSyncIfBehind();
+
 private:
   unsigned short port;
   Blockchain *blockchain;

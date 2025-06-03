@@ -133,6 +133,7 @@ public:
   Block mineBlock(const std::string &minerAddress);
   bool deserializeBlockchainBase64(const std::string &base64Data);
   bool loadFromProto(const alyncoin::BlockchainProto &protoChain);
+  bool hasBlockHash(const std::string &hash) const;
   int findCommonAncestorIndex(const std::vector<Block>& otherChain);
   bool rollbackToIndex(int index);
   bool forceAddBlock(const Block &block);
