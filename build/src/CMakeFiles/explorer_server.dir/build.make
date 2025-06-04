@@ -133,6 +133,7 @@ explorer_server: /usr/lib/x86_64-linux-gnu/libprotobuf.so
 explorer_server: src/libfalcon.a
 explorer_server: src/libdilithium.a
 explorer_server: /root/AlynCoin/src/rust/target/release/libzk_winterfell.a
+explorer_server: /usr/lib/x86_64-linux-gnu/libminiupnpc.so
 explorer_server: src/CMakeFiles/explorer_server.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Linking CXX executable ../explorer_server"
 	cd /root/AlynCoin/build/src && $(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/explorer_server.dir/link.txt --verbose=$(VERBOSE)

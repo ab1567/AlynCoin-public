@@ -99,6 +99,7 @@ alyncoin: /usr/lib/x86_64-linux-gnu/libprotobuf.so
 alyncoin: src/libfalcon.a
 alyncoin: src/libdilithium.a
 alyncoin: src/rust/target/release/libzk_winterfell.a
+alyncoin: /usr/lib/x86_64-linux-gnu/libminiupnpc.so
 alyncoin: src/CMakeFiles/alyncoin.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/root/AlynCoin/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Linking CXX executable ../alyncoin"
 	cd /root/AlynCoin/src && $(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/alyncoin.dir/link.txt --verbose=$(VERBOSE)

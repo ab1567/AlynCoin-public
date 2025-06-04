@@ -193,7 +193,7 @@ Transaction Transaction::fromProto(const alyncoin::TransactionProto& protoTx) {
     Transaction tx;
 
     try {
-        // Simple string fields - safe access
+        // String fields - safe access
         if (!protoTx.sender().empty()) {
             tx.sender = protoTx.sender();
         }
@@ -207,7 +207,7 @@ Transaction Transaction::fromProto(const alyncoin::TransactionProto& protoTx) {
             tx.hash = protoTx.hash();
         }
 
-        // Safe scalar fields
+        // Scalar fields
         tx.amount = protoTx.amount();
         tx.timestamp = protoTx.timestamp();
 
@@ -217,51 +217,27 @@ Transaction Transaction::fromProto(const alyncoin::TransactionProto& protoTx) {
             return tx;
         }
 
-        // Hex fields decoded
-        auto safeFromHex = [](const std::string& hex, const std::string& label) -> std::vector<unsigned char> {
-            if (hex.empty()) return {};
-            if (hex.size() % 2 != 0) {
-                std::cerr << "⚠️ [safeFromHex] " << label << " has odd length: " << hex.size() << "\n";
-                return {};
-            }
-            try {
-                return Crypto::fromHex(hex);
-            } catch (...) {
-                std::cerr << "⚠️ [safeFromHex] Failed to decode hex for " << label << "\n";
-                return {};
-            }
-        };
-
-        auto pubDil = safeFromHex(protoTx.sender_pubkey_dilithium(), "sender_pubkey_dilithium");
-        if (!pubDil.empty()) {
-            tx.senderPublicKeyDilithium.assign(pubDil.begin(), pubDil.end());
+        // 🚨 Direct assignment for raw binary fields
+        if (!protoTx.signature_dilithium().empty()) {
+            tx.signatureDilithium = protoTx.signature_dilithium();
         }
-
-        auto pubFal = safeFromHex(protoTx.sender_pubkey_falcon(), "sender_pubkey_falcon");
-        if (!pubFal.empty()) {
-            tx.senderPublicKeyFalcon.assign(pubFal.begin(), pubFal.end());
+        if (!protoTx.signature_falcon().empty()) {
+            tx.signatureFalcon = protoTx.signature_falcon();
         }
-
-        auto sigDil = safeFromHex(protoTx.signature_dilithium(), "signature_dilithium");
-        if (!sigDil.empty()) {
-            tx.signatureDilithium.assign(sigDil.begin(), sigDil.end());
+        if (!protoTx.sender_pubkey_dilithium().empty()) {
+            tx.senderPublicKeyDilithium = protoTx.sender_pubkey_dilithium();
         }
-
-        auto sigFal = safeFromHex(protoTx.signature_falcon(), "signature_falcon");
-        if (!sigFal.empty()) {
-            tx.signatureFalcon.assign(sigFal.begin(), sigFal.end());
+        if (!protoTx.sender_pubkey_falcon().empty()) {
+            tx.senderPublicKeyFalcon = protoTx.sender_pubkey_falcon();
         }
-
-        // ✅ zkProof is stored as raw binary, NOT hex
         if (!protoTx.zkproof().empty()) {
-            tx.zkProof = protoTx.zkproof();  // direct copy of raw string
+            tx.zkProof = protoTx.zkproof();  // raw binary
         }
 
         // Recompute hash if needed
         if (tx.hash.empty()) {
             tx.hash = tx.getTransactionHash();
         }
-
     } catch (const std::exception& ex) {
         std::cerr << "⚠️ [Transaction::fromProto] Exception: " << ex.what() << "\n";
     } catch (...) {
@@ -270,6 +246,7 @@ Transaction Transaction::fromProto(const alyncoin::TransactionProto& protoTx) {
 
     return tx;
 }
+
 //To JSON
 Json::Value Transaction::toJSON() const {
   Json::Value tx;
@@ -379,29 +356,24 @@ alyncoin::TransactionProto Transaction::toProto() const {
         return proto;
     }
 
-    // ✅ Convert string → vector before calling toHex
+    // 🚨 No hex! Store as raw binary:
     if (!signatureDilithium.empty()) {
-        proto.set_signature_dilithium(Crypto::toHex(
-            std::vector<unsigned char>(signatureDilithium.begin(), signatureDilithium.end())));
+        proto.set_signature_dilithium(signatureDilithium);
     }
-
     if (!signatureFalcon.empty()) {
-        proto.set_signature_falcon(Crypto::toHex(
-            std::vector<unsigned char>(signatureFalcon.begin(), signatureFalcon.end())));
+        proto.set_signature_falcon(signatureFalcon);
     }
-
     if (!senderPublicKeyDilithium.empty()) {
-        proto.set_sender_pubkey_dilithium(Crypto::toHex(
-            std::vector<unsigned char>(senderPublicKeyDilithium.begin(), senderPublicKeyDilithium.end())));
+        proto.set_sender_pubkey_dilithium(senderPublicKeyDilithium);
     }
-
     if (!senderPublicKeyFalcon.empty()) {
-        proto.set_sender_pubkey_falcon(Crypto::toHex(
-            std::vector<unsigned char>(senderPublicKeyFalcon.begin(), senderPublicKeyFalcon.end())));
+        proto.set_sender_pubkey_falcon(senderPublicKeyFalcon);
     }
 
-    // ✅ zkProof is raw binary
-    proto.set_zkproof(zkProof);
+    // zkProof is raw binary
+    if (!zkProof.empty()) {
+        proto.set_zkproof(zkProof);
+    }
 
     if (metadata.size() > 16384) {
         std::cerr << "⚠️ [toProto] metadata too large (" << metadata.size() << " bytes). Truncating.\n";

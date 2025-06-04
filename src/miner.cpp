@@ -69,15 +69,18 @@ void Miner::startMiningProcess(const std::string &minerAddress) {
             std::cout << "[SIGN DEBUG] 🧬 Dilithium PubKey (MINING): " << Crypto::toHex(dilKey) << std::endl;
             std::cout << "[SIGN DEBUG] 🧬 Falcon PubKey (MINING): " << Crypto::toHex(falKey) << std::endl;
 
-            blockchain.addBlock(minedBlock);
-            blockchain.saveToDB();
+            // ✅ Only add and broadcast if block is valid
+            if (blockchain.addBlock(minedBlock)) {
+                blockchain.saveToDB();
 
-            // ✅ Only broadcast if network initialized
-            if (!Network::isUninitialized()) {
-                Network::getInstance().broadcastBlock(minedBlock);
+                if (!Network::isUninitialized()) {
+                    Network::getInstance().broadcastBlock(minedBlock);
+                }
+
+                std::cout << "✅ Block mined, added and broadcasted.\n";
+            } else {
+                std::cerr << "❌ addBlock() failed — block not added or broadcasted.\n";
             }
-
-            std::cout << "✅ Block mined and broadcasted.\n";
 
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }

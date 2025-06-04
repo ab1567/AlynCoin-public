@@ -63,7 +63,7 @@ public:
     return *blockchain;
   }
 
-    void setPublicPeerId(const std::string& peerId);
+  void setPublicPeerId(const std::string& peerId);
   void start();
   void startListening();
   void syncWithPeers();

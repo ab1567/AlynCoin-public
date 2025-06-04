@@ -152,6 +152,18 @@ find_path(ROCKSDB_INCLUDE_DIR rocksdb/db.h)
 
 include_directories(${ROCKSDB_INCLUDE_DIR})
 
+#-------------------------
+find_path(MINIUPNPC_INCLUDE_DIR miniupnpc/miniupnpc.h)
+find_library(MINIUPNPC_LIBRARY NAMES miniupnpc libminiupnpc)
+
+if(MINIUPNPC_INCLUDE_DIR AND MINIUPNPC_LIBRARY)
+    message(STATUS "miniupnpc found: ${MINIUPNPC_LIBRARY}")
+    add_definitions(-DHAVE_MINIUPNPC)
+    include_directories(${MINIUPNPC_INCLUDE_DIR})
+else()
+    message(WARNING "miniupnpc not found, UPnP will be disabled!")
+endif()
+
 # --------------------------
 # Only generate protobufs if not skipped
 if(NOT SKIP_PROTOBUF_GEN)
@@ -312,6 +324,7 @@ target_link_libraries(alyncoin_lib
     falcon
     dilithium
     ${SOURCE_DIR}/rust/target/release/libzk_winterfell.a
+    ${MINIUPNPC_LIBRARY}
 )
 
 # --------------------------

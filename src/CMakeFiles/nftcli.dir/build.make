@@ -163,6 +163,7 @@ bin/nftcli: src/libfalcon.a
 bin/nftcli: src/libdilithium.a
 bin/nftcli: /usr/lib/x86_64-linux-gnu/libprotobuf.so
 bin/nftcli: src/rust/target/release/libzk_winterfell.a
+bin/nftcli: /usr/lib/x86_64-linux-gnu/libminiupnpc.so
 bin/nftcli: src/CMakeFiles/nftcli.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/root/AlynCoin/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Linking CXX executable ../bin/nftcli"
 	cd /root/AlynCoin/src && $(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/nftcli.dir/link.txt --verbose=$(VERBOSE)

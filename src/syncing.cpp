@@ -19,7 +19,7 @@ void Syncing::requestLatestBlock() {
   std::string serializedData;
   requestProto.SerializeToString(&serializedData);
 
-  std::string message = "BLOCK_REQUEST|" + serializedData;
+  std::string message = "ALYN|BLOCK_REQUEST|" + serializedData;
   getNet().broadcastMessage(message);
 }
 
@@ -31,7 +31,7 @@ void Syncing::syncWithNetwork() {
   std::string serializedData;
   syncProto.SerializeToString(&serializedData);
 
-  std::string message = "BLOCKCHAIN_SYNC_REQUEST|" + serializedData;
+  std::string message = "ALYN|BLOCKCHAIN_SYNC_REQUEST|" + serializedData;
   getNet().broadcastMessage(message);
 }
 

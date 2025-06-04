@@ -549,7 +549,7 @@ Blockchain &Blockchain::getInstance() {
 
 // ✅ Used when you want RocksDB, but no P2P
 Blockchain& Blockchain::getInstanceNoNetwork() {
-        static Blockchain instance(0, DBPaths::getBlockchainDB(), true);
+                static Blockchain instance(0, DBPaths::getBlockchainDB(), false);
     return instance;
 }
 

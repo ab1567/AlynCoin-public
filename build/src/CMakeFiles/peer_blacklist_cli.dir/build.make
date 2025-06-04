@@ -100,6 +100,7 @@ peer_blacklist_cli: /usr/lib/x86_64-linux-gnu/libprotobuf.so
 peer_blacklist_cli: src/libfalcon.a
 peer_blacklist_cli: src/libdilithium.a
 peer_blacklist_cli: /root/AlynCoin/src/rust/target/release/libzk_winterfell.a
+peer_blacklist_cli: /usr/lib/x86_64-linux-gnu/libminiupnpc.so
 peer_blacklist_cli: src/CMakeFiles/peer_blacklist_cli.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Linking CXX executable ../peer_blacklist_cli"
 	cd /root/AlynCoin/build/src && $(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/peer_blacklist_cli.dir/link.txt --verbose=$(VERBOSE)

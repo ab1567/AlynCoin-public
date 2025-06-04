@@ -1367,4 +1367,10 @@ src/CMakeFiles/alyncoin_lib.dir/network.cpp.o: \
  /usr/include/c++/13/bits/quoted_string.h /usr/include/c++/13/codecvt \
  /usr/include/c++/13/bits/fs_dir.h /usr/include/c++/13/bits/fs_ops.h \
  /root/AlynCoin/src/atomic_swaps/proto_utils.h \
- /root/AlynCoin/src/atomic_swaps/atomic_swap.h
+ /root/AlynCoin/src/atomic_swaps/atomic_swap.h \
+ /usr/include/miniupnpc/miniupnpc.h \
+ /usr/include/miniupnpc/miniupnpc_declspec.h \
+ /usr/include/miniupnpc/igd_desc_parse.h /usr/include/miniupnpc/upnpdev.h \
+ /usr/include/miniupnpc/upnpcommands.h \
+ /usr/include/miniupnpc/miniupnpctypes.h \
+ /usr/include/miniupnpc/upnperrors.h
