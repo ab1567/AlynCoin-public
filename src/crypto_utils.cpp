@@ -860,42 +860,33 @@ std::string generateMinerAddress() {
 }
 
 // ✅ Base64 Encode
-std::string base64Encode(const std::string &input) {
-  BIO *bio, *b64;
-  BUF_MEM *bufferPtr;
+std::string encodeRaw(const unsigned char* data, size_t len, bool wrap) {
+    BIO* b64 = BIO_new(BIO_f_base64());
+    BIO* mem = BIO_new(BIO_s_mem());
+    if (!b64 || !mem) throw std::runtime_error("BIO_new failed");
+    if (!wrap) BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
+    BIO_push(b64, mem);
+    BIO_write(b64, data, static_cast<int>(len));
+    BIO_flush(b64);
 
-  b64 = BIO_new(BIO_f_base64());
-  bio = BIO_new(BIO_s_mem());
-  b64 = BIO_push(b64, bio);
-
-  BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL); // No newline
-  BIO_write(b64, input.data(), input.size());
-  BIO_flush(b64);
-  BIO_get_mem_ptr(b64, &bufferPtr);
-
-  std::string output(bufferPtr->data, bufferPtr->length);
-  BIO_free_all(b64);
-  return output;
+    BUF_MEM* memPtr;
+    BIO_get_mem_ptr(b64, &memPtr);
+    std::string out(memPtr->data, memPtr->length);
+    BIO_free_all(b64);
+    return out;
 }
-
-std::string base64Decode(const std::string &input) {
-  BIO *bio, *b64;
-  char *buffer = (char *)malloc(input.length());
-  memset(buffer, 0, input.length());
-
-  b64 = BIO_new(BIO_f_base64());
-  bio = BIO_new_mem_buf(input.data(), input.length());
-  b64 = BIO_push(b64, bio);
-  BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
-
-  int decodedLen = BIO_read(b64, buffer, input.length());
-  std::string result(buffer, decodedLen);
-
-  free(buffer);
-  BIO_free_all(b64);
-  return result;
+std::string decodeRaw(const char* data, size_t len, bool wrapped) {
+    BIO* b64 = BIO_new(BIO_f_base64());
+    BIO* mem = BIO_new_mem_buf(data, static_cast<int>(len));
+    if (!b64 || !mem) throw std::runtime_error("BIO_new failed");
+    if (!wrapped) BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
+    BIO_push(b64, mem);
+    std::vector<unsigned char> buffer(len);
+    int n = BIO_read(b64, buffer.data(), static_cast<int>(buffer.size()));
+    if (n < 0) throw std::runtime_error("BIO_read failed");
+    BIO_free_all(b64);
+    return std::string(reinterpret_cast<char*>(buffer.data()), n);
 }
-
 //
 bool encryptFile(const std::string &inputFilePath,
                  const std::string &outputFilePath,
@@ -1298,4 +1289,11 @@ std::string getPrivateKeyPath(const std::string &username,
 std::string getPublicKeyPath(const std::string &username,
                              const std::string &baseDir) {
   return baseDir + username + "_public.pem";
+}
+
+std::string Crypto::base64Encode(const std::string& input, bool wrapLines) {
+    return encodeRaw(reinterpret_cast<const unsigned char*>(input.data()), input.size(), wrapLines);
+}
+std::string Crypto::base64Decode(const std::string& input, bool inputIsWrapped) {
+    return decodeRaw(input.data(), input.size(), inputIsWrapped);
 }

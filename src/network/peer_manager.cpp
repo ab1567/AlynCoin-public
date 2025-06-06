@@ -121,3 +121,6 @@ void PeerManager::setPeerHeight(const std::string& peer, int height) {
 void PeerManager::setPeerTipHash(const std::string& peer, const std::string& tipHash) {
     peerTipHashes[peer] = tipHash;
 }
+void PeerManager::recordTipHash(const std::string& peer, const std::string& tipHash) {
+    setPeerTipHash(peer, tipHash);
+}

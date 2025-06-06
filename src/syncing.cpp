@@ -37,21 +37,24 @@ void Syncing::syncWithNetwork() {
 
 // ✅ Propagate regular block with zk-STARK & dual signature awareness
 void Syncing::propagateBlock(const Block &block) {
-  alyncoin::BlockProto blockProto = block.toProtobuf();
-  std::string serializedBlock;
-  blockProto.SerializeToString(&serializedBlock);
+    alyncoin::BlockProto blockProto = block.toProtobuf();
+    std::string serializedBlock;
+    blockProto.SerializeToString(&serializedBlock);
 
-  std::string base64Block = Crypto::base64Encode(serializedBlock);
-  std::string message = "ALYN|BLOCK_BROADCAST|" + base64Block;
+    std::string base64Block = Crypto::base64Encode(serializedBlock, false);
+    base64Block.erase(std::remove(base64Block.begin(), base64Block.end(), '\n'), base64Block.end());
+    base64Block.erase(std::remove(base64Block.begin(), base64Block.end(), '\r'), base64Block.end());
 
-  Network &net = getNet();
-  for (const std::string &peer : net.getPeers()) {
-    if (!peer.empty()) {
-      net.sendData(peer, message);
+    std::string message = "ALYN|BLOCK_BROADCAST|" + base64Block + '\n';
+
+    Network &net = getNet();
+    for (const std::string &peer : net.getPeers()) {
+        if (!peer.empty()) {
+            net.sendData(peer, message);
+        }
     }
-  }
 
-  std::cout << "📡 Propagated block (zk-STARK + Dilithium + Falcon signatures included) to peers.\n";
+    std::cout << "📡 Propagated block (zk-STARK + Dilithium + Falcon signatures included) to peers\n";
 }
 
 // ✅ Propagate transaction (ensure contains signatures)

@@ -33,6 +33,7 @@ public:
 
     void setPeerHeight(const std::string& peer, int height);
     void setPeerTipHash(const std::string& peer, const std::string& tipHash);
+    void recordTipHash(const std::string& peer, const std::string& tipHash);
 };
 
 #endif // PEER_MANAGER_H

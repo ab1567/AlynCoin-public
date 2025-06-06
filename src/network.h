@@ -146,6 +146,11 @@ private:
   PeerBlacklist *blacklist;
   std::unordered_set<std::string> seenTxHashes;
   static Network *instancePtr;
+/* ---- helpers reused by handlePeer & connectToNode ---- */
+void startReadLoop(const std::string& peerId,
+                   std::shared_ptr<boost::asio::ip::tcp::socket> sock);
+
+void sendInitialRequests(const std::string& peerId);
 
   void handlePeer(std::shared_ptr<tcp::socket> socket);
   bool validateBlockSignatures(const Block &blk);
