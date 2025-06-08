@@ -635,6 +635,23 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
     // 4. share our current peer list with him
     broadcastPeerList();
 
+    {
+        Json::Value hs;
+        hs["type"]        = "handshake";
+        hs["port"]        = std::to_string(this->port);
+        hs["version"]     = "1.0.0";
+        hs["network_id"]  = "mainnet";
+        hs["capabilities"] = Json::arrayValue;
+        hs["capabilities"].append("full");
+        hs["capabilities"].append("miner");
+        hs["height"]      = Blockchain::getInstance().getHeight();
+
+        Json::StreamWriterBuilder wr;  wr["indentation"] = "";
+        std::string payload = Json::writeString(wr, hs);
+        if (transport && transport->isOpen())
+            transport->write("ALYN|" + payload + "\n");
+    }
+
     // 5. send the initial sync requests
     const auto sendInitialRequests = [this](const std::string& pid)
     {
@@ -984,6 +1001,12 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
 
             auto& chain = Blockchain::getInstance();
             std::string type = root["type"].asString();
+
+            if (type == "handshake" && peerManager) {
+                int h = root.get("height", 0).asInt();
+                peerManager->setPeerHeight(claimedPeerId, h);
+                return;
+            }
 
             if (type == "height_response") {
                 int h = root["data"].asInt();
