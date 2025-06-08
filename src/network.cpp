@@ -618,6 +618,9 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
             if (peerManager) peerManager->connectToPeer(claimedPeerId);
         }
 
+        if (peerManager) {
+            peerManager->setPeerHeight(claimedPeerId, remoteHeight);
+        }
         // Add to pubsub mesh
         g_pubsub.addPeer(
             claimedPeerId,
@@ -984,7 +987,8 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
 
             if (type == "height_response") {
                 int h = root["data"].asInt();
-                if (h > (int)chain.getHeight() && transport && transport->isOpen())
+                if (peerManager) peerManager->setPeerHeight(claimedPeerId, h);
+		if (h > (int)chain.getHeight() && transport && transport->isOpen())
                     transport->write("ALYN|REQUEST_BLOCKCHAIN\n");
                 return;
             }
