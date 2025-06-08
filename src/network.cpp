@@ -47,12 +47,13 @@ struct ScopedLockTracer {
 };
 static std::unordered_set<std::string> seenTxHashes;
 static std::mutex seenTxMutex;
-static thread_local struct InFlightData {
+struct InFlightData {
     std::string peer;
     std::string prefix;
     std::string base64;
     bool active{false};
-} inflight;
+};
+static thread_local std::unordered_map<std::string, InFlightData> inflight;
 static inline bool looksLikeBase64(const std::string& s) {
     return !s.empty() && s.find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=") == std::string::npos;
 }
@@ -517,6 +518,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
 {
     std::string realPeerId, claimedPeerId, handshakeLine;
     std::string claimedPort, claimedVersion, claimedNetwork, claimedIP;
+    int remoteHeight = 0;  // <-- Declare here so it's in scope
 
     // Helper: what _we_ look like to the network
     const auto selfAddr = [this]() -> std::string {
@@ -548,7 +550,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
         claimedVersion = root["version"].asString();
         claimedNetwork = root.get("network_id", "").asString();
         claimedIP      = root.get("ip", senderIP).asString();
-	int remoteHeight = root.get("height", 0).asInt();
+        remoteHeight   = root.get("height", 0).asInt();
         // (1) normalize the port so it’s ALWAYS decimal
         try {
             const auto portDec = std::stoi(claimedPort, nullptr, 0);
@@ -617,11 +619,11 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
         }
 
         // Add to pubsub mesh
-         g_pubsub.addPeer(
-     claimedPeerId,
-     [transport](const std::string& line){
-         if (transport && transport->isOpen()) transport->write(line + "\n");
-     });
+        g_pubsub.addPeer(
+            claimedPeerId,
+            [transport](const std::string& line){
+                if (transport && transport->isOpen()) transport->write(line + "\n");
+            });
 
         std::cout << "✅ Registered peer transport: " << claimedPeerId
                   << "  (real endpoint " << realPeerId << ")\n";
@@ -633,7 +635,6 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
     // 5. send the initial sync requests
     const auto sendInitialRequests = [this](const std::string& pid)
     {
-
         Json::StreamWriterBuilder b;  b["indentation"] = "";
         Json::Value j;
 
@@ -666,6 +667,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
         }
     );
 }
+
 
 // ✅ **Run Network Thread**
 void Network::run() {
@@ -840,35 +842,39 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
     static constexpr const char* rollupPrefix       = "ROLLUP_BLOCK|";
     static constexpr const char* blockBroadcastPrefix = "BLOCK_BROADCAST|";
 
+    // Make inflight a thread_local unordered_map if it isn't already:
+    static thread_local std::unordered_map<std::string, InFlightData> inflight;
+
     if (data.rfind(protocolPrefix, 0) == 0)
         data = data.substr(std::strlen(protocolPrefix));
 
     if (data.rfind(blockBroadcastPrefix, 0) == 0 ||
         data.rfind(fullChainPrefix, 0) == 0)
     {
-        inflight.peer   = claimedPeerId;
-        inflight.prefix = data.rfind(blockBroadcastPrefix, 0) == 0
-                            ? blockBroadcastPrefix
-                            : fullChainPrefix;
-        inflight.base64 = data.substr(inflight.prefix.size());
-        inflight.active = true;
+        InFlightData& infl = inflight[claimedPeerId];
+        infl.peer   = claimedPeerId;
+        infl.prefix = data.rfind(blockBroadcastPrefix, 0) == 0
+                        ? blockBroadcastPrefix
+                        : fullChainPrefix;
+        infl.base64 = data.substr(std::strlen(infl.prefix.c_str()));
+        infl.active = true;
         try {
-            std::string raw = Crypto::base64Decode(inflight.base64, false);
-            if (inflight.prefix == blockBroadcastPrefix) {
+            std::string raw = Crypto::base64Decode(infl.base64, false);
+            if (infl.prefix == blockBroadcastPrefix) {
                 alyncoin::BlockProto proto;
                 if (proto.ParseFromString(raw) && proto.hash().size() == 64 &&
                     !proto.previous_hash().empty())
                 {
                     handleBase64Proto(claimedPeerId, blockBroadcastPrefix,
-                                      inflight.base64, transport);
-                    inflight.active = false;
+                                      infl.base64, transport);
+                    infl.active = false;
                 }
             } else {
                 alyncoin::BlockchainProto proto;
                 if (proto.ParseFromString(raw)) {
                     handleBase64Proto(claimedPeerId, fullChainPrefix,
-                                      inflight.base64, transport);
-                    inflight.active = false;
+                                      infl.base64, transport);
+                    infl.active = false;
                 }
             }
         } catch (...) {
@@ -882,29 +888,29 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
         inflIt->second.base64 += data;
         try {
             std::string raw = Crypto::base64Decode(inflIt->second.base64, false);
-            if (inflight.prefix == blockBroadcastPrefix) {
+            if (inflIt->second.prefix == blockBroadcastPrefix) {
                 alyncoin::BlockProto proto;
                 if (proto.ParseFromString(raw) && proto.hash().size() == 64 &&
                     !proto.previous_hash().empty())
                 {
                     handleBase64Proto(claimedPeerId, blockBroadcastPrefix,
-                                      inflight.base64, transport);
-                    inflight.active = false;
+                                      inflIt->second.base64, transport);
+                    inflIt->second.active = false;
                 }
             } else {
                 alyncoin::BlockchainProto proto;
                 if (proto.ParseFromString(raw)) {
                     handleBase64Proto(claimedPeerId, fullChainPrefix,
-                                      inflight.base64, transport);
-                    inflight.active = false;
+                                      inflIt->second.base64, transport);
+                    inflIt->second.active = false;
                 }
             }
-            if (inflight.active && inflight.base64.size() > 5000)
-                inflight.active = false;
+            if (inflIt->second.active && inflIt->second.base64.size() > 5000)
+                inflIt->second.active = false;
         } catch (...) {
-            if (inflight.base64.size() > 5000) inflight.active = false;
+            if (inflIt->second.base64.size() > 5000) inflIt->second.active = false;
         }
-        if (inflight.active)
+        if (inflIt->second.active)
             return; // Wait for more fragments
     }
 
