@@ -564,7 +564,8 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
         std::cout << "🤝 Handshake from   " << realPeerId
                   << " | claimed "        << claimedPeerId
                   << " | ver "            << claimedVersion
-                  << " | net "            << claimedNetwork << '\n';
+                  << " | net "            << claimedNetwork
+                  << " | height "         << remoteHeight << '\n';
 
         if (claimedNetwork != "mainnet") {
             std::cerr << "⚠️  [handlePeer] Peer is on different network ("
@@ -1005,6 +1006,9 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
             if (type == "handshake" && peerManager) {
                 int h = root.get("height", 0).asInt();
                 peerManager->setPeerHeight(claimedPeerId, h);
+
+                if (h > (int)chain.getHeight() && transport && transport->isOpen())
+                    transport->write("ALYN|REQUEST_BLOCKCHAIN\n");
                 return;
             }
 
