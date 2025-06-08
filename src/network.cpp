@@ -47,13 +47,12 @@ struct ScopedLockTracer {
 };
 static std::unordered_set<std::string> seenTxHashes;
 static std::mutex seenTxMutex;
-// Buffer for partially received BLOCK_BROADCAST messages.
-struct InFlightBroadcast {
+static thread_local struct InFlightData {
+    std::string peer;
+    std::string prefix;
     std::string base64;
-};
-// Map of peerId -> accumulated base64 fragment for that peer (thread local
-// since network callbacks happen on one IO thread).
-static thread_local std::unordered_map<std::string, InFlightBroadcast> inflight;
+    bool active{false};
+} inflight;
 static inline bool looksLikeBase64(const std::string& s) {
     return !s.empty() && s.find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=") == std::string::npos;
 }
@@ -549,7 +548,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
         claimedVersion = root["version"].asString();
         claimedNetwork = root.get("network_id", "").asString();
         claimedIP      = root.get("ip", senderIP).asString();
-
+	int remoteHeight = root.get("height", 0).asInt();
         // (1) normalize the port so it’s ALWAYS decimal
         try {
             const auto portDec = std::stoi(claimedPort, nullptr, 0);
@@ -634,7 +633,6 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
     // 5. send the initial sync requests
     const auto sendInitialRequests = [this](const std::string& pid)
     {
-        sendData(pid, "ALYN|REQUEST_BLOCKCHAIN\n");
 
         Json::StreamWriterBuilder b;  b["indentation"] = "";
         Json::Value j;
@@ -644,6 +642,10 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
         j["type"] = "request_peers";   sendData(pid,"ALYN|"+Json::writeString(b,j)+'\n');
     };
     sendInitialRequests(claimedPeerId);
+
+    size_t myHeight = Blockchain::getInstance().getHeight();
+    if (remoteHeight > static_cast<int>(myHeight) && transport && transport->isOpen())
+        transport->write("ALYN|REQUEST_BLOCKCHAIN\n");
 
     // 6. if they gave us an external port – dial back
     try {
@@ -841,18 +843,33 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
     if (data.rfind(protocolPrefix, 0) == 0)
         data = data.substr(std::strlen(protocolPrefix));
 
-    if (data.rfind(blockBroadcastPrefix, 0) == 0) {
-        std::string b64 = data.substr(std::strlen(blockBroadcastPrefix));
-        inflight[claimedPeerId].base64 = b64;
+    if (data.rfind(blockBroadcastPrefix, 0) == 0 ||
+        data.rfind(fullChainPrefix, 0) == 0)
+    {
+        inflight.peer   = claimedPeerId;
+        inflight.prefix = data.rfind(blockBroadcastPrefix, 0) == 0
+                            ? blockBroadcastPrefix
+                            : fullChainPrefix;
+        inflight.base64 = data.substr(inflight.prefix.size());
+        inflight.active = true;
         try {
-            std::string raw = Crypto::base64Decode(b64, false);
-            alyncoin::BlockProto proto;
-            if (proto.ParseFromString(raw) && proto.hash().size() == 64 &&
-                !proto.previous_hash().empty())
-            {
-                handleBase64Proto(claimedPeerId, blockBroadcastPrefix,
-                                  b64, transport);
-                inflight.erase(claimedPeerId);
+            std::string raw = Crypto::base64Decode(inflight.base64, false);
+            if (inflight.prefix == blockBroadcastPrefix) {
+                alyncoin::BlockProto proto;
+                if (proto.ParseFromString(raw) && proto.hash().size() == 64 &&
+                    !proto.previous_hash().empty())
+                {
+                    handleBase64Proto(claimedPeerId, blockBroadcastPrefix,
+                                      inflight.base64, transport);
+                    inflight.active = false;
+                }
+            } else {
+                alyncoin::BlockchainProto proto;
+                if (proto.ParseFromString(raw)) {
+                    handleBase64Proto(claimedPeerId, fullChainPrefix,
+                                      inflight.base64, transport);
+                    inflight.active = false;
+                }
             }
         } catch (...) {
             /* wait for more lines */
@@ -865,21 +882,29 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
         inflIt->second.base64 += data;
         try {
             std::string raw = Crypto::base64Decode(inflIt->second.base64, false);
-            alyncoin::BlockProto proto;
-            if (proto.ParseFromString(raw) && proto.hash().size() == 64 &&
-                !proto.previous_hash().empty())
-            {
-                handleBase64Proto(claimedPeerId, blockBroadcastPrefix,
-                                  inflIt->second.base64, transport);
-                inflight.erase(inflIt);
-            } else if (inflIt->second.base64.size() > 5000) {
-                inflight.erase(inflIt);
+            if (inflight.prefix == blockBroadcastPrefix) {
+                alyncoin::BlockProto proto;
+                if (proto.ParseFromString(raw) && proto.hash().size() == 64 &&
+                    !proto.previous_hash().empty())
+                {
+                    handleBase64Proto(claimedPeerId, blockBroadcastPrefix,
+                                      inflight.base64, transport);
+                    inflight.active = false;
+                }
+            } else {
+                alyncoin::BlockchainProto proto;
+                if (proto.ParseFromString(raw)) {
+                    handleBase64Proto(claimedPeerId, fullChainPrefix,
+                                      inflight.base64, transport);
+                    inflight.active = false;
+                }
             }
+            if (inflight.active && inflight.base64.size() > 5000)
+                inflight.active = false;
         } catch (...) {
-            if (inflIt->second.base64.size() > 5000)
-                inflight.erase(inflIt);
+            if (inflight.base64.size() > 5000) inflight.active = false;
         }
-        if (inflight.count(claimedPeerId))
+        if (inflight.active)
             return; // Wait for more fragments
     }
 
@@ -1504,8 +1529,6 @@ void Network::addPeer(const std::string &peer) {
 // ------------------------------------------------------------------
 void Network::sendInitialRequests(const std::string& peerId)
 {
-    sendData(peerId, "ALYN|REQUEST_BLOCKCHAIN\n");
-
     Json::StreamWriterBuilder b;  b["indentation"] = "";
     Json::Value j;
 
@@ -1589,14 +1612,15 @@ bool Network::connectToNode(const std::string &host, int port)
             if (peerManager) peerManager->connectToPeer(peerKey);
         }
 
-        Json::Value handshake;
-        handshake["type"]        = "handshake";
-        handshake["port"]        = std::to_string(this->port);
-        handshake["version"]     = "1.0.0";
-        handshake["network_id"]  = "mainnet";
-        handshake["capabilities"]= Json::arrayValue;
-        handshake["capabilities"].append("full");
-        handshake["capabilities"].append("miner");
+    Json::Value handshake;
+    handshake["type"]        = "handshake";
+    handshake["port"]        = std::to_string(this->port);
+    handshake["version"]     = "1.0.0";
+    handshake["network_id"]  = "mainnet";
+    handshake["capabilities"]= Json::arrayValue;
+    handshake["capabilities"].append("full");
+    handshake["capabilities"].append("miner");
+    handshake["height"]      = Blockchain::getInstance().getHeight();
 
         Json::StreamWriterBuilder wr;  wr["indentation"] = "";
         std::string payload = Json::writeString(wr, handshake) + '\n';
@@ -1609,10 +1633,6 @@ bool Network::connectToNode(const std::string &host, int port)
         startReadLoop(peerKey, transport);
 
         sendInitialRequests(peerKey);
-
-        std::cout << "📡 [SYNC] Sending REQUEST_BLOCKCHAIN to "
-                  << peerKey << '\n';
-        sendData(peerKey, "ALYN|REQUEST_BLOCKCHAIN");
 
         return true;
     }
