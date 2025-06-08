@@ -12826,6 +12826,13 @@ src/CMakeFiles/alyncoin_lib.dir/network.cpp.o
  /usr/include/linux/version.h
  /usr/include/locale.h
  /usr/include/math.h
+ /usr/include/miniupnpc/igd_desc_parse.h
+ /usr/include/miniupnpc/miniupnpc.h
+ /usr/include/miniupnpc/miniupnpc_declspec.h
+ /usr/include/miniupnpc/miniupnpctypes.h
+ /usr/include/miniupnpc/upnpcommands.h
+ /usr/include/miniupnpc/upnpdev.h
+ /usr/include/miniupnpc/upnperrors.h
  /usr/include/net/if.h
  /usr/include/netdb.h
  /usr/include/netinet/in.h

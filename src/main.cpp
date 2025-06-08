@@ -598,7 +598,7 @@ int main(int argc, char *argv[]) {
     std::string blacklistPath = dbPath + "/blacklist";
     std::filesystem::create_directories(blacklistPath);
 
-    Blockchain &blockchain = Blockchain::getInstance(port, dbPath, false);
+    Blockchain &blockchain = Blockchain::getInstance(port, dbPath, /*bindNetwork=*/true);
 
      std::unique_ptr<PeerBlacklist> peerBlacklistPtr;
      try {

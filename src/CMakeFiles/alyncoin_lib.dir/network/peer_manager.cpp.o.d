@@ -1357,6 +1357,8 @@ src/CMakeFiles/alyncoin_lib.dir/network/peer_manager.cpp.o: \
  /usr/include/boost/asio/impl/write_at.hpp /usr/include/c++/13/thread \
  /usr/include/c++/13/bits/this_thread_sleep.h \
  /root/AlynCoin/src/network/peer_manager.h \
+ /root/AlynCoin/src/transport/transport.h \
+ /root/AlynCoin/src/transport/peer_globals.h \
  /root/AlynCoin/src/blockchain.h /usr/include/c++/13/numeric \
  /usr/include/c++/13/bits/stl_numeric.h \
  /usr/include/c++/13/pstl/glue_numeric_defs.h

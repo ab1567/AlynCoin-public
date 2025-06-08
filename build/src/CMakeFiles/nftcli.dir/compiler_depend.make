@@ -290,6 +290,8 @@ src/CMakeFiles/nftcli.dir/nft/nft.cpp.o: /root/AlynCoin/src/nft/nft.cpp \
   /root/AlynCoin/src/zk/winterfell_stark.h \
   /root/AlynCoin/src/nft/nft.h \
   /root/AlynCoin/src/transaction.h \
+  /root/AlynCoin/src/transport/peer_globals.h \
+  /root/AlynCoin/src/transport/transport.h \
   /root/AlynCoin/src/network/peer_blacklist.h \
   /usr/include/alloca.h \
   /usr/include/arpa/inet.h \
@@ -4303,9 +4305,9 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 
 /usr/include/boost/preprocessor/list/limits/fold_left_256.hpp:
 
-/usr/include/boost/asio/bind_immediate_executor.hpp:
+/usr/include/boost/preprocessor/list/fold_right.hpp:
 
-/usr/include/boost/predef/compiler/digitalmars.h:
+/usr/include/boost/preprocessor/list/fold_left.hpp:
 
 /usr/include/boost/asio/execution/receiver_invocation_error.hpp:
 
@@ -4330,8 +4332,6 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 /usr/include/boost/asio/ip/impl/address.ipp:
 
 /usr/include/boost/asio/impl/as_tuple.hpp:
-
-/usr/include/boost/asio/execution/bulk_execute.hpp:
 
 /usr/include/boost/asio/writable_pipe.hpp:
 
@@ -4681,6 +4681,10 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 
 /root/AlynCoin/src/db/db_paths.h:
 
+/usr/include/boost/asio/bind_immediate_executor.hpp:
+
+/usr/include/boost/predef/compiler/digitalmars.h:
+
 /usr/include/boost/asio/bind_cancellation_slot.hpp:
 
 /usr/include/boost/asio/basic_writable_pipe.hpp:
@@ -4823,6 +4827,12 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 
 /usr/include/boost/preprocessor/control/iif.hpp:
 
+/usr/include/boost/asio/execution/bulk_execute.hpp:
+
+/root/AlynCoin/src/transport/peer_globals.h:
+
+/usr/include/boost/asio/impl/error.ipp:
+
 /root/AlynCoin/src/nft/nft.h:
 
 /usr/include/boost/asio/detail/signal_set_service.hpp:
@@ -4904,10 +4914,6 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 /usr/include/boost/asio/execution/prefer_only.hpp:
 
 /usr/include/openssl/lhash.h:
-
-/usr/include/boost/asio/execution/schedule.hpp:
-
-/usr/include/openssl/bio.h:
 
 /usr/include/boost/asio/query.hpp:
 
@@ -5199,6 +5205,8 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 
 /usr/include/boost/config/detail/suffix.hpp:
 
+/root/AlynCoin/src/transport/transport.h:
+
 /usr/include/c++/13/bits/localefwd.h:
 
 /usr/include/boost/asio/error.hpp:
@@ -5210,6 +5218,12 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 /usr/include/c++/13/bits/alloc_traits.h:
 
 /usr/include/c++/13/system_error:
+
+/usr/include/boost/asio/detail/service_registry.hpp:
+
+/usr/include/boost/preprocessor/config/limits.hpp:
+
+/usr/include/c++/13/bits/ostream_insert.h:
 
 /usr/include/openssl/macros.h:
 
@@ -5787,8 +5801,6 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 
 /usr/include/boost/mpl/void_fwd.hpp:
 
-/usr/include/boost/preprocessor/list/fold_left.hpp:
-
 /usr/include/c++/13/bits/valarray_array.h:
 
 /usr/include/c++/13/bits/char_traits.h:
@@ -5883,6 +5895,10 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 
 /usr/include/boost/asio/registered_buffer.hpp:
 
+/usr/include/openssl/bio.h:
+
+/usr/include/boost/asio/execution/schedule.hpp:
+
 /usr/include/boost/asio/execution/scheduler.hpp:
 
 /usr/include/boost/asio/defer.hpp:
@@ -5939,14 +5955,6 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 
 /usr/include/boost/asio/impl/detached.hpp:
 
-/usr/include/boost/asio/impl/error.ipp:
-
-/usr/include/boost/asio/detail/service_registry.hpp:
-
-/usr/include/c++/13/bits/ostream_insert.h:
-
-/usr/include/boost/preprocessor/config/limits.hpp:
-
 /usr/include/boost/asio/impl/execution_context.hpp:
 
 /usr/include/boost/asio/generic/detail/impl/endpoint.ipp:
@@ -5994,8 +6002,6 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 /usr/include/boost/asio/impl/serial_port_base.ipp:
 
 /usr/include/boost/asio/impl/write.hpp:
-
-/usr/include/boost/preprocessor/list/fold_right.hpp:
 
 /usr/include/boost/asio/execution/submit.hpp:
 

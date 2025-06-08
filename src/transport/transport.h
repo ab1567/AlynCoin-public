@@ -1,12 +1,31 @@
 #pragma once
 #include <string>
 #include <functional>
-#include <memory>
+#include <boost/system/error_code.hpp>
 
+// ---- Core abstract transport interface ----
 class Transport {
 public:
     virtual ~Transport() = default;
-    virtual std::string remoteId() const = 0; // e.g., "1.2.3.4:8333"
-    virtual void send(const std::string& data) = 0;
-    virtual void startReadLoop(std::function<void(const std::string&)> onLine) = 0;
+
+    // Text line (legacy)
+    virtual std::string  remoteId()  const                                        = 0;
+    virtual bool         write     (const std::string& data)                      = 0;
+    virtual bool         isOpen    () const                                       = 0;
+    virtual void         startReadLoop(std::function<void(const std::string&)> cb) = 0;
+
+    // Legacy helpers
+    virtual bool send(const std::string& data)            { return write(data); }
+    virtual bool connect(const std::string& /*host*/, int /*port*/) { return false; }
+    virtual std::string  getRemoteIP()   const  { return {}; }
+    virtual int          getRemotePort() const  { return 0;  }
+    virtual std::string  readLineBlocking()                 { return {}; }
+    virtual std::string  readLineWithTimeout(int /*sec*/)   { return {}; }
+    virtual void asyncReadLine(std::function<
+        void(const boost::system::error_code&, const std::string&)> /*cb*/) {}
+
+    // ==== NEW: BINARY SUPPORT ====
+    virtual bool writeBinary(const std::string& data) = 0;
+    // Returns empty string on failure or disconnect.
+    virtual std::string readBinaryBlocking() = 0;
 };

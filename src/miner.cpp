@@ -32,7 +32,7 @@ void Miner::startMiningProcess(const std::string &minerAddress) {
             return;
         }
 
-        Blockchain &blockchain = Blockchain::getInstance(15671, DBPaths::getBlockchainDB(), true);
+        Blockchain &blockchain = Blockchain::getInstance();
 
         blockchain.loadPendingTransactionsFromDB();
         blockchain.reloadBlockchainState();  // Load once before loop
@@ -92,7 +92,7 @@ void Miner::startMiningProcess(const std::string &minerAddress) {
 
 // ✅ Improved Mining Algorithm: Hybrid PoW (BLAKE3 + Keccak256)
 std::string Miner::mineBlock(int difficulty) {
-    std::string lastHash = Blockchain::getInstance(15671, DBPaths::getBlockchainDB(), true).getLatestBlock().getHash();
+     std::string lastHash = Blockchain::getInstance().getLatestBlock().getHash();
     int nonce = 0;
     std::string newHash;
 

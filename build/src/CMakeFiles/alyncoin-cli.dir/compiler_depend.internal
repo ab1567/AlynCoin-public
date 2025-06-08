@@ -28,6 +28,8 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o
  /root/AlynCoin/src/transaction.h
  /root/AlynCoin/src/rollup/rollup_block.h
  /root/AlynCoin/src/transaction.h
+ /root/AlynCoin/src/transport/peer_globals.h
+ /root/AlynCoin/src/transport/transport.h
  /root/AlynCoin/src/wallet.h
  /root/AlynCoin/src/network/peer_blacklist.h
  /root/AlynCoin/src/nft/nft.h

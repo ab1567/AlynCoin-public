@@ -7,7 +7,7 @@
 
 // Local helper to safely fetch Network instance
 static Network &getNet() {
-  Blockchain &blockchain = Blockchain::getInstance(15671, DBPaths::getBlockchainDB(), true);
+  Blockchain &blockchain = Blockchain::getInstance();
   return *Network::getExistingInstance();
 }
 

@@ -7,19 +7,16 @@
 #include <iostream>
 #include <cmath>
 #include <algorithm>
-#include <map>
 #include <memory>
 #include <mutex>
 #include <boost/asio.hpp>
-
-// Forward declare global peer data (defined in network.cpp)
-extern std::map<std::string, std::shared_ptr<boost::asio::ip::tcp::socket>> peerSockets;
-extern std::timed_mutex peersMutex;
+#include "transport/transport.h"
+#include "transport/peer_globals.h"
 
 // 🔍 Helper: Estimate number of connected miners
 inline int getActiveMinerCount() {
-    std::lock_guard<std::timed_mutex> lock(peersMutex);
-    return std::max(1, static_cast<int>(peerSockets.size()));
+    std::lock_guard<std::timed_mutex> lk(peersMutex);
+    return std::max(1, static_cast<int>(peerTransports.size()));
 }
 
 // 🚀 Unstoppable Difficulty Scaling for AlynCoin

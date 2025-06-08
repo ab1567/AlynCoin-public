@@ -1354,6 +1354,8 @@ src/CMakeFiles/alyncoin_lib.dir/network.cpp.o: \
  /usr/include/c++/13/bits/this_thread_sleep.h \
  /root/AlynCoin/src/network/peer_manager.h \
  /root/AlynCoin/src/network/peer_blacklist.h /root/AlynCoin/src/block.h \
+ /root/AlynCoin/src/transport/transport.h \
+ /root/AlynCoin/src/transport/peer_globals.h \
  /root/AlynCoin/src/rollup/proofs/proof_verifier.h \
  /root/AlynCoin/src/rollup/proofs/../rollup_block.h \
  /root/AlynCoin/src/syncing.h /usr/include/c++/13/filesystem \
@@ -1373,4 +1375,6 @@ src/CMakeFiles/alyncoin_lib.dir/network.cpp.o: \
  /usr/include/miniupnpc/igd_desc_parse.h /usr/include/miniupnpc/upnpdev.h \
  /usr/include/miniupnpc/upnpcommands.h \
  /usr/include/miniupnpc/miniupnpctypes.h \
- /usr/include/miniupnpc/upnperrors.h
+ /usr/include/miniupnpc/upnperrors.h \
+ /root/AlynCoin/src/transport/tcp_transport.h \
+ /root/AlynCoin/src/transport/pubsub_router.h

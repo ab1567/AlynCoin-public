@@ -2452,6 +2452,78 @@ transaction.cpp.s:
 	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/transaction.cpp.s
 .PHONY : transaction.cpp.s
 
+transport/peer_globals.o: transport/peer_globals.cpp.o
+.PHONY : transport/peer_globals.o
+
+# target to build an object file
+transport/peer_globals.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/transport/peer_globals.cpp.o
+.PHONY : transport/peer_globals.cpp.o
+
+transport/peer_globals.i: transport/peer_globals.cpp.i
+.PHONY : transport/peer_globals.i
+
+# target to preprocess a source file
+transport/peer_globals.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/transport/peer_globals.cpp.i
+.PHONY : transport/peer_globals.cpp.i
+
+transport/peer_globals.s: transport/peer_globals.cpp.s
+.PHONY : transport/peer_globals.s
+
+# target to generate assembly for a file
+transport/peer_globals.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/transport/peer_globals.cpp.s
+.PHONY : transport/peer_globals.cpp.s
+
+transport/pubsub_router.o: transport/pubsub_router.cpp.o
+.PHONY : transport/pubsub_router.o
+
+# target to build an object file
+transport/pubsub_router.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/transport/pubsub_router.cpp.o
+.PHONY : transport/pubsub_router.cpp.o
+
+transport/pubsub_router.i: transport/pubsub_router.cpp.i
+.PHONY : transport/pubsub_router.i
+
+# target to preprocess a source file
+transport/pubsub_router.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/transport/pubsub_router.cpp.i
+.PHONY : transport/pubsub_router.cpp.i
+
+transport/pubsub_router.s: transport/pubsub_router.cpp.s
+.PHONY : transport/pubsub_router.s
+
+# target to generate assembly for a file
+transport/pubsub_router.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/transport/pubsub_router.cpp.s
+.PHONY : transport/pubsub_router.cpp.s
+
+transport/tcp_transport.o: transport/tcp_transport.cpp.o
+.PHONY : transport/tcp_transport.o
+
+# target to build an object file
+transport/tcp_transport.cpp.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/transport/tcp_transport.cpp.o
+.PHONY : transport/tcp_transport.cpp.o
+
+transport/tcp_transport.i: transport/tcp_transport.cpp.i
+.PHONY : transport/tcp_transport.i
+
+# target to preprocess a source file
+transport/tcp_transport.cpp.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/transport/tcp_transport.cpp.i
+.PHONY : transport/tcp_transport.cpp.i
+
+transport/tcp_transport.s: transport/tcp_transport.cpp.s
+.PHONY : transport/tcp_transport.s
+
+# target to generate assembly for a file
+transport/tcp_transport.cpp.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/transport/tcp_transport.cpp.s
+.PHONY : transport/tcp_transport.cpp.s
+
 utils/logger.o: utils/logger.cpp.o
 .PHONY : utils/logger.o
 
@@ -2863,6 +2935,15 @@ help:
 	@echo "... transaction.o"
 	@echo "... transaction.i"
 	@echo "... transaction.s"
+	@echo "... transport/peer_globals.o"
+	@echo "... transport/peer_globals.i"
+	@echo "... transport/peer_globals.s"
+	@echo "... transport/pubsub_router.o"
+	@echo "... transport/pubsub_router.i"
+	@echo "... transport/pubsub_router.s"
+	@echo "... transport/tcp_transport.o"
+	@echo "... transport/tcp_transport.i"
+	@echo "... transport/tcp_transport.s"
 	@echo "... utils/logger.o"
 	@echo "... utils/logger.i"
 	@echo "... utils/logger.s"

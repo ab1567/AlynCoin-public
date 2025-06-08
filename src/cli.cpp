@@ -712,7 +712,7 @@ int cliMain(int argc, char *argv[]) {
   }
 
   Wallet *wallet = nullptr;
-  Blockchain &blockchain = Blockchain::getInstance(port, dbPath, false);
+  Blockchain &blockchain = Blockchain::getInstance();
   PeerBlacklist peerBlacklist(blacklistPath, 3);
 
   Network *network = nullptr;
@@ -1261,7 +1261,7 @@ int cliMain(int argc, char *argv[]) {
     const int highThresholdTxs = 25;
     const int highThresholdSecs = 10;
 
-    Blockchain& blockchain = Blockchain::getInstance(15671, DBPaths::getBlockchainDB(), true);
+    Blockchain& blockchain = Blockchain::getInstance();
     auto lastRollupTime = blockchain.getLastRollupTimestamp();
     auto now = std::time(nullptr);
     auto pendingL2 = blockchain.getPendingL2Transactions();

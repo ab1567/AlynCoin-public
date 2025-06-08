@@ -12796,6 +12796,13 @@ src/CMakeFiles/alyncoin_lib.dir/network.cpp.o: src/network.cpp \
   /usr/include/linux/version.h \
   /usr/include/locale.h \
   /usr/include/math.h \
+  /usr/include/miniupnpc/igd_desc_parse.h \
+  /usr/include/miniupnpc/miniupnpc.h \
+  /usr/include/miniupnpc/miniupnpc_declspec.h \
+  /usr/include/miniupnpc/miniupnpctypes.h \
+  /usr/include/miniupnpc/upnpcommands.h \
+  /usr/include/miniupnpc/upnpdev.h \
+  /usr/include/miniupnpc/upnperrors.h \
   /usr/include/net/if.h \
   /usr/include/netdb.h \
   /usr/include/netinet/in.h \
@@ -28545,6 +28552,12 @@ src/nft/crypto/aes_utils.cpp:
 
 src/network/peer_blacklist.cpp:
 
+/usr/include/miniupnpc/upnpdev.h:
+
+/usr/include/miniupnpc/upnpcommands.h:
+
+/usr/include/miniupnpc/miniupnpc_declspec.h:
+
 src/atomic_swaps/atomic_swap.h:
 
 src/network.cpp:
@@ -28604,6 +28617,8 @@ src/rollup/circuits/state_circuit.h:
 /usr/include/x86_64-linux-gnu/sys/epoll.h:
 
 /usr/include/x86_64-linux-gnu/c++/13/bits/messages_members.h:
+
+/usr/include/miniupnpc/miniupnpctypes.h:
 
 /usr/include/x86_64-linux-gnu/c++/13/bits/basic_file.h:
 
@@ -29008,6 +29023,8 @@ src/transaction.cpp:
 /usr/include/boost/preprocessor/list/fold_left.hpp:
 
 /usr/include/boost/preprocessor/list/detail/limits/fold_right_256.hpp:
+
+/usr/include/miniupnpc/igd_desc_parse.h:
 
 /usr/include/boost/preprocessor/list/detail/limits/fold_left_256.hpp:
 
@@ -30961,6 +30978,8 @@ src/nft/nft_utils.cpp:
 
 /usr/include/boost/asio/detail/event.hpp:
 
+/usr/include/miniupnpc/miniupnpc.h:
+
 /usr/include/boost/asio/detail/eventfd_select_interrupter.hpp:
 
 /usr/include/boost/system/error_condition.hpp:
@@ -31704,6 +31723,8 @@ src/db/rocksdb_wrapper.cpp:
 /usr/include/boost/asio/traits/static_query.hpp:
 
 /usr/include/boost/asio/windows/overlapped_handle.hpp:
+
+/usr/include/miniupnpc/upnperrors.h:
 
 /usr/include/boost/asio/traits/submit_free.hpp:
 

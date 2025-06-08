@@ -12,7 +12,7 @@ public:
     void subscribe(const std::string& topic, Handler handler);
     void publish(const std::string& fromPeer, const std::string& topic, const std::string& payload);
 
-    // Used for integration:
+    // Integration:
     void addPeer(const std::string& peerId, std::function<void(const std::string&)> sendFunc);
     void removePeer(const std::string& peerId);
 

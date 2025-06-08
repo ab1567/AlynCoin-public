@@ -97,6 +97,15 @@ list(APPEND SOURCES
     ${SOURCE_DIR}/nft/nft_utils.cpp
 )
 
+list(APPEND SOURCES
+    ${SOURCE_DIR}/transport/transport.h
+    ${SOURCE_DIR}/transport/tcp_transport.cpp
+    ${SOURCE_DIR}/transport/tcp_transport.h
+    ${SOURCE_DIR}/transport/pubsub_router.cpp
+    ${SOURCE_DIR}/transport/pubsub_router.h
+    ${SOURCE_DIR}/transport/peer_globals.cpp
+)
+
 file(GLOB EXPLORER_SOURCES ${SOURCE_DIR}/explorer/*.cpp)
 
 set(MAIN_SOURCE ${SOURCE_DIR}/main.cpp)

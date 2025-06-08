@@ -1385,5 +1385,7 @@ src/CMakeFiles/nftcli.dir/nft/nft.cpp.o: /root/AlynCoin/src/nft/nft.cpp \
  /usr/include/c++/13/bits/this_thread_sleep.h \
  /root/AlynCoin/src/network/peer_manager.h \
  /root/AlynCoin/src/network/peer_blacklist.h /root/AlynCoin/src/block.h \
+ /root/AlynCoin/src/transport/transport.h \
+ /root/AlynCoin/src/transport/peer_globals.h \
  /root/AlynCoin/src/nft/../db/db_instance.h \
  /root/AlynCoin/src/nft/../db/rocksdb_wrapper.h

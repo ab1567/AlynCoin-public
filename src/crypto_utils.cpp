@@ -876,17 +876,32 @@ std::string encodeRaw(const unsigned char* data, size_t len, bool wrap) {
     return out;
 }
 std::string decodeRaw(const char* data, size_t len, bool wrapped) {
-    BIO* b64 = BIO_new(BIO_f_base64());
+    std::cout << "[decodeRaw DEBUG] Input len: " << len
+              << " | First chars: [" << std::string(data, std::min(len, size_t(60)))
+              << "] | Last chars: [" << std::string(data + len - std::min(len, size_t(10)), std::min(len, size_t(10))) << "]\n";
+
+    while (len > 0 && (data[len-1] == '\n' || data[len-1] == '\r'))
+        --len;
+
     BIO* mem = BIO_new_mem_buf(data, static_cast<int>(len));
-    if (!b64 || !mem) throw std::runtime_error("BIO_new failed");
+    BIO* b64 = BIO_new(BIO_f_base64());
+    if (!mem || !b64) throw std::runtime_error("BIO_new failed");
     if (!wrapped) BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
-    BIO_push(b64, mem);
+    BIO* bio = BIO_push(b64, mem);
+
     std::vector<unsigned char> buffer(len);
-    int n = BIO_read(b64, buffer.data(), static_cast<int>(buffer.size()));
-    if (n < 0) throw std::runtime_error("BIO_read failed");
-    BIO_free_all(b64);
+    int n = BIO_read(bio, buffer.data(), static_cast<int>(buffer.size()));
+    BIO_free_all(bio);
+
+    if (n <= 0) {
+        std::cerr << "[decodeRaw DEBUG] Decode failed, returned size = " << n << "\n";
+        return "";
+    }
+
+    std::cout << "[decodeRaw DEBUG] Decoded size: " << n << "\n";
     return std::string(reinterpret_cast<char*>(buffer.data()), n);
 }
+
 //
 bool encryptFile(const std::string &inputFilePath,
                  const std::string &outputFilePath,
