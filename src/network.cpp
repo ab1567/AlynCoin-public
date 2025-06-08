@@ -834,9 +834,16 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
     static constexpr const char* protocolPrefix     = "ALYN|";
     static constexpr const char* fullChainPrefix    = "FULL_CHAIN|";
     static constexpr const char* rollupPrefix       = "ROLLUP_BLOCK|";
+    static constexpr const char* blockBroadcastPrefix = "BLOCK_BROADCAST|";
 
     if (data.rfind(protocolPrefix, 0) == 0)
         data = data.substr(std::strlen(protocolPrefix));
+
+    if (data.rfind(blockBroadcastPrefix, 0) == 0) {
+        std::string b64 = data.substr(std::strlen(blockBroadcastPrefix));
+        handleBase64Proto(claimedPeerId, blockBroadcastPrefix, b64, transport);
+        return;
+    }
 
     // === Full Blockchain Sync ===
     if (data.rfind(fullChainPrefix, 0) == 0) {
@@ -1028,7 +1035,7 @@ void Network::broadcastBlock(const Block& block, bool /*force*/)
         std::cerr << "[BUG] EMPTY proto in broadcastBlock for idx=" << block.getIndex() << " hash=" << block.getHash() << "\n";
         return;
     }
-    std::string b64 = Crypto::base64Encode(raw);
+    std::string b64 = Crypto::base64Encode(raw, false);
 
     // Frame: "ALYN|BLOCK_BROADCAST|" + [base64] + "\n"
     const std::string message = "ALYN|BLOCK_BROADCAST|" + b64 + "\n";
@@ -1108,7 +1115,7 @@ void Network::handleBase64Proto(const std::string &peer, const std::string &pref
                         alyncoin::BlockProto proto = blk.toProtobuf();
                         std::string raw;
                         if (proto.SerializeToString(&raw)) {
-                            std::string b64 = Crypto::base64Encode(raw);
+                            std::string b64 = Crypto::base64Encode(raw, false);
                             peerTransport->write("ALYN|BLOCK_BROADCAST|" + b64 + "\n");
                         }
                     }
@@ -1126,7 +1133,7 @@ void Network::handleBase64Proto(const std::string &peer, const std::string &pref
                                         alyncoin::BlockProto proto2 = it->toProtobuf();
                                         std::string raw2;
                                         if (proto2.SerializeToString(&raw2)) {
-                                            std::string b64_2 = Crypto::base64Encode(raw2);
+                                            std::string b64_2 = Crypto::base64Encode(raw2, false);
                                             peerTransport2->write("ALYN|BLOCK_BROADCAST|" + b64_2 + "\n");
                                         }
                                     }
@@ -1781,7 +1788,7 @@ void Network::sendFullChain(std::shared_ptr<Transport> transport)
         std::cerr << "❌ [sendFullChain] Couldn’t serialize chain (" << chain.size() << " blocks)\n";
         return;
     }
-    std::string b64 = Crypto::base64Encode(serialized);
+    std::string b64 = Crypto::base64Encode(serialized, false);
 
     // Send the full-chain in one shot
     transport->write(std::string("ALYN|FULL_CHAIN|") + b64 + "\n");
