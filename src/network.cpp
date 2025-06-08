@@ -47,11 +47,13 @@ struct ScopedLockTracer {
 };
 static std::unordered_set<std::string> seenTxHashes;
 static std::mutex seenTxMutex;
-static thread_local struct InFlightBroadcast {
-    std::string peer;
+// Buffer for partially received BLOCK_BROADCAST messages.
+struct InFlightBroadcast {
     std::string base64;
-    bool active{false};
-} inflight;
+};
+// Map of peerId -> accumulated base64 fragment for that peer (thread local
+// since network callbacks happen on one IO thread).
+static thread_local std::unordered_map<std::string, InFlightBroadcast> inflight;
 static inline bool looksLikeBase64(const std::string& s) {
     return !s.empty() && s.find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=") == std::string::npos;
 }
@@ -840,45 +842,44 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
         data = data.substr(std::strlen(protocolPrefix));
 
     if (data.rfind(blockBroadcastPrefix, 0) == 0) {
-        inflight.peer   = claimedPeerId;
-        inflight.base64 = data.substr(std::strlen(blockBroadcastPrefix));
-        inflight.active = true;
+        std::string b64 = data.substr(std::strlen(blockBroadcastPrefix));
+        inflight[claimedPeerId].base64 = b64;
         try {
-            std::string raw = Crypto::base64Decode(inflight.base64, false);
+            std::string raw = Crypto::base64Decode(b64, false);
             alyncoin::BlockProto proto;
             if (proto.ParseFromString(raw) && proto.hash().size() == 64 &&
                 !proto.previous_hash().empty())
             {
                 handleBase64Proto(claimedPeerId, blockBroadcastPrefix,
-                                  inflight.base64, transport);
-                inflight.active = false;
+                                  b64, transport);
+                inflight.erase(claimedPeerId);
             }
         } catch (...) {
-            /* wait for additional lines */
+            /* wait for more lines */
         }
         return;
     }
 
-    if (inflight.active && claimedPeerId == inflight.peer &&
-        looksLikeBase64(data))
-    {
-        inflight.base64 += data;
+    auto inflIt = inflight.find(claimedPeerId);
+    if (inflIt != inflight.end() && looksLikeBase64(data)) {
+        inflIt->second.base64 += data;
         try {
-            std::string raw = Crypto::base64Decode(inflight.base64, false);
+            std::string raw = Crypto::base64Decode(inflIt->second.base64, false);
             alyncoin::BlockProto proto;
             if (proto.ParseFromString(raw) && proto.hash().size() == 64 &&
                 !proto.previous_hash().empty())
             {
                 handleBase64Proto(claimedPeerId, blockBroadcastPrefix,
-                                  inflight.base64, transport);
-                inflight.active = false;
-            } else if (inflight.base64.size() > 5000) {
-                inflight.active = false;
+                                  inflIt->second.base64, transport);
+                inflight.erase(inflIt);
+            } else if (inflIt->second.base64.size() > 5000) {
+                inflight.erase(inflIt);
             }
         } catch (...) {
-            if (inflight.base64.size() > 5000) inflight.active = false;
+            if (inflIt->second.base64.size() > 5000)
+                inflight.erase(inflIt);
         }
-        if (inflight.active)
+        if (inflight.count(claimedPeerId))
             return; // Wait for more fragments
     }
 
