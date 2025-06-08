@@ -668,6 +668,8 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
     size_t myHeight = Blockchain::getInstance().getHeight();
     if (remoteHeight > static_cast<int>(myHeight) && transport && transport->isOpen())
         transport->write("ALYN|REQUEST_BLOCKCHAIN\n");
+    else if (remoteHeight < static_cast<int>(myHeight) && transport && transport->isOpen())
+        sendFullChain(transport);
 
     // 6. if they gave us an external port – dial back
     try {
@@ -1009,6 +1011,8 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
 
                 if (h > (int)chain.getHeight() && transport && transport->isOpen())
                     transport->write("ALYN|REQUEST_BLOCKCHAIN\n");
+                else if (h < (int)chain.getHeight() && transport && transport->isOpen())
+                    sendFullChain(transport);
                 return;
             }
 
