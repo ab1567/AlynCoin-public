@@ -654,6 +654,13 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
     }
 
     // 5. send the initial sync requests
+
+    transport->startReadLoop(
+        [this, claimedPeerId](const std::string& line) {
+            handleIncomingData(claimedPeerId, line, peerTransports[claimedPeerId]);
+        }
+    );
+
     const auto sendInitialRequests = [this](const std::string& pid)
     {
         Json::StreamWriterBuilder b;  b["indentation"] = "";
@@ -684,11 +691,6 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
     } catch (...) {/* ignore bad port here */ }
 
     // 7. Start async read loop using transport's API
-    transport->startReadLoop(
-        [this, claimedPeerId](const std::string& line) {
-            handleIncomingData(claimedPeerId, line, peerTransports[claimedPeerId]);
-        }
-    );
 }
 
 
