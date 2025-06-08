@@ -840,16 +840,53 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
         data = data.substr(std::strlen(protocolPrefix));
 
     if (data.rfind(blockBroadcastPrefix, 0) == 0) {
-        std::string b64 = data.substr(std::strlen(blockBroadcastPrefix));
-        handleBase64Proto(claimedPeerId, blockBroadcastPrefix, b64, transport);
+        inflight.peer   = claimedPeerId;
+        inflight.base64 = data.substr(std::strlen(blockBroadcastPrefix));
+        inflight.active = true;
+        try {
+            std::string raw = Crypto::base64Decode(inflight.base64, false);
+            alyncoin::BlockProto proto;
+            if (proto.ParseFromString(raw) && proto.hash().size() == 64 &&
+                !proto.previous_hash().empty())
+            {
+                handleBase64Proto(claimedPeerId, blockBroadcastPrefix,
+                                  inflight.base64, transport);
+                inflight.active = false;
+            }
+        } catch (...) {
+            /* wait for additional lines */
+        }
         return;
+    }
+
+    if (inflight.active && claimedPeerId == inflight.peer &&
+        looksLikeBase64(data))
+    {
+        inflight.base64 += data;
+        try {
+            std::string raw = Crypto::base64Decode(inflight.base64, false);
+            alyncoin::BlockProto proto;
+            if (proto.ParseFromString(raw) && proto.hash().size() == 64 &&
+                !proto.previous_hash().empty())
+            {
+                handleBase64Proto(claimedPeerId, blockBroadcastPrefix,
+                                  inflight.base64, transport);
+                inflight.active = false;
+            } else if (inflight.base64.size() > 5000) {
+                inflight.active = false;
+            }
+        } catch (...) {
+            if (inflight.base64.size() > 5000) inflight.active = false;
+        }
+        if (inflight.active)
+            return; // Wait for more fragments
     }
 
     // === Full Blockchain Sync ===
     if (data.rfind(fullChainPrefix, 0) == 0) {
         std::string b64 = data.substr(std::strlen(fullChainPrefix));
         try {
-            std::string raw = Crypto::base64Decode(b64);
+            std::string raw = Crypto::base64Decode(b64, false);
             alyncoin::BlockchainProto protoChain;
             if (!protoChain.ParseFromString(raw)) {
                 std::cerr << "[handleIncomingData] ❌ Invalid FULL_CHAIN protobuf\n";
@@ -873,7 +910,6 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
         }
         return;
     }
-
     // === Rollup ===
     if (data.rfind(rollupPrefix, 0) == 0) {
         try {
@@ -1001,7 +1037,7 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
     // === Fallback base64-encoded block ===
     try {
         if (!data.empty() && data.size() > 50 && data.find('|') == std::string::npos) {
-            std::string decoded = Crypto::base64Decode(data);
+            std::string decoded = Crypto::base64Decode(data, false);
             alyncoin::BlockProto proto;
             if (proto.ParseFromString(decoded)) {
                 Block blk = Block::fromProto(proto, false);
@@ -1174,7 +1210,7 @@ void Network::handleBase64Proto(const std::string &peer, const std::string &pref
             Block blk;
             bool ok = false;
             try {
-                std::string raw = Crypto::base64Decode(b64);
+                std::string raw = Crypto::base64Decode(b64, false);
                 alyncoin::BlockProto proto;
                 bool parseOk = proto.ParseFromString(raw);
                 if (parseOk && proto.hash().size() == 64 && !proto.previous_hash().empty()) {
@@ -1188,7 +1224,7 @@ void Network::handleBase64Proto(const std::string &peer, const std::string &pref
             return;
         } else if (prefix == "FULL_CHAIN|") {
             try {
-                std::string raw = Crypto::base64Decode(b64);
+                std::string raw = Crypto::base64Decode(b64, false);
                 alyncoin::BlockchainProto protoChain;
                 if (protoChain.ParseFromString(raw)) {
                     std::vector<Block> receivedBlocks;
