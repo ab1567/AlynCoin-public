@@ -598,7 +598,10 @@ int main(int argc, char *argv[]) {
     std::string blacklistPath = dbPath + "/blacklist";
     std::filesystem::create_directories(blacklistPath);
 
-    Blockchain &blockchain = Blockchain::getInstance(port, dbPath, /*bindNetwork=*/true);
+        // Initialize blockchain without binding to the network yet. The network
+    // instance will be created immediately afterwards and injected via
+    // setNetwork(), preventing the misleading startup warning.
+    Blockchain &blockchain = Blockchain::getInstance(port, dbPath, /*bindNetwork=*/false);
 
      std::unique_ptr<PeerBlacklist> peerBlacklistPtr;
      try {

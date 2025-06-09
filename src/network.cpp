@@ -830,7 +830,12 @@ void Network::run() {
     requestPeerList();
     autoMineBlock();
 
-    // Give some time for peers to connect, then trigger height-aware cold sync
+    // Trigger a sync immediately after startup so the node isn't left waiting
+    // for the periodic thread to run before catching up with peers.
+    this->autoSyncIfBehind();
+
+    // Give some additional time for peers to connect, then try again to ensure
+    // we didn't miss any height updates.
     std::thread([this]() {
         std::this_thread::sleep_for(std::chrono::seconds(3)); // Let connectToNode finish
         this->autoSyncIfBehind();
@@ -1268,28 +1273,39 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
         return;
     }
 
-    // === Fallback: Try to parse direct base64 blockchain blobs (legacy or buggy peer)
+ // === Fallback: accumulate legacy base64 chunks (older peers may split messages)
+    static std::unordered_map<std::string, std::string> legacyChainBuf;
     try {
-        if (!data.empty() && data.size() > 20000 && data.find('|') == std::string::npos) {
-            std::cerr << "[handleIncomingData] 📡 Fallback: trying to parse direct base64 blob as BlockchainProto\n";
-            std::string raw = Crypto::base64Decode(data, false);
-            alyncoin::BlockchainProto protoChain;
-            if (protoChain.ParseFromString(raw)) {
-                std::vector<Block> blocks;
-                for (const auto& pb : protoChain.blocks()) {
-                    try { blocks.push_back(Block::fromProto(pb, false)); }
-                    catch (...) { std::cerr << "⚠️ Skipped malformed block\n"; }
+        if (!data.empty() && data.find('|') == std::string::npos && data.size() > 50) {
+            std::string& buf = legacyChainBuf[claimedPeerId];
+            buf += data;
+            std::cerr << "[handleIncomingData] 📡 Legacy base64 chunk received (" << data.size()
+                      << " chars, total " << buf.size() << ")\n";
+            try {
+                std::string raw = Crypto::base64Decode(buf, false);
+                alyncoin::BlockchainProto protoChain;
+                if (protoChain.ParseFromString(raw)) {
+                    std::vector<Block> blocks;
+                    for (const auto& pb : protoChain.blocks()) {
+                        try { blocks.push_back(Block::fromProto(pb, false)); }
+                        catch (...) { std::cerr << "⚠️ Skipped malformed block\n"; }
+                    }
+                    Blockchain& chain = Blockchain::getInstance();
+                    chain.compareAndMergeChains(blocks);
+                    if (peerManager)
+                        peerManager->setPeerHeight(claimedPeerId, static_cast<int>(blocks.size()) - 1);
+                    std::cerr << "[handleIncomingData] ✅ Synced full chain from peer (legacy base64)\n";
+                    legacyChainBuf.erase(claimedPeerId);
+                    return;
                 }
-                Blockchain& chain = Blockchain::getInstance();
-                chain.compareAndMergeChains(blocks);
-                if (peerManager)
-                    peerManager->setPeerHeight(claimedPeerId, static_cast<int>(blocks.size()) - 1);
-                std::cerr << "[handleIncomingData] ✅ Synced full chain from peer (fallback base64)\n";
-                return;
+            } catch (...) {
+                // keep accumulating until parse succeeds
             }
+            if (buf.size() > 300000) legacyChainBuf.erase(claimedPeerId);
+            return;
         }
     } catch (...) {
-        std::cerr << "[handleIncomingData] ❌ Fallback: base64 decode/parse failed\n";
+        std::cerr << "[handleIncomingData] ❌ Legacy base64 handling failed\n";
     }
 
     // === Fallback base64-encoded block ===
