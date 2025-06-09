@@ -18,6 +18,7 @@
 #include <set>
 #include <algorithm>
 #include <unordered_map>
+#include <chrono>
 #include <json/json.h>
 #include <sstream>
 #include <thread>
@@ -893,6 +894,21 @@ void Network::autoSyncIfBehind() {
     }
 }
 
+void Network::waitForInitialSync(int timeoutSeconds) {
+    auto start = std::chrono::steady_clock::now();
+    while (true) {
+        size_t localHeight = blockchain->getHeight();
+        int networkHeight = peerManager ? peerManager->getMedianNetworkHeight() : 0;
+        if (networkHeight > 0 && localHeight >= static_cast<size_t>(networkHeight)) {
+            syncing = false;
+            break;
+        }
+        if (std::chrono::steady_clock::now() - start > std::chrono::seconds(timeoutSeconds)) {
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+}
 
 // ✅ Auto-Discover Peers Instead of Manually Adding Nodes
 std::vector<std::string> Network::discoverPeers() {

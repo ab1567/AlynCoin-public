@@ -116,6 +116,7 @@ public:
     inline static Network *getExistingInstance() { return instancePtr; }
     void autoSyncIfBehind();
     const auto& getPeerTable() const { return peerTransports; }
+    void waitForInitialSync(int timeoutSeconds = 10);
     void handleBase64Proto(const std::string &peer, const std::string &prefix, 
                                 const std::string &b64, std::shared_ptr<Transport> transport);
 private:
