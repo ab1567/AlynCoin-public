@@ -172,6 +172,17 @@ if(MINIUPNPC_INCLUDE_DIR AND MINIUPNPC_LIBRARY)
 else()
     message(WARNING "miniupnpc not found, UPnP will be disabled!")
 endif()
+#-------------------------
+find_path(NATPMP_INCLUDE_DIR natpmp.h)
+find_library(NATPMP_LIBRARY NAMES natpmp libnatpmp)
+
+if(NATPMP_INCLUDE_DIR AND NATPMP_LIBRARY)
+    message(STATUS "libnatpmp found: ${NATPMP_LIBRARY}")
+    add_definitions(-DHAVE_LIBNATPMP)
+    include_directories(${NATPMP_INCLUDE_DIR})
+else()
+    message(WARNING "libnatpmp not found, NAT-PMP will be disabled!")
+endif()
 
 # --------------------------
 # Only generate protobufs if not skipped
@@ -333,8 +344,14 @@ target_link_libraries(alyncoin_lib
     falcon
     dilithium
     ${SOURCE_DIR}/rust/target/release/libzk_winterfell.a
-    ${MINIUPNPC_LIBRARY}
 )
+if(MINIUPNPC_LIBRARY)
+    target_link_libraries(alyncoin_lib ${MINIUPNPC_LIBRARY})
+endif()
+
+if(NATPMP_LIBRARY)
+    target_link_libraries(alyncoin_lib ${NATPMP_LIBRARY})
+endif()
 
 # --------------------------
 # Main Executables

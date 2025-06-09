@@ -31,6 +31,11 @@
 #include <miniupnpc/upnpcommands.h>
 #include <miniupnpc/upnperrors.h>
 #endif
+#ifdef HAVE_LIBNATPMP
+#include <natpmp.h>
+#include <arpa/inet.h>
+#include <sys/select.h>
+#endif
 #include "transport/tcp_transport.h"
 #include "transport/pubsub_router.h"
 
@@ -137,6 +142,45 @@ void tryUPnPPortMapping(int port) {
     }
 }
 #endif
+#ifdef HAVE_LIBNATPMP
+void tryNATPMPPortMapping(int port) {
+    natpmp_t natpmp;
+    natpmpresp_t response;
+    int r = initnatpmp(&natpmp, 0, 0);
+    if (r < 0) {
+        std::cerr << "⚠️ [NAT-PMP] initnatpmp failed: " << r << "\n";
+        return;
+    }
+    r = sendnewportmappingrequest(&natpmp, NATPMP_PROTOCOL_TCP, port, port, 3600);
+    if (r < 0) {
+        std::cerr << "⚠️ [NAT-PMP] send request failed: " << r << "\n";
+        closenatpmp(&natpmp);
+        return;
+    }
+    do {
+        fd_set fds;
+        FD_ZERO(&fds);
+        FD_SET(natpmp.s, &fds);
+        struct timeval timeout;
+        if (getnatpmprequesttimeout(&natpmp, &timeout) < 0) {
+            std::cerr << "⚠️ [NAT-PMP] timeout failed\n";
+            closenatpmp(&natpmp);
+            return;
+        }
+        select(natpmp.s + 1, &fds, nullptr, nullptr, &timeout);
+        r = readnatpmpresponseorretry(&natpmp, &response);
+    } while (r == NATPMP_TRYAGAIN);
+
+    if (r >= 0 && response.resultcode == 0) {
+        std::cout << "✅ [NAT-PMP] Port mapping added on port " << port << "\n";
+    } else {
+        std::cerr << "⚠️ [NAT-PMP] Failed to add port mapping: " << r
+                  << " resp=" << response.resultcode << "\n";
+    }
+    closenatpmp(&natpmp);
+}
+#endif
+
 
 Network::Network(unsigned short port, Blockchain* blockchain, PeerBlacklist* blacklistPtr)
     : port(port), blockchain(blockchain), isRunning(false), syncing(true),
@@ -760,9 +804,11 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
 // ✅ **Run Network Thread**
 void Network::run() {
     std::cout << "🚀 [Network] Starting network stack for port " << port << "\n";
-        #ifdef HAVE_MINIUPNPC
-            tryUPnPPortMapping(this->port);
-        #endif
+    #ifdef HAVE_MINIUPNPC
+    tryUPnPPortMapping(this->port);
+    #elif defined(HAVE_LIBNATPMP)
+    tryNATPMPPortMapping(this->port);
+    #endif
     // Start listener and IO thread
     startServer();
     std::this_thread::sleep_for(std::chrono::seconds(2));
