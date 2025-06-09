@@ -998,6 +998,8 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
 
             Blockchain& chain = Blockchain::getInstance();
             chain.compareAndMergeChains(blocks);
+            if (peerManager)
+                peerManager->setPeerHeight(claimedPeerId, static_cast<int>(blocks.size()) - 1);
             std::cerr << "[handleIncomingData] ✅ Synced full chain from peer\n";
         } catch (...) {
             std::cerr << "[handleIncomingData] ❌ Base64 decode failed for FULL_CHAIN\n";
