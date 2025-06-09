@@ -781,15 +781,27 @@ void Network::run() {
 void Network::autoSyncIfBehind() {
     Blockchain &blockchain = Blockchain::getInstance();
     size_t myHeight = blockchain.getHeight();
+    std::string myTip = blockchain.getLatestBlockHash();
 
     std::lock_guard<std::timed_mutex> lock(peersMutex);
     for (const auto &[peerAddr, peerTransport] : peerTransports) {
-        if (peerTransport && peerTransport->isOpen()) {
-            std::cerr << "🌐 [autoSyncIfBehind] Requesting height from peer: " << peerAddr << std::endl;
-            peerTransport->send("ALYN|{\"type\":\"height_request\"}\n");
+        if (!peerTransport || !peerTransport->isOpen()) continue;
+
+        std::cerr << "🌐 [autoSyncIfBehind] Requesting height from peer: " << peerAddr << std::endl;
+        peerTransport->send("ALYN|{\"type\":\"height_request\"}\n");
+        peerTransport->send("ALYN|{\"type\":\"tip_hash_request\"}\n");
+
+        if (peerManager) {
+            int ph = peerManager->getPeerHeight(peerAddr);
+            std::string peerTip = peerManager->getPeerTipHash(peerAddr);
+
+            if (ph > static_cast<int>(myHeight)) {
+                peerTransport->write("ALYN|REQUEST_BLOCKCHAIN\n");
+            } else if (ph == static_cast<int>(myHeight) && !peerTip.empty() && peerTip != myTip) {
+                peerTransport->write("ALYN|REQUEST_BLOCKCHAIN\n");
+            }
         }
     }
-    // Handler for "height_response" remains the same.
 }
 
 
@@ -1012,6 +1024,19 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
 
     if (data == "PONG")
         return;
+
+    if (data == "BLOCKCHAIN_END") {
+        Blockchain& chain = Blockchain::getInstance();
+        size_t myHeight = chain.getHeight();
+        int peerHeight = -1;
+        if (peerManager) {
+            peerHeight = peerManager->getPeerHeight(claimedPeerId);
+        }
+        if (peerHeight > static_cast<int>(myHeight) && transport && transport->isOpen()) {
+            transport->write("ALYN|REQUEST_BLOCKCHAIN\n");
+        }
+        return;
+    }
 
     // === Blockchain Request ===
     if (data == "REQUEST_BLOCKCHAIN") {

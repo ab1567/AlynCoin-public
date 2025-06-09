@@ -123,6 +123,11 @@ int PeerManager::getPeerHeight(const std::string& peer) const {
     return -1;
 }
 
+std::string PeerManager::getPeerTipHash(const std::string& peer) const {
+    auto it = peerTipHashes.find(peer);
+    if (it != peerTipHashes.end()) return it->second;
+    return "";
+}
 
 void PeerManager::setPeerTipHash(const std::string& peer, const std::string& tipHash) {
     peerTipHashes[peer] = tipHash;
