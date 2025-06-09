@@ -653,7 +653,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
         Json::StreamWriterBuilder wr;  wr["indentation"] = "";
         std::string payload = Json::writeString(wr, hs);
         if (transport && transport->isOpen())
-            transport->write("ALYN|" + payload + "\n");
+            transport->write(payload + "\n");
     }
 
     // 5. send the initial sync requests
