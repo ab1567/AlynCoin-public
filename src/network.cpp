@@ -1666,10 +1666,10 @@ bool Network::connectToNode(const std::string &host, int port)
     handshake["height"]      = Blockchain::getInstance().getHeight();
 
         Json::StreamWriterBuilder wr;  wr["indentation"] = "";
-        std::string payload = Json::writeString(wr, handshake) + '\n';
-        transport->write(payload);
+        std::string payload = Json::writeString(wr, handshake);
+        transport->write(std::string("ALYN|") + payload + '\n');
 
-        std::cout << "🤝 Sent handshake to " << peerKey << ": "
+        std::cout << "🤝 Sent handshake to " << peerKey << ": ALYN|"
                   << payload << std::flush
                   << "✅ Connected to new peer: " << peerKey << '\n';
 
