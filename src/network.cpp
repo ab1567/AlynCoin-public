@@ -751,7 +751,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
         Json::StreamWriterBuilder wr;  wr["indentation"] = "";
         std::string payload = Json::writeString(wr, hs);
         if (transport && transport->isOpen())
-            transport->write(payload + "\n");
+            transport->write(std::string("ALYN|") + payload + "\n");
     }
 
     // 5. send the initial sync requests
@@ -988,46 +988,68 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
     static constexpr const char* rollupPrefix       = "ROLLUP_BLOCK|";
     static constexpr const char* blockBroadcastPrefix = "BLOCK_BROADCAST|";
 
-    // Strip the global protocol prefix first so that all other prefix
-    // checks operate on the raw message type.
+    // Strip protocol prefix (so all checks below work)
     if (data.rfind(protocolPrefix, 0) == 0)
         data = data.substr(std::strlen(protocolPrefix));
 
     // === FULL_CHAIN inflight buffer for peer sync ===
     static std::unordered_map<std::string, std::string> inflightFullChainBase64;
 
-    // 1. Handle FULL_CHAIN buffering/fragments
+    // --- Robust FULL_CHAIN handler: single-shot or multi-chunk
     if (data.rfind(fullChainPrefix, 0) == 0) {
-        // Start new buffer (overwrites any unfinished one for that peer)
-        inflightFullChainBase64[claimedPeerId] = data.substr(strlen(fullChainPrefix));
-        return;
-    }
-    if (inflightFullChainBase64.count(claimedPeerId)) {
-        if (data == "BLOCKCHAIN_END") {
-            // Finalize and process
-            std::string& b64 = inflightFullChainBase64[claimedPeerId];
+        const std::string b64 = data.substr(strlen(fullChainPrefix));
+        // If this is a *large* message or (likely) single-shot, decode and process now!
+        if (b64.size() > 10000 || b64.find("BLOCKCHAIN_END") != std::string::npos) {
             try {
                 std::string raw = Crypto::base64Decode(b64, false);
                 alyncoin::BlockchainProto protoChain;
                 if (!protoChain.ParseFromString(raw)) {
-                    std::cerr << "[handleIncomingData] ❌ Invalid FULL_CHAIN protobuf\n";
+                    std::cerr << "[handleIncomingData] ❌ Invalid FULL_CHAIN protobuf (single shot)\n";
                 } else {
                     std::vector<Block> blocks;
                     for (const auto& pb : protoChain.blocks()) {
-                        try {
-                            blocks.push_back(Block::fromProto(pb, false));
-                        } catch (...) {
-                            std::cerr << "⚠️ Skipped malformed block\n";
-                        }
+                        try { blocks.push_back(Block::fromProto(pb, false)); }
+                        catch (...) { std::cerr << "⚠️ Skipped malformed block\n"; }
                     }
                     Blockchain& chain = Blockchain::getInstance();
                     chain.compareAndMergeChains(blocks);
                     if (peerManager)
                         peerManager->setPeerHeight(claimedPeerId, static_cast<int>(blocks.size()) - 1);
-                    std::cerr << "[handleIncomingData] ✅ Synced full chain from peer\n";
+                    std::cerr << "[handleIncomingData] ✅ Synced full chain from peer (single shot)\n";
                 }
             } catch (...) {
-                std::cerr << "[handleIncomingData] ❌ Base64 decode failed for FULL_CHAIN\n";
+                std::cerr << "[handleIncomingData] ❌ Base64 decode failed for FULL_CHAIN (single shot)\n";
+            }
+            return;
+        } else {
+            // Otherwise, treat as multi-chunk and buffer
+            inflightFullChainBase64[claimedPeerId] = b64;
+            return;
+        }
+    }
+    if (inflightFullChainBase64.count(claimedPeerId)) {
+        if (data == "BLOCKCHAIN_END") {
+            // Finalize and process the buffered base64
+            std::string& b64 = inflightFullChainBase64[claimedPeerId];
+            try {
+                std::string raw = Crypto::base64Decode(b64, false);
+                alyncoin::BlockchainProto protoChain;
+                if (!protoChain.ParseFromString(raw)) {
+                    std::cerr << "[handleIncomingData] ❌ Invalid FULL_CHAIN protobuf (multi-chunk)\n";
+                } else {
+                    std::vector<Block> blocks;
+                    for (const auto& pb : protoChain.blocks()) {
+                        try { blocks.push_back(Block::fromProto(pb, false)); }
+                        catch (...) { std::cerr << "⚠️ Skipped malformed block\n"; }
+                    }
+                    Blockchain& chain = Blockchain::getInstance();
+                    chain.compareAndMergeChains(blocks);
+                    if (peerManager)
+                        peerManager->setPeerHeight(claimedPeerId, static_cast<int>(blocks.size()) - 1);
+                    std::cerr << "[handleIncomingData] ✅ Synced full chain from peer (multi-chunk)\n";
+                }
+            } catch (...) {
+                std::cerr << "[handleIncomingData] ❌ Base64 decode failed for FULL_CHAIN (multi-chunk)\n";
             }
             inflightFullChainBase64.erase(claimedPeerId);
             return;
@@ -1244,6 +1266,30 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
             std::cerr << "⚠️ Malformed JSON from peer\n";
         }
         return;
+    }
+
+    // === Fallback: Try to parse direct base64 blockchain blobs (legacy or buggy peer)
+    try {
+        if (!data.empty() && data.size() > 20000 && data.find('|') == std::string::npos) {
+            std::cerr << "[handleIncomingData] 📡 Fallback: trying to parse direct base64 blob as BlockchainProto\n";
+            std::string raw = Crypto::base64Decode(data, false);
+            alyncoin::BlockchainProto protoChain;
+            if (protoChain.ParseFromString(raw)) {
+                std::vector<Block> blocks;
+                for (const auto& pb : protoChain.blocks()) {
+                    try { blocks.push_back(Block::fromProto(pb, false)); }
+                    catch (...) { std::cerr << "⚠️ Skipped malformed block\n"; }
+                }
+                Blockchain& chain = Blockchain::getInstance();
+                chain.compareAndMergeChains(blocks);
+                if (peerManager)
+                    peerManager->setPeerHeight(claimedPeerId, static_cast<int>(blocks.size()) - 1);
+                std::cerr << "[handleIncomingData] ✅ Synced full chain from peer (fallback base64)\n";
+                return;
+            }
+        }
+    } catch (...) {
+        std::cerr << "[handleIncomingData] ❌ Fallback: base64 decode/parse failed\n";
     }
 
     // === Fallback base64-encoded block ===
@@ -2171,7 +2217,7 @@ void Network::broadcastRollupBlock(const RollupBlock& rollup) {
     for (const auto& [peerID, transport] : peerTransports) {
         if (transport && transport->isOpen()) {
             try {
-                transport->write(payload + "\n");
+                transport->write(std::string("ALYN|") + payload + "\n");
                 std::cout << "✅ Sent rollup block to " << peerID << "\n";
             } catch (const std::exception& e) {
                 std::cerr << "❌ Failed to send rollup block to " << peerID << ": " << e.what() << "\n";
