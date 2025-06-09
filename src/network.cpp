@@ -1404,8 +1404,15 @@ void Network::handleBase64Proto(const std::string &peer, const std::string &pref
                 if (protoChain.ParseFromString(raw)) {
                     std::vector<Block> receivedBlocks;
                     for (const auto& protoBlock : protoChain.blocks()) {
-                        try { receivedBlocks.push_back(Block::fromProto(protoBlock, false)); }
-                        catch (...) {}
+                        try {
+                            // be lenient when syncing from peers
+                            receivedBlocks.push_back(Block::fromProto(protoBlock, /*allowPartial=*/true));
+                        } catch (const std::exception& e) {
+                            std::cerr << "⚠️ [handleBase64Proto] Skipped malformed block: "
+                                      << e.what() << "\n";
+                        } catch (...) {
+                            std::cerr << "⚠️ [handleBase64Proto] Skipped malformed block (unknown error)\n";
+                        }
                     }
                     Blockchain& chain = Blockchain::getInstance();
                     chain.compareAndMergeChains(receivedBlocks);
