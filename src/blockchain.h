@@ -184,6 +184,7 @@ public:
   std::vector<Transaction> getAllTransactionsForAddress(const std::string& address);
 	bool openDB(bool readOnly = false);
 	rocksdb::DB* getRawDB();
+  void setNetwork(Network* net) { network = net; }
 	// L2
   std::unordered_map<std::string, double> getCurrentState() const;
   std::unordered_map<std::string, double> simulateL2StateUpdate(

@@ -608,12 +608,13 @@ int main(int argc, char *argv[]) {
          peerBlacklistPtr = nullptr;
      }
 
-     Network* network = nullptr;
-     if (peerBlacklistPtr) {
-         network = &Network::getInstance(port, &blockchain, peerBlacklistPtr.get());
-     } else {
-         std::cerr << "⚠️ Network disabled due to PeerBlacklist failure.\n";
-     }
+    Network* network = nullptr;
+    if (peerBlacklistPtr) {
+        network = &Network::getInstance(port, &blockchain, peerBlacklistPtr.get());
+        blockchain.setNetwork(network);
+    } else {
+        std::cerr << "⚠️ Network disabled due to PeerBlacklist failure.\n";
+    }
 
      blockchain.loadFromDB();
      blockchain.reloadBlockchainState();
