@@ -1034,6 +1034,8 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
         }
         if (peerHeight > static_cast<int>(myHeight) && transport && transport->isOpen()) {
             transport->write("ALYN|REQUEST_BLOCKCHAIN\n");
+        } else if (peerHeight < static_cast<int>(myHeight) && transport && transport->isOpen()) {
+            sendFullChain(transport);
         }
         return;
     }
@@ -1077,7 +1079,15 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
             }
 
             if (type == "tip_hash_response" && peerManager) {
-                peerManager->recordTipHash(claimedPeerId, root["data"].asString());
+                std::string tip = root["data"].asString();
+                peerManager->recordTipHash(claimedPeerId, tip);
+
+                int ph = peerManager->getPeerHeight(claimedPeerId);
+                if (ph == static_cast<int>(chain.getHeight()) &&
+                    !tip.empty() && tip != chain.getLatestBlockHash() &&
+                    transport && transport->isOpen()) {
+                    transport->write("ALYN|REQUEST_BLOCKCHAIN\n");
+                }
                 return;
             }
 
@@ -1364,6 +1374,8 @@ void Network::handleBase64Proto(const std::string &peer, const std::string &pref
                     }
                     Blockchain& chain = Blockchain::getInstance();
                     chain.compareAndMergeChains(receivedBlocks);
+                    if (peerManager)
+                        peerManager->setPeerHeight(peer, static_cast<int>(receivedBlocks.size()) - 1);
                     std::cerr << "[handleBase64Proto] Chain merge complete (base64 streaming)\n";
                 } else {
                     std::cerr << "[handleBase64Proto] Failed to parse incoming BlockchainProto (base64)\n";
@@ -1963,6 +1975,11 @@ void Network::sendFullChain(std::shared_ptr<Transport> transport)
     // **CRITICAL**: signal end of chain so peer calls compareAndMergeChains()
     transport->write("ALYN|BLOCKCHAIN_END\n");
     std::cerr << "📡 [sendFullChain] Sent BLOCKCHAIN_END marker\n";
+
+    Json::Value heightMsg;
+    heightMsg["type"] = "height_response";
+    heightMsg["data"] = bc.getHeight();
+    transport->write(std::string("ALYN|") + Json::writeString(Json::StreamWriterBuilder(), heightMsg) + "\n");
 }
 
 
