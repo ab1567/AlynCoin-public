@@ -117,6 +117,12 @@ bool PeerManager::fetchBlockAtHeight(int height, Block& outBlock) {
 void PeerManager::setPeerHeight(const std::string& peer, int height) {
     peerHeights[peer] = height;
 }
+int PeerManager::getPeerHeight(const std::string& peer) const {
+    auto it = peerHeights.find(peer);
+    if (it != peerHeights.end()) return it->second;
+    return -1;
+}
+
 
 void PeerManager::setPeerTipHash(const std::string& peer, const std::string& tipHash) {
     peerTipHashes[peer] = tipHash;

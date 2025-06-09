@@ -319,11 +319,25 @@ void Network::syncWithPeers() {
         std::cerr << "⚠️ [WARNING] No peers available for sync!\n";
         return;
     }
-
+    size_t myHeight = Blockchain::getInstance().getHeight();
     for (const auto &[peer, transport] : peerTransports) {
         if (peer.empty()) continue;
-        std::cout << "📡 [DEBUG] Requesting blockchain sync from " << peer << "...\n";
-        requestBlockchainSync(peer);
+        int peerHeight = -1;
+        if (peerManager) peerHeight = peerManager->getPeerHeight(peer);
+
+        if (peerHeight == -1) {
+            Json::Value j; j["type"] = "height_request";
+            Json::StreamWriterBuilder b; b["indentation"] = "";
+            sendData(peer, "ALYN|" + Json::writeString(b, j) + '\n');
+            continue;
+        }
+
+        if (static_cast<size_t>(peerHeight) > myHeight) {
+            std::cout << "📡 [DEBUG] Requesting blockchain sync from " << peer << "...\n";
+            requestBlockchainSync(peer);
+        } else if (static_cast<size_t>(peerHeight) < myHeight && transport && transport->isOpen()) {
+            sendFullChain(transport);
+        }
     }
 }
 
