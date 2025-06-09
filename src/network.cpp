@@ -1824,6 +1824,7 @@ void Network::sendInitialRequests(const std::string& peerId)
 
     j["type"] = "request_peers";
     sendData(peerId, "ALYN|" + Json::writeString(b, j) + "\n");
+    sendData(peerId, "ALYN|REQUEST_BLOCKCHAIN\n");
 }
 
 // ------------------------------------------------------------------
