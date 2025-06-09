@@ -98,29 +98,34 @@ std::vector<std::string> fetchPeersFromDNS(const std::string& domain) {
 // ==== [Network Ctor/Dtor] ====
 #ifdef HAVE_MINIUPNPC
 void tryUPnPPortMapping(int port) {
-    struct UPNPDev* devlist = nullptr;
-    struct UPNPUrls urls;
-    struct IGDdatas data;
-    char lanAddr[64] = {0};
+    struct UPnPContext {
+        UPNPUrls urls{};
+        IGDdatas data{};
+        UPNPDev* devlist{nullptr};
+        ~UPnPContext() {
+            FreeUPNPUrls(&urls);
+            if (devlist) freeUPNPDevlist(devlist);
+        }
+    } ctx;
 
-    devlist = upnpDiscover(2000, nullptr, nullptr, 0, 0, 2, nullptr);
-    if (!devlist) {
+    char lanAddr[64] = {0};
+    ctx.devlist = upnpDiscover(2000, nullptr, nullptr, 0, 0, 2, nullptr);
+    if (!ctx.devlist) {
         std::cerr << "⚠️ [UPnP] upnpDiscover() failed or no devices found\n";
         return;
     }
 
-    int igdStatus = UPNP_GetValidIGD(devlist, &urls, &data, lanAddr, sizeof(lanAddr));
+    int igdStatus = UPNP_GetValidIGD(ctx.devlist, &ctx.urls, &ctx.data,
+                                     lanAddr, sizeof(lanAddr));
     if (igdStatus != 1) {
         std::cerr << "⚠️ [UPnP] No valid IGD found\n";
-        FreeUPNPUrls(&urls);
-        freeUPNPDevlist(devlist);
         return;
     }
 
     char portStr[16];
     snprintf(portStr, sizeof(portStr), "%d", port);
 
-    int ret = UPNP_AddPortMapping(urls.controlURL, data.first.servicetype,
+    int ret = UPNP_AddPortMapping(ctx.urls.controlURL, ctx.data.first.servicetype,
                                   portStr, portStr, lanAddr,
                                   "AlynCoin", "TCP", nullptr, "0");
 
@@ -130,9 +135,6 @@ void tryUPnPPortMapping(int port) {
         std::cerr << "⚠️ [UPnP] Failed to add port mapping: "
                   << strupnperror(ret) << "\n";
     }
-
-    FreeUPNPUrls(&urls);
-    freeUPNPDevlist(devlist);
 }
 #endif
 
