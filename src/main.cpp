@@ -1454,11 +1454,18 @@ if (cmd == "nft-verifyhash" && argc >= 3) {
         // 🔄 Trigger sync now that connection is open
         std::cout << "🔁 Triggering sync after peer connect...\n";
         network->syncWithPeers();
+        if (blockchain.getHeight() <= 1) {
+            std::cout << "🔄 [Cold Sync] Attempting to load chain from peers...\n";
+            blockchain.loadFromPeers();
+        }
     } else if (network) {
         // No explicit --connect, still try syncing
         network->syncWithPeers();
+        if (blockchain.getHeight() <= 1) {
+            std::cout << "🔄 [Cold Sync] Attempting to load chain from peers...\n";
+            blockchain.loadFromPeers();
+        }
     }
-
     std::this_thread::sleep_for(std::chrono::seconds(2));
 
     PeerManager *peerManager = network ? network->getPeerManager() : nullptr;
