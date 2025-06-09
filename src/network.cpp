@@ -988,6 +988,11 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
     static constexpr const char* rollupPrefix       = "ROLLUP_BLOCK|";
     static constexpr const char* blockBroadcastPrefix = "BLOCK_BROADCAST|";
 
+    // Strip the global protocol prefix first so that all other prefix
+    // checks operate on the raw message type.
+    if (data.rfind(protocolPrefix, 0) == 0)
+        data = data.substr(std::strlen(protocolPrefix));
+
     // === FULL_CHAIN inflight buffer for peer sync ===
     static std::unordered_map<std::string, std::string> inflightFullChainBase64;
 
@@ -1036,9 +1041,6 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
     // ---- Existing protocol logic ----
 
     static thread_local std::unordered_map<std::string, InFlightData> inflight;
-
-    if (data.rfind(protocolPrefix, 0) == 0)
-        data = data.substr(std::strlen(protocolPrefix));
 
     if (data.rfind(blockBroadcastPrefix, 0) == 0) {
         InFlightData& infl = inflight[claimedPeerId];
