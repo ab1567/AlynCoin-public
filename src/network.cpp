@@ -1284,13 +1284,24 @@ void Network::handleBase64Proto(const std::string &peer, const std::string &pref
 
         // Buffer as orphan if missing parent
         if (blk.getIndex() > 0 && !chain.hasBlockHash(blk.getPreviousHash())) {
-            std::cerr << "⚠️  [handleBase64Proto] [Orphan Block] Parent missing for block idx=" << blk.getIndex() << '\n';
+            std::cerr << "⚠️  [handleBase64Proto] [Orphan Block] Parent missing for block idx="
+                      << blk.getIndex() << '\n';
             if (transport && transport->isOpen())
                 transport->write("ALYN|REQUEST_BLOCKCHAIN\n");
             buf.push_back(blk);
             return;
         }
 
+        // Potential fork: parent exists but isn't the current tip
+        if (blk.getIndex() > 0 && chain.hasBlockHash(blk.getPreviousHash()) &&
+            blk.getPreviousHash() != chain.getLatestBlockHash()) {
+            std::cerr << "🔀 [handleBase64Proto] Fork block at idx=" << blk.getIndex()
+                      << ", requesting full chain\n";
+            if (transport && transport->isOpen())
+                transport->write("ALYN|REQUEST_BLOCKCHAIN\n");
+            buf.push_back(blk);
+            return;
+        }
         // Otherwise, just buffer
         buf.push_back(blk);
         std::cerr << "[handleBase64Proto] Buffered block idx=" << blk.getIndex()
