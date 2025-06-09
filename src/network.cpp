@@ -530,6 +530,9 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
     // 1. Read & verify the handshake line
     try {
         handshakeLine = transport->readLineBlocking();
+        static constexpr const char* protoPrefix = "ALYN|";
+        if (handshakeLine.rfind(protoPrefix, 0) == 0)
+            handshakeLine = handshakeLine.substr(std::strlen(protoPrefix));
 
         Json::Value root;
         Json::CharReaderBuilder rdr; std::string errs;
