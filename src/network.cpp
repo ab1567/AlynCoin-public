@@ -633,15 +633,27 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
         if (handshakeLine.rfind(protoPrefix, 0) == 0)
             handshakeLine = handshakeLine.substr(std::strlen(protoPrefix));
 
+        std::string handshakeBuf = handshakeLine;
         Json::Value root;
         Json::CharReaderBuilder rdr; std::string errs;
-        std::istringstream iss(handshakeLine);
+        auto parseHandshake = [&]() -> bool {
+            std::istringstream iss(handshakeBuf);
+            return Json::parseFromStream(rdr, iss, &root, &errs) &&
+                   root.isMember("type") && root["type"].asString() == "handshake" &&
+                   root.isMember("port") && root.isMember("version");
+        };
 
-        if (!(Json::parseFromStream(rdr, iss, &root, &errs) &&
-            root.isMember("type") && root["type"].asString() == "handshake" &&
-            root.isMember("port") && root.isMember("version")))
-            throw std::runtime_error("invalid handshake");
+        int readAttempts = 0;
+        while (!parseHandshake()) {
+            if (++readAttempts > 3 || handshakeBuf.size() > 4096)
+                throw std::runtime_error("invalid handshake");
+            std::string extra = transport->readLineBlocking();
+            if (extra.rfind(protoPrefix, 0) == 0)
+                extra = extra.substr(std::strlen(protoPrefix));
+            handshakeBuf += extra;
+        }
 
+        handshakeLine = handshakeBuf;
         // who’s really at the other end of the TCP stream?
         const auto senderIP   = transport->getRemoteIP();
         const auto senderPort = transport->getRemotePort();
@@ -999,6 +1011,7 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
     static constexpr const char* fullChainPrefix    = "FULL_CHAIN|";
     static constexpr const char* rollupPrefix       = "ROLLUP_BLOCK|";
     static constexpr const char* blockBroadcastPrefix = "BLOCK_BROADCAST|";
+    static constexpr size_t MAX_INFLIGHT_CHAIN_BYTES = 20 * 1024 * 1024; // 20MB
 
     // Strip protocol prefix (so all checks below work)
     if (data.rfind(protocolPrefix, 0) == 0)
@@ -1037,7 +1050,14 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
         } else {
             // Otherwise, treat as multi-chunk and buffer
             inflightFullChainBase64[claimedPeerId] = b64;
-            return;
+            if (inflightFullChainBase64[claimedPeerId].size() > MAX_INFLIGHT_CHAIN_BYTES) {
+                std::cerr << "[handleIncomingData] ⚠️ FULL_CHAIN buffer exceeded limit from "
+                          << claimedPeerId << " ("
+                          << inflightFullChainBase64[claimedPeerId].size()
+                          << " bytes)\n";
+                inflightFullChainBase64.erase(claimedPeerId);
+            }
+	    return;
         }
     }
     if (inflightFullChainBase64.count(claimedPeerId)) {
@@ -1069,6 +1089,14 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
         } else {
             // Intermediate chunk: append
             inflightFullChainBase64[claimedPeerId] += data;
+            if (inflightFullChainBase64[claimedPeerId].size() > MAX_INFLIGHT_CHAIN_BYTES) {
+                std::cerr << "[handleIncomingData] ⚠️ FULL_CHAIN buffer exceeded limit from "
+                          << claimedPeerId << " ("
+                          << inflightFullChainBase64[claimedPeerId].size()
+                          << " bytes)\n";
+                inflightFullChainBase64.erase(claimedPeerId);
+                return;
+            }
             return;
         }
     }
