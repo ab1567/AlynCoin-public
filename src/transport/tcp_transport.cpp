@@ -145,7 +145,9 @@ void TcpTransport::startReadLoop(std::function<void(const std::string&)> onLine)
 void TcpTransport::asyncReadLine(
     std::function<void(const boost::system::error_code&, const std::string&)> cb)
 {
-    auto buf  = std::make_shared<boost::asio::streambuf>();
+    // Allocate a generous streambuf so very large single-line messages
+    // (such as FULL_CHAIN sync responses) don't hit the default ~65k limit.
+    auto buf  = std::make_shared<boost::asio::streambuf>(4 * 1024 * 1024);
     auto self = shared_from_this();
 
     boost::asio::async_read_until(*socket, *buf, '\n',

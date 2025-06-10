@@ -1006,6 +1006,7 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
 
     // === FULL_CHAIN inflight buffer for peer sync ===
     static std::unordered_map<std::string, std::string> inflightFullChainBase64;
+    static std::unordered_map<std::string, std::string> legacyChainBuf;
 
     // --- Robust FULL_CHAIN handler: single-shot or multi-chunk
     if (data.rfind(fullChainPrefix, 0) == 0) {
@@ -1070,6 +1071,53 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
             inflightFullChainBase64[claimedPeerId] += data;
             return;
         }
+    }
+
+    // --- Legacy multi-line FULL_CHAIN handler ---
+    if (data == "BLOCKCHAIN_END" && legacyChainBuf.count(claimedPeerId)) {
+        try {
+            std::string raw = Crypto::base64Decode(legacyChainBuf[claimedPeerId], false);
+            alyncoin::BlockchainProto protoChain;
+            if (protoChain.ParseFromString(raw)) {
+                std::vector<Block> blocks;
+                for (const auto& pb : protoChain.blocks()) {
+                    try { blocks.push_back(Block::fromProto(pb, false)); }
+                    catch (...) { std::cerr << "⚠️ Skipped malformed block\n"; }
+                }
+                Blockchain& chain = Blockchain::getInstance();
+                chain.compareAndMergeChains(blocks);
+                if (peerManager)
+                    peerManager->setPeerHeight(claimedPeerId, static_cast<int>(blocks.size()) - 1);
+                std::cerr << "[handleIncomingData] ✅ Synced full chain from peer (legacy base64)\n";
+            }
+        } catch (...) {
+            std::cerr << "[handleIncomingData] ❌ Legacy base64 decode failed\n";
+        }
+        legacyChainBuf.erase(claimedPeerId);
+        return;
+    }
+
+    if (legacyChainBuf.count(claimedPeerId) && data.rfind(protocolPrefix, 0) == 0) {
+        try {
+            std::string raw = Crypto::base64Decode(legacyChainBuf[claimedPeerId], false);
+            alyncoin::BlockchainProto protoChain;
+            if (protoChain.ParseFromString(raw)) {
+                std::vector<Block> blocks;
+                for (const auto& pb : protoChain.blocks()) {
+                    try { blocks.push_back(Block::fromProto(pb, false)); }
+                    catch (...) { std::cerr << "⚠️ Skipped malformed block\n"; }
+                }
+                Blockchain& chain = Blockchain::getInstance();
+                chain.compareAndMergeChains(blocks);
+                if (peerManager)
+                    peerManager->setPeerHeight(claimedPeerId, static_cast<int>(blocks.size()) - 1);
+                std::cerr << "[handleIncomingData] ✅ Synced full chain from peer (legacy base64)\n";
+            }
+        } catch (...) {
+            std::cerr << "[handleIncomingData] ❌ Legacy base64 decode failed\n";
+        }
+        legacyChainBuf.erase(claimedPeerId);
+        // fall through to process current message normally
     }
 
     // ---- Existing protocol logic ----
@@ -1281,7 +1329,6 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
     }
 
  // === Fallback: accumulate legacy base64 chunks (older peers may split messages)
-    static std::unordered_map<std::string, std::string> legacyChainBuf;
     try {
         if (!data.empty() && data.find('|') == std::string::npos && data.size() > 50) {
             std::string& buf = legacyChainBuf[claimedPeerId];
