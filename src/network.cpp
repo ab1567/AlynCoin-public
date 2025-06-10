@@ -763,15 +763,6 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
         }
     );
 
-    const auto sendInitialRequests = [this](const std::string& pid)
-    {
-        Json::StreamWriterBuilder b;  b["indentation"] = "";
-        Json::Value j;
-
-        j["type"] = "height_request";  sendData(pid,"ALYN|"+Json::writeString(b,j)+'\n');
-        j["type"] = "tip_hash_request";sendData(pid,"ALYN|"+Json::writeString(b,j)+'\n');
-        j["type"] = "request_peers";   sendData(pid,"ALYN|"+Json::writeString(b,j)+'\n');
-    };
     sendInitialRequests(claimedPeerId);
 
     size_t myHeight = Blockchain::getInstance().getHeight();
