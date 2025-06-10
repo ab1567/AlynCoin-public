@@ -68,6 +68,9 @@ public:
     void broadcastTransactionToAllExcept(const Transaction &tx, const std::string &excludePeer);
     void broadcastMessage(const std::string &message);
     void broadcastBlock(const Block &block, bool force = false);
+    void broadcastBlocks(const std::vector<Block>& blocks);
+    void sendBlockToPeer(const std::string& peer, const Block& blk);
+    void sendInventory(const std::string& peer);
     PeerManager *getPeerManager();
     std::vector<std::string> discoverPeers();
     void connectToDiscoveredPeers();
@@ -117,8 +120,9 @@ public:
     void autoSyncIfBehind();
     const auto& getPeerTable() const { return peerTransports; }
     void waitForInitialSync(int timeoutSeconds = 10);
-    void handleBase64Proto(const std::string &peer, const std::string &prefix, 
+    void handleBase64Proto(const std::string &peer, const std::string &prefix,
                                 const std::string &b64, std::shared_ptr<Transport> transport);
+    void handleGetData(const std::string& peer, const std::vector<std::string>& hashes);
 private:
     unsigned short port;
     Blockchain *blockchain;

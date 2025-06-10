@@ -2,6 +2,8 @@
 #include "transport.h"
 #include <boost/asio.hpp>
 #include <memory>
+#include <deque>
+#include <mutex>
 
 /**
  * Concrete Boost-Asio TCP transport.
@@ -29,6 +31,14 @@ public:
     // === NEW: BINARY ===
     bool         writeBinary(const std::string& data) override;
     std::string  readBinaryBlocking() override;
+
+    // Queue-based async write
+    void         queueWrite(const std::string& data) override;
+
 private:
     std::shared_ptr<boost::asio::ip::tcp::socket> socket;
+    std::deque<std::string> writeQueue;
+    std::mutex              writeMutex;
+    bool                    writeInProgress{false};
+    void doWrite();
 };

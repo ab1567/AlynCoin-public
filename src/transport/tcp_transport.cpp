@@ -4,6 +4,8 @@
 #include <boost/asio/streambuf.hpp>
 #include <boost/asio/write.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <deque>
+#include <mutex>
 #include <iostream>
 #include <cstring>
 
@@ -161,5 +163,35 @@ void TcpTransport::asyncReadLine(
                 if (!line.empty() && line.back() == '\r') line.pop_back();
             }
             cb(ec, line);
+        });
+}
+
+// ---- Async queue write implementation ----
+void TcpTransport::queueWrite(const std::string& data)
+{
+    std::lock_guard<std::mutex> lock(writeMutex);
+    writeQueue.push_back(data);
+    if (!writeInProgress)
+        doWrite();
+}
+
+void TcpTransport::doWrite()
+{
+    if (writeQueue.empty() || !isOpen()) {
+        writeInProgress = false;
+        return;
+    }
+    writeInProgress = true;
+    auto self = shared_from_this();
+    std::string msg = writeQueue.front();
+    if (msg.empty() || msg.back() != '\n') msg.push_back('\n');
+    boost::asio::async_write(*socket, boost::asio::buffer(msg),
+        [this, self](const boost::system::error_code& ec, std::size_t) {
+            std::lock_guard<std::mutex> lock(writeMutex);
+            if (!writeQueue.empty()) writeQueue.pop_front();
+            if (!ec)
+                doWrite();
+            else
+                writeInProgress = false;
         });
 }

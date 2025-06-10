@@ -62,7 +62,9 @@ uint64_t PeerManager::getMedianNetworkHeight() {
 
     for (const std::string& peer : connected_peers) {
         if (peerHeights.count(peer)) {
-            heights.push_back(peerHeights[peer]);
+            int h = peerHeights[peer];
+            if (h >= 0)
+                heights.push_back(h);
         }
     }
 
@@ -115,6 +117,7 @@ bool PeerManager::fetchBlockAtHeight(int height, Block& outBlock) {
     return false;
 }
 void PeerManager::setPeerHeight(const std::string& peer, int height) {
+    if (height < 0) return;
     peerHeights[peer] = height;
 }
 int PeerManager::getPeerHeight(const std::string& peer) const {
