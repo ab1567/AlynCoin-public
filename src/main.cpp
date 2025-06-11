@@ -1494,8 +1494,10 @@ if (cmd == "nft-verifyhash" && argc >= 3) {
         std::cout << "4. Start Mining Loop\n";
         std::cout << "5. Sync Blockchain\n";
         std::cout << "6. View Dev Fund Info\n";
-        std::cout << "7. Exit\n";
-        std::cout << "8. Run Self-Heal Now 🩺\n";
+        std::cout << "7. Check Balance\n";
+        std::cout << "8. Generate Rollup Block\n";
+        std::cout << "9. Exit\n";
+        std::cout << "10. Run Self-Heal Now 🩺\n";
         std::cout << "Choose an option: ";
 
         int choice;
@@ -1574,19 +1576,58 @@ if (cmd == "nft-verifyhash" && argc >= 3) {
             break;
 
         case 5:
-            if (network) network->intelligentSync();
+            if (network) {
+                network->scanForPeers();
+                network->requestPeerList();
+                network->intelligentSync();
+            }
             break;
 
         case 6:
             std::cout << "Dev Fund Balance: " << blockchain.getBalance("DevFundWallet") << " AlynCoin\n";
             break;
 
-        case 7:
+        case 7: {
+            std::string addr;
+            std::cout << "Enter address: ";
+            std::cin >> addr;
+            std::cout << "Balance: " << blockchain.getBalance(addr) << " AlynCoin\n";
+            break;
+        }
+
+        case 8: {
+            blockchain.loadPendingTransactionsFromDB();
+            auto allTxs = blockchain.getPendingTransactions();
+            blockchain.setPendingL2TransactionsIfNotInRollups(allTxs);
+            auto l2Transactions = blockchain.getPendingL2Transactions();
+            if (l2Transactions.empty()) {
+                std::cout << "⚠️ No pending L2 transactions to roll up.\n";
+                break;
+            }
+            auto stateBefore = blockchain.getCurrentState();
+            auto stateAfter = blockchain.simulateL2StateUpdate(stateBefore, l2Transactions);
+            RollupBlock rollup(
+                blockchain.getRollupChainSize(),
+                blockchain.getLastRollupHash(),
+                l2Transactions);
+            std::string prevRecursive = blockchain.getLastRollupProof();
+            rollup.generateRollupProof(stateBefore, stateAfter, prevRecursive);
+            if (blockchain.isRollupBlockValid(rollup)) {
+                blockchain.addRollupBlock(rollup);
+                if (network) network->broadcastRollupBlock(rollup);
+                std::cout << "✅ Rollup Block created. Hash: " << rollup.getHash() << "\n";
+            } else {
+                std::cout << "❌ Rollup Block creation failed.\n";
+            }
+            break;
+        }
+
+        case 9:
             std::cout << "Shutting down AlynCoin Node...\n";
             running = false;
             break;
 
-        case 8:
+        case 10:
             std::cout << "🩺 Manually triggering self-healing check...\n";
             healer.monitorAndHeal();
             break;

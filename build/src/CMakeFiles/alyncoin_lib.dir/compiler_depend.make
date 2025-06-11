@@ -13029,6 +13029,7 @@ src/CMakeFiles/alyncoin_lib.dir/network.cpp.o: /root/AlynCoin/src/network.cpp \
   /usr/include/x86_64-linux-gnu/bits/types/clockid_t.h \
   /usr/include/x86_64-linux-gnu/bits/types/cookie_io_functions_t.h \
   /usr/include/x86_64-linux-gnu/bits/types/error_t.h \
+  /usr/include/x86_64-linux-gnu/bits/types/idtype_t.h \
   /usr/include/x86_64-linux-gnu/bits/types/locale_t.h \
   /usr/include/x86_64-linux-gnu/bits/types/mbstate_t.h \
   /usr/include/x86_64-linux-gnu/bits/types/sig_atomic_t.h \
@@ -13098,6 +13099,7 @@ src/CMakeFiles/alyncoin_lib.dir/network.cpp.o: /root/AlynCoin/src/network.cpp \
   /usr/include/x86_64-linux-gnu/sys/ucontext.h \
   /usr/include/x86_64-linux-gnu/sys/uio.h \
   /usr/include/x86_64-linux-gnu/sys/un.h \
+  /usr/include/x86_64-linux-gnu/sys/wait.h \
   /usr/lib/gcc/x86_64-linux-gnu/13/include/limits.h \
   /usr/lib/gcc/x86_64-linux-gnu/13/include/stdarg.h \
   /usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h \
@@ -30411,6 +30413,8 @@ src/CMakeFiles/alyncoin_lib.dir/zk/winterfell_stark.cpp.o: /root/AlynCoin/src/zk
 
 /root/AlynCoin/src/nft/crypto/aes_utils.h:
 
+/usr/include/x86_64-linux-gnu/sys/wait.h:
+
 /usr/include/miniupnpc/upnpdev.h:
 
 /usr/include/miniupnpc/upnpcommands.h:
@@ -32374,6 +32378,8 @@ generated/main_protos.pb.cc:
 /usr/include/wchar.h:
 
 /usr/include/google/protobuf/stubs/strutil.h:
+
+/usr/include/x86_64-linux-gnu/bits/types/idtype_t.h:
 
 /usr/include/boost/asio/posix/descriptor.hpp:
 

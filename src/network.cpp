@@ -27,6 +27,7 @@
 #include "proto_utils.h"
 #include <cstdlib>
 #include <cstdio>
+#include <sys/wait.h>
 #ifdef HAVE_MINIUPNPC
 #include <miniupnpc/miniupnpc.h>
 #include <miniupnpc/upnpcommands.h>
@@ -70,6 +71,11 @@ PubSubRouter g_pubsub;
 namespace fs = std::filesystem;
 Network* Network::instancePtr = nullptr;
 
+// Fallback peer(s) in case DNS discovery fails
+static const std::vector<std::string> DEFAULT_DNS_PEERS = {
+    "49.206.43.163:15672" // Known bootstrap peer
+};
+
 // ==== [DNS Peer Discovery] ====
 std::vector<std::string> fetchPeersFromDNS(const std::string& domain) {
     std::vector<std::string> peers;
@@ -96,9 +102,18 @@ std::vector<std::string> fetchPeersFromDNS(const std::string& domain) {
             }
         }
     }
-    pclose(pipe);
+    int rc = pclose(pipe);
+    if (rc != 0) {
+        int code = WEXITSTATUS(rc);
+        std::cerr << "⚠️ [DNS] nslookup exited with code " << code
+                  << " for domain " << domain << "\n";
+    }
     if (peers.empty()) {
         std::cerr << "⚠️ [DNS] No valid TXT peer records found at " << domain << "\n";
+        peers = DEFAULT_DNS_PEERS; // fallback to built-in peers
+        if (!peers.empty()) {
+            std::cerr << "ℹ️  [DNS] Using fallback peers list." << std::endl;
+        }
     }
     return peers;
 }
@@ -1020,6 +1035,27 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
     if (data.rfind(protocolPrefix, 0) == 0)
         data = data.substr(std::strlen(protocolPrefix));
 
+    static thread_local std::unordered_map<std::string, std::string> partialJsonBuf;
+
+    // Accumulate JSON fragments if message was split or truncated
+    if (!data.empty() && data.front() == '{' && data.back() != '}') {
+        partialJsonBuf[claimedPeerId] += data;
+        if (partialJsonBuf[claimedPeerId].size() > 8192)
+            partialJsonBuf.erase(claimedPeerId);
+        return;
+    }
+    if (partialJsonBuf.count(claimedPeerId)) {
+        data = partialJsonBuf[claimedPeerId] + data;
+        if (!data.empty() && data.front() == '{' && data.back() == '}') {
+            partialJsonBuf.erase(claimedPeerId);
+        } else {
+            partialJsonBuf[claimedPeerId] = data;
+            if (partialJsonBuf[claimedPeerId].size() > 8192)
+                partialJsonBuf.erase(claimedPeerId);
+            return;
+        }
+    }
+
     // === FULL_CHAIN inflight buffer for peer sync ===
     static std::unordered_map<std::string, std::string> inflightFullChainBase64;
     static std::unordered_map<std::string, std::string> legacyChainBuf;
@@ -1041,10 +1077,13 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
                         catch (...) { std::cerr << "⚠️ Skipped malformed block\n"; }
                     }
                     Blockchain& chain = Blockchain::getInstance();
+                    size_t before = chain.getChain().size();
                     chain.compareAndMergeChains(blocks);
+                    size_t after = chain.getChain().size();
                     if (peerManager)
                         peerManager->setPeerHeight(claimedPeerId, static_cast<int>(blocks.size()) - 1);
-                    std::cerr << "[handleIncomingData] ✅ Synced full chain from peer (single shot)\n";
+                    std::cerr << "[handleIncomingData] ✅ Synced full chain from peer (single shot). "
+                              << before << " -> " << after << " blocks\n";
                 }
             } catch (...) {
                 std::cerr << "[handleIncomingData] ❌ Base64 decode failed for FULL_CHAIN (single shot)\n";
@@ -1463,9 +1502,6 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
     } catch (const std::exception& e) {
         std::cerr << "❌ Exception in fallback block parse: " << e.what() << "\n";
     }
-    // Suppress noisy warnings for obviously incomplete fragments
-    if (data.empty() || data == "{" || data == "}" || data == "[" || data == "]")
-        return;
 
     std::cerr << "⚠️ [handleIncomingData] Unknown or unhandled message from " << claimedPeerId
               << ": [" << data.substr(0, 100) << "]\n";
@@ -1733,10 +1769,13 @@ void Network::handleBase64Proto(const std::string &peer, const std::string &pref
                         }
                     }
                     Blockchain& chain = Blockchain::getInstance();
+                    size_t before = chain.getChain().size();
                     chain.compareAndMergeChains(receivedBlocks);
+                    size_t after = chain.getChain().size();
                     if (peerManager)
                         peerManager->setPeerHeight(peer, static_cast<int>(receivedBlocks.size()) - 1);
-                    std::cerr << "[handleBase64Proto] Chain merge complete (base64 streaming)\n";
+                    std::cerr << "[handleBase64Proto] Chain merge complete (base64 streaming). "
+                              << before << " -> " << after << " blocks\n";
                 } else {
                     std::cerr << "[handleBase64Proto] Failed to parse incoming BlockchainProto (base64)\n";
                 }
@@ -2126,6 +2165,7 @@ bool Network::connectToNode(const std::string &host, int port)
         std::cout << "🤝 Sent handshake to " << peerKey << ": ALYN|"
                   << payload << std::flush
                   << "✅ Connected to new peer: " << peerKey << '\n';
+
         // --- wait briefly for their handshake so we know their height ---
         std::string remoteHs = transport->readLineWithTimeout(2);
         if (!remoteHs.empty() && remoteHs.rfind("ALYN|",0)==0)
