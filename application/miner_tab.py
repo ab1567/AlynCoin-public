@@ -1,24 +1,11 @@
 import sys
 import re
-import requests
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QLabel, QTextEdit, QHBoxLayout, QFrame
 )
 from PyQt5.QtCore import Qt, QTimer
 
-def alyncoin_rpc(method, params=None):
-    url = "http://127.0.0.1:1567/rpc"
-    headers = {"Content-Type": "application/json"}
-    body = {"method": method, "params": params or []}
-    try:
-        resp = requests.post(url, headers=headers, json=body, timeout=20)
-        resp.raise_for_status()
-        data = resp.json()
-        if "error" in data:
-            raise Exception(data["error"])
-        return data.get("result", None)
-    except Exception as e:
-        return {"error": str(e)}
+from rpc_client import alyncoin_rpc
 
 def filter_miner_output(line: str) -> bool:
     # Always show errors/warnings

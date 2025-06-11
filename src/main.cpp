@@ -564,8 +564,8 @@ svr.Post("/rpc", [blockchain, network](const httplib::Request& req, httplib::Res
     res.set_content(output.dump(), "application/json");
 });
 
-    printf("🚀 [AlynCoin RPC] Listening on http://127.0.0.1:%d/rpc\n", rpc_port);
-    svr.listen("127.0.0.1", rpc_port);
+    printf("🚀 [AlynCoin RPC] Listening on http://0.0.0.0:%d/rpc\n", rpc_port);
+    svr.listen("0.0.0.0", rpc_port);
 }
 
 void clearInputBuffer() {

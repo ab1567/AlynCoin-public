@@ -1,23 +1,10 @@
-import requests
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QLabel, QHBoxLayout, QDialog,
     QFormLayout, QLineEdit, QComboBox, QDialogButtonBox, QTextEdit
 )
 from PyQt5.QtCore import Qt
 
-def alyncoin_rpc(method, params=None):
-    url = "http://127.0.0.1:1567/rpc"
-    headers = {"Content-Type": "application/json"}
-    body = {"method": method, "params": params or []}
-    try:
-        resp = requests.post(url, headers=headers, json=body, timeout=15)
-        resp.raise_for_status()
-        data = resp.json()
-        if "error" in data:
-            raise Exception(data["error"])
-        return data.get("result", None)
-    except Exception as e:
-        return {"error": str(e)}
+from rpc_client import alyncoin_rpc
 
 class DAOTab(QWidget):
     def __init__(self, parent):

@@ -1,24 +1,7 @@
 import re
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLineEdit, QComboBox, QPushButton
 
-def alyncoin_rpc(method, params=None):
-    import requests
-    url = "http://127.0.0.1:1567/rpc"
-    headers = {"Content-Type": "application/json"}
-    body = {
-        "method": method,
-        "params": params or []
-    }
-    try:
-        resp = requests.post(url, headers=headers, json=body, timeout=15)
-        resp.raise_for_status()
-        data = resp.json()
-        if 'error' in data:
-            raise Exception(data['error'])
-        return data.get('result', None)
-    except Exception as e:
-        print(f"❌ RPC error: {e}")
-        return {"error": str(e)}
+from rpc_client import alyncoin_rpc
 
 class SendTab(QWidget):
     def __init__(self, parent):
