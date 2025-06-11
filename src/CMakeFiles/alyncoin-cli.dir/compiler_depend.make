@@ -27,6 +27,8 @@ src/CMakeFiles/alyncoin-cli.dir/cli.cpp.o: src/cli.cpp \
   src/transaction.h \
   src/rollup/rollup_block.h \
   src/transaction.h \
+  src/transport/peer_globals.h \
+  src/transport/transport.h \
   src/wallet.h \
   src/network/peer_blacklist.h \
   src/nft/nft.h \
@@ -2615,6 +2617,10 @@ src/cli/peer_blacklist_ui.cpp:
 
 /usr/include/c++/13/ext/concurrence.h:
 
+/usr/include/c++/13/ext/aligned_buffer.h:
+
+/usr/include/c++/13/exception:
+
 /usr/include/boost/date_time/date_iterator.hpp:
 
 /usr/include/boost/asio/basic_deadline_timer.hpp:
@@ -2883,8 +2889,6 @@ src/zk/recursive_proof_helper.cpp:
 
 /usr/include/boost/asio/multiple_exceptions.hpp:
 
-/usr/include/boost/date_time/gregorian/greg_day_of_year.hpp:
-
 /usr/include/boost/mpl/aux_/preprocessed/gcc/apply_wrap.hpp:
 
 /usr/include/boost/predef/compiler/comeau.h:
@@ -2900,12 +2904,6 @@ src/zk/recursive_proof_helper.cpp:
 /usr/include/c++/13/tr1/hypergeometric.tcc:
 
 /usr/include/c++/13/bits/locale_facets.h:
-
-/usr/include/c++/13/vector:
-
-/usr/include/boost/asio/detail/signal_handler.hpp:
-
-/usr/include/boost/date_time/gregorian/greg_duration.hpp:
 
 /usr/include/x86_64-linux-gnu/asm/errno.h:
 
@@ -3217,6 +3215,12 @@ src/db/rocksdb_wrapper.h:
 
 /usr/include/boost/asio/detail/limits.hpp:
 
+/usr/include/termios.h:
+
+/usr/include/boost/asio/execution/context_as.hpp:
+
+/usr/include/boost/asio/detail/variadic_templates.hpp:
+
 /usr/include/boost/asio/impl/read.hpp:
 
 /usr/include/boost/asio/associated_allocator.hpp:
@@ -3224,6 +3228,10 @@ src/db/rocksdb_wrapper.h:
 /usr/include/boost/mpl/aux_/na_spec.hpp:
 
 /usr/include/boost/asio/execution/set_done.hpp:
+
+/usr/include/boost/asio/ip/impl/network_v4.ipp:
+
+/usr/include/boost/asio/basic_readable_pipe.hpp:
 
 /usr/include/boost/asio/detail/concurrency_hint.hpp:
 
@@ -3250,12 +3258,6 @@ src/db/rocksdb_wrapper.h:
 /usr/include/c++/13/bits/hashtable_policy.h:
 
 /usr/include/boost/asio/detail/buffered_stream_storage.hpp:
-
-/usr/include/boost/config/detail/select_compiler_config.hpp:
-
-/usr/include/boost/asio/traits/static_require_concept.hpp:
-
-/usr/include/boost/asio/detail/buffer_sequence_adapter.hpp:
 
 /usr/include/boost/asio/detail/cstdint.hpp:
 
@@ -3316,8 +3318,6 @@ src/governance/dao_storage.h:
 /usr/include/boost/asio/detail/reactive_socket_service_base.hpp:
 
 /usr/include/boost/asio/detail/scoped_lock.hpp:
-
-/usr/include/boost/asio/traits/schedule_free.hpp:
 
 /usr/include/google/protobuf/has_bits.h:
 
@@ -3407,16 +3407,6 @@ src/crypto_protos.pb.h:
 
 /usr/include/boost/asio/traits/execute_free.hpp:
 
-/usr/include/wctype.h:
-
-/usr/include/c++/13/mutex:
-
-/usr/include/boost/preprocessor/arithmetic/detail/is_maximum_number.hpp:
-
-/usr/include/boost/asio/high_resolution_timer.hpp:
-
-/usr/include/boost/asio/detail/handler_tracking.hpp:
-
 /usr/include/boost/preprocessor/logical/not.hpp:
 
 /usr/include/boost/asio/detail/select_interrupter.hpp:
@@ -3447,15 +3437,13 @@ src/zk/recursive_proof_helper.h:
 
 /usr/include/boost/asio/basic_socket_acceptor.hpp:
 
-/usr/include/openssl/dsaerr.h:
-
-/usr/include/boost/asio/detail/date_time_fwd.hpp:
-
-/usr/include/boost/asio/detail/reactor_op.hpp:
-
-/usr/include/boost/preprocessor/detail/is_binary.hpp:
-
 /usr/include/boost/asio/basic_socket_streambuf.hpp:
+
+/usr/include/x86_64-linux-gnu/bits/types/stack_t.h:
+
+/usr/include/boost/asio/detail/utility.hpp:
+
+/usr/include/boost/mpl/aux_/lambda_arity_param.hpp:
 
 /usr/include/boost/asio/detail/assert.hpp:
 
@@ -3467,9 +3455,43 @@ src/zk/recursive_proof_helper.h:
 
 /usr/include/boost/asio/generic/stream_protocol.hpp:
 
+/usr/include/boost/asio/traits/schedule_free.hpp:
+
+src/transport/transport.h:
+
+/usr/include/c++/13/bits/new_allocator.h:
+
 /usr/include/c++/13/bits/istream.tcc:
 
 /usr/include/boost/asio/detail/thread_group.hpp:
+
+/usr/include/wctype.h:
+
+/usr/include/c++/13/mutex:
+
+/usr/include/boost/preprocessor/arithmetic/detail/is_maximum_number.hpp:
+
+/usr/include/boost/asio/detail/handler_tracking.hpp:
+
+/usr/include/boost/asio/high_resolution_timer.hpp:
+
+/usr/include/boost/config/detail/select_compiler_config.hpp:
+
+/usr/include/boost/asio/traits/static_require_concept.hpp:
+
+/usr/include/boost/asio/detail/buffer_sequence_adapter.hpp:
+
+/usr/include/asm-generic/int-ll64.h:
+
+/usr/include/boost/asio/detail/winsock_init.hpp:
+
+/usr/include/boost/asio/detail/impl/posix_serial_port_service.ipp:
+
+/usr/include/google/protobuf/stubs/platform_macros.h:
+
+/usr/include/boost/asio/detail/conditionally_enabled_event.hpp:
+
+/usr/include/boost/exception/exception.hpp:
 
 /usr/include/boost/asio/detail/call_stack.hpp:
 
@@ -3721,6 +3743,10 @@ src/cli.cpp:
 
 /usr/include/boost/asio/detail/thread_info_base.hpp:
 
+/usr/include/boost/asio/is_read_buffered.hpp:
+
+/usr/include/boost/asio/awaitable.hpp:
+
 /usr/include/boost/regex_fwd.hpp:
 
 /usr/include/boost/asio/buffer.hpp:
@@ -3797,19 +3823,13 @@ src/cli.cpp:
 
 /usr/include/c++/13/bits/basic_ios.tcc:
 
-/usr/include/google/protobuf/stubs/platform_macros.h:
-
-/usr/include/boost/asio/detail/conditionally_enabled_event.hpp:
-
-/usr/include/boost/exception/exception.hpp:
+/usr/include/boost/asio/any_completion_executor.hpp:
 
 /usr/include/boost/asio/dispatch.hpp:
 
-/usr/include/boost/asio/basic_readable_pipe.hpp:
+/usr/include/boost/asio/basic_random_access_file.hpp:
 
-/usr/include/boost/asio/ip/impl/network_v4.ipp:
-
-/usr/include/boost/asio/detail/variadic_templates.hpp:
+/usr/include/boost/asio/detail/impl/null_event.ipp:
 
 /usr/include/boost/asio/detail/wrapped_handler.hpp:
 
@@ -3847,11 +3867,13 @@ src/governance/devfund.h:
 
 /usr/include/c++/13/algorithm:
 
-/usr/include/boost/asio/any_completion_executor.hpp:
+/usr/include/openssl/dsaerr.h:
 
-/usr/include/boost/asio/detail/impl/null_event.ipp:
+/usr/include/boost/asio/detail/date_time_fwd.hpp:
 
-/usr/include/boost/asio/basic_random_access_file.hpp:
+/usr/include/boost/asio/detail/reactor_op.hpp:
+
+/usr/include/boost/preprocessor/detail/is_binary.hpp:
 
 /usr/include/boost/asio/associated_immediate_executor.hpp:
 
@@ -3927,14 +3949,6 @@ src/layer2/state_channel.h:
 
 /usr/include/boost/asio/detail/impl/posix_mutex.ipp:
 
-/usr/include/boost/asio/awaitable.hpp:
-
-/usr/include/boost/asio/is_read_buffered.hpp:
-
-/usr/include/boost/asio/detail/winsock_init.hpp:
-
-/usr/include/boost/asio/detail/impl/posix_serial_port_service.ipp:
-
 /usr/include/boost/asio/ip/udp.hpp:
 
 /usr/include/boost/asio/impl/cancellation_signal.ipp:
@@ -3960,8 +3974,6 @@ src/layer2/state_channel.h:
 /usr/include/boost/asio/execution/outstanding_work.hpp:
 
 /usr/include/boost/asio/detail/impl/strand_executor_service.ipp:
-
-/usr/include/asm-generic/int-ll64.h:
 
 /usr/include/boost/asio/detail/object_pool.hpp:
 
@@ -4157,15 +4169,13 @@ src/network.h:
 
 /usr/include/boost/asio/detail/tss_ptr.hpp:
 
-/usr/include/x86_64-linux-gnu/bits/types/stack_t.h:
+/usr/include/boost/date_time/gregorian/greg_day_of_year.hpp:
 
-/usr/include/boost/asio/detail/utility.hpp:
+/usr/include/c++/13/vector:
 
-/usr/include/boost/mpl/aux_/lambda_arity_param.hpp:
+/usr/include/boost/asio/detail/signal_handler.hpp:
 
-/usr/include/termios.h:
-
-/usr/include/boost/asio/execution/context_as.hpp:
+/usr/include/boost/date_time/gregorian/greg_duration.hpp:
 
 /usr/include/boost/date_time/special_defs.hpp:
 
@@ -4239,6 +4249,8 @@ src/crypto_utils.h:
 
 /usr/include/x86_64-linux-gnu/bits/termios-tcflow.h:
 
+src/transport/peer_globals.h:
+
 /usr/include/boost/date_time/time_duration.hpp:
 
 /usr/include/x86_64-linux-gnu/gnu/stubs.h:
@@ -4283,9 +4295,9 @@ src/crypto_utils.h:
 
 /usr/include/c++/13/ext/atomicity.h:
 
-/usr/include/c++/13/bit:
-
 /usr/include/boost/asio/execution/set_error.hpp:
+
+/usr/include/c++/13/bit:
 
 /usr/include/c++/13/cstdlib:
 
@@ -5031,8 +5043,6 @@ src/governance/dao.h:
 
 /usr/include/c++/13/bits/move.h:
 
-/usr/include/c++/13/bits/new_allocator.h:
-
 /usr/include/c++/13/bits/ostream.tcc:
 
 /usr/include/boost/asio/detail/service_registry.hpp:
@@ -5156,7 +5166,3 @@ src/governance/dao.h:
 /usr/include/c++/13/cwctype:
 
 /usr/include/c++/13/deque:
-
-/usr/include/c++/13/exception:
-
-/usr/include/c++/13/ext/aligned_buffer.h:

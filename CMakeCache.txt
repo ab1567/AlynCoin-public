@@ -230,6 +230,12 @@ MINIUPNPC_INCLUDE_DIR:PATH=/usr/include
 //Path to a library.
 MINIUPNPC_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libminiupnpc.so
 
+//Path to a file.
+NATPMP_INCLUDE_DIR:PATH=NATPMP_INCLUDE_DIR-NOTFOUND
+
+//Path to a library.
+NATPMP_LIBRARY:FILEPATH=NATPMP_LIBRARY-NOTFOUND
+
 //Path to a library.
 OPENSSL_CRYPTO_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libcrypto.so
 

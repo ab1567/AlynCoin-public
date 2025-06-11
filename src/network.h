@@ -123,6 +123,7 @@ public:
     void handleBase64Proto(const std::string &peer, const std::string &prefix,
                                 const std::string &b64, std::shared_ptr<Transport> transport);
     void handleGetData(const std::string& peer, const std::vector<std::string>& hashes);
+    static unsigned short findAvailablePort(unsigned short startPort, int maxTries = 10);
 private:
     unsigned short port;
     Blockchain *blockchain;

@@ -290,6 +290,8 @@ src/CMakeFiles/nftcli.dir/nft/nft.cpp.o: src/nft/nft.cpp \
   src/zk/winterfell_stark.h \
   src/nft/nft.h \
   src/transaction.h \
+  src/transport/peer_globals.h \
+  src/transport/transport.h \
   src/network/peer_blacklist.h \
   /usr/include/alloca.h \
   /usr/include/arpa/inet.h \
@@ -3733,8 +3735,6 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: src/nft/nft_storage.cpp \
 
 src/nft/nft_storage.cpp:
 
-/usr/include/c++/13/bitset:
-
 /usr/include/c++/13/bits/regex_error.h:
 
 /usr/include/c++/13/bits/regex_constants.h:
@@ -4308,6 +4308,10 @@ src/nft/nft_cli.cpp:
 /usr/include/boost/preprocessor/logical/bitand.hpp:
 
 /usr/include/boost/preprocessor/list/limits/fold_left_256.hpp:
+
+/usr/include/boost/preprocessor/list/fold_right.hpp:
+
+/usr/include/boost/preprocessor/list/fold_left.hpp:
 
 /usr/include/boost/asio/execution/receiver.hpp:
 
@@ -5103,6 +5107,12 @@ src/generated/nft.pb.h:
 
 /usr/include/boost/predef/os/vms.h:
 
+/usr/include/c++/13/bitset:
+
+src/transport/transport.h:
+
+/usr/include/c++/13/bits/new_allocator.h:
+
 /usr/include/c++/13/cstddef:
 
 /usr/include/boost/asio/stream_file.hpp:
@@ -5163,8 +5173,6 @@ src/generated/nft.pb.h:
 
 /usr/include/boost/cstdint.hpp:
 
-/usr/include/c++/13/bits/new_allocator.h:
-
 /usr/include/boost/system/detail/error_category.hpp:
 
 /usr/include/c++/13/bits/stl_uninitialized.h:
@@ -5178,6 +5186,8 @@ src/generated/nft.pb.h:
 /usr/include/c++/13/locale:
 
 /usr/include/x86_64-linux-gnu/bits/termios-tcflow.h:
+
+src/transport/peer_globals.h:
 
 /usr/include/boost/date_time/time_duration.hpp:
 
@@ -5266,10 +5276,6 @@ src/generated/nft.pb.h:
 /usr/include/boost/mpl/limits/arity.hpp:
 
 /usr/include/c++/13/bits/sstream.tcc:
-
-/usr/include/boost/asio/execution/schedule.hpp:
-
-/usr/include/openssl/bio.h:
 
 /usr/include/boost/asio/query.hpp:
 
@@ -5815,8 +5821,6 @@ src/layer2/state_channel.h:
 
 /usr/include/boost/mpl/void_fwd.hpp:
 
-/usr/include/boost/preprocessor/list/fold_left.hpp:
-
 /usr/include/c++/13/bits/valarray_array.h:
 
 /usr/include/c++/13/bits/char_traits.h:
@@ -5882,6 +5886,10 @@ src/layer2/state_channel.h:
 /usr/include/boost/asio/impl/executor.hpp:
 
 /usr/include/boost/asio/impl/thread_pool.hpp:
+
+/usr/include/openssl/bio.h:
+
+/usr/include/boost/asio/execution/schedule.hpp:
 
 /usr/include/boost/asio/execution/scheduler.hpp:
 
@@ -5986,8 +5994,6 @@ src/layer2/state_channel.h:
 /usr/include/boost/asio/impl/serial_port_base.ipp:
 
 /usr/include/boost/asio/impl/write.hpp:
-
-/usr/include/boost/preprocessor/list/fold_right.hpp:
 
 /usr/include/boost/asio/execution/submit.hpp:
 

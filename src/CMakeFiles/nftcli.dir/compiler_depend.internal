@@ -293,6 +293,8 @@ src/CMakeFiles/nftcli.dir/nft/nft.cpp.o
  /root/AlynCoin/src/zk/winterfell_stark.h
  /root/AlynCoin/src/nft/nft.h
  /root/AlynCoin/src/transaction.h
+ /root/AlynCoin/src/transport/peer_globals.h
+ /root/AlynCoin/src/transport/transport.h
  /root/AlynCoin/src/network/peer_blacklist.h
  /usr/include/alloca.h
  /usr/include/arpa/inet.h

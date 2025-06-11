@@ -38,6 +38,8 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o
  /root/AlynCoin/src/self_healing/self_healing_node.h
  /root/AlynCoin/src/self_healing/sync_recovery.h
  /root/AlynCoin/src/transaction.h
+ /root/AlynCoin/src/transport/peer_globals.h
+ /root/AlynCoin/src/transport/transport.h
  /root/AlynCoin/src/wallet.h
  /root/AlynCoin/src/network/peer_blacklist.h
  /root/AlynCoin/src/nft/nft.h

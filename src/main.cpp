@@ -575,6 +575,7 @@ void clearInputBuffer() {
 
 int main(int argc, char *argv[]) {
     unsigned short port = DEFAULT_PORT;
+    bool portSpecified = false;
     std::string dbPath = DBPaths::getBlockchainDB();
     std::string connectIP = "";
     std::string keyDir = DBPaths::getKeyDir();
@@ -583,6 +584,7 @@ int main(int argc, char *argv[]) {
         std::string arg = argv[i];
         if (arg == "--port" && i + 1 < argc) {
             port = static_cast<unsigned short>(std::stoi(argv[++i]));
+            portSpecified = true;
             std::cout << "🌐 Using custom port: " << port << std::endl;
         } else if (arg == "--dbpath" && i + 1 < argc) {
             dbPath = argv[++i];
@@ -593,6 +595,13 @@ int main(int argc, char *argv[]) {
         } else if (arg == "--keypath" && i + 1 < argc) {
             keyDir = argv[++i];
             if (keyDir.back() != '/') keyDir += '/';
+        }
+    }
+    if (!portSpecified) {
+        unsigned short newPort = Network::findAvailablePort(port);
+        if (newPort != 0 && newPort != port) {
+            port = newPort;
+            std::cout << "🌐 Auto-selected available port: " << port << std::endl;
         }
     }
     std::string blacklistPath = dbPath + "/blacklist";

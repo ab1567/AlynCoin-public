@@ -71,6 +71,25 @@ PubSubRouter g_pubsub;
 namespace fs = std::filesystem;
 Network* Network::instancePtr = nullptr;
 
+static bool isPortAvailable(unsigned short port) {
+    boost::asio::io_context io;
+    boost::asio::ip::tcp::acceptor acceptor(io);
+    boost::system::error_code ec;
+    acceptor.open(boost::asio::ip::tcp::v4(), ec);
+    if (ec) return false;
+    acceptor.bind({boost::asio::ip::tcp::v4(), port}, ec);
+    if (ec) return false;
+    acceptor.close();
+    return true;
+}
+
+unsigned short Network::findAvailablePort(unsigned short startPort, int maxTries) {
+    for (int i = 0; i < maxTries; ++i) {
+        unsigned short p = startPort + i;
+        if (isPortAvailable(p)) return p;
+    }
+    return 0;
+}
 // Fallback peer(s) in case DNS discovery fails
 static const std::vector<std::string> DEFAULT_DNS_PEERS = {
     "49.206.43.163:15672" // Known bootstrap peer

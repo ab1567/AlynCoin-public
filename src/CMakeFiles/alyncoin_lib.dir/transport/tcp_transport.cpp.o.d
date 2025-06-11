@@ -1215,4 +1215,6 @@ src/CMakeFiles/alyncoin_lib.dir/transport/tcp_transport.cpp.o: \
  /usr/include/boost/asio/windows/stream_handle.hpp \
  /usr/include/boost/asio/writable_pipe.hpp \
  /usr/include/boost/asio/write_at.hpp \
- /usr/include/boost/asio/impl/write_at.hpp /usr/include/c++/13/iostream
+ /usr/include/boost/asio/impl/write_at.hpp /usr/include/c++/13/deque \
+ /usr/include/c++/13/bits/stl_deque.h /usr/include/c++/13/bits/deque.tcc \
+ /usr/include/c++/13/iostream
