@@ -5,23 +5,7 @@ from PyQt5.QtWidgets import (
     QFormLayout, QLineEdit, QDialogButtonBox, QFileDialog
 )
 
-def alyncoin_rpc(method, params=None):
-    import requests
-    url = "http://127.0.0.1:1567/rpc"
-    headers = {"Content-Type": "application/json"}
-    body = {
-        "method": method,
-        "params": params or []
-    }
-    try:
-        resp = requests.post(url, headers=headers, json=body, timeout=15)
-        resp.raise_for_status()
-        data = resp.json()
-        if 'error' in data:
-            raise Exception(data['error'])
-        return data.get('result', None)
-    except Exception as e:
-        return {"error": str(e)}
+from rpc_client import alyncoin_rpc
 
 class NFTTab(QWidget):
     def __init__(self, parent):

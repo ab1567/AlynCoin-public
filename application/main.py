@@ -4,7 +4,7 @@ import socket
 import subprocess
 import time
 import platform
-import requests
+from rpc_client import alyncoin_rpc, RPC_HOST, RPC_PORT
 import dns.resolver
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QTabWidget, QTextEdit, QVBoxLayout,
@@ -25,23 +25,7 @@ from nft_tab import NFTTab
 DEFAULT_DNS_PEERS = ["49.206.43.163:15672"]
 
 # ---- RPC Client Helper ----
-def alyncoin_rpc(method, params=None):
-    url = "http://127.0.0.1:1567/rpc"
-    headers = {"Content-Type": "application/json"}
-    body = {
-        "method": method,
-        "params": params or []
-    }
-    try:
-        resp = requests.post(url, headers=headers, json=body, timeout=15)
-        resp.raise_for_status()
-        data = resp.json()
-        if 'error' in data:
-            raise Exception(data['error'])
-        return data.get('result', None)
-    except Exception as e:
-        print(f"❌ RPC error: {e}")
-        return {"error": str(e)}
+# alyncoin_rpc imported from rpc_client
 
 # ---- DNS Peer Resolver (returns ALL peers) ----
 def get_peers_from_dns():
@@ -69,9 +53,9 @@ def is_alyncoin_dns_accessible():
         return bool(DEFAULT_DNS_PEERS)
 
 # ---- Node Launch/Detect Helpers ----
-def is_rpc_up(port=1567):
+def is_rpc_up(host=RPC_HOST, port=RPC_PORT):
     try:
-        with socket.create_connection(("127.0.0.1", port), timeout=1):
+        with socket.create_connection((host, port), timeout=1):
             return True
     except Exception:
         return False
