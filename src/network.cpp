@@ -862,7 +862,7 @@ void Network::run() {
         int p = std::stoi(peer.substr(colonPos + 1));
         if ((ip == "127.0.0.1" || ip == "localhost") && p == this->port) continue;
         if (ip == "127.0.0.1" || ip == "localhost") continue;
-        if (p == this->port) continue; // don't connect to our own port
+        if (isSelfPeer(ip + ":" + std::to_string(p))) continue;
         connectToNode(ip, p);
     }
 
