@@ -145,7 +145,9 @@ svr.Post("/rpc", [blockchain, network](const httplib::Request& req, httplib::Res
             bool synced = false;
             if (network && network->getPeerManager()) {
                 networkHeight = network->getPeerManager()->getMedianNetworkHeight();
-                synced = (networkHeight > 0 && localHeight >= networkHeight);
+                // Treat networkHeight=0 as "unknown" rather than unsynced
+                // so the GUI can start even before any peers report heights.
+                synced = (networkHeight == 0 || localHeight >= networkHeight);
             } else {
                 synced = true; // assume synced if no network
             }
