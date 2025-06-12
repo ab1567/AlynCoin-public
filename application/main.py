@@ -6,6 +6,7 @@ import time
 import platform
 import requests
 import dns.resolver
+from rpc_client import alyncoin_rpc
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QTabWidget, QTextEdit, QVBoxLayout,
     QWidget, QLabel, QMessageBox, QFileDialog
@@ -25,26 +26,6 @@ DEFAULT_DNS_PEERS = [
     "49.206.56.213:15672",
     "35.208.66.232:15671",
 ]
-
-# ---- RPC Client Helper ----
-def alyncoin_rpc(method, params=None):
-    url = "http://127.0.0.1:1567/rpc"
-    headers = {"Content-Type": "application/json"}
-    body = {
-        "method": method,
-        "params": params or []
-    }
-    try:
-        resp = requests.post(url, headers=headers, json=body, timeout=15)
-        resp.raise_for_status()
-        data = resp.json()
-        if 'error' in data:
-            raise Exception(data['error'])
-        return data.get('result', None)
-    except Exception as e:
-        print(f"❌ RPC error: {e}")
-        return {"error": str(e)}
-
 # ---- DNS Peer Resolver (returns ALL peers) ----
 def get_peers_from_dns():
     peers = []
