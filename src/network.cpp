@@ -24,6 +24,7 @@
 #include <thread>
 #include <unordered_set>
 #include <vector>
+#include <cctype>
 #include "proto_utils.h"
 #include <cstdlib>
 #include <cstdio>
@@ -64,7 +65,12 @@ struct InFlightData {
 };
 static thread_local std::unordered_map<std::string, InFlightData> inflight;
 static inline bool looksLikeBase64(const std::string& s) {
-    return !s.empty() && s.find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=") == std::string::npos;
+    if (s.size() < 16 || s.size() % 4 != 0) return false;
+    for (unsigned char c : s) {
+        if (!(std::isalnum(c) || c == '+' || c == '/' || c == '='))
+            return false;
+    }
+    return true;
 }
 static std::map<uint64_t, Block> futureBlockBuffer;
 PubSubRouter g_pubsub;
@@ -1467,7 +1473,8 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
 
  // === Fallback: accumulate legacy base64 chunks (older peers may split messages)
     try {
-        if (!data.empty() && data.find('|') == std::string::npos && data.size() > 50) {
+        if (!data.empty() && data.find('|') == std::string::npos &&
+            data.size() > 50 && looksLikeBase64(data)) {
             std::string& buf = legacyChainBuf[claimedPeerId];
             buf += data;
             std::cerr << "[handleIncomingData] 📡 Legacy base64 chunk received (" << data.size()
@@ -1501,7 +1508,8 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
 
     // === Fallback base64-encoded block ===
     try {
-        if (!data.empty() && data.size() > 50 && data.find('|') == std::string::npos) {
+        if (!data.empty() && data.size() > 50 && data.find('|') == std::string::npos &&
+            looksLikeBase64(data)) {
             std::string decoded = Crypto::base64Decode(data, false);
             alyncoin::BlockProto proto;
             if (proto.ParseFromString(decoded)) {

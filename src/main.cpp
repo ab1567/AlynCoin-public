@@ -138,6 +138,24 @@ svr.Post("/rpc", [blockchain, network](const httplib::Request& req, httplib::Res
             };
             output = {{"result", stats}};
         }
+	//
+        else if (method == "syncstatus") {
+            uint64_t localHeight = blockchain->getHeight();
+            uint64_t networkHeight = 0;
+            bool synced = false;
+            if (network && network->getPeerManager()) {
+                networkHeight = network->getPeerManager()->getMedianNetworkHeight();
+                synced = (networkHeight > 0 && localHeight >= networkHeight);
+            } else {
+                synced = true; // assume synced if no network
+            }
+            nlohmann::json status = {
+                {"local_height", localHeight},
+                {"network_height", networkHeight},
+                {"synced", synced}
+            };
+            output = {{"result", status}};
+        }
         // Send L1 Transaction
         else if (method == "sendl1" || method == "sendl2") {
             std::string from = params.at(0);
@@ -564,8 +582,8 @@ svr.Post("/rpc", [blockchain, network](const httplib::Request& req, httplib::Res
     res.set_content(output.dump(), "application/json");
 });
 
-    printf("🚀 [AlynCoin RPC] Listening on http://127.0.0.1:%d/rpc\n", rpc_port);
-    svr.listen("127.0.0.1", rpc_port);
+    printf("🚀 [AlynCoin RPC] Listening on http://0.0.0.0:%d/rpc\n", rpc_port);
+    svr.listen("0.0.0.0", rpc_port);
 }
 
 void clearInputBuffer() {
