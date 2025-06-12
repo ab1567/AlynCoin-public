@@ -138,6 +138,24 @@ svr.Post("/rpc", [blockchain, network](const httplib::Request& req, httplib::Res
             };
             output = {{"result", stats}};
         }
+	//
+        else if (method == "syncstatus") {
+            uint64_t localHeight = blockchain->getHeight();
+            uint64_t networkHeight = 0;
+            bool synced = false;
+            if (network && network->getPeerManager()) {
+                networkHeight = network->getPeerManager()->getMedianNetworkHeight();
+                synced = (networkHeight > 0 && localHeight >= networkHeight);
+            } else {
+                synced = true; // assume synced if no network
+            }
+            nlohmann::json status = {
+                {"local_height", localHeight},
+                {"network_height", networkHeight},
+                {"synced", synced}
+            };
+            output = {{"result", status}};
+        }
         // Send L1 Transaction
         else if (method == "sendl1" || method == "sendl2") {
             std::string from = params.at(0);
