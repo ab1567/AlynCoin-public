@@ -397,9 +397,11 @@ if __name__ == "__main__":
     sync_info = alyncoin_rpc("syncstatus")
     if isinstance(sync_info, dict) and "error" in sync_info:
         print("⚠️  RPC 'syncstatus' not available; skipping sync check")
-    elif not isinstance(sync_info, dict) or not sync_info.get("synced", False):
-        QMessageBox.critical(None, "Node Sync", "Local node is not synced.\nPlease contact alyncoin.com")
-        sys.exit(1)
+    elif not isinstance(sync_info, dict):
+        QMessageBox.warning(None, "Node Sync", "Unable to determine sync status.")
+    elif not sync_info.get("synced", False):
+        QMessageBox.warning(None, "Node Sync",
+                             "Local node is still syncing. The wallet will open, but some features may be unavailable.")
     window = AlynCoinApp()
     window.show()
     sys.exit(app.exec_())
