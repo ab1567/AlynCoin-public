@@ -114,7 +114,9 @@ class MinerTab(QWidget):
         self.status_label.setText("🟢 <b>Mining loop started...</b>")
         self.mining_banner.setText("Mining loop started...")
         self.append_output("⏳ Mining loop started...")
-        self.run_loop_rpc("mineloop", [self.current_wallet])
+        # Use repeated mineonce RPC calls rather than server-side mineloop
+        # so hashes are returned and the loop can be stopped from the GUI
+        self.run_loop_rpc("mineonce", [self.current_wallet])
 
     def stop_mining(self):
         if self.loop_active:
@@ -182,10 +184,14 @@ class MinerTab(QWidget):
                 self.mining_banner.setText("💎 <b><font color='#00FFFF'>Ready to mine AlynCoin!</font></b>")
                 self.updateMiningUIState()
                 return
+
             result = alyncoin_rpc(method, params)
+
             if isinstance(result, dict) and "error" in result:
                 self.append_output(f"❌ {result['error']}")
                 self.loop_active = False
+            elif isinstance(result, str) and re.fullmatch(r"[a-fA-F0-9]{40,}", result):
+                self.append_output(f"✅ Block mined! Hash: <b>{result}</b>")
             elif isinstance(result, (dict, list)):
                 for line in str(result).splitlines():
                     if filter_miner_output(line):
@@ -196,6 +202,7 @@ class MinerTab(QWidget):
                         self.append_output(line)
             else:
                 self.append_output(str(result))
+
             if self.loop_active:
                 QTimer.singleShot(3000, mine_step)
             else:
