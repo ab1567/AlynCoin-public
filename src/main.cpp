@@ -109,6 +109,9 @@ svr.Post("/rpc", [blockchain, network](const httplib::Request& req, httplib::Res
             }
         }
         // Start Mining Loop (Non-blocking trigger, returns immediately)
+        // NOTE: This RPC spawns an infinite mining thread on the server and
+        // does not provide a stop mechanism or return mined block hashes.
+        // The GUI now prefers calling "mineonce" repeatedly instead.
         else if (method == "mineloop") {
             std::string miner = params.at(0);
             std::thread([blockchain, network, miner]() {
