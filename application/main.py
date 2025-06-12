@@ -4,9 +4,7 @@ import socket
 import subprocess
 import time
 import platform
-import requests
-import dns.resolver
-from rpc_client import alyncoin_rpc, RPC_HOST, RPC_PORT
+
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QTabWidget, QTextEdit, QVBoxLayout,
     QWidget, QLabel, QMessageBox, QFileDialog
@@ -22,10 +20,6 @@ from dao_tab import DAOTab
 from stats_tab import StatsTab
 from nft_tab import NFTTab
 
-DEFAULT_DNS_PEERS = [
-    "49.206.56.213:15672",
-    "35.208.66.232:15671",
-]
 
 # ---- DNS Peer Resolver (returns ALL peers) ----
 def get_peers_from_dns():
