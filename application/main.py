@@ -6,6 +6,7 @@ import time
 import platform
 import requests
 import dns.resolver
+from rpc_client import alyncoin_rpc, RPC_HOST, RPC_PORT
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QTabWidget, QTextEdit, QVBoxLayout,
     QWidget, QLabel, QMessageBox, QFileDialog
@@ -25,25 +26,6 @@ DEFAULT_DNS_PEERS = [
     "49.206.56.213:15672",
     "35.208.66.232:15671",
 ]
-
-# ---- RPC Client Helper ----
-def alyncoin_rpc(method, params=None):
-    url = "http://127.0.0.1:1567/rpc"
-    headers = {"Content-Type": "application/json"}
-    body = {
-        "method": method,
-        "params": params or []
-    }
-    try:
-        resp = requests.post(url, headers=headers, json=body, timeout=15)
-        resp.raise_for_status()
-        data = resp.json()
-        if 'error' in data:
-            raise Exception(data['error'])
-        return data.get('result', None)
-    except Exception as e:
-        print(f"❌ RPC error: {e}")
-        return {"error": str(e)}
 
 # ---- DNS Peer Resolver (returns ALL peers) ----
 def get_peers_from_dns():
@@ -71,9 +53,9 @@ def is_alyncoin_dns_accessible():
         return bool(DEFAULT_DNS_PEERS)
 
 # ---- Node Launch/Detect Helpers ----
-def is_rpc_up(port=1567):
+def is_rpc_up(host=RPC_HOST, port=RPC_PORT):
     try:
-        with socket.create_connection(("127.0.0.1", port), timeout=1):
+        with socket.create_connection((host, port), timeout=1):
             return True
     except Exception:
         return False
@@ -81,6 +63,11 @@ def is_rpc_up(port=1567):
 def ensure_alyncoin_node(block=True):
     if is_rpc_up():
         return True  # Node already running
+
+    # If RPC host is remote, don't attempt to launch local node
+    if RPC_HOST not in ("127.0.0.1", "localhost"):
+        print(f"🔌 Remote RPC {RPC_HOST}:{RPC_PORT} unreachable.")
+        return False
 
     exe_dir = os.path.dirname(sys.executable if hasattr(sys, 'frozen') else os.path.abspath(__file__))
     candidates = [
@@ -404,7 +391,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     sync_info = alyncoin_rpc("syncstatus")
-    if not isinstance(sync_info, dict) or "result" not in sync_info or not sync_info["result"].get("synced", False):
+    if not isinstance(sync_info, dict) or not sync_info.get("synced", False):
         QMessageBox.critical(None, "Node Sync", "Local node is not synced.\nPlease contact alyncoin.com")
         sys.exit(1)
     window = AlynCoinApp()
