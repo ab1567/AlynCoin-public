@@ -1507,7 +1507,7 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
         std::cerr << "[handleIncomingData] ❌ Legacy base64 handling failed\n";
     }
 
-    // === Fallback base64-encoded block ===
+    // === Fallback base64-encoded block or chain ===
     try {
         if (!data.empty() && data.size() > 50 && data.find('|') == std::string::npos &&
             looksLikeBase64(data)) {
@@ -1525,6 +1525,21 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
                     std::cerr << "⚠️ Fallback block rejected\n";
                 }
                 return;
+            } else {
+                alyncoin::BlockchainProto protoChain;
+                if (protoChain.ParseFromString(decoded)) {
+                    std::vector<Block> blocks;
+                    for (const auto& pb : protoChain.blocks()) {
+                        try { blocks.push_back(Block::fromProto(pb, false)); }
+                        catch (...) { std::cerr << "⚠️ Skipped malformed block\n"; }
+                    }
+                    Blockchain& chain = Blockchain::getInstance();
+                    chain.compareAndMergeChains(blocks);
+                    if (peerManager)
+                        peerManager->setPeerHeight(claimedPeerId, static_cast<int>(blocks.size()) - 1);
+                    std::cerr << "[handleIncomingData] ✅ Synced full chain from peer (legacy single shot)\n";
+                    return;
+                }
             }
         }
     } catch (const std::exception& e) {
