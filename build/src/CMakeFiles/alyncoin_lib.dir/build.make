@@ -684,10 +684,24 @@ src/CMakeFiles/alyncoin_lib.dir/transport/peer_globals.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/alyncoin_lib.dir/transport/peer_globals.cpp.s"
 	cd /root/AlynCoin/build/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /root/AlynCoin/src/transport/peer_globals.cpp -o CMakeFiles/alyncoin_lib.dir/transport/peer_globals.cpp.s
 
+src/CMakeFiles/alyncoin_lib.dir/epoch_sync.cpp.o: src/CMakeFiles/alyncoin_lib.dir/flags.make
+src/CMakeFiles/alyncoin_lib.dir/epoch_sync.cpp.o: /root/AlynCoin/src/epoch_sync.cpp
+src/CMakeFiles/alyncoin_lib.dir/epoch_sync.cpp.o: src/CMakeFiles/alyncoin_lib.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_42) "Building CXX object src/CMakeFiles/alyncoin_lib.dir/epoch_sync.cpp.o"
+	cd /root/AlynCoin/build/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT src/CMakeFiles/alyncoin_lib.dir/epoch_sync.cpp.o -MF CMakeFiles/alyncoin_lib.dir/epoch_sync.cpp.o.d -o CMakeFiles/alyncoin_lib.dir/epoch_sync.cpp.o -c /root/AlynCoin/src/epoch_sync.cpp
+
+src/CMakeFiles/alyncoin_lib.dir/epoch_sync.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/alyncoin_lib.dir/epoch_sync.cpp.i"
+	cd /root/AlynCoin/build/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /root/AlynCoin/src/epoch_sync.cpp > CMakeFiles/alyncoin_lib.dir/epoch_sync.cpp.i
+
+src/CMakeFiles/alyncoin_lib.dir/epoch_sync.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/alyncoin_lib.dir/epoch_sync.cpp.s"
+	cd /root/AlynCoin/build/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /root/AlynCoin/src/epoch_sync.cpp -o CMakeFiles/alyncoin_lib.dir/epoch_sync.cpp.s
+
 src/CMakeFiles/alyncoin_lib.dir/blake3.c.o: src/CMakeFiles/alyncoin_lib.dir/flags.make
 src/CMakeFiles/alyncoin_lib.dir/blake3.c.o: /root/AlynCoin/src/blake3.c
 src/CMakeFiles/alyncoin_lib.dir/blake3.c.o: src/CMakeFiles/alyncoin_lib.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_42) "Building C object src/CMakeFiles/alyncoin_lib.dir/blake3.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_43) "Building C object src/CMakeFiles/alyncoin_lib.dir/blake3.c.o"
 	cd /root/AlynCoin/build/src && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT src/CMakeFiles/alyncoin_lib.dir/blake3.c.o -MF CMakeFiles/alyncoin_lib.dir/blake3.c.o.d -o CMakeFiles/alyncoin_lib.dir/blake3.c.o -c /root/AlynCoin/src/blake3.c
 
 src/CMakeFiles/alyncoin_lib.dir/blake3.c.i: cmake_force
@@ -701,7 +715,7 @@ src/CMakeFiles/alyncoin_lib.dir/blake3.c.s: cmake_force
 src/CMakeFiles/alyncoin_lib.dir/blake3_dispatch.c.o: src/CMakeFiles/alyncoin_lib.dir/flags.make
 src/CMakeFiles/alyncoin_lib.dir/blake3_dispatch.c.o: /root/AlynCoin/src/blake3_dispatch.c
 src/CMakeFiles/alyncoin_lib.dir/blake3_dispatch.c.o: src/CMakeFiles/alyncoin_lib.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_43) "Building C object src/CMakeFiles/alyncoin_lib.dir/blake3_dispatch.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_44) "Building C object src/CMakeFiles/alyncoin_lib.dir/blake3_dispatch.c.o"
 	cd /root/AlynCoin/build/src && /usr/bin/cc $(C_DEFINES) -DBLAKE3_NO_AVX512 $(C_INCLUDES) $(C_FLAGS) -MD -MT src/CMakeFiles/alyncoin_lib.dir/blake3_dispatch.c.o -MF CMakeFiles/alyncoin_lib.dir/blake3_dispatch.c.o.d -o CMakeFiles/alyncoin_lib.dir/blake3_dispatch.c.o -c /root/AlynCoin/src/blake3_dispatch.c
 
 src/CMakeFiles/alyncoin_lib.dir/blake3_dispatch.c.i: cmake_force
@@ -715,7 +729,7 @@ src/CMakeFiles/alyncoin_lib.dir/blake3_dispatch.c.s: cmake_force
 src/CMakeFiles/alyncoin_lib.dir/blake3_portable.c.o: src/CMakeFiles/alyncoin_lib.dir/flags.make
 src/CMakeFiles/alyncoin_lib.dir/blake3_portable.c.o: /root/AlynCoin/src/blake3_portable.c
 src/CMakeFiles/alyncoin_lib.dir/blake3_portable.c.o: src/CMakeFiles/alyncoin_lib.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_44) "Building C object src/CMakeFiles/alyncoin_lib.dir/blake3_portable.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_45) "Building C object src/CMakeFiles/alyncoin_lib.dir/blake3_portable.c.o"
 	cd /root/AlynCoin/build/src && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT src/CMakeFiles/alyncoin_lib.dir/blake3_portable.c.o -MF CMakeFiles/alyncoin_lib.dir/blake3_portable.c.o.d -o CMakeFiles/alyncoin_lib.dir/blake3_portable.c.o -c /root/AlynCoin/src/blake3_portable.c
 
 src/CMakeFiles/alyncoin_lib.dir/blake3_portable.c.i: cmake_force
@@ -729,7 +743,7 @@ src/CMakeFiles/alyncoin_lib.dir/blake3_portable.c.s: cmake_force
 src/CMakeFiles/alyncoin_lib.dir/blake3_sse2.c.o: src/CMakeFiles/alyncoin_lib.dir/flags.make
 src/CMakeFiles/alyncoin_lib.dir/blake3_sse2.c.o: /root/AlynCoin/src/blake3_sse2.c
 src/CMakeFiles/alyncoin_lib.dir/blake3_sse2.c.o: src/CMakeFiles/alyncoin_lib.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_45) "Building C object src/CMakeFiles/alyncoin_lib.dir/blake3_sse2.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_46) "Building C object src/CMakeFiles/alyncoin_lib.dir/blake3_sse2.c.o"
 	cd /root/AlynCoin/build/src && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -msse4.1 -mavx2 -MD -MT src/CMakeFiles/alyncoin_lib.dir/blake3_sse2.c.o -MF CMakeFiles/alyncoin_lib.dir/blake3_sse2.c.o.d -o CMakeFiles/alyncoin_lib.dir/blake3_sse2.c.o -c /root/AlynCoin/src/blake3_sse2.c
 
 src/CMakeFiles/alyncoin_lib.dir/blake3_sse2.c.i: cmake_force
@@ -743,7 +757,7 @@ src/CMakeFiles/alyncoin_lib.dir/blake3_sse2.c.s: cmake_force
 src/CMakeFiles/alyncoin_lib.dir/blake3_sse41.c.o: src/CMakeFiles/alyncoin_lib.dir/flags.make
 src/CMakeFiles/alyncoin_lib.dir/blake3_sse41.c.o: /root/AlynCoin/src/blake3_sse41.c
 src/CMakeFiles/alyncoin_lib.dir/blake3_sse41.c.o: src/CMakeFiles/alyncoin_lib.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_46) "Building C object src/CMakeFiles/alyncoin_lib.dir/blake3_sse41.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_47) "Building C object src/CMakeFiles/alyncoin_lib.dir/blake3_sse41.c.o"
 	cd /root/AlynCoin/build/src && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -msse4.1 -mavx2 -MD -MT src/CMakeFiles/alyncoin_lib.dir/blake3_sse41.c.o -MF CMakeFiles/alyncoin_lib.dir/blake3_sse41.c.o.d -o CMakeFiles/alyncoin_lib.dir/blake3_sse41.c.o -c /root/AlynCoin/src/blake3_sse41.c
 
 src/CMakeFiles/alyncoin_lib.dir/blake3_sse41.c.i: cmake_force
@@ -757,7 +771,7 @@ src/CMakeFiles/alyncoin_lib.dir/blake3_sse41.c.s: cmake_force
 src/CMakeFiles/alyncoin_lib.dir/blake3_avx2.c.o: src/CMakeFiles/alyncoin_lib.dir/flags.make
 src/CMakeFiles/alyncoin_lib.dir/blake3_avx2.c.o: /root/AlynCoin/src/blake3_avx2.c
 src/CMakeFiles/alyncoin_lib.dir/blake3_avx2.c.o: src/CMakeFiles/alyncoin_lib.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_47) "Building C object src/CMakeFiles/alyncoin_lib.dir/blake3_avx2.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_48) "Building C object src/CMakeFiles/alyncoin_lib.dir/blake3_avx2.c.o"
 	cd /root/AlynCoin/build/src && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -msse4.1 -mavx2 -MD -MT src/CMakeFiles/alyncoin_lib.dir/blake3_avx2.c.o -MF CMakeFiles/alyncoin_lib.dir/blake3_avx2.c.o.d -o CMakeFiles/alyncoin_lib.dir/blake3_avx2.c.o -c /root/AlynCoin/src/blake3_avx2.c
 
 src/CMakeFiles/alyncoin_lib.dir/blake3_avx2.c.i: cmake_force
@@ -771,7 +785,7 @@ src/CMakeFiles/alyncoin_lib.dir/blake3_avx2.c.s: cmake_force
 src/CMakeFiles/alyncoin_lib.dir/__/generated/sync_protos.pb.cc.o: src/CMakeFiles/alyncoin_lib.dir/flags.make
 src/CMakeFiles/alyncoin_lib.dir/__/generated/sync_protos.pb.cc.o: generated/sync_protos.pb.cc
 src/CMakeFiles/alyncoin_lib.dir/__/generated/sync_protos.pb.cc.o: src/CMakeFiles/alyncoin_lib.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_48) "Building CXX object src/CMakeFiles/alyncoin_lib.dir/__/generated/sync_protos.pb.cc.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_49) "Building CXX object src/CMakeFiles/alyncoin_lib.dir/__/generated/sync_protos.pb.cc.o"
 	cd /root/AlynCoin/build/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT src/CMakeFiles/alyncoin_lib.dir/__/generated/sync_protos.pb.cc.o -MF CMakeFiles/alyncoin_lib.dir/__/generated/sync_protos.pb.cc.o.d -o CMakeFiles/alyncoin_lib.dir/__/generated/sync_protos.pb.cc.o -c /root/AlynCoin/build/generated/sync_protos.pb.cc
 
 src/CMakeFiles/alyncoin_lib.dir/__/generated/sync_protos.pb.cc.i: cmake_force
@@ -785,7 +799,7 @@ src/CMakeFiles/alyncoin_lib.dir/__/generated/sync_protos.pb.cc.s: cmake_force
 src/CMakeFiles/alyncoin_lib.dir/__/generated/block_protos.pb.cc.o: src/CMakeFiles/alyncoin_lib.dir/flags.make
 src/CMakeFiles/alyncoin_lib.dir/__/generated/block_protos.pb.cc.o: generated/block_protos.pb.cc
 src/CMakeFiles/alyncoin_lib.dir/__/generated/block_protos.pb.cc.o: src/CMakeFiles/alyncoin_lib.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_49) "Building CXX object src/CMakeFiles/alyncoin_lib.dir/__/generated/block_protos.pb.cc.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_50) "Building CXX object src/CMakeFiles/alyncoin_lib.dir/__/generated/block_protos.pb.cc.o"
 	cd /root/AlynCoin/build/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT src/CMakeFiles/alyncoin_lib.dir/__/generated/block_protos.pb.cc.o -MF CMakeFiles/alyncoin_lib.dir/__/generated/block_protos.pb.cc.o.d -o CMakeFiles/alyncoin_lib.dir/__/generated/block_protos.pb.cc.o -c /root/AlynCoin/build/generated/block_protos.pb.cc
 
 src/CMakeFiles/alyncoin_lib.dir/__/generated/block_protos.pb.cc.i: cmake_force
@@ -799,7 +813,7 @@ src/CMakeFiles/alyncoin_lib.dir/__/generated/block_protos.pb.cc.s: cmake_force
 src/CMakeFiles/alyncoin_lib.dir/__/generated/blockchain_protos.pb.cc.o: src/CMakeFiles/alyncoin_lib.dir/flags.make
 src/CMakeFiles/alyncoin_lib.dir/__/generated/blockchain_protos.pb.cc.o: generated/blockchain_protos.pb.cc
 src/CMakeFiles/alyncoin_lib.dir/__/generated/blockchain_protos.pb.cc.o: src/CMakeFiles/alyncoin_lib.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_50) "Building CXX object src/CMakeFiles/alyncoin_lib.dir/__/generated/blockchain_protos.pb.cc.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_51) "Building CXX object src/CMakeFiles/alyncoin_lib.dir/__/generated/blockchain_protos.pb.cc.o"
 	cd /root/AlynCoin/build/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT src/CMakeFiles/alyncoin_lib.dir/__/generated/blockchain_protos.pb.cc.o -MF CMakeFiles/alyncoin_lib.dir/__/generated/blockchain_protos.pb.cc.o.d -o CMakeFiles/alyncoin_lib.dir/__/generated/blockchain_protos.pb.cc.o -c /root/AlynCoin/build/generated/blockchain_protos.pb.cc
 
 src/CMakeFiles/alyncoin_lib.dir/__/generated/blockchain_protos.pb.cc.i: cmake_force
@@ -813,7 +827,7 @@ src/CMakeFiles/alyncoin_lib.dir/__/generated/blockchain_protos.pb.cc.s: cmake_fo
 src/CMakeFiles/alyncoin_lib.dir/__/generated/crypto_protos.pb.cc.o: src/CMakeFiles/alyncoin_lib.dir/flags.make
 src/CMakeFiles/alyncoin_lib.dir/__/generated/crypto_protos.pb.cc.o: generated/crypto_protos.pb.cc
 src/CMakeFiles/alyncoin_lib.dir/__/generated/crypto_protos.pb.cc.o: src/CMakeFiles/alyncoin_lib.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_51) "Building CXX object src/CMakeFiles/alyncoin_lib.dir/__/generated/crypto_protos.pb.cc.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_52) "Building CXX object src/CMakeFiles/alyncoin_lib.dir/__/generated/crypto_protos.pb.cc.o"
 	cd /root/AlynCoin/build/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT src/CMakeFiles/alyncoin_lib.dir/__/generated/crypto_protos.pb.cc.o -MF CMakeFiles/alyncoin_lib.dir/__/generated/crypto_protos.pb.cc.o.d -o CMakeFiles/alyncoin_lib.dir/__/generated/crypto_protos.pb.cc.o -c /root/AlynCoin/build/generated/crypto_protos.pb.cc
 
 src/CMakeFiles/alyncoin_lib.dir/__/generated/crypto_protos.pb.cc.i: cmake_force
@@ -827,7 +841,7 @@ src/CMakeFiles/alyncoin_lib.dir/__/generated/crypto_protos.pb.cc.s: cmake_force
 src/CMakeFiles/alyncoin_lib.dir/__/generated/transaction_protos.pb.cc.o: src/CMakeFiles/alyncoin_lib.dir/flags.make
 src/CMakeFiles/alyncoin_lib.dir/__/generated/transaction_protos.pb.cc.o: generated/transaction_protos.pb.cc
 src/CMakeFiles/alyncoin_lib.dir/__/generated/transaction_protos.pb.cc.o: src/CMakeFiles/alyncoin_lib.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_52) "Building CXX object src/CMakeFiles/alyncoin_lib.dir/__/generated/transaction_protos.pb.cc.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_53) "Building CXX object src/CMakeFiles/alyncoin_lib.dir/__/generated/transaction_protos.pb.cc.o"
 	cd /root/AlynCoin/build/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT src/CMakeFiles/alyncoin_lib.dir/__/generated/transaction_protos.pb.cc.o -MF CMakeFiles/alyncoin_lib.dir/__/generated/transaction_protos.pb.cc.o.d -o CMakeFiles/alyncoin_lib.dir/__/generated/transaction_protos.pb.cc.o -c /root/AlynCoin/build/generated/transaction_protos.pb.cc
 
 src/CMakeFiles/alyncoin_lib.dir/__/generated/transaction_protos.pb.cc.i: cmake_force
@@ -841,7 +855,7 @@ src/CMakeFiles/alyncoin_lib.dir/__/generated/transaction_protos.pb.cc.s: cmake_f
 src/CMakeFiles/alyncoin_lib.dir/__/generated/main_protos.pb.cc.o: src/CMakeFiles/alyncoin_lib.dir/flags.make
 src/CMakeFiles/alyncoin_lib.dir/__/generated/main_protos.pb.cc.o: generated/main_protos.pb.cc
 src/CMakeFiles/alyncoin_lib.dir/__/generated/main_protos.pb.cc.o: src/CMakeFiles/alyncoin_lib.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_53) "Building CXX object src/CMakeFiles/alyncoin_lib.dir/__/generated/main_protos.pb.cc.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_54) "Building CXX object src/CMakeFiles/alyncoin_lib.dir/__/generated/main_protos.pb.cc.o"
 	cd /root/AlynCoin/build/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT src/CMakeFiles/alyncoin_lib.dir/__/generated/main_protos.pb.cc.o -MF CMakeFiles/alyncoin_lib.dir/__/generated/main_protos.pb.cc.o.d -o CMakeFiles/alyncoin_lib.dir/__/generated/main_protos.pb.cc.o -c /root/AlynCoin/build/generated/main_protos.pb.cc
 
 src/CMakeFiles/alyncoin_lib.dir/__/generated/main_protos.pb.cc.i: cmake_force
@@ -855,7 +869,7 @@ src/CMakeFiles/alyncoin_lib.dir/__/generated/main_protos.pb.cc.s: cmake_force
 src/CMakeFiles/alyncoin_lib.dir/__/generated/nft.pb.cc.o: src/CMakeFiles/alyncoin_lib.dir/flags.make
 src/CMakeFiles/alyncoin_lib.dir/__/generated/nft.pb.cc.o: generated/nft.pb.cc
 src/CMakeFiles/alyncoin_lib.dir/__/generated/nft.pb.cc.o: src/CMakeFiles/alyncoin_lib.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_54) "Building CXX object src/CMakeFiles/alyncoin_lib.dir/__/generated/nft.pb.cc.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_55) "Building CXX object src/CMakeFiles/alyncoin_lib.dir/__/generated/nft.pb.cc.o"
 	cd /root/AlynCoin/build/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT src/CMakeFiles/alyncoin_lib.dir/__/generated/nft.pb.cc.o -MF CMakeFiles/alyncoin_lib.dir/__/generated/nft.pb.cc.o.d -o CMakeFiles/alyncoin_lib.dir/__/generated/nft.pb.cc.o -c /root/AlynCoin/build/generated/nft.pb.cc
 
 src/CMakeFiles/alyncoin_lib.dir/__/generated/nft.pb.cc.i: cmake_force
@@ -869,7 +883,7 @@ src/CMakeFiles/alyncoin_lib.dir/__/generated/nft.pb.cc.s: cmake_force
 src/CMakeFiles/alyncoin_lib.dir/__/generated/atomic_swap.pb.cc.o: src/CMakeFiles/alyncoin_lib.dir/flags.make
 src/CMakeFiles/alyncoin_lib.dir/__/generated/atomic_swap.pb.cc.o: generated/atomic_swap.pb.cc
 src/CMakeFiles/alyncoin_lib.dir/__/generated/atomic_swap.pb.cc.o: src/CMakeFiles/alyncoin_lib.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_55) "Building CXX object src/CMakeFiles/alyncoin_lib.dir/__/generated/atomic_swap.pb.cc.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_56) "Building CXX object src/CMakeFiles/alyncoin_lib.dir/__/generated/atomic_swap.pb.cc.o"
 	cd /root/AlynCoin/build/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT src/CMakeFiles/alyncoin_lib.dir/__/generated/atomic_swap.pb.cc.o -MF CMakeFiles/alyncoin_lib.dir/__/generated/atomic_swap.pb.cc.o.d -o CMakeFiles/alyncoin_lib.dir/__/generated/atomic_swap.pb.cc.o -c /root/AlynCoin/build/generated/atomic_swap.pb.cc
 
 src/CMakeFiles/alyncoin_lib.dir/__/generated/atomic_swap.pb.cc.i: cmake_force
@@ -883,7 +897,7 @@ src/CMakeFiles/alyncoin_lib.dir/__/generated/atomic_swap.pb.cc.s: cmake_force
 src/CMakeFiles/alyncoin_lib.dir/__/generated/identity.pb.cc.o: src/CMakeFiles/alyncoin_lib.dir/flags.make
 src/CMakeFiles/alyncoin_lib.dir/__/generated/identity.pb.cc.o: generated/identity.pb.cc
 src/CMakeFiles/alyncoin_lib.dir/__/generated/identity.pb.cc.o: src/CMakeFiles/alyncoin_lib.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_56) "Building CXX object src/CMakeFiles/alyncoin_lib.dir/__/generated/identity.pb.cc.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_57) "Building CXX object src/CMakeFiles/alyncoin_lib.dir/__/generated/identity.pb.cc.o"
 	cd /root/AlynCoin/build/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT src/CMakeFiles/alyncoin_lib.dir/__/generated/identity.pb.cc.o -MF CMakeFiles/alyncoin_lib.dir/__/generated/identity.pb.cc.o.d -o CMakeFiles/alyncoin_lib.dir/__/generated/identity.pb.cc.o -c /root/AlynCoin/build/generated/identity.pb.cc
 
 src/CMakeFiles/alyncoin_lib.dir/__/generated/identity.pb.cc.i: cmake_force
@@ -936,6 +950,7 @@ alyncoin_lib_OBJECTS = \
 "CMakeFiles/alyncoin_lib.dir/transport/tcp_transport.cpp.o" \
 "CMakeFiles/alyncoin_lib.dir/transport/pubsub_router.cpp.o" \
 "CMakeFiles/alyncoin_lib.dir/transport/peer_globals.cpp.o" \
+"CMakeFiles/alyncoin_lib.dir/epoch_sync.cpp.o" \
 "CMakeFiles/alyncoin_lib.dir/blake3.c.o" \
 "CMakeFiles/alyncoin_lib.dir/blake3_dispatch.c.o" \
 "CMakeFiles/alyncoin_lib.dir/blake3_portable.c.o" \
@@ -995,6 +1010,7 @@ src/libalyncoin_lib.a: src/CMakeFiles/alyncoin_lib.dir/nft/nft_utils.cpp.o
 src/libalyncoin_lib.a: src/CMakeFiles/alyncoin_lib.dir/transport/tcp_transport.cpp.o
 src/libalyncoin_lib.a: src/CMakeFiles/alyncoin_lib.dir/transport/pubsub_router.cpp.o
 src/libalyncoin_lib.a: src/CMakeFiles/alyncoin_lib.dir/transport/peer_globals.cpp.o
+src/libalyncoin_lib.a: src/CMakeFiles/alyncoin_lib.dir/epoch_sync.cpp.o
 src/libalyncoin_lib.a: src/CMakeFiles/alyncoin_lib.dir/blake3.c.o
 src/libalyncoin_lib.a: src/CMakeFiles/alyncoin_lib.dir/blake3_dispatch.c.o
 src/libalyncoin_lib.a: src/CMakeFiles/alyncoin_lib.dir/blake3_portable.c.o
@@ -1012,7 +1028,7 @@ src/libalyncoin_lib.a: src/CMakeFiles/alyncoin_lib.dir/__/generated/atomic_swap.
 src/libalyncoin_lib.a: src/CMakeFiles/alyncoin_lib.dir/__/generated/identity.pb.cc.o
 src/libalyncoin_lib.a: src/CMakeFiles/alyncoin_lib.dir/build.make
 src/libalyncoin_lib.a: src/CMakeFiles/alyncoin_lib.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_57) "Linking CXX static library libalyncoin_lib.a"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_58) "Linking CXX static library libalyncoin_lib.a"
 	cd /root/AlynCoin/build/src && $(CMAKE_COMMAND) -P CMakeFiles/alyncoin_lib.dir/cmake_clean_target.cmake
 	cd /root/AlynCoin/build/src && $(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/alyncoin_lib.dir/link.txt --verbose=$(VERBOSE)
 

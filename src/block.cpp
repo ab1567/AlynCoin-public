@@ -49,6 +49,8 @@ Block::Block()
   publicKeyDilithium.clear();
   publicKeyFalcon.clear();
   zkProof = std::vector<uint8_t>();
+  epochRoot.clear();
+  epochProof.clear();
 }
 
 // ✅ Parameterized Constructor (Used When Mining Blocks)
@@ -66,6 +68,8 @@ Block::Block(int index, const std::string &previousHash,
   publicKeyDilithium.clear();
   publicKeyFalcon.clear();
   zkProof = std::vector<uint8_t>();
+  epochRoot.clear();
+  epochProof.clear();
 }
 
 // ✅ Copy Constructor
@@ -80,6 +84,8 @@ Block::Block(const Block &other)
       publicKeyDilithium(other.publicKeyDilithium),
       publicKeyFalcon(other.publicKeyFalcon),
       zkProof(other.zkProof),
+      epochRoot(other.epochRoot),
+      epochProof(other.epochProof),
       reward(other.reward)
 {
     setMerkleRoot(other.merkleRoot);
@@ -103,6 +109,8 @@ Block &Block::operator=(const Block &other) {
         publicKeyDilithium = other.publicKeyDilithium;
         publicKeyFalcon = other.publicKeyFalcon;
         zkProof = other.zkProof;
+        epochRoot = other.epochRoot;
+        epochProof = other.epochProof;
         reward = other.reward;
         setMerkleRoot(other.merkleRoot);
     }
@@ -631,6 +639,11 @@ alyncoin::BlockProto Block::toProtobuf() const {
         *proto.add_l2_transactions() = l2tx.toProto();
     }
 
+    if (!epochRoot.empty())
+        proto.set_epoch_root(epochRoot);
+    if (!epochProof.empty())
+        proto.set_epoch_proof(reinterpret_cast<const char*>(epochProof.data()), epochProof.size());
+
     std::cerr << "[toProtobuf] index=" << index << " tx_merkle_root=" << txRoot << std::endl;
     return proto;
 }
@@ -724,6 +737,8 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
         newBlock.falconSignature    = safeBinaryField(protoBlock.falcon_signature(),    "Falcon Signature",    2000);
         newBlock.publicKeyDilithium = safeBinaryField(protoBlock.public_key_dilithium(),"Dilithium Public Key", 2000);
         newBlock.publicKeyFalcon    = safeBinaryField(protoBlock.public_key_falcon(),   "Falcon Public Key",    2000);
+        newBlock.epochRoot         = safeStr(protoBlock.epoch_root(), "epoch_root", 128);
+        newBlock.epochProof        = std::vector<uint8_t>(protoBlock.epoch_proof().begin(), protoBlock.epoch_proof().end());
 
     } catch (const std::exception& ex) {
         std::cerr << "❌ [fromProto] Critical error: " << ex.what() << "\n";

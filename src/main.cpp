@@ -109,6 +109,9 @@ svr.Post("/rpc", [blockchain, network](const httplib::Request& req, httplib::Res
             }
         }
         // Start Mining Loop (Non-blocking trigger, returns immediately)
+        // NOTE: This RPC spawns an infinite mining thread on the server and
+        // does not provide a stop mechanism or return mined block hashes.
+        // The GUI now prefers calling "mineonce" repeatedly instead.
         else if (method == "mineloop") {
             std::string miner = params.at(0);
             std::thread([blockchain, network, miner]() {
@@ -145,7 +148,9 @@ svr.Post("/rpc", [blockchain, network](const httplib::Request& req, httplib::Res
             bool synced = false;
             if (network && network->getPeerManager()) {
                 networkHeight = network->getPeerManager()->getMedianNetworkHeight();
-                synced = (networkHeight > 0 && localHeight >= networkHeight);
+                // Treat networkHeight=0 as "unknown" rather than unsynced
+                // so the GUI can start even before any peers report heights.
+                synced = (networkHeight == 0 || localHeight >= networkHeight);
             } else {
                 synced = true; // assume synced if no network
             }

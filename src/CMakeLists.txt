@@ -104,6 +104,7 @@ list(APPEND SOURCES
     ${SOURCE_DIR}/transport/pubsub_router.cpp
     ${SOURCE_DIR}/transport/pubsub_router.h
     ${SOURCE_DIR}/transport/peer_globals.cpp
+    ${SOURCE_DIR}/epoch_sync.cpp
 )
 
 file(GLOB EXPLORER_SOURCES ${SOURCE_DIR}/explorer/*.cpp)

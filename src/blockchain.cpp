@@ -34,6 +34,20 @@ std::vector<StateChannel> stateChannels;
 std::vector<RollupBlock> rollupBlocks;
 double totalSupply = 0.0;
 static Blockchain* g_blockchain_singleton = nullptr;
+
+// Compute BLAKE3 hash of concatenated block hashes for the epoch ending at
+// endIndex (inclusive). Returns empty string if insufficient history.
+std::string Blockchain::computeEpochRoot(size_t endIndex) const {
+    if (endIndex + 1 < static_cast<size_t>(EPOCH_SIZE))
+        return "";
+    if (endIndex >= chain.size())
+        return "";
+    size_t start = endIndex + 1 - EPOCH_SIZE;
+    std::string combined;
+    for (size_t i = start; i <= endIndex; ++i)
+        combined += chain[i].getHash();
+    return Crypto::blake3(combined);
+}
 Blockchain& getBlockchain() {
  return Blockchain::getActiveInstance();
 }
@@ -817,6 +831,19 @@ Block Blockchain::minePendingTransactions(
         return Block();
     }
 
+    // If this block completes an epoch, compute aggregated root and dummy proof
+    size_t nextIndex = chain.size();
+    if ((nextIndex + 1) % EPOCH_SIZE == 0 && chain.size() >= static_cast<size_t>(EPOCH_SIZE - 1)) {
+        std::string combined;
+        for (size_t i = nextIndex + 1 - EPOCH_SIZE; i < chain.size(); ++i)
+            combined += chain[i].getHash();
+        combined += newBlock.getHash();
+        std::string root = Crypto::blake3(combined);
+        newBlock.setEpochRoot(root);
+        std::string dummy = WinterfellStark::generateProof(root, root, root);
+        newBlock.setEpochProof(std::vector<uint8_t>(dummy.begin(), dummy.end()));
+    }
+
     if (newBlock.getZkProof().empty()) {
         std::cerr << "❌ [ERROR] Mined block has empty zkProof! Aborting mining.\n";
         return Block();
@@ -836,6 +863,12 @@ Block Blockchain::minePendingTransactions(
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
         if (!Network::isUninitialized()) {
             Network::getInstance().broadcastBlock(blockCopy);
+            if (!blockCopy.getEpochProof().empty()) {
+                Network::getInstance().broadcastEpochProof(
+                    blockCopy.getIndex() / EPOCH_SIZE,
+                    blockCopy.getEpochRoot(),
+                    blockCopy.getEpochProof());
+            }
         }
     }, newBlock).detach();
 
@@ -1166,11 +1199,6 @@ bool Blockchain::loadFromDB() {
     } else if (!loadedBlocks.empty()) {
         chain = loadedBlocks;
     } else {
-        std::string dbPath = DBPaths::getBlockchainDB();
-        if (dbPath.find("db_node_b") != std::string::npos || dbPath.find("temp") != std::string::npos) {
-            std::cerr << "🧪 [INFO] Peer mode detected — no genesis. Waiting for sync.\n";
-            return true;
-        }
         std::cerr << "🪐 Creating Genesis Block...\n";
         createGenesisBlock(true);
         std::cout << "⏳ Applying vesting schedule for early supporters...\n";

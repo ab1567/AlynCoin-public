@@ -33,6 +33,8 @@ private:
   std::string merkleRoot;
   double reward = 0.0;
   std::vector<Transaction> l2Transactions;
+  std::string epochRoot;
+  std::vector<uint8_t> epochProof;
   std::string transactionsToString() const;
 
 public:
@@ -64,6 +66,8 @@ public:
   std::string getMerkleRoot() const { return merkleRoot; }
   std::string getTxRoot() const { return getTransactionsHash(); }
   std::vector<uint8_t> getZkProof() const { return zkProof; }
+  const std::string& getEpochRoot() const { return epochRoot; }
+  const std::vector<uint8_t>& getEpochProof() const { return epochProof; }
 
   const std::vector<unsigned char>& getDilithiumSignature() const { return dilithiumSignature; }
   const std::vector<unsigned char>& getFalconSignature() const    { return falconSignature; }
@@ -87,6 +91,8 @@ public:
   void setPublicKeyDilithium(const std::vector<unsigned char> &pk) { publicKeyDilithium = pk; }
   void setPublicKeyFalcon(const std::vector<unsigned char> &pk) { publicKeyFalcon = pk; }
   void setZkProof(const std::vector<uint8_t> &proof) { zkProof = proof; }
+  void setEpochRoot(const std::string& root) { epochRoot = root; }
+  void setEpochProof(const std::vector<uint8_t>& proof) { epochProof = proof; }
   //void setMerkleRoot(const std::string &merkle) { merkleRoot = merkle; }
   void setReward(double r);
 

@@ -192,6 +192,8 @@ class BlockProto final :
     kPublicKeyFalconFieldNumber = 15,
     kStateRootFieldNumber = 16,
     kTxMerkleRootFieldNumber = 17,
+    kEpochRootFieldNumber = 20,
+    kEpochProofFieldNumber = 21,
     kIndexFieldNumber = 1,
     kDifficultyFieldNumber = 8,
     kNonceFieldNumber = 6,
@@ -402,6 +404,34 @@ class BlockProto final :
   std::string* _internal_mutable_tx_merkle_root();
   public:
 
+  // string epoch_root = 20;
+  void clear_epoch_root();
+  const std::string& epoch_root() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_epoch_root(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_epoch_root();
+  PROTOBUF_NODISCARD std::string* release_epoch_root();
+  void set_allocated_epoch_root(std::string* epoch_root);
+  private:
+  const std::string& _internal_epoch_root() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_epoch_root(const std::string& value);
+  std::string* _internal_mutable_epoch_root();
+  public:
+
+  // bytes epoch_proof = 21;
+  void clear_epoch_proof();
+  const std::string& epoch_proof() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_epoch_proof(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_epoch_proof();
+  PROTOBUF_NODISCARD std::string* release_epoch_proof();
+  void set_allocated_epoch_proof(std::string* epoch_proof);
+  private:
+  const std::string& _internal_epoch_proof() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_epoch_proof(const std::string& value);
+  std::string* _internal_mutable_epoch_proof();
+  public:
+
   // int32 index = 1;
   void clear_index();
   int32_t index() const;
@@ -475,6 +505,8 @@ class BlockProto final :
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr public_key_falcon_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr state_root_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr tx_merkle_root_;
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr epoch_root_;
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr epoch_proof_;
     int32_t index_;
     int32_t difficulty_;
     uint64_t nonce_;
@@ -1275,6 +1307,106 @@ inline const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::TransactionP
 BlockProto::l2_transactions() const {
   // @@protoc_insertion_point(field_list:alyncoin.BlockProto.l2_transactions)
   return _impl_.l2_transactions_;
+}
+
+// string epoch_root = 20;
+inline void BlockProto::clear_epoch_root() {
+  _impl_.epoch_root_.ClearToEmpty();
+}
+inline const std::string& BlockProto::epoch_root() const {
+  // @@protoc_insertion_point(field_get:alyncoin.BlockProto.epoch_root)
+  return _internal_epoch_root();
+}
+template <typename ArgT0, typename... ArgT>
+inline PROTOBUF_ALWAYS_INLINE
+void BlockProto::set_epoch_root(ArgT0&& arg0, ArgT... args) {
+ 
+ _impl_.epoch_root_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:alyncoin.BlockProto.epoch_root)
+}
+inline std::string* BlockProto::mutable_epoch_root() {
+  std::string* _s = _internal_mutable_epoch_root();
+  // @@protoc_insertion_point(field_mutable:alyncoin.BlockProto.epoch_root)
+  return _s;
+}
+inline const std::string& BlockProto::_internal_epoch_root() const {
+  return _impl_.epoch_root_.Get();
+}
+inline void BlockProto::_internal_set_epoch_root(const std::string& value) {
+  
+  _impl_.epoch_root_.Set(value, GetArenaForAllocation());
+}
+inline std::string* BlockProto::_internal_mutable_epoch_root() {
+  
+  return _impl_.epoch_root_.Mutable(GetArenaForAllocation());
+}
+inline std::string* BlockProto::release_epoch_root() {
+  // @@protoc_insertion_point(field_release:alyncoin.BlockProto.epoch_root)
+  return _impl_.epoch_root_.Release();
+}
+inline void BlockProto::set_allocated_epoch_root(std::string* epoch_root) {
+  if (epoch_root != nullptr) {
+    
+  } else {
+    
+  }
+  _impl_.epoch_root_.SetAllocated(epoch_root, GetArenaForAllocation());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (_impl_.epoch_root_.IsDefault()) {
+    _impl_.epoch_root_.Set("", GetArenaForAllocation());
+  }
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.BlockProto.epoch_root)
+}
+
+// bytes epoch_proof = 21;
+inline void BlockProto::clear_epoch_proof() {
+  _impl_.epoch_proof_.ClearToEmpty();
+}
+inline const std::string& BlockProto::epoch_proof() const {
+  // @@protoc_insertion_point(field_get:alyncoin.BlockProto.epoch_proof)
+  return _internal_epoch_proof();
+}
+template <typename ArgT0, typename... ArgT>
+inline PROTOBUF_ALWAYS_INLINE
+void BlockProto::set_epoch_proof(ArgT0&& arg0, ArgT... args) {
+ 
+ _impl_.epoch_proof_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:alyncoin.BlockProto.epoch_proof)
+}
+inline std::string* BlockProto::mutable_epoch_proof() {
+  std::string* _s = _internal_mutable_epoch_proof();
+  // @@protoc_insertion_point(field_mutable:alyncoin.BlockProto.epoch_proof)
+  return _s;
+}
+inline const std::string& BlockProto::_internal_epoch_proof() const {
+  return _impl_.epoch_proof_.Get();
+}
+inline void BlockProto::_internal_set_epoch_proof(const std::string& value) {
+  
+  _impl_.epoch_proof_.Set(value, GetArenaForAllocation());
+}
+inline std::string* BlockProto::_internal_mutable_epoch_proof() {
+  
+  return _impl_.epoch_proof_.Mutable(GetArenaForAllocation());
+}
+inline std::string* BlockProto::release_epoch_proof() {
+  // @@protoc_insertion_point(field_release:alyncoin.BlockProto.epoch_proof)
+  return _impl_.epoch_proof_.Release();
+}
+inline void BlockProto::set_allocated_epoch_proof(std::string* epoch_proof) {
+  if (epoch_proof != nullptr) {
+    
+  } else {
+    
+  }
+  _impl_.epoch_proof_.SetAllocated(epoch_proof, GetArenaForAllocation());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (_impl_.epoch_proof_.IsDefault()) {
+    _impl_.epoch_proof_.Set("", GetArenaForAllocation());
+  }
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.BlockProto.epoch_proof)
 }
 
 #ifdef __GNUC__

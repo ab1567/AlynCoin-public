@@ -28,6 +28,7 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/root/AlynCoin/src/crypto_utils.cpp" "src/CMakeFiles/alyncoin_lib.dir/crypto_utils.cpp.o" "gcc" "src/CMakeFiles/alyncoin_lib.dir/crypto_utils.cpp.o.d"
   "/root/AlynCoin/src/db/db_instance.cpp" "src/CMakeFiles/alyncoin_lib.dir/db/db_instance.cpp.o" "gcc" "src/CMakeFiles/alyncoin_lib.dir/db/db_instance.cpp.o.d"
   "/root/AlynCoin/src/db/rocksdb_wrapper.cpp" "src/CMakeFiles/alyncoin_lib.dir/db/rocksdb_wrapper.cpp.o" "gcc" "src/CMakeFiles/alyncoin_lib.dir/db/rocksdb_wrapper.cpp.o.d"
+  "/root/AlynCoin/src/epoch_sync.cpp" "src/CMakeFiles/alyncoin_lib.dir/epoch_sync.cpp.o" "gcc" "src/CMakeFiles/alyncoin_lib.dir/epoch_sync.cpp.o.d"
   "/root/AlynCoin/src/governance/dao.cpp" "src/CMakeFiles/alyncoin_lib.dir/governance/dao.cpp.o" "gcc" "src/CMakeFiles/alyncoin_lib.dir/governance/dao.cpp.o.d"
   "/root/AlynCoin/src/governance/dao_storage.cpp" "src/CMakeFiles/alyncoin_lib.dir/governance/dao_storage.cpp.o" "gcc" "src/CMakeFiles/alyncoin_lib.dir/governance/dao_storage.cpp.o.d"
   "/root/AlynCoin/src/governance/devfund.cpp" "src/CMakeFiles/alyncoin_lib.dir/governance/devfund.cpp.o" "gcc" "src/CMakeFiles/alyncoin_lib.dir/governance/devfund.cpp.o.d"
