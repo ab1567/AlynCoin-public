@@ -105,6 +105,9 @@ public:
     void autoMineBlock();
     void periodicSync();
     void broadcastRollupBlock(const RollupBlock &rollupBlock);
+    void broadcastEpochProof(int epochIdx, const std::string &rootHash,
+                             const std::vector<uint8_t> &proof);
+    void requestEpochHeaders(const std::string &peerId);
     void handleNewRollupBlock(const RollupBlock &newRollupBlock);
     void receiveRollupBlock(const std::string &data);
     void listenForConnections();
@@ -113,6 +116,7 @@ public:
     void blacklistPeer(const std::string &peer);
     bool isBlacklisted(const std::string &peer);
     void cleanupPeers();
+    bool peerSupportsAggProof(const std::string& peerId) const;
     bool isSelfPeer(const std::string& peer) const;
     std::string getSelfAddressAndPort() const;
     inline static bool isUninitialized() { return instancePtr == nullptr; }

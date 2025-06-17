@@ -24,4 +24,6 @@ message BlockProto {
     string tx_merkle_root = 17;   
     optional double reward = 18;
     repeated TransactionProto l2_transactions = 19;
+    string epoch_root = 20;        // sha256 of the epoch commitment
+    bytes epoch_proof = 21;        // compressed zk-STARK proof for the epoch
 }

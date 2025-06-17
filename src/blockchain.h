@@ -36,6 +36,7 @@ class Network;
 
 const double MAX_SUPPLY = 100000000.0;
 const size_t MAX_PENDING_TRANSACTIONS = 10000;
+const int EPOCH_SIZE = 64; // number of blocks per aggregated proof epoch
 
 class Blockchain {
   friend class Network;
@@ -128,6 +129,7 @@ public:
   void clear(bool force = false);
   void validateChainContinuity() const;
   double calculateBlockReward();
+  std::string computeEpochRoot(size_t endIndex) const;
   std::string getLatestBlockHash() const;
   std::vector<Block> getAllBlocks();
   Block mineBlock(const std::string &minerAddress);

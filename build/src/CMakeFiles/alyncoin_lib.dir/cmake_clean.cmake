@@ -57,6 +57,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/alyncoin_lib.dir/db/db_instance.cpp.o.d"
   "CMakeFiles/alyncoin_lib.dir/db/rocksdb_wrapper.cpp.o"
   "CMakeFiles/alyncoin_lib.dir/db/rocksdb_wrapper.cpp.o.d"
+  "CMakeFiles/alyncoin_lib.dir/epoch_sync.cpp.o"
+  "CMakeFiles/alyncoin_lib.dir/epoch_sync.cpp.o.d"
   "CMakeFiles/alyncoin_lib.dir/governance/dao.cpp.o"
   "CMakeFiles/alyncoin_lib.dir/governance/dao.cpp.o.d"
   "CMakeFiles/alyncoin_lib.dir/governance/dao_storage.cpp.o"
