@@ -1594,6 +1594,30 @@ db/rocksdb_wrapper.cpp.s:
 	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/db/rocksdb_wrapper.cpp.s
 .PHONY : db/rocksdb_wrapper.cpp.s
 
+epoch_sync.o: epoch_sync.cpp.o
+.PHONY : epoch_sync.o
+
+# target to build an object file
+epoch_sync.cpp.o:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/epoch_sync.cpp.o
+.PHONY : epoch_sync.cpp.o
+
+epoch_sync.i: epoch_sync.cpp.i
+.PHONY : epoch_sync.i
+
+# target to preprocess a source file
+epoch_sync.cpp.i:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/epoch_sync.cpp.i
+.PHONY : epoch_sync.cpp.i
+
+epoch_sync.s: epoch_sync.cpp.s
+.PHONY : epoch_sync.s
+
+# target to generate assembly for a file
+epoch_sync.cpp.s:
+	cd /root/AlynCoin && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/epoch_sync.cpp.s
+.PHONY : epoch_sync.cpp.s
+
 explorer/explorer_db.o: explorer/explorer_db.cpp.o
 .PHONY : explorer/explorer_db.o
 
@@ -2830,6 +2854,9 @@ help:
 	@echo "... db/rocksdb_wrapper.o"
 	@echo "... db/rocksdb_wrapper.i"
 	@echo "... db/rocksdb_wrapper.s"
+	@echo "... epoch_sync.o"
+	@echo "... epoch_sync.i"
+	@echo "... epoch_sync.s"
 	@echo "... explorer/explorer_db.o"
 	@echo "... explorer/explorer_db.i"
 	@echo "... explorer/explorer_db.s"
