@@ -2872,3 +2872,17 @@ bool Blockchain::openDB(bool readOnly) {
     }
     return true;
 }
+//
+bool Blockchain::getBlockByHash(const std::string& hash, Block& out) const
+{
+    for (const auto& b : chain)
+    {
+        if (b.getHash() == hash)
+        {
+            out = b;
+            return true;
+        }
+    }
+    return false;
+}
+

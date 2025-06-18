@@ -221,6 +221,7 @@ void compareAndMergeChains(const std::vector<Block>& otherChain);
 void saveForkView(const std::vector<Block>& forkChain);
 bool deserializeBlockchainForkView(const std::string& rawData, std::vector<Block>& forkOut) const;
 
+bool getBlockByHash(const std::string& hash, Block& out) const;
 };
 
 // ✅ Standalone declaration outside the Blockchain class
