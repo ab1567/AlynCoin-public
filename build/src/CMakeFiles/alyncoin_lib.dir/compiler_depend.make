@@ -2233,7 +2233,9 @@ src/CMakeFiles/alyncoin_lib.dir/__/generated/nft.pb.cc.o: generated/nft.pb.cc \
   /usr/lib/gcc/x86_64-linux-gnu/13/include/syslimits.h
 
 src/CMakeFiles/alyncoin_lib.dir/__/generated/sync_protos.pb.cc.o: generated/sync_protos.pb.cc \
+  generated/block_protos.pb.h \
   generated/sync_protos.pb.h \
+  generated/transaction_protos.pb.h \
   /usr/include/alloca.h \
   /usr/include/asm-generic/errno-base.h \
   /usr/include/asm-generic/errno.h \

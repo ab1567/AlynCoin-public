@@ -1518,6 +1518,43 @@ void Blockchain::replaceChain(const std::vector<Block> &newChain) {
     }
 }
 
+// ✅ Replace a prefix of the blockchain using a snapshot
+bool Blockchain::replaceChainUpTo(const std::vector<Block>& blocks, int upToHeight) {
+    std::lock_guard<std::mutex> lock(blockchainMutex);
+
+    if (blocks.empty() || upToHeight < 0 || static_cast<int>(blocks.size()) != upToHeight + 1) {
+        std::cerr << "❌ [replaceChainUpTo] Invalid input parameters\n";
+        return false;
+    }
+
+    // Validate genesis consistency with existing chain
+    if (!chain.empty() && blocks[0].getHash() != chain[0].getHash()) {
+        std::cerr << "❌ [replaceChainUpTo] Genesis block mismatch\n";
+        return false;
+    }
+
+    // Validate linkage and block validity of the snapshot
+    for (size_t i = 1; i < blocks.size(); ++i) {
+        if (blocks[i].getPreviousHash() != blocks[i-1].getHash()) {
+            std::cerr << "❌ [replaceChainUpTo] Invalid block linkage at idx " << i << "\n";
+            return false;
+        }
+        if (!blocks[i].isValid(blocks[i-1].getHash(), blocks[i].getDifficulty())) {
+            std::cerr << "❌ [replaceChainUpTo] Block invalid at idx " << i << "\n";
+            return false;
+        }
+    }
+
+    // Truncate and replace local chain with the provided prefix
+    chain.assign(blocks.begin(), blocks.end());
+
+    recalculateBalancesFromChain();
+    applyRollupDeltasToBalances();
+    saveToDB();
+
+    std::cout << "✅ [replaceChainUpTo] Replaced chain up to height " << upToHeight << "\n";
+    return true;
+}
 //
 bool Blockchain::isValidNewBlock(const Block& newBlock) const {
     if (chain.empty()) {

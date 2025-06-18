@@ -2241,7 +2241,9 @@ src/CMakeFiles/alyncoin_lib.dir/__/generated/nft.pb.cc.o
 
 src/CMakeFiles/alyncoin_lib.dir/__/generated/sync_protos.pb.cc.o
  /root/AlynCoin/build/generated/sync_protos.pb.cc
+ /root/AlynCoin/build/generated/block_protos.pb.h
  /root/AlynCoin/build/generated/sync_protos.pb.h
+ /root/AlynCoin/build/generated/transaction_protos.pb.h
  /usr/include/alloca.h
  /usr/include/asm-generic/errno-base.h
  /usr/include/asm-generic/errno.h
