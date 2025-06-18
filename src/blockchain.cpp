@@ -34,7 +34,6 @@ std::vector<StateChannel> stateChannels;
 std::vector<RollupBlock> rollupBlocks;
 double totalSupply = 0.0;
 static Blockchain* g_blockchain_singleton = nullptr;
-
 // Compute BLAKE3 hash of concatenated block hashes for the epoch ending at
 // endIndex (inclusive). Returns empty string if insufficient history.
 std::string Blockchain::computeEpochRoot(size_t endIndex) const {
@@ -200,46 +199,54 @@ bool Blockchain::isTransactionValid(const Transaction &tx) const {
 }
 
 // ✅ Create the Genesis Block Properly
-Block Blockchain::createGenesisBlock(bool force) {
+Block Blockchain::createGenesisBlock(bool force)
+{
     if (!force && !chain.empty()) {
-        std::cerr << "⚠️ Genesis block already exists. Skipping creation.\n";
+        std::cerr << "⚠️  Genesis block already exists. Skipping creation.\n";
         return chain.front();
     }
 
+    /* ----------------------------------------------------------------- */
     std::vector<Transaction> transactions;
-    std::string prevHash = "00000000000000000000000000000000";
-    std::string creator = "System";
-    uint64_t fixedTimestamp = 1713120000;
-    difficulty = calculateSmartDifficulty(*this);
+    std::string prevHash      = std::string{GENESIS_PARENT_HASH};
+    std::string creator       = "System";
+    uint64_t    fixedTime     = 1713120000;            // 2024-Apr-14 00:00 UTC
+    difficulty  = calculateSmartDifficulty(*this);
+    /* ----------------------------------------------------------------- */
 
-    Block genesis(0, prevHash, transactions, creator, difficulty, fixedTimestamp, 0);
+    Block genesis(0, prevHash, transactions,
+                  creator, difficulty, fixedTime, 0);
 
+    /* hashes / roots --------------------------------------------------- */
     std::string txRoot = genesis.computeTransactionsHash();
-    genesis.setTransactionsHash(txRoot);
-    genesis.setMerkleRoot(txRoot);
+    genesis.setTransactionsHash(txRoot);   // mirrors into merkleRoot
+    genesis.setMerkleRoot(txRoot);         // invariant keeper
+    genesis.setHash( genesis.calculateHash() );
 
-    std::string blockHash = genesis.calculateHash();
-    genesis.setHash(blockHash);
-    std::cout << "[DEBUG] Genesis Block created with hash: " << blockHash << std::endl;
+    std::cout << "[DEBUG] Genesis block hash: "
+              << genesis.getHash() << '\n';
 
+    /* ------------------------------------------------------------------ */
+    /* key generation + signatures                                        */
     std::string rsaKeyPath = getPrivateKeyPath("System");
     if (!fs::exists(rsaKeyPath)) {
-        std::cerr << "⚠️ RSA key missing for Genesis. Generating...\n";
+        std::cerr << "⚠️  RSA key missing for Genesis. Generating...\n";
         Crypto::generateKeysForUser("System");
     }
 
-    std::string rsaSig = Crypto::signMessage(blockHash, rsaKeyPath, true);
+    std::string rsaSig = Crypto::signMessage(genesis.getHash(),
+                                             rsaKeyPath, true);
     if (rsaSig.empty()) {
         std::cerr << "❌ RSA signature failed!\n";
         exit(1);
     }
     genesis.setSignature(rsaSig);
 
+    /* PQ keys ----------------------------------------------------------- */
     auto dilKeys = Crypto::loadDilithiumKeys("System");
     auto falKeys = Crypto::loadFalconKeys("System");
-
     if (dilKeys.privateKey.empty() || falKeys.privateKey.empty()) {
-        std::cerr << "⚠️ PQ keys missing. Regenerating...\n";
+        std::cerr << "⚠️  PQ keys missing. Regenerating...\n";
         Crypto::generatePostQuantumKeys("System");
         dilKeys = Crypto::loadDilithiumKeys("System");
         falKeys = Crypto::loadFalconKeys("System");
@@ -247,63 +254,40 @@ Block Blockchain::createGenesisBlock(bool force) {
 
     std::vector<unsigned char> msgBytes = genesis.getSignatureMessage();
     if (msgBytes.size() != 32) {
-        std::cerr << "❌ Message must be 32 bytes!\n";
+        std::cerr << "❌ Message hash must be 32 bytes!\n";
         exit(1);
     }
+    genesis.setDilithiumSignature(
+        Crypto::signWithDilithium(msgBytes, dilKeys.privateKey));
+    genesis.setFalconSignature(
+        Crypto::signWithFalcon   (msgBytes, falKeys.privateKey));
 
-    auto sigDilVec = Crypto::signWithDilithium(msgBytes, dilKeys.privateKey);
-    auto sigFalVec = Crypto::signWithFalcon(msgBytes, falKeys.privateKey);
-    if (sigDilVec.empty() || sigFalVec.empty()) {
-        std::cerr << "❌ PQ signature failed!\n";
-        exit(1);
-    }
-
-    genesis.setDilithiumSignature(sigDilVec);
-    genesis.setFalconSignature(sigFalVec);
-
-    // ✅ Validate and set public keys
-    if (dilKeys.publicKey.size() != DILITHIUM_PUBLIC_KEY_BYTES) {
-        std::cerr << "❌ Dilithium public key size invalid: " << dilKeys.publicKey.size()
-                 << " (expected: " << DILITHIUM_PUBLIC_KEY_BYTES << ")\n";
+    if (dilKeys.publicKey.size() != DILITHIUM_PUBLIC_KEY_BYTES ||
+        falKeys.publicKey.size() != FALCON_PUBLIC_KEY_BYTES) {
+        std::cerr << "❌ PQ public-key length mismatch!\n";
         exit(1);
     }
     genesis.setPublicKeyDilithium(dilKeys.publicKey);
+    genesis.setPublicKeyFalcon   (falKeys.publicKey);
 
-    if (falKeys.publicKey.size() != FALCON_PUBLIC_KEY_BYTES) {
-        std::cerr << "❌ Falcon public key size invalid: " << falKeys.publicKey.size()
-                  << " (expected: " << FALCON_PUBLIC_KEY_BYTES << ")\n";
+    /* zk-STARK proof ---------------------------------------------------- */
+    std::string proof = WinterfellStark::generateProof(
+            genesis.getHash(), genesis.getPreviousHash(), txRoot);
+
+    if (proof.size() < 64) {
+        std::cerr << "❌ zk-STARK proof generation failed!\n";
         exit(1);
     }
-    genesis.setPublicKeyFalcon(falKeys.publicKey);
+    genesis.setZkProof({proof.begin(), proof.end()});
+    /* ------------------------------------------------------------------ */
 
-    std::string zkProof = WinterfellStark::generateProof(
-        genesis.getHash(),
-        genesis.getPreviousHash(),
-        genesis.getTransactionsHash()
-    );
-
-    std::cout << "[GENESIS] 🔐 Generating zk-STARK proof for Genesis block\n";
-    std::cout << "  - Hash        : " << genesis.getHash() << "\n";
-    std::cout << "  - PrevHash    : " << genesis.getPreviousHash() << "\n";
-    std::cout << "  - TxRoot      : " << genesis.getTransactionsHash() << "\n";
-    std::cout << "  - ZK Proof len: " << zkProof.size() << " bytes\n";
-
-    if (zkProof.empty() || zkProof.size() < 64) {
-        std::cerr << "❌ zk-STARK proof generation failed for Genesis block!\n";
-        exit(1);
-    }
-
-    genesis.setZkProof(std::vector<uint8_t>(zkProof.begin(), zkProof.end()));
-    std::cout << "[DEBUG] ✅ zkProof set for genesis: " << genesis.getZkProof().size() << " bytes\n";
-
-    std::cout << "[DEBUG] Genesis zkProof size before addBlock: " << genesis.getZkProof().size() << "\n";
     if (!addBlock(genesis)) {
-        std::cerr << "❌ Failed to add genesis block!\n";
+        std::cerr << "❌ Failed to insert Genesis block!\n";
         exit(1);
     }
-
     return chain.front();
 }
+
 // ✅ Adds block, applies smart burn, and broadcasts to peers
 bool Blockchain::addBlock(const Block &block) {
     std::cerr << "[addBlock] Attempting: idx=" << block.getIndex()
@@ -691,7 +675,7 @@ void Blockchain::mergeWith(const Blockchain &other) {
         const Block &block = other.chain[i];
 
         std::string expectedPrevHash = (i == 0)
-            ? "00000000000000000000000000000000"
+            ? std::string{GENESIS_PARENT_HASH}
             : newChain.back().getHash();
 
         if (block.getPreviousHash() != expectedPrevHash) {
@@ -1541,7 +1525,7 @@ bool Blockchain::isValidNewBlock(const Block& newBlock) const {
                       << newBlock.getHash() << "\n";
             return false;
         }
-        return newBlock.isValid("00000000000000000000000000000000", 0); // Genesis: skip PoW
+        return newBlock.isValid(std::string{GENESIS_PARENT_HASH}, 0);
     }
 
     const Block& lastBlock = getLatestBlock();
@@ -1662,7 +1646,7 @@ void Blockchain::updateTransactionHistory(int newTxCount) {
 const Block& Blockchain::getLatestBlock() const {
     if (chain.empty()) {
         static Block dummyGenesis;
-        dummyGenesis.setHash("00000000000000000000000000000000"); // Optional safe fallback
+        dummyGenesis.setHash(std::string{GENESIS_PARENT_HASH});
         std::cerr <<"[⚠️ WARNING] Blockchain chain is empty. Returning dummy genesis block.\n";
         return dummyGenesis;
     }
@@ -2664,7 +2648,7 @@ bool Blockchain::verifyForkSafety(const std::vector<Block>& otherChain) const {
     if (otherChain.empty()) return false;
 
     if (otherChain.front().getIndex() != 0 ||
-        otherChain.front().getPreviousHash() != "00000000000000000000000000000000") {
+        otherChain.front().getPreviousHash() != GENESIS_PARENT_HASH) {
         std::cerr << "❌ [Fork] Invalid genesis block in incoming chain!\n";
         return false;
     }

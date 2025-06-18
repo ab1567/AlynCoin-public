@@ -116,26 +116,29 @@ std::optional<std::vector<unsigned char>> safeFromHex(const std::string& hex, co
 //small hash helper
 inline std::string normaliseHash(const std::string &hRaw)
 {
-    // already canonical
+    // 1 ─ already canonical
     if (hRaw.size() == 64 &&
         hRaw.find_first_not_of("0123456789abcdef") == std::string::npos)
         return hRaw;
 
-    // 20-byte (40-hex) value that was produced by toHex()
+    // 2 ─ 40-char BLAKE3 (20 bytes → hex)  ⇒  pad left with zeros
     if (hRaw.size() == 40 &&
         hRaw.find_first_not_of("0123456789abcdef") == std::string::npos)
-        return std::string(24, '0') + hRaw;              // pad-left with zeros
+        return std::string(24, '0') + hRaw;
 
-    // raw 20-byte binary (buffer copied straight into std::string)
-    if (hRaw.size() == 20)                               // 20 bytes raw
+    // 3 ─ legacy 32-char GENESIS zeros      ⇒  expand to 64 zeros
+    if (hRaw == "00000000000000000000000000000000")
+        return std::string(64, '0');
+
+    // 4 ─ raw 20-byte binary buffer         ⇒  convert to hex
+    if (hRaw.size() == 20)                   // 20 bytes raw
         return toHex(std::vector<unsigned char>(hRaw.begin(), hRaw.end()));
 
-    // anything else is an error – keep it so we notice
+    // 5 ─ anything else is unexpected – keep it so the caller can see it
     std::cerr << "❌ [normaliseHash] Unexpected hash length=" << hRaw.size()
-              << "\n";
+              << '\n';
     return hRaw;
 }
-
 } // namespace Crypto
 
 // Global key-path helpers

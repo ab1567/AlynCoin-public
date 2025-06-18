@@ -342,6 +342,7 @@ src/CMakeFiles/alyncoin_lib.dir/nft/nft.cpp.o: \
  /usr/include/c++/13/stack /usr/include/c++/13/bits/stl_stack.h \
  /usr/include/jsoncpp/json/writer.h \
  /root/AlynCoin/src/../src/zk/winterfell_stark.h \
+ /root/AlynCoin/src/../src/constants.h \
  /root/AlynCoin/src/../src/layer2/state_channel.h \
  /root/AlynCoin/src/../src/rollup/rollup_block.h \
  /root/AlynCoin/src/../src/rollup/../transaction.h \

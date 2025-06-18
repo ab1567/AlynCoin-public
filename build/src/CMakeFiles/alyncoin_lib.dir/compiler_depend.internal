@@ -3560,6 +3560,7 @@ src/CMakeFiles/alyncoin_lib.dir/block.cpp.o
  /root/AlynCoin/src/blake3.h
  /root/AlynCoin/src/block.h
  /root/AlynCoin/src/blockchain.h
+ /root/AlynCoin/src/constants.h
  /root/AlynCoin/src/crypto_protos.pb.h
  /root/AlynCoin/src/crypto_utils.h
  /root/AlynCoin/src/db/db_paths.h
@@ -5094,6 +5095,7 @@ src/CMakeFiles/alyncoin_lib.dir/blockchain.cpp.o
  /root/AlynCoin/src/block.h
  /root/AlynCoin/src/block_reward.h
  /root/AlynCoin/src/blockchain.h
+ /root/AlynCoin/src/constants.h
  /root/AlynCoin/src/crypto_protos.pb.h
  /root/AlynCoin/src/crypto_utils.h
  /root/AlynCoin/src/db/db_paths.h
@@ -7712,6 +7714,7 @@ src/CMakeFiles/alyncoin_lib.dir/epoch_sync.cpp.o
  /root/AlynCoin/src/epoch_sync.cpp
  /root/AlynCoin/src/block.h
  /root/AlynCoin/src/blockchain.h
+ /root/AlynCoin/src/constants.h
  /root/AlynCoin/src/crypto_protos.pb.h
  /root/AlynCoin/src/crypto_utils.h
  /root/AlynCoin/src/db/db_paths.h
@@ -11590,6 +11593,7 @@ src/CMakeFiles/alyncoin_lib.dir/miner.cpp.o
  /root/AlynCoin/src/blake3.h
  /root/AlynCoin/src/block.h
  /root/AlynCoin/src/blockchain.h
+ /root/AlynCoin/src/constants.h
  /root/AlynCoin/src/crypto_protos.pb.h
  /root/AlynCoin/src/crypto_utils.h
  /root/AlynCoin/src/db/db_paths.h
@@ -13118,6 +13122,7 @@ src/CMakeFiles/alyncoin_lib.dir/network.cpp.o
  /root/AlynCoin/src/atomic_swaps/proto_utils.h
  /root/AlynCoin/src/block.h
  /root/AlynCoin/src/blockchain.h
+ /root/AlynCoin/src/constants.h
  /root/AlynCoin/src/crypto_protos.pb.h
  /root/AlynCoin/src/crypto_utils.h
  /root/AlynCoin/src/db/db_paths.h
@@ -14996,6 +15001,7 @@ src/CMakeFiles/alyncoin_lib.dir/network/peer_manager.cpp.o
  /root/AlynCoin/src/network/peer_manager.cpp
  /root/AlynCoin/src/block.h
  /root/AlynCoin/src/blockchain.h
+ /root/AlynCoin/src/constants.h
  /root/AlynCoin/src/crypto_protos.pb.h
  /root/AlynCoin/src/crypto_utils.h
  /root/AlynCoin/src/db/db_paths.h
@@ -16775,6 +16781,7 @@ src/CMakeFiles/alyncoin_lib.dir/nft/nft.cpp.o
  /root/AlynCoin/src/nft/nft.cpp
  /root/AlynCoin/src/block.h
  /root/AlynCoin/src/blockchain.h
+ /root/AlynCoin/src/constants.h
  /root/AlynCoin/src/crypto_protos.pb.h
  /root/AlynCoin/src/crypto_utils.h
  /root/AlynCoin/src/db/db_paths.h
@@ -18809,6 +18816,7 @@ src/CMakeFiles/alyncoin_lib.dir/nft/nft_utils.cpp.o
  /usr/include/c++/13/initializer_list
  /usr/include/c++/13/ios
  /usr/include/c++/13/iosfwd
+ /usr/include/c++/13/iostream
  /usr/include/c++/13/istream
  /usr/include/c++/13/limits
  /usr/include/c++/13/new
@@ -21089,6 +21097,7 @@ src/CMakeFiles/alyncoin_lib.dir/self_healing/health_monitor.cpp.o
  /root/AlynCoin/src/self_healing/health_monitor.cpp
  /root/AlynCoin/src/block.h
  /root/AlynCoin/src/blockchain.h
+ /root/AlynCoin/src/constants.h
  /root/AlynCoin/src/crypto_protos.pb.h
  /root/AlynCoin/src/crypto_utils.h
  /root/AlynCoin/src/db/db_paths.h
@@ -22842,6 +22851,7 @@ src/CMakeFiles/alyncoin_lib.dir/self_healing/sync_recovery.cpp.o
  /root/AlynCoin/src/self_healing/sync_recovery.cpp
  /root/AlynCoin/src/block.h
  /root/AlynCoin/src/blockchain.h
+ /root/AlynCoin/src/constants.h
  /root/AlynCoin/src/crypto_protos.pb.h
  /root/AlynCoin/src/crypto_utils.h
  /root/AlynCoin/src/db/db_paths.h
@@ -24360,6 +24370,7 @@ src/CMakeFiles/alyncoin_lib.dir/syncing.cpp.o
  /root/AlynCoin/src/syncing.cpp
  /root/AlynCoin/src/block.h
  /root/AlynCoin/src/blockchain.h
+ /root/AlynCoin/src/constants.h
  /root/AlynCoin/src/crypto_protos.pb.h
  /root/AlynCoin/src/crypto_utils.h
  /root/AlynCoin/src/db/db_paths.h
@@ -26348,6 +26359,7 @@ src/CMakeFiles/alyncoin_lib.dir/transaction.cpp.o
 src/CMakeFiles/alyncoin_lib.dir/transport/peer_globals.cpp.o
  /root/AlynCoin/src/transport/peer_globals.cpp
  /root/AlynCoin/src/block.h
+ /root/AlynCoin/src/constants.h
  /root/AlynCoin/src/crypto_protos.pb.h
  /root/AlynCoin/src/crypto_utils.h
  /root/AlynCoin/src/db/db_paths.h
@@ -28923,6 +28935,7 @@ src/CMakeFiles/alyncoin_lib.dir/wallet.cpp.o
  /root/AlynCoin/src/wallet.cpp
  /root/AlynCoin/src/block.h
  /root/AlynCoin/src/blockchain.h
+ /root/AlynCoin/src/constants.h
  /root/AlynCoin/src/crypto_protos.pb.h
  /root/AlynCoin/src/crypto_utils.h
  /root/AlynCoin/src/db/db_paths.h
@@ -30675,6 +30688,7 @@ src/CMakeFiles/alyncoin_lib.dir/zk/winterfell_stark.cpp.o
  /root/AlynCoin/src/zk/winterfell_stark.cpp
  /root/AlynCoin/src/block.h
  /root/AlynCoin/src/blockchain.h
+ /root/AlynCoin/src/constants.h
  /root/AlynCoin/src/crypto_protos.pb.h
  /root/AlynCoin/src/crypto_utils.h
  /root/AlynCoin/src/db/db_paths.h

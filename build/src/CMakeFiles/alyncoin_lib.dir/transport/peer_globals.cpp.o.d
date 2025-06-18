@@ -334,7 +334,7 @@ src/CMakeFiles/alyncoin_lib.dir/transport/peer_globals.cpp.o: \
  /usr/include/jsoncpp/json/writer.h \
  /root/AlynCoin/src/zk/winterfell_stark.h \
  /root/AlynCoin/src/zk/../nft/nft.h /root/AlynCoin/src/generated/nft.pb.h \
- /root/AlynCoin/src/transport/transport.h \
+ /root/AlynCoin/src/constants.h /root/AlynCoin/src/transport/transport.h \
  /usr/include/boost/system/error_code.hpp \
  /usr/include/boost/system/detail/error_code.hpp \
  /usr/include/boost/system/is_error_code_enum.hpp \

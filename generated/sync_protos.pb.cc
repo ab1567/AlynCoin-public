@@ -76,8 +76,23 @@ struct BlockchainSyncProtoDefaultTypeInternal {
   };
 };
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 BlockchainSyncProtoDefaultTypeInternal _BlockchainSyncProto_default_instance_;
+PROTOBUF_CONSTEXPR StateProofProto::StateProofProto(
+    ::_pbi::ConstantInitialized): _impl_{
+    /*decltype(_impl_.state_root_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
+  , /*decltype(_impl_.zk_proof_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
+  , /*decltype(_impl_.block_height_)*/0
+  , /*decltype(_impl_._cached_size_)*/{}} {}
+struct StateProofProtoDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR StateProofProtoDefaultTypeInternal()
+      : _instance(::_pbi::ConstantInitialized{}) {}
+  ~StateProofProtoDefaultTypeInternal() {}
+  union {
+    StateProofProto _instance;
+  };
+};
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 StateProofProtoDefaultTypeInternal _StateProofProto_default_instance_;
 }  // namespace alyncoin
-static ::_pb::Metadata file_level_metadata_sync_5fprotos_2eproto[4];
+static ::_pb::Metadata file_level_metadata_sync_5fprotos_2eproto[5];
 static constexpr ::_pb::EnumDescriptor const** file_level_enum_descriptors_sync_5fprotos_2eproto = nullptr;
 static constexpr ::_pb::ServiceDescriptor const** file_level_service_descriptors_sync_5fprotos_2eproto = nullptr;
 
@@ -113,12 +128,22 @@ const uint32_t TableStruct_sync_5fprotos_2eproto::offsets[] PROTOBUF_SECTION_VAR
   ~0u,  // no _weak_field_map_
   ~0u,  // no _inlined_string_donated_
   PROTOBUF_FIELD_OFFSET(::alyncoin::BlockchainSyncProto, _impl_.request_type_),
+  ~0u,  // no _has_bits_
+  PROTOBUF_FIELD_OFFSET(::alyncoin::StateProofProto, _internal_metadata_),
+  ~0u,  // no _extensions_
+  ~0u,  // no _oneof_case_
+  ~0u,  // no _weak_field_map_
+  ~0u,  // no _inlined_string_donated_
+  PROTOBUF_FIELD_OFFSET(::alyncoin::StateProofProto, _impl_.block_height_),
+  PROTOBUF_FIELD_OFFSET(::alyncoin::StateProofProto, _impl_.state_root_),
+  PROTOBUF_FIELD_OFFSET(::alyncoin::StateProofProto, _impl_.zk_proof_),
 };
 static const ::_pbi::MigrationSchema schemas[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
   { 0, -1, -1, sizeof(::alyncoin::SyncRequestProto)},
   { 8, -1, -1, sizeof(::alyncoin::SyncResponseProto)},
   { 16, -1, -1, sizeof(::alyncoin::BlockRequestProto)},
   { 24, -1, -1, sizeof(::alyncoin::BlockchainSyncProto)},
+  { 31, -1, -1, sizeof(::alyncoin::StateProofProto)},
 };
 
 static const ::_pb::Message* const file_default_instances[] = {
@@ -126,6 +151,7 @@ static const ::_pb::Message* const file_default_instances[] = {
   &::alyncoin::_SyncResponseProto_default_instance_._instance,
   &::alyncoin::_BlockRequestProto_default_instance_._instance,
   &::alyncoin::_BlockchainSyncProto_default_instance_._instance,
+  &::alyncoin::_StateProofProto_default_instance_._instance,
 };
 
 const char descriptor_table_protodef_sync_5fprotos_2eproto[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) =
@@ -135,13 +161,15 @@ const char descriptor_table_protodef_sync_5fprotos_2eproto[] PROTOBUF_SECTION_VA
   "atus\030\001 \001(\t\022\014\n\004data\030\002 \001(\t\">\n\021BlockRequest"
   "Proto\022\024\n\014request_type\030\001 \001(\t\022\023\n\013block_ind"
   "ex\030\002 \001(\005\"+\n\023BlockchainSyncProto\022\024\n\014reque"
-  "st_type\030\001 \001(\tb\006proto3"
+  "st_type\030\001 \001(\t\"M\n\017StateProofProto\022\024\n\014bloc"
+  "k_height\030\001 \001(\005\022\022\n\nstate_root\030\002 \001(\t\022\020\n\010zk"
+  "_proof\030\003 \001(\014b\006proto3"
   ;
 static ::_pbi::once_flag descriptor_table_sync_5fprotos_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_sync_5fprotos_2eproto = {
-    false, false, 261, descriptor_table_protodef_sync_5fprotos_2eproto,
+    false, false, 340, descriptor_table_protodef_sync_5fprotos_2eproto,
     "sync_protos.proto",
-    &descriptor_table_sync_5fprotos_2eproto_once, nullptr, 0, 4,
+    &descriptor_table_sync_5fprotos_2eproto_once, nullptr, 0, 5,
     schemas, file_default_instances, TableStruct_sync_5fprotos_2eproto::offsets,
     file_level_metadata_sync_5fprotos_2eproto, file_level_enum_descriptors_sync_5fprotos_2eproto,
     file_level_service_descriptors_sync_5fprotos_2eproto,
@@ -1070,6 +1098,281 @@ void BlockchainSyncProto::InternalSwap(BlockchainSyncProto* other) {
       file_level_metadata_sync_5fprotos_2eproto[3]);
 }
 
+// ===================================================================
+
+class StateProofProto::_Internal {
+ public:
+};
+
+StateProofProto::StateProofProto(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                         bool is_message_owned)
+  : ::PROTOBUF_NAMESPACE_ID::Message(arena, is_message_owned) {
+  SharedCtor(arena, is_message_owned);
+  // @@protoc_insertion_point(arena_constructor:alyncoin.StateProofProto)
+}
+StateProofProto::StateProofProto(const StateProofProto& from)
+  : ::PROTOBUF_NAMESPACE_ID::Message() {
+  StateProofProto* const _this = this; (void)_this;
+  new (&_impl_) Impl_{
+      decltype(_impl_.state_root_){}
+    , decltype(_impl_.zk_proof_){}
+    , decltype(_impl_.block_height_){}
+    , /*decltype(_impl_._cached_size_)*/{}};
+
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+  _impl_.state_root_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.state_root_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (!from._internal_state_root().empty()) {
+    _this->_impl_.state_root_.Set(from._internal_state_root(), 
+      _this->GetArenaForAllocation());
+  }
+  _impl_.zk_proof_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.zk_proof_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (!from._internal_zk_proof().empty()) {
+    _this->_impl_.zk_proof_.Set(from._internal_zk_proof(), 
+      _this->GetArenaForAllocation());
+  }
+  _this->_impl_.block_height_ = from._impl_.block_height_;
+  // @@protoc_insertion_point(copy_constructor:alyncoin.StateProofProto)
+}
+
+inline void StateProofProto::SharedCtor(
+    ::_pb::Arena* arena, bool is_message_owned) {
+  (void)arena;
+  (void)is_message_owned;
+  new (&_impl_) Impl_{
+      decltype(_impl_.state_root_){}
+    , decltype(_impl_.zk_proof_){}
+    , decltype(_impl_.block_height_){0}
+    , /*decltype(_impl_._cached_size_)*/{}
+  };
+  _impl_.state_root_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.state_root_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.zk_proof_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.zk_proof_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+}
+
+StateProofProto::~StateProofProto() {
+  // @@protoc_insertion_point(destructor:alyncoin.StateProofProto)
+  if (auto *arena = _internal_metadata_.DeleteReturnArena<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>()) {
+  (void)arena;
+    return;
+  }
+  SharedDtor();
+}
+
+inline void StateProofProto::SharedDtor() {
+  GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
+  _impl_.state_root_.Destroy();
+  _impl_.zk_proof_.Destroy();
+}
+
+void StateProofProto::SetCachedSize(int size) const {
+  _impl_._cached_size_.Set(size);
+}
+
+void StateProofProto::Clear() {
+// @@protoc_insertion_point(message_clear_start:alyncoin.StateProofProto)
+  uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.state_root_.ClearToEmpty();
+  _impl_.zk_proof_.ClearToEmpty();
+  _impl_.block_height_ = 0;
+  _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
+}
+
+const char* StateProofProto::_InternalParse(const char* ptr, ::_pbi::ParseContext* ctx) {
+#define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
+  while (!ctx->Done(&ptr)) {
+    uint32_t tag;
+    ptr = ::_pbi::ReadTag(ptr, &tag);
+    switch (tag >> 3) {
+      // int32 block_height = 1;
+      case 1:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 8)) {
+          _impl_.block_height_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      // string state_root = 2;
+      case 2:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 18)) {
+          auto str = _internal_mutable_state_root();
+          ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
+          CHK_(ptr);
+          CHK_(::_pbi::VerifyUTF8(str, "alyncoin.StateProofProto.state_root"));
+        } else
+          goto handle_unusual;
+        continue;
+      // bytes zk_proof = 3;
+      case 3:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 26)) {
+          auto str = _internal_mutable_zk_proof();
+          ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      default:
+        goto handle_unusual;
+    }  // switch
+  handle_unusual:
+    if ((tag == 0) || ((tag & 7) == 4)) {
+      CHK_(ptr);
+      ctx->SetLastTag(tag);
+      goto message_done;
+    }
+    ptr = UnknownFieldParse(
+        tag,
+        _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
+        ptr, ctx);
+    CHK_(ptr != nullptr);
+  }  // while
+message_done:
+  return ptr;
+failure:
+  ptr = nullptr;
+  goto message_done;
+#undef CHK_
+}
+
+uint8_t* StateProofProto::_InternalSerialize(
+    uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:alyncoin.StateProofProto)
+  uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  // int32 block_height = 1;
+  if (this->_internal_block_height() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteInt32ToArray(1, this->_internal_block_height(), target);
+  }
+
+  // string state_root = 2;
+  if (!this->_internal_state_root().empty()) {
+    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
+      this->_internal_state_root().data(), static_cast<int>(this->_internal_state_root().length()),
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
+      "alyncoin.StateProofProto.state_root");
+    target = stream->WriteStringMaybeAliased(
+        2, this->_internal_state_root(), target);
+  }
+
+  // bytes zk_proof = 3;
+  if (!this->_internal_zk_proof().empty()) {
+    target = stream->WriteBytesMaybeAliased(
+        3, this->_internal_zk_proof(), target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target = ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+        _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:alyncoin.StateProofProto)
+  return target;
+}
+
+size_t StateProofProto::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:alyncoin.StateProofProto)
+  size_t total_size = 0;
+
+  uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // string state_root = 2;
+  if (!this->_internal_state_root().empty()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+        this->_internal_state_root());
+  }
+
+  // bytes zk_proof = 3;
+  if (!this->_internal_zk_proof().empty()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::BytesSize(
+        this->_internal_zk_proof());
+  }
+
+  // int32 block_height = 1;
+  if (this->_internal_block_height() != 0) {
+    total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(this->_internal_block_height());
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData StateProofProto::_class_data_ = {
+    ::PROTOBUF_NAMESPACE_ID::Message::CopyWithSourceCheck,
+    StateProofProto::MergeImpl
+};
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*StateProofProto::GetClassData() const { return &_class_data_; }
+
+
+void StateProofProto::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg) {
+  auto* const _this = static_cast<StateProofProto*>(&to_msg);
+  auto& from = static_cast<const StateProofProto&>(from_msg);
+  // @@protoc_insertion_point(class_specific_merge_from_start:alyncoin.StateProofProto)
+  GOOGLE_DCHECK_NE(&from, _this);
+  uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (!from._internal_state_root().empty()) {
+    _this->_internal_set_state_root(from._internal_state_root());
+  }
+  if (!from._internal_zk_proof().empty()) {
+    _this->_internal_set_zk_proof(from._internal_zk_proof());
+  }
+  if (from._internal_block_height() != 0) {
+    _this->_internal_set_block_height(from._internal_block_height());
+  }
+  _this->_internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void StateProofProto::CopyFrom(const StateProofProto& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:alyncoin.StateProofProto)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool StateProofProto::IsInitialized() const {
+  return true;
+}
+
+void StateProofProto::InternalSwap(StateProofProto* other) {
+  using std::swap;
+  auto* lhs_arena = GetArenaForAllocation();
+  auto* rhs_arena = other->GetArenaForAllocation();
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::InternalSwap(
+      &_impl_.state_root_, lhs_arena,
+      &other->_impl_.state_root_, rhs_arena
+  );
+  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::InternalSwap(
+      &_impl_.zk_proof_, lhs_arena,
+      &other->_impl_.zk_proof_, rhs_arena
+  );
+  swap(_impl_.block_height_, other->_impl_.block_height_);
+}
+
+::PROTOBUF_NAMESPACE_ID::Metadata StateProofProto::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(
+      &descriptor_table_sync_5fprotos_2eproto_getter, &descriptor_table_sync_5fprotos_2eproto_once,
+      file_level_metadata_sync_5fprotos_2eproto[4]);
+}
+
 // @@protoc_insertion_point(namespace_scope)
 }  // namespace alyncoin
 PROTOBUF_NAMESPACE_OPEN
@@ -1088,6 +1391,10 @@ Arena::CreateMaybeMessage< ::alyncoin::BlockRequestProto >(Arena* arena) {
 template<> PROTOBUF_NOINLINE ::alyncoin::BlockchainSyncProto*
 Arena::CreateMaybeMessage< ::alyncoin::BlockchainSyncProto >(Arena* arena) {
   return Arena::CreateMessageInternal< ::alyncoin::BlockchainSyncProto >(arena);
+}
+template<> PROTOBUF_NOINLINE ::alyncoin::StateProofProto*
+Arena::CreateMaybeMessage< ::alyncoin::StateProofProto >(Arena* arena) {
+  return Arena::CreateMessageInternal< ::alyncoin::StateProofProto >(arena);
 }
 PROTOBUF_NAMESPACE_CLOSE
 

@@ -51,6 +51,9 @@ extern BlockRequestProtoDefaultTypeInternal _BlockRequestProto_default_instance_
 class BlockchainSyncProto;
 struct BlockchainSyncProtoDefaultTypeInternal;
 extern BlockchainSyncProtoDefaultTypeInternal _BlockchainSyncProto_default_instance_;
+class StateProofProto;
+struct StateProofProtoDefaultTypeInternal;
+extern StateProofProtoDefaultTypeInternal _StateProofProto_default_instance_;
 class SyncRequestProto;
 struct SyncRequestProtoDefaultTypeInternal;
 extern SyncRequestProtoDefaultTypeInternal _SyncRequestProto_default_instance_;
@@ -61,6 +64,7 @@ extern SyncResponseProtoDefaultTypeInternal _SyncResponseProto_default_instance_
 PROTOBUF_NAMESPACE_OPEN
 template<> ::alyncoin::BlockRequestProto* Arena::CreateMaybeMessage<::alyncoin::BlockRequestProto>(Arena*);
 template<> ::alyncoin::BlockchainSyncProto* Arena::CreateMaybeMessage<::alyncoin::BlockchainSyncProto>(Arena*);
+template<> ::alyncoin::StateProofProto* Arena::CreateMaybeMessage<::alyncoin::StateProofProto>(Arena*);
 template<> ::alyncoin::SyncRequestProto* Arena::CreateMaybeMessage<::alyncoin::SyncRequestProto>(Arena*);
 template<> ::alyncoin::SyncResponseProto* Arena::CreateMaybeMessage<::alyncoin::SyncResponseProto>(Arena*);
 PROTOBUF_NAMESPACE_CLOSE
@@ -716,6 +720,186 @@ class BlockchainSyncProto final :
   union { Impl_ _impl_; };
   friend struct ::TableStruct_sync_5fprotos_2eproto;
 };
+// -------------------------------------------------------------------
+
+class StateProofProto final :
+    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:alyncoin.StateProofProto) */ {
+ public:
+  inline StateProofProto() : StateProofProto(nullptr) {}
+  ~StateProofProto() override;
+  explicit PROTOBUF_CONSTEXPR StateProofProto(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+
+  StateProofProto(const StateProofProto& from);
+  StateProofProto(StateProofProto&& from) noexcept
+    : StateProofProto() {
+    *this = ::std::move(from);
+  }
+
+  inline StateProofProto& operator=(const StateProofProto& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline StateProofProto& operator=(StateProofProto&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetOwningArena() == from.GetOwningArena()
+  #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetOwningArena() != nullptr
+  #endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const StateProofProto& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const StateProofProto* internal_default_instance() {
+    return reinterpret_cast<const StateProofProto*>(
+               &_StateProofProto_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    4;
+
+  friend void swap(StateProofProto& a, StateProofProto& b) {
+    a.Swap(&b);
+  }
+  inline void Swap(StateProofProto* other) {
+    if (other == this) return;
+  #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() != nullptr &&
+        GetOwningArena() == other->GetOwningArena()) {
+   #else  // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() == other->GetOwningArena()) {
+  #endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(StateProofProto* other) {
+    if (other == this) return;
+    GOOGLE_DCHECK(GetOwningArena() == other->GetOwningArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  StateProofProto* New(::PROTOBUF_NAMESPACE_ID::Arena* arena = nullptr) const final {
+    return CreateMaybeMessage<StateProofProto>(arena);
+  }
+  using ::PROTOBUF_NAMESPACE_ID::Message::CopyFrom;
+  void CopyFrom(const StateProofProto& from);
+  using ::PROTOBUF_NAMESPACE_ID::Message::MergeFrom;
+  void MergeFrom( const StateProofProto& from) {
+    StateProofProto::MergeImpl(*this, from);
+  }
+  private:
+  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg);
+  public:
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
+  uint8_t* _InternalSerialize(
+      uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const final { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena* arena, bool is_message_owned);
+  void SharedDtor();
+  void SetCachedSize(int size) const final;
+  void InternalSwap(StateProofProto* other);
+
+  private:
+  friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
+  static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
+    return "alyncoin.StateProofProto";
+  }
+  protected:
+  explicit StateProofProto(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                       bool is_message_owned = false);
+  public:
+
+  static const ClassData _class_data_;
+  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*GetClassData() const final;
+
+  ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  enum : int {
+    kStateRootFieldNumber = 2,
+    kZkProofFieldNumber = 3,
+    kBlockHeightFieldNumber = 1,
+  };
+  // string state_root = 2;
+  void clear_state_root();
+  const std::string& state_root() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_state_root(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_state_root();
+  PROTOBUF_NODISCARD std::string* release_state_root();
+  void set_allocated_state_root(std::string* state_root);
+  private:
+  const std::string& _internal_state_root() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_state_root(const std::string& value);
+  std::string* _internal_mutable_state_root();
+  public:
+
+  // bytes zk_proof = 3;
+  void clear_zk_proof();
+  const std::string& zk_proof() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_zk_proof(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_zk_proof();
+  PROTOBUF_NODISCARD std::string* release_zk_proof();
+  void set_allocated_zk_proof(std::string* zk_proof);
+  private:
+  const std::string& _internal_zk_proof() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_zk_proof(const std::string& value);
+  std::string* _internal_mutable_zk_proof();
+  public:
+
+  // int32 block_height = 1;
+  void clear_block_height();
+  int32_t block_height() const;
+  void set_block_height(int32_t value);
+  private:
+  int32_t _internal_block_height() const;
+  void _internal_set_block_height(int32_t value);
+  public:
+
+  // @@protoc_insertion_point(class_scope:alyncoin.StateProofProto)
+ private:
+  class _Internal;
+
+  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
+  typedef void InternalArenaConstructable_;
+  typedef void DestructorSkippable_;
+  struct Impl_ {
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr state_root_;
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr zk_proof_;
+    int32_t block_height_;
+    mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_sync_5fprotos_2eproto;
+};
 // ===================================================================
 
 
@@ -1029,9 +1213,135 @@ inline void BlockchainSyncProto::set_allocated_request_type(std::string* request
   // @@protoc_insertion_point(field_set_allocated:alyncoin.BlockchainSyncProto.request_type)
 }
 
+// -------------------------------------------------------------------
+
+// StateProofProto
+
+// int32 block_height = 1;
+inline void StateProofProto::clear_block_height() {
+  _impl_.block_height_ = 0;
+}
+inline int32_t StateProofProto::_internal_block_height() const {
+  return _impl_.block_height_;
+}
+inline int32_t StateProofProto::block_height() const {
+  // @@protoc_insertion_point(field_get:alyncoin.StateProofProto.block_height)
+  return _internal_block_height();
+}
+inline void StateProofProto::_internal_set_block_height(int32_t value) {
+  
+  _impl_.block_height_ = value;
+}
+inline void StateProofProto::set_block_height(int32_t value) {
+  _internal_set_block_height(value);
+  // @@protoc_insertion_point(field_set:alyncoin.StateProofProto.block_height)
+}
+
+// string state_root = 2;
+inline void StateProofProto::clear_state_root() {
+  _impl_.state_root_.ClearToEmpty();
+}
+inline const std::string& StateProofProto::state_root() const {
+  // @@protoc_insertion_point(field_get:alyncoin.StateProofProto.state_root)
+  return _internal_state_root();
+}
+template <typename ArgT0, typename... ArgT>
+inline PROTOBUF_ALWAYS_INLINE
+void StateProofProto::set_state_root(ArgT0&& arg0, ArgT... args) {
+ 
+ _impl_.state_root_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:alyncoin.StateProofProto.state_root)
+}
+inline std::string* StateProofProto::mutable_state_root() {
+  std::string* _s = _internal_mutable_state_root();
+  // @@protoc_insertion_point(field_mutable:alyncoin.StateProofProto.state_root)
+  return _s;
+}
+inline const std::string& StateProofProto::_internal_state_root() const {
+  return _impl_.state_root_.Get();
+}
+inline void StateProofProto::_internal_set_state_root(const std::string& value) {
+  
+  _impl_.state_root_.Set(value, GetArenaForAllocation());
+}
+inline std::string* StateProofProto::_internal_mutable_state_root() {
+  
+  return _impl_.state_root_.Mutable(GetArenaForAllocation());
+}
+inline std::string* StateProofProto::release_state_root() {
+  // @@protoc_insertion_point(field_release:alyncoin.StateProofProto.state_root)
+  return _impl_.state_root_.Release();
+}
+inline void StateProofProto::set_allocated_state_root(std::string* state_root) {
+  if (state_root != nullptr) {
+    
+  } else {
+    
+  }
+  _impl_.state_root_.SetAllocated(state_root, GetArenaForAllocation());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (_impl_.state_root_.IsDefault()) {
+    _impl_.state_root_.Set("", GetArenaForAllocation());
+  }
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.StateProofProto.state_root)
+}
+
+// bytes zk_proof = 3;
+inline void StateProofProto::clear_zk_proof() {
+  _impl_.zk_proof_.ClearToEmpty();
+}
+inline const std::string& StateProofProto::zk_proof() const {
+  // @@protoc_insertion_point(field_get:alyncoin.StateProofProto.zk_proof)
+  return _internal_zk_proof();
+}
+template <typename ArgT0, typename... ArgT>
+inline PROTOBUF_ALWAYS_INLINE
+void StateProofProto::set_zk_proof(ArgT0&& arg0, ArgT... args) {
+ 
+ _impl_.zk_proof_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:alyncoin.StateProofProto.zk_proof)
+}
+inline std::string* StateProofProto::mutable_zk_proof() {
+  std::string* _s = _internal_mutable_zk_proof();
+  // @@protoc_insertion_point(field_mutable:alyncoin.StateProofProto.zk_proof)
+  return _s;
+}
+inline const std::string& StateProofProto::_internal_zk_proof() const {
+  return _impl_.zk_proof_.Get();
+}
+inline void StateProofProto::_internal_set_zk_proof(const std::string& value) {
+  
+  _impl_.zk_proof_.Set(value, GetArenaForAllocation());
+}
+inline std::string* StateProofProto::_internal_mutable_zk_proof() {
+  
+  return _impl_.zk_proof_.Mutable(GetArenaForAllocation());
+}
+inline std::string* StateProofProto::release_zk_proof() {
+  // @@protoc_insertion_point(field_release:alyncoin.StateProofProto.zk_proof)
+  return _impl_.zk_proof_.Release();
+}
+inline void StateProofProto::set_allocated_zk_proof(std::string* zk_proof) {
+  if (zk_proof != nullptr) {
+    
+  } else {
+    
+  }
+  _impl_.zk_proof_.SetAllocated(zk_proof, GetArenaForAllocation());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (_impl_.zk_proof_.IsDefault()) {
+    _impl_.zk_proof_.Set("", GetArenaForAllocation());
+  }
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.StateProofProto.zk_proof)
+}
+
 #ifdef __GNUC__
   #pragma GCC diagnostic pop
 #endif  // __GNUC__
+// -------------------------------------------------------------------
+
 // -------------------------------------------------------------------
 
 // -------------------------------------------------------------------

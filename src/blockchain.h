@@ -25,6 +25,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include "constants.h"
 
 #define DIFFICULTY 4
 #define DEFAULT_PORT 15671

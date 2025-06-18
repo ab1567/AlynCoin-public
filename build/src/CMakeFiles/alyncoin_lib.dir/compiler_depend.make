@@ -3544,6 +3544,7 @@ src/CMakeFiles/alyncoin_lib.dir/block.cpp.o: /root/AlynCoin/src/block.cpp \
   /root/AlynCoin/src/blake3.h \
   /root/AlynCoin/src/block.h \
   /root/AlynCoin/src/blockchain.h \
+  /root/AlynCoin/src/constants.h \
   /root/AlynCoin/src/crypto_protos.pb.h \
   /root/AlynCoin/src/crypto_utils.h \
   /root/AlynCoin/src/db/db_paths.h \
@@ -5077,6 +5078,7 @@ src/CMakeFiles/alyncoin_lib.dir/blockchain.cpp.o: /root/AlynCoin/src/blockchain.
   /root/AlynCoin/src/block.h \
   /root/AlynCoin/src/block_reward.h \
   /root/AlynCoin/src/blockchain.h \
+  /root/AlynCoin/src/constants.h \
   /root/AlynCoin/src/crypto_protos.pb.h \
   /root/AlynCoin/src/crypto_utils.h \
   /root/AlynCoin/src/db/db_paths.h \
@@ -7691,6 +7693,7 @@ src/CMakeFiles/alyncoin_lib.dir/db/rocksdb_wrapper.cpp.o: /root/AlynCoin/src/db/
 src/CMakeFiles/alyncoin_lib.dir/epoch_sync.cpp.o: /root/AlynCoin/src/epoch_sync.cpp \
   /root/AlynCoin/src/block.h \
   /root/AlynCoin/src/blockchain.h \
+  /root/AlynCoin/src/constants.h \
   /root/AlynCoin/src/crypto_protos.pb.h \
   /root/AlynCoin/src/crypto_utils.h \
   /root/AlynCoin/src/db/db_paths.h \
@@ -11560,6 +11563,7 @@ src/CMakeFiles/alyncoin_lib.dir/miner.cpp.o: /root/AlynCoin/src/miner.cpp \
   /root/AlynCoin/src/blake3.h \
   /root/AlynCoin/src/block.h \
   /root/AlynCoin/src/blockchain.h \
+  /root/AlynCoin/src/constants.h \
   /root/AlynCoin/src/crypto_protos.pb.h \
   /root/AlynCoin/src/crypto_utils.h \
   /root/AlynCoin/src/db/db_paths.h \
@@ -13087,6 +13091,7 @@ src/CMakeFiles/alyncoin_lib.dir/network.cpp.o: /root/AlynCoin/src/network.cpp \
   /root/AlynCoin/src/atomic_swaps/proto_utils.h \
   /root/AlynCoin/src/block.h \
   /root/AlynCoin/src/blockchain.h \
+  /root/AlynCoin/src/constants.h \
   /root/AlynCoin/src/crypto_protos.pb.h \
   /root/AlynCoin/src/crypto_utils.h \
   /root/AlynCoin/src/db/db_paths.h \
@@ -14963,6 +14968,7 @@ src/CMakeFiles/alyncoin_lib.dir/network/peer_blacklist.cpp.o: /root/AlynCoin/src
 src/CMakeFiles/alyncoin_lib.dir/network/peer_manager.cpp.o: /root/AlynCoin/src/network/peer_manager.cpp \
   /root/AlynCoin/src/block.h \
   /root/AlynCoin/src/blockchain.h \
+  /root/AlynCoin/src/constants.h \
   /root/AlynCoin/src/crypto_protos.pb.h \
   /root/AlynCoin/src/crypto_utils.h \
   /root/AlynCoin/src/db/db_paths.h \
@@ -16740,6 +16746,7 @@ src/CMakeFiles/alyncoin_lib.dir/nft/crypto/aes_utils.cpp.o: /root/AlynCoin/src/n
 src/CMakeFiles/alyncoin_lib.dir/nft/nft.cpp.o: /root/AlynCoin/src/nft/nft.cpp \
   /root/AlynCoin/src/block.h \
   /root/AlynCoin/src/blockchain.h \
+  /root/AlynCoin/src/constants.h \
   /root/AlynCoin/src/crypto_protos.pb.h \
   /root/AlynCoin/src/crypto_utils.h \
   /root/AlynCoin/src/db/db_paths.h \
@@ -18772,6 +18779,7 @@ src/CMakeFiles/alyncoin_lib.dir/nft/nft_utils.cpp.o: /root/AlynCoin/src/nft/nft_
   /usr/include/c++/13/initializer_list \
   /usr/include/c++/13/ios \
   /usr/include/c++/13/iosfwd \
+  /usr/include/c++/13/iostream \
   /usr/include/c++/13/istream \
   /usr/include/c++/13/limits \
   /usr/include/c++/13/new \
@@ -21045,6 +21053,7 @@ src/CMakeFiles/alyncoin_lib.dir/rollup/rollup_utils.cpp.o: /root/AlynCoin/src/ro
 src/CMakeFiles/alyncoin_lib.dir/self_healing/health_monitor.cpp.o: /root/AlynCoin/src/self_healing/health_monitor.cpp \
   /root/AlynCoin/src/block.h \
   /root/AlynCoin/src/blockchain.h \
+  /root/AlynCoin/src/constants.h \
   /root/AlynCoin/src/crypto_protos.pb.h \
   /root/AlynCoin/src/crypto_utils.h \
   /root/AlynCoin/src/db/db_paths.h \
@@ -22796,6 +22805,7 @@ src/CMakeFiles/alyncoin_lib.dir/self_healing/self_healing_node.cpp.o: /root/Alyn
 src/CMakeFiles/alyncoin_lib.dir/self_healing/sync_recovery.cpp.o: /root/AlynCoin/src/self_healing/sync_recovery.cpp \
   /root/AlynCoin/src/block.h \
   /root/AlynCoin/src/blockchain.h \
+  /root/AlynCoin/src/constants.h \
   /root/AlynCoin/src/crypto_protos.pb.h \
   /root/AlynCoin/src/crypto_utils.h \
   /root/AlynCoin/src/db/db_paths.h \
@@ -24313,6 +24323,7 @@ src/CMakeFiles/alyncoin_lib.dir/self_healing/sync_recovery.cpp.o: /root/AlynCoin
 src/CMakeFiles/alyncoin_lib.dir/syncing.cpp.o: /root/AlynCoin/src/syncing.cpp \
   /root/AlynCoin/src/block.h \
   /root/AlynCoin/src/blockchain.h \
+  /root/AlynCoin/src/constants.h \
   /root/AlynCoin/src/crypto_protos.pb.h \
   /root/AlynCoin/src/crypto_utils.h \
   /root/AlynCoin/src/db/db_paths.h \
@@ -26299,6 +26310,7 @@ src/CMakeFiles/alyncoin_lib.dir/transaction.cpp.o: /root/AlynCoin/src/transactio
 
 src/CMakeFiles/alyncoin_lib.dir/transport/peer_globals.cpp.o: /root/AlynCoin/src/transport/peer_globals.cpp \
   /root/AlynCoin/src/block.h \
+  /root/AlynCoin/src/constants.h \
   /root/AlynCoin/src/crypto_protos.pb.h \
   /root/AlynCoin/src/crypto_utils.h \
   /root/AlynCoin/src/db/db_paths.h \
@@ -28869,6 +28881,7 @@ src/CMakeFiles/alyncoin_lib.dir/validation/transaction_validator.cpp.o: /root/Al
 src/CMakeFiles/alyncoin_lib.dir/wallet.cpp.o: /root/AlynCoin/src/wallet.cpp \
   /root/AlynCoin/src/block.h \
   /root/AlynCoin/src/blockchain.h \
+  /root/AlynCoin/src/constants.h \
   /root/AlynCoin/src/crypto_protos.pb.h \
   /root/AlynCoin/src/crypto_utils.h \
   /root/AlynCoin/src/db/db_paths.h \
@@ -30619,6 +30632,7 @@ src/CMakeFiles/alyncoin_lib.dir/zk/recursive_proof_helper.cpp.o: /root/AlynCoin/
 src/CMakeFiles/alyncoin_lib.dir/zk/winterfell_stark.cpp.o: /root/AlynCoin/src/zk/winterfell_stark.cpp \
   /root/AlynCoin/src/block.h \
   /root/AlynCoin/src/blockchain.h \
+  /root/AlynCoin/src/constants.h \
   /root/AlynCoin/src/crypto_protos.pb.h \
   /root/AlynCoin/src/crypto_utils.h \
   /root/AlynCoin/src/db/db_paths.h \
@@ -32998,6 +33012,8 @@ src/CMakeFiles/alyncoin_lib.dir/zk/winterfell_stark.cpp.o: /root/AlynCoin/src/zk
 
 /usr/include/boost/predef/architecture/ia64.h:
 
+/usr/include/boost/predef/architecture/e2k.h:
+
 /usr/include/boost/predef/platform/ios.h:
 
 /usr/include/boost/asio/detail/chrono.hpp:
@@ -33015,8 +33031,6 @@ src/CMakeFiles/alyncoin_lib.dir/zk/winterfell_stark.cpp.o: /root/AlynCoin/src/zk
 /usr/include/c++/13/bits/basic_ios.tcc:
 
 /usr/include/google/protobuf/stubs/hash.h:
-
-/usr/include/boost/predef/architecture/e2k.h:
 
 /usr/include/rocksdb/slice.h:
 
@@ -33057,6 +33071,8 @@ src/CMakeFiles/alyncoin_lib.dir/zk/winterfell_stark.cpp.o: /root/AlynCoin/src/zk
 /usr/include/boost/asio/execution/set_done.hpp:
 
 /usr/include/boost/asio/basic_datagram_socket.hpp:
+
+/root/AlynCoin/src/constants.h:
 
 /usr/include/boost/asio/async_result.hpp:
 
@@ -33535,12 +33551,6 @@ generated/block_protos.pb.cc:
 /usr/include/boost/predef/architecture.h:
 
 /usr/include/x86_64-linux-gnu/bits/xopen_lim.h:
-
-/usr/include/x86_64-linux-gnu/bits/flt-eval-method.h:
-
-/usr/include/boost/asio/detail/chrono_time_traits.hpp:
-
-/usr/include/boost/date_time/gregorian/greg_year.hpp:
 
 /usr/include/c++/13/bits/slice_array.h:
 
@@ -34614,6 +34624,12 @@ generated/transaction_protos.pb.cc:
 
 /usr/include/x86_64-linux-gnu/bits/stdio_lim.h:
 
+/usr/include/x86_64-linux-gnu/bits/flt-eval-method.h:
+
+/usr/include/boost/asio/detail/chrono_time_traits.hpp:
+
+/usr/include/boost/date_time/gregorian/greg_year.hpp:
+
 /usr/include/boost/asio/detail/concurrency_hint.hpp:
 
 /usr/include/boost/asio/basic_streambuf.hpp:
@@ -35292,9 +35308,9 @@ generated/nft.pb.h:
 
 /usr/include/boost/type.hpp:
 
-/usr/include/boost/mpl/eval_if.hpp:
-
 /usr/include/google/protobuf/implicit_weak_message.h:
+
+/usr/include/boost/mpl/eval_if.hpp:
 
 /usr/include/boost/asio/posix/descriptor_base.hpp:
 

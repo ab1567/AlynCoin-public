@@ -1023,4 +1023,5 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_db.cpp.o: \
  /root/AlynCoin/src/explorer/../zk/winterfell_stark.h \
  /root/AlynCoin/src/explorer/../zk/../nft/nft.h \
  /root/AlynCoin/src/generated/nft.pb.h \
+ /root/AlynCoin/src/explorer/../constants.h \
  /root/AlynCoin/src/explorer/../transaction.h

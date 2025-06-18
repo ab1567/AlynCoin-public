@@ -342,5 +342,6 @@ src/CMakeFiles/blacklist_test.dir/node/main_blacklist_test.cpp.o: \
  /usr/include/jsoncpp/json/writer.h \
  /root/AlynCoin/src/zk/winterfell_stark.h \
  /root/AlynCoin/src/zk/../nft/nft.h /root/AlynCoin/src/generated/nft.pb.h \
+ /root/AlynCoin/src/constants.h \
  /root/AlynCoin/src/validation/transaction_validator.h \
  /root/AlynCoin/src/validation/../network/peer_blacklist.h

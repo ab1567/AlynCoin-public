@@ -13,6 +13,7 @@
 #include <json/json.h>
 #include <string>
 #include <vector>
+#include "constants.h"
 
 class Block {
 private:
@@ -100,7 +101,7 @@ public:
   void setTransactionsHash(const std::string &hash);
   // --- Other Functions ---
   bool isGenesisBlock() const {
-    return index == 0 && previousHash == "00000000000000000000000000000000";
+    return index == 0 && previousHash == GENESIS_PARENT_HASH;
   }
 
   void incrementNonce() { nonce++; }
