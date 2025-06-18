@@ -21,7 +21,7 @@ extern "C" void hash_blake3_256(const uint8_t* input, size_t len, uint8_t out[32
     }
 }
 
-// ✅ Block zk-STARK Proof Generation
+// ✅ Block zk-STARK Proof Generation (robust fallback)
 std::string WinterfellStark::generateProof(const std::string& blockHash,
                                            const std::string& prevHash,
                                            const std::string& txRoot) {
@@ -42,17 +42,19 @@ std::string WinterfellStark::generateProof(const std::string& blockHash,
 
     char* proof_cstr = generate_proof_bytes(seed.c_str(), seed.size());
 
+    // Fallback: null pointer from Rust FFI
     if (!proof_cstr) {
         std::cerr << "[zkSTARK] ❌ Failed to generate zk-STARK proof (null ptr).\n";
         std::string fallback = "error-proof:" + Crypto::blake3("fallback|" + seed);
-        return fallback;  // ✅ Always return at least 32+ bytes
+        return fallback;  // Always return fallback string (not empty!)
     }
 
     std::string proof(proof_cstr);
     free(proof_cstr);
 
-    if (proof.size() < 64) {
-        std::cerr << "[zkSTARK] ❌ Proof too short (" << proof.size() << " bytes), using fallback.\n";
+    // Fallback: short or stub proof string
+    if (proof.rfind("error-proof:", 0) == 0 || proof.size() < 200) {
+        std::cerr << "[zkSTARK] ❌ Proof invalid/stub/too short (" << proof.size() << " bytes), returning fallback.\n";
         std::string fallback = "error-proof:" + Crypto::blake3("fallback|" + seed);
         return fallback;
     }

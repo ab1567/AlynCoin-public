@@ -181,72 +181,76 @@ std::string Block::calculateHash() const {
 // ✅ Mine Block with Protobuf and RocksDB Storage
 bool Block::mineBlock(int difficulty) {
     std::cerr << "[mineBlock] START for idx=" << getIndex()
-              << ", prev=" << getPreviousHash() << std::endl;
+              << ", prev=" << getPreviousHash() << '\n';
 
     std::cout << "\n⏳ [mineBlock] Mining block for: " << minerAddress
               << " with difficulty: " << difficulty << "...\n";
 
-    // === Step 0: Set Merkle root and transactionsHash ===
+    /* ───────────────────────────────────── 0 · Merkle root ── */
     if (transactions.empty()) {
-        setMerkleRoot(EMPTY_TX_ROOT_HASH);      // Also sets transactionsHash
+        setMerkleRoot(EMPTY_TX_ROOT_HASH);                // → transactionsHash
     } else {
-        // Compute canonical Merkle root (or use your own real Merkle logic)
         std::string computedRoot = computeTransactionsHash();
-        setMerkleRoot(computedRoot);            // Also sets transactionsHash
+        setMerkleRoot(computedRoot);                      // → transactionsHash
     }
 
-    // === Step 1: PoW loop using computed tx root ===
+    /* ───────────────────────────────────── 1 · PoW loop ──── */
     do {
-        nonce++;
-        if (nonce % 50000 == 0) {
+        ++nonce;
+        if (nonce % 50'000 == 0)
             std::cout << "\r[Mining] Nonce: " << nonce << std::flush;
-        }
 
-        std::string txRoot = getTransactionsHash();  // Always consistent/correct here
+        std::string txRoot = getTransactionsHash();
         std::stringstream ss;
         ss << index << previousHash << txRoot << timestamp << nonce;
         hash = Crypto::hybridHash(ss.str());
     } while (hash.substr(0, difficulty) != std::string(difficulty, '0'));
 
-    std::cout << "\n✅ [mineBlock] PoW Complete.\n";
-    std::cout << "🔢 Final Nonce: " << nonce << "\n";
-    std::cout << "🧬 Block Hash (BLAKE3): " << hash << "\n";
+    std::cout << "\n✅ [mineBlock] PoW Complete.\n"
+              << "🔢 Final Nonce: " << nonce << '\n'
+              << "🧬 Block Hash (BLAKE3): " << hash << '\n';
 
-    // === Step 2: Keccak256 hash ===
+    /* ───────────────────────────────────── 2 · Keccak ────── */
     keccakHash = Crypto::keccak256(hash);
-    std::cout << "✅ Keccak Hash: " << keccakHash << "\n";
+    std::cout << "✅ Keccak Hash: " << keccakHash << '\n';
 
-    // === Step 3: zk-STARK Proof ===
+    /* ───────────────────────────────────── 3 · zk-STARK ──── */
     std::string txRoot = getTransactionsHash();
     ensureRootConsistency(*this, index);
-    std::cout << "🧬 Transactions Merkle Root: " << txRoot << "\n";
+    std::cout << "🧬 Transactions Merkle Root: " << txRoot << '\n';
 
     std::string proofStr = WinterfellStark::generateProof(hash, previousHash, txRoot);
-    zkProof = std::vector<uint8_t>(proofStr.begin(), proofStr.end());
-    if (zkProof.size() < 64) {
-        std::cerr << "❌ [mineBlock] zk-STARK proof too small (" << zkProof.size() << " bytes)\n";
+
+    /*  🔒  EARLY-EXIT GUARD  ────────────────────────────────
+        If the prover falls back to the stub (“error-proof:…”) or
+        the buffer is clearly too small, abort this block.        */
+    if (proofStr.rfind("error-proof:", 0) == 0 || proofStr.size() < 200) {
+        std::cerr << "❌ [mineBlock] zk-STARK proof invalid ("
+                  << proofStr.size() << " bytes). Aborting mining.\n";
         return false;
     }
-    std::cout << "✅ zk-STARK Proof Generated. Size: " << zkProof.size() << " bytes\n";
 
-    // === Step 4: Load Keys and Sign ===
+    zkProof.assign(proofStr.begin(), proofStr.end());
+    std::cout << "✅ zk-STARK Proof Generated. Size: "
+              << zkProof.size() << " bytes\n";
+
+    /* ───────────────────────────────────── 4 · Signatures ─── */
     signBlock(minerAddress);
 
-    // === Step 5: Validate signatures immediately ===
     if (dilithiumSignature.empty() || publicKeyDilithium.empty()) {
-        std::cerr << "❌ [mineBlock] Critical: Dilithium signature/public key missing after signing. Aborting mining!\n";
+        std::cerr << "❌ [mineBlock] Dilithium signature/public key missing. Abort.\n";
         return false;
     }
     if (falconSignature.empty() || publicKeyFalcon.empty()) {
-        std::cerr << "❌ [mineBlock] Critical: Falcon signature/public key missing after signing. Aborting mining!\n";
+        std::cerr << "❌ [mineBlock] Falcon signature/public key missing. Abort.\n";
         return false;
     }
 
-    // === Final status log ===
+    /* ───────────────────────────────────── Final log ─────── */
     std::cerr << "[mineBlock] DONE for idx=" << getIndex()
               << ", hash=" << getHash()
               << ", prev=" << getPreviousHash()
-              << ", zkProof=" << zkProof.size() << std::endl;
+              << ", zkProof=" << zkProof.size() << '\n';
 
     std::cout << "✅ Block Signed Successfully.\n";
     return true;
