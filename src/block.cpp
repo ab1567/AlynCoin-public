@@ -664,6 +664,7 @@ alyncoin::BlockProto Block::toProtobuf() const {
 Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial) {
     Block newBlock;
 
+    // STRICT: For required fields
     auto safeStr = [&](const std::string& val, const std::string& label, size_t maxLen = 10000) -> std::string {
         std::cerr << "[fromProto] Checking field: " << label << " (length = " << val.size() << ")\n";
         if (val.empty()) {
@@ -716,6 +717,34 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
         return binary;
     };
 
+    // SOFT: For optional fields only (epoch_root/epoch_proof)
+    auto optionalStr = [&](const std::string& s, const std::string& label, size_t maxLen = 128) -> std::string {
+        if (s.empty()) {
+            static bool warned = false;
+            if (!warned) {
+                std::cerr << "ℹ️  [fromProto] " << label << " not present (expected for non-epoch blocks)\n";
+                warned = true;
+            }
+            return "";
+        }
+        return (s.size() <= maxLen) ? s : s.substr(0, maxLen);
+    };
+    auto optionalBinaryField = [&](const std::string& bin, const std::string& label, size_t maxLen = 10000) -> std::vector<uint8_t> {
+        if (bin.empty()) {
+            static bool warned = false;
+            if (!warned) {
+                std::cerr << "ℹ️  [fromProto] " << label << " not present (expected for non-epoch blocks)\n";
+                warned = true;
+            }
+            return {};
+        }
+        if (bin.size() > maxLen) {
+            std::cerr << "⚠️ [fromProto] " << label << " too long: " << bin.size() << " bytes (truncating)\n";
+            return std::vector<uint8_t>(bin.begin(), bin.begin() + maxLen);
+        }
+        return std::vector<uint8_t>(bin.begin(), bin.end());
+    };
+
     try {
         newBlock.index              = protoBlock.index();
         std::cerr << "[fromProto] Index: " << newBlock.index << "\n";
@@ -748,8 +777,10 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
         newBlock.falconSignature    = safeBinaryField(protoBlock.falcon_signature(),    "Falcon Signature",    2000);
         newBlock.publicKeyDilithium = safeBinaryField(protoBlock.public_key_dilithium(),"Dilithium Public Key", 2000);
         newBlock.publicKeyFalcon    = safeBinaryField(protoBlock.public_key_falcon(),   "Falcon Public Key",    2000);
-        newBlock.epochRoot         = safeStr(protoBlock.epoch_root(), "epoch_root", 128);
-        newBlock.epochProof        = std::vector<uint8_t>(protoBlock.epoch_proof().begin(), protoBlock.epoch_proof().end());
+
+        // ---- ONLY soft for epoch fields! ----
+        newBlock.epochRoot  = optionalStr(protoBlock.epoch_root(), "epoch_root", 128);
+        newBlock.epochProof = optionalBinaryField(protoBlock.epoch_proof(), "epoch_proof", 5000);
 
     } catch (const std::exception& ex) {
         std::cerr << "❌ [fromProto] Critical error: " << ex.what() << "\n";
@@ -805,9 +836,7 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
               << ", falPK=" << newBlock.publicKeyFalcon.size()
               << "\n";
 
-    // NO RECOMPUTE: Only check consistency if you need, but DO NOT recompute root!
-    // If you have an ensureRootConsistency() function, make sure it does NOT change the root fields.
-    // ensureRootConsistency(newBlock, newBlock.index);
+    // DO NOT recompute root or merkle here!
 
     return newBlock;
 }
