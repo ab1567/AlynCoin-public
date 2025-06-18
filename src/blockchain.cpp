@@ -2697,7 +2697,7 @@ uint64_t Blockchain::computeCumulativeDifficulty(const std::vector<Block>& chain
 //
 std::vector<Block> Blockchain::getChainUpTo(size_t height) const
 {
-    std::shared_lock<std::mutex> lk(mutex);        // mutex is your `mutable std::mutex`
+   std::lock_guard<std::mutex> lk(mutex);
     if (chain.empty())
         return {};
 
@@ -2715,7 +2715,7 @@ bool Blockchain::tryAppendBlock(const Block &blk)
     if (blk.getIndex() != static_cast<int>(chain.size()))
         return false;
 
-    if (!chain.empty() && blk.getPrevHash() != chain.back().getHash())
+    if (!chain.empty() && blk.getPreviousHash() != chain.back().getHash())
         return false;
 
     chain.push_back(blk);

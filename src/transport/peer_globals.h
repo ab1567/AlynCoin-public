@@ -16,6 +16,7 @@ struct PeerState {
     std::vector<Block> orphanBuf;
     bool        fullChainActive{false};
     bool        supportsAggProof{false};
+    bool        supportsSnapshot{false};
     std::mutex  m;
 };
 
