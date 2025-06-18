@@ -1967,11 +1967,9 @@ void Network::setPublicPeerId(const std::string& peerId) {
 void Network::handleBase64Proto(const std::string &peer, const std::string &prefix,
                                 const std::string &b64, std::shared_ptr<Transport> transport)
 {
-    // Lambda for handling an incoming block (from BLOCK_BROADCAST)
     auto processBlock = [&](const Block& blk, const std::string& fromPeer)
     {
         Blockchain& chain = Blockchain::getInstance();
-        auto& buf = incomingChains[fromPeer];
 
         {
             std::lock_guard<std::mutex> lk(seenBlockMutex);
@@ -1983,17 +1981,10 @@ void Network::handleBase64Proto(const std::string &peer, const std::string &pref
             seenBlockHashes.insert(blk.getHash());
         }
 
-        // Prevent double-buffer of same block
-        if (std::any_of(buf.begin(), buf.end(), [&](const Block& b){ return b.getHash()==blk.getHash(); })) {
-            std::cerr << "[handleBase64Proto] Duplicate BLOCK_BROADCAST ignored (hash already buffered)\n";
-            return;
-        }
-
         // Direct tip-append if the parent matches
         if (blk.getPreviousHash() == chain.getLatestBlockHash()) {
             std::cerr << "[handleBase64Proto] ✨ Directly appending live block (idx=" << blk.getIndex() << ")\n";
             if (chain.addBlock(blk)) {
-                buf.clear();
                 // Propagate block to all peers except the sender
                 for (auto& [peerId, entry] : peerTransports) {
                     auto peerTransport = entry.tx;
@@ -2007,46 +1998,23 @@ void Network::handleBase64Proto(const std::string &peer, const std::string &pref
                         }
                     }
                 }
-                // Try to flush orphan buffer
-                bool flushed = true;
-                while (flushed) {
-                    flushed = false;
-                    for (auto it = buf.begin(); it != buf.end(); ) {
-                        if (it->getPreviousHash() == chain.getLatestBlockHash()) {
-                            if (chain.addBlock(*it)) {
-                                for (auto& [peerId2, entry2] : peerTransports) {
-                                    auto peerTransport2 = entry2.tx;
-                                    if (peerId2 == fromPeer) continue;
-                                    if (peerTransport2 && peerTransport2->isOpen()) {
-                                        alyncoin::BlockProto proto2 = it->toProtobuf();
-                                        std::string raw2;
-                                        if (proto2.SerializeToString(&raw2)) {
-                                            std::string b64_2 = Crypto::base64Encode(raw2, false);
-                                            peerTransport2->queueWrite("ALYN|BLOCK_BROADCAST|" + b64_2 + "\n");
-                                        }
-                                    }
-                                }
-                                it = buf.erase(it);
-                                flushed = true;
-                            } else {
-                                ++it;
-                            }
-                        } else {
-                            ++it;
-                        }
-                    }
-                }
+                // Try to attach any orphans whose parent is this block
+                tryAttachOrphans(blk.getHash());
             }
             return;
         }
 
-        // Buffer as orphan if missing parent
+        // Buffer as orphan if missing parent (NEW LOGIC)
         if (blk.getIndex() > 0 && !chain.hasBlockHash(blk.getPreviousHash())) {
             std::cerr << "⚠️  [handleBase64Proto] [Orphan Block] Parent missing for block idx="
                       << blk.getIndex() << '\n';
-            if (transport && transport->isOpen())
-                transport->queueWrite("ALYN|REQUEST_BLOCKCHAIN\n");
-            buf.push_back(blk);
+            orphanBlocks.emplace(blk.getPreviousHash(), blk); // 🔥 Store globally by prev-hash
+
+            // Ask this peer for the parent block directly
+            if (transport && transport->isOpen()) {
+                std::string req = "ALYN|BLOCK_REQUEST|" + blk.getPreviousHash() + "\n";
+                transport->queueWrite(req);
+            }
             return;
         }
 
@@ -2057,17 +2025,16 @@ void Network::handleBase64Proto(const std::string &peer, const std::string &pref
                       << ", requesting full chain\n";
             if (transport && transport->isOpen())
                 transport->queueWrite("ALYN|REQUEST_BLOCKCHAIN\n");
-            buf.push_back(blk);
+            // Optionally: Could still store as orphan here, but not strictly required
             return;
         }
-        // Otherwise, just buffer
-        buf.push_back(blk);
+
+        // Otherwise, just buffer for this peer (optional, for completeness)
         std::cerr << "[handleBase64Proto] Buffered block idx=" << blk.getIndex()
-                  << " for peer " << fromPeer
-                  << ". Current buffer size: " << buf.size() << '\n';
+                  << " for peer " << fromPeer << '\n';
     };
 
-    // Now decode and route
+    // Decode and route
     try {
         if (prefix == "BLOCK_BROADCAST|") {
             Block blk;
@@ -2084,6 +2051,28 @@ void Network::handleBase64Proto(const std::string &peer, const std::string &pref
                 std::cerr << "[handleBase64Proto] Exception decoding base64 block!\n";
             }
             if (ok) processBlock(blk, peer);
+            return;
+        } else if (prefix == "BLOCK_REQUEST|") {
+            // Respond with a block matching requested hash
+            Blockchain& chain = Blockchain::getInstance();
+            Block parent;
+            std::string hash = sanitizeBase64(b64);
+            if (chain.getBlockByHash(hash, parent)) {
+                alyncoin::BlockProto p = parent.toProtobuf();
+                std::string raw;  p.SerializeToString(&raw);
+                std::string b64 = Crypto::base64Encode(raw, false);
+                if (transport && transport->isOpen())
+                    transport->queueWrite("ALYN|BLOCK_RESPONSE|" + b64 + "\n");
+            }
+            return;
+        } else if (prefix == "BLOCK_RESPONSE|") {
+            // Peer sent a requested parent block: just process it!
+            std::string raw = Crypto::base64Decode(sanitizeBase64(b64), false);
+            alyncoin::BlockProto proto;
+            if (proto.ParseFromString(raw)) {
+                Block parent = Block::fromProto(proto, /*strict=*/true);
+                processBlock(parent, peer);
+            }
             return;
         } else if (prefix == "BLOCK_BATCH|") {
             try {
@@ -2160,6 +2149,30 @@ void Network::handleBase64Proto(const std::string &peer, const std::string &pref
     } catch (...) {
         std::cerr << "[handleBase64Proto] Unknown exception\n";
     }
+}
+//
+// Attach any orphans whose parent is now present
+void Network::tryAttachOrphans(const std::string& newParentHash) {
+    bool attached = false;
+    while (true) {
+        auto range = orphanBlocks.equal_range(newParentHash);
+        if (range.first == range.second)
+            break;
+        for (auto it = range.first; it != range.second; ++it) {
+            Block child = it->second;
+            Blockchain& chain = Blockchain::getInstance();
+            std::cerr << "🧹 [orphan] Attaching previously missing child block idx="
+                      << child.getIndex() << " (" << child.getHash().substr(0, 12) << "…)\n";
+            chain.addBlock(child);
+            // Recurse: Try attaching orphans that depended on this child
+            tryAttachOrphans(child.getHash());
+            attached = true;
+        }
+        // Erase all in range for this parent
+        orphanBlocks.erase(newParentHash);
+    }
+    if (attached)
+        std::cerr << "🧹 [orphan] Flushed some orphans after new parent: " << newParentHash.substr(0, 12) << "…\n";
 }
 
 void Network::handleGetData(const std::string& peer, const std::vector<std::string>& hashes)

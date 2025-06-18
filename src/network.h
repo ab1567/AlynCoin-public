@@ -58,6 +58,9 @@ public:
     explicit Network(unsigned short port, Blockchain *blockchain, PeerBlacklist *blacklistPtr = nullptr);
     ~Network();
 
+    std::unordered_multimap<std::string, Block> orphanBlocks;
+    void tryAttachOrphans(const std::string& newParentHash);
+
     Blockchain &getBlockchain() { return *blockchain; }
     void setPublicPeerId(const std::string& peerId);
     void start();
