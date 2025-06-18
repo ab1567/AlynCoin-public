@@ -222,6 +222,10 @@ void saveForkView(const std::vector<Block>& forkChain);
 bool deserializeBlockchainForkView(const std::string& rawData, std::vector<Block>& forkOut) const;
 
 bool getBlockByHash(const std::string& hash, Block& out) const;
+
+
+std::unordered_map<std::string, std::vector<Block>> orphanBlocks;
+std::unordered_set<std::string> orphanHashes;
 };
 
 // ✅ Standalone declaration outside the Blockchain class

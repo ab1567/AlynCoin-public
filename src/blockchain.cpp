@@ -306,15 +306,13 @@ Block Blockchain::createGenesisBlock(bool force) {
 }
 // ✅ Adds block, applies smart burn, and broadcasts to peers
 bool Blockchain::addBlock(const Block &block) {
-    // DEBUG: Log at entry
-std::cerr << "[addBlock] Attempting: idx=" << block.getIndex()
-          << ", hash=" << block.getHash()
-          << ", prev=" << block.getPreviousHash()
-          << ", timestamp=" << block.getTimestamp()
-          << ", merkleRoot=" << block.getMerkleRoot()
-          << "\n";
+    std::cerr << "[addBlock] Attempting: idx=" << block.getIndex()
+              << ", hash=" << block.getHash()
+              << ", prev=" << block.getPreviousHash()
+              << ", timestamp=" << block.getTimestamp()
+              << ", merkleRoot=" << block.getMerkleRoot() << "\n";
 
-    // 1. Sanity: zkProof required
+    // 1. zkProof required
     if (block.getZkProof().empty()) {
         std::cerr << "❌ [ERROR] Cannot add block with EMPTY zkProof! Block Hash: "
                   << block.getHash() << "\n";
@@ -323,16 +321,27 @@ std::cerr << "[addBlock] Attempting: idx=" << block.getIndex()
         std::cout << "[DEBUG] 🧩 addBlock() zkProof length: " << block.getZkProof().size() << " bytes\n";
     }
 
-    // 2. Prevent duplicate hash globally (do NOT allow same block hash in chain)
-    for (const auto &existing : chain) {
+    // 2. Duplicate hash protection (chain + orphan pool)
+    for (const auto &existing : chain)
         if (existing.getHash() == block.getHash()) {
             std::cerr << "⚠️ [addBlock] Duplicate block hash detected (idx=" << block.getIndex()
                       << ", hash=" << block.getHash() << "). Skipping add.\n";
-            return true;  // This is not a critical error, just a duplicate
+            return true;
         }
+    if (orphanHashes.count(block.getHash())) {
+        std::cerr << "⚠️ [addBlock] Block already buffered as orphan. Skipping.\n";
+        return true;
     }
 
-    // 3. Prevent duplicate index ONLY if not replacing (i.e. not after rollback)
+    // 3. Orphan handling: if parent not yet present
+    if (!chain.empty() && block.getPreviousHash() != chain.back().getHash()) {
+        std::cerr << "⚠️ [addBlock] Received block before parent. Buffering as orphan.\n";
+        orphanBlocks[block.getPreviousHash()].push_back(block);
+        orphanHashes.insert(block.getHash());
+        return false;
+    }
+
+    // 4. Index checks (genesis or expected)
     if (!chain.empty()) {
         uint64_t expectedIndex = chain.back().getIndex() + 1;
         if (block.getIndex() < expectedIndex) {
@@ -342,7 +351,7 @@ std::cerr << "[addBlock] Attempting: idx=" << block.getIndex()
         }
         if (block.getIndex() > expectedIndex) {
             std::cerr << "⚠️ [addBlock] Received future block. Index: " << block.getIndex()
-                      << ", Expected: " << expectedIndex << ". Buffering.\n";
+                      << ", Expected: " << expectedIndex << ". Buffering (futureBlocks).\n";
             futureBlocks[block.getIndex()] = block;
             return false;
         }
@@ -354,7 +363,7 @@ std::cerr << "[addBlock] Attempting: idx=" << block.getIndex()
         }
     }
 
-    // 4. Proof-of-Work and signature checks
+    // 5. PoW and signature checks
     if (block.isGenesisBlock()) {
         std::cout << "🪐 [GENESIS] Adding genesis block without PoW check.\n";
     } else if (!block.hasValidProofOfWork()) {
@@ -363,13 +372,11 @@ std::cerr << "[addBlock] Attempting: idx=" << block.getIndex()
         return false;
     }
 
-    // 5. Chain continuity/sanity
     if (!isValidNewBlock(block)) {
         std::cerr << "❌ [addBlock] Invalid block detected. Rejecting!\n";
         return false;
     }
 
-    // 6. Signature and public key checks
     if (block.getDilithiumSignature().empty() || block.getFalconSignature().empty()) {
         std::cerr << "❌ [addBlock] Block missing signature(s). Rejecting.\n";
         return false;
@@ -393,7 +400,7 @@ std::cerr << "[addBlock] Attempting: idx=" << block.getIndex()
         return false;
     }
 
-    // 7. Diagnostics
+    // 6. Diagnostics
     std::cerr << "🧪 [addBlock] Safe push diagnostics:\n";
     std::cerr << "  - Index: " << block.getIndex() << "\n";
     std::cerr << "  - Hash: " << block.getHash() << " (" << block.getHash().size() << " bytes)\n";
@@ -403,7 +410,7 @@ std::cerr << "[addBlock] Attempting: idx=" << block.getIndex()
     std::cerr << "  - Dilithium PK: " << block.getPublicKeyDilithium().size() << "\n";
     std::cerr << "  - Falcon PK: " << block.getPublicKeyFalcon().size() << "\n";
 
-    // 8. Actually add the block
+    // 7. Actually add the block
     try {
         std::cerr << "[addBlock] PUSH_BACK to chain: idx=" << block.getIndex()
                   << ", hash=" << block.getHash() << std::endl;
@@ -421,7 +428,7 @@ std::cerr << "[addBlock] Attempting: idx=" << block.getIndex()
         return false;
     }
 
-    // 9. Remove pending txs included in this block
+    // 8. Remove pending txs included in this block
     if (!block.getTransactions().empty()) {
         std::cerr << "[addBlock] Removing pending txs included in block idx=" << block.getIndex()
                   << ", hash=" << block.getHash() << std::endl;
@@ -435,7 +442,7 @@ std::cerr << "[addBlock] Attempting: idx=" << block.getIndex()
         }
     }
 
-    // 10. RocksDB persist
+    // 9. RocksDB persist
     if (db) {
         alyncoin::BlockProto protoBlock = block.toProtobuf();
         std::string serializedBlock;
@@ -463,7 +470,7 @@ std::cerr << "[addBlock] Attempting: idx=" << block.getIndex()
         std::cerr << "⚠️ [addBlock] Skipped RocksDB writes: DB not initialized (--nodb mode).\n";
     }
 
-    // 11. Balances/L2 state
+    // 10. Balances/L2 state
     std::cerr << "[addBlock] Recalculating balances and rollup deltas.\n";
     recalculateBalancesFromChain();
     applyRollupDeltasToBalances();
@@ -471,7 +478,7 @@ std::cerr << "[addBlock] Attempting: idx=" << block.getIndex()
 
     std::cout << "✅ Block added to blockchain. Pending transactions updated and balances recalculated.\n";
 
-    // 12. Try to add any future buffered blocks
+    // 11. Try to add any future buffered blocks (old method)
     uint64_t nextIndex = chain.back().getIndex() + 1;
     while (futureBlocks.count(nextIndex)) {
         std::cerr << "[addBlock] Applying buffered future block index: " << nextIndex << "\n";
@@ -479,6 +486,18 @@ std::cerr << "[addBlock] Attempting: idx=" << block.getIndex()
         futureBlocks.erase(nextIndex);
         addBlock(buffered);
         nextIndex++;
+    }
+
+    // 12. Try to attach any orphans waiting on this block
+    auto orphanIt = orphanBlocks.find(block.getHash());
+    if (orphanIt != orphanBlocks.end()) {
+        auto children = orphanIt->second;
+        orphanBlocks.erase(orphanIt);
+        for (const Block &child : children) {
+            std::cerr << "[addBlock] Now adding previously orphaned block idx=" << child.getIndex() << "\n";
+            orphanHashes.erase(child.getHash());
+            addBlock(child);
+        }
     }
 
     return true;
