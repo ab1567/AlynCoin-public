@@ -339,9 +339,11 @@ src/CMakeFiles/alyncoin_lib.dir/network.cpp.o: \
  /root/AlynCoin/src/zk/winterfell_stark.h \
  /root/AlynCoin/src/zk/../nft/nft.h /root/AlynCoin/src/generated/nft.pb.h \
  /root/AlynCoin/src/blockchain.h \
+ /root/AlynCoin/src/generated/sync_protos.pb.h \
  /root/AlynCoin/src/layer2/state_channel.h \
  /root/AlynCoin/src/rollup/rollup_block.h \
- /root/AlynCoin/src/rollup/../transaction.h /usr/include/boost/asio.hpp \
+ /root/AlynCoin/src/rollup/../transaction.h \
+ /root/AlynCoin/src/rollup/rollup_utils.h /usr/include/boost/asio.hpp \
  /usr/include/boost/asio/any_completion_executor.hpp \
  /usr/include/boost/asio/detail/config.hpp /usr/include/boost/config.hpp \
  /usr/include/boost/config/user.hpp \

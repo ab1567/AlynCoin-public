@@ -19,6 +19,7 @@ public:
         const std::unordered_map<std::string, double>& before,
         const std::unordered_map<std::string, double>& after);
 
+    // 🌐 Deterministic state root for rollups
     static std::string calculateStateRoot(const std::unordered_map<std::string, double>& state);
 
     // ✅ Persistent metadata helpers

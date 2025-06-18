@@ -3550,12 +3550,14 @@ src/CMakeFiles/alyncoin_lib.dir/block.cpp.o: /root/AlynCoin/src/block.cpp \
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
   /root/AlynCoin/src/generated/nft.pb.h \
+  /root/AlynCoin/src/generated/sync_protos.pb.h \
   /root/AlynCoin/src/generated/transaction_protos.pb.h \
   /root/AlynCoin/src/hash.h \
   /root/AlynCoin/src/keccak.h \
   /root/AlynCoin/src/layer2/state_channel.h \
   /root/AlynCoin/src/transaction.h \
   /root/AlynCoin/src/rollup/rollup_block.h \
+  /root/AlynCoin/src/rollup/rollup_utils.h \
   /root/AlynCoin/src/transaction.h \
   /root/AlynCoin/src/network/peer_blacklist.h \
   /root/AlynCoin/src/nft/nft.h \
@@ -5082,6 +5084,7 @@ src/CMakeFiles/alyncoin_lib.dir/blockchain.cpp.o: /root/AlynCoin/src/blockchain.
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
   /root/AlynCoin/src/generated/nft.pb.h \
+  /root/AlynCoin/src/generated/sync_protos.pb.h \
   /root/AlynCoin/src/generated/transaction_protos.pb.h \
   /root/AlynCoin/src/hash.h \
   /root/AlynCoin/src/layer2/state_channel.h \
@@ -5092,6 +5095,7 @@ src/CMakeFiles/alyncoin_lib.dir/blockchain.cpp.o: /root/AlynCoin/src/blockchain.
   /root/AlynCoin/src/rollup/rollup_block.h \
   /root/AlynCoin/src/rollup/proofs/proof_verifier.h \
   /root/AlynCoin/src/rollup/rollup_block.h \
+  /root/AlynCoin/src/rollup/rollup_utils.h \
   /root/AlynCoin/src/transaction.h \
   /root/AlynCoin/src/transport/peer_globals.h \
   /root/AlynCoin/src/transport/transport.h \
@@ -11572,6 +11576,7 @@ src/CMakeFiles/alyncoin_lib.dir/miner.cpp.o: /root/AlynCoin/src/miner.cpp \
   /root/AlynCoin/src/network/peer_manager.h \
   /root/AlynCoin/src/transaction.h \
   /root/AlynCoin/src/rollup/rollup_block.h \
+  /root/AlynCoin/src/rollup/rollup_utils.h \
   /root/AlynCoin/src/transaction.h \
   /root/AlynCoin/src/transport/peer_globals.h \
   /root/AlynCoin/src/transport/transport.h \
@@ -13086,6 +13091,7 @@ src/CMakeFiles/alyncoin_lib.dir/network.cpp.o: /root/AlynCoin/src/network.cpp \
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
   /root/AlynCoin/src/generated/nft.pb.h \
+  /root/AlynCoin/src/generated/sync_protos.pb.h \
   /root/AlynCoin/src/generated/transaction_protos.pb.h \
   /root/AlynCoin/src/hash.h \
   /root/AlynCoin/src/layer2/state_channel.h \
@@ -13096,6 +13102,7 @@ src/CMakeFiles/alyncoin_lib.dir/network.cpp.o: /root/AlynCoin/src/network.cpp \
   /root/AlynCoin/src/rollup/rollup_block.h \
   /root/AlynCoin/src/rollup/proofs/proof_verifier.h \
   /root/AlynCoin/src/rollup/rollup_block.h \
+  /root/AlynCoin/src/rollup/rollup_utils.h \
   /root/AlynCoin/src/syncing.h \
   /root/AlynCoin/src/transaction.h \
   /root/AlynCoin/src/transport/peer_globals.h \
@@ -14960,6 +14967,7 @@ src/CMakeFiles/alyncoin_lib.dir/network/peer_manager.cpp.o: /root/AlynCoin/src/n
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
   /root/AlynCoin/src/generated/nft.pb.h \
+  /root/AlynCoin/src/generated/sync_protos.pb.h \
   /root/AlynCoin/src/generated/transaction_protos.pb.h \
   /root/AlynCoin/src/hash.h \
   /root/AlynCoin/src/layer2/state_channel.h \
@@ -14968,6 +14976,7 @@ src/CMakeFiles/alyncoin_lib.dir/network/peer_manager.cpp.o: /root/AlynCoin/src/n
   /root/AlynCoin/src/network/peer_manager.h \
   /root/AlynCoin/src/transaction.h \
   /root/AlynCoin/src/rollup/rollup_block.h \
+  /root/AlynCoin/src/rollup/rollup_utils.h \
   /root/AlynCoin/src/transaction.h \
   /root/AlynCoin/src/transport/peer_globals.h \
   /root/AlynCoin/src/transport/transport.h \
@@ -20741,8 +20750,10 @@ src/CMakeFiles/alyncoin_lib.dir/rollup/rollup_utils.cpp.o: /root/AlynCoin/src/ro
   /usr/include/alloca.h \
   /usr/include/asm-generic/errno-base.h \
   /usr/include/asm-generic/errno.h \
+  /usr/include/c++/13/algorithm \
   /usr/include/c++/13/backward/binders.h \
   /usr/include/c++/13/bit \
+  /usr/include/c++/13/bits/algorithmfwd.h \
   /usr/include/c++/13/bits/alloc_traits.h \
   /usr/include/c++/13/bits/allocator.h \
   /usr/include/c++/13/bits/basic_ios.h \
@@ -20772,8 +20783,11 @@ src/CMakeFiles/alyncoin_lib.dir/rollup/rollup_utils.cpp.o: /root/AlynCoin/src/ro
   /usr/include/c++/13/bits/istream.tcc \
   /usr/include/c++/13/bits/locale_classes.h \
   /usr/include/c++/13/bits/locale_classes.tcc \
+  /usr/include/c++/13/bits/locale_conv.h \
   /usr/include/c++/13/bits/locale_facets.h \
   /usr/include/c++/13/bits/locale_facets.tcc \
+  /usr/include/c++/13/bits/locale_facets_nonio.h \
+  /usr/include/c++/13/bits/locale_facets_nonio.tcc \
   /usr/include/c++/13/bits/localefwd.h \
   /usr/include/c++/13/bits/memory_resource.h \
   /usr/include/c++/13/bits/memoryfwd.h \
@@ -20786,25 +20800,30 @@ src/CMakeFiles/alyncoin_lib.dir/rollup/rollup_utils.cpp.o: /root/AlynCoin/src/ro
   /usr/include/c++/13/bits/postypes.h \
   /usr/include/c++/13/bits/predefined_ops.h \
   /usr/include/c++/13/bits/ptr_traits.h \
+  /usr/include/c++/13/bits/quoted_string.h \
   /usr/include/c++/13/bits/range_access.h \
   /usr/include/c++/13/bits/refwrap.h \
   /usr/include/c++/13/bits/requires_hosted.h \
   /usr/include/c++/13/bits/sstream.tcc \
   /usr/include/c++/13/bits/std_abs.h \
+  /usr/include/c++/13/bits/stl_algo.h \
   /usr/include/c++/13/bits/stl_algobase.h \
   /usr/include/c++/13/bits/stl_bvector.h \
   /usr/include/c++/13/bits/stl_construct.h \
   /usr/include/c++/13/bits/stl_function.h \
+  /usr/include/c++/13/bits/stl_heap.h \
   /usr/include/c++/13/bits/stl_iterator.h \
   /usr/include/c++/13/bits/stl_iterator_base_funcs.h \
   /usr/include/c++/13/bits/stl_iterator_base_types.h \
   /usr/include/c++/13/bits/stl_pair.h \
+  /usr/include/c++/13/bits/stl_tempbuf.h \
   /usr/include/c++/13/bits/stl_uninitialized.h \
   /usr/include/c++/13/bits/stl_vector.h \
   /usr/include/c++/13/bits/streambuf.tcc \
   /usr/include/c++/13/bits/streambuf_iterator.h \
   /usr/include/c++/13/bits/string_view.tcc \
   /usr/include/c++/13/bits/stringfwd.h \
+  /usr/include/c++/13/bits/uniform_int_dist.h \
   /usr/include/c++/13/bits/unordered_map.h \
   /usr/include/c++/13/bits/uses_allocator.h \
   /usr/include/c++/13/bits/uses_allocator_args.h \
@@ -20816,6 +20835,7 @@ src/CMakeFiles/alyncoin_lib.dir/rollup/rollup_utils.cpp.o: /root/AlynCoin/src/ro
   /usr/include/c++/13/cstddef \
   /usr/include/c++/13/cstdio \
   /usr/include/c++/13/cstdlib \
+  /usr/include/c++/13/ctime \
   /usr/include/c++/13/cwchar \
   /usr/include/c++/13/cwctype \
   /usr/include/c++/13/debug/assertions.h \
@@ -20829,13 +20849,17 @@ src/CMakeFiles/alyncoin_lib.dir/rollup/rollup_utils.cpp.o: /root/AlynCoin/src/ro
   /usr/include/c++/13/ext/type_traits.h \
   /usr/include/c++/13/fstream \
   /usr/include/c++/13/initializer_list \
+  /usr/include/c++/13/iomanip \
   /usr/include/c++/13/ios \
   /usr/include/c++/13/iosfwd \
   /usr/include/c++/13/iostream \
   /usr/include/c++/13/istream \
+  /usr/include/c++/13/locale \
   /usr/include/c++/13/new \
   /usr/include/c++/13/optional \
   /usr/include/c++/13/ostream \
+  /usr/include/c++/13/pstl/execution_defs.h \
+  /usr/include/c++/13/pstl/glue_algorithm_defs.h \
   /usr/include/c++/13/pstl/pstl_config.h \
   /usr/include/c++/13/sstream \
   /usr/include/c++/13/stdexcept \
@@ -20854,6 +20878,7 @@ src/CMakeFiles/alyncoin_lib.dir/rollup/rollup_utils.cpp.o: /root/AlynCoin/src/ro
   /usr/include/errno.h \
   /usr/include/features-time64.h \
   /usr/include/features.h \
+  /usr/include/libintl.h \
   /usr/include/limits.h \
   /usr/include/linux/errno.h \
   /usr/include/linux/limits.h \
@@ -20996,7 +21021,9 @@ src/CMakeFiles/alyncoin_lib.dir/rollup/rollup_utils.cpp.o: /root/AlynCoin/src/ro
   /usr/include/x86_64-linux-gnu/c++/13/bits/error_constants.h \
   /usr/include/x86_64-linux-gnu/c++/13/bits/gthr-default.h \
   /usr/include/x86_64-linux-gnu/c++/13/bits/gthr.h \
+  /usr/include/x86_64-linux-gnu/c++/13/bits/messages_members.h \
   /usr/include/x86_64-linux-gnu/c++/13/bits/os_defines.h \
+  /usr/include/x86_64-linux-gnu/c++/13/bits/time_members.h \
   /usr/include/x86_64-linux-gnu/gnu/stubs-64.h \
   /usr/include/x86_64-linux-gnu/gnu/stubs.h \
   /usr/include/x86_64-linux-gnu/openssl/configuration.h \
@@ -21020,6 +21047,7 @@ src/CMakeFiles/alyncoin_lib.dir/self_healing/health_monitor.cpp.o: /root/AlynCoi
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
   /root/AlynCoin/src/generated/nft.pb.h \
+  /root/AlynCoin/src/generated/sync_protos.pb.h \
   /root/AlynCoin/src/generated/transaction_protos.pb.h \
   /root/AlynCoin/src/hash.h \
   /root/AlynCoin/src/layer2/state_channel.h \
@@ -21027,6 +21055,7 @@ src/CMakeFiles/alyncoin_lib.dir/self_healing/health_monitor.cpp.o: /root/AlynCoi
   /root/AlynCoin/src/network/peer_manager.h \
   /root/AlynCoin/src/transaction.h \
   /root/AlynCoin/src/rollup/rollup_block.h \
+  /root/AlynCoin/src/rollup/rollup_utils.h \
   /root/AlynCoin/src/self_healing/health_monitor.h \
   /root/AlynCoin/src/transaction.h \
   /root/AlynCoin/src/utils/logger.h \
@@ -24293,6 +24322,7 @@ src/CMakeFiles/alyncoin_lib.dir/syncing.cpp.o: /root/AlynCoin/src/syncing.cpp \
   /root/AlynCoin/src/network/peer_manager.h \
   /root/AlynCoin/src/transaction.h \
   /root/AlynCoin/src/rollup/rollup_block.h \
+  /root/AlynCoin/src/rollup/rollup_utils.h \
   /root/AlynCoin/src/syncing.h \
   /root/AlynCoin/src/transaction.h \
   /root/AlynCoin/src/transport/peer_globals.h \
@@ -28839,6 +28869,7 @@ src/CMakeFiles/alyncoin_lib.dir/wallet.cpp.o: /root/AlynCoin/src/wallet.cpp \
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
   /root/AlynCoin/src/generated/nft.pb.h \
+  /root/AlynCoin/src/generated/sync_protos.pb.h \
   /root/AlynCoin/src/generated/transaction_protos.pb.h \
   /root/AlynCoin/src/hash.h \
   /root/AlynCoin/src/layer2/state_channel.h \
@@ -28846,6 +28877,7 @@ src/CMakeFiles/alyncoin_lib.dir/wallet.cpp.o: /root/AlynCoin/src/wallet.cpp \
   /root/AlynCoin/src/transaction.h \
   /root/AlynCoin/src/rollup/proofs/proof_generator.h \
   /root/AlynCoin/src/rollup/rollup_block.h \
+  /root/AlynCoin/src/rollup/rollup_utils.h \
   /root/AlynCoin/src/transaction.h \
   /root/AlynCoin/src/wallet.h \
   /root/AlynCoin/src/network/peer_blacklist.h \
@@ -30587,11 +30619,13 @@ src/CMakeFiles/alyncoin_lib.dir/zk/winterfell_stark.cpp.o: /root/AlynCoin/src/zk
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
   /root/AlynCoin/src/generated/nft.pb.h \
+  /root/AlynCoin/src/generated/sync_protos.pb.h \
   /root/AlynCoin/src/generated/transaction_protos.pb.h \
   /root/AlynCoin/src/hash.h \
   /root/AlynCoin/src/layer2/state_channel.h \
   /root/AlynCoin/src/transaction.h \
   /root/AlynCoin/src/rollup/rollup_block.h \
+  /root/AlynCoin/src/rollup/rollup_utils.h \
   /root/AlynCoin/src/transaction.h \
   /root/AlynCoin/src/network/peer_blacklist.h \
   /root/AlynCoin/src/nft/nft.h \
@@ -32120,8 +32154,6 @@ src/CMakeFiles/alyncoin_lib.dir/zk/winterfell_stark.cpp.o: /root/AlynCoin/src/zk
 
 /root/AlynCoin/src/rollup/circuits/transaction_circuit.cpp:
 
-/root/AlynCoin/src/rollup/rollup_utils.h:
-
 /root/AlynCoin/src/nft/nft_utils.cpp:
 
 /usr/local/include/nlohmann/json.hpp:
@@ -32952,6 +32984,14 @@ src/CMakeFiles/alyncoin_lib.dir/zk/winterfell_stark.cpp.o: /root/AlynCoin/src/zk
 
 /usr/include/boost/predef/architecture/m68k.h:
 
+/usr/include/rocksdb/metadata.h:
+
+/usr/include/boost/predef/compiler/clang.h:
+
+/usr/include/boost/predef/architecture/loongarch.h:
+
+/usr/include/boost/predef/architecture/ia64.h:
+
 /usr/include/boost/predef/platform/ios.h:
 
 /usr/include/boost/asio/detail/chrono.hpp:
@@ -33216,10 +33256,6 @@ generated/main_protos.pb.h:
 
 /usr/lib/gcc/x86_64-linux-gnu/13/include/mwaitxintrin.h:
 
-/usr/include/boost/asio/detail/completion_handler.hpp:
-
-/usr/include/google/protobuf/message_lite.h:
-
 /usr/include/c++/13/algorithm:
 
 /usr/include/boost/asio/detail/buffer_sequence_adapter.hpp:
@@ -33231,6 +33267,8 @@ generated/main_protos.pb.h:
 /usr/lib/gcc/x86_64-linux-gnu/13/include/lzcntintrin.h:
 
 /usr/include/boost/asio/ip/host_name.hpp:
+
+/root/AlynCoin/src/rollup/rollup_utils.h:
 
 /usr/lib/gcc/x86_64-linux-gnu/13/include/keylockerintrin.h:
 
@@ -33252,6 +33290,10 @@ generated/main_protos.pb.h:
 
 /usr/lib/gcc/x86_64-linux-gnu/13/include/fmaintrin.h:
 
+/usr/include/google/protobuf/message_lite.h:
+
+/usr/include/boost/asio/detail/completion_handler.hpp:
+
 /usr/include/boost/asio/traits/set_value_free.hpp:
 
 /usr/include/x86_64-linux-gnu/bits/sigevent-consts.h:
@@ -33259,8 +33301,6 @@ generated/main_protos.pb.h:
 /usr/include/boost/predef/architecture/pyramid.h:
 
 /usr/lib/gcc/x86_64-linux-gnu/13/include/clwbintrin.h:
-
-/usr/include/boost/predef/architecture/ia64.h:
 
 /usr/lib/gcc/x86_64-linux-gnu/13/include/cldemoteintrin.h:
 
@@ -33787,6 +33827,8 @@ generated/crypto_protos.pb.cc:
 /usr/include/boost/asio/execution/detail/submit_receiver.hpp:
 
 /usr/include/x86_64-linux-gnu/bits/errno.h:
+
+/usr/include/boost/asio/local/stream_protocol.hpp:
 
 /usr/include/rocksdb/customizable.h:
 
@@ -34702,6 +34744,10 @@ generated/transaction_protos.pb.cc:
 
 /usr/include/boost/asio/detail/impl/signal_set_service.ipp:
 
+/usr/include/boost/asio/execution/outstanding_work.hpp:
+
+/usr/include/boost/asio/detail/impl/strand_executor_service.ipp:
+
 /usr/include/boost/asio/detail/impl/throw_error.ipp:
 
 /root/AlynCoin/src/network/peer_manager.cpp:
@@ -35024,12 +35070,6 @@ generated/transaction_protos.pb.cc:
 
 /usr/include/boost/asio/execution/operation_state.hpp:
 
-/usr/include/boost/asio/detail/impl/strand_executor_service.ipp:
-
-/usr/include/boost/asio/execution/outstanding_work.hpp:
-
-/usr/include/boost/asio/local/stream_protocol.hpp:
-
 /usr/include/x86_64-linux-gnu/bits/types/struct_itimerspec.h:
 
 /usr/include/boost/asio/execution/prefer_only.hpp:
@@ -35113,6 +35153,12 @@ generated/transaction_protos.pb.cc:
 /usr/include/boost/asio/impl/serial_port_base.hpp:
 
 /usr/include/boost/asio/impl/write.hpp:
+
+/root/AlynCoin/src/nft/nft_storage.h:
+
+/usr/include/boost/date_time/time_defs.hpp:
+
+/usr/include/boost/asio/static_thread_pool.hpp:
 
 /usr/include/boost/asio/execution/submit.hpp:
 
@@ -35464,12 +35510,6 @@ generated/nft.pb.h:
 
 /usr/include/boost/mpl/aux_/preprocessor/def_params_tail.hpp:
 
-/root/AlynCoin/src/nft/nft_storage.h:
-
-/usr/include/boost/asio/static_thread_pool.hpp:
-
-/usr/include/boost/date_time/time_defs.hpp:
-
 /usr/include/x86_64-linux-gnu/bits/fp-fast.h:
 
 /usr/include/x86_64-linux-gnu/gnu/stubs.h:
@@ -35637,9 +35677,3 @@ generated/nft.pb.h:
 /usr/include/rocksdb/advanced_options.h:
 
 /usr/include/boost/predef/architecture/convex.h:
-
-/usr/include/rocksdb/metadata.h:
-
-/usr/include/boost/predef/compiler/clang.h:
-
-/usr/include/boost/predef/architecture/loongarch.h:

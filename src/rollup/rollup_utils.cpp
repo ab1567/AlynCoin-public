@@ -4,8 +4,11 @@
 #include <unordered_map>
 #include <sstream>
 #include <fstream>
+#include <algorithm>
+#include <iomanip>
 #include "db/db_paths.h"
 
+// --- Merkle Root Calculation ---
 std::string RollupUtils::calculateMerkleRoot(const std::vector<std::string>& leafHashes) {
     if (leafHashes.empty()) return "";
     std::vector<std::string> currentLevel = leafHashes;
@@ -22,6 +25,7 @@ std::string RollupUtils::calculateMerkleRoot(const std::vector<std::string>& lea
     return currentLevel.front();
 }
 
+// --- Hash Helpers ---
 std::string RollupUtils::keccak256(const std::string& input) {
     return Crypto::keccak256(input);
 }
@@ -30,6 +34,7 @@ std::string RollupUtils::hybridHashWithDomain(const std::string& input, const st
     return Crypto::hybridHash(domain + ":" + input);
 }
 
+// --- Delta Compressor ---
 std::vector<std::pair<std::string, double>> RollupUtils::compressStateDelta(
     const std::unordered_map<std::string, double>& before,
     const std::unordered_map<std::string, double>& after) {
@@ -44,19 +49,36 @@ std::vector<std::pair<std::string, double>> RollupUtils::compressStateDelta(
     return delta;
 }
 
+// --- Deterministic State Root ---
 std::string RollupUtils::calculateStateRoot(const std::unordered_map<std::string, double>& state) {
     std::vector<std::string> accountHashes;
+    accountHashes.reserve(state.size());
     for (const auto& [address, balance] : state) {
         std::ostringstream ss;
-        ss << address << balance;
+        ss << address;
+        // Ensure consistent balance formatting (fixed, 8 decimals)
+        ss << std::fixed << std::setprecision(8) << balance;
         std::string hash = hybridHashWithDomain(ss.str(), "StateTrace");
         accountHashes.push_back(hash);
     }
+    std::sort(accountHashes.begin(), accountHashes.end());  // Deterministic ordering!
     return calculateMerkleRoot(accountHashes);
 }
 
+// --- Persistent Rollup Metadata ---
+// If you have getHomePath() define it in db_paths.h/.cpp, or switch to getDataDir() for consistency.
+static std::string getRollupMetaPath() {
+    // Option A: (define getHomePath if missing)
+    const char* home = std::getenv("HOME");
+    std::string base = home ? std::string(home) : ".";
+    return base + "/.alyncoin/rollup_meta.txt";
+
+    // Option B: (if you have getDataDir)
+    // return DBPaths::getDataDir() + "/rollup_meta.txt";
+}
+
 void RollupUtils::storeRollupMetadata(const std::string& txRoot, const std::string& blockHash) {
-    std::ofstream file(DBPaths::getHomePath() + "/.alyncoin/rollup_meta.txt");
+    std::ofstream file(getRollupMetaPath());
     if (file.is_open()) {
         file << txRoot << "\n" << blockHash;
         file.close();
@@ -66,7 +88,7 @@ void RollupUtils::storeRollupMetadata(const std::string& txRoot, const std::stri
 }
 
 std::pair<std::string, std::string> RollupUtils::loadRollupMetadata() {
-    std::ifstream file(DBPaths::getHomePath() + "/.alyncoin/rollup_meta.txt");
+    std::ifstream file(getRollupMetaPath());
     std::string txRoot, blockHash;
     if (file.is_open()) {
         std::getline(file, txRoot);

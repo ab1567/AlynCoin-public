@@ -1122,7 +1122,47 @@ std::vector<RollupBlock> deserializeRollupChain(const std::string &data) {
   }
   return chain;
 }
+//
+void Network::sendStateProof(std::shared_ptr<Transport> tr)
+{
+    if (!tr || !tr->isOpen()) return;
 
+    Blockchain& bc = Blockchain::getInstance();
+    const int    h  = bc.getHeight();
+    const Block& tip= bc.getLatestBlock();
+
+    // -- ❶ compute state root (pick the one you trust) --
+    std::string stateRoot = bc.getLatestBlock().getMerkleRoot(); // or bc.getStateRoot()
+
+    // -- ❷ generate proof bytes --
+    std::string proof = WinterfellStark::generateProof(
+                            stateRoot,                    // blockHash
+                            tip.getPreviousHash(),        // prev
+                            tip.getTxRoot());             // tx_root
+
+    alyncoin::StateProofProto proto;
+    proto.set_block_height(h);
+    proto.set_state_root(stateRoot);
+    proto.set_zk_proof(proof);
+
+    std::string raw;   proto.SerializeToString(&raw);
+    std::string b64 = Crypto::base64Encode(raw, false);
+
+tr->queueWrite(std::string("ALYN|STATE_PROOF|") + b64 + "\n");
+}
+//
+
+void Network::broadcastRaw(const std::string& payload)
+{
+    std::lock_guard<std::timed_mutex> lk(peersMutex);
+
+    for (auto& kv : peerTransports)
+    {
+        auto tr = kv.second.tx;        //  ✅ use .tx
+        if (tr && tr->isOpen())
+            tr->queueWrite(payload.back() == '\n' ? payload : payload + '\n');
+    }
+}
 // ✅ **Handle Incoming Data with Protobuf Validation**
 void Network::handleIncomingData(const std::string& claimedPeerId,
                                  std::string data,
@@ -1143,6 +1183,8 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
     static constexpr const char* blockBroadcastPrefix = "BLOCK_BROADCAST|";
     static constexpr const char* blockBatchPrefix   = "BLOCK_BATCH|";
     static constexpr const char* aggProofPrefix     = "AGG_PROOF|";
+    static constexpr const char* stateProofPrefix   = "STATE_PROOF|";
+    static constexpr const char* requestStateProofCmd = "REQUEST_STATE_PROOF";
     static constexpr size_t MAX_INFLIGHT_CHAIN_BYTES = 20 * 1024 * 1024;
     static constexpr size_t MAX_INFLIGHT_PROOF_BYTES = 8 * 1024 * 1024;
 
@@ -1185,6 +1227,43 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
         }
     }
 
+    // === Handle compact state proof (MUST be before base64/chain handlers) ===
+    if (data.rfind(stateProofPrefix, 0) == 0) {
+        const std::string b64 = data.substr(strlen(stateProofPrefix));
+        if (b64.size() > MAX_INFLIGHT_PROOF_BYTES) {
+            std::cerr << "[handleIncomingData] ? STATE_PROOF too large from "
+                      << claimedPeerId << "\n";
+            return;
+        }
+        try {
+            std::string raw = Crypto::base64Decode(b64, false);
+            alyncoin::StateProofProto proto;
+            if (!proto.ParseFromString(raw)) {
+                std::cerr << "[handleIncomingData] ? Bad STATE_PROOF protobuf\n";
+                return;
+            }
+            Blockchain& bc = Blockchain::getInstance();
+            bool rootOK = (proto.state_root() == bc.getHeaderMerkleRoot());
+            bool heightOK = (proto.block_height() <= bc.getHeight());
+            if (rootOK && heightOK) {
+                if (peerManager)
+                    peerManager->setPeerHeight(claimedPeerId, proto.block_height());
+            } else {
+                if (transport && transport->isOpen())
+                    transport->queueWrite("ALYN|REQUEST_BLOCKCHAIN\n");
+            }
+        } catch (...) {
+            std::cerr << "[handleIncomingData] ? STATE_PROOF base-64 decode failed\n";
+        }
+        return;
+    }
+
+    // === State-proof request ===
+    if (data == requestStateProofCmd) {
+        sendStateProof(transport);
+        return;
+    }
+
     // --- JSON re-assembly ---
     bool assemblingJson = (!ps->jsonBuf.empty()) ||
                           (!data.empty() && (data.front() == '{' || data.front() == '['));
@@ -1223,7 +1302,7 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
             std::lock_guard<std::mutex> lk(ps->m);
             ps->fullChainB64 += data;
             if (ps->fullChainB64.size() > MAX_INFLIGHT_CHAIN_BYTES) {
-                std::cerr << "[handleIncomingData] ⚠️ FULL_CHAIN buffer exceeded limit from "
+                std::cerr << "[handleIncomingData] ?? FULL_CHAIN buffer exceeded limit from "
                           << claimedPeerId << " (" << ps->fullChainB64.size() << " bytes)\n";
                 ps->fullChainB64.clear();
                 ps->fullChainActive = false;
@@ -1250,7 +1329,7 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
             if (ps->fullChainActive) {
                 ps->fullChainB64 += b64part;
                 if (ps->fullChainB64.size() > MAX_INFLIGHT_CHAIN_BYTES) {
-                    std::cerr << "[handleIncomingData] ⚠️ FULL_CHAIN buffer exceeded limit from "
+                    std::cerr << "[handleIncomingData] ?? FULL_CHAIN buffer exceeded limit from "
                               << claimedPeerId << " (" << ps->fullChainB64.size() << " bytes)\n";
                     ps->fullChainB64.clear();
                     ps->fullChainActive = false;
@@ -1265,12 +1344,12 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
                 std::string raw = Crypto::base64Decode(cleanPart, false);
                 alyncoin::BlockchainProto protoChain;
                 if (!protoChain.ParseFromString(raw)) {
-                    std::cerr << "[handleIncomingData] ❌ Invalid FULL_CHAIN protobuf (single shot)\n";
+                    std::cerr << "[handleIncomingData] ? Invalid FULL_CHAIN protobuf (single shot)\n";
                 } else {
                     std::vector<Block> blocks;
                     for (const auto& pb : protoChain.blocks()) {
                         try { blocks.push_back(Block::fromProto(pb, false)); }
-                        catch (...) { std::cerr << "⚠️ Skipped malformed block\n"; }
+                        catch (...) { std::cerr << "?? Skipped malformed block\n"; }
                     }
                     Blockchain& chain = Blockchain::getInstance();
                     size_t before = chain.getChain().size();
@@ -1278,11 +1357,11 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
                     size_t after = chain.getChain().size();
                     if (peerManager)
                         peerManager->setPeerHeight(claimedPeerId, static_cast<int>(blocks.size()) - 1);
-                    std::cerr << "[handleIncomingData] ✅ Synced full chain from peer (single shot). "
+                    std::cerr << "[handleIncomingData] ? Synced full chain from peer (single shot). "
                               << before << " -> " << after << " blocks\n";
                 }
             } catch (...) {
-                std::cerr << "[handleIncomingData] ❌ Base64 decode failed for FULL_CHAIN (single shot)\n";
+                std::cerr << "[handleIncomingData] ? Base64 decode failed for FULL_CHAIN (single shot)\n";
             }
             return;
         } else {
@@ -1290,7 +1369,7 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
             ps->fullChainB64 = b64part;
             ps->fullChainActive = true;
             if (ps->fullChainB64.size() > MAX_INFLIGHT_CHAIN_BYTES) {
-                std::cerr << "[handleIncomingData] ⚠️ FULL_CHAIN buffer exceeded limit from "
+                std::cerr << "[handleIncomingData] ?? FULL_CHAIN buffer exceeded limit from "
                           << claimedPeerId << " (" << ps->fullChainB64.size() << " bytes)\n";
                 ps->fullChainB64.clear();
                 ps->fullChainActive = false;
@@ -1314,7 +1393,7 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
                 std::string raw = Crypto::base64Decode(b64, false);
                 alyncoin::BlockchainProto protoChain;
                 if (!protoChain.ParseFromString(raw)) {
-                    std::cerr << "[handleIncomingData] ⚠️  FULL_CHAIN parse failed. Requesting re-sync...\n";
+                    std::cerr << "[handleIncomingData] ??  FULL_CHAIN parse failed. Requesting re-sync...\n";
                     if (transport && transport->isOpen()) {
                         if (peerSupportsAggProof(claimedPeerId))
                             requestEpochHeaders(claimedPeerId);
@@ -1331,16 +1410,16 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
                     std::vector<Block> blocks;
                     for (const auto& pb : protoChain.blocks()) {
                         try { blocks.push_back(Block::fromProto(pb, false)); }
-                        catch (...) { std::cerr << "⚠️ Skipped malformed block\n"; }
+                        catch (...) { std::cerr << "?? Skipped malformed block\n"; }
                     }
                     Blockchain& chain = Blockchain::getInstance();
                     chain.compareAndMergeChains(blocks);
                     if (peerManager)
                         peerManager->setPeerHeight(claimedPeerId, static_cast<int>(blocks.size()) - 1);
-                    std::cerr << "[handleIncomingData] ✅ Synced full chain from peer (multi-chunk)\n";
+                    std::cerr << "[handleIncomingData] ? Synced full chain from peer (multi-chunk)\n";
                 }
             } catch (...) {
-                std::cerr << "[handleIncomingData] ❌ Base64 decode failed for FULL_CHAIN (multi-chunk)\n";
+                std::cerr << "[handleIncomingData] ? Base64 decode failed for FULL_CHAIN (multi-chunk)\n";
                 {
                     std::lock_guard<std::mutex> lk(ps->m);
                     ps->fullChainB64.swap(b64);
@@ -1418,7 +1497,7 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
         const std::string base64 = data.substr(strlen(aggProofPrefix));
         // Cap: Prevent huge proof blow-up
         if (base64.size() > MAX_INFLIGHT_PROOF_BYTES) {
-            std::cerr << "[handleIncomingData] ⚠️ AGG_PROOF size exceeded, ignoring from "
+            std::cerr << "[handleIncomingData] ?? AGG_PROOF size exceeded, ignoring from "
                       << claimedPeerId << "\n";
             return;
         }
@@ -1463,7 +1542,7 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
             RollupBlock rb = RollupBlock::deserialize(data.substr(std::strlen(rollupPrefix)));
             handleNewRollupBlock(rb);
         } catch (...) {
-            std::cerr << "⚠️ Rollup block failed to deserialize\n";
+            std::cerr << "?? Rollup block failed to deserialize\n";
         }
         return;
     }
@@ -1531,7 +1610,7 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
 
                 if (h > (int)chain.getHeight() && transport && transport->isOpen()) {
                     if (peerSupportsAggProof(claimedPeerId))
-                        requestEpochHeaders(claimedPeerId);
+                        transport->queueWrite("ALYN|REQUEST_STATE_PROOF\n");
                     else
                         transport->queueWrite("ALYN|REQUEST_BLOCKCHAIN\n");
                 } else if (h < (int)chain.getHeight() && transport && transport->isOpen()) {
@@ -1546,7 +1625,7 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
                 if (peerManager) peerManager->setPeerHeight(claimedPeerId, h);
                 if (h > (int)chain.getHeight() && transport && transport->isOpen()) {
                     if (peerSupportsAggProof(claimedPeerId))
-                        requestEpochHeaders(claimedPeerId);
+                        transport->queueWrite("ALYN|REQUEST_STATE_PROOF\n");
                     else
                         transport->queueWrite("ALYN|REQUEST_BLOCKCHAIN\n");
                 }
@@ -1562,13 +1641,12 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
                     !tip.empty() && tip != chain.getLatestBlockHash() &&
                     transport && transport->isOpen()) {
                     if (peerSupportsAggProof(claimedPeerId))
-                        requestEpochHeaders(claimedPeerId);
+                        transport->queueWrite("ALYN|REQUEST_STATE_PROOF\n");
                     else
                         transport->queueWrite("ALYN|REQUEST_BLOCKCHAIN\n");
                 }
                 return;
             }
-
             if (type == "peer_list") {
                 for (const auto& p : root["data"]) {
                     std::string str = p.asString();
@@ -1657,15 +1735,16 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
                 return;
             }
         } catch (...) {
-            std::cerr << "⚠️ Malformed JSON from peer\n";
+            std::cerr << "?? Malformed JSON from peer\n";
         }
         return;
     }
 
     // -- If still unhandled, print warning --
-    std::cerr << "⚠️ [handleIncomingData] Unknown or unhandled message from " << claimedPeerId
+    std::cerr << "?? [handleIncomingData] Unknown or unhandled message from " << claimedPeerId
               << ": [" << data.substr(0, 100) << "]\n";
 }
+
 
 // ✅ **Broadcast a mined block to all peers*
 void Network::broadcastBlock(const Block& block, bool /*force*/)

@@ -338,6 +338,10 @@ bool Blockchain::addBlock(const Block &block) {
         std::cerr << "⚠️ [addBlock] Received block before parent. Buffering as orphan.\n";
         orphanBlocks[block.getPreviousHash()].push_back(block);
         orphanHashes.insert(block.getHash());
+
+        // === NEW LOGIC: Request missing parent only once ===
+        requestMissingParent(block.getPreviousHash());
+
         return false;
     }
 
@@ -2903,5 +2907,20 @@ bool Blockchain::getBlockByHash(const std::string& hash, Block& out) const
         }
     }
     return false;
+}
+
+//
+// Helper function to request missing parent block from peers (add to Blockchain.cpp)
+void Blockchain::requestMissingParent(const std::string& parentHash)
+{
+    if (requestedParents.count(parentHash)) return;
+    requestedParents.insert(parentHash);
+
+    std::string payload = R"({"type":"get_block","hash":")" + parentHash + R"("})";
+
+    if (!Network::isUninitialized())
+        Network::getInstance().broadcastRaw("ALYN|" + payload + "\n");
+
+    std::cerr << "📡 requested missing parent " << parentHash << '\n';
 }
 

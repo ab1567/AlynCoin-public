@@ -22,3 +22,8 @@ message BlockRequestProto {
 message BlockchainSyncProto {
     string request_type = 1;
 }
+message StateProofProto {
+  int32  block_height = 1;     
+  string state_root   = 2;     
+  bytes  zk_proof     = 3;     
+}

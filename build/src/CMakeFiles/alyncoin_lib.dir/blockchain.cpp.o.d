@@ -261,8 +261,9 @@ src/CMakeFiles/alyncoin_lib.dir/blockchain.cpp.o: \
  /root/AlynCoin/src/generated/block_protos.pb.h \
  /root/AlynCoin/src/blockchain.h \
  /root/AlynCoin/src/generated/transaction_protos.pb.h \
- /root/AlynCoin/src/block.h /root/AlynCoin/src/crypto_utils.h \
- /usr/include/openssl/err.h /usr/include/openssl/macros.h \
+ /root/AlynCoin/src/generated/sync_protos.pb.h /root/AlynCoin/src/block.h \
+ /root/AlynCoin/src/crypto_utils.h /usr/include/openssl/err.h \
+ /usr/include/openssl/macros.h \
  /usr/include/x86_64-linux-gnu/openssl/opensslconf.h \
  /usr/include/x86_64-linux-gnu/openssl/configuration.h \
  /usr/include/openssl/opensslv.h /usr/include/openssl/e_os2.h \
@@ -340,7 +341,8 @@ src/CMakeFiles/alyncoin_lib.dir/blockchain.cpp.o: \
  /root/AlynCoin/src/zk/../nft/nft.h /root/AlynCoin/src/generated/nft.pb.h \
  /root/AlynCoin/src/layer2/state_channel.h \
  /root/AlynCoin/src/rollup/rollup_block.h \
- /root/AlynCoin/src/rollup/../transaction.h /usr/include/boost/asio.hpp \
+ /root/AlynCoin/src/rollup/../transaction.h \
+ /root/AlynCoin/src/rollup/rollup_utils.h /usr/include/boost/asio.hpp \
  /usr/include/boost/asio/any_completion_executor.hpp \
  /usr/include/boost/asio/detail/config.hpp /usr/include/boost/config.hpp \
  /usr/include/boost/config/user.hpp \

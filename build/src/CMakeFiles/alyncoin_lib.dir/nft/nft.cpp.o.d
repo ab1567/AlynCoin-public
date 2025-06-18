@@ -291,6 +291,7 @@ src/CMakeFiles/alyncoin_lib.dir/nft/nft.cpp.o: \
  /root/AlynCoin/src/../src/generated/blockchain_protos.pb.h \
  /root/AlynCoin/src/../src/generated/block_protos.pb.h \
  /root/AlynCoin/src/../src/generated/transaction_protos.pb.h \
+ /root/AlynCoin/src/../src/generated/sync_protos.pb.h \
  /root/AlynCoin/src/../src/block.h \
  /root/AlynCoin/src/../src/crypto_protos.pb.h \
  /root/AlynCoin/src/../src/transaction.h \
@@ -344,6 +345,7 @@ src/CMakeFiles/alyncoin_lib.dir/nft/nft.cpp.o: \
  /root/AlynCoin/src/../src/layer2/state_channel.h \
  /root/AlynCoin/src/../src/rollup/rollup_block.h \
  /root/AlynCoin/src/../src/rollup/../transaction.h \
+ /root/AlynCoin/src/../src/rollup/rollup_utils.h \
  /usr/include/boost/asio.hpp \
  /usr/include/boost/asio/any_completion_executor.hpp \
  /usr/include/boost/asio/detail/config.hpp /usr/include/boost/config.hpp \

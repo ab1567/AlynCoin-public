@@ -291,8 +291,8 @@ src/CMakeFiles/alyncoin_lib.dir/zk/winterfell_stark.cpp.o: \
  /root/AlynCoin/src/generated/blockchain_protos.pb.h \
  /root/AlynCoin/src/generated/block_protos.pb.h \
  /root/AlynCoin/src/generated/transaction_protos.pb.h \
- /root/AlynCoin/src/block.h /root/AlynCoin/src/crypto_protos.pb.h \
- /root/AlynCoin/src/transaction.h \
+ /root/AlynCoin/src/generated/sync_protos.pb.h /root/AlynCoin/src/block.h \
+ /root/AlynCoin/src/crypto_protos.pb.h /root/AlynCoin/src/transaction.h \
  /root/AlynCoin/src/zk/../network/peer_blacklist.h \
  /usr/include/rocksdb/db.h \
  /usr/include/rocksdb/block_cache_trace_writer.h \
@@ -342,7 +342,8 @@ src/CMakeFiles/alyncoin_lib.dir/zk/winterfell_stark.cpp.o: \
  /root/AlynCoin/src/zk/winterfell_stark.h \
  /root/AlynCoin/src/layer2/state_channel.h \
  /root/AlynCoin/src/rollup/rollup_block.h \
- /root/AlynCoin/src/rollup/../transaction.h /usr/include/boost/asio.hpp \
+ /root/AlynCoin/src/rollup/../transaction.h \
+ /root/AlynCoin/src/rollup/rollup_utils.h /usr/include/boost/asio.hpp \
  /usr/include/boost/asio/any_completion_executor.hpp \
  /usr/include/boost/asio/detail/config.hpp /usr/include/boost/config.hpp \
  /usr/include/boost/config/user.hpp \

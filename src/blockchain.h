@@ -4,10 +4,12 @@
 #include "generated/block_protos.pb.h"
 #include "generated/blockchain_protos.pb.h"
 #include "generated/transaction_protos.pb.h"
+#include "generated/sync_protos.pb.h"
 #include "block.h"
 #include "crypto_utils.h"
 #include "layer2/state_channel.h"
 #include "rollup/rollup_block.h"
+#include "rollup/rollup_utils.h"
 #include "transaction.h"
 #include <atomic>
 #include <boost/asio.hpp>
@@ -222,10 +224,18 @@ void saveForkView(const std::vector<Block>& forkChain);
 bool deserializeBlockchainForkView(const std::string& rawData, std::vector<Block>& forkOut) const;
 
 bool getBlockByHash(const std::string& hash, Block& out) const;
-
+void requestMissingParent(const std::string& parentHash);
 
 std::unordered_map<std::string, std::vector<Block>> orphanBlocks;
+std::unordered_set<std::string>            requestedParents;
 std::unordered_set<std::string> orphanHashes;
+
+    inline std::string getStateRoot() const {  // ✅ CORRECT
+        return RollupUtils::calculateStateRoot(getCurrentState());
+    }
+inline std::string getHeaderMerkleRoot() const {
+    return getLatestBlock().getMerkleRoot();
+}
 };
 
 // ✅ Standalone declaration outside the Blockchain class
