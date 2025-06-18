@@ -177,6 +177,7 @@ public:
   Block createBlock(const std::string &minerDilithiumKey,
                     const std::string &minerFalconKey);
   int getRecentTransactionCount();
+  bool replaceChainUpTo(const std::vector<Block>& blocks, int upToHeight);
   void updateTransactionHistory(int newTxCount);
   const std::vector<Block> &getChain() const;
   Json::Value toJSON() const;
@@ -187,10 +188,10 @@ public:
   void addVestingForEarlySupporter(const std::string &address, double initialAmount);
   bool castVote(const std::string &voterAddress, const std::string &candidateAddress);
   std::vector<Transaction> getAllTransactionsForAddress(const std::string& address);
-	bool openDB(bool readOnly = false);
-	rocksdb::DB* getRawDB();
+  bool openDB(bool readOnly = false);
+  rocksdb::DB* getRawDB();
   void setNetwork(Network* net) { network = net; }
-	// L2
+  // L2
   std::unordered_map<std::string, double> getCurrentState() const;
   std::unordered_map<std::string, double> simulateL2StateUpdate(
       const std::unordered_map<std::string, double> &currentState,
@@ -213,33 +214,37 @@ public:
   void setPendingL2TransactionsIfNotInRollups(const std::vector<Transaction>& allTxs);
 
   std::vector<RollupBlock> getAllRollupBlocks() const;
-// New fork sync and comparison helpers
-bool verifyForkSafety(const std::vector<Block>& otherChain) const;
-int findForkCommonAncestor(const std::vector<Block>& otherChain) const;
-uint64_t computeCumulativeDifficulty(const std::vector<Block>& chainRef) const;
-void setPendingForkChain(const std::vector<Block>& fork);
-const std::vector<Block>& getPendingForkChain() const;
-void clearPendingForkChain();
-void compareAndMergeChains(const std::vector<Block>& otherChain);
-void saveForkView(const std::vector<Block>& forkChain);
-bool deserializeBlockchainForkView(const std::string& rawData, std::vector<Block>& forkOut) const;
+  // New fork sync and comparison helpers
+  bool verifyForkSafety(const std::vector<Block>& otherChain) const;
+  int findForkCommonAncestor(const std::vector<Block>& otherChain) const;
+  uint64_t computeCumulativeDifficulty(const std::vector<Block>& chainRef) const;
+  void setPendingForkChain(const std::vector<Block>& fork);
+  const std::vector<Block>& getPendingForkChain() const;
+  void clearPendingForkChain();
+  void compareAndMergeChains(const std::vector<Block>& otherChain);
+  void saveForkView(const std::vector<Block>& forkChain);
+  bool deserializeBlockchainForkView(const std::string& rawData, std::vector<Block>& forkOut) const;
 
-bool getBlockByHash(const std::string& hash, Block& out) const;
-void requestMissingParent(const std::string& parentHash);
+  bool getBlockByHash(const std::string& hash, Block& out) const;
+  void requestMissingParent(const std::string& parentHash);
 
-std::unordered_map<std::string, std::vector<Block>> orphanBlocks;
-std::unordered_set<std::string>            requestedParents;
-std::unordered_set<std::string> orphanHashes;
+  std::unordered_map<std::string, std::vector<Block>> orphanBlocks;
+  std::unordered_set<std::string>            requestedParents;
+  std::unordered_set<std::string> orphanHashes;
 
-    inline std::string getStateRoot() const {  // ✅ CORRECT
-        return RollupUtils::calculateStateRoot(getCurrentState());
-    }
-inline std::string getHeaderMerkleRoot() const {
-    return getLatestBlock().getMerkleRoot();
-}
+  inline std::string getStateRoot() const {  // ✅ CORRECT
+      return RollupUtils::calculateStateRoot(getCurrentState());
+  }
+  inline std::string getHeaderMerkleRoot() const {
+      return getLatestBlock().getMerkleRoot();
+  }
+
+  // --- Snapshot/fast sync helpers ---
+  std::vector<Block> getChainUpTo(size_t height) const;
+  bool tryAppendBlock(const Block &blk);
+
 };
 
-// ✅ Standalone declaration outside the Blockchain class
 namespace DBPaths {
     std::string getKeyPath(const std::string &address);
 }

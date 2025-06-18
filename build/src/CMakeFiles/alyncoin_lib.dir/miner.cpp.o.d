@@ -257,10 +257,10 @@ src/CMakeFiles/alyncoin_lib.dir/miner.cpp.o: /root/AlynCoin/src/miner.cpp \
  /usr/include/google/protobuf/map_type_handler.h \
  /usr/include/google/protobuf/extension_set.h /usr/include/c++/13/cassert \
  /root/AlynCoin/src/generated/transaction_protos.pb.h \
- /root/AlynCoin/src/generated/sync_protos.pb.h /root/AlynCoin/src/miner.h \
- /root/AlynCoin/src/blockchain.h \
- /root/AlynCoin/src/generated/blockchain_protos.pb.h \
+ /root/AlynCoin/src/generated/sync_protos.pb.h \
  /root/AlynCoin/src/generated/block_protos.pb.h \
+ /root/AlynCoin/src/miner.h /root/AlynCoin/src/blockchain.h \
+ /root/AlynCoin/src/generated/blockchain_protos.pb.h \
  /root/AlynCoin/src/generated/transaction_protos.pb.h \
  /root/AlynCoin/src/block.h /root/AlynCoin/src/crypto_utils.h \
  /usr/include/openssl/err.h /usr/include/openssl/macros.h \

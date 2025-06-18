@@ -43,6 +43,8 @@
 #include "transport/tcp_transport.h"
 #include "transport/pubsub_router.h"
 
+using namespace alyncoin;
+
 // ==== [Globals, Statics] ====
 static std::unordered_map<std::string, std::vector<Block>> incomingChains;
 // Buffers for in-progress FULL_CHAIN syncs
@@ -488,20 +490,20 @@ void Network::broadcastTransactionToAllExcept(const Transaction &tx, const std::
 // sync with peers
 void Network::syncWithPeers() {
     std::cout << "🔄 [INFO] Syncing with peers..." << std::endl;
-
     if (peerTransports.empty()) {
         std::cerr << "⚠️ [WARNING] No peers available for sync!\n";
         return;
     }
 
-    size_t myHeight = Blockchain::getInstance().getHeight();
+    const size_t myHeight = Blockchain::getInstance().getHeight();
+
     for (const auto &[peer, entry] : peerTransports) {
         if (peer.empty()) continue;
-        auto transport = entry.tx;
 
-        int peerHeight = -1;
-        if (peerManager) peerHeight = peerManager->getPeerHeight(peer);
+        auto  transport  = entry.tx;
+        int   peerHeight = peerManager ? peerManager->getPeerHeight(peer) : -1;
 
+        /* ask for height if unknown */
         if (peerHeight == -1) {
             Json::Value j; j["type"] = "height_request";
             Json::StreamWriterBuilder b; b["indentation"] = "";
@@ -509,16 +511,22 @@ void Network::syncWithPeers() {
             continue;
         }
 
+        /* ── peer is *ahead* ── */
         if (static_cast<size_t>(peerHeight) > myHeight) {
-            std::cout << "📡 [DEBUG] Requesting blockchain sync from " << peer << "...\n";
-            requestBlockchainSync(peer);
-        } else if (static_cast<size_t>(peerHeight) < myHeight && transport && transport->isOpen()) {
-            if (!peerSupportsAggProof(peer))
-                sendFullChain(transport);
+            if      (peerSupportsSnapshot(peer))  requestSnapshotSync(peer);
+            else if (peerSupportsAggProof(peer))  requestEpochHeaders(peer);
+            continue;
+        }
+
+        /* ── peer is *behind* ── */
+        if (static_cast<size_t>(peerHeight) < myHeight &&
+            transport && transport->isOpen())
+        {
+            if (peerSupportsSnapshot(peer))
+                sendTailBlocks(transport, peerHeight);   // push just the tail they’re missing
         }
     }
 }
-
 // ✅ New smart sync method
 void Network::intelligentSync() {
     std::cout << "🔄 [Smart Sync] Starting intelligent sync process...\n";
@@ -528,14 +536,8 @@ void Network::intelligentSync() {
         return;
     }
 
-    std::string majorityTipHash = peerManager->getMajorityTipHash();
-    if (majorityTipHash.empty()) {
-        std::cerr << "⚠️ [Smart Sync] No majority tip hash found. Skipping sync.\n";
-        return;
-    }
-
-    int localHeight = blockchain->getHeight();
-    int networkHeight = peerManager->getMedianNetworkHeight();
+    const int localHeight   = blockchain->getHeight();
+    const int networkHeight = peerManager->getMedianNetworkHeight();
 
     if (networkHeight <= localHeight) {
         std::cout << "✅ [Smart Sync] Local blockchain is up-to-date. No sync needed.\n";
@@ -543,17 +545,18 @@ void Network::intelligentSync() {
     }
 
     std::cout << "📡 [Smart Sync] Local height: " << localHeight
-              << ", Network height: " << networkHeight
-              << ". Sync needed.\n";
+              << ", Network height: " << networkHeight << ". Sync needed.\n";
 
-    // Find a healthy peer to sync from
-    for (const auto &[peer, socket] : peerTransports) {
-        if (peer.empty()) continue;
-        requestBlockchainSync(peer);
-        break;
+    /* pick the first suitable peer that is ahead */
+    for (const auto &[peer, entry] : peerTransports) {
+        int ph = peerManager->getPeerHeight(peer);
+        if (ph <= localHeight) continue;
+
+        if      (peerSupportsSnapshot(peer))  requestSnapshotSync(peer);
+        else if (peerSupportsAggProof(peer))  requestEpochHeaders(peer);
+        break;  // one good peer is enough
     }
 }
-
 //
 void Network::connectToPeer(const std::string &ip, short port) {
     std::string peerKey = ip + ":" + std::to_string(port);
@@ -607,324 +610,184 @@ void Network::requestPeerList() {
 
   std::cout << "📡 Requesting peer list from all known peers..." << std::endl;
 }
-//
-void Network::receiveFullChain(const std::string &senderIP, const std::string &data)
-{
-    std::cout << "[INFO] Receiving full blockchain from " << senderIP << std::endl;
-
-    Blockchain &chain = Blockchain::getInstance();
-
-    // 🔥 No base64 decode: data is already raw protobuf!
-    const std::string &decodedData = data;
-
-    std::cerr << "INCOMING RAW Proto from peer " << senderIP << ", size: " << decodedData.size()
-              << ", first 8 bytes: "
-              << (decodedData.size() >= 8
-                    ? Crypto::toHex(std::vector<unsigned char>(decodedData.begin(), decodedData.begin() + 8))
-                    : "[short]") << "\n";
-
-    // 2) Parse into vector<Block>
-    alyncoin::BlockchainProto protoChain;
-    if (!protoChain.ParseFromString(decodedData)) {
-        std::cerr << "❌ [ERROR] Failed to parse BlockchainProto from " << senderIP << "\n";
-        return;
-    }
-
-    std::cout << "[DEBUG] Parsed BlockchainProto, block count = " << protoChain.blocks_size() << std::endl;
-
-    if (protoChain.blocks_size() == 0) {
-        std::cerr << "⚠️ [Network] Received empty blockchain.\n";
-        return;
-    }
-
-    std::vector<Block> receivedBlocks;
-    int failCount = 0;
-    for (const auto& protoBlock : protoChain.blocks()) {
-        try {
-            Block blk = Block::fromProto(protoBlock, /*allowPartial=*/false);
-            std::cout << "[SYNC] Block parsed: idx=" << blk.getIndex()
-                      << " hash=" << blk.getHash().substr(0,12)
-                      << " zkProof=" << blk.getZkProof().size()
-                      << " falPK=" << blk.getPublicKeyFalcon().size()
-                      << " dilPK=" << blk.getPublicKeyDilithium().size()
-                      << " falSig=" << blk.getFalconSignature().size()
-                      << " dilSig=" << blk.getDilithiumSignature().size()
-                      << ", prev=" << blk.getPreviousHash()
-                      << ", timestamp=" << blk.getTimestamp()
-                      << ", merkleRoot=" << blk.getMerkleRoot()
-                      << " txs=" << blk.getTransactions().size()
-                      << std::endl;
-            receivedBlocks.push_back(blk);
-        } catch (const std::exception& e) {
-            std::cerr << "⚠️ [Network] Failed to parse block: " << e.what() << "\n";
-            failCount++;
-        }
-    }
-
-    if (receivedBlocks.empty()) {
-        std::cerr << "❌ [Network] No valid blocks parsed from received chain.\n";
-        return;
-    }
-    if (failCount > 0) {
-        std::cerr << "❌ [Network] Warning: " << failCount << " blocks could not be parsed.\n";
-    }
-
-    // 3) Validate Genesis Match
-    if (!chain.getChain().empty() && chain.getChain()[0].getHash() != receivedBlocks[0].getHash()) {
-        std::cerr << "⚠️ [Network] Genesis mismatch. Aborting sync.\n";
-        std::cerr << "  Local genesis: " << chain.getChain()[0].getHash() << "\n";
-        std::cerr << "  Remote genesis: " << receivedBlocks[0].getHash() << "\n";
-        return;
-    }
-
-    std::cout << "🔍 Local chain length: " << chain.getChain().size()
-              << ", Received: " << receivedBlocks.size() << "\n";
-
-    // 4) Validate entire fork safety BEFORE touching chain
-    bool forkSafe = chain.verifyForkSafety(receivedBlocks);
-    if (!forkSafe) {
-        std::cerr << "⚠️ [Network] Received fork failed safety check.\n";
-
-        if (receivedBlocks.size() > chain.getChain().size()) {
-            std::cerr << "✅ [Fallback Override] Longer chain with same genesis detected. Proceeding.\n";
-            // continue to merge below
-        } else {
-            std::cerr << "❌ [Reject] Unsafe or shorter fork. Saved for analysis.\n";
-            chain.saveForkView(receivedBlocks);
-            return;
-        }
-    } else {
-        std::cout << "✅ [Network] Fork safety passed.\n";
-    }
-
-    // 5) Merge using difficulty-aware fork logic
-    std::cout << "[SYNC] Calling compareAndMergeChains: local=" << chain.getChain().size()
-              << " remote=" << receivedBlocks.size() << std::endl;
-    size_t prevHeight = chain.getChain().size();
-    chain.compareAndMergeChains(receivedBlocks);
-    size_t newHeight = chain.getChain().size();
-    if (newHeight > prevHeight) {
-        std::cout << "✅ [SYNC] Chain successfully merged! Local height now: " << newHeight << std::endl;
-    } else {
-        std::cerr << "❌ [SYNC] compareAndMergeChains() did not merge the incoming chain.\n";
-    }
-}
-
 // Handle Peer (Transport version)
 void Network::handlePeer(std::shared_ptr<Transport> transport)
 {
     std::string realPeerId, claimedPeerId, handshakeLine;
     std::string claimedPort, claimedVersion, claimedNetwork, claimedIP;
-    int remoteHeight = 0;  // <-- Declare here so it's in scope
-    bool remoteAgg = false;
+    int  remoteHeight = 0;
+    bool remoteAgg   = false;
+    bool remoteSnap  = false;
 
-    // Helper: what _we_ look like to the network
-    const auto selfAddr = [this]() -> std::string {
-        return this->publicPeerId.empty()
-            ? "127.0.0.1:" + std::to_string(this->port)
-            : this->publicPeerId;
+    /* what *we* look like to the outside world */
+    const auto selfAddr = [this]{
+        return publicPeerId.empty()
+             ? "127.0.0.1:" + std::to_string(port)
+             : publicPeerId;
     };
 
-    // 1. Read & verify the handshake line
+    // ── 1. read + verify handshake ──────────────────────────────────────────
     try {
         handshakeLine = transport->readLineBlocking();
         static constexpr const char* protoPrefix = "ALYN|";
         if (handshakeLine.rfind(protoPrefix, 0) == 0)
-            handshakeLine = handshakeLine.substr(std::strlen(protoPrefix));
+            handshakeLine.erase(0, std::strlen(protoPrefix));
 
         std::string handshakeBuf = handshakeLine;
         Json::Value root;
         Json::CharReaderBuilder rdr; std::string errs;
-        auto parseHandshake = [&]() -> bool {
+        auto parse = [&]{
             std::istringstream iss(handshakeBuf);
             return Json::parseFromStream(rdr, iss, &root, &errs) &&
-                   root.isMember("type") && root["type"].asString() == "handshake" &&
-                   root.isMember("port") && root.isMember("version");
+                   root["type"] == "handshake";
         };
 
-        int readAttempts = 0;
-        while (!parseHandshake()) {
-            if (++readAttempts > 3 || handshakeBuf.size() > 4096)
+        int tries = 0;
+        while (!parse()) {
+            if (++tries > 3 || handshakeBuf.size() > 4096)
                 throw std::runtime_error("invalid handshake");
             std::string extra = transport->readLineBlocking();
-            if (extra.rfind(protoPrefix, 0) == 0)
-                extra = extra.substr(std::strlen(protoPrefix));
+            if (extra.rfind(protoPrefix,0)==0) extra.erase(0,5);
             handshakeBuf += extra;
         }
 
-        handshakeLine = handshakeBuf;
-        // who’s really at the other end of the TCP stream?
-        const auto senderIP   = transport->getRemoteIP();
-        const auto senderPort = transport->getRemotePort();
-        realPeerId            = senderIP + ":" + std::to_string(senderPort);
+        /* real endpoint */
+        const std::string senderIP   = transport->getRemoteIP();
+        const int         senderPort = transport->getRemotePort();
+        realPeerId                    = senderIP + ':' + std::to_string(senderPort);
 
-        // what the peer *claims*
+        /* claimed */
         claimedPort    = root["port"].asString();
         claimedVersion = root["version"].asString();
-        claimedNetwork = root.get("network_id", "").asString();
-        claimedIP      = root.get("ip", senderIP).asString();
-        remoteHeight   = root.get("height", 0).asInt();
+        claimedNetwork = root.get("network_id","").asString();
+        claimedIP      = root.get("ip",senderIP).asString();
+        remoteHeight   = root.get("height",0).asInt();
+
         if (root.isMember("capabilities")) {
             for (const auto& c : root["capabilities"]) {
-                if (c.asString() == "agg_proof_v1") {
-                    remoteAgg = true;
-                    break;
-                }
+                if (c.asString()=="agg_proof_v1")  remoteAgg  = true;
+                if (c.asString()=="snapshot_v1")   remoteSnap = true;
             }
         }
-        // (1) normalize the port so it’s ALWAYS decimal
-        try {
-            const auto portDec = std::stoi(claimedPort, nullptr, 0);
-            claimedPort = std::to_string(portDec);
-        } catch (...) {
-            throw std::runtime_error("bad port in handshake");
-        }
+
+        /* normalise port */
+        try { claimedPort = std::to_string(std::stoi(claimedPort, nullptr, 0)); }
+        catch(...) { throw std::runtime_error("bad port in handshake"); }
 
         claimedPeerId = claimedIP + ":" + claimedPort;
 
-        std::cout << "🤝 Handshake from   " << realPeerId
-                  << " | claimed "        << claimedPeerId
-                  << " | ver "            << claimedVersion
-                  << " | net "            << claimedNetwork
-                  << " | height "         << remoteHeight << '\n';
+        std::cout << "🤝 Handshake from " << realPeerId
+                  << " | claimed "  << claimedPeerId
+                  << " | ver "      << claimedVersion
+                  << " | net "      << claimedNetwork
+                  << " | height "   << remoteHeight << '\n';
 
         if (claimedNetwork != "mainnet") {
-            std::cerr << "⚠️  [handlePeer] Peer is on different network ("
-                      << claimedNetwork << ") – ignored.\n";
+            std::cerr << "⚠️  [handlePeer] peer is on another network – dropped.\n";
             return;
         }
-
-
-        
-    } catch (const std::exception& ex) {
-        // fallback: treat as unknown peer
+    }
+    catch (const std::exception& ex) {
+        /* fallback: still accept the socket, but no validated info */
         try {
-            const auto ip   = transport->getRemoteIP();
-            const auto port = transport->getRemotePort();
-            realPeerId      = claimedPeerId = ip + ":" + std::to_string(port);
+            realPeerId = claimedPeerId =
+                transport->getRemoteIP() + ":" +
+                std::to_string(transport->getRemotePort());
 
-            std::cerr << "⚠️  [handlePeer] handshake failed ("
-                      << ex.what() << "); registering fallback peer "
-                      << realPeerId << '\n';
-
-            if (realPeerId == selfAddr()) return; // ← self-connect
+            if (realPeerId == selfAddr()) return;
 
             {
                 ScopedLockTracer t("handlePeer/fallback");
                 std::lock_guard<std::timed_mutex> lk(peersMutex);
                 peerTransports[realPeerId] = {transport, std::make_shared<PeerState>()};
             }
+
             if (!handshakeLine.empty())
                 handleIncomingData(realPeerId, handshakeLine, transport);
         }
-        catch (...) {
-            std::cerr << "❌ [handlePeer] totally failed to register peer\n";
-        }
-        return;    // finished with fallback path
-    }
-
-    // 2. refuse self-connects (claimed OR real)
-    if (claimedPeerId == selfAddr() || realPeerId == selfAddr()) {
-        std::cout << "🛑 Self-connect attempt ignored: " << claimedPeerId << '\n';
+        catch(...) { std::cerr << "❌ [handlePeer] fallback failed\n"; }
         return;
     }
 
-    // 3. Add (or update) the peer socket
+    // ── 2. refuse self-connects ─────────────────────────────────────────────
+    if (claimedPeerId == selfAddr() || realPeerId == selfAddr()) {
+        std::cout << "🛑 Self-connect ignored: " << claimedPeerId << '\n';
+        return;
+    }
+
+    // ── 3. register / update transport entry ───────────────────────────────
     {
         ScopedLockTracer t("handlePeer/register");
         std::lock_guard<std::timed_mutex> lk(peersMutex);
 
-        auto it = peerTransports.find(claimedPeerId);
-        if (it != peerTransports.end()) {
-            it->second.tx = transport; // refresh
-            if (it->second.state) it->second.state->supportsAggProof = remoteAgg;
-        } else {
-            auto state = std::make_shared<PeerState>();
-            state->supportsAggProof = remoteAgg;
-            peerTransports.emplace(claimedPeerId,
-                                   PeerEntry{transport, state});
-            if (peerManager) peerManager->connectToPeer(claimedPeerId);
-        }
+        auto& entry = peerTransports[claimedPeerId];
+        entry.tx    = transport;
+        if (!entry.state) entry.state = std::make_shared<PeerState>();
+        entry.state->supportsAggProof  = remoteAgg;
+        entry.state->supportsSnapshot = remoteSnap;
 
         if (peerManager) {
-            peerManager->setPeerHeight(claimedPeerId, remoteHeight);
+            peerManager->connectToPeer(claimedPeerId);
+            peerManager->setPeerHeight (claimedPeerId, remoteHeight);
         }
-        // Add to pubsub mesh
-        g_pubsub.addPeer(
-            claimedPeerId,
-            [transport](const std::string& line){
-                if (transport && transport->isOpen()) transport->queueWrite(line + "\n");
-            });
-
-        std::cout << "✅ Registered peer transport: " << claimedPeerId
-                  << "  (real endpoint " << realPeerId << ")\n";
     }
 
-    // 4. share our current peer list with him
-    broadcastPeerList();
+    g_pubsub.addPeer(
+        claimedPeerId,
+        [transport](const std::string& l){
+            if (transport && transport->isOpen()) transport->queueWrite(l + '\n');
+        });
 
+    std::cout << "✅ Registered peer: " << claimedPeerId << '\n';
+
+    // ── 4. push our handshake back ──────────────────────────────────────────
     {
         Json::Value hs;
-        hs["type"]        = "handshake";
-        hs["port"]        = std::to_string(this->port);
-        hs["version"]     = "1.0.0";
-        hs["network_id"]  = "mainnet";
+        hs["type"]         = "handshake";
+        hs["port"]         = std::to_string(port);
+        hs["version"]      = "1.0.0";
+        hs["network_id"]   = "mainnet";
         hs["capabilities"] = Json::arrayValue;
         hs["capabilities"].append("full");
         hs["capabilities"].append("miner");
         hs["capabilities"].append("agg_proof_v1");
-        hs["height"]      = Blockchain::getInstance().getHeight();
+        hs["capabilities"].append("snapshot_v1");
+        hs["height"]       = Blockchain::getInstance().getHeight();
 
-        Json::StreamWriterBuilder wr;  wr["indentation"] = "";
-        std::string payload = Json::writeString(wr, hs);
-        if (transport && transport->isOpen())
-            transport->queueWrite(std::string("ALYN|") + payload + "\n");
+        Json::StreamWriterBuilder wr; wr["indentation"] = "";
+        transport->queueWrite("ALYN|" + Json::writeString(wr, hs) + '\n');
     }
 
-    // 5. send the initial sync requests
-
+    // ── 5. arm read loop + initial requests ────────────────────────────────
     transport->startReadLoop(
-        [this, claimedPeerId](const std::string& line) {
+        [this, claimedPeerId](const std::string& l){
             auto it = peerTransports.find(claimedPeerId);
             if (it != peerTransports.end())
-                handleIncomingData(claimedPeerId, line, it->second.tx);
-        }
-    );
+                handleIncomingData(claimedPeerId, l, it->second.tx);
+        });
 
     sendInitialRequests(claimedPeerId);
 
-    size_t myHeight = Blockchain::getInstance().getHeight();
-    std::cerr << "[DEBUG] Local height=" << myHeight
-              << ", peer " << claimedPeerId
-              << " height=" << remoteHeight << "\n";
-    if (remoteHeight > static_cast<int>(myHeight) && transport && transport->isOpen()) {
-        if (remoteAgg)
-            requestEpochHeaders(claimedPeerId);
-        else
-            sendData(transport, "ALYN|REQUEST_BLOCKCHAIN\n");
-    } else if (remoteHeight < static_cast<int>(myHeight) && transport && transport->isOpen()) {
-        if (!remoteAgg)
-            sendFullChain(transport);
+    // ── 6. immediate sync decision ─────────────────────────────────────────
+    const size_t myHeight = Blockchain::getInstance().getHeight();
+    if (remoteHeight > static_cast<int>(myHeight)) {
+        if      (remoteSnap) requestSnapshotSync(claimedPeerId);
+        else if (remoteAgg)  requestEpochHeaders(claimedPeerId);
     }
+    else if (remoteHeight < static_cast<int>(myHeight) && remoteSnap)
+        sendTailBlocks(transport, remoteHeight);
 
-    this->autoSyncIfBehind();
-    this->syncWithPeers();
-    // 6. if they gave us an external port – dial back
+    autoSyncIfBehind();
+    syncWithPeers();
+
+    // ── 7. optional reverse connect if they advertised an external port ────
     try {
-        const int theirPort = std::stoi(claimedPort, nullptr, 0);
-        if ( theirPort>0 && theirPort!=this->port &&
-            claimedPeerId!=selfAddr() && !peerTransports.count(claimedPeerId) )
-        {
-            std::cout << "🔁 Reverse-connecting to "
-                    << claimedIP << ':' << theirPort << '\n';
+        int theirPort = std::stoi(claimedPort);
+        if (theirPort>0 && theirPort!=port &&
+            claimedPeerId!=selfAddr() && !peerTransports.count(claimedPeerId))
             connectToPeer(claimedIP, theirPort);
-        }
-    } catch (...) {/* ignore bad port here */ }
-
-    // 7. Start async read loop using transport's API
+    } catch (...) {}
 }
-
-
 // ✅ **Run Network Thread**
 void Network::run() {
     std::cout << "🚀 [Network] Starting network stack for port " << port << "\n";
@@ -992,41 +855,39 @@ void Network::run() {
 
 // Call this after all initial peers are connected
 void Network::autoSyncIfBehind() {
-    Blockchain &blockchain = Blockchain::getInstance();
-    size_t myHeight = blockchain.getHeight();
-    std::string myTip = blockchain.getLatestBlockHash();
+    Blockchain &bc  = Blockchain::getInstance();
+    const size_t myHeight = bc.getHeight();
+    const std::string myTip = bc.getLatestBlockHash();
 
     std::lock_guard<std::timed_mutex> lock(peersMutex);
     for (const auto &[peerAddr, entry] : peerTransports) {
-        auto peerTransport = entry.tx;
-        if (!peerTransport || !peerTransport->isOpen()) continue;
+        auto tr = entry.tx;
+        if (!tr || !tr->isOpen()) continue;
 
-        std::cerr << "🌐 [autoSyncIfBehind] Requesting height from peer: " << peerAddr << std::endl;
-        peerTransport->send("ALYN|{\"type\":\"height_request\"}\n");
-        peerTransport->send("ALYN|{\"type\":\"tip_hash_request\"}\n");
+        /* probe */
+        tr->send("ALYN|{\"type\":\"height_request\"}\n");
+        tr->send("ALYN|{\"type\":\"tip_hash_request\"}\n");
 
-        if (peerManager) {
-            int ph = peerManager->getPeerHeight(peerAddr);
-            std::string peerTip = peerManager->getPeerTipHash(peerAddr);
+        if (!peerManager) continue;
+        int  peerHeight = peerManager->getPeerHeight(peerAddr);
+        std::string peerTip = peerManager->getPeerTipHash(peerAddr);
 
-            if (ph > static_cast<int>(myHeight)) {
-                if (peerSupportsAggProof(peerAddr))
-                    requestEpochHeaders(peerAddr);
-                else
-                    peerTransport->queueWrite("ALYN|REQUEST_BLOCKCHAIN\n");
-            } else if (ph == static_cast<int>(myHeight) && !peerTip.empty() && peerTip != myTip) {
-                if (peerSupportsAggProof(peerAddr))
-                    requestEpochHeaders(peerAddr);
-                else
-                    peerTransport->queueWrite("ALYN|REQUEST_BLOCKCHAIN\n");
-            } else if (ph < static_cast<int>(myHeight)) {
-                if (!peerSupportsAggProof(peerAddr))
-                    sendFullChain(peerTransport);
-            }
+        if (peerHeight > static_cast<int>(myHeight)) {
+            if      (peerSupportsSnapshot(peerAddr)) requestSnapshotSync(peerAddr);
+            else if (peerSupportsAggProof(peerAddr)) requestEpochHeaders(peerAddr);
+        }
+        else if (peerHeight == static_cast<int>(myHeight) &&
+                 !peerTip.empty() && peerTip != myTip)
+        {
+            if      (peerSupportsSnapshot(peerAddr)) requestSnapshotSync(peerAddr);
+            else if (peerSupportsAggProof(peerAddr)) requestEpochHeaders(peerAddr);
+        }
+        else if (peerHeight < static_cast<int>(myHeight)) {
+            if (peerSupportsSnapshot(peerAddr))
+                sendTailBlocks(tr, peerHeight);
         }
     }
 }
-
 void Network::waitForInitialSync(int timeoutSeconds) {
     auto start = std::chrono::steady_clock::now();
     while (true) {
@@ -1075,26 +936,21 @@ void Network::connectToDiscoveredPeers() {
 }
 
 //
-void Network::periodicSync()
-{
+void Network::periodicSync() {
     ScopedLockTracer tracer("periodicSync");
     std::lock_guard<std::timed_mutex> lock(peersMutex);
 
-    for (const auto &p : peerTransports)
-    {
+    for (const auto &p : peerTransports) {
         const auto &peerId  = p.first;
         const auto &transport  = p.second.tx;
         if (!transport || !transport->isOpen()) continue;
 
-        Json::Value req;   req["type"] = "height_request";
+        Json::Value req; req["type"] = "height_request";
         Json::StreamWriterBuilder b; b["indentation"] = "";
-        std::string msg = "ALYN|" + Json::writeString(b, req) + "\n";
-        transport->send(msg);
-
+        transport->send("ALYN|" + Json::writeString(b, req) + "\n");
         std::cerr << "📡 [DEBUG] Height probe sent to " << peerId << '\n';
     }
 }
-
 //
 std::vector<std::string> Network::getPeers() {
     std::vector<std::string> peerList;
@@ -1177,16 +1033,22 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
     while (!data.empty() && (data.back() == '\n' || data.back() == '\r'))
         data.pop_back();
 
+    // === Protocol Prefixes (fast-sync only) ===
     static constexpr const char* protocolPrefix     = "ALYN|";
-    static constexpr const char* fullChainPrefix    = "FULL_CHAIN|";
     static constexpr const char* rollupPrefix       = "ROLLUP_BLOCK|";
     static constexpr const char* blockBroadcastPrefix = "BLOCK_BROADCAST|";
     static constexpr const char* blockBatchPrefix   = "BLOCK_BATCH|";
     static constexpr const char* aggProofPrefix     = "AGG_PROOF|";
     static constexpr const char* stateProofPrefix   = "STATE_PROOF|";
     static constexpr const char* requestStateProofCmd = "REQUEST_STATE_PROOF";
-    static constexpr size_t MAX_INFLIGHT_CHAIN_BYTES = 20 * 1024 * 1024;
     static constexpr size_t MAX_INFLIGHT_PROOF_BYTES = 8 * 1024 * 1024;
+
+    // === [FAST-SYNC: SNAPSHOT / TAIL additions] ===
+    static constexpr const char* SNAPSHOT_CHUNK    = "SNAPSHOT_CHUNK|";
+    static constexpr const char* SNAPSHOT_END      = "SNAPSHOT_END";
+    static constexpr const char* TAIL_BLOCKS       = "TAIL_BLOCKS|";
+    static constexpr const char* REQ_SNAPSHOT      = "REQUEST_SNAPSHOT";
+    static constexpr const char* REQ_TAIL_BLOCKS   = "REQUEST_TAIL_BLOCKS|";
 
     auto psIt = peerTransports.find(claimedPeerId);
     if (psIt == peerTransports.end()) return;
@@ -1227,6 +1089,30 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
         }
     }
 
+    // === [FAST-SYNC: SNAPSHOT / TAIL Handlers (Early Return)] ===
+    if (data.rfind(SNAPSHOT_CHUNK, 0) == 0) {
+        handleSnapshotChunk(claimedPeerId, data.substr(strlen(SNAPSHOT_CHUNK)));
+        return;
+    }
+    if (data == SNAPSHOT_END) {
+        handleSnapshotEnd(claimedPeerId);
+        return;
+    }
+    if (data.rfind(TAIL_BLOCKS, 0) == 0) {
+        handleTailBlocks(claimedPeerId, data.substr(strlen(TAIL_BLOCKS)));
+        return;
+    }
+    if (data == REQ_SNAPSHOT) {
+        sendSnapshot(transport, -1);
+        return;
+    }
+    if (data.rfind(REQ_TAIL_BLOCKS, 0) == 0) {
+        int fromH = 0;
+        try { fromH = std::stoi(data.substr(strlen(REQ_TAIL_BLOCKS))); } catch (...) {}
+        handleTailRequest(claimedPeerId, fromH);
+        return;
+    }
+
     // === Handle compact state proof (MUST be before base64/chain handlers) ===
     if (data.rfind(stateProofPrefix, 0) == 0) {
         const std::string b64 = data.substr(strlen(stateProofPrefix));
@@ -1250,7 +1136,7 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
                     peerManager->setPeerHeight(claimedPeerId, proto.block_height());
             } else {
                 if (transport && transport->isOpen())
-                    transport->queueWrite("ALYN|REQUEST_BLOCKCHAIN\n");
+                    transport->queueWrite("ALYN|REQUEST_SNAPSHOT\n");
             }
         } catch (...) {
             std::cerr << "[handleIncomingData] ? STATE_PROOF base-64 decode failed\n";
@@ -1294,165 +1180,7 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
         buf.clear();
     }
 
-    // --- FULL_CHAIN inflight buffer (chunked or single shot) ---
-    if (ps->fullChainActive &&
-        data.find('|') == std::string::npos && looksLikeBase64(data))
-    {
-        {
-            std::lock_guard<std::mutex> lk(ps->m);
-            ps->fullChainB64 += data;
-            if (ps->fullChainB64.size() > MAX_INFLIGHT_CHAIN_BYTES) {
-                std::cerr << "[handleIncomingData] ?? FULL_CHAIN buffer exceeded limit from "
-                          << claimedPeerId << " (" << ps->fullChainB64.size() << " bytes)\n";
-                ps->fullChainB64.clear();
-                ps->fullChainActive = false;
-            }
-        }
-        if (!ps->fullChainActive) return;
-        return;
-    }
-
-    if (!ps->fullChainActive &&
-        data.find('|') == std::string::npos && data.size() > 50 && looksLikeBase64(data))
-    {
-        std::lock_guard<std::mutex> lk(ps->m);
-        ps->fullChainB64 = data;
-        ps->fullChainActive = true;
-        return;
-    }
-
-    // --- FULL_CHAIN handler: single-shot or multi-chunk ---
-    if (data.rfind(fullChainPrefix, 0) == 0) {
-        const std::string b64part = data.substr(strlen(fullChainPrefix));
-        {
-            std::lock_guard<std::mutex> lk(ps->m);
-            if (ps->fullChainActive) {
-                ps->fullChainB64 += b64part;
-                if (ps->fullChainB64.size() > MAX_INFLIGHT_CHAIN_BYTES) {
-                    std::cerr << "[handleIncomingData] ?? FULL_CHAIN buffer exceeded limit from "
-                              << claimedPeerId << " (" << ps->fullChainB64.size() << " bytes)\n";
-                    ps->fullChainB64.clear();
-                    ps->fullChainActive = false;
-                }
-                return;
-            }
-        }
-
-        if (b64part.size() > 10000) {
-            try {
-                std::string cleanPart = sanitizeBase64(b64part);
-                std::string raw = Crypto::base64Decode(cleanPart, false);
-                alyncoin::BlockchainProto protoChain;
-                if (!protoChain.ParseFromString(raw)) {
-                    std::cerr << "[handleIncomingData] ? Invalid FULL_CHAIN protobuf (single shot)\n";
-                } else {
-                    std::vector<Block> blocks;
-                    for (const auto& pb : protoChain.blocks()) {
-                        try { blocks.push_back(Block::fromProto(pb, false)); }
-                        catch (...) { std::cerr << "?? Skipped malformed block\n"; }
-                    }
-                    Blockchain& chain = Blockchain::getInstance();
-                    size_t before = chain.getChain().size();
-                    chain.compareAndMergeChains(blocks);
-                    size_t after = chain.getChain().size();
-                    if (peerManager)
-                        peerManager->setPeerHeight(claimedPeerId, static_cast<int>(blocks.size()) - 1);
-                    std::cerr << "[handleIncomingData] ? Synced full chain from peer (single shot). "
-                              << before << " -> " << after << " blocks\n";
-                }
-            } catch (...) {
-                std::cerr << "[handleIncomingData] ? Base64 decode failed for FULL_CHAIN (single shot)\n";
-            }
-            return;
-        } else {
-            std::lock_guard<std::mutex> lk(ps->m);
-            ps->fullChainB64 = b64part;
-            ps->fullChainActive = true;
-            if (ps->fullChainB64.size() > MAX_INFLIGHT_CHAIN_BYTES) {
-                std::cerr << "[handleIncomingData] ?? FULL_CHAIN buffer exceeded limit from "
-                          << claimedPeerId << " (" << ps->fullChainB64.size() << " bytes)\n";
-                ps->fullChainB64.clear();
-                ps->fullChainActive = false;
-            }
-            return;
-        }
-    }
-    if (ps->fullChainActive) {
-        if (data.rfind("ALYN|", 0) == 0) {
-            handleIncomingData(claimedPeerId, data.substr(5), transport);
-            return;
-        }
-        if (data == "BLOCKCHAIN_END") {
-            std::string b64;
-            {
-                std::lock_guard<std::mutex> lk(ps->m);
-                b64.swap(ps->fullChainB64);
-            }
-            try {
-                b64 = sanitizeBase64(b64);
-                std::string raw = Crypto::base64Decode(b64, false);
-                alyncoin::BlockchainProto protoChain;
-                if (!protoChain.ParseFromString(raw)) {
-                    std::cerr << "[handleIncomingData] ??  FULL_CHAIN parse failed. Requesting re-sync...\n";
-                    if (transport && transport->isOpen()) {
-                        if (peerSupportsAggProof(claimedPeerId))
-                            requestEpochHeaders(claimedPeerId);
-                        else
-                            transport->queueWrite("ALYN|REQUEST_BLOCKCHAIN\n");
-                    }
-                    {
-                        std::lock_guard<std::mutex> lk(ps->m);
-                        ps->fullChainB64.clear();
-                        ps->fullChainActive = false;
-                    }
-                    return;
-                } else {
-                    std::vector<Block> blocks;
-                    for (const auto& pb : protoChain.blocks()) {
-                        try { blocks.push_back(Block::fromProto(pb, false)); }
-                        catch (...) { std::cerr << "?? Skipped malformed block\n"; }
-                    }
-                    Blockchain& chain = Blockchain::getInstance();
-                    chain.compareAndMergeChains(blocks);
-                    if (peerManager)
-                        peerManager->setPeerHeight(claimedPeerId, static_cast<int>(blocks.size()) - 1);
-                    std::cerr << "[handleIncomingData] ? Synced full chain from peer (multi-chunk)\n";
-                }
-            } catch (...) {
-                std::cerr << "[handleIncomingData] ? Base64 decode failed for FULL_CHAIN (multi-chunk)\n";
-                {
-                    std::lock_guard<std::mutex> lk(ps->m);
-                    ps->fullChainB64.swap(b64);
-                    ps->fullChainActive = true;
-                }
-                return;
-            }
-            {
-                std::lock_guard<std::mutex> lk(ps->m);
-                ps->fullChainActive = false;
-            }
-            return;
-        }
-        if (data.rfind("FULL_CHAIN|", 0) == 0) {
-            std::lock_guard<std::mutex> lk(ps->m);
-            ps->fullChainB64 += data.substr(sizeof("FULL_CHAIN|")-1);
-            return;
-        }
-        if (data.find('|') == std::string::npos && looksLikeBase64(data)) {
-            std::lock_guard<std::mutex> lk(ps->m);
-            ps->fullChainB64 += data;
-            return;
-        }
-        if (data == "PING") {
-            if (transport && transport->isOpen())
-                transport->queueWrite("ALYN|PONG\n");
-            return;
-        }
-        if (data == "PONG")
-            return;
-    }
-
-    // --- In-flight block/batch (chunked), handled with buffer ---
+    // --- Block, batch, and agg proof (base64/proto) ---
     static thread_local std::unordered_map<std::string, InFlightData> inflight;
 
     if (data.rfind(blockBroadcastPrefix, 0) == 0) {
@@ -1492,10 +1220,9 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
         return;
     }
 
-    // --- AGG_PROOF: single-shot or (optionally) chunked, but always send to handleBase64Proto ---
+    // --- AGG_PROOF: send to handleBase64Proto ---
     if (data.rfind(aggProofPrefix, 0) == 0) {
         const std::string base64 = data.substr(strlen(aggProofPrefix));
-        // Cap: Prevent huge proof blow-up
         if (base64.size() > MAX_INFLIGHT_PROOF_BYTES) {
             std::cerr << "[handleIncomingData] ?? AGG_PROOF size exceeded, ignoring from "
                       << claimedPeerId << "\n";
@@ -1556,37 +1283,7 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
     if (data == "PONG")
         return;
 
-    if (data == "BLOCKCHAIN_END") {
-        Blockchain& chain = Blockchain::getInstance();
-        size_t myHeight = chain.getHeight();
-        int peerHeight = -1;
-        if (peerManager) {
-            peerHeight = peerManager->getPeerHeight(claimedPeerId);
-        }
-        if (peerHeight > static_cast<int>(myHeight) && transport && transport->isOpen()) {
-            if (peerSupportsAggProof(claimedPeerId))
-                requestEpochHeaders(claimedPeerId);
-            else
-                transport->queueWrite("ALYN|REQUEST_BLOCKCHAIN\n");
-        } else if (peerHeight < static_cast<int>(myHeight) && transport && transport->isOpen()) {
-            if (!peerSupportsAggProof(claimedPeerId))
-                sendFullChain(transport);
-        }
-        return;
-    }
-
-    // === Blockchain Request ===
-    if (data == "REQUEST_BLOCKCHAIN") {
-        if (transport && transport->isOpen()) {
-            if (!peerSupportsAggProof(claimedPeerId))
-                sendFullChain(transport);
-            else
-                requestEpochHeaders(claimedPeerId);
-        }
-        return;
-    }
-
-    // === JSON Messages ===
+    // === JSON Messages (unchanged, as per modern fast sync) ===
     if (!data.empty() &&
         ((data.front() == '{' && data.back() == '}') ||
          (data.front() == '[' && data.back() == ']'))) {
@@ -1609,33 +1306,24 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
                 peerManager->setPeerHeight(claimedPeerId, h);
 
                 if (h > (int)chain.getHeight() && transport && transport->isOpen()) {
-                    if (peerSupportsAggProof(claimedPeerId))
-                        transport->queueWrite("ALYN|REQUEST_STATE_PROOF\n");
-                    else
-                        transport->queueWrite("ALYN|REQUEST_BLOCKCHAIN\n");
-                } else if (h < (int)chain.getHeight() && transport && transport->isOpen()) {
-                    if (!peerSupportsAggProof(claimedPeerId))
-                        sendFullChain(transport);
+                    transport->queueWrite("ALYN|REQUEST_STATE_PROOF\n");
                 }
                 return;
             }
 
-	if (type == "height_response") {
-	    int h = root["height"].asInt();
-	    std::string tip = root["tip"].asString();
-	    if (peerManager) {
-	        peerManager->setPeerHeight(claimedPeerId, h);
-	        peerManager->recordTipHash(claimedPeerId, tip);
-	    }
-	    // Sync logic: If peer is ahead, request missing chain
-	    if (h > (int)chain.getHeight() && transport && transport->isOpen()) {
-	        if (peerSupportsAggProof(claimedPeerId))
-	            transport->queueWrite("ALYN|REQUEST_STATE_PROOF\n");
-	        else
-	            transport->queueWrite("ALYN|REQUEST_BLOCKCHAIN\n");
-	    }
-	    return;
-	}
+            if (type == "height_response") {
+                int h = root["height"].asInt();
+                std::string tip = root["tip"].asString();
+                if (peerManager) {
+                    peerManager->setPeerHeight(claimedPeerId, h);
+                    peerManager->recordTipHash(claimedPeerId, tip);
+                }
+                // Sync logic: If peer is ahead, request missing chain
+                if (h > (int)chain.getHeight() && transport && transport->isOpen()) {
+                    transport->queueWrite("ALYN|REQUEST_STATE_PROOF\n");
+                }
+                return;
+            }
 
             if (type == "tip_hash_response" && peerManager) {
                 std::string tip = root["data"].asString();
@@ -1645,10 +1333,7 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
                 if (ph == static_cast<int>(chain.getHeight()) &&
                     !tip.empty() && tip != chain.getLatestBlockHash() &&
                     transport && transport->isOpen()) {
-                    if (peerSupportsAggProof(claimedPeerId))
-                        transport->queueWrite("ALYN|REQUEST_STATE_PROOF\n");
-                    else
-                        transport->queueWrite("ALYN|REQUEST_BLOCKCHAIN\n");
+                    transport->queueWrite("ALYN|REQUEST_STATE_PROOF\n");
                 }
                 return;
             }
@@ -1680,16 +1365,15 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
                 return;
             }
 
-	if (type == "height_request") {
-	    Json::Value out;
-	    out["type"] = "height_response";
-	    out["height"] = chain.getHeight();
-	    out["tip"] = chain.getLatestBlockHash();
-	    if (transport && transport->isOpen())
-	        transport->queueWrite("ALYN|" + Json::writeString(Json::StreamWriterBuilder(), out) + "\n");
-	    return;
-	}
-
+            if (type == "height_request") {
+                Json::Value out;
+                out["type"] = "height_response";
+                out["height"] = chain.getHeight();
+                out["tip"] = chain.getLatestBlockHash();
+                if (transport && transport->isOpen())
+                    transport->queueWrite("ALYN|" + Json::writeString(Json::StreamWriterBuilder(), out) + "\n");
+                return;
+            }
 
             if (type == "tip_hash_request") {
                 Json::Value out;
@@ -2283,19 +1967,22 @@ bool Network::sendData(const std::string &peer, const std::string &data) {
 std::string Network::requestBlockchainSync(const std::string &peer) {
     {
         std::lock_guard<std::timed_mutex> lk(peersMutex);
-        if (peerTransports.find(peer) == peerTransports.end()) {
+        if (!peerTransports.count(peer)) {
             std::cerr << "❌ [ERROR] Peer not found: " << peer << "\n";
             return "";
         }
     }
-    std::cout << "📡 Requesting blockchain sync from: " << peer << "\n";
-    if (!sendData(peer, "ALYN|REQUEST_BLOCKCHAIN")) {
-        std::cerr << "❌ Failed to send sync request to " << peer << "\n";
-        return "";
-    }
+
+    std::cout << "📡 Initiating catch-up sync with: " << peer << "\n";
+
+    if      (peerSupportsSnapshot(peer))  requestSnapshotSync(peer);
+    else if (peerSupportsAggProof(peer))  requestEpochHeaders(peer);
+    else
+        std::cerr << "⚠️  Peer " << peer
+                  << " offers no modern sync capability. Skipping.\n";
+
     return "";
 }
-
 // ✅ **Start Listening for Incoming Connections**
 void Network::startServer() {
     try {
@@ -2356,8 +2043,7 @@ void Network::addPeer(const std::string &peer) {
 // ------------------------------------------------------------------
 //  Helper: send the three “kick-off” messages after a connection
 // ------------------------------------------------------------------
-void Network::sendInitialRequests(const std::string& peerId)
-{
+void Network::sendInitialRequests(const std::string& peerId) {
     Json::StreamWriterBuilder b;  b["indentation"] = "";
     Json::Value j;
 
@@ -2369,14 +2055,14 @@ void Network::sendInitialRequests(const std::string& peerId)
 
     j["type"] = "request_peers";
     sendData(peerId, "ALYN|" + Json::writeString(b, j) + "\n");
-    if (peerSupportsAggProof(peerId))
+
+    if (peerSupportsSnapshot(peerId))
+        requestSnapshotSync(peerId);
+    else if (peerSupportsAggProof(peerId))
         requestEpochHeaders(peerId);
-    else
-        sendData(peerId, "ALYN|REQUEST_BLOCKCHAIN\n");
 
     sendInventory(peerId);
 }
-
 // ------------------------------------------------------------------
 //  Helper: set up an endless async-read loop for a socket
 // ------------------------------------------------------------------
@@ -2416,109 +2102,110 @@ void Network::startReadLoop(const std::string&           peerId,
     transport->asyncReadLine(*self);
 }
 // Connect to Node
-bool Network::connectToNode(const std::string &host, int port)
+bool Network::connectToNode(const std::string& host, int port)
 {
-    if (peerTransports.size() > 32) {
-        std::cerr << "⚠️ [connectToNode] Max-peer cap reached.  Skipping "
-                  << host << ':' << port << '\n';
-        return false;
-    }
-    std::string peerKey = host + ':' + std::to_string(port);
-    if (bannedPeers.count(peerKey)) {
-        std::cerr << "⚠️ [connectToNode] Peer " << peerKey << " is banned. Skipping connect.\n";
-        return false;
-    }
-    try {
-        std::cout << "[PEER_CONNECT] Attempting to connect to "
-                  << host << ':' << port << '\n';
+    constexpr size_t MAX_PEERS = 32;
 
-        auto transport = std::make_shared<TcpTransport>(ioContext);
-        if (!transport->connect(host, port)) {
-            std::cerr << "❌ [connectToNode] Could not connect to "
-                      << host << ':' << port << '\n';
+    if (peerTransports.size() >= MAX_PEERS) {
+        std::cerr << "⚠️ [connectToNode] peer cap reached, skip " << host << ':' << port << '\n';
+        return false;
+    }
+
+    const std::string peerKey = host + ':' + std::to_string(port);
+    if (bannedPeers.count(peerKey)) {
+        std::cerr << "⚠️ [connectToNode] " << peerKey << " is banned.\n";
+        return false;
+    }
+
+    try {
+        std::cout << "[PEER_CONNECT] → " << host << ':' << port << '\n';
+
+        auto tx = std::make_shared<TcpTransport>(ioContext);
+        if (!tx->connect(host, port)) {
+            std::cerr << "❌ [connectToNode] connect failed\n";
             return false;
         }
 
-        // peerKey already set above
         {
             ScopedLockTracer _t("connectToNode");
             std::lock_guard<std::timed_mutex> g(peersMutex);
-
             if (peerTransports.count(peerKey)) {
-                std::cout << "🔁 Already connected to peer: " << peerKey << '\n';
+                std::cout << "🔁 already connected to " << peerKey << '\n';
                 return false;
             }
-            peerTransports[peerKey] = {transport, std::make_shared<PeerState>()};
+            peerTransports[peerKey] = {tx, std::make_shared<PeerState>()};
             if (peerManager) peerManager->connectToPeer(peerKey);
         }
 
-    Json::Value handshake;
-    handshake["type"]        = "handshake";
-    handshake["port"]        = std::to_string(this->port);
-    handshake["version"]     = "1.0.0";
-    handshake["network_id"]  = "mainnet";
-    handshake["capabilities"]= Json::arrayValue;
-    handshake["capabilities"].append("full");
-    handshake["capabilities"].append("miner");
-    handshake["capabilities"].append("agg_proof_v1");
-    handshake["height"]      = Blockchain::getInstance().getHeight();
+        /* our handshake */
+        Json::Value hs;
+        hs["type"]         = "handshake";
+        hs["port"]         = std::to_string(this->port);
+        hs["version"]      = "1.0.0";
+        hs["network_id"]   = "mainnet";
+        hs["capabilities"] = Json::arrayValue;
+        hs["capabilities"].append("full");
+        hs["capabilities"].append("miner");
+        hs["capabilities"].append("agg_proof_v1");
+        hs["capabilities"].append("snapshot_v1");
+        hs["height"]       = Blockchain::getInstance().getHeight();
 
-        Json::StreamWriterBuilder wr;  wr["indentation"] = "";
-        std::string payload = Json::writeString(wr, handshake);
-        transport->queueWrite(std::string("ALYN|") + payload + '\n');
+        Json::StreamWriterBuilder wr; wr["indentation"] = "";
+        tx->queueWrite("ALYN|" + Json::writeString(wr, hs) + '\n');
 
-        std::cout << "🤝 Sent handshake to " << peerKey << ": ALYN|"
-                  << payload << std::flush
-                  << "✅ Connected to new peer: " << peerKey << '\n';
+        /* read their handshake (2 s timeout) */
+        std::string remoteHs = tx->readLineWithTimeout(2);
+        if (remoteHs.rfind("ALYN|",0)==0) remoteHs.erase(0,5);
 
-        // --- wait briefly for their handshake so we know their height ---
-        std::string remoteHs = transport->readLineWithTimeout(2);
-        if (!remoteHs.empty() && remoteHs.rfind("ALYN|",0)==0)
-            remoteHs = remoteHs.substr(5);
+        bool theirAgg  = false;
+        bool theirSnap = false;
+        int  theirHeight = 0;
+
         if (!remoteHs.empty() && remoteHs.front()=='{' && remoteHs.back()=='}') {
-            Json::Value rh;
-            Json::CharReaderBuilder rb; std::string errs;
-            std::istringstream iss(remoteHs);
-            if (Json::parseFromStream(rb, iss, &rh, &errs) &&
-                rh["type"].asString()=="handshake")
+            Json::Value rh; Json::CharReaderBuilder rb; std::string errs;
+            if (Json::parseFromStream(rb, std::istringstream(remoteHs), &rh, &errs) &&
+                rh["type"]=="handshake")
             {
-                int h = rh.get("height",0).asInt();
-                bool agg = false;
+                theirHeight = rh.get("height",0).asInt();
                 if (rh.isMember("capabilities")) {
                     for (const auto& c : rh["capabilities"]) {
-                        if (c.asString()=="agg_proof_v1") { agg = true; break; }
+                        if (c.asString()=="agg_proof_v1")  theirAgg  = true;
+                        if (c.asString()=="snapshot_v1")   theirSnap = true;
                     }
                 }
-                {
-                    ScopedLockTracer _t("connectToNode/remoteHs");
-                    std::lock_guard<std::timed_mutex> lk(peersMutex);
-                    auto it = peerTransports.find(peerKey);
-                    if (it != peerTransports.end() && it->second.state)
-                        it->second.state->supportsAggProof = agg;
-                }
-                if (peerManager) peerManager->setPeerHeight(peerKey, h);
-                if (h > (int)Blockchain::getInstance().getHeight())
-                    transport->queueWrite("ALYN|REQUEST_BLOCKCHAIN\n");
-                else if (h < (int)Blockchain::getInstance().getHeight() && !agg)
-                    sendFullChain(transport);
             }
         }
 
-        startReadLoop(peerKey, transport);
+        {
+            std::lock_guard<std::timed_mutex> lk(peersMutex);
+            auto st = peerTransports[peerKey].state;
+            st->supportsAggProof  = theirAgg;
+            st->supportsSnapshot = theirSnap;
+        }
+        if (peerManager) peerManager->setPeerHeight(peerKey, theirHeight);
 
+        /* pick correct sync action now */
+        const int localHeight = Blockchain::getInstance().getHeight();
+        if (theirHeight > localHeight) {
+            if      (theirSnap) requestSnapshotSync(peerKey);
+            else if (theirAgg)  requestEpochHeaders(peerKey);
+        }
+        else if (theirHeight < localHeight && theirSnap)
+            sendTailBlocks(tx, theirHeight);
+
+        startReadLoop(peerKey, tx);
         sendInitialRequests(peerKey);
 
-        this->autoSyncIfBehind();
-        this->syncWithPeers();
+        autoSyncIfBehind();
+        syncWithPeers();
         return true;
     }
-    catch (const std::exception &e) {
-        std::cerr << "❌ [connectToNode] Error connecting to "
-                  << host << ':' << port << " — " << e.what() << '\n';
+    catch (const std::exception& e) {
+        std::cerr << "❌ [connectToNode] " << host << ':' << port
+                  << " – " << e.what() << '\n';
         return false;
     }
 }
-
 //
 void Network::sendLatestBlockIndex(const std::string &peerIP) {
   Json::Value msg;
@@ -2674,92 +2361,6 @@ void Network::sendInventory(const std::string& peer)
     Json::StreamWriterBuilder b; b["indentation"] = "";
     sendData(peer, std::string("ALYN|") + Json::writeString(b, inv));
 }
-//
-void Network::sendFullChain(const std::string &peerId)
-{
-    std::shared_ptr<Transport> targetTransport;
-    {
-        std::lock_guard<std::timed_mutex> lock(peersMutex);
-        auto it = peerTransports.find(peerId);
-        if (it == peerTransports.end() || !it->second.tx || !it->second.tx->isOpen())
-        {
-            std::cerr << "❌ [sendFullChain] No open transport for peer " << peerId << "\n";
-            return;
-        }
-        targetTransport = it->second.tx;
-    }
-    sendFullChain(targetTransport);
-}
-
-// ---------------------------------------------------------------------------
-// 2b. socket-overload: *new* MTU-safe implementation
-// ---------------------------------------------------------------------------
-void Network::sendFullChain(std::shared_ptr<Transport> transport)
-{
-    if (!transport || !transport->isOpen()) {
-        std::cerr << "❌ [sendFullChain] Provided transport is null/closed\n";
-        return;
-    }
-
-    Blockchain& bc = Blockchain::getInstance(this->port, DBPaths::getBlockchainDB(), true);
-    bc.loadFromDB();  // ensure we have the latest chain
-    const auto& chain = bc.getChain();
-
-    if (chain.empty()) {
-        std::cerr << "⚠️ [sendFullChain] Local chain empty, nothing to send\n";
-        return;
-    }
-
-    std::cerr << "[sendFullChain] About to send " << chain.size() << " blocks:\n";
-    for (const auto& blk : chain) {
-        std::cerr << "  - idx=" << blk.getIndex()
-                  << " hash=" << blk.getHash()
-                  << " prev=" << blk.getPreviousHash()
-                  << " miner=" << blk.getMinerAddress()
-                  << std::endl;
-    }
-
-    // Build the protobuf
-    alyncoin::BlockchainProto chainProto;
-    for (const Block& blk : chain) {
-        *chainProto.add_blocks() = blk.toProtobuf();
-    }
-
-    // Serialize + base64
-    std::string serialized;
-    if (!chainProto.SerializeToString(&serialized) || serialized.empty()) {
-        std::cerr << "❌ [sendFullChain] Couldn’t serialize chain (" << chain.size() << " blocks)\n";
-        return;
-    }
-    std::string b64 = b64Flat(serialized);
-
-    // Split into smaller chunks to avoid line length limits
-    const size_t CHUNK_SIZE = 8000; // bytes of base64 per chunk
-    size_t offset = 0;
-    int chunks = 0;
-    while (offset < b64.size()) {
-        size_t len = std::min(CHUNK_SIZE, b64.size() - offset);
-        std::string chunk = b64.substr(offset, len);
-        // Prefix each chunk so receivers can reliably accumulate the chain
-        transport->queueWrite(std::string("ALYN|FULL_CHAIN|") + chunk + "\n");
-        offset += len;
-        ++chunks;
-    }
-    std::cerr << "📡 [sendFullChain] Full chain sent ("
-              << chain.size() << " blocks, "
-              << serialized.size() << " bytes raw, "
-              << b64.size() << " base64 chars in " << chunks << " chunks)\n";
-
-    // **CRITICAL**: signal end of chain so peer calls compareAndMergeChains()
-    transport->queueWrite("ALYN|BLOCKCHAIN_END\n");
-    std::cerr << "📡 [sendFullChain] Sent BLOCKCHAIN_END marker\n";
-
-    Json::Value heightMsg;
-    heightMsg["type"] = "height_response";
-    heightMsg["data"] = bc.getHeight();
-    transport->queueWrite(std::string("ALYN|") + Json::writeString(Json::StreamWriterBuilder(), heightMsg) + "\n");
-}
-
 
 // cleanup
 void Network::cleanupPeers() {
@@ -2889,3 +2490,164 @@ bool Network::peerSupportsAggProof(const std::string& peerId) const {
     auto st = it->second.state;
     return st ? st->supportsAggProof : false;
 }
+//
+bool Network::peerSupportsSnapshot(const std::string& peerId) const {
+    auto it = peerTransports.find(peerId);
+    if (it == peerTransports.end()) return false;
+    auto st = it->second.state;
+    return st ? st->supportsSnapshot : false;
+}
+//
+void Network::sendSnapshot(std::shared_ptr<Transport> transport, int upToHeight) {
+    Blockchain& bc = Blockchain::getInstance();
+    int height = upToHeight < 0 ? bc.getHeight() : upToHeight;
+    std::vector<Block> blocks = bc.getChainUpTo(height);  // Implement as needed
+
+    // Build a single snapshot object (e.g. custom SnapshotProto), serialize, base64, chunk
+    SnapshotProto snap;
+    snap.set_height(height);
+    snap.set_root_hash(bc.getHeaderMerkleRoot());  // Or similar
+    for (const auto& blk : blocks)
+        *snap.add_blocks() = blk.toProtobuf();
+
+    std::string raw;
+    if (!snap.SerializeToString(&raw)) return;
+    std::string b64 = Crypto::base64Encode(raw, false);
+
+    const size_t CHUNK_SIZE = 8000;
+    for (size_t off = 0; off < b64.size(); off += CHUNK_SIZE) {
+        transport->queueWrite("ALYN|SNAPSHOT_CHUNK|" + b64.substr(off, CHUNK_SIZE) + "\n");
+    }
+    transport->queueWrite("ALYN|SNAPSHOT_END\n");
+}
+//
+void Network::sendTailBlocks(std::shared_ptr<Transport> transport, int fromHeight) {
+    Blockchain& bc = Blockchain::getInstance();
+    std::vector<Block> tail;
+    for (int i = fromHeight + 1; i <= bc.getHeight(); ++i) {
+        tail.push_back(bc.getChain()[i]);
+    }
+    TailBlocksProto proto;
+    for (const auto& blk : tail)
+        *proto.add_blocks() = blk.toProtobuf();
+
+    std::string raw;
+    if (!proto.SerializeToString(&raw)) return;
+    std::string b64 = Crypto::base64Encode(raw, false);
+
+    transport->queueWrite("ALYN|TAIL_BLOCKS|" + b64 + "\n");
+}
+//
+void Network::handleSnapshotChunk(const std::string& peer, const std::string& chunk) {
+    auto it = peerTransports.find(peer);
+    if (it == peerTransports.end() || !it->second.state) return;
+    auto ps = it->second.state;
+    ps->snapshotB64 += chunk;
+    ps->snapshotActive = true;
+}
+
+
+//
+void Network::handleTailRequest(const std::string& peer, int fromHeight) {
+    auto it = peerTransports.find(peer);
+    if (it == peerTransports.end() || !it->second.tx) return;
+    sendTailBlocks(it->second.tx, fromHeight);
+}
+void Network::handleSnapshotEnd(const std::string& peer) {
+    auto it = peerTransports.find(peer);
+    if (it == peerTransports.end() || !it->second.state) return;
+    auto ps = it->second.state;
+    try {
+        std::string raw = Crypto::base64Decode(ps->snapshotB64, false);
+        SnapshotProto snap;
+        if (!snap.ParseFromString(raw)) throw std::runtime_error("Bad snapshot");
+
+        Blockchain& chain = Blockchain::getInstance();
+
+        // --- Validate snapshot height and integrity ---
+        if (snap.height() < 1 || snap.blocks_size() == 0) throw std::runtime_error("Empty snapshot");
+        if (static_cast<size_t>(snap.height()) != snap.blocks_size() - 1) {
+            throw std::runtime_error("Snapshot height mismatch");
+        }
+
+        // --- Replace local chain up to snapshot height ---
+        std::vector<Block> snapBlocks;
+        for (const auto& pb : snap.blocks()) {
+            snapBlocks.push_back(Block::fromProto(pb, false));
+        }
+
+        // [Optional] Validate Merkle root or snapshot hash if present in SnapshotProto
+        if (snap.has_merkle_root()) {
+            std::string localRoot = Block::computeMerkleRoot(snapBlocks);
+            if (localRoot != snap.merkle_root())
+                throw std::runtime_error("Merkle root mismatch in snapshot");
+        }
+
+        // Actually apply: truncate and replace local chain
+        chain.replaceChainUpTo(snapBlocks, snap.height());
+
+        std::cout << "✅ [SNAPSHOT] Applied snapshot from peer " << peer << " at height " << snap.height() << "\n";
+        ps->snapshotActive = false;
+        ps->snapshotB64.clear();
+
+        // Immediately request tail blocks for any missing blocks
+        requestTailBlocks(peer, snap.height());
+
+    } catch (const std::exception& ex) {
+        std::cerr << "❌ [SNAPSHOT] Failed to apply snapshot from peer " << peer << ": " << ex.what() << "\n";
+        ps->snapshotActive = false;
+        ps->snapshotB64.clear();
+    } catch (...) {
+        std::cerr << "❌ [SNAPSHOT] Unknown error applying snapshot from peer " << peer << "\n";
+        ps->snapshotActive = false;
+        ps->snapshotB64.clear();
+    }
+}
+//
+void Network::handleTailBlocks(const std::string& peer, const std::string& b64) {
+    try {
+        std::string raw = Crypto::base64Decode(b64, false);
+        TailBlocksProto proto;
+        if (!proto.ParseFromString(raw)) throw std::runtime_error("Bad tailblocks");
+
+        Blockchain& chain = Blockchain::getInstance();
+
+        // Validate and append each tail block
+        size_t appended = 0;
+        for (const auto& pb : proto.blocks()) {
+            try {
+                Block blk = Block::fromProto(pb, false);
+                // (Optional) Add your custom validation here (hash, prev-hash, signature, etc)
+                if (chain.tryAppendBlock(blk)) {
+                    ++appended;
+                } else {
+                    std::cerr << "❌ [TAIL_BLOCKS] Invalid block, rejected at height "
+                              << blk.getIndex() << " from peer " << peer << "\n";
+                }
+            } catch (...) {
+                std::cerr << "❌ [TAIL_BLOCKS] Malformed block skipped\n";
+            }
+        }
+
+        std::cout << "✅ [TAIL_BLOCKS] Appended " << appended
+                  << " of " << proto.blocks_size()
+                  << " tail blocks from peer " << peer << "\n";
+    } catch (const std::exception& ex) {
+        std::cerr << "❌ [TAIL_BLOCKS] Failed to apply tail blocks from peer "
+                  << peer << ": " << ex.what() << "\n";
+    } catch (...) {
+        std::cerr << "❌ [TAIL_BLOCKS] Unknown error applying tail blocks from peer "
+                  << peer << "\n";
+    }
+}
+
+//
+void Network::requestSnapshotSync(const std::string& peer) {
+    sendData(peer, "ALYN|REQUEST_SNAPSHOT\n");
+}
+
+void Network::requestTailBlocks(const std::string& peer, int fromHeight) {
+    sendData(peer, "ALYN|REQUEST_TAIL_BLOCKS|" + std::to_string(fromHeight) + "\n");
+}
+
+

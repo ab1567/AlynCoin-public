@@ -24,6 +24,7 @@
 #include <mutex>
 #include <sys/stat.h>
 #include <thread>
+#include <shared_mutex>
 
 #define EMPTY_TX_ROOT_HASH "0c11a17c8610d35fe17aed2a5a5c682a6cdfb8b6ecf56a95605ebb1475b345de"
 #define ROLLUP_CHAIN_FILE "rollup_chain.dat"
@@ -603,7 +604,7 @@ void Blockchain::loadFromPeers() {
   }
 
   for (const auto &peer : peers) {
-    network->requestBlockchainSync(peer); // ✅ Pass argument
+    (void)network->requestBlockchainSync(peer);
   }
 }
 
@@ -2692,6 +2693,35 @@ uint64_t Blockchain::computeCumulativeDifficulty(const std::vector<Block>& chain
                   << " diff=" << blk.difficulty << " total=" << total << "\n";
     }
     return total;
+}
+//
+std::vector<Block> Blockchain::getChainUpTo(size_t height) const
+{
+    std::shared_lock<std::mutex> lk(mutex);        // mutex is your `mutable std::mutex`
+    if (chain.empty())
+        return {};
+
+    if (height >= chain.size())
+        height = chain.size() - 1;
+
+    return std::vector<Block>(chain.begin(), chain.begin() + height + 1);
+}
+
+//
+bool Blockchain::tryAppendBlock(const Block &blk)
+{
+    std::unique_lock<std::mutex> lk(mutex);
+
+    if (blk.getIndex() != static_cast<int>(chain.size()))
+        return false;
+
+    if (!chain.empty() && blk.getPrevHash() != chain.back().getHash())
+        return false;
+
+    chain.push_back(blk);
+
+
+    return true;
 }
 // ✅ Compare incoming chain and merge if better
 void Blockchain::compareAndMergeChains(const std::vector<Block>& otherChain) {

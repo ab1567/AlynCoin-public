@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package alyncoin;
 
+import "block_protos.proto";
+
 message SyncRequestProto {
     string request_type = 1;
     int32 block_height = 2;  // ✅ Added block height for efficient sync
@@ -26,4 +28,14 @@ message StateProofProto {
   int32  block_height = 1;     
   string state_root   = 2;     
   bytes  zk_proof     = 3;     
+}
+
+message SnapshotProto {
+  int32 height = 1;
+  repeated BlockProto blocks = 2;
+  string merkle_root = 3;    // or bytes, your choice
+}
+
+message TailBlocksProto {
+  repeated BlockProto blocks = 1;
 }
