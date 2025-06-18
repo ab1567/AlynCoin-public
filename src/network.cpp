@@ -1578,8 +1578,6 @@ void Network::handleBase64Proto(const std::string &peer, const std::string &pref
                         }
                     }
                 }
-                // Try to attach any orphans whose parent is this block
-                tryAttachOrphans(blk.getHash());
             }
             return;
         }
@@ -1588,7 +1586,7 @@ void Network::handleBase64Proto(const std::string &peer, const std::string &pref
         if (blk.getIndex() > 0 && !chain.hasBlockHash(blk.getPreviousHash())) {
             std::cerr << "⚠️  [handleBase64Proto] [Orphan Block] Parent missing for block idx="
                       << blk.getIndex() << '\n';
-            orphanBlocks.emplace(blk.getPreviousHash(), blk); // 🔥 Store globally by prev-hash
+            chain.addBlock(blk);
 
             // Ask this peer for the parent block directly
             if (transport && transport->isOpen()) {
@@ -1731,29 +1729,6 @@ void Network::handleBase64Proto(const std::string &peer, const std::string &pref
     }
 }
 //
-// Attach any orphans whose parent is now present
-void Network::tryAttachOrphans(const std::string& newParentHash) {
-    bool attached = false;
-    while (true) {
-        auto range = orphanBlocks.equal_range(newParentHash);
-        if (range.first == range.second)
-            break;
-        for (auto it = range.first; it != range.second; ++it) {
-            Block child = it->second;
-            Blockchain& chain = Blockchain::getInstance();
-            std::cerr << "🧹 [orphan] Attaching previously missing child block idx="
-                      << child.getIndex() << " (" << child.getHash().substr(0, 12) << "…)\n";
-            chain.addBlock(child);
-            // Recurse: Try attaching orphans that depended on this child
-            tryAttachOrphans(child.getHash());
-            attached = true;
-        }
-        // Erase all in range for this parent
-        orphanBlocks.erase(newParentHash);
-    }
-    if (attached)
-        std::cerr << "🧹 [orphan] Flushed some orphans after new parent: " << newParentHash.substr(0, 12) << "…\n";
-}
 
 void Network::handleGetData(const std::string& peer, const std::vector<std::string>& hashes)
 {
@@ -2163,7 +2138,8 @@ bool Network::connectToNode(const std::string& host, int port)
 
         if (!remoteHs.empty() && remoteHs.front()=='{' && remoteHs.back()=='}') {
             Json::Value rh; Json::CharReaderBuilder rb; std::string errs;
-            if (Json::parseFromStream(rb, std::istringstream(remoteHs), &rh, &errs) &&
+             std::istringstream iss(remoteHs);
+            if (Json::parseFromStream(rb, iss, &rh, &errs) &&
                 rh["type"]=="handshake")
             {
                 theirHeight = rh.get("height",0).asInt();
@@ -2506,7 +2482,7 @@ void Network::sendSnapshot(std::shared_ptr<Transport> transport, int upToHeight)
     // Build a single snapshot object (e.g. custom SnapshotProto), serialize, base64, chunk
     SnapshotProto snap;
     snap.set_height(height);
-    snap.set_root_hash(bc.getHeaderMerkleRoot());  // Or similar
+    snap.set_merkle_root(bc.getHeaderMerkleRoot());
     for (const auto& blk : blocks)
         *snap.add_blocks() = blk.toProtobuf();
 
@@ -2576,11 +2552,13 @@ void Network::handleSnapshotEnd(const std::string& peer) {
             snapBlocks.push_back(Block::fromProto(pb, false));
         }
 
-        // [Optional] Validate Merkle root or snapshot hash if present in SnapshotProto
-        if (snap.has_merkle_root()) {
-            std::string localRoot = Block::computeMerkleRoot(snapBlocks);
-            if (localRoot != snap.merkle_root())
-                throw std::runtime_error("Merkle root mismatch in snapshot");
+        // [Optional] Validate Merkle root if provided
+        if (!snap.merkle_root().empty()) {
+            if (!snapBlocks.empty()) {
+                std::string localRoot = snapBlocks.back().getMerkleRoot();
+                if (localRoot != snap.merkle_root())
+                    throw std::runtime_error("Merkle root mismatch in snapshot");
+            }
         }
 
         // Actually apply: truncate and replace local chain

@@ -14,6 +14,8 @@ struct PeerState {
     std::string jsonBuf;
     std::string prefixBuf;      // holds partial protocol prefix across chunks
     std::vector<Block> orphanBuf;
+    std::string snapshotB64;
+    bool        snapshotActive{false};
     bool        fullChainActive{false};
     bool        supportsAggProof{false};
     bool        supportsSnapshot{false};

@@ -257,5 +257,7 @@ src/CMakeFiles/alyncoin_lib.dir/__/generated/sync_protos.pb.cc.o: \
  /usr/include/c++/13/compare \
  /usr/include/google/protobuf/map_type_handler.h \
  /usr/include/google/protobuf/extension_set.h /usr/include/c++/13/cassert \
+ /root/AlynCoin/build/generated/block_protos.pb.h \
+ /root/AlynCoin/build/generated/transaction_protos.pb.h \
  /usr/include/google/protobuf/reflection_ops.h \
  /usr/include/google/protobuf/wire_format.h
