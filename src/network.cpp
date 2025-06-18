@@ -1143,9 +1143,9 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
     static constexpr const char* blockBroadcastPrefix = "BLOCK_BROADCAST|";
     static constexpr const char* blockBatchPrefix   = "BLOCK_BATCH|";
     static constexpr const char* aggProofPrefix     = "AGG_PROOF|";
-    static constexpr size_t MAX_INFLIGHT_CHAIN_BYTES = 20 * 1024 * 1024; // 20MB
+    static constexpr size_t MAX_INFLIGHT_CHAIN_BYTES = 20 * 1024 * 1024;
+    static constexpr size_t MAX_INFLIGHT_PROOF_BYTES = 8 * 1024 * 1024;
 
-    // Prefix reassembly to tolerate network fragmentation
     auto psIt = peerTransports.find(claimedPeerId);
     if (psIt == peerTransports.end()) return;
     auto ps = psIt->second.state;
@@ -1185,8 +1185,7 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
         }
     }
 
-    // --- Robust JSON re-assembly ----------------------------------------
-
+    // --- JSON re-assembly ---
     bool assemblingJson = (!ps->jsonBuf.empty()) ||
                           (!data.empty() && (data.front() == '{' || data.front() == '['));
     if (assemblingJson) {
@@ -1194,43 +1193,29 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
         std::string &buf = ps->jsonBuf;
         buf += data;
 
-        // Remove stray protocol prefixes that may appear if a peer sends
-        // each fragment with "ALYN|" prepended.
         size_t pos = 0;
         while ((pos = buf.find(protocolPrefix, pos)) != std::string::npos)
             buf.erase(pos, std::strlen(protocolPrefix));
 
-        // Trim noise before the first '{' or '['
         auto firstBrace = buf.find_first_of("{[");
         if (firstBrace != std::string::npos && firstBrace > 0)
             buf.erase(0, firstBrace);
 
-        // Still waiting for a starting brace/bracket?
         if (buf.empty() || (buf.front() != '{' && buf.front() != '[')) {
             if (buf.size() > 65536) buf.clear();
             return;
         }
 
-        // Determine expected closing character
         char endChar = (buf.front() == '[') ? ']' : '}';
-
-        // Wait until we have a closing brace/bracket
         if (buf.back() != endChar) {
             if (buf.size() > 65536) buf.clear();
             return;
         }
-
-        // Complete JSON fragment ready
         data.swap(buf);
         buf.clear();
     }
 
-    // === FULL_CHAIN inflight buffer for peer sync ===
-
-    // If we already have a FULL_CHAIN transfer in progress from this peer
-    // and the incoming line looks like raw base64 without any prefix,
-    // treat it as a continuation chunk. This makes syncing tolerant of
-    // peers that omit the "ALYN|FULL_CHAIN|" prefix on subsequent lines.
+    // --- FULL_CHAIN inflight buffer (chunked or single shot) ---
     if (ps->fullChainActive &&
         data.find('|') == std::string::npos && looksLikeBase64(data))
     {
@@ -1238,7 +1223,7 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
             std::lock_guard<std::mutex> lk(ps->m);
             ps->fullChainB64 += data;
             if (ps->fullChainB64.size() > MAX_INFLIGHT_CHAIN_BYTES) {
-                std::cerr << "[handleIncomingData] \u26a0\ufe0f FULL_CHAIN buffer exceeded limit from "
+                std::cerr << "[handleIncomingData] ⚠️ FULL_CHAIN buffer exceeded limit from "
                           << claimedPeerId << " (" << ps->fullChainB64.size() << " bytes)\n";
                 ps->fullChainB64.clear();
                 ps->fullChainActive = false;
@@ -1248,9 +1233,6 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
         return;
     }
 
-    // Allow initiating a new FULL_CHAIN transfer even if the first chunk
-    // arrives without the protocol prefix. Peers may emit the chain as plain
-    // base64 lines when joining mid-sync.
     if (!ps->fullChainActive &&
         data.find('|') == std::string::npos && data.size() > 50 && looksLikeBase64(data))
     {
@@ -1260,12 +1242,9 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
         return;
     }
 
-    // --- Robust FULL_CHAIN handler: single-shot or multi-chunk
-
-    // --- Robust FULL_CHAIN handler: single-shot or multi-chunk
+    // --- FULL_CHAIN handler: single-shot or multi-chunk ---
     if (data.rfind(fullChainPrefix, 0) == 0) {
         const std::string b64part = data.substr(strlen(fullChainPrefix));
-
         {
             std::lock_guard<std::mutex> lk(ps->m);
             if (ps->fullChainActive) {
@@ -1280,12 +1259,6 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
             }
         }
 
-        // If this is a *large* message, decode and process now.
-        // Older peers sometimes appended "BLOCKCHAIN_END" directly after the
-        // base64 payload. Checking for that substring caused false positives
-        // when the random data accidentally contained it, leading to truncated
-        // chains. We now rely solely on message size and the explicit
-        // BLOCKCHAIN_END marker to delimit transfers.
         if (b64part.size() > 10000) {
             try {
                 std::string cleanPart = sanitizeBase64(b64part);
@@ -1313,7 +1286,6 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
             }
             return;
         } else {
-            // Otherwise, treat as multi-chunk and buffer
             std::lock_guard<std::mutex> lk(ps->m);
             ps->fullChainB64 = b64part;
             ps->fullChainActive = true;
@@ -1327,27 +1299,15 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
         }
     }
     if (ps->fullChainActive) {
-        /* ------------------------------------------------------------
-         * 1.  normal control messages are allowed during a bulk sync
-         * ------------------------------------------------------------ */
         if (data.rfind("ALYN|", 0) == 0) {
-            handleIncomingData(claimedPeerId,
-                               data.substr(5),
-                               transport);
+            handleIncomingData(claimedPeerId, data.substr(5), transport);
             return;
         }
-
-        /* ------------------------------------------------------------
-         * 2.  BLOCKCHAIN_END terminator
-         * ------------------------------------------------------------ */
         if (data == "BLOCKCHAIN_END") {
-            // we **try** to decode – but only give up when it succeeds
             std::string b64;
             {
                 std::lock_guard<std::mutex> lk(ps->m);
                 b64.swap(ps->fullChainB64);
-                /* keep the buffer alive – we will clear it only
-                   when the protobuf parses successfully */
             }
             try {
                 b64 = sanitizeBase64(b64);
@@ -1394,100 +1354,26 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
             }
             return;
         }
-
-        /* ------------------------------------------------------------
-         * 3.  Additional FULL_CHAIN|… chunks keep arriving
-         * ------------------------------------------------------------ */
         if (data.rfind("FULL_CHAIN|", 0) == 0) {
             std::lock_guard<std::mutex> lk(ps->m);
             ps->fullChainB64 += data.substr(sizeof("FULL_CHAIN|")-1);
             return;
         }
-
-        /* treat raw, delimiter-less base64 as before */
         if (data.find('|') == std::string::npos && looksLikeBase64(data)) {
             std::lock_guard<std::mutex> lk(ps->m);
             ps->fullChainB64 += data;
             return;
         }
-
-        if (data == "PING") {                     // keep-alive
+        if (data == "PING") {
             if (transport && transport->isOpen())
                 transport->queueWrite("ALYN|PONG\n");
             return;
         }
         if (data == "PONG")
             return;
-
-        /* Anything else: just fall through – the JSON logic after this
-         * block will handle it normally.  No warning spam. */
     }
 
-    // --- Legacy multi-line FULL_CHAIN handler ---
-    if (data == "BLOCKCHAIN_END" && !ps->legacyChainB64.empty()) {
-        try {
-            std::string raw;
-            {
-                std::lock_guard<std::mutex> lk(ps->m);
-                raw = Crypto::base64Decode(sanitizeBase64(ps->legacyChainB64), false);
-                ps->legacyChainB64.clear();
-            }
-            alyncoin::BlockchainProto protoChain;
-            if (protoChain.ParseFromString(raw)) {
-                std::vector<Block> blocks;
-                for (const auto& pb : protoChain.blocks()) {
-                    try { blocks.push_back(Block::fromProto(pb, false)); }
-                    catch (...) { std::cerr << "⚠️ Skipped malformed block\n"; }
-                }
-                Blockchain& chain = Blockchain::getInstance();
-                chain.compareAndMergeChains(blocks);
-                if (peerManager)
-                    peerManager->setPeerHeight(claimedPeerId, static_cast<int>(blocks.size()) - 1);
-                std::cerr << "[handleIncomingData] ✅ Synced full chain from peer (legacy base64)\n";
-            }
-        } catch (...) {
-            std::cerr << "[handleIncomingData] ❌ Legacy base64 decode failed\n";
-        }
-        {
-            std::lock_guard<std::mutex> lk(ps->m);
-            ps->legacyChainB64.clear();
-        }
-        return;
-    }
-
-    if (!ps->legacyChainB64.empty() && data.rfind(protocolPrefix, 0) == 0) {
-        try {
-            std::string raw;
-            {
-                std::lock_guard<std::mutex> lk(ps->m);
-                raw = Crypto::base64Decode(sanitizeBase64(ps->legacyChainB64), false);
-                ps->legacyChainB64.clear();
-            }
-            alyncoin::BlockchainProto protoChain;
-            if (protoChain.ParseFromString(raw)) {
-                std::vector<Block> blocks;
-                for (const auto& pb : protoChain.blocks()) {
-                    try { blocks.push_back(Block::fromProto(pb, false)); }
-                    catch (...) { std::cerr << "⚠️ Skipped malformed block\n"; }
-                }
-                Blockchain& chain = Blockchain::getInstance();
-                chain.compareAndMergeChains(blocks);
-                if (peerManager)
-                    peerManager->setPeerHeight(claimedPeerId, static_cast<int>(blocks.size()) - 1);
-                std::cerr << "[handleIncomingData] ✅ Synced full chain from peer (legacy base64)\n";
-            }
-        } catch (...) {
-            std::cerr << "[handleIncomingData] ❌ Legacy base64 decode failed\n";
-        }
-        {
-            std::lock_guard<std::mutex> lk(ps->m);
-            ps->legacyChainB64.clear();
-        }
-        // fall through to process current message normally
-    }
-
-    // ---- Existing protocol logic ----
-
+    // --- In-flight block/batch (chunked), handled with buffer ---
     static thread_local std::unordered_map<std::string, InFlightData> inflight;
 
     if (data.rfind(blockBroadcastPrefix, 0) == 0) {
@@ -1506,9 +1392,7 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
                                   infl.base64, transport);
                 infl.active = false;
             }
-        } catch (...) {
-            /* wait for more lines */
-        }
+        } catch (...) {}
         return;
     }
     if (data.rfind(blockBatchPrefix, 0) == 0) {
@@ -1525,19 +1409,20 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
                                   infl.base64, transport);
                 infl.active = false;
             }
-        } catch (...) {
-            /* wait for more lines */
-        }
+        } catch (...) {}
         return;
     }
+
+    // --- AGG_PROOF: single-shot or (optionally) chunked, but always send to handleBase64Proto ---
     if (data.rfind(aggProofPrefix, 0) == 0) {
-        InFlightData& infl = inflight[claimedPeerId];
-        infl.peer   = claimedPeerId;
-        infl.prefix = aggProofPrefix;
-        infl.base64 = data.substr(strlen(aggProofPrefix));
-        infl.active = true;
-        // For now just log receipt; verification handled elsewhere
-        std::cerr << "[handleIncomingData] Received agg proof chunk from " << claimedPeerId << " size=" << infl.base64.size() << "\n";
+        const std::string base64 = data.substr(strlen(aggProofPrefix));
+        // Cap: Prevent huge proof blow-up
+        if (base64.size() > MAX_INFLIGHT_PROOF_BYTES) {
+            std::cerr << "[handleIncomingData] ⚠️ AGG_PROOF size exceeded, ignoring from "
+                      << claimedPeerId << "\n";
+            return;
+        }
+        handleBase64Proto(claimedPeerId, aggProofPrefix, base64, transport);
         return;
     }
 
@@ -1569,7 +1454,7 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
             if (inflIt->second.base64.size() > 5000) inflIt->second.active = false;
         }
         if (inflIt->second.active)
-            return; // Wait for more fragments
+            return;
     }
 
     // === Rollup ===
@@ -1771,88 +1656,13 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
                 }
                 return;
             }
-
         } catch (...) {
             std::cerr << "⚠️ Malformed JSON from peer\n";
         }
         return;
     }
 
- // === Fallback: accumulate legacy base64 chunks (older peers may split messages)
-    try {
-        if (!data.empty() && data.find('|') == std::string::npos &&
-            data.size() > 50 && looksLikeBase64(data)) {
-            std::lock_guard<std::mutex> lk(ps->m);
-            std::string& buf = ps->legacyChainB64;
-            buf += data;
-            std::cerr << "[handleIncomingData] 📡 Legacy base64 chunk received (" << data.size()
-                      << " chars, total " << buf.size() << ")\n";
-            try {
-                std::string raw = Crypto::base64Decode(sanitizeBase64(buf), false);
-                alyncoin::BlockchainProto protoChain;
-                if (protoChain.ParseFromString(raw)) {
-                    std::vector<Block> blocks;
-                    for (const auto& pb : protoChain.blocks()) {
-                        try { blocks.push_back(Block::fromProto(pb, false)); }
-                        catch (...) { std::cerr << "⚠️ Skipped malformed block\n"; }
-                    }
-                    Blockchain& chain = Blockchain::getInstance();
-                    chain.compareAndMergeChains(blocks);
-                    if (peerManager)
-                        peerManager->setPeerHeight(claimedPeerId, static_cast<int>(blocks.size()) - 1);
-                    std::cerr << "[handleIncomingData] ✅ Synced full chain from peer (legacy base64)\n";
-                    ps->legacyChainB64.clear();
-                    return;
-                }
-            } catch (...) {
-                // keep accumulating until parse succeeds
-            }
-            if (buf.size() > 300000) ps->legacyChainB64.clear();
-            return;
-        }
-    } catch (...) {
-        std::cerr << "[handleIncomingData] ❌ Legacy base64 handling failed\n";
-    }
-
-    // === Fallback base64-encoded block or chain ===
-    try {
-        if (!data.empty() && data.size() > 50 && data.find('|') == std::string::npos &&
-            looksLikeBase64(data)) {
-            std::string decoded = Crypto::base64Decode(sanitizeBase64(data), false);
-            alyncoin::BlockProto proto;
-            if (proto.ParseFromString(decoded)) {
-                Block blk = Block::fromProto(proto, false);
-                std::cerr << "[handleIncomingData] 📦 Fallback block idx=" << blk.getIndex()
-                          << ", hash=" << blk.getHash().substr(0, 12) << "...\n";
-
-                Blockchain& bc = Blockchain::getInstance(this->port, DBPaths::getBlockchainDB(), true);
-                if (bc.addBlock(blk)) {
-                    std::cerr << "✅ Fallback block added\n";
-                } else {
-                    std::cerr << "⚠️ Fallback block rejected\n";
-                }
-                return;
-            } else {
-                alyncoin::BlockchainProto protoChain;
-                if (protoChain.ParseFromString(decoded)) {
-                    std::vector<Block> blocks;
-                    for (const auto& pb : protoChain.blocks()) {
-                        try { blocks.push_back(Block::fromProto(pb, false)); }
-                        catch (...) { std::cerr << "⚠️ Skipped malformed block\n"; }
-                    }
-                    Blockchain& chain = Blockchain::getInstance();
-                    chain.compareAndMergeChains(blocks);
-                    if (peerManager)
-                        peerManager->setPeerHeight(claimedPeerId, static_cast<int>(blocks.size()) - 1);
-                    std::cerr << "[handleIncomingData] ✅ Synced full chain from peer (legacy single shot)\n";
-                    return;
-                }
-            }
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "❌ Exception in fallback block parse: " << e.what() << "\n";
-    }
-
+    // -- If still unhandled, print warning --
     std::cerr << "⚠️ [handleIncomingData] Unknown or unhandled message from " << claimedPeerId
               << ": [" << data.substr(0, 100) << "]\n";
 }
