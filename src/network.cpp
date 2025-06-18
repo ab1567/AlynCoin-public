@@ -1620,17 +1620,22 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
                 return;
             }
 
-            if (type == "height_response") {
-                int h = root["data"].asInt();
-                if (peerManager) peerManager->setPeerHeight(claimedPeerId, h);
-                if (h > (int)chain.getHeight() && transport && transport->isOpen()) {
-                    if (peerSupportsAggProof(claimedPeerId))
-                        transport->queueWrite("ALYN|REQUEST_STATE_PROOF\n");
-                    else
-                        transport->queueWrite("ALYN|REQUEST_BLOCKCHAIN\n");
-                }
-                return;
-            }
+	if (type == "height_response") {
+	    int h = root["height"].asInt();
+	    std::string tip = root["tip"].asString();
+	    if (peerManager) {
+	        peerManager->setPeerHeight(claimedPeerId, h);
+	        peerManager->recordTipHash(claimedPeerId, tip);
+	    }
+	    // Sync logic: If peer is ahead, request missing chain
+	    if (h > (int)chain.getHeight() && transport && transport->isOpen()) {
+	        if (peerSupportsAggProof(claimedPeerId))
+	            transport->queueWrite("ALYN|REQUEST_STATE_PROOF\n");
+	        else
+	            transport->queueWrite("ALYN|REQUEST_BLOCKCHAIN\n");
+	    }
+	    return;
+	}
 
             if (type == "tip_hash_response" && peerManager) {
                 std::string tip = root["data"].asString();
@@ -1675,14 +1680,16 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
                 return;
             }
 
-            if (type == "height_request") {
-                Json::Value out;
-                out["type"] = "height_response";
-                out["data"] = chain.getHeight();
-                if (transport && transport->isOpen())
-                    transport->queueWrite("ALYN|" + Json::writeString(Json::StreamWriterBuilder(), out) + "\n");
-                return;
-            }
+	if (type == "height_request") {
+	    Json::Value out;
+	    out["type"] = "height_response";
+	    out["height"] = chain.getHeight();
+	    out["tip"] = chain.getLatestBlockHash();
+	    if (transport && transport->isOpen())
+	        transport->queueWrite("ALYN|" + Json::writeString(Json::StreamWriterBuilder(), out) + "\n");
+	    return;
+	}
+
 
             if (type == "tip_hash_request") {
                 Json::Value out;

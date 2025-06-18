@@ -55,6 +55,12 @@ public:
         return *instancePtr;
     }
 
+   static inline void sendJsonToPeer(std::shared_ptr<Transport> t, const Json::Value& j) {
+    Json::StreamWriterBuilder w;  w["indentation"] = "";
+    std::string payload = Json::writeString(w, j);
+    t->queueWrite("ALYN|" + payload + "\n");
+   }
+
     explicit Network(unsigned short port, Blockchain *blockchain, PeerBlacklist *blacklistPtr = nullptr);
     ~Network();
 

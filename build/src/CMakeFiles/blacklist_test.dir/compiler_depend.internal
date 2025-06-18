@@ -4,6 +4,7 @@
 src/CMakeFiles/blacklist_test.dir/node/main_blacklist_test.cpp.o
  /root/AlynCoin/src/node/main_blacklist_test.cpp
  /root/AlynCoin/src/block.h
+ /root/AlynCoin/src/constants.h
  /root/AlynCoin/src/crypto_protos.pb.h
  /root/AlynCoin/src/crypto_utils.h
  /root/AlynCoin/src/db/db_paths.h

@@ -263,6 +263,7 @@ src/CMakeFiles/nftcli.dir/nft/main.cpp.o: /root/AlynCoin/src/nft/main.cpp \
 src/CMakeFiles/nftcli.dir/nft/nft.cpp.o: /root/AlynCoin/src/nft/nft.cpp \
   /root/AlynCoin/src/block.h \
   /root/AlynCoin/src/blockchain.h \
+  /root/AlynCoin/src/constants.h \
   /root/AlynCoin/src/crypto_protos.pb.h \
   /root/AlynCoin/src/crypto_utils.h \
   /root/AlynCoin/src/db/db_paths.h \
@@ -1826,6 +1827,7 @@ src/CMakeFiles/nftcli.dir/nft/nft_cli.cpp.o: /root/AlynCoin/src/nft/nft_cli.cpp 
   /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/block.h \
   /root/AlynCoin/src/blockchain.h \
+  /root/AlynCoin/src/constants.h \
   /root/AlynCoin/src/crypto_protos.pb.h \
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
@@ -4317,6 +4319,8 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 
 /usr/include/boost/preprocessor/list/detail/limits/fold_left_256.hpp:
 
+/usr/include/boost/preprocessor/list/detail/fold_right.hpp:
+
 /usr/include/boost/preprocessor/punctuation/comma.hpp:
 
 /usr/include/boost/asio/execution/mapping.hpp:
@@ -4753,6 +4757,8 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 
 /usr/include/boost/asio/basic_datagram_socket.hpp:
 
+/root/AlynCoin/src/constants.h:
+
 /usr/include/boost/asio/async_result.hpp:
 
 /usr/include/boost/mpl/aux_/config/eti.hpp:
@@ -4912,10 +4918,6 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 /usr/include/rocksdb/compaction_job_stats.h:
 
 /usr/include/x86_64-linux-gnu/bits/types/FILE.h:
-
-/usr/include/x86_64-linux-gnu/bits/types/struct_itimerspec.h:
-
-/usr/include/boost/asio/execution/prefer_only.hpp:
 
 /usr/include/openssl/lhash.h:
 
@@ -5899,6 +5901,10 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 
 /usr/include/boost/asio/registered_buffer.hpp:
 
+/usr/include/x86_64-linux-gnu/bits/types/struct_itimerspec.h:
+
+/usr/include/boost/asio/execution/prefer_only.hpp:
+
 /usr/include/boost/asio/execution/receiver.hpp:
 
 /usr/include/boost/predef/hardware/simd/arm.h:
@@ -6400,8 +6406,6 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 /usr/include/boost/date_time/gregorian/greg_month.hpp:
 
 /usr/include/boost/date_time/special_defs.hpp:
-
-/usr/include/boost/preprocessor/list/detail/fold_right.hpp:
 
 /usr/include/boost/date_time/gregorian/greg_ymd.hpp:
 
