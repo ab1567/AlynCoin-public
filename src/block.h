@@ -77,9 +77,9 @@ public:
   int getDifficulty() const { return difficulty; }
   // --- Setters ---
   void setIndex(int idx) { index = idx; }
-  void setPreviousHash(const std::string &prev) { previousHash = prev; }
+  void setPreviousHash(const std::string &prev) { previousHash = Crypto::normaliseHash(prev); }
   void setTransactions(const std::vector<Transaction> &txs) { transactions = txs; }
-  void setHash(const std::string &value) { hash = value; }
+  void setHash(const std::string &value)        { hash         = Crypto::normaliseHash(value); }
   void setMinerAddress(const std::string &addr) { minerAddress = addr; }
   void setNonce(int value) { nonce = value; }
   void setSignature(const std::string &signature) { blockSignature = signature; }

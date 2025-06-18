@@ -15,6 +15,7 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
   /root/AlynCoin/src/generated/nft.pb.h \
+  /root/AlynCoin/src/generated/sync_protos.pb.h \
   /root/AlynCoin/src/generated/transaction_protos.pb.h \
   /root/AlynCoin/src/governance/dao.h \
   /root/AlynCoin/src/governance/dao_storage.h \
@@ -33,6 +34,7 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
   /root/AlynCoin/src/nft/nft_utils.h \
   /root/AlynCoin/src/transaction.h \
   /root/AlynCoin/src/rollup/rollup_block.h \
+  /root/AlynCoin/src/rollup/rollup_utils.h \
   /root/AlynCoin/src/self_healing/health_monitor.h \
   /root/AlynCoin/src/self_healing/self_healing_node.h \
   /root/AlynCoin/src/self_healing/sync_recovery.h \
@@ -2206,7 +2208,9 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 
 /usr/include/c++/13/bits/this_thread_sleep.h:
 
-/usr/include/boost/asio/ip/basic_resolver_entry.hpp:
+/usr/include/c++/13/bits/stringfwd.h:
+
+/usr/include/c++/13/bits/string_view.tcc:
 
 /usr/include/google/protobuf/map_type_handler.h:
 
@@ -2438,10 +2442,6 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 
 /usr/include/boost/mpl/aux_/numeric_cast_utils.hpp:
 
-/usr/include/boost/date_time/c_time.hpp:
-
-/usr/include/boost/predef.h:
-
 /usr/include/boost/asio/multiple_exceptions.hpp:
 
 /usr/include/boost/mpl/aux_/preprocessed/gcc/apply_wrap.hpp:
@@ -2509,6 +2509,12 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 /usr/include/rocksdb/universal_compaction.h:
 
 /usr/include/boost/asio/ip/basic_resolver_iterator.hpp:
+
+/usr/include/boost/asio/ip/basic_resolver_entry.hpp:
+
+/usr/include/boost/predef.h:
+
+/usr/include/boost/date_time/c_time.hpp:
 
 /usr/include/boost/asio/ip/basic_resolver.hpp:
 
@@ -2798,25 +2804,7 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 
 /usr/include/boost/asio/detail/thread_group.hpp:
 
-/usr/include/x86_64-linux-gnu/bits/stdio_lim.h:
-
-/usr/include/boost/bind/arg.hpp:
-
-/usr/include/boost/preprocessor/facilities/expand.hpp:
-
-/usr/include/boost/system/detail/error_condition.hpp:
-
-/usr/include/openssl/pkcs7.h:
-
-/usr/include/c++/13/bits/hashtable_policy.h:
-
-/usr/include/boost/asio/detail/buffered_stream_storage.hpp:
-
-/usr/include/boost/asio/traits/set_value_free.hpp:
-
-/usr/include/boost/asio/detail/variadic_templates.hpp:
-
-/root/AlynCoin/src/wallet.h:
+/usr/include/c++/13/bits/indirect_array.h:
 
 /usr/include/boost/asio/detail/base_from_cancellation_state.hpp:
 
@@ -3082,9 +3070,9 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 
 /usr/include/boost/asio/detail/epoll_reactor.hpp:
 
-/root/AlynCoin/src/nft/nft_utils.h:
+/usr/include/boost/asio/any_io_executor.hpp:
 
-/usr/include/boost/preprocessor/repeat.hpp:
+/usr/include/boost/preprocessor/control/detail/limits/while_256.hpp:
 
 /usr/include/boost/asio/impl/thread_pool.ipp:
 
@@ -3092,23 +3080,15 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 
 /usr/include/boost/asio/detail/bulk_executor_op.hpp:
 
-/usr/include/boost/asio/detail/cstdint.hpp:
+/root/AlynCoin/src/rollup/rollup_utils.h:
 
-/usr/include/boost/regex_fwd.hpp:
+/usr/include/boost/asio/static_thread_pool.hpp:
 
-/usr/include/boost/asio/buffer.hpp:
+/root/AlynCoin/src/nft/nft_storage.h:
 
-/usr/include/boost/asio/detail/work_dispatcher.hpp:
+/usr/include/boost/date_time/time_defs.hpp:
 
-/usr/include/boost/asio/detail/buffer_resize_guard.hpp:
-
-/usr/include/boost/mpl/aux_/config/dtp.hpp:
-
-/usr/include/boost/asio/detail/initiate_post.hpp:
-
-/usr/include/boost/asio/detail/scheduler.hpp:
-
-/usr/include/boost/mpl/aux_/lambda_support.hpp:
+/usr/include/arpa/inet.h:
 
 /usr/include/wctype.h:
 
@@ -3121,16 +3101,6 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 /usr/include/boost/asio/high_resolution_timer.hpp:
 
 /usr/include/boost/config/detail/select_compiler_config.hpp:
-
-/usr/include/google/protobuf/io/zero_copy_stream.h:
-
-/usr/include/asm-generic/posix_types.h:
-
-/usr/include/boost/asio/traits/require_free.hpp:
-
-/usr/include/boost/predef/library/c/vms.h:
-
-/root/AlynCoin/src/httplib.h:
 
 /usr/include/boost/asio/detail/wrapped_handler.hpp:
 
@@ -3178,10 +3148,6 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 
 /root/AlynCoin/src/governance/devfund.h:
 
-/usr/include/boost/asio/awaitable.hpp:
-
-/usr/include/boost/asio/is_read_buffered.hpp:
-
 /usr/include/boost/asio/detail/assert.hpp:
 
 /usr/include/boost/asio/detail/buffer_sequence_adapter.hpp:
@@ -3197,6 +3163,72 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 /usr/include/boost/asio/async_result.hpp:
 
 /usr/include/boost/mpl/aux_/config/eti.hpp:
+
+/usr/include/boost/asio/traits/set_value_free.hpp:
+
+/usr/include/boost/asio/detail/variadic_templates.hpp:
+
+/root/AlynCoin/src/wallet.h:
+
+/usr/include/x86_64-linux-gnu/bits/stdio_lim.h:
+
+/usr/include/boost/bind/arg.hpp:
+
+/usr/include/boost/preprocessor/facilities/expand.hpp:
+
+/usr/include/boost/system/detail/error_condition.hpp:
+
+/usr/include/openssl/pkcs7.h:
+
+/usr/include/c++/13/bits/hashtable_policy.h:
+
+/usr/include/boost/asio/detail/buffered_stream_storage.hpp:
+
+/usr/include/boost/asio/detail/cstdint.hpp:
+
+/usr/include/boost/asio/is_read_buffered.hpp:
+
+/usr/include/boost/asio/awaitable.hpp:
+
+/usr/include/boost/regex_fwd.hpp:
+
+/usr/include/boost/asio/buffer.hpp:
+
+/usr/include/boost/asio/detail/work_dispatcher.hpp:
+
+/usr/include/boost/asio/detail/buffer_resize_guard.hpp:
+
+/usr/include/boost/mpl/aux_/config/dtp.hpp:
+
+/usr/include/boost/asio/detail/initiate_post.hpp:
+
+/usr/include/boost/asio/detail/scheduler.hpp:
+
+/usr/include/boost/mpl/aux_/lambda_support.hpp:
+
+/root/AlynCoin/src/httplib.h:
+
+/usr/include/google/protobuf/io/zero_copy_stream.h:
+
+/usr/include/asm-generic/posix_types.h:
+
+/usr/include/boost/asio/traits/require_free.hpp:
+
+/usr/include/boost/predef/library/c/vms.h:
+
+/usr/include/asm-generic/sockios.h:
+
+/usr/include/c++/13/sstream:
+
+/usr/include/boost/asio/detail/posix_static_mutex.hpp:
+
+/usr/include/boost/predef/library/std.h:
+
+/usr/include/c++/13/bits/stl_relops.h:
+
+/usr/include/boost/asio/ip/impl/basic_endpoint.hpp:
+
+/usr/include/boost/type_traits/is_arithmetic.hpp:
 
 /usr/include/boost/asio/impl/consign.hpp:
 
@@ -3276,6 +3308,10 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 
 /usr/include/boost/asio/any_completion_executor.hpp:
 
+/root/AlynCoin/src/nft/nft_utils.h:
+
+/usr/include/boost/preprocessor/repeat.hpp:
+
 /usr/include/boost/asio/connect_pipe.hpp:
 
 /usr/include/boost/asio/windows/random_access_handle.hpp:
@@ -3320,6 +3356,20 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 
 /usr/include/c++/13/bits/align.h:
 
+/usr/include/x86_64-linux-gnu/bits/posix2_lim.h:
+
+/usr/include/c++/13/climits:
+
+/usr/include/boost/asio/ip/icmp.hpp:
+
+/usr/include/x86_64-linux-gnu/bits/types/__sigset_t.h:
+
+/root/AlynCoin/src/zk/recursive_proof_helper.h:
+
+/usr/include/boost/asio/detail/eventfd_select_interrupter.hpp:
+
+/usr/include/boost/asio/any_completion_handler.hpp:
+
 /usr/include/rocksdb/cleanable.h:
 
 /usr/include/boost/asio/detail/conditionally_enabled_mutex.hpp:
@@ -3350,8 +3400,6 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 
 /usr/include/boost/preprocessor/control/limits/while_256.hpp:
 
-/usr/include/arpa/inet.h:
-
 /usr/include/boost/asio/registered_buffer.hpp:
 
 /usr/include/boost/asio/detail/atomic_count.hpp:
@@ -3361,6 +3409,10 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 /usr/include/asm-generic/types.h:
 
 /usr/include/asm-generic/bitsperlong.h:
+
+/usr/include/boost/numeric/conversion/detail/is_subranged.hpp:
+
+/usr/include/boost/asio/detail/impl/handler_tracking.ipp:
 
 /usr/include/boost/predef/detail/comp_detected.h:
 
@@ -3380,38 +3432,6 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 
 /usr/include/boost/asio/detail/recycling_allocator.hpp:
 
-/usr/include/asm-generic/sockios.h:
-
-/usr/include/c++/13/sstream:
-
-/usr/include/boost/asio/detail/posix_static_mutex.hpp:
-
-/usr/include/boost/predef/library/std.h:
-
-/usr/include/c++/13/bits/stl_relops.h:
-
-/usr/include/boost/asio/ip/impl/basic_endpoint.hpp:
-
-/usr/include/boost/type_traits/is_arithmetic.hpp:
-
-/usr/include/x86_64-linux-gnu/bits/posix2_lim.h:
-
-/usr/include/c++/13/climits:
-
-/usr/include/boost/asio/ip/icmp.hpp:
-
-/usr/include/x86_64-linux-gnu/bits/types/__sigset_t.h:
-
-/root/AlynCoin/src/zk/recursive_proof_helper.h:
-
-/usr/include/boost/asio/detail/eventfd_select_interrupter.hpp:
-
-/usr/include/boost/asio/detail/impl/handler_tracking.ipp:
-
-/usr/include/boost/numeric/conversion/detail/is_subranged.hpp:
-
-/usr/include/boost/asio/any_completion_handler.hpp:
-
 /usr/include/boost/asio/detail/event.hpp:
 
 /usr/include/boost/asio/detail/is_buffer_sequence.hpp:
@@ -3419,6 +3439,14 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 /usr/include/google/protobuf/stubs/platform_macros.h:
 
 /usr/include/boost/asio/detail/conditionally_enabled_event.hpp:
+
+/usr/include/rocksdb/db.h:
+
+/usr/include/google/protobuf/io/zero_copy_stream_impl_lite.h:
+
+/usr/include/boost/asio/detail/thread_context.hpp:
+
+/usr/include/boost/asio/execution/detail/as_receiver.hpp:
 
 /usr/include/boost/exception/exception.hpp:
 
@@ -3439,10 +3467,6 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 /usr/include/boost/asio/detail/impl/scheduler.ipp:
 
 /usr/include/boost/asio/impl/system_context.ipp:
-
-/usr/include/boost/asio/any_io_executor.hpp:
-
-/usr/include/boost/preprocessor/control/detail/limits/while_256.hpp:
 
 /usr/include/boost/asio/detail/call_stack.hpp:
 
@@ -3644,8 +3668,6 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 
 /usr/include/boost/predef/compiler/sgi_mipspro.h:
 
-/usr/include/c++/13/bits/stringfwd.h:
-
 /usr/include/boost/asio/is_executor.hpp:
 
 /usr/include/boost/asio/impl/read_until.hpp:
@@ -3730,16 +3752,6 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 
 /usr/include/boost/asio/detail/string_view.hpp:
 
-/usr/include/rocksdb/db.h:
-
-/usr/include/google/protobuf/io/zero_copy_stream_impl_lite.h:
-
-/usr/include/boost/asio/execution/detail/as_receiver.hpp:
-
-/usr/include/boost/asio/detail/thread_context.hpp:
-
-/usr/include/c++/13/bits/indirect_array.h:
-
 /usr/include/boost/date_time/constrained_value.hpp:
 
 /usr/include/boost/asio/use_future.hpp:
@@ -3808,9 +3820,9 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 
 /usr/include/boost/config/workaround.hpp:
 
-/usr/include/c++/13/bits/memory_resource.h:
-
 /usr/include/boost/asio/impl/any_io_executor.ipp:
+
+/usr/include/c++/13/bits/memory_resource.h:
 
 /usr/include/boost/mpl/aux_/preprocessor/enum.hpp:
 
@@ -3853,12 +3865,6 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 /usr/include/boost/date_time/time_clock.hpp:
 
 /usr/include/boost/mpl/aux_/preprocessor/def_params_tail.hpp:
-
-/usr/include/boost/asio/static_thread_pool.hpp:
-
-/root/AlynCoin/src/nft/nft_storage.h:
-
-/usr/include/boost/date_time/time_defs.hpp:
 
 /usr/include/x86_64-linux-gnu/bits/termios-tcflow.h:
 
@@ -3938,8 +3944,6 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 
 /usr/include/boost/mpl/aux_/config/nttp.hpp:
 
-/usr/include/c++/13/bits/string_view.tcc:
-
 /usr/include/boost/mpl/aux_/config/static_constant.hpp:
 
 /usr/include/boost/smart_ptr/detail/sp_has_gcc_intrinsics.hpp:
@@ -3989,6 +3993,8 @@ src/CMakeFiles/alyncoin.dir/main.cpp.o: /root/AlynCoin/src/main.cpp \
 /usr/include/c++/13/bits/deque.tcc:
 
 /usr/include/boost/mpl/aux_/preprocessor/params.hpp:
+
+/root/AlynCoin/src/generated/sync_protos.pb.h:
 
 /usr/include/boost/mpl/aux_/template_arity_fwd.hpp:
 

@@ -41,7 +41,7 @@ void ensureRootConsistency(const Block& b, int idx) {
 
 // ✅ Default Constructor (No Arguments)
 Block::Block()
-    : index(0), previousHash("0000"), minerAddress("System"), hash(""),
+    : index(0), previousHash("0000"), minerAddress("System"),  hash(""),
       difficulty(0), reward(0.0) {
   timestamp = std::time(nullptr);
   dilithiumSignature.clear();
@@ -58,7 +58,7 @@ Block::Block(int index, const std::string &previousHash,
              const std::vector<Transaction> &transactions,
              const std::string &minerAddress, int difficulty,
              uint64_t timestamp, uint64_t nonce)
-    : index(index), previousHash(previousHash), transactions(transactions),
+    : index(index), previousHash(Crypto::normaliseHash(previousHash)), transactions(transactions),
       minerAddress(minerAddress), difficulty(difficulty),
       timestamp(timestamp), nonce(nonce), reward(0.0) {
   hash = "";
@@ -74,8 +74,8 @@ Block::Block(int index, const std::string &previousHash,
 
 // ✅ Copy Constructor
 Block::Block(const Block &other)
-    : index(other.index), previousHash(other.previousHash),
-      transactions(other.transactions), hash(other.hash),
+    : index(other.index), previousHash(Crypto::normaliseHash(other.previousHash)),
+      transactions(other.transactions), hash(Crypto::normaliseHash(other.hash)),
       minerAddress(other.minerAddress), nonce(other.nonce),
       timestamp(other.timestamp), blockSignature(other.blockSignature),
       keccakHash(other.keccakHash), difficulty(other.difficulty),
@@ -175,7 +175,7 @@ std::string Block::calculateHash() const {
     }
     std::stringstream ss;
     ss << index << previousHash << txRoot << timestamp << nonce;
-    return Crypto::hybridHash(ss.str());
+    return Crypto::normaliseHash(Crypto::hybridHash(ss.str()));
 }
 
 // ✅ Mine Block with Protobuf and RocksDB Storage
@@ -204,6 +204,7 @@ bool Block::mineBlock(int difficulty) {
         std::stringstream ss;
         ss << index << previousHash << txRoot << timestamp << nonce;
         hash = Crypto::hybridHash(ss.str());
+	hash = Crypto::normaliseHash(hash);
     } while (hash.substr(0, difficulty) != std::string(difficulty, '0'));
 
     std::cout << "\n✅ [mineBlock] PoW Complete.\n"
@@ -569,6 +570,12 @@ alyncoin::BlockProto Block::toProtobuf() const {
             std::string(falconSignature.begin(), falconSignature.end()))
         : blockSignature;
 
+    // --- Enforce hash normalisation (will abort if not) ---
+    if (hash.size() != 64 || previousHash.size() != 64) {
+        std::cerr << "❌ [toProtobuf] Hash width invariant violated! hash=" << hash << " prev=" << previousHash << std::endl;
+        abort();
+    }
+
     proto.set_index(index);
     proto.set_previous_hash(previousHash);
     proto.set_hash(hash);
@@ -713,8 +720,8 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
         newBlock.index              = protoBlock.index();
         std::cerr << "[fromProto] Index: " << newBlock.index << "\n";
 
-        newBlock.previousHash       = safeStr(protoBlock.previous_hash(),     "previous_hash");
-        newBlock.hash               = safeStr(protoBlock.hash(),              "hash");
+        newBlock.previousHash       = Crypto::normaliseHash(safeStr(protoBlock.previous_hash(),     "previous_hash"));
+        newBlock.hash               = Crypto::normaliseHash(safeStr(protoBlock.hash(),              "hash"));
         newBlock.minerAddress       = safeStr(protoBlock.miner_address(),     "miner_address");
         newBlock.nonce              = protoBlock.nonce();
         newBlock.timestamp          = protoBlock.timestamp();

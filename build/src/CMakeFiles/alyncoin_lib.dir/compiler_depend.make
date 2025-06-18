@@ -7697,6 +7697,7 @@ src/CMakeFiles/alyncoin_lib.dir/epoch_sync.cpp.o: /root/AlynCoin/src/epoch_sync.
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
   /root/AlynCoin/src/generated/nft.pb.h \
+  /root/AlynCoin/src/generated/sync_protos.pb.h \
   /root/AlynCoin/src/generated/transaction_protos.pb.h \
   /root/AlynCoin/src/hash.h \
   /root/AlynCoin/src/layer2/state_channel.h \
@@ -7705,6 +7706,7 @@ src/CMakeFiles/alyncoin_lib.dir/epoch_sync.cpp.o: /root/AlynCoin/src/epoch_sync.
   /root/AlynCoin/src/network/peer_manager.h \
   /root/AlynCoin/src/transaction.h \
   /root/AlynCoin/src/rollup/rollup_block.h \
+  /root/AlynCoin/src/rollup/rollup_utils.h \
   /root/AlynCoin/src/transaction.h \
   /root/AlynCoin/src/transport/peer_globals.h \
   /root/AlynCoin/src/transport/transport.h \
@@ -16743,11 +16745,13 @@ src/CMakeFiles/alyncoin_lib.dir/nft/nft.cpp.o: /root/AlynCoin/src/nft/nft.cpp \
   /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
+  /root/AlynCoin/src/generated/sync_protos.pb.h \
   /root/AlynCoin/src/generated/transaction_protos.pb.h \
   /root/AlynCoin/src/hash.h \
   /root/AlynCoin/src/layer2/state_channel.h \
   /root/AlynCoin/src/transaction.h \
   /root/AlynCoin/src/rollup/rollup_block.h \
+  /root/AlynCoin/src/rollup/rollup_utils.h \
   /root/AlynCoin/src/transaction.h \
   /root/AlynCoin/src/zk/winterfell_stark.h \
   /root/AlynCoin/src/block.h \
@@ -22798,6 +22802,7 @@ src/CMakeFiles/alyncoin_lib.dir/self_healing/sync_recovery.cpp.o: /root/AlynCoin
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
   /root/AlynCoin/src/generated/nft.pb.h \
+  /root/AlynCoin/src/generated/sync_protos.pb.h \
   /root/AlynCoin/src/generated/transaction_protos.pb.h \
   /root/AlynCoin/src/hash.h \
   /root/AlynCoin/src/layer2/state_channel.h \
@@ -22805,6 +22810,7 @@ src/CMakeFiles/alyncoin_lib.dir/self_healing/sync_recovery.cpp.o: /root/AlynCoin
   /root/AlynCoin/src/network/peer_manager.h \
   /root/AlynCoin/src/transaction.h \
   /root/AlynCoin/src/rollup/rollup_block.h \
+  /root/AlynCoin/src/rollup/rollup_utils.h \
   /root/AlynCoin/src/self_healing/sync_recovery.h \
   /root/AlynCoin/src/transaction.h \
   /root/AlynCoin/src/utils/logger.h \

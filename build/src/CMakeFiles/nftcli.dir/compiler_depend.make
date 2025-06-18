@@ -268,11 +268,13 @@ src/CMakeFiles/nftcli.dir/nft/nft.cpp.o: /root/AlynCoin/src/nft/nft.cpp \
   /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
+  /root/AlynCoin/src/generated/sync_protos.pb.h \
   /root/AlynCoin/src/generated/transaction_protos.pb.h \
   /root/AlynCoin/src/hash.h \
   /root/AlynCoin/src/layer2/state_channel.h \
   /root/AlynCoin/src/transaction.h \
   /root/AlynCoin/src/rollup/rollup_block.h \
+  /root/AlynCoin/src/rollup/rollup_utils.h \
   /root/AlynCoin/src/transaction.h \
   /root/AlynCoin/src/zk/winterfell_stark.h \
   /root/AlynCoin/src/block.h \
@@ -1828,6 +1830,7 @@ src/CMakeFiles/nftcli.dir/nft/nft_cli.cpp.o: /root/AlynCoin/src/nft/nft_cli.cpp 
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
   /root/AlynCoin/src/generated/nft.pb.h \
+  /root/AlynCoin/src/generated/sync_protos.pb.h \
   /root/AlynCoin/src/generated/transaction_protos.pb.h \
   /root/AlynCoin/src/hash.h \
   /root/AlynCoin/src/layer2/state_channel.h \
@@ -1839,6 +1842,7 @@ src/CMakeFiles/nftcli.dir/nft/nft_cli.cpp.o: /root/AlynCoin/src/nft/nft_cli.cpp 
   /root/AlynCoin/src/nft/nft_cli.h \
   /root/AlynCoin/src/transaction.h \
   /root/AlynCoin/src/rollup/rollup_block.h \
+  /root/AlynCoin/src/rollup/rollup_utils.h \
   /root/AlynCoin/src/transaction.h \
   /root/AlynCoin/src/network/peer_blacklist.h \
   /root/AlynCoin/src/nft/nft.h \
@@ -4309,11 +4313,9 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 
 /usr/include/boost/preprocessor/list/fold_left.hpp:
 
-/usr/include/boost/asio/execution/receiver_invocation_error.hpp:
+/usr/include/boost/preprocessor/list/detail/limits/fold_right_256.hpp:
 
-/usr/include/boost/asio/execution/receiver.hpp:
-
-/usr/include/boost/predef/hardware/simd/arm.h:
+/usr/include/boost/preprocessor/list/detail/limits/fold_left_256.hpp:
 
 /usr/include/boost/preprocessor/punctuation/comma.hpp:
 
@@ -4647,8 +4649,6 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 
 /usr/include/boost/asio/buffers_iterator.hpp:
 
-/usr/include/boost/preprocessor/list/detail/limits/fold_right_256.hpp:
-
 /usr/include/boost/asio/buffered_write_stream.hpp:
 
 /usr/include/boost/asio/impl/redirect_error.hpp:
@@ -4859,6 +4859,8 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 
 /root/AlynCoin/src/network.h:
 
+/root/AlynCoin/src/rollup/rollup_utils.h:
+
 /usr/include/boost/asio/detail/concurrency_hint.hpp:
 
 /root/AlynCoin/src/transaction.h:
@@ -4870,6 +4872,8 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 /usr/include/boost/asio/detail/winsock_init.hpp:
 
 /root/AlynCoin/src/zk/winterfell_stark.h:
+
+/usr/include/boost/asio/local/stream_protocol.hpp:
 
 /usr/include/x86_64-linux-gnu/bits/socket_type.h:
 
@@ -5193,6 +5197,10 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 
 /usr/include/boost/mpl/aux_/comparison_op.hpp:
 
+/usr/include/boost/asio/execution/outstanding_work.hpp:
+
+/usr/include/boost/asio/detail/impl/strand_executor_service.ipp:
+
 /usr/include/openssl/rand.h:
 
 /usr/include/boost/asio/detail/base_from_completion_cond.hpp:
@@ -5250,6 +5258,10 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 /usr/include/boost/asio/dispatch.hpp:
 
 /usr/include/boost/asio/detail/array_fwd.hpp:
+
+/usr/include/boost/predef/compiler/greenhills.h:
+
+/usr/include/boost/predef/compiler/palm.h:
 
 /usr/include/c++/13/iosfwd:
 
@@ -5316,6 +5328,8 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 /usr/include/c++/13/bits/stl_vector.h:
 
 /usr/include/c++/13/bits/basic_ios.h:
+
+/usr/include/boost/asio/execution/receiver_invocation_error.hpp:
 
 /usr/include/c++/13/bits/nested_exception.h:
 
@@ -5727,16 +5741,6 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 
 /usr/include/boost/predef/compiler/mpw.h:
 
-/usr/include/boost/asio/detail/impl/strand_executor_service.ipp:
-
-/usr/include/boost/asio/execution/outstanding_work.hpp:
-
-/usr/include/boost/asio/local/stream_protocol.hpp:
-
-/usr/include/boost/predef/compiler/palm.h:
-
-/usr/include/boost/predef/compiler/greenhills.h:
-
 /usr/include/c++/13/bits/charconv.h:
 
 /usr/include/c++/13/bits/slice_array.h:
@@ -5889,11 +5893,15 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 
 /root/AlynCoin/src/nft/nft.cpp:
 
-/usr/include/boost/asio/detail/atomic_count.hpp:
-
 /usr/include/c++/13/bits/postypes.h:
 
+/usr/include/boost/asio/detail/atomic_count.hpp:
+
 /usr/include/boost/asio/registered_buffer.hpp:
+
+/usr/include/boost/asio/execution/receiver.hpp:
+
+/usr/include/boost/predef/hardware/simd/arm.h:
 
 /usr/include/openssl/bio.h:
 
@@ -6002,6 +6010,12 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 /usr/include/boost/asio/impl/serial_port_base.ipp:
 
 /usr/include/boost/asio/impl/write.hpp:
+
+/root/AlynCoin/src/nft/nft_storage.h:
+
+/usr/include/boost/date_time/time_defs.hpp:
+
+/usr/include/boost/asio/static_thread_pool.hpp:
 
 /usr/include/boost/asio/execution/submit.hpp:
 
@@ -6457,12 +6471,6 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 
 /usr/include/boost/mpl/aux_/preprocessor/def_params_tail.hpp:
 
-/root/AlynCoin/src/nft/nft_storage.h:
-
-/usr/include/boost/asio/static_thread_pool.hpp:
-
-/usr/include/boost/date_time/time_defs.hpp:
-
 /usr/include/x86_64-linux-gnu/bits/fp-fast.h:
 
 /usr/include/x86_64-linux-gnu/gnu/stubs.h:
@@ -6550,6 +6558,8 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 /usr/include/boost/mpl/aux_/arithmetic_op.hpp:
 
 /usr/include/boost/mpl/aux_/preprocessor/params.hpp:
+
+/root/AlynCoin/src/generated/sync_protos.pb.h:
 
 /usr/include/boost/mpl/aux_/template_arity_fwd.hpp:
 
@@ -6696,8 +6706,6 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 /usr/include/boost/predef/compiler/metrowerks.h:
 
 /usr/include/boost/predef/hardware/simd/x86_amd/versions.h:
-
-/usr/include/boost/preprocessor/list/detail/limits/fold_left_256.hpp:
 
 /usr/include/c++/13/bits/basic_string.h:
 

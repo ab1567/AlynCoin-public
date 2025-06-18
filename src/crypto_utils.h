@@ -10,6 +10,7 @@
 #include <vector>
 #include <optional>
 #include "db/db_paths.h"
+#include <iostream>
 
 #define DILITHIUM_PUBLIC_KEY_BYTES 1312
 #define DILITHIUM_PRIVATE_KEY_BYTES 2560
@@ -111,6 +112,30 @@ bool deserializeKeysFromProtobuf(const std::string &input, std::string &privateK
 
 bool isLikelyHex(const std::string& str);
 std::optional<std::vector<unsigned char>> safeFromHex(const std::string& hex, const std::string& context = "");
+
+//small hash helper
+inline std::string normaliseHash(const std::string &hRaw)
+{
+    // already canonical
+    if (hRaw.size() == 64 &&
+        hRaw.find_first_not_of("0123456789abcdef") == std::string::npos)
+        return hRaw;
+
+    // 20-byte (40-hex) value that was produced by toHex()
+    if (hRaw.size() == 40 &&
+        hRaw.find_first_not_of("0123456789abcdef") == std::string::npos)
+        return std::string(24, '0') + hRaw;              // pad-left with zeros
+
+    // raw 20-byte binary (buffer copied straight into std::string)
+    if (hRaw.size() == 20)                               // 20 bytes raw
+        return toHex(std::vector<unsigned char>(hRaw.begin(), hRaw.end()));
+
+    // anything else is an error – keep it so we notice
+    std::cerr << "❌ [normaliseHash] Unexpected hash length=" << hRaw.size()
+              << "\n";
+    return hRaw;
+}
+
 } // namespace Crypto
 
 // Global key-path helpers
