@@ -327,7 +327,7 @@ bool Blockchain::addBlock(const Block &block) {
         // === NEW LOGIC: Request missing parent only once ===
         requestMissingParent(block.getPreviousHash());
 
-        return false;
+         return true; // queued as orphan
     }
 
     // 4. Index checks (genesis or expected)
@@ -478,17 +478,7 @@ bool Blockchain::addBlock(const Block &block) {
     }
 
     // 12. Try to attach any orphans waiting on this block
-    auto orphanIt = orphanBlocks.find(block.getHash());
-    if (orphanIt != orphanBlocks.end()) {
-        auto children = orphanIt->second;
-        orphanBlocks.erase(orphanIt);
-        for (const Block &child : children) {
-            std::cerr << "[addBlock] Now adding previously orphaned block idx=" << child.getIndex() << "\n";
-            orphanHashes.erase(child.getHash());
-            addBlock(child);
-        }
-    }
-
+     tryAttachOrphans(block.getHash());
     return true;
 }
 
@@ -2973,5 +2963,22 @@ void Blockchain::requestMissingParent(const std::string& parentHash)
         Network::getInstance().broadcastRaw("ALYN|" + payload + "\n");
 
     std::cerr << "📡 requested missing parent " << parentHash << '\n';
+}
+// Attempt to attach any orphan blocks whose parent hash matches `parentHash`
+void Blockchain::tryAttachOrphans(const std::string& parentHash)
+{
+    auto it = orphanBlocks.find(parentHash);
+    if (it == orphanBlocks.end()) return;
+
+    // copy children then erase to avoid iterator invalidation
+    auto children = it->second;
+    orphanBlocks.erase(it);
+
+    for (const Block& child : children) {
+        std::cerr << "[addBlock] Now adding previously orphaned block idx="
+                  << child.getIndex() << "\n";
+        orphanHashes.erase(child.getHash());
+        addBlock(child);
+    }
 }
 

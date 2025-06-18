@@ -227,6 +227,7 @@ public:
 
   bool getBlockByHash(const std::string& hash, Block& out) const;
   void requestMissingParent(const std::string& parentHash);
+  void tryAttachOrphans(const std::string& parentHash);
 
   std::unordered_map<std::string, std::vector<Block>> orphanBlocks;
   std::unordered_set<std::string>            requestedParents;
