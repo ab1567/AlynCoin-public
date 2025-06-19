@@ -1838,7 +1838,7 @@ void Network::handleNewBlock(const Block &newBlock) {
             blockchain.saveForkView(forkCandidate);
 
             for (const auto& peer : peerTransports) {
-                sendData(peer.first, "ALYN|REQUEST_BLOCKCHAIN");
+                sendForkRecoveryRequest(peer.first, newBlock.getHash());
             }
             return;
         }
@@ -1851,7 +1851,7 @@ void Network::handleNewBlock(const Block &newBlock) {
             std::cerr << "🧐 [Node] Unknown historical block. Requesting full sync.\n";
             blockchain.setPendingForkChain({newBlock});
             for (const auto &peer : peerTransports) {
-                sendData(peer.first, "ALYN|REQUEST_BLOCKCHAIN");
+                sendForkRecoveryRequest(peer.first, newBlock.getHash());
             }
         }
         return;
@@ -1862,7 +1862,7 @@ void Network::handleNewBlock(const Block &newBlock) {
 
         if (newBlock.getIndex() > expectedIndex + 5) {
             for (const auto& peer : peerTransports) {
-                sendData(peer.first, "ALYN|REQUEST_BLOCKCHAIN");
+                sendForkRecoveryRequest(peer.first, newBlock.getHash());
             }
         }
         return;
@@ -2223,15 +2223,15 @@ void Network::handleReceivedBlockIndex(const std::string &peerIP, int peerBlockI
     int localIndex = Blockchain::getInstance().getLatestBlock().getIndex();
 
     if (localIndex <= 0) { // Only genesis present
-        std::cout << "⚠️ [Node] Only Genesis block found locally. Requesting full blockchain sync from " << peerIP << "\n";
-        sendData(peerIP, "ALYN|REQUEST_BLOCKCHAIN");
+        std::cout << "⚠️ [Node] Only Genesis block found locally. Requesting snapshot from " << peerIP << "\n";
+        sendForkRecoveryRequest(peerIP, "");
         return;
     }
 
     if (peerBlockIndex > localIndex) {
         std::cout << "📡 Peer " << peerIP
-                  << " has longer chain. Requesting sync...\n";
-        sendData(peerIP, "ALYN|REQUEST_BLOCKCHAIN");
+                  << " has longer chain. Requesting snapshot...\n";
+        sendForkRecoveryRequest(peerIP, "");
     } else {
         std::cout << "✅ Local chain is up-to-date. No sync needed.\n";
     }
@@ -2683,4 +2683,11 @@ void Network::requestTailBlocks(const std::string& peer, int fromHeight) {
     sendData(peer, "ALYN|REQUEST_TAIL_BLOCKS|" + std::to_string(fromHeight) + "\n");
 }
 
-
+void Network::sendForkRecoveryRequest(const std::string& peer, const std::string& tip) {
+    Json::Value ask;
+    ask["type"] = "request_snapshot";
+    if (!tip.empty())
+        ask["until"] = tip;
+    Json::StreamWriterBuilder b; b["indentation"] = "";
+    sendData(peer, "ALYN|" + Json::writeString(b, ask) + "\n");
+}

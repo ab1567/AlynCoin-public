@@ -2,6 +2,8 @@
 #include "blockchain.h"
 #include "peer_manager.h"
 #include "logger.h"
+#include "network.h"
+#include "json/json.h"
 
 #include <iostream>
 #include <sstream>
@@ -17,6 +19,19 @@ NodeHealthStatus HealthMonitor::checkHealth() {
     status.localTipHash = getLocalTipHash();
     status.expectedTipHash = getNetworkTipHash();
     status.connectedPeers = peerManager_->getPeerCount();
+
+    if (status.networkHeight == 0 ||
+        status.localHeight > status.networkHeight + 3) {
+        Logger::warn("[🩺 NODE HEALTH] ⚠ Out of sync – forcing re-probe");
+        if (auto net = Network::getExistingInstance()) {
+            Json::Value j; j["type"] = "height_request";
+            Json::StreamWriterBuilder b; b["indentation"] = "";
+            net->broadcastRaw("ALYN|" + Json::writeString(b, j) + "\n");
+        }
+        status.isHealthy = false;
+        status.reason = "Out of sync";
+        return status;
+    }
 
     status.isHealthy = true;
     status.reason = "Healthy";
