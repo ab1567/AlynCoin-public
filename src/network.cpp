@@ -1627,13 +1627,12 @@ void Network::handleBase64Proto(const std::string &peer, const std::string &pref
         if (blk.getIndex() > 0 && chain.hasBlockHash(blk.getPreviousHash()) &&
             blk.getPreviousHash() != chain.getLatestBlockHash()) {
             std::cerr << "🔀 [handleBase64Proto] Fork block at idx=" << blk.getIndex()
-                      << ", requesting full chain\n";
+                      << ", requesting snapshot\n";
             if (transport && transport->isOpen())
-                transport->queueWrite("ALYN|REQUEST_BLOCKCHAIN\n");
+                transport->queueWrite("ALYN|REQUEST_SNAPSHOT\n");
             // Optionally: Could still store as orphan here, but not strictly required
             return;
         }
-
         // Otherwise, just buffer for this peer (optional, for completeness)
         std::cerr << "[handleBase64Proto] Buffered block idx=" << blk.getIndex()
                   << " for peer " << fromPeer << '\n';

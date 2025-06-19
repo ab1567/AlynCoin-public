@@ -318,8 +318,22 @@ bool Blockchain::addBlock(const Block &block) {
         return true;
     }
 
-    // 3. Orphan handling: if parent not yet present
+    // 3. Orphan / fork handling
     if (!chain.empty() && block.getPreviousHash() != chain.back().getHash()) {
+
+        // ⇢ NEW: parent exists → side branch → run fork logic
+        if (hasBlockHash(block.getPreviousHash())) {
+            std::vector<Block> candidate{block};
+            std::string cur = block.getPreviousHash();
+            Block p;
+            while (getBlockByHash(cur, p)) {
+                candidate.insert(candidate.begin(), p);
+                cur = p.getPreviousHash();
+                if (cur.empty()) break;
+            }
+            compareAndMergeChains(candidate); // may trigger re-org
+            return true; // no orphaning
+        }
         std::cerr << "⚠️ [addBlock] Received block before parent. Buffering as orphan.\n";
         if (getOrphanPoolSize() >= MAX_ORPHAN_BLOCKS) {
             std::cerr << "⚠️ [addBlock] Orphan pool limit reached (" << MAX_ORPHAN_BLOCKS
