@@ -21111,6 +21111,7 @@ src/CMakeFiles/alyncoin_lib.dir/self_healing/health_monitor.cpp.o
  /root/AlynCoin/src/generated/transaction_protos.pb.h
  /root/AlynCoin/src/hash.h
  /root/AlynCoin/src/layer2/state_channel.h
+ /root/AlynCoin/src/network.h
  /root/AlynCoin/src/network/peer_blacklist.h
  /root/AlynCoin/src/network/peer_manager.h
  /root/AlynCoin/src/transaction.h
@@ -21118,6 +21119,8 @@ src/CMakeFiles/alyncoin_lib.dir/self_healing/health_monitor.cpp.o
  /root/AlynCoin/src/rollup/rollup_utils.h
  /root/AlynCoin/src/self_healing/health_monitor.h
  /root/AlynCoin/src/transaction.h
+ /root/AlynCoin/src/transport/peer_globals.h
+ /root/AlynCoin/src/transport/transport.h
  /root/AlynCoin/src/utils/logger.h
  /root/AlynCoin/src/network/peer_blacklist.h
  /root/AlynCoin/src/nft/nft.h
@@ -22163,6 +22166,7 @@ src/CMakeFiles/alyncoin_lib.dir/self_healing/health_monitor.cpp.o
  /usr/include/c++/13/bits/streambuf_iterator.h
  /usr/include/c++/13/bits/string_view.tcc
  /usr/include/c++/13/bits/stringfwd.h
+ /usr/include/c++/13/bits/this_thread_sleep.h
  /usr/include/c++/13/bits/uniform_int_dist.h
  /usr/include/c++/13/bits/unique_lock.h
  /usr/include/c++/13/bits/unique_ptr.h
@@ -22235,6 +22239,7 @@ src/CMakeFiles/alyncoin_lib.dir/self_healing/health_monitor.cpp.o
  /usr/include/c++/13/string
  /usr/include/c++/13/string_view
  /usr/include/c++/13/system_error
+ /usr/include/c++/13/thread
  /usr/include/c++/13/tr1/bessel_function.tcc
  /usr/include/c++/13/tr1/beta_function.tcc
  /usr/include/c++/13/tr1/ell_integral.tcc

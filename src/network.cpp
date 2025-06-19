@@ -225,7 +225,8 @@ void tryUPnPPortMapping(int port) {
                                   "AlynCoin", "TCP", nullptr, "0");
 
     if (ret == UPNPCOMMAND_SUCCESS) {
-        std::cout << "✅ [UPnP] Port mapping added on port " << port << "\n";
+         std::cout << "✅ [UPnP] Port mapping added on port "
+                  << std::dec << port << "\n";
     } else {
         std::cerr << "⚠️ [UPnP] Failed to add port mapping: "
                   << strupnperror(ret) << "\n";
@@ -262,7 +263,8 @@ void tryNATPMPPortMapping(int port) {
     } while (r == NATPMP_TRYAGAIN);
 
     if (r >= 0 && response.resultcode == 0) {
-        std::cout << "✅ [NAT-PMP] Port mapping added on port " << port << "\n";
+        std::cout << "✅ [NAT-PMP] Port mapping added on port "
+                  << std::dec << port << "\n";
     } else {
         std::cerr << "⚠️ [NAT-PMP] Failed to add port mapping: " << r
                   << " resp=" << response.resultcode << "\n";
@@ -307,8 +309,8 @@ Network::Network(unsigned short port, Blockchain* blockchain, PeerBlacklist* bla
             return;
         }
 
-        std::cout << "🌐 Network listener started on port: " << port << "\n";
-
+        std::cout << "🌐 Network listener started on port: "
+                  << std::dec << port << "\n";
         peerManager = std::make_unique<PeerManager>(blacklistPtr, this);
         isRunning = true;
         listenerThread = std::thread(&Network::listenForConnections, this);
@@ -333,7 +335,8 @@ Network::~Network() {
 }
 //
  void Network::listenForConnections() {
-     std::cout << "🌐 Listening for connections on port: " << port << std::endl;
+     std::cout << "🌐 Listening for connections on port: "
+               << std::dec << port << std::endl;
 
      acceptor.async_accept([this](boost::system::error_code ec, tcp::socket socket) {
          if (!ec) {
@@ -1987,16 +1990,19 @@ std::string Network::requestBlockchainSync(const std::string &peer) {
 // ✅ **Start Listening for Incoming Connections**
 void Network::startServer() {
     try {
-        std::cout << "🌐 Node is now listening for connections on port: " << port << "\n";
+        std::cout << "🌐 Node is now listening for connections on port: "
+                  << std::dec << port << "\n";
 
         ioContext.restart();  // Must come before async_accept
         listenForConnections();
 
         std::thread ioThread([this]() {
-            std::cout << "🚀 IO context thread started for port " << port << "\n";
+            std::cout << "🚀 IO context thread started for port "
+                      << std::dec << port << "\n";
             try {
                 ioContext.run();
-                std::cout << "✅ IO context exited normally for port " << port << "\n";
+                std::cout << "✅ IO context exited normally for port "
+                          << std::dec << port << "\n";
             } catch (const std::exception& e) {
                 std::cerr << "❌ [IOContext] Exception: " << e.what() << "\n";
             }
