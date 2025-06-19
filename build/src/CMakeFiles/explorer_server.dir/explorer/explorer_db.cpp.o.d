@@ -250,55 +250,7 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_db.cpp.o: \
  /usr/include/rocksdb/write_batch.h \
  /usr/include/rocksdb/write_batch_base.h \
  /root/AlynCoin/src/explorer/explorer_utils.h \
- /root/AlynCoin/Crow/include/crow.h \
- /root/AlynCoin/Crow/include/crow/query_string.h \
- /usr/include/c++/13/iostream \
- /root/AlynCoin/Crow/include/crow/http_parser_merged.h \
- /root/AlynCoin/Crow/include/crow/common.h \
- /root/AlynCoin/Crow/include/crow/utility.h /usr/include/c++/13/random \
- /usr/include/c++/13/cmath /usr/include/math.h \
- /usr/include/x86_64-linux-gnu/bits/math-vector.h \
- /usr/include/x86_64-linux-gnu/bits/libm-simd-decl-stubs.h \
- /usr/include/x86_64-linux-gnu/bits/flt-eval-method.h \
- /usr/include/x86_64-linux-gnu/bits/fp-logb.h \
- /usr/include/x86_64-linux-gnu/bits/fp-fast.h \
- /usr/include/x86_64-linux-gnu/bits/mathcalls-helper-functions.h \
- /usr/include/x86_64-linux-gnu/bits/mathcalls.h \
- /usr/include/x86_64-linux-gnu/bits/mathcalls-narrow.h \
- /usr/include/x86_64-linux-gnu/bits/iscanonical.h \
- /usr/include/c++/13/bits/specfun.h /usr/include/c++/13/tr1/gamma.tcc \
- /usr/include/c++/13/tr1/special_function_util.h \
- /usr/include/c++/13/tr1/bessel_function.tcc \
- /usr/include/c++/13/tr1/beta_function.tcc \
- /usr/include/c++/13/tr1/ell_integral.tcc \
- /usr/include/c++/13/tr1/exp_integral.tcc \
- /usr/include/c++/13/tr1/hypergeometric.tcc \
- /usr/include/c++/13/tr1/legendre_function.tcc \
- /usr/include/c++/13/tr1/modified_bessel_func.tcc \
- /usr/include/c++/13/tr1/poly_hermite.tcc \
- /usr/include/c++/13/tr1/poly_laguerre.tcc \
- /usr/include/c++/13/tr1/riemann_zeta.tcc \
- /usr/include/c++/13/bits/random.h \
- /usr/include/x86_64-linux-gnu/c++/13/bits/opt_random.h \
- /usr/include/c++/13/bits/random.tcc /usr/include/c++/13/numeric \
- /usr/include/c++/13/bits/stl_numeric.h \
- /usr/include/c++/13/pstl/glue_numeric_defs.h \
- /usr/include/c++/13/algorithm \
- /usr/include/c++/13/pstl/glue_algorithm_defs.h \
- /root/AlynCoin/Crow/include/crow/settings.h \
- /usr/include/c++/13/filesystem /usr/include/c++/13/bits/fs_fwd.h \
- /usr/include/c++/13/bits/fs_path.h /usr/include/c++/13/locale \
- /usr/include/c++/13/bits/locale_facets_nonio.h \
- /usr/include/x86_64-linux-gnu/c++/13/bits/time_members.h \
- /usr/include/x86_64-linux-gnu/c++/13/bits/messages_members.h \
- /usr/include/libintl.h /usr/include/c++/13/bits/codecvt.h \
- /usr/include/c++/13/bits/locale_facets_nonio.tcc \
- /usr/include/c++/13/bits/locale_conv.h /usr/include/c++/13/iomanip \
- /usr/include/c++/13/bits/quoted_string.h /usr/include/c++/13/codecvt \
- /usr/include/c++/13/bits/fs_dir.h /usr/include/c++/13/bits/fs_ops.h \
- /root/AlynCoin/Crow/include/crow/ci_map.h \
- /root/AlynCoin/Crow/include/crow/TinySHA1.hpp \
- /root/AlynCoin/Crow/include/crow/socket_adaptors.h /usr/include/asio.hpp \
+ /root/AlynCoin/src/deps/CrowInclude/crow.h /usr/include/asio.hpp \
  /usr/include/asio/any_completion_executor.hpp \
  /usr/include/asio/detail/config.hpp /usr/include/c++/13/version \
  /usr/include/unistd.h /usr/include/x86_64-linux-gnu/bits/posix_opt.h \
@@ -664,7 +616,8 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_db.cpp.o: \
  /usr/include/asio/basic_socket_streambuf.hpp \
  /usr/include/asio/basic_stream_file.hpp \
  /usr/include/asio/basic_stream_socket.hpp \
- /usr/include/asio/basic_streambuf.hpp \
+ /usr/include/asio/basic_streambuf.hpp /usr/include/c++/13/algorithm \
+ /usr/include/c++/13/pstl/glue_algorithm_defs.h \
  /usr/include/asio/basic_streambuf_fwd.hpp \
  /usr/include/asio/basic_waitable_timer.hpp \
  /usr/include/asio/basic_writable_pipe.hpp \
@@ -904,42 +857,59 @@ src/CMakeFiles/explorer_server.dir/explorer/explorer_db.cpp.o: \
  /usr/include/asio/windows/stream_handle.hpp \
  /usr/include/asio/writable_pipe.hpp /usr/include/asio/write.hpp \
  /usr/include/asio/write_at.hpp /usr/include/asio/impl/write_at.hpp \
- /usr/include/asio/version.hpp /root/AlynCoin/Crow/include/crow/json.h \
+ /usr/include/asio/version.hpp /usr/include/c++/13/iostream \
+ /usr/include/c++/13/random /usr/include/c++/13/cmath /usr/include/math.h \
+ /usr/include/x86_64-linux-gnu/bits/math-vector.h \
+ /usr/include/x86_64-linux-gnu/bits/libm-simd-decl-stubs.h \
+ /usr/include/x86_64-linux-gnu/bits/flt-eval-method.h \
+ /usr/include/x86_64-linux-gnu/bits/fp-logb.h \
+ /usr/include/x86_64-linux-gnu/bits/fp-fast.h \
+ /usr/include/x86_64-linux-gnu/bits/mathcalls-helper-functions.h \
+ /usr/include/x86_64-linux-gnu/bits/mathcalls.h \
+ /usr/include/x86_64-linux-gnu/bits/mathcalls-narrow.h \
+ /usr/include/x86_64-linux-gnu/bits/iscanonical.h \
+ /usr/include/c++/13/bits/specfun.h /usr/include/c++/13/tr1/gamma.tcc \
+ /usr/include/c++/13/tr1/special_function_util.h \
+ /usr/include/c++/13/tr1/bessel_function.tcc \
+ /usr/include/c++/13/tr1/beta_function.tcc \
+ /usr/include/c++/13/tr1/ell_integral.tcc \
+ /usr/include/c++/13/tr1/exp_integral.tcc \
+ /usr/include/c++/13/tr1/hypergeometric.tcc \
+ /usr/include/c++/13/tr1/legendre_function.tcc \
+ /usr/include/c++/13/tr1/modified_bessel_func.tcc \
+ /usr/include/c++/13/tr1/poly_hermite.tcc \
+ /usr/include/c++/13/tr1/poly_laguerre.tcc \
+ /usr/include/c++/13/tr1/riemann_zeta.tcc \
+ /usr/include/c++/13/bits/random.h \
+ /usr/include/x86_64-linux-gnu/c++/13/bits/opt_random.h \
+ /usr/include/c++/13/bits/random.tcc /usr/include/c++/13/numeric \
+ /usr/include/c++/13/bits/stl_numeric.h \
+ /usr/include/c++/13/pstl/glue_numeric_defs.h \
+ /usr/include/c++/13/filesystem /usr/include/c++/13/bits/fs_fwd.h \
+ /usr/include/c++/13/bits/fs_path.h /usr/include/c++/13/locale \
+ /usr/include/c++/13/bits/locale_facets_nonio.h \
+ /usr/include/x86_64-linux-gnu/c++/13/bits/time_members.h \
+ /usr/include/x86_64-linux-gnu/c++/13/bits/messages_members.h \
+ /usr/include/libintl.h /usr/include/c++/13/bits/codecvt.h \
+ /usr/include/c++/13/bits/locale_facets_nonio.tcc \
+ /usr/include/c++/13/bits/locale_conv.h /usr/include/c++/13/iomanip \
+ /usr/include/c++/13/bits/quoted_string.h /usr/include/c++/13/codecvt \
+ /usr/include/c++/13/bits/fs_dir.h /usr/include/c++/13/bits/fs_ops.h \
  /usr/include/c++/13/cfloat \
  /usr/lib/gcc/x86_64-linux-gnu/13/include/float.h \
- /root/AlynCoin/Crow/include/crow/returnable.h \
- /root/AlynCoin/Crow/include/crow/logging.h \
- /root/AlynCoin/Crow/include/crow/mustache.h /usr/include/c++/13/fstream \
+ /usr/include/c++/13/fstream \
  /usr/include/x86_64-linux-gnu/c++/13/bits/basic_file.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++io.h \
- /usr/include/c++/13/bits/fstream.tcc \
- /root/AlynCoin/Crow/include/crow/task_timer.h \
- /root/AlynCoin/Crow/include/crow/http_request.h \
- /root/AlynCoin/Crow/include/crow/websocket.h \
- /root/AlynCoin/Crow/include/crow/TinySHA1.hpp \
- /root/AlynCoin/Crow/include/crow/parser.h \
- /root/AlynCoin/Crow/include/crow/http_response.h \
- /root/AlynCoin/Crow/include/crow/mime_types.h \
- /root/AlynCoin/Crow/include/crow/multipart.h \
- /root/AlynCoin/Crow/include/crow/exceptions.h \
- /root/AlynCoin/Crow/include/crow/multipart_view.h \
- /usr/include/c++/13/charconv /root/AlynCoin/Crow/include/crow/routing.h \
- /root/AlynCoin/Crow/include/crow/middleware.h \
- /root/AlynCoin/Crow/include/crow/middleware_context.h \
- /root/AlynCoin/Crow/include/crow/compression.h \
- /root/AlynCoin/Crow/include/crow/http_connection.h \
- /root/AlynCoin/Crow/include/crow/compression.h \
- /root/AlynCoin/Crow/include/crow/http_server.h \
- /root/AlynCoin/Crow/include/crow/version.h \
- /root/AlynCoin/Crow/include/crow/app.h /usr/include/c++/13/thread \
- /usr/include/c++/13/bits/this_thread_sleep.h \
+ /usr/include/c++/13/bits/fstream.tcc /usr/include/c++/13/charconv \
+ /usr/include/c++/13/set /usr/include/c++/13/bits/stl_set.h \
+ /usr/include/c++/13/bits/stl_multiset.h /usr/include/c++/13/queue \
+ /usr/include/c++/13/bits/stl_queue.h /usr/include/c++/13/variant \
+ /usr/include/c++/13/thread /usr/include/c++/13/bits/this_thread_sleep.h \
  /root/AlynCoin/src/explorer/../generated/block_protos.pb.h \
  /usr/include/google/protobuf/port_def.inc \
  /usr/include/google/protobuf/port_undef.inc \
  /usr/include/google/protobuf/io/coded_stream.h \
- /usr/include/google/protobuf/stubs/common.h /usr/include/c++/13/set \
- /usr/include/c++/13/bits/stl_set.h \
- /usr/include/c++/13/bits/stl_multiset.h \
+ /usr/include/google/protobuf/stubs/common.h \
  /usr/include/google/protobuf/stubs/macros.h \
  /usr/include/google/protobuf/stubs/platform_macros.h \
  /usr/include/google/protobuf/stubs/port.h /usr/include/byteswap.h \

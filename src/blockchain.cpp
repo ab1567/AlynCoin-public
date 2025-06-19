@@ -321,6 +321,11 @@ bool Blockchain::addBlock(const Block &block) {
     // 3. Orphan handling: if parent not yet present
     if (!chain.empty() && block.getPreviousHash() != chain.back().getHash()) {
         std::cerr << "⚠️ [addBlock] Received block before parent. Buffering as orphan.\n";
+        if (getOrphanPoolSize() >= MAX_ORPHAN_BLOCKS) {
+            std::cerr << "⚠️ [addBlock] Orphan pool limit reached (" << MAX_ORPHAN_BLOCKS
+                      << "). Dropping block idx=" << block.getIndex() << "\n";
+            return false;
+        }
         orphanBlocks[block.getPreviousHash()].push_back(block);
         orphanHashes.insert(block.getHash());
 
@@ -2982,3 +2987,10 @@ void Blockchain::tryAttachOrphans(const std::string& parentHash)
     }
 }
 
+size_t Blockchain::getOrphanPoolSize() const
+{
+    size_t total = 0;
+    for (const auto& [_, vec] : orphanBlocks)
+        total += vec.size();
+    return total;
+}

@@ -137,7 +137,7 @@ include_directories(
     ${SOURCE_DIR}/rollup/circuits
     ${SOURCE_DIR}/explorer
     ${GENERATED_DIR}
-    ${CMAKE_SOURCE_DIR}/Crow/include
+    ${SOURCE_DIR}/deps/CrowInclude
     /usr/include/jsoncpp
     /usr/include/rocksdb
     ${SOURCE_DIR}/crypto/falcon/PQClean/Falcon-1024/clean
@@ -474,7 +474,7 @@ target_link_libraries(blacklist_test
 add_executable(explorer_server ${EXPLORER_SOURCES})
 
 add_dependencies(explorer_server winterfell_ffi)
-target_include_directories(explorer_server PRIVATE ${SOURCE_DIR}/explorer ${CMAKE_SOURCE_DIR}/Crow/include)
+target_include_directories(explorer_server PRIVATE ${SOURCE_DIR}/explorer ${SOURCE_DIR}/deps/CrowInclude)
 
 target_link_libraries(explorer_server
     alyncoin_lib

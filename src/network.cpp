@@ -2548,10 +2548,16 @@ void Network::handleSnapshotChunk(const std::string& peer, const std::string& ch
     auto it = peerTransports.find(peer);
     if (it == peerTransports.end() || !it->second.state) return;
     auto ps = it->second.state;
+    if (chunk.size() > MAX_SNAPSHOT_CHUNK_SIZE) {
+        std::cerr << "⚠️ [SNAPSHOT] Oversized chunk from peer " << peer
+                  << " (" << chunk.size() << " bytes). Ignoring." << std::endl;
+        ps->snapshotActive = false;
+        ps->snapshotB64.clear();
+        return;
+    }
     ps->snapshotB64 += chunk;
     ps->snapshotActive = true;
 }
-
 
 //
 void Network::handleTailRequest(const std::string& peer, int fromHeight) {

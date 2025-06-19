@@ -40,6 +40,7 @@ class Network;
 const double MAX_SUPPLY = 100000000.0;
 const size_t MAX_PENDING_TRANSACTIONS = 10000;
 const int EPOCH_SIZE = 64; // number of blocks per aggregated proof epoch
+const size_t MAX_ORPHAN_BLOCKS = 100;
 
 class Blockchain {
   friend class Network;
@@ -228,6 +229,7 @@ public:
   bool getBlockByHash(const std::string& hash, Block& out) const;
   void requestMissingParent(const std::string& parentHash);
   void tryAttachOrphans(const std::string& parentHash);
+  size_t getOrphanPoolSize() const;
 
   std::unordered_map<std::string, std::vector<Block>> orphanBlocks;
   std::unordered_set<std::string>            requestedParents;

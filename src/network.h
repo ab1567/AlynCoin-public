@@ -23,6 +23,8 @@
 
 using boost::asio::ip::tcp;
 
+constexpr size_t MAX_SNAPSHOT_CHUNK_SIZE = 10 * 1024;
+
 class Network {
 public:
     // Singleton initialization
