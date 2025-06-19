@@ -1100,6 +1100,10 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
         handleSnapshotEnd(claimedPeerId);
         return;
     }
+    if (ps->snapshotActive && looksLikeBase64(data)) {
+        handleSnapshotChunk(claimedPeerId, data);  // just append
+        return;
+    }
     if (data.rfind(TAIL_BLOCKS, 0) == 0) {
         InFlightData& infl = inflight[claimedPeerId];
         infl.peer   = claimedPeerId;
