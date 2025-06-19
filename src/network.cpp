@@ -26,6 +26,7 @@
 #include <unordered_set>
 #include <vector>
 #include <cctype>
+#include <memory>
 #include "proto_utils.h"
 #include <cstdlib>
 #include <cstdio>
@@ -308,9 +309,10 @@ Network::Network(unsigned short port, Blockchain* blockchain, PeerBlacklist* bla
 
         std::cout << "🌐 Network listener started on port: " << port << "\n";
 
-        peerManager = new PeerManager(blacklistPtr, this);
+        peerManager = std::make_unique<PeerManager>(blacklistPtr, this);
         isRunning = true;
         listenerThread = std::thread(&Network::listenForConnections, this);
+         threads_.push_back(std::move(listenerThread));
 
     } catch (const std::exception& ex) {
         std::cerr << "❌ [Network Exception] " << ex.what() << "\n";
@@ -321,9 +323,9 @@ Network::Network(unsigned short port, Blockchain* blockchain, PeerBlacklist* bla
 
 Network::~Network() {
     try {
-        ioContext.stop();
-        acceptor.close();
-        if (listenerThread.joinable()) listenerThread.join();
+	   ioContext.stop();
+ 	   acceptor.close();
+	   for (auto& t : threads_) if (t.joinable()) t.join();
         std::cout << "✅ Network instance cleaned up safely." << std::endl;
     } catch (const std::exception &e) {
         std::cerr << "❌ Error during Network destruction: " << e.what() << std::endl;
@@ -599,7 +601,7 @@ void Network::broadcastPeerList() {
 
 //
 PeerManager* Network::getPeerManager() {
-    return peerManager;
+     return peerManager.get();
 }
 
 // ✅ **Request peer list from connected nodes**

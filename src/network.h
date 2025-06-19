@@ -145,12 +145,13 @@ private:
     boost::asio::ip::tcp::acceptor acceptor;
     std::thread listenerThread;
     std::thread serverThread;
-    PeerManager *peerManager = nullptr;
+     std::unique_ptr<PeerManager> peerManager;
     std::string publicPeerId;
     std::unordered_set<std::string> bannedPeers;
     PeerBlacklist *blacklist;
     std::unordered_set<std::string> seenTxHashes;
     static Network *instancePtr;
+   std::vector<std::thread> threads_;
 
     // Helpers reused by handlePeer & connectToNode
     void startReadLoop(const std::string& peerId, std::shared_ptr<Transport> transport);
