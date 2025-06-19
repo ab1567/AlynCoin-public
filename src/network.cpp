@@ -1,5 +1,6 @@
 #include "generated/block_protos.pb.h"
 #include "generated/transaction_protos.pb.h"
+#include "generated/sync_protos.pb.h"
 #include "network.h"
 #include "blockchain.h"
 #include "rollup/proofs/proof_verifier.h"
@@ -1266,10 +1267,13 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
                     inflIt->second.active = false;
                 }
             } else if (inflIt->second.prefix == TAIL_BLOCKS) {
-                handleTailBlocks(claimedPeerId, inflIt->second.base64);
-                inflIt->second.active = false;
-                inflight.erase(inflIt);
-		 }
+                TailBlocksProto proto;
+                if (proto.ParseFromString(raw)) {
+                    handleTailBlocks(claimedPeerId, inflIt->second.base64);
+                    inflIt->second.active = false;
+                    inflight.erase(inflIt);
+                }
+            }
             static constexpr size_t MAX_INFLIGHT_PROTO_BYTES = 8 * 1024 * 1024; // 8 MiB
             if (inflIt->second.base64.size() > MAX_INFLIGHT_PROTO_BYTES) {
                 std::cerr << "⚠️  inflight base64 from " << claimedPeerId
