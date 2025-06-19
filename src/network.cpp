@@ -2511,7 +2511,10 @@ void Network::sendTailBlocks(std::shared_ptr<Transport> transport, int fromHeigh
     if (!proto.SerializeToString(&raw)) return;
     std::string b64 = Crypto::base64Encode(raw, false);
 
-    transport->queueWrite("ALYN|TAIL_BLOCKS|" + b64 + "\n");
+    const size_t MAX_PAYLOAD = 60 * 1024; // keep single frame under 64kB
+    for (size_t off = 0; off < b64.size(); off += MAX_PAYLOAD) {
+        transport->queueWrite("ALYN|TAIL_BLOCKS|" + b64.substr(off, MAX_PAYLOAD) + "\n");
+    }
 }
 //
 void Network::handleSnapshotChunk(const std::string& peer, const std::string& chunk) {
@@ -2590,20 +2593,40 @@ void Network::handleTailBlocks(const std::string& peer, const std::string& b64) 
 
         Blockchain& chain = Blockchain::getInstance();
 
-        // Validate and append each tail block
-        size_t appended = 0;
+        // Convert proto to vector of blocks
+        std::vector<Block> blocks;
+        blocks.reserve(proto.blocks_size());
         for (const auto& pb : proto.blocks()) {
-            try {
-                Block blk = Block::fromProto(pb, false);
-                // (Optional) Add your custom validation here (hash, prev-hash, signature, etc)
-                if (chain.tryAppendBlock(blk)) {
-                    ++appended;
-                } else {
-                    std::cerr << "❌ [TAIL_BLOCKS] Invalid block, rejected at height "
-                              << blk.getIndex() << " from peer " << peer << "\n";
+            blocks.push_back(Block::fromProto(pb, false));
+        }
+
+        int tipIndex = chain.getHeight();
+        const auto& localChain = chain.getChain();
+
+        size_t pos = 0;
+        while (pos < blocks.size() && blocks[pos].getIndex() <= tipIndex) {
+            const Block& remote = blocks[pos];
+            if (remote.getIndex() < chain.getBlockCount()) {
+                const Block& local = localChain[remote.getIndex()];
+                if (remote.getHash() != local.getHash()) {
+                    throw std::runtime_error("Fork mismatch in tail blocks");
                 }
-            } catch (...) {
-                std::cerr << "❌ [TAIL_BLOCKS] Malformed block skipped\n";
+            }
+            ++pos;
+        }
+
+        if (pos == blocks.size()) return; // nothing new
+
+        if (blocks[pos].getPreviousHash() != localChain.back().getHash()) {
+            throw std::runtime_error("Tail does not connect to tip");
+        }
+
+        size_t appended = 0;
+        for (; pos < blocks.size(); ++pos) {
+            if (chain.addBlock(blocks[pos])) {
+                ++appended;
+            } else {
+                throw std::runtime_error("Invalid block in tail set");
             }
         }
 
