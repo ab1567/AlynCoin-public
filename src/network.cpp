@@ -2524,7 +2524,7 @@ void Network::sendSnapshot(std::shared_ptr<Transport> transport, int upToHeight)
 
     std::string raw;
     if (!snap.SerializeToString(&raw)) return;
-    std::string b64 = Crypto::base64Encode(raw, false);
+   std::string b64 = b64Flat(raw);
 
     const size_t CHUNK_SIZE = 8000;
     for (size_t off = 0; off < b64.size(); off += CHUNK_SIZE) {
@@ -2545,7 +2545,7 @@ void Network::sendTailBlocks(std::shared_ptr<Transport> transport, int fromHeigh
 
     std::string raw;
     if (!proto.SerializeToString(&raw)) return;
-    std::string b64 = Crypto::base64Encode(raw, false);
+    std::string b64 = b64Flat(raw);
 
     const size_t MAX_PAYLOAD = 7 * 1024;
     bool first = true;
