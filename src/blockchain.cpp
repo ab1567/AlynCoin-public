@@ -2956,6 +2956,32 @@ bool Blockchain::openDB(bool readOnly) {
     return true;
 }
 //
+void Blockchain::purgeDataForResync() {
+    if (db) {
+        delete db;
+        db = nullptr;
+    }
+
+    rocksdb::Options opts;
+    rocksdb::Status st = rocksdb::DestroyDB(dbPath, opts);
+    if (!st.ok()) {
+        std::cerr << "[Blockchain] Warning: failed to destroy DB at '" << dbPath
+                  << "': " << st.ToString() << std::endl;
+    }
+
+    std::filesystem::remove_all(dbPath);
+    std::filesystem::create_directories(dbPath);
+
+    chain.clear();
+    pendingTransactions.clear();
+    balances.clear();
+    rollupChain.clear();
+
+    if (!openDB(false)) {
+        std::cerr << "[Blockchain] Error reopening DB after purge" << std::endl;
+    }
+}
+//
 bool Blockchain::getBlockByHash(const std::string& hash, Block& out) const
 {
     for (const auto& b : chain)

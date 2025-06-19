@@ -2,6 +2,7 @@
 #include "health_monitor.h"
 #include "sync_recovery.h"
 #include "logger.h"
+#include "network.h"
 
 #include <thread>
 #include <chrono>
@@ -16,6 +17,18 @@ void SelfHealingNode::monitorAndHeal() {
     NodeHealthStatus status = healthMonitor_->checkHealth();
     healthMonitor_->logStatus(status);
 
+    if (status.farBehind) {
+        Logger::warn("🚨 Node far behind. Purging local data and requesting snapshot...");
+        blockchain_->purgeDataForResync();
+        auto peers = peerManager_ ? peerManager_->getConnectedPeers() : std::vector<std::string>{};
+        if (!peers.empty()) {
+            if (auto net = Network::getExistingInstance()) {
+                net->requestSnapshotSync(peers.front());
+            }
+        }
+        return;
+    }
+
     if (!healthMonitor_->shouldTriggerRecovery(status)) return;
 
     Logger::warn("🚨 Node health degraded. Initiating recovery...");
@@ -24,7 +37,6 @@ void SelfHealingNode::monitorAndHeal() {
         Logger::error("❌ Self-healing failed. Manual intervention may be required.");
     }
 }
-
 void SelfHealingNode::runPeriodicCheck(std::chrono::seconds interval) {
     while (true) {
         monitorAndHeal();

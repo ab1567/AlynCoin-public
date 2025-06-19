@@ -4,6 +4,7 @@
 #include "logger.h"
 #include "network.h"
 #include "json/json.h"
+#include "constants.h"
 
 #include <iostream>
 #include <sstream>
@@ -19,6 +20,7 @@ NodeHealthStatus HealthMonitor::checkHealth() {
     status.localTipHash = getLocalTipHash();
     status.expectedTipHash = getNetworkTipHash();
     status.connectedPeers = peerManager_->getPeerCount();
+    status.farBehind = false;
 
     if (status.networkHeight == 0 ||
         status.localHeight > status.networkHeight + 3) {
@@ -46,6 +48,12 @@ NodeHealthStatus HealthMonitor::checkHealth() {
         status.isHealthy = false;
         status.reason = "Tip hash mismatch with peers";
     }
+    if (status.networkHeight > 0 &&
+        status.networkHeight > status.localHeight + DESYNC_THRESHOLD) {
+        status.farBehind = true;
+        status.isHealthy = false;
+        status.reason = "Node far behind";
+    }
 
     return status;
 }
@@ -60,11 +68,15 @@ void HealthMonitor::logStatus(const NodeHealthStatus& status) {
         << "  • Local Tip Hash: " << status.localTipHash.substr(0, 10) << "...\n"
         << "  • Expected Tip Hash: " << status.expectedTipHash.substr(0, 10) << "...";
 
+    if (status.farBehind) {
+        log << "\n  • Desync Gap: " << (status.networkHeight - status.localHeight);
+    }
+
     Logger::info(log.str());
 }
 
 bool HealthMonitor::shouldTriggerRecovery(const NodeHealthStatus& status) {
-    return !status.isHealthy;
+    return !status.isHealthy || status.farBehind;
 }
 
 std::string HealthMonitor::getLocalTipHash() const {

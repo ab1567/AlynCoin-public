@@ -16,6 +16,7 @@ struct NodeHealthStatus {
     std::string localTipHash;
     std::string expectedTipHash;
     size_t connectedPeers;
+    bool farBehind;
 };
 
 class HealthMonitor {

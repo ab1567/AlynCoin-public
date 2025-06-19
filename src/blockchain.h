@@ -192,6 +192,8 @@ public:
   bool openDB(bool readOnly = false);
   rocksdb::DB* getRawDB();
   void setNetwork(Network* net) { network = net; }
+  const std::string& getDBPath() const { return dbPath; }
+  void purgeDataForResync();
   // L2
   std::unordered_map<std::string, double> getCurrentState() const;
   std::unordered_map<std::string, double> simulateL2StateUpdate(
