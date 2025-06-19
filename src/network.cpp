@@ -24,6 +24,7 @@
 #include <unordered_map>
 #include <cstring>
 #include <chrono>
+#include <iomanip>
 #include <json/json.h>
 #include <sstream>
 #include <thread>
@@ -2560,7 +2561,10 @@ void Network::sendSnapshot(std::shared_ptr<Transport> transport, int upToHeight)
 
     const size_t CHUNK_SIZE = 8000;
     for (size_t off = 0; off < b64.size(); off += CHUNK_SIZE) {
-        transport->queueWrite("ALYN|SNAPSHOT_CHUNK|" + b64.substr(off, CHUNK_SIZE) + "\n");
+        std::string chunk = b64.substr(off, CHUNK_SIZE);
+        std::cerr << "[DUMP-TX] (" << std::setw(4) << off
+                  << ") " << chunk.substr(0, 64) << " …\n";
+        transport->queueWrite("ALYN|SNAPSHOT_CHUNK|" + chunk + "\n");
     }
     transport->queueWrite("ALYN|SNAPSHOT_END\n");
 }
