@@ -85,7 +85,7 @@ static thread_local std::unordered_map<std::string, InFlightData> inflight;
 // syncs to fail whenever such a chunk appeared.  We now simply verify that all
 // characters are within the base64 alphabet and the length is reasonable.
 static inline bool looksLikeBase64(const std::string& s) {
-    if (s.size() < 16)
+   if (s.empty())
         return false;
     for (unsigned char c : s) {
         if (!(std::isalnum(c) || c == '+' || c == '/' || c == '='))
