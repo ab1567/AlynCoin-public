@@ -1263,12 +1263,26 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
                 inflIt->second.active = false;
                 inflight.erase(inflIt);
 		 }
-            if (inflIt->second.active && inflIt->second.base64.size() > 5000)
+            static constexpr size_t MAX_INFLIGHT_PROTO_BYTES = 8 * 1024 * 1024; // 8 MiB
+            if (inflIt->second.base64.size() > MAX_INFLIGHT_PROTO_BYTES) {
+                std::cerr << "⚠️  inflight base64 from " << claimedPeerId
+                          << " exceeded " << MAX_INFLIGHT_PROTO_BYTES
+                          << " bytes – aborted\n";
                 inflIt->second.active = false;
+                inflight.erase(inflIt);
+                return;
+            }
         } catch (...) {
-            if (inflIt->second.base64.size() > 5000) inflIt->second.active = false;
+            static constexpr size_t MAX_INFLIGHT_PROTO_BYTES = 8 * 1024 * 1024;
+            if (inflIt->second.base64.size() > MAX_INFLIGHT_PROTO_BYTES) {
+                std::cerr << "⚠️  inflight base64 from " << claimedPeerId
+                          << " exceeded " << MAX_INFLIGHT_PROTO_BYTES
+                          << " bytes – aborted\n";
+                inflIt->second.active = false;
+                inflight.erase(inflIt);
+            }
         }
-        if (inflIt->second.active)
+        if (inflIt != inflight.end() && inflIt->second.active)
             return;
     }
 
