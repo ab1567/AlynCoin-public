@@ -75,10 +75,11 @@ src/CMakeFiles/protobuf_gen: generated/main_protos.pb.cc
 src/CMakeFiles/protobuf_gen: generated/nft.pb.cc
 src/CMakeFiles/protobuf_gen: generated/atomic_swap.pb.cc
 src/CMakeFiles/protobuf_gen: generated/identity.pb.cc
+src/CMakeFiles/protobuf_gen: generated/net_frame.pb.cc
 
 generated/sync_protos.pb.h: /root/AlynCoin/src/proto/*.proto
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir=/root/AlynCoin/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Generating Protobuf files..."
-	cd /root/AlynCoin/build/src && /usr/bin/protoc --proto_path=/root/AlynCoin/src/proto --cpp_out=/root/AlynCoin/build/generated --experimental_allow_proto3_optional /root/AlynCoin/src/proto/sync_protos.proto /root/AlynCoin/src/proto/block_protos.proto /root/AlynCoin/src/proto/blockchain_protos.proto /root/AlynCoin/src/proto/crypto_protos.proto /root/AlynCoin/src/proto/transaction_protos.proto /root/AlynCoin/src/proto/main_protos.proto /root/AlynCoin/src/proto/nft.proto /root/AlynCoin/src/proto/atomic_swap.proto /root/AlynCoin/src/proto/identity.proto
+	cd /root/AlynCoin/build/src && /usr/bin/protoc --proto_path=/root/AlynCoin/src/proto --cpp_out=/root/AlynCoin/build/generated --experimental_allow_proto3_optional /root/AlynCoin/src/proto/sync_protos.proto /root/AlynCoin/src/proto/block_protos.proto /root/AlynCoin/src/proto/blockchain_protos.proto /root/AlynCoin/src/proto/crypto_protos.proto /root/AlynCoin/src/proto/transaction_protos.proto /root/AlynCoin/src/proto/main_protos.proto /root/AlynCoin/src/proto/nft.proto /root/AlynCoin/src/proto/atomic_swap.proto /root/AlynCoin/src/proto/identity.proto /root/AlynCoin/src/proto/net_frame.proto
 
 generated/block_protos.pb.h: generated/sync_protos.pb.h
 	@$(CMAKE_COMMAND) -E touch_nocreate generated/block_protos.pb.h
@@ -103,6 +104,9 @@ generated/atomic_swap.pb.h: generated/sync_protos.pb.h
 
 generated/identity.pb.h: generated/sync_protos.pb.h
 	@$(CMAKE_COMMAND) -E touch_nocreate generated/identity.pb.h
+
+generated/net_frame.pb.h: generated/sync_protos.pb.h
+	@$(CMAKE_COMMAND) -E touch_nocreate generated/net_frame.pb.h
 
 generated/sync_protos.pb.cc: generated/sync_protos.pb.h
 	@$(CMAKE_COMMAND) -E touch_nocreate generated/sync_protos.pb.cc
@@ -131,6 +135,9 @@ generated/atomic_swap.pb.cc: generated/sync_protos.pb.h
 generated/identity.pb.cc: generated/sync_protos.pb.h
 	@$(CMAKE_COMMAND) -E touch_nocreate generated/identity.pb.cc
 
+generated/net_frame.pb.cc: generated/sync_protos.pb.h
+	@$(CMAKE_COMMAND) -E touch_nocreate generated/net_frame.pb.cc
+
 protobuf_gen: generated/atomic_swap.pb.cc
 protobuf_gen: generated/atomic_swap.pb.h
 protobuf_gen: generated/block_protos.pb.cc
@@ -143,6 +150,8 @@ protobuf_gen: generated/identity.pb.cc
 protobuf_gen: generated/identity.pb.h
 protobuf_gen: generated/main_protos.pb.cc
 protobuf_gen: generated/main_protos.pb.h
+protobuf_gen: generated/net_frame.pb.cc
+protobuf_gen: generated/net_frame.pb.h
 protobuf_gen: generated/nft.pb.cc
 protobuf_gen: generated/nft.pb.h
 protobuf_gen: generated/sync_protos.pb.cc

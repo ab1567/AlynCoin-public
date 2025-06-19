@@ -1358,6 +1358,11 @@ src/CMakeFiles/alyncoin_lib.dir/network.cpp.o: \
  /root/AlynCoin/src/network/peer_blacklist.h /root/AlynCoin/src/block.h \
  /root/AlynCoin/src/transport/transport.h \
  /root/AlynCoin/src/transport/peer_globals.h \
+ /root/AlynCoin/src/generated/net_frame.pb.h \
+ /usr/include/google/protobuf/generated_message_bases.h \
+ /usr/include/google/protobuf/io/zero_copy_stream_impl.h \
+ /root/AlynCoin/src/generated/blockchain_protos.pb.h \
+ /root/AlynCoin/src/wire/varint.h \
  /root/AlynCoin/src/rollup/proofs/proof_verifier.h \
  /root/AlynCoin/src/rollup/proofs/../rollup_block.h \
  /root/AlynCoin/src/syncing.h /usr/include/c++/13/filesystem \

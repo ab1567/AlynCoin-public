@@ -4,7 +4,7 @@
 # compile C with /usr/bin/cc
 C_DEFINES = -DBLAKE3_NO_AVX512 -DHAVE_MINIUPNPC -DUSE_AVX2 -DUSE_SSE4_1
 
-C_INCLUDES = -I/root/AlynCoin/src -I/root/AlynCoin/src/zk -I/root/AlynCoin/src/rollup -I/root/AlynCoin/src/rollup/proofs -I/root/AlynCoin/src/rollup/circuits -I/root/AlynCoin/src/explorer -I/root/AlynCoin/build/generated -I/root/AlynCoin/src/deps/CrowInclude -I/usr/include/jsoncpp -I/usr/include/rocksdb -I/root/AlynCoin/src/crypto/falcon/PQClean/Falcon-1024/clean -I/root/AlynCoin/src/crypto/falcon/PQClean/common -I/root/AlynCoin/src/crypto/dilithium -I/root/AlynCoin/src/crypto/dilithium/ref -I/root/AlynCoin/src/atomic_swaps -I/root/AlynCoin/src/identity -I/root/AlynCoin/src/self_healing -I/root/AlynCoin/src/utils -I/root/AlynCoin/src/network -I/root/AlynCoin/src/crypto/falcon/PQClean/common/keccak2x -I/root/AlynCoin/src/crypto/falcon/PQClean/common/keccak4x
+C_INCLUDES = -I/root/AlynCoin/src -I/root/AlynCoin/src/zk -I/root/AlynCoin/src/rollup -I/root/AlynCoin/src/rollup/proofs -I/root/AlynCoin/src/rollup/circuits -I/root/AlynCoin/src/explorer -I/root/AlynCoin/build -I/root/AlynCoin/src/deps/CrowInclude -I/usr/include/jsoncpp -I/usr/include/rocksdb -I/root/AlynCoin/src/crypto/falcon/PQClean/Falcon-1024/clean -I/root/AlynCoin/src/crypto/falcon/PQClean/common -I/root/AlynCoin/src/crypto/dilithium -I/root/AlynCoin/src/crypto/dilithium/ref -I/root/AlynCoin/src/atomic_swaps -I/root/AlynCoin/src/identity -I/root/AlynCoin/src/self_healing -I/root/AlynCoin/src/utils -I/root/AlynCoin/src/network -I/root/AlynCoin/src/crypto/falcon/PQClean/common/keccak2x -I/root/AlynCoin/src/crypto/falcon/PQClean/common/keccak4x
 
 C_FLAGS = -DPQCLEAN_FALCON1024_CLEAN_NAMESPACE=PQCLEAN_FALCON1024_CLEAN_ -DSHAKE256_NAMESPACE=PQCLEAN_FALCON1024_CLEAN_
 

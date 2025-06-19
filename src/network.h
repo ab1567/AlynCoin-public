@@ -126,6 +126,7 @@ public:
     void sendStateProof(std::shared_ptr<Transport> tr);
     void broadcastRaw(const std::string& msg);
     bool  peerSupportsSnapshot(const std::string& peerId) const;
+    bool  peerSupportsBinary(const std::string& peerId) const;
     void  requestSnapshotSync(const std::string& peer);
     void  requestTailBlocks(const std::string& peer, int fromHeight);
     void  sendForkRecoveryRequest(const std::string& peer, const std::string& tip);
@@ -136,6 +137,7 @@ public:
     void  handleTailRequest(const std::string& peer, int fromHeight);
     void  handleTailBlocks(const std::string& peer, const std::string& b64);
     static unsigned short findAvailablePort(unsigned short startPort, int maxTries = 10);
+    void sendFrame(std::shared_ptr<Transport> tr, const google::protobuf::Message& m);
 private:
     unsigned short port;
     Blockchain *blockchain;

@@ -3,6 +3,9 @@
 #include "generated/sync_protos.pb.h"
 #include "network.h"
 #include "blockchain.h"
+#include "generated/net_frame.pb.h"
+#include "wire/varint.h"
+#include <google/protobuf/message.h>
 #include "rollup/proofs/proof_verifier.h"
 #include "rollup/rollup_block.h"
 #include "syncing.h"
@@ -142,6 +145,18 @@ unsigned short Network::findAvailablePort(unsigned short startPort, int maxTries
         if (isPortAvailable(p)) return p;
     }
     return 0;
+}
+//
+
+void Network::sendFrame(std::shared_ptr<Transport> tr, const google::protobuf::Message& m)
+{
+    if (!tr || !tr->isOpen()) return;
+    std::string payload = m.SerializeAsString();
+    uint8_t var[10];
+    size_t n = encodeVarInt(payload.size(), var);
+    std::string out(reinterpret_cast<char*>(var), n);
+    out.append(payload);
+    tr->writeBinary(out);
 }
 // Fallback peer(s) in case DNS discovery fails
 static const std::vector<std::string> DEFAULT_DNS_PEERS = {
@@ -624,6 +639,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
     int  remoteHeight = 0;
     bool remoteAgg   = false;
     bool remoteSnap  = false;
+    bool remoteBinary = false;
 
     /* what *we* look like to the outside world */
     const auto selfAddr = [this]{
@@ -671,8 +687,10 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
 
         if (root.isMember("capabilities")) {
             for (const auto& c : root["capabilities"]) {
-                if (c.asString()=="agg_proof_v1")  remoteAgg  = true;
-                if (c.asString()=="snapshot_v1")   remoteSnap = true;
+                const std::string cap = c.asString();
+                if (cap == "agg_proof_v1")  remoteAgg  = true;
+                if (cap == "snapshot_v1")   remoteSnap = true;
+                if (cap == "binary_v2")     remoteBinary = true;
             }
         }
 
@@ -731,6 +749,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
         if (!entry.state) entry.state = std::make_shared<PeerState>();
         entry.state->supportsAggProof  = remoteAgg;
         entry.state->supportsSnapshot = remoteSnap;
+        entry.state->supportsBinary   = remoteBinary;
 
         if (peerManager) {
             peerManager->connectToPeer(claimedPeerId);
@@ -758,6 +777,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
         hs["capabilities"].append("miner");
         hs["capabilities"].append("agg_proof_v1");
         hs["capabilities"].append("snapshot_v1");
+        hs["capabilities"].append("binary_v2");
         hs["height"]       = Blockchain::getInstance().getHeight();
 
         Json::StreamWriterBuilder wr; wr["indentation"] = "";
@@ -2159,6 +2179,7 @@ bool Network::connectToNode(const std::string& host, int port)
         hs["capabilities"].append("miner");
         hs["capabilities"].append("agg_proof_v1");
         hs["capabilities"].append("snapshot_v1");
+        hs["capabilities"].append("binary_v2");
         hs["height"]       = Blockchain::getInstance().getHeight();
 
         Json::StreamWriterBuilder wr; wr["indentation"] = "";
@@ -2170,6 +2191,7 @@ bool Network::connectToNode(const std::string& host, int port)
 
         bool theirAgg  = false;
         bool theirSnap = false;
+        bool theirBinary = false;
         int  theirHeight = 0;
 
         if (!remoteHs.empty() && remoteHs.front()=='{' && remoteHs.back()=='}') {
@@ -2181,8 +2203,10 @@ bool Network::connectToNode(const std::string& host, int port)
                 theirHeight = rh.get("height",0).asInt();
                 if (rh.isMember("capabilities")) {
                     for (const auto& c : rh["capabilities"]) {
-                        if (c.asString()=="agg_proof_v1")  theirAgg  = true;
-                        if (c.asString()=="snapshot_v1")   theirSnap = true;
+                        const std::string cap = c.asString();
+                        if (cap == "agg_proof_v1")  theirAgg  = true;
+                        if (cap == "snapshot_v1")   theirSnap = true;
+                        if (cap == "binary_v2")     theirBinary = true;
                     }
                 }
             }
@@ -2193,6 +2217,7 @@ bool Network::connectToNode(const std::string& host, int port)
             auto st = peerTransports[peerKey].state;
             st->supportsAggProof  = theirAgg;
             st->supportsSnapshot = theirSnap;
+            st->supportsBinary   = theirBinary;
         }
         if (peerManager) peerManager->setPeerHeight(peerKey, theirHeight);
 
@@ -2508,6 +2533,13 @@ bool Network::peerSupportsSnapshot(const std::string& peerId) const {
     if (it == peerTransports.end()) return false;
     auto st = it->second.state;
     return st ? st->supportsSnapshot : false;
+}
+//
+bool Network::peerSupportsBinary(const std::string& peerId) const {
+    auto it = peerTransports.find(peerId);
+    if (it == peerTransports.end()) return false;
+    auto st = it->second.state;
+    return st ? st->supportsBinary : false;
 }
 //
 void Network::sendSnapshot(std::shared_ptr<Transport> transport, int upToHeight) {

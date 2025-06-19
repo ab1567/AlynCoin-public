@@ -11,6 +11,8 @@ file(REMOVE_RECURSE
   "../generated/identity.pb.h"
   "../generated/main_protos.pb.cc"
   "../generated/main_protos.pb.h"
+  "../generated/net_frame.pb.cc"
+  "../generated/net_frame.pb.h"
   "../generated/nft.pb.cc"
   "../generated/nft.pb.h"
   "../generated/sync_protos.pb.cc"

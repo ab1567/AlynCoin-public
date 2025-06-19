@@ -136,7 +136,7 @@ include_directories(
     ${SOURCE_DIR}/rollup/proofs
     ${SOURCE_DIR}/rollup/circuits
     ${SOURCE_DIR}/explorer
-    ${GENERATED_DIR}
+    ${CMAKE_BINARY_DIR}
     ${SOURCE_DIR}/deps/CrowInclude
     /usr/include/jsoncpp
     /usr/include/rocksdb
@@ -199,6 +199,7 @@ if(NOT SKIP_PROTOBUF_GEN)
         ${GENERATED_DIR}/nft.pb.cc
         ${GENERATED_DIR}/atomic_swap.pb.cc
         ${GENERATED_DIR}/identity.pb.cc
+ 	${GENERATED_DIR}/net_frame.pb.cc
     )
 
     set(PROTO_HEADERS
@@ -211,6 +212,7 @@ if(NOT SKIP_PROTOBUF_GEN)
         ${GENERATED_DIR}/nft.pb.h
         ${GENERATED_DIR}/atomic_swap.pb.h
         ${GENERATED_DIR}/identity.pb.h
+        ${GENERATED_DIR}/net_frame.pb.h
     )
 
     add_custom_command(
@@ -227,6 +229,7 @@ if(NOT SKIP_PROTOBUF_GEN)
                 ${SOURCE_DIR}/proto/nft.proto
                 ${SOURCE_DIR}/proto/atomic_swap.proto
                 ${SOURCE_DIR}/proto/identity.proto
+                ${SOURCE_DIR}/proto/net_frame.proto
         DEPENDS ${SOURCE_DIR}/proto/*.proto
         COMMENT "Generating Protobuf files..."
     )

@@ -442,6 +442,30 @@ __/generated/main_protos.pb.cc.s:
 	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/__/generated/main_protos.pb.cc.s
 .PHONY : __/generated/main_protos.pb.cc.s
 
+__/generated/net_frame.pb.o: __/generated/net_frame.pb.cc.o
+.PHONY : __/generated/net_frame.pb.o
+
+# target to build an object file
+__/generated/net_frame.pb.cc.o:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/__/generated/net_frame.pb.cc.o
+.PHONY : __/generated/net_frame.pb.cc.o
+
+__/generated/net_frame.pb.i: __/generated/net_frame.pb.cc.i
+.PHONY : __/generated/net_frame.pb.i
+
+# target to preprocess a source file
+__/generated/net_frame.pb.cc.i:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/__/generated/net_frame.pb.cc.i
+.PHONY : __/generated/net_frame.pb.cc.i
+
+__/generated/net_frame.pb.s: __/generated/net_frame.pb.cc.s
+.PHONY : __/generated/net_frame.pb.s
+
+# target to generate assembly for a file
+__/generated/net_frame.pb.cc.s:
+	cd /root/AlynCoin/build && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/alyncoin_lib.dir/build.make src/CMakeFiles/alyncoin_lib.dir/__/generated/net_frame.pb.cc.s
+.PHONY : __/generated/net_frame.pb.cc.s
+
 __/generated/nft.pb.o: __/generated/nft.pb.cc.o
 .PHONY : __/generated/nft.pb.o
 
@@ -2710,6 +2734,9 @@ help:
 	@echo "... __/generated/main_protos.pb.o"
 	@echo "... __/generated/main_protos.pb.i"
 	@echo "... __/generated/main_protos.pb.s"
+	@echo "... __/generated/net_frame.pb.o"
+	@echo "... __/generated/net_frame.pb.i"
+	@echo "... __/generated/net_frame.pb.s"
 	@echo "... __/generated/nft.pb.o"
 	@echo "... __/generated/nft.pb.i"
 	@echo "... __/generated/nft.pb.s"

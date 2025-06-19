@@ -1,0 +1,50 @@
+syntax = "proto3";
+package alyncoin.net;
+
+import "block_protos.proto";
+import "blockchain_protos.proto";
+
+message Handshake {
+  string version = 1;
+  string network_id = 2;
+  uint64 height = 3;
+  repeated string capabilities = 4;
+}
+
+message Ping {}
+message Pong {}
+message HeightRequest {}
+message HeightResponse {
+  uint64 height = 1;
+}
+
+message BlockBroadcast {
+  alyncoin.BlockProto block = 1;
+}
+
+message BlockBatch {
+  alyncoin.BlockchainProto chain = 1;
+}
+
+message SnapshotChunk { bytes data = 1; }
+message SnapshotEnd {}
+message TailBlocks {
+  repeated alyncoin.BlockProto blocks = 1;
+}
+message EpochProof { bytes data = 1; }
+
+message Frame {
+  oneof kind {
+    Handshake handshake = 1;
+    Ping ping = 2;
+    Pong pong = 3;
+    HeightRequest height_req = 4;
+    HeightResponse height_res = 5;
+    BlockBroadcast block_broadcast = 6;
+    BlockBatch block_batch = 7;
+    SnapshotChunk snapshot_chunk = 8;
+    SnapshotEnd snapshot_end = 9;
+    TailBlocks tail_blocks = 10;
+    EpochProof agg_proof = 11;
+  }
+}
