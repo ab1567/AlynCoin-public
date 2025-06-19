@@ -1099,7 +1099,11 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
         return;
     }
     if (data.rfind(TAIL_BLOCKS, 0) == 0) {
-        handleTailBlocks(claimedPeerId, data.substr(strlen(TAIL_BLOCKS)));
+        InFlightData& infl = inflight[claimedPeerId];
+        infl.peer   = claimedPeerId;
+        infl.prefix = TAIL_BLOCKS;
+        infl.base64 = data.substr(strlen(TAIL_BLOCKS));
+        infl.active = true;
         return;
     }
     if (data == REQ_SNAPSHOT) {
@@ -1181,7 +1185,6 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
     }
 
     // --- Block, batch, and agg proof (base64/proto) ---
-    static thread_local std::unordered_map<std::string, InFlightData> inflight;
 
     if (data.rfind(blockBroadcastPrefix, 0) == 0) {
         InFlightData& infl = inflight[claimedPeerId];
@@ -1253,7 +1256,11 @@ void Network::handleIncomingData(const std::string& claimedPeerId,
                                       inflIt->second.base64, transport);
                     inflIt->second.active = false;
                 }
-            }
+            } else if (inflIt->second.prefix == TAIL_BLOCKS) {
+                handleTailBlocks(claimedPeerId, inflIt->second.base64);
+                inflIt->second.active = false;
+                inflight.erase(inflIt);
+		 }
             if (inflIt->second.active && inflIt->second.base64.size() > 5000)
                 inflIt->second.active = false;
         } catch (...) {
@@ -2511,7 +2518,7 @@ void Network::sendTailBlocks(std::shared_ptr<Transport> transport, int fromHeigh
     if (!proto.SerializeToString(&raw)) return;
     std::string b64 = Crypto::base64Encode(raw, false);
 
-    const size_t MAX_PAYLOAD = 60 * 1024; // keep single frame under 64kB
+   const size_t MAX_PAYLOAD = 7 * 1024;
     for (size_t off = 0; off < b64.size(); off += MAX_PAYLOAD) {
         transport->queueWrite("ALYN|TAIL_BLOCKS|" + b64.substr(off, MAX_PAYLOAD) + "\n");
     }
