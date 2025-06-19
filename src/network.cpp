@@ -2543,9 +2543,16 @@ void Network::sendTailBlocks(std::shared_ptr<Transport> transport, int fromHeigh
     if (!proto.SerializeToString(&raw)) return;
     std::string b64 = Crypto::base64Encode(raw, false);
 
-   const size_t MAX_PAYLOAD = 7 * 1024;
+    const size_t MAX_PAYLOAD = 7 * 1024;
+    bool first = true;
     for (size_t off = 0; off < b64.size(); off += MAX_PAYLOAD) {
-        transport->queueWrite("ALYN|TAIL_BLOCKS|" + b64.substr(off, MAX_PAYLOAD) + "\n");
+        std::string chunk = b64.substr(off, MAX_PAYLOAD);
+        if (first) {
+            transport->queueWrite("ALYN|TAIL_BLOCKS|" + chunk + "\n");
+            first = false;
+        } else {
+            transport->queueWrite(chunk + "\n");
+        }
     }
 }
 //
