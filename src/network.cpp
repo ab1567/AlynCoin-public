@@ -1542,8 +1542,6 @@ void Network::dispatch(const alyncoin::net::Frame& f, const std::string& peer)
 
 bool Network::connectToNode(const std::string& host, int port)
 {
-    constexpr size_t MAX_PEERS = 32;
-
     if (peerTransports.size() >= MAX_PEERS) {
         std::cerr << "⚠️ [connectToNode] peer cap reached, skip " << host << ':' << port << '\n';
         return false;

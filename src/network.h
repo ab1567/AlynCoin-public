@@ -24,7 +24,8 @@
 
 using boost::asio::ip::tcp;
 
-constexpr size_t MAX_SNAPSHOT_CHUNK_SIZE = 16 * 1024 * 1024;
+constexpr size_t MAX_SNAPSHOT_CHUNK_SIZE = 16 * 1024;   // 16 KB chunks
+constexpr size_t MAX_PEERS               = 32;
 
 class Network {
 public:
