@@ -25,6 +25,7 @@ public:
     int          getRemotePort()   const override;
     std::string  readLineBlocking() override;
     std::string  readLineWithTimeout(int seconds) override;
+    bool         waitReadable(int seconds) override;
 
     // === NEW: BINARY ===
     bool         writeBinary(const std::string& data) override;

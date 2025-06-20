@@ -20,6 +20,8 @@ public:
     virtual int          getRemotePort() const  { return 0;  }
     virtual std::string  readLineBlocking()                 { return {}; }
     virtual std::string  readLineWithTimeout(int /*sec*/)   { return {}; }
+    // Wait until readable or timeout. Default returns true.
+    virtual bool         waitReadable(int /*seconds*/)      { return true; }
 
     // ==== NEW: BINARY SUPPORT ====
     virtual bool writeBinary(const std::string& data) = 0;
