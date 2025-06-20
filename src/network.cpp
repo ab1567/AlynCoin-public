@@ -103,6 +103,15 @@ unsigned short Network::findAvailablePort(unsigned short startPort, int maxTries
 void Network::sendFrame(std::shared_ptr<Transport> tr, const google::protobuf::Message& m)
 {
     if (!tr || !tr->isOpen()) return;
+    const alyncoin::net::Frame* fr = dynamic_cast<const alyncoin::net::Frame*>(&m);
+    if (fr) {
+        std::string tag = fr->has_block_broadcast() ? "BLOCK"
+                        : fr->has_snapshot_chunk() ? "SNAP_CHUNK"
+                        : fr->has_snapshot_end()   ? "SNAP_END"
+                        : fr->has_snapshot_req()   ? "SNAP_REQ"
+                        : "OTHER";
+        std::cerr << "[>>] Outgoing Frame Type=" << tag << "\n";
+    }
     std::string payload = m.SerializeAsString();
     uint8_t var[10];
     size_t n = encodeVarInt(payload.size(), var);
@@ -1433,6 +1442,12 @@ void Network::startBinaryReadLoop(const std::string& peerId, std::shared_ptr<Tra
 
 void Network::dispatch(const alyncoin::net::Frame& f, const std::string& peer)
 {
+    std::string tag = f.has_block_broadcast() ? "BLOCK"
+                    : f.has_snapshot_chunk() ? "SNAP_CHUNK"
+                    : f.has_snapshot_end()   ? "SNAP_END"
+                    : f.has_snapshot_req()   ? "SNAP_REQ"
+                    : "OTHER";
+    std::cerr << "[<<] Incoming Frame from " << peer << " Type=" << tag << "\n";
     switch (f.kind_case()) {
         case alyncoin::net::Frame::kBlockBroadcast: {
             Block blk = Block::fromProto(f.block_broadcast().block());
