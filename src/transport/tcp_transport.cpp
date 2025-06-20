@@ -8,6 +8,7 @@
 #include <mutex>
 #include <iostream>
 #include <cstring>
+#include "wire/varint.h"
 
 TcpTransport::TcpTransport(boost::asio::io_context& ctx)
     : socket(std::make_shared<boost::asio::ip::tcp::socket>(ctx)) {}
@@ -44,18 +45,12 @@ bool TcpTransport::write(const std::string& data)
     }
 }
 
-// === BINARY WRITE: 4-byte length + raw payload ===
+// === BINARY WRITE: raw protobuf frame ===
 bool TcpTransport::writeBinary(const std::string& data)
 {
     if (!isOpen()) return false;
     try {
-        uint32_t len = static_cast<uint32_t>(data.size());
-        uint32_t net_len = htonl(len); // network byte order (big-endian)
-        std::vector<boost::asio::const_buffer> buffers;
-        buffers.push_back(boost::asio::buffer(&net_len, sizeof(net_len)));
-        if (!data.empty())
-            buffers.push_back(boost::asio::buffer(data));
-        boost::asio::write(*socket, buffers);
+        boost::asio::write(*socket, boost::asio::buffer(data));
         return true;
     } catch (const std::exception& ex) {
         std::cerr << "[TcpTransport::writeBinary] " << ex.what() << '\n';
@@ -68,20 +63,19 @@ std::string TcpTransport::readBinaryBlocking()
 {
     if (!isOpen()) return {};
     try {
-        uint32_t net_len = 0;
-        size_t read1 = boost::asio::read(*socket, boost::asio::buffer(&net_len, sizeof(net_len)));
-        if (read1 != sizeof(net_len))
-            return {};
-        uint32_t len = ntohl(net_len);
-        if (len == 0 || len > 32 * 1024 * 1024) // 32MB sanity
-            return {};
-        std::string buf(len, '\0');
-        size_t total = 0;
-        while (total < len) {
-            size_t got = boost::asio::read(*socket, boost::asio::buffer(&buf[total], len - total));
-            if (got == 0) return {};
-            total += got;
+        uint8_t hdr[10];
+        size_t pos = 0; uint64_t need = 0; size_t used = 0;
+        while (pos < sizeof(hdr)) {
+            size_t got = boost::asio::read(*socket, boost::asio::buffer(hdr + pos, 1));
+            if (got != 1) return {};
+            ++pos;
+            if (decodeVarInt(hdr, pos, &need, &used))
+                break;
         }
+        if (used == 0 || need > 32 * 1024 * 1024)
+            return {};
+        std::string buf(need, '\0');
+        boost::asio::read(*socket, boost::asio::buffer(buf));
         return buf;
     } catch (const std::exception& ex) {
         std::cerr << "[TcpTransport::readBinaryBlocking] " << ex.what() << '\n';
@@ -135,34 +129,43 @@ std::string TcpTransport::readLineWithTimeout(int /*seconds*/)
 //
 void TcpTransport::startReadBinaryLoop(std::function<void(const boost::system::error_code&, const std::string&)> cb)
 {
-    auto self = shared_from_this();
-    auto lenBuf = std::make_shared<std::array<uint8_t,4>>();
+    auto self   = shared_from_this();
+    auto header = std::make_shared<std::vector<uint8_t>>(1);
 
-    boost::asio::async_read(*socket, boost::asio::buffer(*lenBuf),
-        [this, self, lenBuf, cb](const boost::system::error_code& ec, std::size_t)
-        {
-            if (ec) { cb(ec, {}); return; }
+    std::shared_ptr<std::function<void(const boost::system::error_code&, std::size_t)>> readHeader;
+    readHeader = std::make_shared<std::function<void(const boost::system::error_code&, std::size_t)>>();
 
-            uint32_t net_len;
-            std::memcpy(&net_len, lenBuf->data(), 4);
-            uint32_t len = ntohl(net_len);
-            if (len == 0 || len > 32*1024*1024) {
-                boost::system::error_code err = boost::asio::error::invalid_argument;
-                cb(err, {});
+    *readHeader = [this, self, header, cb, readHeader](const boost::system::error_code& ec, std::size_t) {
+        if (ec) { cb(ec, {}); return; }
+
+        uint64_t len = 0; size_t used = 0;
+        if (decodeVarInt(header->data(), header->size(), &len, &used)) {
+            if (len == 0 || len > 32 * 1024 * 1024) {
+                cb(boost::asio::error::invalid_argument, {});
                 return;
             }
-            auto buf = std::make_shared<std::vector<char>>(len);
-            boost::asio::async_read(*socket, boost::asio::buffer(*buf),
-                [this, self, buf, cb](const boost::system::error_code& ec2, std::size_t)
-                {
+            auto body = std::make_shared<std::vector<char>>(len);
+            boost::asio::async_read(*socket, boost::asio::buffer(*body),
+                [this, self, body, cb, header, readHeader](const boost::system::error_code& ec2, std::size_t) {
                     std::string out;
                     if (!ec2)
-                        out.assign(buf->data(), buf->size());
+                        out.assign(body->data(), body->size());
                     cb(ec2, out);
-                    if (!ec2)
-                        self->startReadBinaryLoop(cb);
+                    if (!ec2) {
+                        header->clear();
+                        header->resize(1);
+                        boost::asio::async_read(*self->socket, boost::asio::buffer(*header), *readHeader);
+                    }
                 });
-        });
+        } else if (header->size() < 10) {
+            header->resize(header->size() + 1);
+            boost::asio::async_read(*socket, boost::asio::buffer(header->data() + header->size() - 1, 1), *readHeader);
+        } else {
+            cb(boost::asio::error::invalid_argument, {});
+        }
+    };
+
+    boost::asio::async_read(*socket, boost::asio::buffer(*header), *readHeader);
 }
 
 // ---- Async queue write implementation ----
