@@ -171,8 +171,6 @@ public:
   void saveRollupChain() const;
   void loadRollupChain();
   void mergeRollupChain(const std::vector<RollupBlock> &otherChain);
-  std::vector<RollupBlock> deserializeRollupChain(const std::string &data);
-  RollupBlock deserializeRollupBlock(const std::string &data);
   double getTotalBurnedSupply() const { return totalBurnedSupply; }
   double getTotalSupply() const;
   Block createBlock(const std::string &minerDilithiumKey,

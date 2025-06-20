@@ -25,7 +25,6 @@
 #include <cstring>
 #include <chrono>
 #include <iomanip>
-#include <json/json.h>
 #include <sstream>
 #include <thread>
 #include <unordered_set>
@@ -922,22 +921,6 @@ std::vector<std::string> Network::getPeers() {
 }
 
 //
-RollupBlock deserializeRollupBlock(const std::string &data) {
-  return RollupBlock::deserialize(data);
-}
-
-std::vector<RollupBlock> deserializeRollupChain(const std::string &data) {
-  std::vector<RollupBlock> chain;
-  Json::Reader reader;
-  Json::Value root;
-  reader.parse(data, root);
-
-  for (const auto &blk : root) {
-    chain.push_back(RollupBlock::deserialize(blk.toStyledString()));
-  }
-  return chain;
-}
-//
 void Network::sendStateProof(std::shared_ptr<Transport> tr)
 {
     if (!tr || !tr->isOpen()) return;
@@ -1121,22 +1104,6 @@ void Network::receiveTransaction(const Transaction &tx) {
 }
 
 // Valid peer
-bool Network::validatePeer(const std::string &peer) {
-  if (peer.find(":") == std::string::npos) { // ✅ Correct format check
-    return false;
-  }
-
-  if (peerTransports.find(peer) != peerTransports.end()) {
-    return false;
-  }
-
-  std::string handshakeMessage = "PEER_HANDSHAKE";
-  sendData(peer, handshakeMessage);
-
-  std::cout << "✅ Peer validated: " << peer << std::endl;
-  return true;
-}
-
 // Handle new block
 void Network::handleNewBlock(const Block &newBlock) {
     Blockchain &blockchain = Blockchain::getInstance();
@@ -1635,16 +1602,6 @@ bool Network::connectToNode(const std::string& host, int port)
     }
 }
 //
-void Network::sendLatestBlockIndex(const std::string &peerIP) {
-  Json::Value msg;
-  msg["type"] = "latest_block_index";
-  msg["data"] = Blockchain::getInstance().getLatestBlock().getIndex();
-  msg["note"] =
-      "Supports Dilithium + Falcon signatures"; // Optional extra clarity
-  Json::StreamWriterBuilder writer;
-  sendData(peerIP, Json::writeString(writer, msg));
-}
-//
 void Network::handleReceivedBlockIndex(const std::string &peerIP, int peerBlockIndex) {
     int localIndex = Blockchain::getInstance().getLatestBlock().getIndex();
 
@@ -1817,7 +1774,7 @@ void Network::receiveRollupBlock(const std::string &data) {
   }
 
   // Deserialize rollup block and handle it
-  RollupBlock rollupBlock = deserializeRollupBlock(data);
+  RollupBlock rollupBlock = RollupBlock::deserialize(data);
   Blockchain::getInstance().addRollupBlock(rollupBlock);
   std::cout << "✅ Rollup block received and added to blockchain!\n";
 }
