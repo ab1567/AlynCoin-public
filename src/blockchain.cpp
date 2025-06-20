@@ -211,7 +211,7 @@ Block Blockchain::createGenesisBlock(bool force)
     std::string prevHash      = std::string{GENESIS_PARENT_HASH};
     std::string creator       = "System";
     uint64_t    fixedTime     = 1713120000;            // 2024-Apr-14 00:00 UTC
-    difficulty  = calculateSmartDifficulty(*this);
+    difficulty  = GENESIS_DIFFICULTY;
     /* ----------------------------------------------------------------- */
 
     Block genesis(0, prevHash, transactions,
