@@ -165,6 +165,38 @@ void TcpTransport::asyncReadLine(
             cb(ec, line);
         });
 }
+//
+void TcpTransport::startReadBinaryLoop(std::function<void(const boost::system::error_code&, const std::string&)> cb)
+{
+    auto self = shared_from_this();
+    auto lenBuf = std::make_shared<std::array<uint8_t,4>>();
+
+    boost::asio::async_read(*socket, boost::asio::buffer(*lenBuf),
+        [this, self, lenBuf, cb](const boost::system::error_code& ec, std::size_t)
+        {
+            if (ec) { cb(ec, {}); return; }
+
+            uint32_t net_len;
+            std::memcpy(&net_len, lenBuf->data(), 4);
+            uint32_t len = ntohl(net_len);
+            if (len == 0 || len > 32*1024*1024) {
+                boost::system::error_code err = boost::asio::error::invalid_argument;
+                cb(err, {});
+                return;
+            }
+            auto buf = std::make_shared<std::vector<char>>(len);
+            boost::asio::async_read(*socket, boost::asio::buffer(*buf),
+                [this, self, buf, cb](const boost::system::error_code& ec2, std::size_t)
+                {
+                    std::string out;
+                    if (!ec2)
+                        out.assign(buf->data(), buf->size());
+                    cb(ec2, out);
+                    if (!ec2)
+                        self->startReadBinaryLoop(cb);
+                });
+        });
+}
 
 // ---- Async queue write implementation ----
 void TcpTransport::queueWrite(const std::string& data)

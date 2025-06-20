@@ -1356,8 +1356,12 @@ src/CMakeFiles/alyncoin_lib.dir/self_healing/health_monitor.cpp.o: \
  /root/AlynCoin/src/network/peer_manager.h \
  /root/AlynCoin/src/network/peer_blacklist.h /root/AlynCoin/src/block.h \
  /root/AlynCoin/src/utils/logger.h /root/AlynCoin/src/network.h \
- /root/AlynCoin/src/blockchain.h /usr/include/c++/13/thread \
- /usr/include/c++/13/bits/this_thread_sleep.h \
+ /root/AlynCoin/src/blockchain.h \
+ /root/AlynCoin/src/generated/net_frame.pb.h \
+ /usr/include/google/protobuf/generated_message_bases.h \
+ /usr/include/google/protobuf/io/zero_copy_stream_impl.h \
+ /root/AlynCoin/src/generated/blockchain_protos.pb.h \
+ /usr/include/c++/13/thread /usr/include/c++/13/bits/this_thread_sleep.h \
  /root/AlynCoin/src/network/peer_manager.h \
  /root/AlynCoin/src/transport/transport.h \
  /root/AlynCoin/src/transport/peer_globals.h /usr/include/c++/13/iomanip \

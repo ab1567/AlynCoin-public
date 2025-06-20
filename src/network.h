@@ -11,6 +11,7 @@
 #include <boost/asio.hpp>
 #include <fstream>
 #include <iostream>
+#include "generated/net_frame.pb.h"
 #include <mutex>
 #include <string>
 #include <thread>
@@ -156,10 +157,12 @@ private:
     PeerBlacklist *blacklist;
     std::unordered_set<std::string> seenTxHashes;
     static Network *instancePtr;
-   std::vector<std::thread> threads_;
+    std::vector<std::thread> threads_;
 
     // Helpers reused by handlePeer & connectToNode
     void startReadLoop(const std::string& peerId, std::shared_ptr<Transport> transport);
+    void startBinaryReadLoop(const std::string& peerId, std::shared_ptr<Transport> transport);
+    void dispatch(const alyncoin::net::Frame& f, const std::string& peerId);
     void sendInitialRequests(const std::string& peerId);
     void handlePeer(std::shared_ptr<Transport> transport);
     bool validateBlockSignatures(const Block &blk);

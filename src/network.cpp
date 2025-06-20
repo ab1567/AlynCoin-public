@@ -635,12 +635,11 @@ void Network::requestPeerList() {
 // Handle Peer (Transport version)
 void Network::handlePeer(std::shared_ptr<Transport> transport)
 {
-    std::string realPeerId, claimedPeerId, handshakeLine;
-    std::string claimedPort, claimedVersion, claimedNetwork, claimedIP;
+    std::string realPeerId, claimedPeerId;
+    std::string claimedVersion, claimedNetwork;
     int  remoteHeight = 0;
     bool remoteAgg   = false;
     bool remoteSnap  = false;
-    bool remoteBinary = false;
 
     /* what *we* look like to the outside world */
     const auto selfAddr = [this]{
@@ -651,58 +650,29 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
 
     // ── 1. read + verify handshake ──────────────────────────────────────────
     try {
-        handshakeLine = transport->readLineBlocking();
-        static constexpr const char* protoPrefix = "ALYN|";
-        if (handshakeLine.rfind(protoPrefix, 0) == 0)
-            handshakeLine.erase(0, std::strlen(protoPrefix));
+        std::string blob = transport->readBinaryBlocking();
+        alyncoin::net::Frame fr;
+        if (blob.empty() || !fr.ParseFromString(blob) || !fr.has_handshake())
+            throw std::runtime_error("invalid handshake");
 
-        std::string handshakeBuf = handshakeLine;
-        Json::Value root;
-        Json::CharReaderBuilder rdr; std::string errs;
-        auto parse = [&]{
-            std::istringstream iss(handshakeBuf);
-            return Json::parseFromStream(rdr, iss, &root, &errs) &&
-                   root["type"] == "handshake";
-        };
+        const auto& hs = fr.handshake();
 
-        int tries = 0;
-        while (!parse()) {
-            if (++tries > 3 || handshakeBuf.size() > 4096)
-                throw std::runtime_error("invalid handshake");
-            std::string extra = transport->readLineBlocking();
-            if (extra.rfind(protoPrefix,0)==0) extra.erase(0,5);
-            handshakeBuf += extra;
-        }
-
-        /* real endpoint */
         const std::string senderIP   = transport->getRemoteIP();
         const int         senderPort = transport->getRemotePort();
         realPeerId                    = senderIP + ':' + std::to_string(senderPort);
 
-        /* claimed */
-        claimedPort    = root["port"].asString();
-        claimedVersion = root["version"].asString();
-        claimedNetwork = root.get("network_id","").asString();
-        claimedIP      = root.get("ip",senderIP).asString();
-        remoteHeight   = root.get("height",0).asInt();
+        claimedVersion = hs.version();
+        claimedNetwork = hs.network_id();
+        remoteHeight   = static_cast<int>(hs.height());
 
-        if (root.isMember("capabilities")) {
-            for (const auto& c : root["capabilities"]) {
-                const std::string cap = c.asString();
-                if (cap == "agg_proof_v1")  remoteAgg  = true;
-                if (cap == "snapshot_v1")   remoteSnap = true;
-                if (cap == "binary_v2")     remoteBinary = true;
-            }
+        for (const auto& cap : hs.capabilities()) {
+            if (cap == "agg_proof_v1")  remoteAgg  = true;
+            if (cap == "snapshot_v1")   remoteSnap = true;
         }
 
-        /* normalise port */
-        try { claimedPort = std::to_string(std::stoi(claimedPort, nullptr, 0)); }
-        catch(...) { throw std::runtime_error("bad port in handshake"); }
-
-        claimedPeerId = claimedIP + ":" + claimedPort;
+        claimedPeerId = realPeerId;
 
         std::cout << "🤝 Handshake from " << realPeerId
-                  << " | claimed "  << claimedPeerId
                   << " | ver "      << claimedVersion
                   << " | net "      << claimedNetwork
                   << " | height "   << remoteHeight << '\n';
@@ -727,8 +697,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
                 peerTransports[realPeerId] = {transport, std::make_shared<PeerState>()};
             }
 
-            if (!handshakeLine.empty())
-                handleIncomingData(realPeerId, handshakeLine, transport);
+            // legacy handshake ignored in binary-only mode
         }
         catch(...) { std::cerr << "❌ [handlePeer] fallback failed\n"; }
         return;
@@ -750,7 +719,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
         if (!entry.state) entry.state = std::make_shared<PeerState>();
         entry.state->supportsAggProof  = remoteAgg;
         entry.state->supportsSnapshot = remoteSnap;
-        entry.state->supportsBinary   = remoteBinary;
+        entry.state->supportsBinary   = true;
 
         if (peerManager) {
             peerManager->connectToPeer(claimedPeerId);
@@ -768,30 +737,21 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
 
     // ── 4. push our handshake back ──────────────────────────────────────────
     {
-        Json::Value hs;
-        hs["type"]         = "handshake";
-        hs["port"]         = std::to_string(port);
-        hs["version"]      = "1.0.0";
-        hs["network_id"]   = "mainnet";
-        hs["capabilities"] = Json::arrayValue;
-        hs["capabilities"].append("full");
-        hs["capabilities"].append("miner");
-        hs["capabilities"].append("agg_proof_v1");
-        hs["capabilities"].append("snapshot_v1");
-        hs["capabilities"].append("binary_v2");
-        hs["height"]       = Blockchain::getInstance().getHeight();
-
-        Json::StreamWriterBuilder wr; wr["indentation"] = "";
-        transport->queueWrite("ALYN|" + Json::writeString(wr, hs) + '\n');
+        alyncoin::net::Handshake hs;
+        hs.set_version("1.0.0");
+        hs.set_network_id("mainnet");
+        hs.set_height(Blockchain::getInstance().getHeight());
+        hs.add_capabilities("full");
+        hs.add_capabilities("miner");
+        hs.add_capabilities("agg_proof_v1");
+        hs.add_capabilities("snapshot_v1");
+        alyncoin::net::Frame out;
+        *out.mutable_handshake() = hs;
+        sendFrame(transport, out);
     }
 
     // ── 5. arm read loop + initial requests ────────────────────────────────
-    transport->startReadLoop(
-        [this, claimedPeerId](const std::string& l){
-            auto it = peerTransports.find(claimedPeerId);
-            if (it != peerTransports.end())
-                handleIncomingData(claimedPeerId, l, it->second.tx);
-        });
+    startBinaryReadLoop(claimedPeerId, transport);
 
     sendInitialRequests(claimedPeerId);
 
@@ -807,13 +767,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
     autoSyncIfBehind();
     syncWithPeers();
 
-    // ── 7. optional reverse connect if they advertised an external port ────
-    try {
-        int theirPort = std::stoi(claimedPort);
-        if (theirPort>0 && theirPort!=port &&
-            claimedPeerId!=selfAddr() && !peerTransports.count(claimedPeerId))
-            connectToPeer(claimedIP, theirPort);
-    } catch (...) {}
+    // ── 7. optional reverse connect removed for binary protocol ──
 }
 // ✅ **Run Network Thread**
 void Network::run() {
@@ -1508,10 +1462,9 @@ void Network::broadcastBlock(const Block& block, bool /*force*/)
         std::cerr << "[BUG] EMPTY proto in broadcastBlock for idx=" << block.getIndex() << " hash=" << block.getHash() << "\n";
         return;
     }
-    std::string b64 = b64Flat(raw);
-
-    // Frame: "ALYN|BLOCK_BROADCAST|" + [base64] + "\n"
-    const std::string message = "ALYN|BLOCK_BROADCAST|" + b64 + "\n";
+    // Pre-build binary frame
+    alyncoin::net::Frame fr;
+    *fr.mutable_block_broadcast()->mutable_block() = proto;
 
     std::unordered_map<std::string, PeerEntry> peersCopy;
     {
@@ -1532,8 +1485,8 @@ void Network::broadcastBlock(const Block& block, bool /*force*/)
         if (!seen.insert(transport).second) continue;
 
         try {
-            transport->queueWrite(message);
-            std::cout << "✅ [broadcastBlock] Block " << block.getIndex() << " sent (base64 protobuf) to " << peerId << '\n';
+            sendFrame(transport, fr);
+            std::cout << "✅ [broadcastBlock] Block " << block.getIndex() << " sent to " << peerId << '\n';
         }
         catch (const std::exception& e) {
             std::cerr << "❌ [broadcastBlock] Send to " << peerId << " failed: " << e.what() << '\n';
@@ -1554,12 +1507,14 @@ void Network::broadcastBlocks(const std::vector<Block>& blocks)
         *proto.add_blocks() = b.toProtobuf();
     std::string raw;
     if (!proto.SerializeToString(&raw) || raw.empty()) return;
-    std::string b64 = b64Flat(raw);
-    const std::string msg = "ALYN|BLOCK_BATCH|" + b64 + "\n";
+
+    alyncoin::net::Frame fr;
+    fr.mutable_block_batch()->mutable_chain()->CopyFrom(proto);
+
     for (auto& [peerId, entry] : peerTransports) {
         auto transport = entry.tx;
         if (isSelfPeer(peerId) || !transport || !transport->isOpen()) continue;
-        transport->queueWrite(msg);
+        sendFrame(transport, fr);
     }
 }
 
@@ -1574,10 +1529,12 @@ void Network::sendBlockToPeer(const std::string& peer, const Block& blk)
     alyncoin::BlockProto proto = blk.toProtobuf();
     std::string raw;
     if (!proto.SerializeToString(&raw) || raw.empty()) return;
-    std::string b64 = b64Flat(raw);
-    sendData(peer, "ALYN|BLOCK_BROADCAST|" + b64);
+    alyncoin::net::Frame fr;
+    *fr.mutable_block_broadcast()->mutable_block() = proto;
+    auto it = peerTransports.find(peer);
+    if (it != peerTransports.end() && it->second.tx && it->second.tx->isOpen())
+        sendFrame(it->second.tx, fr);
 }
-
 //
 bool Network::isSelfPeer(const std::string& peer) const {
     std::string selfAddr = getSelfAddressAndPort();
@@ -2133,7 +2090,54 @@ void Network::startReadLoop(const std::string&           peerId,
     std::cout << "🔄 Read-loop armed for " << peerId << '\n';
     transport->asyncReadLine(*self);
 }
+void Network::startBinaryReadLoop(const std::string& peerId,
+                                  std::shared_ptr<Transport> transport)
+{
+    using ReadCB = std::function<void(const boost::system::error_code&, const std::string&)>;
+    auto self = std::make_shared<ReadCB>();
+    *self = [this, peerId, transport, self](const boost::system::error_code& ec, const std::string& blob)
+    {
+        if (ec || !transport->isOpen()) {
+            std::cerr << "🔌 disconnect " << peerId << " : " << ec.message() << '\n';
+            std::lock_guard<std::timed_mutex> lk(peersMutex);
+            peerTransports.erase(peerId);
+            return;
+        }
+        if (!blob.empty()) {
+            uint64_t need = 0; size_t used = 0;
+            const uint8_t* data = reinterpret_cast<const uint8_t*>(blob.data());
+            if (decodeVarInt(data, blob.size(), &need, &used) && used + need <= blob.size()) {
+                alyncoin::net::Frame f;
+                if (f.ParseFromArray(blob.data() + used, need))
+                    dispatch(f, peerId);
+            }
+        }
+    };
+    std::cout << "🔄 Binary read-loop armed for " << peerId << '\n';
+    transport->startReadBinaryLoop(*self);
+}
+
+void Network::dispatch(const alyncoin::net::Frame& f, const std::string& peer)
+{
+    switch (f.kind_case()) {
+        case alyncoin::net::Frame::kBlockBroadcast: {
+            Block blk = Block::fromProto(f.block_broadcast().block());
+            handleNewBlock(blk);
+            break;
+        }
+        case alyncoin::net::Frame::kBlockBatch: {
+            for (const auto& pb : f.block_batch().chain().blocks()) {
+                Block blk = Block::fromProto(pb);
+                handleNewBlock(blk);
+            }
+            break;
+        }
+        default:
+            std::cerr << "Unknown frame from " << peer << "\n";
+    }
+}
 // Connect to Node
+
 bool Network::connectToNode(const std::string& host, int port)
 {
     constexpr size_t MAX_PEERS = 32;
@@ -2170,45 +2174,31 @@ bool Network::connectToNode(const std::string& host, int port)
         }
 
         /* our handshake */
-        Json::Value hs;
-        hs["type"]         = "handshake";
-        hs["port"]         = std::to_string(this->port);
-        hs["version"]      = "1.0.0";
-        hs["network_id"]   = "mainnet";
-        hs["capabilities"] = Json::arrayValue;
-        hs["capabilities"].append("full");
-        hs["capabilities"].append("miner");
-        hs["capabilities"].append("agg_proof_v1");
-        hs["capabilities"].append("snapshot_v1");
-        hs["capabilities"].append("binary_v2");
-        hs["height"]       = Blockchain::getInstance().getHeight();
-
-        Json::StreamWriterBuilder wr; wr["indentation"] = "";
-        tx->queueWrite("ALYN|" + Json::writeString(wr, hs) + '\n');
+        alyncoin::net::Handshake hs;
+        hs.set_version("1.0.0");
+        hs.set_network_id("mainnet");
+        hs.set_height(Blockchain::getInstance().getHeight());
+        hs.add_capabilities("full");
+        hs.add_capabilities("miner");
+        hs.add_capabilities("agg_proof_v1");
+        hs.add_capabilities("snapshot_v1");
+        alyncoin::net::Frame out;
+        *out.mutable_handshake() = hs;
+        sendFrame(tx, out);
 
         /* read their handshake (2 s timeout) */
-        std::string remoteHs = tx->readLineWithTimeout(2);
-        if (remoteHs.rfind("ALYN|",0)==0) remoteHs.erase(0,5);
-
+        std::string blob = tx->readBinaryBlocking();
         bool theirAgg  = false;
         bool theirSnap = false;
-        bool theirBinary = false;
         int  theirHeight = 0;
-
-        if (!remoteHs.empty() && remoteHs.front()=='{' && remoteHs.back()=='}') {
-            Json::Value rh; Json::CharReaderBuilder rb; std::string errs;
-             std::istringstream iss(remoteHs);
-            if (Json::parseFromStream(rb, iss, &rh, &errs) &&
-                rh["type"]=="handshake")
-            {
-                theirHeight = rh.get("height",0).asInt();
-                if (rh.isMember("capabilities")) {
-                    for (const auto& c : rh["capabilities"]) {
-                        const std::string cap = c.asString();
-                        if (cap == "agg_proof_v1")  theirAgg  = true;
-                        if (cap == "snapshot_v1")   theirSnap = true;
-                        if (cap == "binary_v2")     theirBinary = true;
-                    }
+        if (!blob.empty()) {
+            alyncoin::net::Frame fr;
+            if (fr.ParseFromString(blob) && fr.has_handshake()) {
+                const auto& hs = fr.handshake();
+                theirHeight = static_cast<int>(hs.height());
+                for (const auto& c : hs.capabilities()) {
+                    if (c == "agg_proof_v1")  theirAgg  = true;
+                    if (c == "snapshot_v1")   theirSnap = true;
                 }
             }
         }
@@ -2218,7 +2208,7 @@ bool Network::connectToNode(const std::string& host, int port)
             auto st = peerTransports[peerKey].state;
             st->supportsAggProof  = theirAgg;
             st->supportsSnapshot = theirSnap;
-            st->supportsBinary   = theirBinary;
+            st->supportsBinary   = true;
         }
         if (peerManager) peerManager->setPeerHeight(peerKey, theirHeight);
 
@@ -2231,7 +2221,7 @@ bool Network::connectToNode(const std::string& host, int port)
         else if (theirHeight < localHeight && theirSnap)
             sendTailBlocks(tx, theirHeight);
 
-        startReadLoop(peerKey, tx);
+        startBinaryReadLoop(peerKey, tx);
         sendInitialRequests(peerKey);
 
         autoSyncIfBehind();

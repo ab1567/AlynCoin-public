@@ -31,6 +31,7 @@ public:
     // === NEW: BINARY ===
     bool         writeBinary(const std::string& data) override;
     std::string  readBinaryBlocking() override;
+    void         startReadBinaryLoop(std::function<void(const boost::system::error_code&, const std::string&)> cb) override;
 
     // Queue-based async write
     void         queueWrite(const std::string& data) override;

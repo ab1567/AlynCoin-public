@@ -1384,8 +1384,13 @@ src/CMakeFiles/nftcli.dir/nft/nft.cpp.o: /root/AlynCoin/src/nft/nft.cpp \
  /root/AlynCoin/src/generated/blockchain_protos.pb.h \
  /root/AlynCoin/src/generated/transaction_protos.pb.h \
  /root/AlynCoin/src/block.h /root/AlynCoin/src/blockchain.h \
- /root/AlynCoin/src/transaction.h /usr/include/c++/13/thread \
- /usr/include/c++/13/bits/this_thread_sleep.h \
+ /root/AlynCoin/src/transaction.h \
+ /root/AlynCoin/src/generated/net_frame.pb.h \
+ /usr/include/google/protobuf/generated_message_bases.h \
+ /usr/include/google/protobuf/io/zero_copy_stream_impl.h \
+ /root/AlynCoin/src/generated/block_protos.pb.h \
+ /root/AlynCoin/src/generated/blockchain_protos.pb.h \
+ /usr/include/c++/13/thread /usr/include/c++/13/bits/this_thread_sleep.h \
  /root/AlynCoin/src/network/peer_manager.h \
  /root/AlynCoin/src/network/peer_blacklist.h /root/AlynCoin/src/block.h \
  /root/AlynCoin/src/transport/transport.h \

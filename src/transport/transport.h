@@ -28,6 +28,7 @@ public:
     virtual bool writeBinary(const std::string& data) = 0;
     // Returns empty string on failure or disconnect.
     virtual std::string readBinaryBlocking() = 0;
+    virtual void startReadBinaryLoop(std::function<void(const boost::system::error_code&, const std::string&)> /*cb*/) {}
 
     // ---- Async queue based send ----
     // Default implementation falls back to blocking write().
