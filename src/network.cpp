@@ -1947,12 +1947,16 @@ void Network::sendSnapshot(std::shared_ptr<Transport> transport, int upToHeight)
     std::string raw;
     if (!snap.SerializeToString(&raw)) return;
 
-    const size_t CHUNK_SIZE = MAX_SNAPSHOT_CHUNK_SIZE;
+    const size_t CHUNK_SIZE = MAX_SNAPSHOT_CHUNK_SIZE - 64; // keep under limit
     for (size_t off = 0; off < raw.size(); off += CHUNK_SIZE) {
+        size_t len = std::min(CHUNK_SIZE, raw.size() - off);
+        std::cerr << "[SNAPSHOT] ➡️ Sending chunk offset=" << off
+                  << " len=" << len << "\n";
         alyncoin::net::Frame fr;
-        fr.mutable_snapshot_chunk()->set_data(raw.substr(off, CHUNK_SIZE));
+        fr.mutable_snapshot_chunk()->set_data(raw.substr(off, len));
         sendFrame(transport, fr);
     }
+    std::cerr << "[SNAPSHOT] ➡️ Sending final snapshot_end\n";
     alyncoin::net::Frame end; end.mutable_snapshot_end();
     sendFrame(transport, end);
 }
@@ -1977,9 +1981,14 @@ void Network::handleSnapshotChunk(const std::string& peer, const std::string& ch
     auto it = peerTransports.find(peer);
     if (it == peerTransports.end() || !it->second.state) return;
     auto ps = it->second.state;
+    std::cerr << "[SNAPSHOT] 🔸 Got chunk from " << peer
+              << " size=" << chunk.size()
+              << " (active=" << ps->snapshotActive << ")\n";
+    std::cerr << "[SNAPSHOT]    first bytes: "
+              << chunk.substr(0, std::min<size_t>(chunk.size(), 16)) << "\n";
+
     if (chunk.size() > MAX_SNAPSHOT_CHUNK_SIZE) {
-        std::cerr << "⚠️ [SNAPSHOT] Oversized chunk from peer " << peer
-                  << " (" << chunk.size() << " bytes). Ignoring." << std::endl;
+        std::cerr << "⚠️ [SNAPSHOT] Oversized chunk, clearing buffer\n";
         ps->snapshotActive = false;
         ps->snapshotB64.clear();
         return;
@@ -1998,6 +2007,8 @@ void Network::handleSnapshotEnd(const std::string& peer) {
     auto it = peerTransports.find(peer);
     if (it == peerTransports.end() || !it->second.state) return;
     auto ps = it->second.state;
+    std::cerr << "[SNAPSHOT] 🔴 SnapshotEnd from " << peer
+              << ", total buffered=" << ps->snapshotB64.size() << " bytes\n";
     try {
         std::string raw = ps->snapshotB64;
         SnapshotProto snap;
