@@ -830,19 +830,35 @@ void Network::autoSyncIfBehind() {
         int  peerHeight = peerManager->getPeerHeight(peerAddr);
         std::string peerTip = peerManager->getPeerTipHash(peerAddr);
 
+        std::cout << "[autoSync] peer=" << peerAddr
+                  << " height=" << peerHeight
+                  << " | local=" << myHeight << '\n';
+
         if (peerHeight > static_cast<int>(myHeight)) {
-            if      (peerSupportsSnapshot(peerAddr)) requestSnapshotSync(peerAddr);
-            else if (peerSupportsAggProof(peerAddr)) requestEpochHeaders(peerAddr);
+            if (peerSupportsSnapshot(peerAddr)) {
+                std::cout << "  → requesting snapshot sync\n";
+                requestSnapshotSync(peerAddr);
+            } else if (peerSupportsAggProof(peerAddr)) {
+                std::cout << "  → requesting epoch headers\n";
+                requestEpochHeaders(peerAddr);
+            }
         }
         else if (peerHeight == static_cast<int>(myHeight) &&
                  !peerTip.empty() && peerTip != myTip)
         {
-            if      (peerSupportsSnapshot(peerAddr)) requestSnapshotSync(peerAddr);
-            else if (peerSupportsAggProof(peerAddr)) requestEpochHeaders(peerAddr);
+            if (peerSupportsSnapshot(peerAddr)) {
+                std::cout << "  → tip mismatch, requesting snapshot sync\n";
+                requestSnapshotSync(peerAddr);
+            } else if (peerSupportsAggProof(peerAddr)) {
+                std::cout << "  → tip mismatch, requesting epoch headers\n";
+                requestEpochHeaders(peerAddr);
+            }
         }
         else if (peerHeight < static_cast<int>(myHeight)) {
-            if (peerSupportsSnapshot(peerAddr))
+            if (peerSupportsSnapshot(peerAddr)) {
+                std::cout << "  → sending tail blocks\n";
                 sendTailBlocks(tr, peerHeight);
+            }
         }
     }
 }
@@ -1554,7 +1570,20 @@ bool Network::connectToNode(const std::string& host, int port)
         sendFrame(tx, out);
 
         /* read their handshake (2 s timeout) */
-        std::string blob = tx->readBinaryBlocking();
+        std::string blob;
+        if (auto tcp = std::dynamic_pointer_cast<TcpTransport>(tx)) {
+            // Wait briefly for their handshake to arrive
+            if (!tcp->waitReadable(2)) {
+                std::cerr << "⚠️ [connectToNode] handshake timeout for "
+                          << peerKey << '\n';
+                std::lock_guard<std::timed_mutex> g(peersMutex);
+                peerTransports.erase(peerKey);
+                return false;
+            }
+            blob = tcp->readBinaryBlocking();
+        } else {
+            blob = tx->readBinaryBlocking();
+        }
         bool theirAgg  = false;
         bool theirSnap = false;
         int  theirHeight = 0;
@@ -1567,7 +1596,15 @@ bool Network::connectToNode(const std::string& host, int port)
                     if (c == "agg_proof_v1")  theirAgg  = true;
                     if (c == "snapshot_v1")   theirSnap = true;
                 }
+            } else {
+                blob.clear();
             }
+        }
+        if (blob.empty()) {
+            std::cerr << "⚠️ [connectToNode] invalid handshake from " << peerKey << '\n';
+            std::lock_guard<std::timed_mutex> g(peersMutex);
+            peerTransports.erase(peerKey);
+            return false;
         }
 
         {

@@ -8,6 +8,7 @@
 #include <mutex>
 #include <iostream>
 #include <cstring>
+#include <sys/select.h>
 #include "wire/varint.h"
 
 TcpTransport::TcpTransport(boost::asio::io_context& ctx)
@@ -124,6 +125,16 @@ std::string TcpTransport::readLineBlocking()
 std::string TcpTransport::readLineWithTimeout(int /*seconds*/)
 {
     return readLineBlocking();
+}
+
+bool TcpTransport::waitReadable(int seconds)
+{
+    if (!isOpen()) return false;
+    int fd = socket->native_handle();
+    fd_set rfd; FD_ZERO(&rfd); FD_SET(fd, &rfd);
+    struct timeval tv{seconds, 0};
+    int rc = select(fd+1, &rfd, nullptr, nullptr, seconds >= 0 ? &tv : nullptr);
+    return rc > 0 && FD_ISSET(fd, &rfd);
 }
 
 //
