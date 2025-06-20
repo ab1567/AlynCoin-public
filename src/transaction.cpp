@@ -21,23 +21,6 @@
 
 namespace fs = std::filesystem;
 
-// Create off-chain transactions for Layer-2
-class OffChainTransaction {
-public:
-  std::string sender;
-  std::string recipient;
-  double amount;
-  std::string txHash;      // Off-chain transaction hash
-  std::string layer2Proof; // Layer-2 Proof of transaction validity
-
-  // Add any other necessary fields for off-chain transactions
-
-  std::string calculateHash() const {
-    std::stringstream ss;
-    ss << sender << recipient << amount; // Hash based on relevant fields
-    return Crypto::hybridHash(ss.str());
-  }
-};
 // ✅ Constructor:
 Transaction::Transaction()
     : sender(""), recipient(""), amount(0), signatureDilithium(""),

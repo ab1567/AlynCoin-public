@@ -220,7 +220,7 @@ public:
   int findForkCommonAncestor(const std::vector<Block>& otherChain) const;
   uint64_t computeCumulativeDifficulty(const std::vector<Block>& chainRef) const;
   void setPendingForkChain(const std::vector<Block>& fork);
-  const std::vector<Block>& getPendingForkChain() const;
+  std::vector<Block> getPendingForkChain() const;
   void clearPendingForkChain();
   void compareAndMergeChains(const std::vector<Block>& otherChain);
   void saveForkView(const std::vector<Block>& forkChain);

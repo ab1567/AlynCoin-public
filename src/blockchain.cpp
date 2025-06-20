@@ -229,9 +229,10 @@ Block Blockchain::createGenesisBlock(bool force)
     /* ------------------------------------------------------------------ */
     /* key generation + signatures                                        */
     std::string rsaKeyPath = getPrivateKeyPath("System");
-    if (!fs::exists(rsaKeyPath)) {
-        std::cerr << "⚠️  RSA key missing for Genesis. Generating...\n";
+    if (!Crypto::keysExist("System")) {
+        std::cerr << "⚠️  Keys missing for Genesis. Generating...\n";
         Crypto::generateKeysForUser("System");
+        Crypto::generatePostQuantumKeys("System");
     }
 
     std::string rsaSig = Crypto::signMessage(genesis.getHash(),
@@ -1206,7 +1207,7 @@ bool Blockchain::loadFromDB() {
 
     std::cout << "🔁 [loadFromDB] Loaded " << loadedBlocks.size() << " blocks from RocksDB.\n";
 
-    const auto& pendingFork = getPendingForkChain();
+    std::vector<Block> pendingFork = getPendingForkChain();
     if (!pendingFork.empty()) {
         std::cout << "🔎 [Fork] Detected pending fork during loadFromDB(). Merging...\n";
         chain = loadedBlocks;
@@ -1683,7 +1684,7 @@ int Blockchain::getRecentTransactionCount() {
 
 // ✅ **Update Transaction History for Dynamic Burn Rate**
 void Blockchain::updateTransactionHistory(int newTxCount) {
-  if (recentTransactionCounts.size() > 100) {
+  if (recentTransactionCounts.size() >= 100) {
     recentTransactionCounts.pop_front(); // Keep last 100 blocks' data
   }
   recentTransactionCounts.push_back(newTxCount);
@@ -1699,8 +1700,8 @@ const Block& Blockchain::getLatestBlock() const {
     return chain.back();
 }
 //
- bool Blockchain::hasBlocks() const {
-     return !blocks.empty();
+bool Blockchain::hasBlocks() const {
+    return !chain.empty();
 }
 //
 bool Blockchain::hasBlockHash(const std::string &hash) const {
@@ -2927,14 +2928,17 @@ bool Blockchain::deserializeBlockchainForkView(const std::string& rawData, std::
 }
 //
 void Blockchain::setPendingForkChain(const std::vector<Block>& fork) {
+    std::lock_guard<std::mutex> lock(blockchainMutex);
     pendingForkChain = fork;
 }
 
 void Blockchain::clearPendingForkChain() {
+    std::lock_guard<std::mutex> lock(blockchainMutex);
     pendingForkChain.clear();
 }
 
-const std::vector<Block>& Blockchain::getPendingForkChain() const {
+std::vector<Block> Blockchain::getPendingForkChain() const {
+    std::lock_guard<std::mutex> lock(blockchainMutex);
     return pendingForkChain;
 }
 //
