@@ -81,7 +81,6 @@ public:
     void requestPeerList();
     void scanForPeers();
     void startServer();
-    void handleIncomingData(const std::string &senderIP, std::string data, std::shared_ptr<Transport> transport);
     void sendLatestBlock(const std::string &peerIP);
     void sendLatestBlockIndex(const std::string &peerIP);
     void handleReceivedBlockIndex(const std::string &peerIP, int peerBlockIndex);
@@ -121,8 +120,6 @@ public:
     void autoSyncIfBehind();
     const auto& getPeerTable() const { return peerTransports; }
     void waitForInitialSync(int timeoutSeconds = 10);
-    void handleBase64Proto(const std::string &peer, const std::string &prefix,
-                                const std::string &b64, std::shared_ptr<Transport> transport);
     void handleGetData(const std::string& peer, const std::vector<std::string>& hashes);
     void sendStateProof(std::shared_ptr<Transport> tr);
     void broadcastRaw(const std::string& msg);
@@ -163,7 +160,6 @@ private:
     std::vector<std::thread> threads_;
 
     // Helpers reused by handlePeer & connectToNode
-    void startReadLoop(const std::string& peerId, std::shared_ptr<Transport> transport);
     void startBinaryReadLoop(const std::string& peerId, std::shared_ptr<Transport> transport);
     void dispatch(const alyncoin::net::Frame& f, const std::string& peerId);
     void sendInitialRequests(const std::string& peerId);

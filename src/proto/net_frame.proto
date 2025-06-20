@@ -3,6 +3,7 @@ package alyncoin.net;
 
 import "block_protos.proto";
 import "blockchain_protos.proto";
+import "sync_protos.proto";
 
 message Handshake {
   string version = 1;
@@ -38,8 +39,10 @@ message TipHashResponse { string hash = 1; }
 message PeerListRequest {}
 message PeerList { repeated string peers = 1; }
 message RollupBlockMsg { bytes data = 1; }
-message SnapshotRequest {}
+message SnapshotRequest { string until_hash = 1; }
 message TailBlocksRequest { uint64 from_height = 1; }
+message GetData { repeated string hashes = 1; }
+message StateProof { alyncoin.StateProofProto proof = 1; }
 
 message Frame {
   oneof kind {
@@ -62,5 +65,7 @@ message Frame {
     RollupBlockMsg rollup_block = 17;
     SnapshotRequest snapshot_req = 18;
     TailBlocksRequest tail_req = 19;
+    StateProof state_proof = 20;
+    GetData get_data = 21;
   }
 }
