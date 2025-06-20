@@ -21,11 +21,9 @@
 #include "network/peer_manager.h"
 #include "transport/transport.h"
 #include "transport/peer_globals.h"  // <<--- ONLY include, don't redeclare!
+#include "constants.h"
 
 using boost::asio::ip::tcp;
-
-constexpr size_t MAX_SNAPSHOT_CHUNK_SIZE = 32 * 1024;   // 32 KB chunks
-constexpr size_t MAX_PEERS               = 32;
 
 class Network {
 public:
