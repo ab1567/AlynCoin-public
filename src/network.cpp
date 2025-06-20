@@ -1540,6 +1540,9 @@ void Network::dispatch(const alyncoin::net::Frame& f, const std::string& peer)
         case alyncoin::net::Frame::kTailReq:
             handleTailRequest(peer, f.tail_req().from_height());
             break;
+        case alyncoin::net::Frame::kBlockchainSyncRequest:
+            handleBlockchainSyncRequest(peer, f.blockchain_sync_request());
+            break;
         default:
             std::cerr << "Unknown frame from " << peer << "\n";
     }
@@ -2124,4 +2127,28 @@ void Network::sendForkRecoveryRequest(const std::string& peer, const std::string
     else
         fr.mutable_snapshot_req();
     sendFrame(it->second.tx, fr);
+}
+
+void Network::handleBlockchainSyncRequest(const std::string& peer,
+                                          const alyncoin::BlockchainSyncProto& request) {
+    std::cout << "📡 [SYNC REQUEST] Received from " << peer
+              << " type: " << request.request_type() << "\n";
+
+    if (request.request_type() == "full_sync") {
+        if (peerSupportsSnapshot(peer)) {
+            requestSnapshotSync(peer);
+        } else if (peerSupportsAggProof(peer)) {
+            requestEpochHeaders(peer);
+        } else {
+            int peerHeight = peerManager ? peerManager->getPeerHeight(peer) : 0;
+            auto it = peerTransports.find(peer);
+            if (it != peerTransports.end() && it->second.tx)
+                sendTailBlocks(it->second.tx, peerHeight);
+        }
+    } else if (request.request_type() == "latest_block") {
+        sendLatestBlock(peer);
+    } else {
+        std::cerr << "⚠️ [SYNC REQUEST] Unknown request type: "
+                  << request.request_type() << "\n";
+    }
 }

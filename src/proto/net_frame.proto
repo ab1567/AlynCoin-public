@@ -69,5 +69,6 @@ message Frame {
     TailBlocksRequest tail_req = 19;
     StateProof state_proof = 20;
     GetData get_data = 21;
+    BlockchainSyncProto blockchain_sync_request = 22;
   }
 }

@@ -28,11 +28,15 @@ void Syncing::syncWithNetwork() {
   alyncoin::BlockchainSyncProto syncProto;
   syncProto.set_request_type("full_sync");
 
-  std::string serializedData;
-  syncProto.SerializeToString(&serializedData);
+  alyncoin::net::Frame fr;
+  *fr.mutable_blockchain_sync_request() = syncProto;
 
-  std::string message = "ALYN|BLOCKCHAIN_SYNC_REQUEST|" + serializedData;
-  getNet().broadcastMessage(message);
+  Network &net = getNet();
+  for (const auto &peer : net.getPeers()) {
+      auto it = net.getPeerTable().find(peer);
+      if (it != net.getPeerTable().end() && it->second.tx)
+          net.sendFrame(it->second.tx, fr);
+  }
 }
 
 // ✅ Propagate regular block with zk-STARK & dual signature awareness

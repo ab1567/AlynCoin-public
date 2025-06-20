@@ -3331,6 +3331,7 @@ class Frame final :
     kTailReq = 19,
     kStateProof = 20,
     kGetData = 21,
+    kBlockchainSyncRequest = 22,
     KIND_NOT_SET = 0,
   };
 
@@ -3433,6 +3434,7 @@ class Frame final :
     kTailReqFieldNumber = 19,
     kStateProofFieldNumber = 20,
     kGetDataFieldNumber = 21,
+    kBlockchainSyncRequestFieldNumber = 22,
   };
   // .alyncoin.net.Handshake handshake = 1;
   bool has_handshake() const;
@@ -3812,6 +3814,24 @@ class Frame final :
       ::alyncoin::net::GetData* get_data);
   ::alyncoin::net::GetData* unsafe_arena_release_get_data();
 
+  // .alyncoin.BlockchainSyncProto blockchain_sync_request = 22;
+  bool has_blockchain_sync_request() const;
+  private:
+  bool _internal_has_blockchain_sync_request() const;
+  public:
+  void clear_blockchain_sync_request();
+  const ::alyncoin::BlockchainSyncProto& blockchain_sync_request() const;
+  PROTOBUF_NODISCARD ::alyncoin::BlockchainSyncProto* release_blockchain_sync_request();
+  ::alyncoin::BlockchainSyncProto* mutable_blockchain_sync_request();
+  void set_allocated_blockchain_sync_request(::alyncoin::BlockchainSyncProto* blockchain_sync_request);
+  private:
+  const ::alyncoin::BlockchainSyncProto& _internal_blockchain_sync_request() const;
+  ::alyncoin::BlockchainSyncProto* _internal_mutable_blockchain_sync_request();
+  public:
+  void unsafe_arena_set_allocated_blockchain_sync_request(
+      ::alyncoin::BlockchainSyncProto* blockchain_sync_request);
+  ::alyncoin::BlockchainSyncProto* unsafe_arena_release_blockchain_sync_request();
+
   void clear_kind();
   KindCase kind_case() const;
   // @@protoc_insertion_point(class_scope:alyncoin.net.Frame)
@@ -3838,6 +3858,7 @@ class Frame final :
   void set_has_tail_req();
   void set_has_state_proof();
   void set_has_get_data();
+  void set_has_blockchain_sync_request();
 
   inline bool has_kind() const;
   inline void clear_has_kind();
@@ -3870,6 +3891,7 @@ class Frame final :
       ::alyncoin::net::TailBlocksRequest* tail_req_;
       ::alyncoin::net::StateProof* state_proof_;
       ::alyncoin::net::GetData* get_data_;
+      ::alyncoin::BlockchainSyncProto* blockchain_sync_request_;
     } kind_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
     uint32_t _oneof_case_[1];
@@ -6596,6 +6618,72 @@ inline ::alyncoin::net::GetData* Frame::_internal_mutable_get_data() {
 inline ::alyncoin::net::GetData* Frame::mutable_get_data() {
   ::alyncoin::net::GetData* _msg = _internal_mutable_get_data();
   // @@protoc_insertion_point(field_mutable:alyncoin.net.Frame.get_data)
+  return _msg;
+}
+
+// .alyncoin.BlockchainSyncProto blockchain_sync_request = 22;
+inline bool Frame::_internal_has_blockchain_sync_request() const {
+  return kind_case() == kBlockchainSyncRequest;
+}
+inline bool Frame::has_blockchain_sync_request() const {
+  return _internal_has_blockchain_sync_request();
+}
+inline void Frame::set_has_blockchain_sync_request() {
+  _impl_._oneof_case_[0] = kBlockchainSyncRequest;
+}
+inline ::alyncoin::BlockchainSyncProto* Frame::release_blockchain_sync_request() {
+  // @@protoc_insertion_point(field_release:alyncoin.net.Frame.blockchain_sync_request)
+  if (_internal_has_blockchain_sync_request()) {
+    clear_has_kind();
+    ::alyncoin::BlockchainSyncProto* temp = _impl_.kind_.blockchain_sync_request_;
+    if (GetArenaForAllocation() != nullptr) {
+      temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.kind_.blockchain_sync_request_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::alyncoin::BlockchainSyncProto& Frame::_internal_blockchain_sync_request() const {
+  return _internal_has_blockchain_sync_request()
+      ? *_impl_.kind_.blockchain_sync_request_
+      : reinterpret_cast< ::alyncoin::BlockchainSyncProto&>(::alyncoin::_BlockchainSyncProto_default_instance_);
+}
+inline const ::alyncoin::BlockchainSyncProto& Frame::blockchain_sync_request() const {
+  // @@protoc_insertion_point(field_get:alyncoin.net.Frame.blockchain_sync_request)
+  return _internal_blockchain_sync_request();
+}
+inline ::alyncoin::BlockchainSyncProto* Frame::unsafe_arena_release_blockchain_sync_request() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:alyncoin.net.Frame.blockchain_sync_request)
+  if (_internal_has_blockchain_sync_request()) {
+    clear_has_kind();
+    ::alyncoin::BlockchainSyncProto* temp = _impl_.kind_.blockchain_sync_request_;
+    _impl_.kind_.blockchain_sync_request_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void Frame::unsafe_arena_set_allocated_blockchain_sync_request(::alyncoin::BlockchainSyncProto* blockchain_sync_request) {
+  clear_kind();
+  if (blockchain_sync_request) {
+    set_has_blockchain_sync_request();
+    _impl_.kind_.blockchain_sync_request_ = blockchain_sync_request;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:alyncoin.net.Frame.blockchain_sync_request)
+}
+inline ::alyncoin::BlockchainSyncProto* Frame::_internal_mutable_blockchain_sync_request() {
+  if (!_internal_has_blockchain_sync_request()) {
+    clear_kind();
+    set_has_blockchain_sync_request();
+    _impl_.kind_.blockchain_sync_request_ = CreateMaybeMessage< ::alyncoin::BlockchainSyncProto >(GetArenaForAllocation());
+  }
+  return _impl_.kind_.blockchain_sync_request_;
+}
+inline ::alyncoin::BlockchainSyncProto* Frame::mutable_blockchain_sync_request() {
+  ::alyncoin::BlockchainSyncProto* _msg = _internal_mutable_blockchain_sync_request();
+  // @@protoc_insertion_point(field_mutable:alyncoin.net.Frame.blockchain_sync_request)
   return _msg;
 }
 
