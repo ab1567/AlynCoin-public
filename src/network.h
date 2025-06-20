@@ -24,7 +24,7 @@
 
 using boost::asio::ip::tcp;
 
-constexpr size_t MAX_SNAPSHOT_CHUNK_SIZE = 16 * 1024;   // 16 KB chunks
+constexpr size_t MAX_SNAPSHOT_CHUNK_SIZE = 32 * 1024;   // 32 KB chunks
 constexpr size_t MAX_PEERS               = 32;
 
 class Network {
@@ -83,7 +83,6 @@ public:
     void scanForPeers();
     void startServer();
     void sendLatestBlock(const std::string &peerIP);
-    void sendLatestBlockIndex(const std::string &peerIP);
     void handleReceivedBlockIndex(const std::string &peerIP, int peerBlockIndex);
     void loadPeers();
     void savePeers();
@@ -108,7 +107,6 @@ public:
     void handleNewRollupBlock(const RollupBlock &newRollupBlock);
     void receiveRollupBlock(const std::string &data);
     void listenForConnections();
-    bool validatePeer(const std::string &peer);
     void handleNewBlock(const Block &newBlock);
     void blacklistPeer(const std::string &peer);
     bool isBlacklisted(const std::string &peer);
