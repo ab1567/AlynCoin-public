@@ -57,10 +57,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /root/AlynCoin
+CMAKE_SOURCE_DIR = $(CURDIR)
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /root/AlynCoin
+CMAKE_BINARY_DIR = $(CURDIR)
 
 #=============================================================================
 # Targets provided globally by CMake.
