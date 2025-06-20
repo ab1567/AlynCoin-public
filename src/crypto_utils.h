@@ -57,6 +57,7 @@ std::vector<unsigned char> getPublicKeyBytes(const std::string &walletAddress);
 std::string getPublicKey(const std::string &user);
 void generateKeysForUser(const std::string &username);
 void ensureUserKeys(const std::string &username);
+bool keysExist(const std::string &username);
 void ensureMinerKeys();
 std::string generateMinerAddress();
 
@@ -144,6 +145,5 @@ inline std::string normaliseHash(const std::string &hRaw)
 // Global key-path helpers
 std::string getPublicKeyPath(const std::string &username, const std::string &baseDir = KEY_DIR);
 std::string getPrivateKeyPath(const std::string &username, const std::string &baseDir = KEY_DIR);
-bool keysExist(const std::string &username);
 
 #endif // CRYPTO_UTILS_H
