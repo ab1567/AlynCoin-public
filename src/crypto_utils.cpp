@@ -835,6 +835,19 @@ void ensureUserKeys(const std::string &username) {
 bool fileExists(const std::string &path) {
   return std::filesystem::exists(path);
 }
+
+bool keysExist(const std::string &username) {
+    std::string rsaPriv = getPrivateKeyPath(username);
+    std::string rsaPub  = getPublicKeyPath(username);
+    std::string dilPriv = KEY_DIR + username + "_dilithium.key";
+    std::string dilPub  = KEY_DIR + username + "_dilithium.pub";
+    std::string falPriv = KEY_DIR + username + "_falcon.key";
+    std::string falPub  = KEY_DIR + username + "_falcon.pub";
+
+    return fileExists(rsaPriv) && fileExists(rsaPub) &&
+           fileExists(dilPriv) && fileExists(dilPub) &&
+           fileExists(falPriv) && fileExists(falPub);
+}
 // ✅ Ensure Miner Keys Exist (Auto-Handling)
 void ensureMinerKeys() {
   ensureKeysDirectory();

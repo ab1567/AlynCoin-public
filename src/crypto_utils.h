@@ -144,5 +144,6 @@ inline std::string normaliseHash(const std::string &hRaw)
 // Global key-path helpers
 std::string getPublicKeyPath(const std::string &username, const std::string &baseDir = KEY_DIR);
 std::string getPrivateKeyPath(const std::string &username, const std::string &baseDir = KEY_DIR);
+bool keysExist(const std::string &username);
 
 #endif // CRYPTO_UTILS_H

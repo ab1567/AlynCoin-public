@@ -131,7 +131,7 @@ std::string Block::calculateHash() const {
     }
     std::stringstream ss;
     ss << index << previousHash << txRoot << timestamp << nonce;
-    return Crypto::normaliseHash(Crypto::hybridHash(ss.str()));
+    return Crypto::hybridHash(ss.str());
 }
 
 // ✅ Mine Block with Protobuf and RocksDB Storage
@@ -160,7 +160,6 @@ bool Block::mineBlock(int difficulty) {
         std::stringstream ss;
         ss << index << previousHash << txRoot << timestamp << nonce;
         hash = Crypto::hybridHash(ss.str());
-	hash = Crypto::normaliseHash(hash);
     } while (hash.substr(0, difficulty) != std::string(difficulty, '0'));
 
     std::cout << "\n✅ [mineBlock] PoW Complete.\n"
