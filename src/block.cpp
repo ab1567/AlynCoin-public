@@ -72,50 +72,6 @@ Block::Block(int index, const std::string &previousHash,
   epochProof.clear();
 }
 
-// ✅ Copy Constructor
-Block::Block(const Block &other)
-    : index(other.index), previousHash(Crypto::normaliseHash(other.previousHash)),
-      transactions(other.transactions), hash(Crypto::normaliseHash(other.hash)),
-      minerAddress(other.minerAddress), nonce(other.nonce),
-      timestamp(other.timestamp), blockSignature(other.blockSignature),
-      keccakHash(other.keccakHash), difficulty(other.difficulty),
-      dilithiumSignature(other.dilithiumSignature),
-      falconSignature(other.falconSignature),
-      publicKeyDilithium(other.publicKeyDilithium),
-      publicKeyFalcon(other.publicKeyFalcon),
-      zkProof(other.zkProof),
-      epochRoot(other.epochRoot),
-      epochProof(other.epochProof),
-      reward(other.reward)
-{
-    setMerkleRoot(other.merkleRoot);
-}
-
-// ✅ Assignment Operator
-Block &Block::operator=(const Block &other) {
-    if (this != &other) {
-        index = other.index;
-        previousHash = other.previousHash;
-        transactions = other.transactions;
-        hash = other.hash;
-        minerAddress = other.minerAddress;
-        nonce = other.nonce;
-        timestamp = other.timestamp;
-        blockSignature = other.blockSignature;
-        keccakHash = other.keccakHash;
-        difficulty = other.difficulty;
-        dilithiumSignature = other.dilithiumSignature;
-        falconSignature = other.falconSignature;
-        publicKeyDilithium = other.publicKeyDilithium;
-        publicKeyFalcon = other.publicKeyFalcon;
-        zkProof = other.zkProof;
-        epochRoot = other.epochRoot;
-        epochProof = other.epochProof;
-        reward = other.reward;
-        setMerkleRoot(other.merkleRoot);
-    }
-    return *this;
-}
 
 //
 void Block::computeKeccakHash() {

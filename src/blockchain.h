@@ -231,6 +231,8 @@ public:
   void tryAttachOrphans(const std::string& parentHash);
   size_t getOrphanPoolSize() const;
 
+  std::map<uint64_t, Block> futureBlocks;
+
   std::unordered_map<std::string, std::vector<Block>> orphanBlocks;
   std::unordered_set<std::string>            requestedParents;
   std::unordered_set<std::string> orphanHashes;

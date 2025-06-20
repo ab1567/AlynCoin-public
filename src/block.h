@@ -52,8 +52,8 @@ public:
         const std::vector<Transaction> &transactions,
         const std::string &minerAddress, int difficulty,
         uint64_t timestamp, uint64_t nonce);
-  Block(const Block &other);
-  Block &operator=(const Block &other);
+  Block(const Block &other) = default;
+  Block &operator=(const Block &other) = default;
 
   // --- Getters ---
   int getIndex() const { return index; }

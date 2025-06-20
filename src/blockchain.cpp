@@ -28,7 +28,6 @@
 
 #define EMPTY_TX_ROOT_HASH "0c11a17c8610d35fe17aed2a5a5c682a6cdfb8b6ecf56a95605ebb1475b345de"
 #define ROLLUP_CHAIN_FILE "rollup_chain.dat"
-static std::map<uint64_t, Block> futureBlocks;
 namespace fs = std::filesystem;
 const std::string BLOCKCHAIN_DB_PATH = DBPaths::getBlockchainDB();
 std::vector<StateChannel> stateChannels;
@@ -360,7 +359,7 @@ bool Blockchain::addBlock(const Block &block) {
         if (block.getIndex() > expectedIndex) {
             std::cerr << "⚠️ [addBlock] Received future block. Index: " << block.getIndex()
                       << ", Expected: " << expectedIndex << ". Buffering (futureBlocks).\n";
-            futureBlocks[block.getIndex()] = block;
+            this->futureBlocks[block.getIndex()] = block;
             return false;
         }
     } else {
@@ -488,10 +487,10 @@ bool Blockchain::addBlock(const Block &block) {
 
     // 11. Try to add any future buffered blocks (old method)
     uint64_t nextIndex = chain.back().getIndex() + 1;
-    while (futureBlocks.count(nextIndex)) {
+    while (this->futureBlocks.count(nextIndex)) {
         std::cerr << "[addBlock] Applying buffered future block index: " << nextIndex << "\n";
-        Block buffered = futureBlocks[nextIndex];
-        futureBlocks.erase(nextIndex);
+        Block buffered = this->futureBlocks[nextIndex];
+        this->futureBlocks.erase(nextIndex);
         addBlock(buffered);
         nextIndex++;
     }

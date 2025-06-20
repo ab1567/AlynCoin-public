@@ -18,7 +18,6 @@
 #include <rocksdb/db.h>
 #include <sstream>
 #include <thread>
-#include "crypto_utils.h"
 
 namespace fs = std::filesystem;
 
@@ -322,7 +321,7 @@ std::string Transaction::toString() const {
 }
 
 //
-std::string Transaction::calculateHash() const {
+std::string Transaction::hashLegacy() const {
   Json::Value txJson;
   txJson["sender"] = sender;
   txJson["recipient"] = recipient;
@@ -418,16 +417,16 @@ void Transaction::signTransaction(const std::vector<unsigned char> &dilithiumPri
 
     // ✅ Step 2: Sign the transaction
     std::vector<unsigned char> dilithiumSigVec = Crypto::signWithDilithium(hashBytes, dilithiumPrivateKey);
-    signatureDilithium = Crypto::toHex(dilithiumSigVec);
+    signatureDilithium.assign(dilithiumSigVec.begin(), dilithiumSigVec.end());
 
     std::vector<unsigned char> falconSigVec = Crypto::signWithFalcon(hashBytes, falconPrivateKey);
-    signatureFalcon = Crypto::toHex(falconSigVec);
+    signatureFalcon.assign(falconSigVec.begin(), falconSigVec.end());
 
-    // ✅ Step 3: Attach public keys as hex
+    // ✅ Step 3: Attach public keys (raw)
     std::vector<unsigned char> pubDil = Crypto::getPublicKeyDilithium(sender);
     std::vector<unsigned char> pubFal = Crypto::getPublicKeyFalcon(sender);
-    senderPublicKeyDilithium = Crypto::toHex(pubDil);
-    senderPublicKeyFalcon = Crypto::toHex(pubFal);
+    senderPublicKeyDilithium.assign(pubDil.begin(), pubDil.end());
+    senderPublicKeyFalcon.assign(pubFal.begin(), pubFal.end());
 
     // ✅ Step 4: Generate zk-STARK proof
     zkProof = WinterfellStark::generateTransactionProof(sender, recipient, amount, timestamp);
@@ -475,12 +474,12 @@ bool Transaction::isValid(const std::string &senderPublicKeyDilithium,
 
     try {
         hashBytes = Crypto::fromHex(getHash());
-        sigDil = Crypto::fromHex(signatureDilithium);
-        sigFal = Crypto::fromHex(signatureFalcon);
-        pubKeyDil = Crypto::fromHex(senderPublicKeyDilithium);
-        pubKeyFal = Crypto::fromHex(senderPublicKeyFalcon);
+        sigDil.assign(signatureDilithium.begin(), signatureDilithium.end());
+        sigFal.assign(signatureFalcon.begin(), signatureFalcon.end());
+        pubKeyDil.assign(senderPublicKeyDilithium.begin(), senderPublicKeyDilithium.end());
+        pubKeyFal.assign(senderPublicKeyFalcon.begin(), senderPublicKeyFalcon.end());
     } catch (const std::exception &ex) {
-        std::cerr << "[ERROR] Hex decoding failed: " << ex.what() << "\n";
+        std::cerr << "[ERROR] Decoding failed: " << ex.what() << "\n";
         return false;
     }
 
@@ -537,11 +536,15 @@ double Transaction::calculateBurnRate(int recentTxCount) {
   return std::min(MAX_BURN_RATE, std::max(MIN_BURN_RATE, burnRate));
 }
 
+double Transaction::computeBurnedAmount(double amount, int recentTxCount) {
+    return amount * calculateBurnRate(recentTxCount);
+}
+
 // ✅ Improved Smart Burn Mechanism with Debugging
 void Transaction::applyBurn(std::string &sender, double &amount,
                             int recentTxCount) {
   double burnRate = calculateBurnRate(recentTxCount);
-  double burnAmount = amount * burnRate;
+  double burnAmount = computeBurnedAmount(amount, recentTxCount);
   amount -= burnAmount;
 
   std::cout << "🔥 Smart Burn Applied: " << burnAmount << " AlynCoin ("

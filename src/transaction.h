@@ -26,7 +26,8 @@ public:
   time_t getTimestamp() const;
   std::string getTransactionHash() const;
   std::string getZkProof() const;
-  std::string calculateHash() const;
+  [[deprecated("use getTransactionHash")]]
+  std::string hashLegacy() const;
   std::string toString() const;
   std::string getHash() const;
   std::string getSignature() const;
@@ -63,6 +64,7 @@ public:
   static std::vector<Transaction> loadAllFromDB();
   // Burn
   static double calculateBurnRate(int recentTxCount);
+  static double computeBurnedAmount(double amount, int recentTxCount);
   void applyBurn(std::string &sender, double &amount, int recentTxCount);
   static Transaction createSystemRewardTransaction(
     const std::string &recipient,
