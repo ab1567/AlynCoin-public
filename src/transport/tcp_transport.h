@@ -19,14 +19,12 @@ public:
     std::string  remoteId()        const override;
     bool         write(const std::string& data) override;
     bool         isOpen()          const override;
-    void         startReadLoop(std::function<void(const std::string&)> cb) override;
 
     bool         connect(const std::string& host, int port) override;
     std::string  getRemoteIP()     const override;
     int          getRemotePort()   const override;
     std::string  readLineBlocking() override;
     std::string  readLineWithTimeout(int seconds) override;
-    void         asyncReadLine(std::function<void(const boost::system::error_code&, const std::string&)> cb) override;
 
     // === NEW: BINARY ===
     bool         writeBinary(const std::string& data) override;

@@ -75,54 +75,6 @@ struct EpochProofEntry {
 };
 static std::unordered_map<int, EpochProofEntry> receivedEpochProofs;
 static std::mutex epochProofMutex;
-struct InFlightData {
-    std::string peer;
-    std::string prefix;
-    std::string base64;
-    bool active{false};
-};
-static thread_local std::unordered_map<std::string, InFlightData> inflight;
-//
-// Return true if the string resembles base64 data.  The previous implementation
-// required at least one non-hex character which falsely rejected perfectly
-// valid chunks containing only characters [0-9A-Fa-f].  That caused FULL_CHAIN
-// syncs to fail whenever such a chunk appeared.  We now simply verify that all
-// characters are within the base64 alphabet and the length is reasonable.
-static inline bool looksLikeBase64(const std::string& s) {
-   if (s.empty())
-        return false;
-    for (unsigned char c : s) {
-        if (!(std::isalnum(c) || c == '+' || c == '/' || c == '='))
-            return false;
-    }
-    return true;
-}
-
-// Return base64 string without CR/LF characters
-static std::string b64Flat(const std::string& bin)
-{
-    std::string tmp = Crypto::base64Encode(bin, false);
-    tmp.erase(std::remove(tmp.begin(), tmp.end(), '\n'), tmp.end());
-    tmp.erase(std::remove(tmp.begin(), tmp.end(), '\r'), tmp.end());
-    return tmp;
-}
-
-// Remove any characters not part of the base64 alphabet. Some peers send
-// malformed FULL_CHAIN fragments that include stray protocol prefixes or JSON
-// snippets. Sanitizing ensures we decode only valid base64 bytes.
-static std::string sanitizeBase64(const std::string& in)
-{
-    std::string out;
-    out.reserve(in.size());
-    for (unsigned char c : in) {
-        if (std::isalnum(c) || c == '+' || c == '/' || c == '=')
-            out.push_back(c);
-    }
-    // Ensure length is a multiple of 4 by padding '=' characters
-    while (out.size() % 4)
-        out.push_back('=');
-    return out;
-}
 static std::map<uint64_t, Block> futureBlockBuffer;
 PubSubRouter g_pubsub;
 namespace fs = std::filesystem;
@@ -554,9 +506,11 @@ void Network::syncWithPeers() {
 
         /* ask for height if unknown */
         if (peerHeight == -1) {
-            Json::Value j; j["type"] = "height_request";
-            Json::StreamWriterBuilder b; b["indentation"] = "";
-            sendData(peer, "ALYN|" + Json::writeString(b, j) + '\n');
+            auto it2 = peerTransports.find(peer);
+            if (it2 != peerTransports.end() && it2->second.tx) {
+                alyncoin::net::Frame fr; fr.mutable_height_req();
+                sendFrame(it2->second.tx, fr);
+            }
             continue;
         }
 
@@ -629,19 +583,13 @@ void Network::broadcastPeerList() {
         }
     }
 
-    Json::Value peerListJson;
-    peerListJson["type"] = "peer_list";
-    peerListJson["data"] = Json::arrayValue;
     for (const auto &peerAddr : peers) {
-        peerListJson["data"].append(peerAddr);
-    }
-
-    Json::StreamWriterBuilder writer;
-    writer["indentation"] = "";
-    std::string peerListMessage = Json::writeString(writer, peerListJson);
-
-    for (const auto &peerAddr : peers) {
-        sendData(peerAddr, "ALYN|" + peerListMessage);
+        auto it = peerTransports.find(peerAddr);
+        if (it == peerTransports.end() || !it->second.tx) continue;
+        alyncoin::net::Frame fr;
+        auto* pl = fr.mutable_peer_list();
+        for (const auto& p : peers) pl->add_peers(p);
+        sendFrame(it->second.tx, fr);
     }
 
 }
@@ -1012,10 +960,9 @@ void Network::sendStateProof(std::shared_ptr<Transport> tr)
     proto.set_state_root(stateRoot);
     proto.set_zk_proof(proof);
 
-    std::string raw;   proto.SerializeToString(&raw);
-    std::string b64 = Crypto::base64Encode(raw, false);
-
-tr->queueWrite(std::string("ALYN|STATE_PROOF|") + b64 + "\n");
+    alyncoin::net::Frame fr;
+    fr.mutable_state_proof()->mutable_proof()->CopyFrom(proto);
+    sendFrame(tr, fr);
 }
 //
 
@@ -1031,449 +978,6 @@ void Network::broadcastRaw(const std::string& payload)
     }
 }
 // ✅ **Handle Incoming Data with Protobuf Validation**
-void Network::handleIncomingData(const std::string& claimedPeerId,
-                                 std::string data,
-                                 std::shared_ptr<Transport> transport)
-{
-    std::cerr << "\n========== [handleIncomingData] ==========\n";
-    std::cerr << "Peer: " << claimedPeerId << "\n";
-    std::cerr << "Raw (first100): [" << data.substr(0,100) << "]\n";
-    std::cerr << "Transport open? " << (transport && transport->isOpen() ? "YES" : "NO") << "\n";
-    std::cerr << "==========================================\n";
-
-    while (!data.empty() && (data.back() == '\n' || data.back() == '\r'))
-        data.pop_back();
-
-    // === Protocol Prefixes (fast-sync only) ===
-    static constexpr const char* protocolPrefix     = "ALYN|";
-    static constexpr const char* rollupPrefix       = "ROLLUP_BLOCK|";
-    static constexpr const char* blockBroadcastPrefix = "BLOCK_BROADCAST|";
-    static constexpr const char* blockBatchPrefix   = "BLOCK_BATCH|";
-    static constexpr const char* aggProofPrefix     = "AGG_PROOF|";
-    static constexpr const char* stateProofPrefix   = "STATE_PROOF|";
-    static constexpr const char* requestStateProofCmd = "REQUEST_STATE_PROOF";
-    static constexpr size_t MAX_INFLIGHT_PROOF_BYTES = 8 * 1024 * 1024;
-
-    // === [FAST-SYNC: SNAPSHOT / TAIL additions] ===
-    static constexpr const char* SNAPSHOT_CHUNK    = "SNAPSHOT_CHUNK|";
-    static constexpr const char* SNAPSHOT_END      = "SNAPSHOT_END";
-    static constexpr const char* TAIL_BLOCKS       = "TAIL_BLOCKS|";
-    static constexpr const char* REQ_SNAPSHOT      = "REQUEST_SNAPSHOT";
-    static constexpr const char* REQ_TAIL_BLOCKS   = "REQUEST_TAIL_BLOCKS|";
-
-    auto psIt = peerTransports.find(claimedPeerId);
-    if (psIt == peerTransports.end()) return;
-    auto ps = psIt->second.state;
-
-    const size_t prefLen = std::strlen(protocolPrefix);
-    {
-        std::lock_guard<std::mutex> lk(ps->m);
-        if (!ps->prefixBuf.empty()) {
-            data = ps->prefixBuf + data;
-            ps->prefixBuf.clear();
-        }
-    }
-
-    if (data.size() < prefLen) {
-        if (std::memcmp(protocolPrefix, data.data(), data.size()) == 0) {
-            std::lock_guard<std::mutex> lk(ps->m);
-            ps->prefixBuf = data;
-            return;
-        }
-    }
-
-    if (data.rfind(protocolPrefix, 0) == 0)
-        data = data.substr(prefLen);
-    else {
-        size_t pos = data.find(protocolPrefix);
-        if (pos != std::string::npos) {
-            data = data.substr(pos + prefLen);
-        } else {
-            for (size_t i = 1; i < prefLen && i <= data.size(); ++i) {
-                if (data.compare(data.size() - i, i, protocolPrefix, 0, i) == 0) {
-                    std::lock_guard<std::mutex> lk(ps->m);
-                    ps->prefixBuf = data.substr(data.size() - i);
-                    data.erase(data.size() - i);
-                    break;
-                }
-            }
-        }
-    }
-
-    // === [FAST-SYNC: SNAPSHOT / TAIL Handlers (Early Return)] ===
-    if (data.rfind(SNAPSHOT_CHUNK, 0) == 0) {
-        handleSnapshotChunk(claimedPeerId, data.substr(strlen(SNAPSHOT_CHUNK)));
-        return;
-    }
-    if (data == SNAPSHOT_END) {
-        handleSnapshotEnd(claimedPeerId);
-        return;
-    }
-    if (ps->snapshotActive && looksLikeBase64(data)) {
-        handleSnapshotChunk(claimedPeerId, data);  // just append
-        return;
-    }
-    if (data.rfind(TAIL_BLOCKS, 0) == 0) {
-        InFlightData& infl = inflight[claimedPeerId];
-        infl.peer   = claimedPeerId;
-        infl.prefix = TAIL_BLOCKS;
-        infl.base64 = data.substr(strlen(TAIL_BLOCKS));
-        infl.active = true;
-        return;
-    }
-    if (data == REQ_SNAPSHOT) {
-        sendSnapshot(transport, -1);
-        return;
-    }
-    if (data.rfind(REQ_TAIL_BLOCKS, 0) == 0) {
-        int fromH = 0;
-        try { fromH = std::stoi(data.substr(strlen(REQ_TAIL_BLOCKS))); } catch (...) {}
-        handleTailRequest(claimedPeerId, fromH);
-        return;
-    }
-
-    // === Handle compact state proof (MUST be before base64/chain handlers) ===
-    if (data.rfind(stateProofPrefix, 0) == 0) {
-        const std::string b64 = data.substr(strlen(stateProofPrefix));
-        if (b64.size() > MAX_INFLIGHT_PROOF_BYTES) {
-            std::cerr << "[handleIncomingData] ? STATE_PROOF too large from "
-                      << claimedPeerId << "\n";
-            return;
-        }
-        try {
-            std::string raw = Crypto::base64Decode(b64, false);
-            alyncoin::StateProofProto proto;
-            if (!proto.ParseFromString(raw)) {
-                std::cerr << "[handleIncomingData] ? Bad STATE_PROOF protobuf\n";
-                return;
-            }
-            Blockchain& bc = Blockchain::getInstance();
-            bool rootOK = (proto.state_root() == bc.getHeaderMerkleRoot());
-            bool heightOK = (proto.block_height() <= bc.getHeight());
-            if (rootOK && heightOK) {
-                if (peerManager)
-                    peerManager->setPeerHeight(claimedPeerId, proto.block_height());
-            } else {
-                if (transport && transport->isOpen())
-                    transport->queueWrite("ALYN|REQUEST_SNAPSHOT\n");
-            }
-        } catch (...) {
-            std::cerr << "[handleIncomingData] ? STATE_PROOF base-64 decode failed\n";
-        }
-        return;
-    }
-
-    // === State-proof request ===
-    if (data == requestStateProofCmd) {
-        sendStateProof(transport);
-        return;
-    }
-
-    // --- JSON re-assembly ---
-    bool assemblingJson = (!ps->jsonBuf.empty()) ||
-                          (!data.empty() && (data.front() == '{' || data.front() == '['));
-    if (assemblingJson) {
-        std::lock_guard<std::mutex> lk(ps->m);
-        std::string &buf = ps->jsonBuf;
-        buf += data;
-
-        size_t pos = 0;
-        while ((pos = buf.find(protocolPrefix, pos)) != std::string::npos)
-            buf.erase(pos, std::strlen(protocolPrefix));
-
-        auto firstBrace = buf.find_first_of("{[");
-        if (firstBrace != std::string::npos && firstBrace > 0)
-            buf.erase(0, firstBrace);
-
-        if (buf.empty() || (buf.front() != '{' && buf.front() != '[')) {
-            if (buf.size() > 65536) buf.clear();
-            return;
-        }
-
-        char endChar = (buf.front() == '[') ? ']' : '}';
-        if (buf.back() != endChar) {
-            if (buf.size() > 65536) buf.clear();
-            return;
-        }
-        data.swap(buf);
-        buf.clear();
-    }
-
-    // --- Block, batch, and agg proof (base64/proto) ---
-
-    if (data.rfind(blockBroadcastPrefix, 0) == 0) {
-        InFlightData& infl = inflight[claimedPeerId];
-        infl.peer   = claimedPeerId;
-        infl.prefix = blockBroadcastPrefix;
-        infl.base64 = data.substr(strlen(blockBroadcastPrefix));
-        infl.active = true;
-        try {
-            std::string raw = Crypto::base64Decode(sanitizeBase64(infl.base64), false);
-            alyncoin::BlockProto proto;
-            if (proto.ParseFromString(raw) && proto.hash().size() == 64 &&
-                !proto.previous_hash().empty())
-            {
-                handleBase64Proto(claimedPeerId, blockBroadcastPrefix,
-                                  infl.base64, transport);
-                infl.active = false;
-            }
-        } catch (...) {}
-        return;
-    }
-    if (data.rfind(blockBatchPrefix, 0) == 0) {
-        InFlightData& infl = inflight[claimedPeerId];
-        infl.peer   = claimedPeerId;
-        infl.prefix = blockBatchPrefix;
-        infl.base64 = data.substr(strlen(blockBatchPrefix));
-        infl.active = true;
-        try {
-            std::string raw = Crypto::base64Decode(sanitizeBase64(infl.base64), false);
-            alyncoin::BlockchainProto proto;
-            if (proto.ParseFromString(raw) && proto.blocks_size() > 0) {
-                handleBase64Proto(claimedPeerId, blockBatchPrefix,
-                                  infl.base64, transport);
-                infl.active = false;
-            }
-        } catch (...) {}
-        return;
-    }
-
-    // --- AGG_PROOF: send to handleBase64Proto ---
-    if (data.rfind(aggProofPrefix, 0) == 0) {
-        const std::string base64 = data.substr(strlen(aggProofPrefix));
-        if (base64.size() > MAX_INFLIGHT_PROOF_BYTES) {
-            std::cerr << "[handleIncomingData] ?? AGG_PROOF size exceeded, ignoring from "
-                      << claimedPeerId << "\n";
-            return;
-        }
-        handleBase64Proto(claimedPeerId, aggProofPrefix, base64, transport);
-        return;
-    }
-
-    auto inflIt = inflight.find(claimedPeerId);
-    if (inflIt != inflight.end() && looksLikeBase64(data)) {
-        inflIt->second.base64 += data;
-        try {
-            std::string raw = Crypto::base64Decode(sanitizeBase64(inflIt->second.base64), false);
-            if (inflIt->second.prefix == blockBroadcastPrefix) {
-                alyncoin::BlockProto proto;
-                if (proto.ParseFromString(raw) && proto.hash().size() == 64 &&
-                    !proto.previous_hash().empty())
-                {
-                    handleBase64Proto(claimedPeerId, blockBroadcastPrefix,
-                                      inflIt->second.base64, transport);
-                    inflIt->second.active = false;
-                }
-            } else if (inflIt->second.prefix == blockBatchPrefix) {
-                alyncoin::BlockchainProto proto;
-                if (proto.ParseFromString(raw) && proto.blocks_size() > 0) {
-                    handleBase64Proto(claimedPeerId, blockBatchPrefix,
-                                      inflIt->second.base64, transport);
-                    inflIt->second.active = false;
-                }
-            } else if (inflIt->second.prefix == TAIL_BLOCKS) {
-                TailBlocksProto proto;
-                if (proto.ParseFromString(raw)) {
-                    handleTailBlocks(claimedPeerId, inflIt->second.base64);
-                    inflIt->second.active = false;
-                    inflight.erase(inflIt);
-                }
-            }
-            static constexpr size_t MAX_INFLIGHT_PROTO_BYTES = 8 * 1024 * 1024; // 8 MiB
-            if (inflIt->second.base64.size() > MAX_INFLIGHT_PROTO_BYTES) {
-                std::cerr << "⚠️  inflight base64 from " << claimedPeerId
-                          << " exceeded " << MAX_INFLIGHT_PROTO_BYTES
-                          << " bytes – aborted\n";
-                inflIt->second.active = false;
-                inflight.erase(inflIt);
-                return;
-            }
-        } catch (...) {
-            static constexpr size_t MAX_INFLIGHT_PROTO_BYTES = 8 * 1024 * 1024;
-            if (inflIt->second.base64.size() > MAX_INFLIGHT_PROTO_BYTES) {
-                std::cerr << "⚠️  inflight base64 from " << claimedPeerId
-                          << " exceeded " << MAX_INFLIGHT_PROTO_BYTES
-                          << " bytes – aborted\n";
-                inflIt->second.active = false;
-                inflight.erase(inflIt);
-            }
-        }
-        if (inflIt != inflight.end() && inflIt->second.active)
-            return;
-    }
-
-    // === Rollup ===
-    if (data.rfind(rollupPrefix, 0) == 0) {
-        try {
-            RollupBlock rb = RollupBlock::deserialize(data.substr(std::strlen(rollupPrefix)));
-            handleNewRollupBlock(rb);
-        } catch (...) {
-            std::cerr << "?? Rollup block failed to deserialize\n";
-        }
-        return;
-    }
-
-    // === Ping/Pong ===
-    if (data == "PING") {
-        if (transport && transport->isOpen())
-            transport->queueWrite("ALYN|PONG\n");
-        return;
-    }
-    if (data == "PONG")
-        return;
-
-    // === JSON Messages (unchanged, as per modern fast sync) ===
-    if (!data.empty() &&
-        ((data.front() == '{' && data.back() == '}') ||
-         (data.front() == '[' && data.back() == ']'))) {
-        try {
-            Json::Value root;
-            std::istringstream s(data);
-            Json::CharReaderBuilder rb;
-            std::string errs;
-            if (!Json::parseFromStream(rb, s, &root, &errs)) return;
-
-            auto& chain = Blockchain::getInstance();
-
-            if (root.isArray() && !root.empty())
-                root = root[0];
-
-            std::string type = root["type"].asString();
-
-            if (type == "handshake" && peerManager) {
-                int h = root.get("height", 0).asInt();
-                peerManager->setPeerHeight(claimedPeerId, h);
-
-                if (h > (int)chain.getHeight() && transport && transport->isOpen()) {
-                    transport->queueWrite("ALYN|REQUEST_STATE_PROOF\n");
-                }
-                return;
-            }
-
-            if (type == "height_response") {
-                int h = root["height"].asInt();
-                std::string tip = root["tip"].asString();
-                if (peerManager) {
-                    peerManager->setPeerHeight(claimedPeerId, h);
-                    peerManager->recordTipHash(claimedPeerId, tip);
-                }
-                // Sync logic: If peer is ahead, request missing chain
-                if (h > (int)chain.getHeight() && transport && transport->isOpen()) {
-                    transport->queueWrite("ALYN|REQUEST_STATE_PROOF\n");
-                }
-                return;
-            }
-
-            if (type == "tip_hash_response" && peerManager) {
-                std::string tip = root["data"].asString();
-                peerManager->recordTipHash(claimedPeerId, tip);
-
-                int ph = peerManager->getPeerHeight(claimedPeerId);
-                if (ph == static_cast<int>(chain.getHeight()) &&
-                    !tip.empty() && tip != chain.getLatestBlockHash() &&
-                    transport && transport->isOpen()) {
-                    transport->queueWrite("ALYN|REQUEST_STATE_PROOF\n");
-                }
-                return;
-            }
-            if (type == "peer_list") {
-                for (const auto& p : root["data"]) {
-                    std::string str = p.asString();
-                    auto pos = str.find(':');
-                    if (pos == std::string::npos) continue;
-                    std::string ip = str.substr(0, pos);
-                    int port = std::stoi(str.substr(pos + 1));
-                    if ((ip == "127.0.0.1" || ip == "localhost") && port == this->port) continue;
-                    if (peerTransports.count(str)) continue;
-                    connectToNode(ip, port);
-                }
-                return;
-            }
-
-            if (type == "request_peers") {
-                Json::Value out;
-                out["type"] = "peer_list";
-                out["data"] = Json::arrayValue;
-                {
-                    std::lock_guard<std::timed_mutex> lk(peersMutex);
-                    for (const auto& kv : peerTransports)
-                        out["data"].append(kv.first);
-                }
-                if (transport && transport->isOpen())
-                    transport->queueWrite("ALYN|" + Json::writeString(Json::StreamWriterBuilder(), out) + "\n");
-                return;
-            }
-
-            if (type == "height_request") {
-                Json::Value out;
-                out["type"] = "height_response";
-                out["height"] = chain.getHeight();
-                out["tip"] = chain.getLatestBlockHash();
-                if (transport && transport->isOpen())
-                    transport->queueWrite("ALYN|" + Json::writeString(Json::StreamWriterBuilder(), out) + "\n");
-                return;
-            }
-
-            if (type == "tip_hash_request") {
-                Json::Value out;
-                out["type"] = "tip_hash_response";
-                out["data"] = chain.getLatestBlockHash();
-                if (transport && transport->isOpen())
-                    transport->queueWrite("ALYN|" + Json::writeString(Json::StreamWriterBuilder(), out) + "\n");
-                return;
-            }
-
-            if (type == "inv") {
-                std::vector<std::string> hashes;
-                for (const auto& h : root["hashes"]) hashes.push_back(h.asString());
-                std::vector<std::string> missing;
-                for (const auto& h : hashes)
-                    if (!chain.hasBlockHash(h)) missing.push_back(h);
-                if (!missing.empty()) {
-                    Json::Value req; req["type"] = "getdata"; req["hashes"] = Json::arrayValue;
-                    for (const auto& h : missing) req["hashes"].append(h);
-                    if (transport && transport->isOpen())
-                        transport->queueWrite("ALYN|" + Json::writeString(Json::StreamWriterBuilder(), req) + "\n");
-                }
-                return;
-            }
-
-            if (type == "getdata") {
-                std::vector<std::string> hashes;
-                for (const auto& h : root["hashes"]) hashes.push_back(h.asString());
-                handleGetData(claimedPeerId, hashes);
-                return;
-            }
-
-            if (root.isMember("txid")) {
-                Transaction tx = Transaction::fromJSON(root);
-                std::string hash = tx.getHash();
-
-                {
-                    std::lock_guard<std::mutex> lk(seenTxMutex);
-                    if (seenTxHashes.count(hash)) return;
-                    seenTxHashes.insert(hash);
-                }
-
-                if (tx.isValid(tx.getSenderPublicKeyDilithium(),
-                               tx.getSenderPublicKeyFalcon()))
-                {
-                    chain.addTransaction(tx);
-                    chain.savePendingTransactionsToDB();
-                    broadcastTransactionToAllExcept(tx, claimedPeerId);
-                }
-                return;
-            }
-        } catch (...) {
-            std::cerr << "?? Malformed JSON from peer\n";
-        }
-        return;
-    }
-
-    // -- If still unhandled, print warning --
-    std::cerr << "?? [handleIncomingData] Unknown or unhandled message from " << claimedPeerId
-              << ": [" << data.substr(0, 100) << "]\n";
-}
 
 
 // ✅ **Broadcast a mined block to all peers*
@@ -1584,190 +1088,6 @@ std::string Network::getSelfAddressAndPort() const {
 
 void Network::setPublicPeerId(const std::string& peerId) {
     publicPeerId = peerId;
-}
-//
-void Network::handleBase64Proto(const std::string &peer, const std::string &prefix,
-                                const std::string &b64, std::shared_ptr<Transport> transport)
-{
-    auto processBlock = [&](const Block& blk, const std::string& fromPeer)
-    {
-        Blockchain& chain = Blockchain::getInstance();
-
-        {
-            std::lock_guard<std::mutex> lk(seenBlockMutex);
-            if (seenBlockHashes.count(blk.getHash())) {
-                std::cerr << "[handleBase64Proto] Duplicate block "
-                          << blk.getHash().substr(0,12) << " ignored\n";
-                return;
-            }
-            seenBlockHashes.insert(blk.getHash());
-        }
-
-        // Direct tip-append if the parent matches
-        if (blk.getPreviousHash() == chain.getLatestBlockHash()) {
-            std::cerr << "[handleBase64Proto] ✨ Directly appending live block (idx=" << blk.getIndex() << ")\n";
-            if (chain.addBlock(blk)) {
-                // Propagate block to all peers except the sender
-                for (auto& [peerId, entry] : peerTransports) {
-                    auto peerTransport = entry.tx;
-                    if (peerId == fromPeer) continue;
-                    if (peerTransport && peerTransport->isOpen()) {
-                        alyncoin::BlockProto proto = blk.toProtobuf();
-                        std::string raw;
-                        if (proto.SerializeToString(&raw)) {
-                            std::string b64 = Crypto::base64Encode(raw, false);
-                            peerTransport->queueWrite("ALYN|BLOCK_BROADCAST|" + b64 + "\n");
-                        }
-                    }
-                }
-            }
-            return;
-        }
-
-        // Buffer as orphan if missing parent (NEW LOGIC)
-        if (blk.getIndex() > 0 && !chain.hasBlockHash(blk.getPreviousHash())) {
-            std::cerr << "⚠️  [handleBase64Proto] [Orphan Block] Parent missing for block idx="
-                      << blk.getIndex() << '\n';
-            chain.addBlock(blk);
-
-            // Ask this peer for the parent block directly
-            if (transport && transport->isOpen()) {
-                std::string req = "ALYN|BLOCK_REQUEST|" + blk.getPreviousHash() + "\n";
-                transport->queueWrite(req);
-            }
-            return;
-        }
-
-        // Potential fork: parent exists but isn't the current tip
-        if (blk.getIndex() > 0 && chain.hasBlockHash(blk.getPreviousHash()) &&
-            blk.getPreviousHash() != chain.getLatestBlockHash()) {
-            std::cerr << "🔀 [handleBase64Proto] Fork block at idx=" << blk.getIndex()
-                      << ", requesting snapshot\n";
-            if (transport && transport->isOpen())
-                transport->queueWrite("ALYN|REQUEST_SNAPSHOT\n");
-            // Optionally: Could still store as orphan here, but not strictly required
-            return;
-        }
-        // Otherwise, just buffer for this peer (optional, for completeness)
-        std::cerr << "[handleBase64Proto] Buffered block idx=" << blk.getIndex()
-                  << " for peer " << fromPeer << '\n';
-    };
-
-    // Decode and route
-    try {
-        if (prefix == "BLOCK_BROADCAST|") {
-            Block blk;
-            bool ok = false;
-            try {
-                std::string raw = Crypto::base64Decode(sanitizeBase64(b64), false);
-                alyncoin::BlockProto proto;
-                bool parseOk = proto.ParseFromString(raw);
-                if (parseOk && proto.hash().size() == 64 && !proto.previous_hash().empty()) {
-                    blk = Block::fromProto(proto, /*strict=*/true);
-                    ok = true;
-                }
-            } catch (...) {
-                std::cerr << "[handleBase64Proto] Exception decoding base64 block!\n";
-            }
-            if (ok) processBlock(blk, peer);
-            return;
-        } else if (prefix == "BLOCK_REQUEST|") {
-            // Respond with a block matching requested hash
-            Blockchain& chain = Blockchain::getInstance();
-            Block parent;
-            std::string hash = sanitizeBase64(b64);
-            if (chain.getBlockByHash(hash, parent)) {
-                alyncoin::BlockProto p = parent.toProtobuf();
-                std::string raw;  p.SerializeToString(&raw);
-                std::string b64 = Crypto::base64Encode(raw, false);
-                if (transport && transport->isOpen())
-                    transport->queueWrite("ALYN|BLOCK_RESPONSE|" + b64 + "\n");
-            }
-            return;
-        } else if (prefix == "BLOCK_RESPONSE|") {
-            // Peer sent a requested parent block: just process it!
-            std::string raw = Crypto::base64Decode(sanitizeBase64(b64), false);
-            alyncoin::BlockProto proto;
-            if (proto.ParseFromString(raw)) {
-                Block parent = Block::fromProto(proto, /*strict=*/true);
-                processBlock(parent, peer);
-            }
-            return;
-        } else if (prefix == "BLOCK_BATCH|") {
-            try {
-                std::string raw = Crypto::base64Decode(sanitizeBase64(b64), false);
-                alyncoin::BlockchainProto protoChain;
-                if (protoChain.ParseFromString(raw)) {
-                    for (const auto& pb : protoChain.blocks()) {
-                        try {
-                            Block blk = Block::fromProto(pb, /*strict=*/true);
-                            processBlock(blk, peer);
-                        } catch (...) {
-                            std::cerr << "⚠️ [handleBase64Proto] Skipped malformed block in batch\n";
-                        }
-                    }
-                } else {
-                    std::cerr << "[handleBase64Proto] Failed to parse incoming block batch (base64)\n";
-                }
-            } catch (...) {
-                std::cerr << "[handleBase64Proto] Exception decoding base64 block batch!\n";
-            }
-            return;
-        } else if (prefix == "FULL_CHAIN|") {
-            try {
-                std::string raw = Crypto::base64Decode(sanitizeBase64(b64), false);
-                alyncoin::BlockchainProto protoChain;
-                if (protoChain.ParseFromString(raw)) {
-                    std::vector<Block> receivedBlocks;
-                    for (const auto& protoBlock : protoChain.blocks()) {
-                        try {
-                            // be lenient when syncing from peers
-                            receivedBlocks.push_back(Block::fromProto(protoBlock, /*allowPartial=*/true));
-                        } catch (const std::exception& e) {
-                            std::cerr << "⚠️ [handleBase64Proto] Skipped malformed block: "
-                                      << e.what() << "\n";
-                        } catch (...) {
-                            std::cerr << "⚠️ [handleBase64Proto] Skipped malformed block (unknown error)\n";
-                        }
-                    }
-                    Blockchain& chain = Blockchain::getInstance();
-                    size_t before = chain.getChain().size();
-                    chain.compareAndMergeChains(receivedBlocks);
-                    size_t after = chain.getChain().size();
-                    if (peerManager)
-                        peerManager->setPeerHeight(peer, static_cast<int>(receivedBlocks.size()) - 1);
-                    std::cerr << "[handleBase64Proto] Chain merge complete (base64 streaming). "
-                              << before << " -> " << after << " blocks\n";
-                } else {
-                    std::cerr << "[handleBase64Proto] Failed to parse incoming BlockchainProto (base64)\n";
-                }
-            } catch (...) {
-                std::cerr << "[handleBase64Proto] Exception decoding base64 full chain!\n";
-            }
-            return;
-        } else if (prefix == "AGG_PROOF|") {
-            try {
-                size_t p1 = b64.find('|');
-                size_t p2 = b64.find('|', p1 + 1);
-                if (p1 == std::string::npos || p2 == std::string::npos) return;
-                int epoch = std::stoi(b64.substr(0, p1));
-                std::string root = b64.substr(p1 + 1, p2 - p1 - 1);
-                std::string proofB64 = b64.substr(p2 + 1);
-                std::string raw = Crypto::base64Decode(proofB64, false);
-                std::vector<uint8_t> proof(raw.begin(), raw.end());
-                {
-                    std::lock_guard<std::mutex> lk(epochProofMutex);
-                    receivedEpochProofs[epoch] = {root, proof};
-                }
-                std::cerr << "[handleBase64Proto] Received aggregated proof for epoch " << epoch << "\n";
-            } catch (...) {
-                std::cerr << "[handleBase64Proto] Failed to process AGG_PROOF message\n";
-            }
-            return;
-        }
-    } catch (...) {
-        std::cerr << "[handleBase64Proto] Unknown exception\n";
-    }
 }
 //
 
@@ -2085,66 +1405,24 @@ void Network::sendInitialRequests(const std::string& peerId) {
 // ------------------------------------------------------------------
 //  Helper: set up an endless async-read loop for a socket
 // ------------------------------------------------------------------
-void Network::startReadLoop(const std::string&           peerId,
-                            std::shared_ptr<Transport>   transport)
+void Network::startBinaryReadLoop(const std::string& peerId, std::shared_ptr<Transport> transport)
 {
-    /*  We need a std::function that can capture *itself* so we wrap it in a
-        std::shared_ptr.  This is the classic “recursive lambda” pattern.     */
-    using ReadCB = std::function<void(const boost::system::error_code&,
-                                      const std::string&)>;
-
-    auto self = std::make_shared<ReadCB>();     // forward declaration
-
-    *self = [this, peerId, transport, self]     // capture *self* by value
-              (const boost::system::error_code& ec,
-               const std::string&               line)
-    {
-        /* ── connection closed / error ─────────────────────────────────── */
-        if (ec || !transport->isOpen()) {
-            std::cerr << "🔌 disconnect " << peerId
-                      << " : " << ec.message() << '\n';
-
-            std::lock_guard<std::timed_mutex> lk(peersMutex);
-            peerTransports.erase(peerId);
+    if (!transport || !transport->isOpen()) return;
+    auto cb = [this, peerId](const boost::system::error_code& ec, const std::string& blob) {
+        if (ec) {
+            std::cerr << "[readLoop] " << peerId << " error: " << ec.message() << '\n';
             return;
         }
-
-        /* ── dispatch valid line ───────────────────────────────────────── */
-        if (!line.empty())
-            handleIncomingData(peerId, line, transport);
-
-        /* ── re-arm for next line ──────────────────────────────────────── */
-        transport->asyncReadLine(*self);
-    };
-
-    std::cout << "🔄 Read-loop armed for " << peerId << '\n';
-    transport->asyncReadLine(*self);
-}
-void Network::startBinaryReadLoop(const std::string& peerId,
-                                  std::shared_ptr<Transport> transport)
-{
-    using ReadCB = std::function<void(const boost::system::error_code&, const std::string&)>;
-    auto self = std::make_shared<ReadCB>();
-    *self = [this, peerId, transport, self](const boost::system::error_code& ec, const std::string& blob)
-    {
-        if (ec || !transport->isOpen()) {
-            std::cerr << "🔌 disconnect " << peerId << " : " << ec.message() << '\n';
-            std::lock_guard<std::timed_mutex> lk(peersMutex);
-            peerTransports.erase(peerId);
-            return;
-        }
-        if (!blob.empty()) {
-            uint64_t need = 0; size_t used = 0;
-            const uint8_t* data = reinterpret_cast<const uint8_t*>(blob.data());
-            if (decodeVarInt(data, blob.size(), &need, &used) && used + need <= blob.size()) {
-                alyncoin::net::Frame f;
-                if (f.ParseFromArray(blob.data() + used, need))
-                    dispatch(f, peerId);
-            }
+        uint64_t need = 0; size_t used = 0;
+        const uint8_t* data = reinterpret_cast<const uint8_t*>(blob.data());
+        if (decodeVarInt(data, blob.size(), &need, &used) && used + need <= blob.size()) {
+            alyncoin::net::Frame f;
+            if (f.ParseFromArray(blob.data() + used, need))
+                dispatch(f, peerId);
         }
     };
+    transport->startReadBinaryLoop(cb);
     std::cout << "🔄 Binary read-loop armed for " << peerId << '\n';
-    transport->startReadBinaryLoop(*self);
 }
 
 void Network::dispatch(const alyncoin::net::Frame& f, const std::string& peer)
@@ -2193,8 +1471,19 @@ void Network::dispatch(const alyncoin::net::Frame& f, const std::string& peer)
             for (const auto& h : hashes)
                 if (!bc.hasBlockHash(h)) missing.push_back(h);
             if (!missing.empty()) {
-                // send getdata not implemented; placeholder
+                alyncoin::net::Frame req;
+                auto* gd = req.mutable_get_data();
+                for (const auto& h : missing) gd->add_hashes(h);
+                auto it = peerTransports.find(peer);
+                if (it != peerTransports.end())
+                    sendFrame(it->second.tx, req);
             }
+            break;
+        }
+        case alyncoin::net::Frame::kGetData: {
+            std::vector<std::string> hashes;
+            for (const auto& h : f.get_data().hashes()) hashes.push_back(h);
+            handleGetData(peer, hashes);
             break;
         }
         case alyncoin::net::Frame::kTipHashReq:
@@ -2225,7 +1514,18 @@ void Network::dispatch(const alyncoin::net::Frame& f, const std::string& peer)
             break;
         }
         case alyncoin::net::Frame::kAggProof: {
-            // store aggregated proof
+            const std::string& blob = f.agg_proof().data();
+            if (blob.size() > sizeof(int) + 64) {
+                int epoch = 0;
+                std::memcpy(&epoch, blob.data(), sizeof(int));
+                std::string root = blob.substr(sizeof(int), 64);
+                std::vector<uint8_t> proof(blob.begin()+sizeof(int)+64, blob.end());
+                {
+                    std::lock_guard<std::mutex> lk(epochProofMutex);
+                    receivedEpochProofs[epoch] = {root, proof};
+                }
+                std::cerr << "[agg_proof] stored proof for epoch " << epoch << '\n';
+            }
             break;
         }
         case alyncoin::net::Frame::kSnapshotReq:
@@ -2454,30 +1754,9 @@ void Network::savePeers() {
 // ✅ **Broadcast Latest Block Correctly (Base64 Encoded)**
 void Network::sendLatestBlock(const std::string &peerIP) {
     Blockchain &blockchain = Blockchain::getInstance();
-    if (blockchain.getChain().empty()) {
-        std::cerr << "⚠️ Warning: Blockchain is empty! No block to send.\n";
-        return;
-    }
-
+    if (blockchain.getChain().empty()) return;
     Block latestBlock = blockchain.getLatestBlock();
-    alyncoin::BlockProto protoBlock = latestBlock.toProtobuf();
-
-    std::string serializedBlock;
-    if (!protoBlock.SerializeToString(&serializedBlock)) {
-        std::cerr << "❌ [ERROR] Failed to serialize latest block\n";
-        return;
-    }
-
-    std::string base64Block = b64Flat(serializedBlock);
-
-
-if (base64Block.empty()) {
-    std::cerr << "[BUG] EMPTY BASE64 in sendLatestBlock for hash=" << latestBlock.getHash() << "\n";
-    return; // <--- DON'T send if empty!
-}
-    sendData(peerIP, "ALYN|BLOCK_BROADCAST|" + base64Block + '\n');
-
-    std::cout << "📡 [LIVE BROADCAST] Latest block sent to " << peerIP << " (Dilithium + Falcon signatures included)\n";
+    sendBlockToPeer(peerIP, latestBlock);
 }
 
 void Network::sendInventory(const std::string& peer)
@@ -2818,10 +2097,12 @@ void Network::requestTailBlocks(const std::string& peer, int fromHeight) {
 }
 //
 void Network::sendForkRecoveryRequest(const std::string& peer, const std::string& tip) {
-    Json::Value ask;
-    ask["type"] = "request_snapshot";
+    auto it = peerTransports.find(peer);
+    if (it == peerTransports.end() || !it->second.tx) return;
+    alyncoin::net::Frame fr;
     if (!tip.empty())
-        ask["until"] = tip;
-    Json::StreamWriterBuilder b; b["indentation"] = "";
-    sendData(peer, "ALYN|" + Json::writeString(b, ask) + "\n");
+        fr.mutable_snapshot_req()->set_until_hash(tip);
+    else
+        fr.mutable_snapshot_req();
+    sendFrame(it->second.tx, fr);
 }

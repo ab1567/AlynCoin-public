@@ -132,39 +132,6 @@ std::string TcpTransport::readLineWithTimeout(int /*seconds*/)
     return readLineBlocking();
 }
 
-void TcpTransport::startReadLoop(std::function<void(const std::string&)> onLine)
-{
-    asyncReadLine(
-        [self = shared_from_this(), onLine = std::move(onLine)]
-        (const boost::system::error_code& ec, const std::string& line)
-        {
-            if (ec || line.empty()) return;
-            onLine(line);
-            self->startReadLoop(onLine);
-        });
-}
-
-void TcpTransport::asyncReadLine(
-    std::function<void(const boost::system::error_code&, const std::string&)> cb)
-{
-    // Allocate a generous streambuf so very large single-line messages
-    // (such as FULL_CHAIN sync responses) don't hit the default ~65k limit.
-    auto buf  = std::make_shared<boost::asio::streambuf>(4 * 1024 * 1024);
-    auto self = shared_from_this();
-
-    boost::asio::async_read_until(*socket, *buf, '\n',
-        [self, buf, cb = std::move(cb)]
-        (const boost::system::error_code& ec, std::size_t) mutable
-        {
-            std::string line;
-            if (!ec) {
-                std::istream is(buf.get());
-                std::getline(is, line);
-                if (!line.empty() && line.back() == '\r') line.pop_back();
-            }
-            cb(ec, line);
-        });
-}
 //
 void TcpTransport::startReadBinaryLoop(std::function<void(const boost::system::error_code&, const std::string&)> cb)
 {
