@@ -268,12 +268,14 @@ class Handshake final :
   // accessors -------------------------------------------------------
 
   enum : int {
-    kCapabilitiesFieldNumber = 4,
+    kCapabilitiesFieldNumber = 6,
     kVersionFieldNumber = 1,
     kNetworkIdFieldNumber = 2,
+    kGenesisHashFieldNumber = 5,
     kHeightFieldNumber = 3,
+    kListenPortFieldNumber = 4,
   };
-  // repeated string capabilities = 4;
+  // repeated string capabilities = 6;
   int capabilities_size() const;
   private:
   int _internal_capabilities_size() const;
@@ -325,6 +327,20 @@ class Handshake final :
   std::string* _internal_mutable_network_id();
   public:
 
+  // bytes genesis_hash = 5;
+  void clear_genesis_hash();
+  const std::string& genesis_hash() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_genesis_hash(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_genesis_hash();
+  PROTOBUF_NODISCARD std::string* release_genesis_hash();
+  void set_allocated_genesis_hash(std::string* genesis_hash);
+  private:
+  const std::string& _internal_genesis_hash() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_genesis_hash(const std::string& value);
+  std::string* _internal_mutable_genesis_hash();
+  public:
+
   // uint64 height = 3;
   void clear_height();
   uint64_t height() const;
@@ -332,6 +348,15 @@ class Handshake final :
   private:
   uint64_t _internal_height() const;
   void _internal_set_height(uint64_t value);
+  public:
+
+  // uint32 listen_port = 4;
+  void clear_listen_port();
+  uint32_t listen_port() const;
+  void set_listen_port(uint32_t value);
+  private:
+  uint32_t _internal_listen_port() const;
+  void _internal_set_listen_port(uint32_t value);
   public:
 
   // @@protoc_insertion_point(class_scope:alyncoin.net.Handshake)
@@ -345,7 +370,9 @@ class Handshake final :
     ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string> capabilities_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr version_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr network_id_;
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr genesis_hash_;
     uint64_t height_;
+    uint32_t listen_port_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   };
   union { Impl_ _impl_; };
@@ -3982,7 +4009,77 @@ inline void Handshake::set_height(uint64_t value) {
   // @@protoc_insertion_point(field_set:alyncoin.net.Handshake.height)
 }
 
-// repeated string capabilities = 4;
+// uint32 listen_port = 4;
+inline void Handshake::clear_listen_port() {
+  _impl_.listen_port_ = 0u;
+}
+inline uint32_t Handshake::_internal_listen_port() const {
+  return _impl_.listen_port_;
+}
+inline uint32_t Handshake::listen_port() const {
+  // @@protoc_insertion_point(field_get:alyncoin.net.Handshake.listen_port)
+  return _internal_listen_port();
+}
+inline void Handshake::_internal_set_listen_port(uint32_t value) {
+  
+  _impl_.listen_port_ = value;
+}
+inline void Handshake::set_listen_port(uint32_t value) {
+  _internal_set_listen_port(value);
+  // @@protoc_insertion_point(field_set:alyncoin.net.Handshake.listen_port)
+}
+
+// bytes genesis_hash = 5;
+inline void Handshake::clear_genesis_hash() {
+  _impl_.genesis_hash_.ClearToEmpty();
+}
+inline const std::string& Handshake::genesis_hash() const {
+  // @@protoc_insertion_point(field_get:alyncoin.net.Handshake.genesis_hash)
+  return _internal_genesis_hash();
+}
+template <typename ArgT0, typename... ArgT>
+inline PROTOBUF_ALWAYS_INLINE
+void Handshake::set_genesis_hash(ArgT0&& arg0, ArgT... args) {
+ 
+ _impl_.genesis_hash_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:alyncoin.net.Handshake.genesis_hash)
+}
+inline std::string* Handshake::mutable_genesis_hash() {
+  std::string* _s = _internal_mutable_genesis_hash();
+  // @@protoc_insertion_point(field_mutable:alyncoin.net.Handshake.genesis_hash)
+  return _s;
+}
+inline const std::string& Handshake::_internal_genesis_hash() const {
+  return _impl_.genesis_hash_.Get();
+}
+inline void Handshake::_internal_set_genesis_hash(const std::string& value) {
+  
+  _impl_.genesis_hash_.Set(value, GetArenaForAllocation());
+}
+inline std::string* Handshake::_internal_mutable_genesis_hash() {
+  
+  return _impl_.genesis_hash_.Mutable(GetArenaForAllocation());
+}
+inline std::string* Handshake::release_genesis_hash() {
+  // @@protoc_insertion_point(field_release:alyncoin.net.Handshake.genesis_hash)
+  return _impl_.genesis_hash_.Release();
+}
+inline void Handshake::set_allocated_genesis_hash(std::string* genesis_hash) {
+  if (genesis_hash != nullptr) {
+    
+  } else {
+    
+  }
+  _impl_.genesis_hash_.SetAllocated(genesis_hash, GetArenaForAllocation());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (_impl_.genesis_hash_.IsDefault()) {
+    _impl_.genesis_hash_.Set("", GetArenaForAllocation());
+  }
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.net.Handshake.genesis_hash)
+}
+
+// repeated string capabilities = 6;
 inline int Handshake::_internal_capabilities_size() const {
   return _impl_.capabilities_.size();
 }
