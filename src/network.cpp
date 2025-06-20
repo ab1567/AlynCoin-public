@@ -159,6 +159,33 @@ void Network::sendFrame(std::shared_ptr<Transport> tr, const google::protobuf::M
     out.append(payload);
     tr->writeBinary(out);
 }
+
+void Network::sendHeight(const std::string& peer) {
+    auto it = peerTransports.find(peer);
+    if (it == peerTransports.end() || !it->second.tx) return;
+    alyncoin::net::Frame fr;
+    fr.mutable_height_res()->set_height(Blockchain::getInstance().getHeight());
+    sendFrame(it->second.tx, fr);
+}
+
+void Network::sendTipHash(const std::string& peer) {
+    auto it = peerTransports.find(peer);
+    if (it == peerTransports.end() || !it->second.tx) return;
+    alyncoin::net::Frame fr;
+    fr.mutable_tip_hash_res()->set_hash(Blockchain::getInstance().getLatestBlockHash());
+    sendFrame(it->second.tx, fr);
+}
+
+void Network::sendPeerList(const std::string& peer) {
+    auto it = peerTransports.find(peer);
+    if (it == peerTransports.end() || !it->second.tx) return;
+    alyncoin::net::Frame fr;
+    auto* pl = fr.mutable_peer_list();
+    std::lock_guard<std::timed_mutex> lk(peersMutex);
+    for (const auto& kv : peerTransports)
+        pl->add_peers(kv.first);
+    sendFrame(it->second.tx, fr);
+}
 // Fallback peer(s) in case DNS discovery fails
 static const std::vector<std::string> DEFAULT_DNS_PEERS = {
     "49.206.56.213:15672", // Known bootstrap peer
@@ -626,11 +653,13 @@ PeerManager* Network::getPeerManager() {
 
 // ✅ **Request peer list from connected nodes**
 void Network::requestPeerList() {
-  for (const auto &[peerAddr, socket] : peerTransports) {
-    sendData(peerAddr, "ALYN|{\"type\": \"request_peers\"}");
+    for (const auto& [peerAddr, entry] : peerTransports) {
+        if (entry.tx && entry.tx->isOpen()) {
+            alyncoin::net::Frame fr; fr.mutable_peer_list_req();
+            sendFrame(entry.tx, fr);
         }
-
-  std::cout << "📡 Requesting peer list from all known peers..." << std::endl;
+    }
+    std::cout << "📡 Requesting peer list from all known peers..." << std::endl;
 }
 // Handle Peer (Transport version)
 void Network::handlePeer(std::shared_ptr<Transport> transport)
@@ -845,9 +874,10 @@ void Network::autoSyncIfBehind() {
         auto tr = entry.tx;
         if (!tr || !tr->isOpen()) continue;
 
-        /* probe */
-        tr->send("ALYN|{\"type\":\"height_request\"}\n");
-        tr->send("ALYN|{\"type\":\"tip_hash_request\"}\n");
+        alyncoin::net::Frame f1; f1.mutable_height_req();
+        sendFrame(tr, f1);
+        alyncoin::net::Frame f2; f2.mutable_tip_hash_req();
+        sendFrame(tr, f2);
 
         if (!peerManager) continue;
         int  peerHeight = peerManager->getPeerHeight(peerAddr);
@@ -926,9 +956,9 @@ void Network::periodicSync() {
         const auto &transport  = p.second.tx;
         if (!transport || !transport->isOpen()) continue;
 
-        Json::Value req; req["type"] = "height_request";
-        Json::StreamWriterBuilder b; b["indentation"] = "";
-        transport->send("ALYN|" + Json::writeString(b, req) + "\n");
+        alyncoin::net::Frame f; f.mutable_height_req();
+        sendFrame(transport, f);
+
         std::cerr << "📡 [DEBUG] Height probe sent to " << peerId << '\n';
     }
 }
@@ -2033,17 +2063,17 @@ void Network::addPeer(const std::string &peer) {
 //  Helper: send the three “kick-off” messages after a connection
 // ------------------------------------------------------------------
 void Network::sendInitialRequests(const std::string& peerId) {
-    Json::StreamWriterBuilder b;  b["indentation"] = "";
-    Json::Value j;
+    auto it = peerTransports.find(peerId);
+    if (it == peerTransports.end() || !it->second.tx) return;
 
-    j["type"] = "height_request";
-    sendData(peerId, "ALYN|" + Json::writeString(b, j) + "\n");
+    alyncoin::net::Frame f1; f1.mutable_height_req();
+    sendFrame(it->second.tx, f1);
 
-    j["type"] = "tip_hash_request";
-    sendData(peerId, "ALYN|" + Json::writeString(b, j) + "\n");
+    alyncoin::net::Frame f2; f2.mutable_tip_hash_req();
+    sendFrame(it->second.tx, f2);
 
-    j["type"] = "request_peers";
-    sendData(peerId, "ALYN|" + Json::writeString(b, j) + "\n");
+    alyncoin::net::Frame f3; f3.mutable_peer_list_req();
+    sendFrame(it->second.tx, f3);
 
     if (peerSupportsSnapshot(peerId))
         requestSnapshotSync(peerId);
@@ -2132,6 +2162,78 @@ void Network::dispatch(const alyncoin::net::Frame& f, const std::string& peer)
             }
             break;
         }
+        case alyncoin::net::Frame::kPing: {
+            alyncoin::net::Frame out; out.mutable_pong();
+            auto it = peerTransports.find(peer);
+            if (it != peerTransports.end())
+                sendFrame(it->second.tx, out);
+            break;
+        }
+        case alyncoin::net::Frame::kHeightReq:
+            sendHeight(peer);
+            break;
+        case alyncoin::net::Frame::kHeightRes:
+            if (peerManager)
+                peerManager->setPeerHeight(peer, f.height_res().height());
+            break;
+        case alyncoin::net::Frame::kSnapshotChunk:
+            handleSnapshotChunk(peer, f.snapshot_chunk().data());
+            break;
+        case alyncoin::net::Frame::kSnapshotEnd:
+            handleSnapshotEnd(peer);
+            break;
+        case alyncoin::net::Frame::kTailBlocks:
+            handleTailBlocks(peer, f.tail_blocks().SerializeAsString());
+            break;
+        case alyncoin::net::Frame::kInv: {
+            std::vector<std::string> hashes;
+            for (const auto& h : f.inv().hashes()) hashes.push_back(h);
+            std::vector<std::string> missing;
+            Blockchain& bc = Blockchain::getInstance();
+            for (const auto& h : hashes)
+                if (!bc.hasBlockHash(h)) missing.push_back(h);
+            if (!missing.empty()) {
+                // send getdata not implemented; placeholder
+            }
+            break;
+        }
+        case alyncoin::net::Frame::kTipHashReq:
+            sendTipHash(peer);
+            break;
+        case alyncoin::net::Frame::kTipHashRes:
+            if (peerManager)
+                peerManager->recordTipHash(peer, f.tip_hash_res().hash());
+            break;
+        case alyncoin::net::Frame::kPeerListReq:
+            sendPeerList(peer);
+            break;
+        case alyncoin::net::Frame::kPeerList: {
+            for (const auto& p : f.peer_list().peers()) {
+                size_t pos = p.find(':');
+                if (pos == std::string::npos) continue;
+                std::string ip = p.substr(0, pos);
+                int port = std::stoi(p.substr(pos + 1));
+                if ((ip == "127.0.0.1" || ip == "localhost") && port == this->port) continue;
+                if (peerTransports.count(p)) continue;
+                connectToNode(ip, port);
+            }
+            break;
+        }
+        case alyncoin::net::Frame::kRollupBlock: {
+            RollupBlock rb = RollupBlock::deserialize(f.rollup_block().data());
+            handleNewRollupBlock(rb);
+            break;
+        }
+        case alyncoin::net::Frame::kAggProof: {
+            // store aggregated proof
+            break;
+        }
+        case alyncoin::net::Frame::kSnapshotReq:
+            sendSnapshot(peerTransports[peer].tx, -1);
+            break;
+        case alyncoin::net::Frame::kTailReq:
+            handleTailRequest(peer, f.tail_req().from_height());
+            break;
         default:
             std::cerr << "Unknown frame from " << peer << "\n";
     }
@@ -2381,13 +2483,13 @@ if (base64Block.empty()) {
 void Network::sendInventory(const std::string& peer)
 {
     Blockchain& bc = Blockchain::getInstance();
-    Json::Value inv;
-    inv["type"] = "inv";
-    inv["hashes"] = Json::arrayValue;
+    auto it = peerTransports.find(peer);
+    if (it == peerTransports.end() || !it->second.tx) return;
+    alyncoin::net::Frame fr;
+    auto* inv = fr.mutable_inv();
     for (const auto& blk : bc.getChain())
-        inv["hashes"].append(blk.getHash());
-    Json::StreamWriterBuilder b; b["indentation"] = "";
-    sendData(peer, std::string("ALYN|") + Json::writeString(b, inv));
+        inv->add_hashes(blk.getHash());
+    sendFrame(it->second.tx, fr);
 }
 
 // cleanup
@@ -2404,9 +2506,9 @@ void Network::cleanupPeers() {
                     continue;
                 }
 
-                // ✅ Use prefixed ping (non-breaking protocol message)
-                std::string ping = "ALYN|PING\n";
-                peer.second.tx->queueWrite(ping);
+                alyncoin::net::Frame f; f.mutable_ping();
+                sendFrame(peer.second.tx, f);
+
                 std::cout << "✅ Peer active: " << peer.first << "\n";
             } catch (const std::exception &e) {
                 std::cerr << "⚠️ Exception checking peer " << peer.first << ": "
@@ -2479,39 +2581,37 @@ bool Network::validateBlockSignatures(const Block &blk) {
 }
 //
 void Network::broadcastRollupBlock(const RollupBlock& rollup) {
-    std::string payload = "ROLLUP_BLOCK|" + rollup.serialize();
-
     ScopedLockTracer tracer("broadcastRollupBlock");
     std::lock_guard<std::timed_mutex> lock(peersMutex);
-
     for (const auto& [peerID, entry] : peerTransports) {
         auto transport = entry.tx;
         if (transport && transport->isOpen()) {
-            try {
-                transport->queueWrite(std::string("ALYN|") + payload + "\n");
-                std::cout << "✅ Sent rollup block to " << peerID << "\n";
-            } catch (const std::exception& e) {
-                std::cerr << "❌ Failed to send rollup block to " << peerID << ": " << e.what() << "\n";
-            }
+            alyncoin::net::Frame fr;
+            fr.mutable_rollup_block()->set_data(rollup.serialize());
+            sendFrame(transport, fr);
         }
     }
 }
-
+//
 void Network::broadcastEpochProof(int epochIdx, const std::string& rootHash,
                                   const std::vector<uint8_t>& proofBytes) {
-    std::string b64 = Crypto::base64Encode(std::string(proofBytes.begin(), proofBytes.end()));
-    std::string payload = "AGG_PROOF|" + std::to_string(epochIdx) + "|" + rootHash + "|" + b64;
-
     ScopedLockTracer tracer("broadcastEpochProof");
     std::lock_guard<std::timed_mutex> lock(peersMutex);
     for (const auto& [peerID, entry] : peerTransports) {
         auto transport = entry.tx;
         if (transport && transport->isOpen()) {
-            transport->queueWrite(std::string("ALYN|") + payload + "\n");
+            alyncoin::net::Frame fr;
+            std::string blob;
+            blob.reserve(sizeof(int) + rootHash.size() + proofBytes.size());
+            blob.append(reinterpret_cast<const char*>(&epochIdx), sizeof(int));
+            blob.append(rootHash);
+            blob.append(proofBytes.begin(), proofBytes.end());
+            fr.mutable_agg_proof()->set_data(blob);
+            sendFrame(transport, fr);
         }
     }
 }
-
+//
 bool Network::peerSupportsAggProof(const std::string& peerId) const {
     auto it = peerTransports.find(peerId);
     if (it == peerTransports.end()) return false;
@@ -2537,8 +2637,6 @@ void Network::sendSnapshot(std::shared_ptr<Transport> transport, int upToHeight)
     Blockchain& bc = Blockchain::getInstance();
     int height = upToHeight < 0 ? bc.getHeight() : upToHeight;
     std::vector<Block> blocks = bc.getChainUpTo(height);  // Implement as needed
-
-    // Build a single snapshot object (e.g. custom SnapshotProto), serialize, base64, chunk
     SnapshotProto snap;
     snap.set_height(height);
     snap.set_merkle_root(bc.getHeaderMerkleRoot());
@@ -2547,43 +2645,31 @@ void Network::sendSnapshot(std::shared_ptr<Transport> transport, int upToHeight)
 
     std::string raw;
     if (!snap.SerializeToString(&raw)) return;
-   std::string b64 = b64Flat(raw);
 
-    const size_t CHUNK_SIZE = 8000;
-    for (size_t off = 0; off < b64.size(); off += CHUNK_SIZE) {
-        std::string chunk = b64.substr(off, CHUNK_SIZE);
-        std::cerr << "[DUMP-TX] (" << std::setw(4) << off
-                  << ") " << chunk.substr(0, 64) << " …\n";
-        transport->queueWrite("ALYN|SNAPSHOT_CHUNK|" + chunk + "\n");
+    const size_t CHUNK_SIZE = MAX_SNAPSHOT_CHUNK_SIZE;
+    for (size_t off = 0; off < raw.size(); off += CHUNK_SIZE) {
+        alyncoin::net::Frame fr;
+        fr.mutable_snapshot_chunk()->set_data(raw.substr(off, CHUNK_SIZE));
+        sendFrame(transport, fr);
     }
-    transport->queueWrite("ALYN|SNAPSHOT_END\n");
+    alyncoin::net::Frame end; end.mutable_snapshot_end();
+    sendFrame(transport, end);
 }
 //
+
 void Network::sendTailBlocks(std::shared_ptr<Transport> transport, int fromHeight) {
     Blockchain& bc = Blockchain::getInstance();
     std::vector<Block> tail;
     for (int i = fromHeight + 1; i <= bc.getHeight(); ++i) {
         tail.push_back(bc.getChain()[i]);
     }
-    TailBlocksProto proto;
+    alyncoin::net::TailBlocks proto;
     for (const auto& blk : tail)
         *proto.add_blocks() = blk.toProtobuf();
 
-    std::string raw;
-    if (!proto.SerializeToString(&raw)) return;
-    std::string b64 = b64Flat(raw);
-
-    const size_t MAX_PAYLOAD = 7 * 1024;
-    bool first = true;
-    for (size_t off = 0; off < b64.size(); off += MAX_PAYLOAD) {
-        std::string chunk = b64.substr(off, MAX_PAYLOAD);
-        if (first) {
-            transport->queueWrite("ALYN|TAIL_BLOCKS|" + chunk + "\n");
-            first = false;
-        } else {
-            transport->queueWrite(chunk + "\n");
-        }
-    }
+    alyncoin::net::Frame fr;
+    *fr.mutable_tail_blocks() = proto;
+    sendFrame(transport, fr);
 }
 //
 void Network::handleSnapshotChunk(const std::string& peer, const std::string& chunk) {
@@ -2612,7 +2698,7 @@ void Network::handleSnapshotEnd(const std::string& peer) {
     if (it == peerTransports.end() || !it->second.state) return;
     auto ps = it->second.state;
     try {
-        std::string raw = Crypto::base64Decode(ps->snapshotB64, false);
+        std::string raw = ps->snapshotB64;
         SnapshotProto snap;
         if (!snap.ParseFromString(raw)) throw std::runtime_error("Bad snapshot");
 
@@ -2660,12 +2746,10 @@ void Network::handleSnapshotEnd(const std::string& peer) {
     }
 }
 //
-void Network::handleTailBlocks(const std::string& peer, const std::string& b64) {
+void Network::handleTailBlocks(const std::string& peer, const std::string& data) {
     try {
-        std::string raw = Crypto::base64Decode(b64, false);
-        TailBlocksProto proto;
-        if (!proto.ParseFromString(raw)) throw std::runtime_error("Bad tailblocks");
-
+        alyncoin::net::TailBlocks proto;
+        if (!proto.ParseFromString(data)) throw std::runtime_error("Bad tailblocks");
         Blockchain& chain = Blockchain::getInstance();
 
         // Convert proto to vector of blocks
@@ -2719,13 +2803,20 @@ void Network::handleTailBlocks(const std::string& peer, const std::string& b64) 
 
 //
 void Network::requestSnapshotSync(const std::string& peer) {
-    sendData(peer, "ALYN|REQUEST_SNAPSHOT\n");
+    auto it = peerTransports.find(peer);
+    if (it == peerTransports.end() || !it->second.tx) return;
+    alyncoin::net::Frame fr; fr.mutable_snapshot_req();
+    sendFrame(it->second.tx, fr);
 }
 
 void Network::requestTailBlocks(const std::string& peer, int fromHeight) {
-    sendData(peer, "ALYN|REQUEST_TAIL_BLOCKS|" + std::to_string(fromHeight) + "\n");
+    auto it = peerTransports.find(peer);
+    if (it == peerTransports.end() || !it->second.tx) return;
+    alyncoin::net::Frame fr;
+    fr.mutable_tail_req()->set_from_height(fromHeight);
+    sendFrame(it->second.tx, fr);
 }
-
+//
 void Network::sendForkRecoveryRequest(const std::string& peer, const std::string& tip) {
     Json::Value ask;
     ask["type"] = "request_snapshot";

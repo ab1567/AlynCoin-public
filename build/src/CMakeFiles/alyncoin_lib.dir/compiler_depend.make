@@ -5410,6 +5410,7 @@ src/CMakeFiles/alyncoin_lib.dir/blockchain.cpp.o: /root/AlynCoin/src/blockchain.
   /root/AlynCoin/src/difficulty.h \
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
+  /root/AlynCoin/src/generated/net_frame.pb.h \
   /root/AlynCoin/src/generated/nft.pb.h \
   /root/AlynCoin/src/generated/sync_protos.pb.h \
   /root/AlynCoin/src/generated/transaction_protos.pb.h \
@@ -6591,6 +6592,7 @@ src/CMakeFiles/alyncoin_lib.dir/blockchain.cpp.o: /root/AlynCoin/src/blockchain.
   /usr/include/google/protobuf/extension_set.h \
   /usr/include/google/protobuf/generated_enum_reflection.h \
   /usr/include/google/protobuf/generated_enum_util.h \
+  /usr/include/google/protobuf/generated_message_bases.h \
   /usr/include/google/protobuf/generated_message_reflection.h \
   /usr/include/google/protobuf/generated_message_util.h \
   /usr/include/google/protobuf/has_bits.h \
@@ -6598,6 +6600,7 @@ src/CMakeFiles/alyncoin_lib.dir/blockchain.cpp.o: /root/AlynCoin/src/blockchain.
   /usr/include/google/protobuf/inlined_string_field.h \
   /usr/include/google/protobuf/io/coded_stream.h \
   /usr/include/google/protobuf/io/zero_copy_stream.h \
+  /usr/include/google/protobuf/io/zero_copy_stream_impl.h \
   /usr/include/google/protobuf/io/zero_copy_stream_impl_lite.h \
   /usr/include/google/protobuf/map.h \
   /usr/include/google/protobuf/map_type_handler.h \
@@ -8025,6 +8028,7 @@ src/CMakeFiles/alyncoin_lib.dir/epoch_sync.cpp.o: /root/AlynCoin/src/epoch_sync.
   /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
+  /root/AlynCoin/src/generated/net_frame.pb.h \
   /root/AlynCoin/src/generated/nft.pb.h \
   /root/AlynCoin/src/generated/sync_protos.pb.h \
   /root/AlynCoin/src/generated/transaction_protos.pb.h \
@@ -9188,6 +9192,7 @@ src/CMakeFiles/alyncoin_lib.dir/epoch_sync.cpp.o: /root/AlynCoin/src/epoch_sync.
   /usr/include/google/protobuf/extension_set.h \
   /usr/include/google/protobuf/generated_enum_reflection.h \
   /usr/include/google/protobuf/generated_enum_util.h \
+  /usr/include/google/protobuf/generated_message_bases.h \
   /usr/include/google/protobuf/generated_message_reflection.h \
   /usr/include/google/protobuf/generated_message_util.h \
   /usr/include/google/protobuf/has_bits.h \
@@ -9195,6 +9200,7 @@ src/CMakeFiles/alyncoin_lib.dir/epoch_sync.cpp.o: /root/AlynCoin/src/epoch_sync.
   /usr/include/google/protobuf/inlined_string_field.h \
   /usr/include/google/protobuf/io/coded_stream.h \
   /usr/include/google/protobuf/io/zero_copy_stream.h \
+  /usr/include/google/protobuf/io/zero_copy_stream_impl.h \
   /usr/include/google/protobuf/io/zero_copy_stream_impl_lite.h \
   /usr/include/google/protobuf/map.h \
   /usr/include/google/protobuf/map_type_handler.h \
@@ -11896,6 +11902,7 @@ src/CMakeFiles/alyncoin_lib.dir/miner.cpp.o: /root/AlynCoin/src/miner.cpp \
   /root/AlynCoin/src/difficulty.h \
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
+  /root/AlynCoin/src/generated/net_frame.pb.h \
   /root/AlynCoin/src/generated/nft.pb.h \
   /root/AlynCoin/src/generated/sync_protos.pb.h \
   /root/AlynCoin/src/generated/transaction_protos.pb.h \
@@ -13064,6 +13071,7 @@ src/CMakeFiles/alyncoin_lib.dir/miner.cpp.o: /root/AlynCoin/src/miner.cpp \
   /usr/include/google/protobuf/extension_set.h \
   /usr/include/google/protobuf/generated_enum_reflection.h \
   /usr/include/google/protobuf/generated_enum_util.h \
+  /usr/include/google/protobuf/generated_message_bases.h \
   /usr/include/google/protobuf/generated_message_reflection.h \
   /usr/include/google/protobuf/generated_message_util.h \
   /usr/include/google/protobuf/has_bits.h \
@@ -13071,6 +13079,7 @@ src/CMakeFiles/alyncoin_lib.dir/miner.cpp.o: /root/AlynCoin/src/miner.cpp \
   /usr/include/google/protobuf/inlined_string_field.h \
   /usr/include/google/protobuf/io/coded_stream.h \
   /usr/include/google/protobuf/io/zero_copy_stream.h \
+  /usr/include/google/protobuf/io/zero_copy_stream_impl.h \
   /usr/include/google/protobuf/io/zero_copy_stream_impl_lite.h \
   /usr/include/google/protobuf/map.h \
   /usr/include/google/protobuf/map_type_handler.h \
@@ -15304,6 +15313,7 @@ src/CMakeFiles/alyncoin_lib.dir/network/peer_manager.cpp.o: /root/AlynCoin/src/n
   /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
+  /root/AlynCoin/src/generated/net_frame.pb.h \
   /root/AlynCoin/src/generated/nft.pb.h \
   /root/AlynCoin/src/generated/sync_protos.pb.h \
   /root/AlynCoin/src/generated/transaction_protos.pb.h \
@@ -16470,6 +16480,7 @@ src/CMakeFiles/alyncoin_lib.dir/network/peer_manager.cpp.o: /root/AlynCoin/src/n
   /usr/include/google/protobuf/extension_set.h \
   /usr/include/google/protobuf/generated_enum_reflection.h \
   /usr/include/google/protobuf/generated_enum_util.h \
+  /usr/include/google/protobuf/generated_message_bases.h \
   /usr/include/google/protobuf/generated_message_reflection.h \
   /usr/include/google/protobuf/generated_message_util.h \
   /usr/include/google/protobuf/has_bits.h \
@@ -16477,6 +16488,7 @@ src/CMakeFiles/alyncoin_lib.dir/network/peer_manager.cpp.o: /root/AlynCoin/src/n
   /usr/include/google/protobuf/inlined_string_field.h \
   /usr/include/google/protobuf/io/coded_stream.h \
   /usr/include/google/protobuf/io/zero_copy_stream.h \
+  /usr/include/google/protobuf/io/zero_copy_stream_impl.h \
   /usr/include/google/protobuf/io/zero_copy_stream_impl_lite.h \
   /usr/include/google/protobuf/map.h \
   /usr/include/google/protobuf/map_type_handler.h \
@@ -17095,6 +17107,7 @@ src/CMakeFiles/alyncoin_lib.dir/nft/nft.cpp.o: /root/AlynCoin/src/nft/nft.cpp \
   /root/AlynCoin/src/blockchain.h \
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
+  /root/AlynCoin/src/generated/net_frame.pb.h \
   /root/AlynCoin/src/generated/nft.pb.h \
   /root/AlynCoin/src/generated/transaction_protos.pb.h \
   /root/AlynCoin/src/network.h \
@@ -18283,6 +18296,7 @@ src/CMakeFiles/alyncoin_lib.dir/nft/nft.cpp.o: /root/AlynCoin/src/nft/nft.cpp \
   /usr/include/google/protobuf/extension_set.h \
   /usr/include/google/protobuf/generated_enum_reflection.h \
   /usr/include/google/protobuf/generated_enum_util.h \
+  /usr/include/google/protobuf/generated_message_bases.h \
   /usr/include/google/protobuf/generated_message_reflection.h \
   /usr/include/google/protobuf/generated_message_util.h \
   /usr/include/google/protobuf/has_bits.h \
@@ -18290,6 +18304,7 @@ src/CMakeFiles/alyncoin_lib.dir/nft/nft.cpp.o: /root/AlynCoin/src/nft/nft.cpp \
   /usr/include/google/protobuf/inlined_string_field.h \
   /usr/include/google/protobuf/io/coded_stream.h \
   /usr/include/google/protobuf/io/zero_copy_stream.h \
+  /usr/include/google/protobuf/io/zero_copy_stream_impl.h \
   /usr/include/google/protobuf/io/zero_copy_stream_impl_lite.h \
   /usr/include/google/protobuf/map.h \
   /usr/include/google/protobuf/map_type_handler.h \
@@ -21389,6 +21404,7 @@ src/CMakeFiles/alyncoin_lib.dir/self_healing/health_monitor.cpp.o: /root/AlynCoi
   /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
+  /root/AlynCoin/src/generated/net_frame.pb.h \
   /root/AlynCoin/src/generated/nft.pb.h \
   /root/AlynCoin/src/generated/sync_protos.pb.h \
   /root/AlynCoin/src/generated/transaction_protos.pb.h \
@@ -22560,6 +22576,7 @@ src/CMakeFiles/alyncoin_lib.dir/self_healing/health_monitor.cpp.o: /root/AlynCoi
   /usr/include/google/protobuf/extension_set.h \
   /usr/include/google/protobuf/generated_enum_reflection.h \
   /usr/include/google/protobuf/generated_enum_util.h \
+  /usr/include/google/protobuf/generated_message_bases.h \
   /usr/include/google/protobuf/generated_message_reflection.h \
   /usr/include/google/protobuf/generated_message_util.h \
   /usr/include/google/protobuf/has_bits.h \
@@ -22567,6 +22584,7 @@ src/CMakeFiles/alyncoin_lib.dir/self_healing/health_monitor.cpp.o: /root/AlynCoi
   /usr/include/google/protobuf/inlined_string_field.h \
   /usr/include/google/protobuf/io/coded_stream.h \
   /usr/include/google/protobuf/io/zero_copy_stream.h \
+  /usr/include/google/protobuf/io/zero_copy_stream_impl.h \
   /usr/include/google/protobuf/io/zero_copy_stream_impl_lite.h \
   /usr/include/google/protobuf/map.h \
   /usr/include/google/protobuf/map_type_handler.h \
@@ -22920,6 +22938,7 @@ src/CMakeFiles/alyncoin_lib.dir/self_healing/self_healing_node.cpp.o: /root/Alyn
   /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
+  /root/AlynCoin/src/generated/net_frame.pb.h \
   /root/AlynCoin/src/generated/nft.pb.h \
   /root/AlynCoin/src/generated/sync_protos.pb.h \
   /root/AlynCoin/src/generated/transaction_protos.pb.h \
@@ -24087,6 +24106,7 @@ src/CMakeFiles/alyncoin_lib.dir/self_healing/self_healing_node.cpp.o: /root/Alyn
   /usr/include/google/protobuf/extension_set.h \
   /usr/include/google/protobuf/generated_enum_reflection.h \
   /usr/include/google/protobuf/generated_enum_util.h \
+  /usr/include/google/protobuf/generated_message_bases.h \
   /usr/include/google/protobuf/generated_message_reflection.h \
   /usr/include/google/protobuf/generated_message_util.h \
   /usr/include/google/protobuf/has_bits.h \
@@ -24094,6 +24114,7 @@ src/CMakeFiles/alyncoin_lib.dir/self_healing/self_healing_node.cpp.o: /root/Alyn
   /usr/include/google/protobuf/inlined_string_field.h \
   /usr/include/google/protobuf/io/coded_stream.h \
   /usr/include/google/protobuf/io/zero_copy_stream.h \
+  /usr/include/google/protobuf/io/zero_copy_stream_impl.h \
   /usr/include/google/protobuf/io/zero_copy_stream_impl_lite.h \
   /usr/include/google/protobuf/map.h \
   /usr/include/google/protobuf/map_type_handler.h \
@@ -25962,6 +25983,7 @@ src/CMakeFiles/alyncoin_lib.dir/syncing.cpp.o: /root/AlynCoin/src/syncing.cpp \
   /root/AlynCoin/src/db/db_paths.h \
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
+  /root/AlynCoin/src/generated/net_frame.pb.h \
   /root/AlynCoin/src/generated/nft.pb.h \
   /root/AlynCoin/src/generated/sync_protos.pb.h \
   /root/AlynCoin/src/generated/transaction_protos.pb.h \
@@ -27126,6 +27148,7 @@ src/CMakeFiles/alyncoin_lib.dir/syncing.cpp.o: /root/AlynCoin/src/syncing.cpp \
   /usr/include/google/protobuf/extension_set.h \
   /usr/include/google/protobuf/generated_enum_reflection.h \
   /usr/include/google/protobuf/generated_enum_util.h \
+  /usr/include/google/protobuf/generated_message_bases.h \
   /usr/include/google/protobuf/generated_message_reflection.h \
   /usr/include/google/protobuf/generated_message_util.h \
   /usr/include/google/protobuf/has_bits.h \
@@ -27133,6 +27156,7 @@ src/CMakeFiles/alyncoin_lib.dir/syncing.cpp.o: /root/AlynCoin/src/syncing.cpp \
   /usr/include/google/protobuf/inlined_string_field.h \
   /usr/include/google/protobuf/io/coded_stream.h \
   /usr/include/google/protobuf/io/zero_copy_stream.h \
+  /usr/include/google/protobuf/io/zero_copy_stream_impl.h \
   /usr/include/google/protobuf/io/zero_copy_stream_impl_lite.h \
   /usr/include/google/protobuf/map.h \
   /usr/include/google/protobuf/map_type_handler.h \

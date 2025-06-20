@@ -32,6 +32,14 @@ message TailBlocks {
   repeated alyncoin.BlockProto blocks = 1;
 }
 message EpochProof { bytes data = 1; }
+message Inventory { repeated string hashes = 1; }
+message TipHashRequest {}
+message TipHashResponse { string hash = 1; }
+message PeerListRequest {}
+message PeerList { repeated string peers = 1; }
+message RollupBlockMsg { bytes data = 1; }
+message SnapshotRequest {}
+message TailBlocksRequest { uint64 from_height = 1; }
 
 message Frame {
   oneof kind {
@@ -46,5 +54,13 @@ message Frame {
     SnapshotEnd snapshot_end = 9;
     TailBlocks tail_blocks = 10;
     EpochProof agg_proof = 11;
+    Inventory inv = 12;
+    TipHashRequest tip_hash_req = 13;
+    TipHashResponse tip_hash_res = 14;
+    PeerListRequest peer_list_req = 15;
+    PeerList peer_list = 16;
+    RollupBlockMsg rollup_block = 17;
+    SnapshotRequest snapshot_req = 18;
+    TailBlocksRequest tail_req = 19;
   }
 }

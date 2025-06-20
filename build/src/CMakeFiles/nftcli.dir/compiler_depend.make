@@ -282,6 +282,7 @@ src/CMakeFiles/nftcli.dir/nft/nft.cpp.o: /root/AlynCoin/src/nft/nft.cpp \
   /root/AlynCoin/src/blockchain.h \
   /root/AlynCoin/src/generated/block_protos.pb.h \
   /root/AlynCoin/src/generated/blockchain_protos.pb.h \
+  /root/AlynCoin/src/generated/net_frame.pb.h \
   /root/AlynCoin/src/generated/nft.pb.h \
   /root/AlynCoin/src/generated/transaction_protos.pb.h \
   /root/AlynCoin/src/network.h \
@@ -1470,6 +1471,7 @@ src/CMakeFiles/nftcli.dir/nft/nft.cpp.o: /root/AlynCoin/src/nft/nft.cpp \
   /usr/include/google/protobuf/extension_set.h \
   /usr/include/google/protobuf/generated_enum_reflection.h \
   /usr/include/google/protobuf/generated_enum_util.h \
+  /usr/include/google/protobuf/generated_message_bases.h \
   /usr/include/google/protobuf/generated_message_reflection.h \
   /usr/include/google/protobuf/generated_message_util.h \
   /usr/include/google/protobuf/has_bits.h \
@@ -1477,6 +1479,7 @@ src/CMakeFiles/nftcli.dir/nft/nft.cpp.o: /root/AlynCoin/src/nft/nft.cpp \
   /usr/include/google/protobuf/inlined_string_field.h \
   /usr/include/google/protobuf/io/coded_stream.h \
   /usr/include/google/protobuf/io/zero_copy_stream.h \
+  /usr/include/google/protobuf/io/zero_copy_stream_impl.h \
   /usr/include/google/protobuf/io/zero_copy_stream_impl_lite.h \
   /usr/include/google/protobuf/map.h \
   /usr/include/google/protobuf/map_type_handler.h \
@@ -4423,8 +4426,6 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 
 /usr/include/boost/asio/impl/executor.hpp:
 
-/usr/include/boost/asio/impl/thread_pool.hpp:
-
 /usr/include/boost/asio/use_awaitable.hpp:
 
 /usr/include/boost/asio/detail/reactor.hpp:
@@ -4570,6 +4571,10 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 /usr/include/boost/predef/library/std.h:
 
 /usr/include/boost/asio/detail/reactive_socket_connect_op.hpp:
+
+/usr/include/boost/asio/impl/thread_pool.hpp:
+
+/root/AlynCoin/src/generated/net_frame.pb.h:
 
 /usr/include/boost/numeric/conversion/detail/udt_builtin_mixture.hpp:
 
@@ -5162,6 +5167,8 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 /usr/include/boost/asio/detail/impl/socket_ops.ipp:
 
 /usr/include/x86_64-linux-gnu/bits/waitstatus.h:
+
+/usr/include/google/protobuf/generated_message_bases.h:
 
 /usr/include/c++/13/bits/cxxabi_init_exception.h:
 
@@ -6337,6 +6344,8 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 
 /usr/include/boost/config/detail/select_stdlib_config.hpp:
 
+/usr/include/google/protobuf/io/zero_copy_stream_impl.h:
+
 /usr/include/boost/mpl/equal_to.hpp:
 
 /usr/include/boost/config/platform/linux.hpp:
@@ -6522,6 +6531,10 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 /usr/include/boost/predef/os/linux.h:
 
 /usr/include/boost/mpl/aux_/config/msvc.hpp:
+
+/usr/include/boost/preprocessor/list/detail/fold_left.hpp:
+
+/usr/include/boost/mpl/aux_/config/use_preprocessed.hpp:
 
 /usr/include/boost/mpl/aux_/config/workaround.hpp:
 
@@ -6714,10 +6727,6 @@ src/CMakeFiles/nftcli.dir/nft/nft_storage.cpp.o: /root/AlynCoin/src/nft/nft_stor
 /usr/include/c++/13/bits/basic_string.h:
 
 /usr/include/boost/predef/compiler/nvcc.h:
-
-/usr/include/boost/mpl/aux_/config/use_preprocessed.hpp:
-
-/usr/include/boost/preprocessor/list/detail/fold_left.hpp:
 
 /usr/include/boost/predef/compiler/tendra.h:
 

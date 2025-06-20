@@ -24,7 +24,7 @@
 
 using boost::asio::ip::tcp;
 
-constexpr size_t MAX_SNAPSHOT_CHUNK_SIZE = 10 * 1024;
+constexpr size_t MAX_SNAPSHOT_CHUNK_SIZE = 16 * 1024 * 1024;
 
 class Network {
 public:
@@ -139,6 +139,9 @@ public:
     void  handleTailBlocks(const std::string& peer, const std::string& b64);
     static unsigned short findAvailablePort(unsigned short startPort, int maxTries = 10);
     void sendFrame(std::shared_ptr<Transport> tr, const google::protobuf::Message& m);
+    void  sendHeight(const std::string& peer);
+    void  sendTipHash(const std::string& peer);
+    void  sendPeerList(const std::string& peer);
 private:
     unsigned short port;
     Blockchain *blockchain;
