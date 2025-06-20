@@ -634,8 +634,10 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
         const auto& hs = fr.handshake();
 
         const std::string senderIP   = transport->getRemoteIP();
-        const int         senderPort = transport->getRemotePort();
-        realPeerId                    = senderIP + ':' + std::to_string(senderPort);
+        const int declaredPort       = hs.listen_port();
+        const int senderPort         = transport->getRemotePort();
+        const int finalPort          = declaredPort ? declaredPort : senderPort;
+        realPeerId                   = senderIP + ':' + std::to_string(finalPort);
 
         claimedVersion = hs.version();
         claimedNetwork = hs.network_id();
@@ -645,8 +647,16 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
             if (cap == "agg_proof_v1")  remoteAgg  = true;
             if (cap == "snapshot_v1")   remoteSnap = true;
         }
-
         claimedPeerId = realPeerId;
+
+        std::string myGenesis;
+        if (!Blockchain::getInstance().getChain().empty())
+            myGenesis = Blockchain::getInstance().getChain().front().getHash();
+        if (!hs.genesis_hash().empty() && !myGenesis.empty() &&
+            hs.genesis_hash() != myGenesis) {
+            std::cerr << "⚠️  [handlePeer] genesis hash mismatch – dropped." << '\n';
+            return;
+        }
 
         std::cout << "🤝 Handshake from " << realPeerId
                   << " | ver "      << claimedVersion
@@ -714,9 +724,13 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
     // ── 4. push our handshake back ──────────────────────────────────────────
     {
         alyncoin::net::Handshake hs;
+        Blockchain& bc = Blockchain::getInstance();
         hs.set_version("1.0.0");
         hs.set_network_id("mainnet");
-        hs.set_height(Blockchain::getInstance().getHeight());
+        hs.set_height(bc.getHeight());
+        hs.set_listen_port(this->port);
+        if (!bc.getChain().empty())
+            hs.set_genesis_hash(bc.getChain().front().getHash());
         hs.add_capabilities("full");
         hs.add_capabilities("miner");
         hs.add_capabilities("agg_proof_v1");
@@ -1071,10 +1085,19 @@ void Network::sendBlockToPeer(const std::string& peer, const Block& blk)
 //
 bool Network::isSelfPeer(const std::string& peer) const {
     std::string selfAddr = getSelfAddressAndPort();
-    return
-        peer == selfAddr ||
+    if (peer == selfAddr ||
         peer == "127.0.0.1:" + std::to_string(this->port) ||
-        peer == "localhost:" + std::to_string(this->port);
+        peer == "localhost:" + std::to_string(this->port))
+        return true;
+
+    if (!publicPeerId.empty()) {
+        auto colon = publicPeerId.find(':');
+        std::string ipSelf = publicPeerId.substr(0, colon);
+        std::string peerIp = peer.substr(0, peer.find(':'));
+        if (peerIp == ipSelf)
+            return true;
+    }
+    return false;
 }
 
 std::string Network::getSelfAddressAndPort() const {
@@ -1558,9 +1581,13 @@ bool Network::connectToNode(const std::string& host, int port)
 
         /* our handshake */
         alyncoin::net::Handshake hs;
+        Blockchain& bc = Blockchain::getInstance();
         hs.set_version("1.0.0");
         hs.set_network_id("mainnet");
-        hs.set_height(Blockchain::getInstance().getHeight());
+        hs.set_height(bc.getHeight());
+        hs.set_listen_port(this->port);
+        if (!bc.getChain().empty())
+            hs.set_genesis_hash(bc.getChain().front().getHash());
         hs.add_capabilities("full");
         hs.add_capabilities("miner");
         hs.add_capabilities("agg_proof_v1");
