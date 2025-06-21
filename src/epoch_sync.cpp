@@ -1,6 +1,5 @@
 #include "network.h"
 
-void Network::requestEpochHeaders(const std::string& /*peerId*/) {
 void Network::requestEpochHeaders(const std::string& peerId) {
     std::lock_guard<std::timed_mutex> lk(peersMutex);
     auto it = peerTransports.find(peerId);

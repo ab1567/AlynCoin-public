@@ -132,6 +132,7 @@ public:
                                       const alyncoin::BlockchainSyncProto& req);
     static unsigned short findAvailablePort(unsigned short startPort, int maxTries = 10);
     void sendFrame(std::shared_ptr<Transport> tr, const google::protobuf::Message& m);
+    void broadcastFrame(const google::protobuf::Message& m);
     void  sendHeight(const std::string& peer);
     void  sendTipHash(const std::string& peer);
     void  sendPeerList(const std::string& peer);

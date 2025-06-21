@@ -120,6 +120,17 @@ void Network::sendFrame(std::shared_ptr<Transport> tr, const google::protobuf::M
     tr->writeBinary(out);
 }
 
+void Network::broadcastFrame(const google::protobuf::Message& m)
+{
+    std::lock_guard<std::timed_mutex> lk(peersMutex);
+    for (auto& kv : peerTransports)
+    {
+        auto tr = kv.second.tx;
+        if (tr && tr->isOpen())
+            sendFrame(tr, m);
+    }
+}
+
 void Network::sendHeight(const std::string& peer) {
     auto it = peerTransports.find(peer);
     if (it == peerTransports.end() || !it->second.tx) return;
