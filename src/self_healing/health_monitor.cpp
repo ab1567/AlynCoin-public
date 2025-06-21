@@ -20,10 +20,22 @@ NodeHealthStatus HealthMonitor::checkHealth() {
     status.localTipHash = getLocalTipHash();
     status.expectedTipHash = getNetworkTipHash();
     status.connectedPeers = peerManager_->getPeerCount();
+    uint64_t localWork = blockchain_->computeCumulativeDifficulty(blockchain_->getChain());
+    uint64_t remoteWork = status.networkHeight; // proxy for total work
     status.farBehind = false;
 
-    if (status.networkHeight == 0 ||
-        status.localHeight > status.networkHeight + 3) {
+    if (remoteWork == 0) {
+        status.isHealthy = true;
+        status.reason = "Isolated";
+        Logger::info("[🩺 NODE HEALTH] local_work=" + std::to_string(localWork) +
+                    " remote_work=0 (isolated)");
+        return status;
+    }
+
+    if (remoteWork < localWork) {
+        status.isHealthy = true;
+        status.reason = "Local chain heavier";
+    } else if (status.localHeight > status.networkHeight + 3) {
         Logger::warn("[🩺 NODE HEALTH] ⚠ Out of sync – forcing re-probe");
         if (auto net = Network::getExistingInstance()) {
             alyncoin::net::Frame fr; fr.mutable_height_req();
@@ -32,15 +44,12 @@ NodeHealthStatus HealthMonitor::checkHealth() {
         status.isHealthy = false;
         status.reason = "Out of sync";
         return status;
+    } else {
+        status.isHealthy = true;
+        status.reason = "Healthy";
     }
 
-    status.isHealthy = true;
-    status.reason = "Healthy";
-
-    if (status.connectedPeers == 0) {
-        status.isHealthy = false;
-        status.reason = "No connected peers";
-    } else if (status.localHeight + 5 < status.networkHeight) {
+    if (status.localHeight + 5 < status.networkHeight) {
         status.isHealthy = false;
         status.reason = "Node is behind the network";
     } else if (status.localTipHash != status.expectedTipHash && status.networkHeight - status.localHeight < 10) {
@@ -64,6 +73,8 @@ void HealthMonitor::logStatus(const NodeHealthStatus& status) {
         << "  • Local Height: " << status.localHeight << "\n"
         << "  • Network Height: " << status.networkHeight << "\n"
         << "  • Peers: " << status.connectedPeers << "\n"
+        << "  • Local Work: " << blockchain_->computeCumulativeDifficulty(blockchain_->getChain()) << "\n"
+        << "  • Remote Work: " << status.networkHeight << "\n"
         << "  • Local Tip Hash: " << status.localTipHash.substr(0, 10) << "...\n"
         << "  • Expected Tip Hash: " << status.expectedTipHash.substr(0, 10) << "...";
 
