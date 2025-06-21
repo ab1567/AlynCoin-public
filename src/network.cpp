@@ -1995,6 +1995,21 @@ void Network::handleSnapshotEnd(const std::string& peer) {
             }
         }
 
+        // --- Fork choice: accept snapshot only if heavier ---
+        int localHeight = chain.getHeight();
+        uint64_t localWork = chain.computeCumulativeDifficulty(chain.getChain());
+        uint64_t remoteWork = chain.computeCumulativeDifficulty(snapBlocks);
+
+        if (snap.height() <= localHeight || remoteWork <= localWork) {
+            std::cerr << "⚠️ [SNAPSHOT] Rejected snapshot from " << peer
+                      << " (height " << snap.height() << ", work " << remoteWork
+                      << ") localHeight=" << localHeight
+                      << " localWork=" << localWork << "\n";
+            ps->snapshotActive = false;
+            ps->snapshotB64.clear();
+            return;
+        }
+
         // Actually apply: truncate and replace local chain
         chain.replaceChainUpTo(snapBlocks, snap.height());
 
