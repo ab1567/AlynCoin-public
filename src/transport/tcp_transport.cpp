@@ -186,10 +186,11 @@ void TcpTransport::startReadBinaryLoop(std::function<void(const boost::system::e
 }
 
 // ---- Async queue write implementation ----
-void TcpTransport::queueWrite(const std::string& data)
+void TcpTransport::queueWrite(const std::string& data, bool binary)
 {
     std::lock_guard<std::mutex> lock(writeMutex);
     writeQueue.push_back(data);
+    writeQueueBinary.push_back(binary);
     if (!writeInProgress)
         doWrite();
 }
@@ -203,14 +204,34 @@ void TcpTransport::doWrite()
     writeInProgress = true;
     auto self = shared_from_this();
     std::string msg = writeQueue.front();
-    if (msg.empty() || msg.back() != '\n') msg.push_back('\n');
+    bool binary = writeQueueBinary.front();
+    if (!binary) {
+        if (msg.empty() || msg.back() != '\n') msg.push_back('\n');
+    }
     boost::asio::async_write(*socket, boost::asio::buffer(msg),
         [this, self](const boost::system::error_code& ec, std::size_t) {
             std::lock_guard<std::mutex> lock(writeMutex);
             if (!writeQueue.empty()) writeQueue.pop_front();
+            if (!writeQueueBinary.empty()) writeQueueBinary.pop_front();
             if (!ec)
                 doWrite();
             else
                 writeInProgress = false;
         });
+}
+
+void TcpTransport::startReadLineLoop(std::function<void(const boost::system::error_code&, const std::string&)> cb)
+{
+    auto buf  = std::make_shared<boost::asio::streambuf>();
+    auto self = shared_from_this();
+    std::function<void(const boost::system::error_code&, std::size_t)> handler;
+    handler = [=, this](const boost::system::error_code& ec, std::size_t) mutable {
+        if (ec) { cb(ec, ""); return; }
+        std::istream is(buf.get());
+        std::string line; std::getline(is, line);
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        cb(boost::system::error_code(), line);
+        boost::asio::async_read_until(*socket, *buf, '\n', handler);
+    };
+    boost::asio::async_read_until(*socket, *buf, '\n', handler);
 }

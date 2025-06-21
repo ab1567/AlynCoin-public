@@ -31,5 +31,12 @@ public:
 
     // ---- Async queue based send ----
     // Default implementation falls back to blocking write().
-    virtual void queueWrite(const std::string& data) { write(data); }
+    virtual void queueWrite(const std::string& data, bool binary = false) {
+        if (binary)
+            writeBinary(data);
+        else
+            write(data);
+    }
+
+    virtual void startReadLineLoop(std::function<void(const boost::system::error_code&, const std::string&)> /*cb*/) {}
 };
