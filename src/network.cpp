@@ -1348,10 +1348,15 @@ void Network::sendInitialRequests(const std::string& peerId) {
     alyncoin::net::Frame f3; f3.mutable_peer_list_req();
     sendFrame(it->second.tx, f3);
 
-    if (peerSupportsSnapshot(peerId))
-        requestSnapshotSync(peerId);
-    else if (peerSupportsAggProof(peerId))
-        requestEpochHeaders(peerId);
+    // Only request a snapshot if the peer reports a higher height.
+    int peerHeight  = peerManager ? peerManager->getPeerHeight(peerId) : -1;
+    int localHeight = Blockchain::getInstance().getHeight();
+    if (peerHeight > localHeight) {
+        if (peerSupportsSnapshot(peerId))
+            requestSnapshotSync(peerId);
+        else if (peerSupportsAggProof(peerId))
+            requestEpochHeaders(peerId);
+    }
 
     sendInventory(peerId);
 }
@@ -1975,7 +1980,8 @@ void Network::handleSnapshotEnd(const std::string& peer) {
         Blockchain& chain = Blockchain::getInstance();
 
         // --- Validate snapshot height and integrity ---
-        if (snap.height() < 1 || snap.blocks_size() == 0) throw std::runtime_error("Empty snapshot");
+        // Accept a genesis-only snapshot (height can be 0)
+        if (snap.height() < 0 || snap.blocks_size() == 0) throw std::runtime_error("Empty snapshot");
         if (static_cast<size_t>(snap.height()) != snap.blocks_size() - 1) {
             throw std::runtime_error("Snapshot height mismatch");
         }
