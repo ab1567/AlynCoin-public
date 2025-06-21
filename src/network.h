@@ -86,7 +86,6 @@ public:
     void addPeer(const std::string &peer);
     void intelligentSync();
     std::vector<std::string> getPeers();
-    bool sendData(const std::string &peer, const std::string &data);
     bool sendData(std::shared_ptr<Transport> transport, const std::string &data);
     void receiveTransaction(const Transaction &tx);
     void broadcastPeerList();

@@ -1251,20 +1251,6 @@ bool Network::sendData(std::shared_ptr<Transport> transport, const std::string &
         return false;
     }
 }
-// The original version (by peerID) can call the socket version
-bool Network::sendData(const std::string &peer, const std::string &data) {
-    std::shared_ptr<Transport> tx;
-    {
-        std::lock_guard<std::timed_mutex> lk(peersMutex);
-        auto it = peerTransports.find(peer);
-        if (it == peerTransports.end() || !it->second.tx || !it->second.tx->isOpen()) {
-            std::cerr << "❌ [ERROR] Peer transport not found or closed: " << peer << "\n";
-            return false;
-        }
-        tx = it->second.tx;
-    }
-    return sendData(tx, data);
-}
 
 // ✅ **Request Blockchain Sync from Peers**
 std::string Network::requestBlockchainSync(const std::string &peer) {

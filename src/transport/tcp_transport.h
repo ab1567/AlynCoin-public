@@ -34,7 +34,8 @@ public:
     void         startReadLineLoop(std::function<void(const boost::system::error_code&, const std::string&)> cb) override;
 
     // Queue-based async write
-    void         queueWrite(const std::string& data, bool binary = false) override;
+    // Queue write now takes ownership of the data
+    void         queueWrite(std::string data, bool binary = false) override;
 
 private:
     std::shared_ptr<boost::asio::ip::tcp::socket> socket;

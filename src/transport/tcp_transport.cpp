@@ -186,10 +186,10 @@ void TcpTransport::startReadBinaryLoop(std::function<void(const boost::system::e
 }
 
 // ---- Async queue write implementation ----
-void TcpTransport::queueWrite(const std::string& data, bool binary)
+void TcpTransport::queueWrite(std::string data, bool binary)
 {
     std::lock_guard<std::mutex> lock(writeMutex);
-    writeQueue.push_back(data);
+    writeQueue.push_back(std::move(data));
     writeQueueBinary.push_back(binary);
     if (!writeInProgress)
         doWrite();
@@ -203,7 +203,7 @@ void TcpTransport::doWrite()
     }
     writeInProgress = true;
     auto self = shared_from_this();
-    std::string msg = writeQueue.front();
+    std::string &msg = writeQueue.front();
     bool binary = writeQueueBinary.front();
     if (!binary) {
         if (msg.empty() || msg.back() != '\n') msg.push_back('\n');
