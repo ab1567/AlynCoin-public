@@ -140,43 +140,49 @@ bool TcpTransport::waitReadable(int seconds)
 //
 void TcpTransport::startReadBinaryLoop(std::function<void(const boost::system::error_code&, const std::string&)> cb)
 {
-    auto self   = shared_from_this();
-    auto header = std::make_shared<std::vector<uint8_t>>(1);
+    auto readBuffer = std::make_shared<std::vector<uint8_t>>(1024);
+    auto dataBuffer = std::make_shared<std::vector<uint8_t>>();
+    auto self       = shared_from_this();
 
-    std::shared_ptr<std::function<void(const boost::system::error_code&, std::size_t)>> readHeader;
-    readHeader = std::make_shared<std::function<void(const boost::system::error_code&, std::size_t)>>();
+    std::function<void(const boost::system::error_code&, std::size_t)> handler;
+    handler = [=, this](const boost::system::error_code& ec, std::size_t bytes) mutable {
+        if (ec) {
+            cb(ec, "");
+            return;
+        }
 
-    *readHeader = [this, self, header, cb, readHeader](const boost::system::error_code& ec, std::size_t) {
-        if (ec) { cb(ec, {}); return; }
+        dataBuffer->insert(dataBuffer->end(), readBuffer->begin(), readBuffer->begin() + bytes);
 
-        uint64_t len = 0; size_t used = 0;
-        if (decodeVarInt(header->data(), header->size(), &len, &used)) {
-            if (len == 0 || len > 32 * 1024 * 1024) {
-                cb(boost::asio::error::invalid_argument, {});
+        while (true) {
+            if (dataBuffer->empty()) break;
+
+            uint64_t frameLen = 0; size_t used = 0;
+            if (!decodeVarInt(dataBuffer->data(), dataBuffer->size(), &frameLen, &used)) {
+                if (dataBuffer->size() < 10)
+                    break; // wait for more bytes
+                std::cerr << "[readHandler] ❌ Failed to decode varint header.\n";
+                cb(boost::asio::error::invalid_argument, "");
                 return;
             }
-            auto body = std::make_shared<std::vector<char>>(len);
-            boost::asio::async_read(*socket, boost::asio::buffer(*body),
-                [this, self, body, cb, header, readHeader](const boost::system::error_code& ec2, std::size_t) {
-                    std::string out;
-                    if (!ec2)
-                        out.assign(body->data(), body->size());
-                    cb(ec2, out);
-                    if (!ec2) {
-                        header->clear();
-                        header->resize(1);
-                        boost::asio::async_read(*self->socket, boost::asio::buffer(*header), *readHeader);
-                    }
-                });
-        } else if (header->size() < 10) {
-            header->resize(header->size() + 1);
-            boost::asio::async_read(*socket, boost::asio::buffer(header->data() + header->size() - 1, 1), *readHeader);
-        } else {
-            cb(boost::asio::error::invalid_argument, {});
+
+            if (frameLen == 0 || frameLen > 32 * 1024 * 1024) {
+                cb(boost::asio::error::invalid_argument, "");
+                return;
+            }
+
+            if (dataBuffer->size() < used + frameLen)
+                break; // wait for rest
+
+            std::string frame(reinterpret_cast<char*>(dataBuffer->data() + used), frameLen);
+            cb(boost::system::error_code(), frame);
+
+            dataBuffer->erase(dataBuffer->begin(), dataBuffer->begin() + used + frameLen);
         }
+
+        socket->async_read_some(boost::asio::buffer(*readBuffer), handler);
     };
 
-    boost::asio::async_read(*socket, boost::asio::buffer(*header), *readHeader);
+    socket->async_read_some(boost::asio::buffer(*readBuffer), handler);
 }
 
 // ---- Async queue write implementation ----
