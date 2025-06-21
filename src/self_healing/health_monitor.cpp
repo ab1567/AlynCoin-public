@@ -26,9 +26,8 @@ NodeHealthStatus HealthMonitor::checkHealth() {
         status.localHeight > status.networkHeight + 3) {
         Logger::warn("[🩺 NODE HEALTH] ⚠ Out of sync – forcing re-probe");
         if (auto net = Network::getExistingInstance()) {
-            Json::Value j; j["type"] = "height_request";
-            Json::StreamWriterBuilder b; b["indentation"] = "";
-            net->broadcastRaw("ALYN|" + Json::writeString(b, j) + "\n");
+            alyncoin::net::Frame fr; fr.mutable_height_req();
+            net->broadcastFrame(fr);
         }
         status.isHealthy = false;
         status.reason = "Out of sync";
