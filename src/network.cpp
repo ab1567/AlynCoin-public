@@ -1399,20 +1399,13 @@ void Network::startBinaryReadLoop(const std::string& peerId, std::shared_ptr<Tra
             std::cerr << "[readLoop] " << peerId << " error: " << ec.message() << '\n';
             return;
         }
-        std::cerr << "[readLoop] Blob received from " << peerId << ", size: " << blob.size() << '\n';
-        uint64_t need = 0; size_t used = 0;
-        const uint8_t* data = reinterpret_cast<const uint8_t*>(blob.data());
-        if (decodeVarInt(data, blob.size(), &need, &used) && used + need <= blob.size()) {
-            std::cerr << "[readLoop] Decoded varint, need=" << need << ", used=" << used << '\n';
-            alyncoin::net::Frame f;
-            if (f.ParseFromArray(blob.data() + used, need)) {
-                std::cerr << "[readLoop] Parsed frame successfully." << '\n';
-                dispatch(f, peerId);
-            } else {
-                std::cerr << "[readLoop] ❌ Failed to parse protobuf frame!" << '\n';
-            }
+
+        alyncoin::net::Frame f;
+        if (f.ParseFromString(blob)) {
+            std::cerr << "[readLoop] ✅ Parsed frame successfully from peer: " << peerId << '\n';
+            dispatch(f, peerId);
         } else {
-            std::cerr << "[readLoop] ❌ Varint decode error or size mismatch!" << '\n';
+            std::cerr << "[readLoop] ❌ Failed to parse protobuf frame!" << '\n';
         }
     };
     transport->startReadBinaryLoop(cb);
