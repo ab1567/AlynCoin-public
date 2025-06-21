@@ -736,7 +736,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
         hs.add_capabilities("snapshot_v1");
         hs.add_capabilities("binary_v1");
         alyncoin::net::Frame out;
-        *out.mutable_handshake() = hs;
+        out.mutable_handshake()->CopyFrom(hs);
         sendFrame(transport, out);
     }
 
@@ -1638,7 +1638,7 @@ bool Network::connectToNode(const std::string& host, int port)
         hs.add_capabilities("snapshot_v1");
         hs.add_capabilities("binary_v1");
         alyncoin::net::Frame out;
-        *out.mutable_handshake() = hs;
+        out.mutable_handshake()->CopyFrom(hs);
         sendFrame(tx, out);
 
         /* read their handshake (2 s timeout) */
