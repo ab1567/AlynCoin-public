@@ -116,7 +116,6 @@ public:
     void waitForInitialSync(int timeoutSeconds = 10);
     void handleGetData(const std::string& peer, const std::vector<std::string>& hashes);
     void sendStateProof(std::shared_ptr<Transport> tr);
-    void broadcastRaw(const std::string& msg);
     bool  peerSupportsSnapshot(const std::string& peerId) const;
     void  requestSnapshotSync(const std::string& peer);
     void  requestTailBlocks(const std::string& peer, int fromHeight);

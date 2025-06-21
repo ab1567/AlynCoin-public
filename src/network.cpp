@@ -618,20 +618,24 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
 
         const auto& hs = fr.handshake();
 
-        const std::string senderIP   = transport->getRemoteIP();
-        const int declaredPort       = hs.listen_port();
-        const int senderPort         = transport->getRemotePort();
-        const int finalPort          = declaredPort ? declaredPort : senderPort;
-        realPeerId                   = senderIP + ':' + std::to_string(finalPort);
+        const std::string senderIP = transport->getRemoteIP();
+        if (!hs.has_listen_port() || hs.listen_port() == 0)
+            throw std::runtime_error("peer did not declare listen_port");
+        const int finalPort = hs.listen_port();
+        realPeerId         = senderIP + ':' + std::to_string(finalPort);
 
         claimedVersion = hs.version();
         claimedNetwork = hs.network_id();
         remoteHeight   = static_cast<int>(hs.height());
 
+        bool gotBinary = false;
         for (const auto& cap : hs.capabilities()) {
             if (cap == "agg_proof_v1")  remoteAgg  = true;
             if (cap == "snapshot_v1")   remoteSnap = true;
+            if (cap == "binary_v1")     gotBinary  = true;
         }
+        if (!gotBinary)
+            throw std::runtime_error("legacy peer – no binary_v1");
         claimedPeerId = realPeerId;
 
         std::string myGenesis;
@@ -942,17 +946,6 @@ void Network::sendStateProof(std::shared_ptr<Transport> tr)
 }
 //
 
-void Network::broadcastRaw(const std::string& payload)
-{
-    std::lock_guard<std::timed_mutex> lk(peersMutex);
-
-    for (auto& kv : peerTransports)
-    {
-        auto tr = kv.second.tx;        //  ✅ use .tx
-        if (tr && tr->isOpen())
-            tr->queueWrite(payload.back() == '\n' ? payload : payload + '\n', false);
-    }
-}
 // ✅ **Handle Incoming Data with Protobuf Validation**
 
 
@@ -1560,8 +1553,6 @@ bool Network::connectToNode(const std::string& host, int port)
                 std::cout << "🔁 already connected to " << peerKey << '\n';
                 return false;
             }
-            peerTransports[peerKey] = {tx, std::make_shared<PeerState>()};
-            if (peerManager) peerManager->connectToPeer(peerKey);
         }
 
         /* our handshake */
@@ -1615,12 +1606,21 @@ bool Network::connectToNode(const std::string& host, int port)
         }
 
         {
+            ScopedLockTracer t("connectToNode/register");
             std::lock_guard<std::timed_mutex> lk(peersMutex);
+            if (peerTransports.count(peerKey)) {
+                std::cout << "🔁 already connected to " << peerKey << '\n';
+                return false;
+            }
+            peerTransports[peerKey] = {tx, std::make_shared<PeerState>()};
             auto st = peerTransports[peerKey].state;
             st->supportsAggProof  = theirAgg;
             st->supportsSnapshot = theirSnap;
+            if (peerManager) {
+                peerManager->connectToPeer(peerKey);
+                peerManager->setPeerHeight(peerKey, theirHeight);
+            }
         }
-        if (peerManager) peerManager->setPeerHeight(peerKey, theirHeight);
 
         /* pick correct sync action now */
         const int localHeight = Blockchain::getInstance().getHeight();
