@@ -3005,10 +3005,11 @@ void Blockchain::requestMissingParent(const std::string& parentHash)
     if (requestedParents.count(parentHash)) return;
     requestedParents.insert(parentHash);
 
-    std::string payload = R"({"type":"get_block","hash":")" + parentHash + R"("})";
-
-    if (!Network::isUninitialized())
-        Network::getInstance().broadcastRaw("ALYN|" + payload + "\n");
+    if (!Network::isUninitialized()) {
+        alyncoin::net::Frame fr;
+        fr.mutable_get_data()->add_hashes(parentHash);
+        Network::getInstance().broadcastFrame(fr);
+    }
 
     std::cerr << "📡 requested missing parent " << parentHash << '\n';
 }
