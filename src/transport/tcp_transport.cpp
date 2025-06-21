@@ -54,7 +54,7 @@ bool TcpTransport::writeBinary(const std::string& data)
         boost::asio::write(*socket, boost::asio::buffer(data));
         return true;
     } catch (const std::exception& ex) {
-        std::cerr << "[TcpTransport::writeBinary] " << ex.what() << '\n';
+        std::cerr << "[TcpTransport] ❌ Write binary failed: " << ex.what() << '\n';
         return false;
     }
 }

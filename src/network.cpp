@@ -113,10 +113,15 @@ void Network::sendFrame(std::shared_ptr<Transport> tr, const google::protobuf::M
         std::cerr << "[>>] Outgoing Frame Type=" << tag << "\n";
     }
     std::string payload = m.SerializeAsString();
+    if (payload.empty()) {
+        std::cerr << "[sendFrame] ❌ Attempting to send empty protobuf message!" << '\n';
+        return;
+    }
     uint8_t var[10];
     size_t n = encodeVarInt(payload.size(), var);
     std::string out(reinterpret_cast<char*>(var), n);
     out.append(payload);
+    std::cerr << "[sendFrame] Sending frame, payload size: " << payload.size() << " bytes" << '\n';
     tr->writeBinary(out);
 }
 
@@ -1119,6 +1124,8 @@ void Network::receiveTransaction(const Transaction &tx) {
 // Handle new block
 void Network::handleNewBlock(const Block &newBlock) {
     Blockchain &blockchain = Blockchain::getInstance();
+    std::cerr << "[handleNewBlock] Attempting to add block idx="
+              << newBlock.getIndex() << " hash=" << newBlock.getHash() << '\n';
     const int expectedIndex = blockchain.getLatestBlock().getIndex() + 1;
 
     // 1) PoW and zk-STARK check
@@ -1392,12 +1399,20 @@ void Network::startBinaryReadLoop(const std::string& peerId, std::shared_ptr<Tra
             std::cerr << "[readLoop] " << peerId << " error: " << ec.message() << '\n';
             return;
         }
+        std::cerr << "[readLoop] Blob received from " << peerId << ", size: " << blob.size() << '\n';
         uint64_t need = 0; size_t used = 0;
         const uint8_t* data = reinterpret_cast<const uint8_t*>(blob.data());
         if (decodeVarInt(data, blob.size(), &need, &used) && used + need <= blob.size()) {
+            std::cerr << "[readLoop] Decoded varint, need=" << need << ", used=" << used << '\n';
             alyncoin::net::Frame f;
-            if (f.ParseFromArray(blob.data() + used, need))
+            if (f.ParseFromArray(blob.data() + used, need)) {
+                std::cerr << "[readLoop] Parsed frame successfully." << '\n';
                 dispatch(f, peerId);
+            } else {
+                std::cerr << "[readLoop] ❌ Failed to parse protobuf frame!" << '\n';
+            }
+        } else {
+            std::cerr << "[readLoop] ❌ Varint decode error or size mismatch!" << '\n';
         }
     };
     transport->startReadBinaryLoop(cb);
@@ -1415,12 +1430,16 @@ void Network::dispatch(const alyncoin::net::Frame& f, const std::string& peer)
     switch (f.kind_case()) {
         case alyncoin::net::Frame::kBlockBroadcast: {
             Block blk = Block::fromProto(f.block_broadcast().block());
+            std::cerr << "[dispatch] kBlockBroadcast frame detected. idx="
+                      << blk.getIndex() << " hash=" << blk.getHash() << '\n';
             handleNewBlock(blk);
             break;
         }
         case alyncoin::net::Frame::kBlockBatch: {
             for (const auto& pb : f.block_batch().chain().blocks()) {
                 Block blk = Block::fromProto(pb);
+                std::cerr << "[dispatch] Batch block idx=" << blk.getIndex()
+                          << " hash=" << blk.getHash() << '\n';
                 handleNewBlock(blk);
             }
             break;
@@ -1551,7 +1570,8 @@ bool Network::connectToNode(const std::string& host, int port)
 
         auto tx = std::make_shared<TcpTransport>(ioContext);
         if (!tx->connect(host, port)) {
-            std::cerr << "❌ [connectToNode] connect failed\n";
+            std::cerr << "❌ [connectToNode] Connection to " << host << ':' << port
+                      << " failed." << '\n';
             return false;
         }
 
