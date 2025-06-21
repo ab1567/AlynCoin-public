@@ -1068,6 +1068,16 @@ bool Blockchain::saveToDB() {
         return true;
     }
 
+    /* --- zap stale heights ----------------------------------- */
+    std::string v;
+    int lastHeight = 0;
+    if (db->Get(rocksdb::ReadOptions(), "last_height", &v).ok())
+        lastHeight = std::stoi(v);
+    for (int h = chain.size(); h <= lastHeight; ++h) {
+        db->Delete(rocksdb::WriteOptions(), "block_height_" + std::to_string(h));
+    }
+    /* ---------------------------------------------------------- */
+
     alyncoin::BlockchainProto blockchainProto;
     blockchainProto.set_chain_id(1);
 
@@ -1166,6 +1176,7 @@ bool Blockchain::saveToDB() {
     db->Put(rocksdb::WriteOptions(), "burned_supply", std::to_string(totalBurnedSupply));
 
     std::cout << "💾 Persisted " << balanceCount << " balances to DB.\n";
+    db->Put(rocksdb::WriteOptions(), "last_height", std::to_string(chain.size() - 1));
     std::cout << "✅ Blockchain saved successfully to RocksDB.\n";
     return true;
 }
@@ -1193,15 +1204,20 @@ bool Blockchain::loadFromDB() {
         alyncoin::BlockProto proto;
         if (!proto.ParseFromString(serializedBlock)) {
             std::cerr << "⚠️ [loadFromDB] Failed to parse block at height " << i << "\n";
-            continue;
+            break;
         }
 
         try {
-            Block blk = Block::fromProto(proto, true);
+            Block blk = Block::fromProto(proto, false);
+            if (i && blk.getPreviousHash() != loadedBlocks.back().getHash()) {
+                std::cerr << "⚠️  Discontinuity at height " << i << " – truncating DB view here\n";
+                break;
+            }
             if (seenHashes.insert(blk.getHash()).second)
                 loadedBlocks.push_back(blk);
         } catch (const std::exception &e) {
             std::cerr << "⚠️ [loadFromDB] Skipping corrupt block: " << e.what() << "\n";
+            break;
         }
     }
 
