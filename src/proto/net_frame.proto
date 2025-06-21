@@ -4,6 +4,7 @@ package alyncoin.net;
 import "block_protos.proto";
 import "blockchain_protos.proto";
 import "sync_protos.proto";
+import "transaction_protos.proto";
 
 message Handshake {
   string version = 1;
@@ -45,6 +46,7 @@ message SnapshotRequest { string until_hash = 1; }
 message TailBlocksRequest { uint64 from_height = 1; }
 message GetData { repeated string hashes = 1; }
 message StateProof { alyncoin.StateProofProto proof = 1; }
+message TransactionBroadcast { alyncoin.TransactionProto tx = 1; }
 
 message Frame {
   oneof kind {
@@ -70,5 +72,6 @@ message Frame {
     StateProof state_proof = 20;
     GetData get_data = 21;
     BlockchainSyncProto blockchain_sync_request = 22;
+    TransactionBroadcast tx_broadcast = 23;
   }
 }

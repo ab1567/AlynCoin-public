@@ -67,7 +67,6 @@ public:
     void connectToPeer(const std::string &host, short port);
     void broadcastTransaction(const Transaction &tx);
     void broadcastTransactionToAllExcept(const Transaction &tx, const std::string &excludePeer);
-    void broadcastMessage(const std::string &message);
     void broadcastBlock(const Block &block, bool force = false);
     void broadcastBlocks(const std::vector<Block>& blocks);
     void sendBlockToPeer(const std::string& peer, const Block& blk);
@@ -86,8 +85,6 @@ public:
     void savePeers();
     void addPeer(const std::string &peer);
     void intelligentSync();
-    void sendMessageToPeer(const std::string &peer, const std::string &message);
-    void sendMessage(std::shared_ptr<Transport> transport, const std::string &message);
     std::vector<std::string> getPeers();
     bool sendData(const std::string &peer, const std::string &data);
     bool sendData(std::shared_ptr<Transport> transport, const std::string &data);
