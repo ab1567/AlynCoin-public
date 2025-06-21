@@ -144,8 +144,9 @@ void TcpTransport::startReadBinaryLoop(std::function<void(const boost::system::e
     auto dataBuffer = std::make_shared<std::vector<uint8_t>>();
     auto self       = shared_from_this();
 
-    std::function<void(const boost::system::error_code&, std::size_t)> handler;
-    handler = [=, this, &handler](const boost::system::error_code& ec, std::size_t bytes) mutable {
+    // Keep the async handler alive across invocations using a shared_ptr.
+    auto handler = std::make_shared<std::function<void(const boost::system::error_code&, std::size_t)>>();
+    *handler = [=, this, handler](const boost::system::error_code& ec, std::size_t bytes) mutable {
         if (ec) {
             cb(ec, "");
             return;
@@ -179,10 +180,10 @@ void TcpTransport::startReadBinaryLoop(std::function<void(const boost::system::e
             dataBuffer->erase(dataBuffer->begin(), dataBuffer->begin() + used + frameLen);
         }
 
-        socket->async_read_some(boost::asio::buffer(*readBuffer), handler);
+        socket->async_read_some(boost::asio::buffer(*readBuffer), *handler);
     };
 
-    socket->async_read_some(boost::asio::buffer(*readBuffer), handler);
+    socket->async_read_some(boost::asio::buffer(*readBuffer), *handler);
 }
 
 // ---- Async queue write implementation ----
@@ -224,14 +225,14 @@ void TcpTransport::startReadLineLoop(std::function<void(const boost::system::err
 {
     auto buf  = std::make_shared<boost::asio::streambuf>();
     auto self = shared_from_this();
-    std::function<void(const boost::system::error_code&, std::size_t)> handler;
-    handler = [=, this, &handler](const boost::system::error_code& ec, std::size_t) mutable {
+    auto handler = std::make_shared<std::function<void(const boost::system::error_code&, std::size_t)>>();
+    *handler = [=, this, handler](const boost::system::error_code& ec, std::size_t) mutable {
         if (ec) { cb(ec, ""); return; }
         std::istream is(buf.get());
         std::string line; std::getline(is, line);
         if (!line.empty() && line.back() == '\r') line.pop_back();
         cb(boost::system::error_code(), line);
-        boost::asio::async_read_until(*socket, *buf, '\n', handler);
+        boost::asio::async_read_until(*socket, *buf, '\n', *handler);
     };
-    boost::asio::async_read_until(*socket, *buf, '\n', handler);
+    boost::asio::async_read_until(*socket, *buf, '\n', *handler);
 }
