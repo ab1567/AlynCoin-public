@@ -31,7 +31,7 @@ public:
 
     // ---- Async queue based send ----
     // Default implementation falls back to blocking write().
-    virtual void queueWrite(const std::string& data, bool binary = false) {
+    virtual void queueWrite(std::string data, bool binary = false) {
         if (binary)
             writeBinary(data);
         else
