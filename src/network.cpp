@@ -412,63 +412,20 @@ void Network::autoMineBlock() {
 }
 
 //
-void Network::broadcastMessage(const std::string &message) {
-    ScopedLockTracer tracer("broadcastMessage");
-    std::lock_guard<std::timed_mutex> lock(peersMutex);
-    for (const auto &peer : peerTransports) {
-        auto transport = peer.second.tx;
-        if (transport && transport->isOpen()) {
-            try {
-                transport->queueWrite(message + "\n");
-            } catch (const std::exception &e) {
-                std::cerr << "⚠️ [broadcastMessage] Failed: " << e.what() << "\n";
-            }
-        }
-    }
-}
-
 // ✅ **Getter function for syncing status**
 bool Network::isSyncing() const { return syncing; }
-// ✅ **Connect to a peer and send a message**
-void Network::sendMessage(std::shared_ptr<Transport> transport, const std::string &message) {
-    try {
-        if (!transport || !transport->isOpen()) return;
-        transport->queueWrite(message + "\n");
-        std::cout << "📡 Sent message: " << message.substr(0, 200) << "...\n";
-    } catch (const std::exception &e) {
-        std::cerr << "⚠️ [WARNING] Failed sendMessage: " << e.what() << "\n";
-    }
-}
-
-//
-void Network::sendMessageToPeer(const std::string &peer, const std::string &message) {
-    std::shared_ptr<Transport> tx;
-    {
-        std::lock_guard<std::timed_mutex> lk(peersMutex);
-        auto it = peerTransports.find(peer);
-        if (it == peerTransports.end() || !it->second.tx || !it->second.tx->isOpen()) {
-            std::cerr << "❌ [sendMessageToPeer] Peer not found or transport closed: " << peer << "\n";
-            return;
-        }
-        tx = it->second.tx;
-    }
-    try {
-        tx->queueWrite(message + "\n");
-        std::cout << "📡 Sent message to peer " << peer << ": " << message << std::endl;
-    } catch (const std::exception &e) {
-        std::cerr << "❌ [sendMessageToPeer] Failed to send: " << e.what() << "\n";
-    }
-}
 
 // ✅ **Broadcast a transaction to all peers**
 
 void Network::broadcastTransaction(const Transaction &tx) {
-    std::string txData = tx.serialize();
+    alyncoin::TransactionProto proto = tx.toProto();
+    alyncoin::net::Frame fr;
+    *fr.mutable_tx_broadcast()->mutable_tx() = proto;
     for (const auto &peer : peerTransports) {
         auto transport = peer.second.tx;
         if (transport && transport->isOpen()) {
             try {
-                transport->queueWrite(txData + "\n");
+                sendFrame(transport, fr);
                 std::cout << "📡 Transaction broadcasted to peer: " << peer.first << std::endl;
             } catch (const std::exception &e) {
                 std::cerr << "❌ [ERROR] Failed to broadcast transaction to "
@@ -480,13 +437,15 @@ void Network::broadcastTransaction(const Transaction &tx) {
 
 // Broadcast transaction to all peers except sender (to prevent echo storms)
 void Network::broadcastTransactionToAllExcept(const Transaction &tx, const std::string &excludePeer) {
-    std::string txData = tx.serialize();
+    alyncoin::TransactionProto proto = tx.toProto();
+    alyncoin::net::Frame fr;
+    *fr.mutable_tx_broadcast()->mutable_tx() = proto;
     for (const auto &peer : peerTransports) {
         if (peer.first == excludePeer) continue;
         auto transport = peer.second.tx;
         if (transport && transport->isOpen()) {
             try {
-                transport->queueWrite(txData + "\n");
+                sendFrame(transport, fr);
                 std::cout << "📡 [TX] Rebroadcast to peer: " << peer.first << std::endl;
             } catch (const std::exception &e) {
                 std::cerr << "❌ [ERROR] Failed to broadcast tx to " << peer.first << ": " << e.what() << std::endl;
@@ -721,12 +680,6 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
             peerManager->setPeerHeight (claimedPeerId, remoteHeight);
         }
     }
-
-    g_pubsub.addPeer(
-        claimedPeerId,
-        [transport](const std::string& l){
-            if (transport && transport->isOpen()) transport->queueWrite(l + '\n');
-        });
 
     std::cout << "✅ Registered peer: " << claimedPeerId << '\n';
 
@@ -1547,6 +1500,11 @@ void Network::dispatch(const alyncoin::net::Frame& f, const std::string& peer)
                 }
                 std::cerr << "[agg_proof] stored proof for epoch " << epoch << '\n';
             }
+            break;
+        }
+        case alyncoin::net::Frame::kTxBroadcast: {
+            Transaction tx = Transaction::fromProto(f.tx_broadcast().tx());
+            receiveTransaction(tx);
             break;
         }
         case alyncoin::net::Frame::kSnapshotReq:
