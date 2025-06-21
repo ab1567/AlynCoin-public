@@ -118,7 +118,6 @@ public:
     void sendStateProof(std::shared_ptr<Transport> tr);
     void broadcastRaw(const std::string& msg);
     bool  peerSupportsSnapshot(const std::string& peerId) const;
-    bool  peerSupportsBinary(const std::string& peerId) const;
     void  requestSnapshotSync(const std::string& peer);
     void  requestTailBlocks(const std::string& peer, int fromHeight);
     void  sendForkRecoveryRequest(const std::string& peer, const std::string& tip);
@@ -158,7 +157,6 @@ private:
 
     // Helpers reused by handlePeer & connectToNode
     void startBinaryReadLoop(const std::string& peerId, std::shared_ptr<Transport> transport);
-    void startTextReadLoop  (const std::string& peerId, std::shared_ptr<Transport> transport);
     void dispatch(const alyncoin::net::Frame& f, const std::string& peerId);
     void sendInitialRequests(const std::string& peerId);
     void handlePeer(std::shared_ptr<Transport> transport);

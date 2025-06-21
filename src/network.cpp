@@ -104,13 +104,6 @@ unsigned short Network::findAvailablePort(unsigned short startPort, int maxTries
 void Network::sendFrame(std::shared_ptr<Transport> tr, const google::protobuf::Message& m)
 {
     if (!tr || !tr->isOpen()) return;
-    std::string peerId = tr->remoteId();
-    if (!peerSupportsBinary(peerId)) {
-        std::string json;
-        google::protobuf::util::MessageToJsonString(m, &json);
-        tr->queueWrite(json, false);
-        return;
-    }
     const alyncoin::net::Frame* fr = dynamic_cast<const alyncoin::net::Frame*>(&m);
     if (fr) {
         std::string tag = fr->has_block_broadcast() ? "BLOCK"
@@ -608,7 +601,6 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
     int  remoteHeight = 0;
     bool remoteAgg   = false;
     bool remoteSnap  = false;
-    bool remoteBinary = false;
 
     /* what *we* look like to the outside world */
     const auto selfAddr = [this]{
@@ -621,18 +613,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
     try {
         std::string blob = transport->readBinaryBlocking();
         alyncoin::net::Frame fr;
-        bool parsed = false;
-        if (!blob.empty() && fr.ParseFromString(blob) && fr.has_handshake()) {
-            parsed = true;
-        } else {
-            std::string line = transport->readLineBlocking();
-            if (!line.empty() &&
-                google::protobuf::util::JsonStringToMessage(line, &fr).ok() &&
-                fr.has_handshake()) {
-                parsed = true;
-            }
-        }
-        if (!parsed)
+        if (blob.empty() || !fr.ParseFromString(blob) || !fr.has_handshake())
             throw std::runtime_error("invalid handshake");
 
         const auto& hs = fr.handshake();
@@ -650,7 +631,6 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
         for (const auto& cap : hs.capabilities()) {
             if (cap == "agg_proof_v1")  remoteAgg  = true;
             if (cap == "snapshot_v1")   remoteSnap = true;
-            if (cap == "binary_v1")     remoteBinary = true;
         }
         claimedPeerId = realPeerId;
 
@@ -674,23 +654,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
         }
     }
     catch (const std::exception& ex) {
-        /* fallback: still accept the socket, but no validated info */
-        try {
-            realPeerId = claimedPeerId =
-                transport->getRemoteIP() + ":" +
-                std::to_string(transport->getRemotePort());
-
-            if (realPeerId == selfAddr()) return;
-
-            {
-                ScopedLockTracer t("handlePeer/fallback");
-                std::lock_guard<std::timed_mutex> lk(peersMutex);
-                peerTransports[realPeerId] = {transport, std::make_shared<PeerState>()};
-            }
-
-            // legacy handshake ignored in binary-only mode
-        }
-        catch(...) { std::cerr << "❌ [handlePeer] fallback failed\n"; }
+        std::cerr << "❌ [handlePeer] invalid binary handshake (" << ex.what() << ")" << '\n';
         return;
     }
 
@@ -710,7 +674,6 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
         if (!entry.state) entry.state = std::make_shared<PeerState>();
         entry.state->supportsAggProof  = remoteAgg;
         entry.state->supportsSnapshot = remoteSnap;
-        entry.state->supportsBinary   = remoteBinary;
 
         if (peerManager) {
             peerManager->connectToPeer(claimedPeerId);
@@ -741,10 +704,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
     }
 
     // ── 5. arm read loop + initial requests ────────────────────────────────
-    if (remoteBinary)
-        startBinaryReadLoop(claimedPeerId, transport);
-    else
-        startTextReadLoop(claimedPeerId, transport);
+    startBinaryReadLoop(claimedPeerId, transport);
 
     sendInitialRequests(claimedPeerId);
 
@@ -1437,25 +1397,6 @@ void Network::startBinaryReadLoop(const std::string& peerId, std::shared_ptr<Tra
     std::cout << "🔄 Binary read-loop armed for " << peerId << '\n';
 }
 
-void Network::startTextReadLoop(const std::string& peerId, std::shared_ptr<Transport> transport)
-{
-    if (!transport || !transport->isOpen()) return;
-    auto cb = [this, peerId](const boost::system::error_code& ec, const std::string& line) {
-        if (ec) {
-            std::cerr << "[readLoop] " << peerId << " error: " << ec.message() << '\n';
-            return;
-        }
-        alyncoin::net::Frame f;
-        if (google::protobuf::util::JsonStringToMessage(line, &f).ok()) {
-            dispatch(f, peerId);
-        } else {
-            std::cerr << "[readLoop] ❌ Failed to parse JSON frame!" << '\n';
-        }
-    };
-    transport->startReadLineLoop(cb);
-    std::cout << "🔄 Text read-loop armed for " << peerId << '\n';
-}
-
 void Network::dispatch(const alyncoin::net::Frame& f, const std::string& peer)
 {
     std::string tag = f.has_block_broadcast() ? "BLOCK"
@@ -1658,21 +1599,9 @@ bool Network::connectToNode(const std::string& host, int port)
 
         bool theirAgg  = false;
         bool theirSnap = false;
-        bool theirBinary = false;
         int  theirHeight = 0;
         alyncoin::net::Frame fr;
-        bool parsed = false;
-        if (!blob.empty() && fr.ParseFromString(blob) && fr.has_handshake()) {
-            parsed = true;
-        } else {
-            std::string line = tx->readLineWithTimeout(2);
-            if (!line.empty() &&
-                google::protobuf::util::JsonStringToMessage(line, &fr).ok() &&
-                fr.has_handshake()) {
-                parsed = true;
-            }
-        }
-        if (!parsed) {
+        if (blob.empty() || !fr.ParseFromString(blob) || !fr.has_handshake()) {
             std::cerr << "⚠️ [connectToNode] invalid handshake from " << peerKey << '\n';
             std::lock_guard<std::timed_mutex> g(peersMutex);
             peerTransports.erase(peerKey);
@@ -1683,7 +1612,6 @@ bool Network::connectToNode(const std::string& host, int port)
         for (const auto& c : rhs.capabilities()) {
             if (c == "agg_proof_v1")  theirAgg  = true;
             if (c == "snapshot_v1")   theirSnap = true;
-            if (c == "binary_v1")     theirBinary = true;
         }
 
         {
@@ -1691,7 +1619,6 @@ bool Network::connectToNode(const std::string& host, int port)
             auto st = peerTransports[peerKey].state;
             st->supportsAggProof  = theirAgg;
             st->supportsSnapshot = theirSnap;
-            st->supportsBinary   = theirBinary;
         }
         if (peerManager) peerManager->setPeerHeight(peerKey, theirHeight);
 
@@ -1704,10 +1631,7 @@ bool Network::connectToNode(const std::string& host, int port)
         else if (theirHeight < localHeight && theirSnap)
             sendTailBlocks(tx, theirHeight);
 
-        if (theirBinary)
-            startBinaryReadLoop(peerKey, tx);
-        else
-            startTextReadLoop(peerKey, tx);
+        startBinaryReadLoop(peerKey, tx);
         sendInitialRequests(peerKey);
 
         autoSyncIfBehind();
@@ -1977,13 +1901,6 @@ bool Network::peerSupportsSnapshot(const std::string& peerId) const {
     if (it == peerTransports.end()) return false;
     auto st = it->second.state;
     return st ? st->supportsSnapshot : false;
-}
-//
-bool Network::peerSupportsBinary(const std::string& peerId) const {
-    auto it = peerTransports.find(peerId);
-    if (it == peerTransports.end()) return false;
-    auto st = it->second.state;
-    return st ? st->supportsBinary : false;
 }
 //
 void Network::sendSnapshot(std::shared_ptr<Transport> transport, int upToHeight) {
