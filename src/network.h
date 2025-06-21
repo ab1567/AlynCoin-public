@@ -158,6 +158,7 @@ private:
 
     // Helpers reused by handlePeer & connectToNode
     void startBinaryReadLoop(const std::string& peerId, std::shared_ptr<Transport> transport);
+    void startTextReadLoop  (const std::string& peerId, std::shared_ptr<Transport> transport);
     void dispatch(const alyncoin::net::Frame& f, const std::string& peerId);
     void sendInitialRequests(const std::string& peerId);
     void handlePeer(std::shared_ptr<Transport> transport);

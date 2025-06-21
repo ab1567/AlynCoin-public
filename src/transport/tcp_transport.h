@@ -31,13 +31,15 @@ public:
     bool         writeBinary(const std::string& data) override;
     std::string  readBinaryBlocking() override;
     void         startReadBinaryLoop(std::function<void(const boost::system::error_code&, const std::string&)> cb) override;
+    void         startReadLineLoop(std::function<void(const boost::system::error_code&, const std::string&)> cb) override;
 
     // Queue-based async write
-    void         queueWrite(const std::string& data) override;
+    void         queueWrite(const std::string& data, bool binary = false) override;
 
 private:
     std::shared_ptr<boost::asio::ip::tcp::socket> socket;
     std::deque<std::string> writeQueue;
+    std::deque<bool>        writeQueueBinary;
     std::mutex              writeMutex;
     bool                    writeInProgress{false};
     void doWrite();
