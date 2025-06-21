@@ -619,7 +619,10 @@ void Network::handlePeer(std::shared_ptr<Transport> transport)
         const auto& hs = fr.handshake();
 
         const std::string senderIP = transport->getRemoteIP();
-        if (!hs.has_listen_port() || hs.listen_port() == 0)
+        // The Handshake proto uses proto3 semantics so there is no
+        // `has_listen_port()` accessor. If the field is omitted the value will
+        // be zero, which is invalid for a listening port.
+        if (hs.listen_port() == 0)
             throw std::runtime_error("peer did not declare listen_port");
         const int finalPort = hs.listen_port();
         realPeerId         = senderIP + ':' + std::to_string(finalPort);
