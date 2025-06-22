@@ -348,6 +348,7 @@ target_link_libraries(alyncoin_lib
     falcon
     dilithium
     ${SOURCE_DIR}/rust/target/release/libzk_winterfell.a
+    resolv
 )
 if(MINIUPNPC_LIBRARY)
     target_link_libraries(alyncoin_lib ${MINIUPNPC_LIBRARY})

@@ -33,9 +33,8 @@
 #include <cctype>
 #include <memory>
 #include "proto_utils.h"
-#include <cstdlib>
-#include <cstdio>
-#include <sys/wait.h>
+#include <resolv.h>
+#include <arpa/nameser.h>
 #ifdef HAVE_MINIUPNPC
 #include <miniupnpc/miniupnpc.h>
 #include <miniupnpc/upnpcommands.h>
@@ -172,35 +171,41 @@ static const std::vector<std::string> DEFAULT_DNS_PEERS = {
 // ==== [DNS Peer Discovery] ====
 std::vector<std::string> fetchPeersFromDNS(const std::string& domain) {
     std::vector<std::string> peers;
-    std::string cmd = "nslookup -type=TXT " + domain;
-    FILE* pipe = popen(cmd.c_str(), "r");
-    if (!pipe) {
-        std::cerr << "❌ [DNS] Failed to run nslookup for domain: " << domain << "\n";
-        return peers;
-    }
-    char buffer[512];
-    while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
-        std::string line(buffer);
-        if (line.find("text =") != std::string::npos || line.find("\"") != std::string::npos) {
-            size_t start = line.find("\"");
-            size_t end = line.find_last_of("\"");
-            if (start != std::string::npos && end > start) {
-                std::string peer = line.substr(start + 1, end - start - 1);
-                if (peer.find(":") != std::string::npos &&
-                    peer.find(" ") == std::string::npos &&
-                    peer.find(",") == std::string::npos) {
-                    std::cout << "🌐 [DNS] Found peer TXT entry: " << peer << "\n";
-                    peers.push_back(peer);
+
+    unsigned char response[NS_PACKETSZ];
+    int len = res_query(domain.c_str(), ns_c_in, ns_t_txt,
+                        response, sizeof(response));
+    if (len < 0) {
+        std::cerr << "❌ [DNS] TXT query failed for domain: " << domain << "\n";
+    } else {
+        ns_msg handle;
+        if (ns_initparse(response, len, &handle) == 0) {
+            int count = ns_msg_count(handle, ns_s_an);
+            for (int i = 0; i < count; ++i) {
+                ns_rr rr;
+                if (ns_parserr(&handle, ns_s_an, i, &rr) != 0) continue;
+                const unsigned char* rdata = ns_rr_rdata(rr);
+                int rdlen = ns_rr_rdlen(rr);
+                int pos = 0;
+                while (pos < rdlen) {
+                    int txtLen = rdata[pos];
+                    ++pos;
+                    if (txtLen <= 0 || pos + txtLen > rdlen) break;
+                    std::string txt(reinterpret_cast<const char*>(rdata + pos), txtLen);
+                    pos += txtLen;
+                    if (txt.find(":") != std::string::npos &&
+                        txt.find(" ") == std::string::npos &&
+                        txt.find(",") == std::string::npos) {
+                        std::cout << "🌐 [DNS] Found peer TXT entry: " << txt << "\n";
+                        peers.push_back(txt);
+                    }
                 }
             }
+        } else {
+            std::cerr << "❌ [DNS] Failed to parse DNS response for " << domain << "\n";
         }
     }
-    int rc = pclose(pipe);
-    if (rc != 0) {
-        int code = WEXITSTATUS(rc);
-        std::cerr << "⚠️ [DNS] nslookup exited with code " << code
-                  << " for domain " << domain << "\n";
-    }
+
     if (peers.empty()) {
         std::cerr << "⚠️ [DNS] No valid TXT peer records found at " << domain << "\n";
         peers = DEFAULT_DNS_PEERS; // fallback to built-in peers
