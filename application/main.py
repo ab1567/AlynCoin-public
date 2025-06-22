@@ -30,6 +30,17 @@ DEFAULT_DNS_PEERS = [
     "35.208.189.39:15671",
 ]
 
+# Keep track of the launched node process so we can terminate it on exit
+node_process = None
+
+
+def windows_to_wsl_path(path: str) -> str:
+    """Convert a Windows path like C:\\Foo\\Bar to /mnt/c/Foo/Bar"""
+    drive, rest = os.path.splitdrive(path)
+    drive = drive.rstrip(":").lower()
+    rest = rest.replace("\\", "/")
+    return f"/mnt/{drive}{rest}"
+
 
 # ---- DNS Peer Resolver (returns ALL peers) ----
 def get_peers_from_dns():
@@ -65,8 +76,11 @@ def is_rpc_up(host=RPC_HOST, port=RPC_PORT):
         return False
 
 def ensure_alyncoin_node(block=True):
+    global node_process
     if is_rpc_up():
         return True  # Node already running
+    if node_process and node_process.poll() is None:
+        return True  # process running but RPC not ready yet
 
     # If RPC host is remote, don't attempt to launch local node
     if RPC_HOST not in ("127.0.0.1", "localhost"):
@@ -113,33 +127,32 @@ def ensure_alyncoin_node(block=True):
     log_file = open(log_path, "a")
 
     if platform.system() == "Windows":
-        vbs_path = os.path.join(os.path.dirname(bin_path), "launch_alyncoin_wsl.vbs")
-        if os.path.exists(vbs_path):
-            try:
-                subprocess.Popen(
-                    ["wscript", vbs_path],
-                    stdout=log_file, stderr=log_file, stdin=subprocess.DEVNULL,
-                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
-                )
-                print(f"🚀 Launched WSL node via launch_alyncoin_wsl.vbs (log: {log_path})")
-            except Exception as e:
-                print(f"❌ Failed to launch node via VBS: {e}")
-                log_file.close()
-                return False
-        else:
-            print(f"❌ launch_alyncoin_wsl.vbs not found in {os.path.dirname(bin_path)}")
+        # Run the node directly through wsl so we retain a process handle
+        wsl_dir = windows_to_wsl_path(os.path.dirname(bin_path))
+        cmd = ["wsl", "-d", "Ubuntu", "--cd", wsl_dir, "--", "./alyncoin"]
+        try:
+            node_process = subprocess.Popen(
+                cmd,
+                stdout=log_file,
+                stderr=log_file,
+                stdin=subprocess.DEVNULL,
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
+            )
+            print(f"🚀 Launched WSL node via wsl.exe (PID={node_process.pid}, log: {log_path})")
+        except Exception as e:
+            print(f"❌ Failed to launch node via wsl: {e}")
             log_file.close()
             return False
 
     else:
         # Linux/macOS launch
         try:
-            p = subprocess.Popen(
+            node_process = subprocess.Popen(
                 [bin_path],
                 stdout=log_file, stderr=log_file, stdin=subprocess.DEVNULL,
                 close_fds=True, start_new_session=True
             )
-            print(f"🚀 Launched node: {bin_path} (PID={p.pid}, log: {log_path})")
+            print(f"🚀 Launched node: {bin_path} (PID={node_process.pid}, log: {log_path})")
         except Exception as e:
             print(f"❌ Failed to launch node: {e}")
             log_file.close()
@@ -156,6 +169,22 @@ def ensure_alyncoin_node(block=True):
         return False
     log_file.close()
     return True
+
+# Gracefully stop the background node process (if launched)
+def terminate_alyncoin_node():
+    global node_process
+    if node_process and node_process.poll() is None:
+        try:
+            node_process.terminate()
+            node_process.wait(timeout=5)
+        except Exception:
+            node_process.kill()
+        finally:
+            node_process = None
+        # Ensure the WSL process isn't lingering
+        if platform.system() == "Windows":
+            subprocess.run(["wsl", "-d", "Ubuntu", "pkill", "-f", "alyncoin"],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 # ---- PyInstaller Resource Path Helper ----
 def resource_path(relative_path):
@@ -378,6 +407,10 @@ class AlynCoinApp(QMainWindow):
         self.miningActive = False
         self.updateStatusBanner("✅ Ready.", "#22dd55")
 
+    def closeEvent(self, event):
+        terminate_alyncoin_node()
+        super().closeEvent(event)
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     # --- Try to launch the background node ---
@@ -404,4 +437,6 @@ if __name__ == "__main__":
                              "Local node is still syncing. The wallet will open, but some features may be unavailable.")
     window = AlynCoinApp()
     window.show()
-    sys.exit(app.exec_())
+    exit_code = app.exec_()
+    terminate_alyncoin_node()
+    sys.exit(exit_code)
