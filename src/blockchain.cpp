@@ -1721,78 +1721,10 @@ bool Blockchain::hasBlocks() const {
 }
 //
 bool Blockchain::hasBlockHash(const std::string &hash) const {
-    // Helper to dump hex codes of a string
-    auto hexStr = [](const std::string &s) {
-        std::ostringstream oss;
-        for (unsigned char c : s)
-            oss << std::hex << std::setw(2) << std::setfill('0') << int(c);
-        return oss.str();
-    };
-
-    std::cerr << "[hasBlockHash] Looking for: " << hash
-              << " (len=" << hash.length() << ")\n";
-    std::cerr << "[hasBlockHash]   Hash (hex): " << hexStr(hash) << "\n";
-	std::cerr << "[hasBlockHash] Current blockchain blocks in memory:\n";
-	for (size_t i = 0; i < blocks.size(); ++i) {
-	    std::cerr << "  idx=" << blocks[i].getIndex()
-	              << " hash=" << blocks[i].getHash()
-	              << " (hex: " << hexStr(blocks[i].getHash()) << ")\n";
-	}
-
     for (const auto &blk : chain) {
-        std::string blkHash = blk.getHash();
-        std::cerr << "[hasBlockHash]   Block idx=" << blk.getIndex()
-                  << " hash=" << blkHash
-                  << " (len=" << blkHash.length() << ")... \n";
-        std::cerr << "        BlockHash(hex): " << hexStr(blkHash) << "\n";
-
-        bool match = (blkHash == hash);
-        if (!match) {
-            // Check for trimmed match
-            auto trim = [](std::string s) {
-                while (!s.empty() && (s.back() == '\n' || s.back() == '\r' || s.back() == ' ')) s.pop_back();
-                while (!s.empty() && (s.front() == '\n' || s.front() == '\r' || s.front() == ' ')) s.erase(0,1);
-                return s;
-            };
-            std::string blkHashT = trim(blkHash);
-            std::string hashT = trim(hash);
-
-            if (blkHashT == hashT) {
-                std::cerr << "        (Trimmed match!)\n";
-            }
-
-            // Lowercase match
-            auto toLower = [](const std::string &s) {
-                std::string out = s;
-                for (auto &c : out) c = tolower(c);
-                return out;
-            };
-            if (toLower(blkHashT) == toLower(hashT)) {
-                std::cerr << "        (Lowercase match!)\n";
-            }
-
-            // Print char-by-char diff if length is same
-            if (blkHash.length() == hash.length()) {
-                for (size_t i = 0; i < hash.length(); ++i) {
-                    if (blkHash[i] != hash[i]) {
-                        std::cerr << "        [DIFF at " << i
-                                  << "] '" << blkHash[i] << "' ("
-                                  << std::hex << std::setw(2) << std::setfill('0') << (unsigned int)(unsigned char)blkHash[i]
-                                  << ") vs '" << hash[i] << "' ("
-                                  << std::hex << std::setw(2) << std::setfill('0') << (unsigned int)(unsigned char)hash[i]
-                                  << ")\n";
-                    }
-                }
-            } else {
-                std::cerr << "        [Lengths differ: blockHash=" << blkHash.length() 
-                          << ", input=" << hash.length() << "]\n";
-            }
-        }
-
-        std::cerr << (match ? "[MATCH]\n" : "[no match]\n");
-        if (match) return true;
+        if (blk.getHash() == hash)
+            return true;
     }
-    std::cerr << "[hasBlockHash] No match for: " << hash << "\n";
     return false;
 }
 // ✅ Get pending transactions
