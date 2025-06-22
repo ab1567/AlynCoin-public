@@ -1,1 +1,18 @@
+# Ignore build artifacts and temporary files
 
+# Build directories
+build/
+*/build/
+keys/
+
+# Compiled object files and libraries
+*.o
+*.so
+*.a
+
+# Keys and temporary data
+keys/
+temp_rocks/
+
+# Other temporary files
+*.log
