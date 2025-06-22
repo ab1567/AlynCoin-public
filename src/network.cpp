@@ -1464,6 +1464,12 @@ void Network::dispatch(const alyncoin::net::Frame& f, const std::string& peer)
             sendTipHash(peer);
             break;
         case alyncoin::net::Frame::kTipHashRes:
+            if (f.tip_hash_res().hash().size() != 64) {
+                std::cerr << "⚠️  [dispatch] malformed tip hash from " << peer << "\n";
+                if (peerManager)
+                    peerManager->disconnectPeer(peer);
+                break;
+            }
             if (peerManager)
                 peerManager->recordTipHash(peer, f.tip_hash_res().hash());
             break;
