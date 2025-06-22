@@ -27,7 +27,7 @@ from nft_tab import NFTTab
 # Must mirror the list in src/network.cpp
 DEFAULT_DNS_PEERS = [
     "49.206.56.213:15672",
-    "35.209.49.156:15671",
+    "35.208.189.39:15671",
 ]
 
 

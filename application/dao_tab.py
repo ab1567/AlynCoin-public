@@ -156,4 +156,3 @@ class DAOTab(QWidget):
             self.parent.appendOutput("⚠️ No proposals found.")
         else:
             self.parent.appendOutput(f"✅ {len(proposals)} proposals listed.")
-
