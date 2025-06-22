@@ -599,6 +599,8 @@ void clearInputBuffer() {
 int main(int argc, char *argv[]) {
     unsigned short port = DEFAULT_PORT;
     bool portSpecified = false;
+    unsigned short rpcPort = 1567;
+    bool rpcPortSpecified = false;
     std::string dbPath = DBPaths::getBlockchainDB();
     std::string connectIP = "";
     std::string keyDir = DBPaths::getKeyDir();
@@ -609,6 +611,10 @@ int main(int argc, char *argv[]) {
             port = static_cast<unsigned short>(std::stoi(argv[++i]));
             portSpecified = true;
             std::cout << "🌐 Using custom port: " << port << std::endl;
+        } else if (arg == "--rpcport" && i + 1 < argc) {
+            rpcPort = static_cast<unsigned short>(std::stoi(argv[++i]));
+            rpcPortSpecified = true;
+            std::cout << "🔌 Using RPC port: " << rpcPort << std::endl;
         } else if (arg == "--dbpath" && i + 1 < argc) {
             dbPath = argv[++i];
             std::cout << "📁 Using custom DB path: " << dbPath << std::endl;
@@ -625,6 +631,21 @@ int main(int argc, char *argv[]) {
         if (newPort != 0 && newPort != port) {
             port = newPort;
             std::cout << "🌐 Auto-selected available port: " << port << std::endl;
+        }
+    }
+
+    if (port == rpcPort) {
+        if (!rpcPortSpecified) {
+            ++rpcPort;
+            std::cout << "🔌 RPC port adjusted to " << rpcPort
+                      << " to avoid conflict with network port" << std::endl;
+        } else if (!portSpecified) {
+            ++port;
+            std::cout << "🌐 Network port adjusted to " << port
+                      << " to avoid conflict with RPC port" << std::endl;
+        } else {
+            std::cerr << "❌ Network port and RPC port cannot be the same." << std::endl;
+            return 1;
         }
     }
     std::string blacklistPath = dbPath + "/blacklist";
@@ -655,8 +676,8 @@ int main(int argc, char *argv[]) {
      blockchain.reloadBlockchainState();
 
 	// ---- Start RPC server in background thread ----
-	std::thread rpc_thread(start_rpc_server, &blockchain, network, 1567);
-	rpc_thread.detach();
+        std::thread rpc_thread(start_rpc_server, &blockchain, network, rpcPort);
+        rpc_thread.detach();
 
     // ---- Helpers for CLI block ----
     static std::unordered_set<std::string> cliSeenTxHashes;

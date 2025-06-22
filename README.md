@@ -47,17 +47,39 @@ directory.
 
 ## Run
 
-Start a standalone node with:
+Start a standalone node (network port 15671 by default) with:
 
 ```bash
-./build/alyncoin --port 1567
+./build/alyncoin --port 15671
 ```
+
+The node exposes an HTTP RPC server on port `1567` by default. Use `--rpcport <port>`
+if you need to change it and ensure it does not conflict with the peer network port.
 
 Use `--dbpath <dir>` to specify a custom data directory or `--connect <ip>` to
 connect to an existing peer.
 
 `alyncoin-cli` can be used for command line transactions without running the
 interactive node.
+
+## GUI Wallet
+
+The `application` directory contains a PyQt5 based wallet and miner GUI. After
+building the node you can run the GUI locally:
+
+```bash
+# install Python dependencies
+pip install -r application/requirements.txt
+
+# in another terminal start the node
+./build/alyncoin --port 15671
+
+# launch the wallet GUI
+python3 application/main.py
+```
+
+When running in a headless environment you can set `QT_QPA_PLATFORM=offscreen`
+before launching the GUI.
 
 ## Usage
 
