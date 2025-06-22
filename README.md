@@ -78,6 +78,9 @@ pip install -r application/requirements.txt
 python3 application/main.py
 ```
 
+The miner will now automatically retry if a block fails to mine during the loop,
+so the GUI keeps hashing without manual restarts.
+
 When running in a headless environment you can set `QT_QPA_PLATFORM=offscreen`
 before launching the GUI.
 

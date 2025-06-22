@@ -189,7 +189,7 @@ class MinerTab(QWidget):
 
             if isinstance(result, dict) and "error" in result:
                 self.append_output(f"❌ {result['error']}")
-                self.loop_active = False
+                # Keep the loop active so it retries on the next timer tick
             elif isinstance(result, str) and re.fullmatch(r"[a-fA-F0-9]{40,}", result):
                 self.append_output(f"✅ Block mined! Hash: <b>{result}</b>")
             elif isinstance(result, (dict, list)):
