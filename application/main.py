@@ -136,7 +136,7 @@ def ensure_alyncoin_node(block=True):
                 stdout=log_file,
                 stderr=log_file,
                 stdin=subprocess.DEVNULL,
-                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
             )
             print(f"🚀 Launched WSL node via wsl.exe (PID={node_process.pid}, log: {log_path})")
         except Exception as e:
