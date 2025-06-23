@@ -2771,11 +2771,18 @@ void Blockchain::compareAndMergeChains(const std::vector<Block>& otherChain) {
     // ✅ CASE: same length but different tip
     if (otherChain.size() == chain.size() &&
         chain.back().getHash() != otherChain.back().getHash()) {
-        std::cerr << "🔁 [Fork] Same length but different tip hash. Replacing full chain.\n";
-        chain = otherChain;
-        saveToDB();
-        recalculateBalancesFromChain();
-        applyRollupDeltasToBalances();
+        uint64_t localDiff = computeCumulativeDifficulty(chain);
+        uint64_t remoteDiff = computeCumulativeDifficulty(otherChain);
+
+        if (remoteDiff > localDiff) {
+            std::cerr << "🔁 [Fork] Same length but higher difficulty. Replacing chain.\n";
+            chain = otherChain;
+            saveToDB();
+            recalculateBalancesFromChain();
+            applyRollupDeltasToBalances();
+        } else {
+            std::cout << "⚠️ [Fork] Same length chain not stronger. Keeping current.\n";
+        }
         return;
     }
 
