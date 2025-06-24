@@ -1,6 +1,5 @@
 import sys
 import re
-from concurrent.futures import ThreadPoolExecutor
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QLabel, QTextEdit, QHBoxLayout, QFrame
 )
@@ -18,7 +17,7 @@ def filter_miner_output(line: str) -> bool:
         r"^⏳ \[mineBlock\]", r"^✅ \[mineBlock\] PoW Complete\.",
         r"^🔢 Final Nonce:", r"^🧬 Block Hash \(BLAKE3\):",
         r"^✅ Block mined and added successfully\.", r"^✅ Block mined by:",
-        r"^🧱 Block Hash:", r"^✅ Block mined, added and broadcasted"
+        r"^🧱 Block Hash:"
     ]
     for pat in show_patterns:
         if re.search(pat, line):
@@ -32,16 +31,10 @@ class MinerTab(QWidget):
         self.wallet_address_getter = wallet_address_getter
         self.current_wallet = self.wallet_address_getter() or ""
         self.loop_active = False
-        self.executor = ThreadPoolExecutor(max_workers=1)
         self.initUI()
         if hasattr(parent, "walletChanged"):
             parent.walletChanged.connect(self.onWalletChanged)
         self.updateMiningUIState()
-
-    def __del__(self):
-        # Ensure background threads shut down when the tab is destroyed
-        if hasattr(self, "executor"):
-            self.executor.shutdown(wait=False)
 
     def initUI(self):
         layout = QVBoxLayout()
@@ -105,13 +98,6 @@ class MinerTab(QWidget):
         if hasattr(self.parentWindow, "appendOutput"):
             self.parentWindow.appendOutput(text)
 
-    def run_rpc_async(self, method, params, callback):
-        def task():
-            result = alyncoin_rpc(method, params)
-            QTimer.singleShot(0, lambda: callback(result))
-
-        self.executor.submit(task)
-
     # --- MINING OPERATIONS USING RPC ---
     def mine_once(self):
         self.loop_active = False
@@ -128,7 +114,6 @@ class MinerTab(QWidget):
         self.status_label.setText("🟢 <b>Mining loop started...</b>")
         self.mining_banner.setText("Mining loop started...")
         self.append_output("⏳ Mining loop started...")
-        self.updateMiningUIState()
         # Use repeated mineonce RPC calls rather than server-side mineloop
         # so hashes are returned and the loop can be stopped from the GUI
         self.run_loop_rpc("mineonce", [self.current_wallet])
@@ -159,41 +144,52 @@ class MinerTab(QWidget):
             self.mining_banner.setText("💎 <b><font color='#00FFFF'>Ready to mine AlynCoin!</font></b>")
             self.updateMiningUIState()
 
-        def handle_result(result):
-            if method in ("mineonce", "rollup", "recursive-rollup"):
-                if isinstance(result, dict) and "error" in result:
-                    self.append_output(f"❌ {result['error']}")
-                elif isinstance(result, str) and re.fullmatch(r"[a-fA-F0-9]{40,}", result):
-                    label = "Block mined" if method == "mineonce" else (
-                        "Rollup Block created" if method == "rollup" else "Recursive Rollup Block created"
-                    )
-                    self.append_output(f"✅ {label}! Hash: <b>{result}</b>")
-                else:
-                    self.append_output(str(result))
-                finish_rpc()
-                return
+        result = alyncoin_rpc(method, params)
 
+        # Special handling for mining and rollup-related methods
+        if method in ("mineonce", "rollup", "recursive-rollup"):
             if isinstance(result, dict) and "error" in result:
                 self.append_output(f"❌ {result['error']}")
-            elif isinstance(result, (dict, list)):
-                lines = str(result).splitlines()
-                for line in lines:
-                    if filter_miner_output(line) or "❌" in line or "⛔" in line or "[ERROR]" in line or "⚠️" in line:
-                        self.append_output(line)
-            elif isinstance(result, str):
-                for line in result.splitlines():
-                    if filter_miner_output(line) or "❌" in line or "⛔" in line or "[ERROR]" in line or "⚠️" in line:
-                        self.append_output(line)
+            elif isinstance(result, str) and re.fullmatch(r"[a-fA-F0-9]{40,}", result):
+                label = "Block mined" if method == "mineonce" else (
+                    "Rollup Block created" if method == "rollup" else "Recursive Rollup Block created"
+                )
+                self.append_output(f"✅ {label}! Hash: <b>{result}</b>")
             else:
                 self.append_output(str(result))
             finish_rpc()
+            return
 
-        self.run_rpc_async(method, params, handle_result)
+        # Generic: for all other RPC calls
+        if isinstance(result, dict) and "error" in result:
+            self.append_output(f"❌ {result['error']}")
+        elif isinstance(result, (dict, list)):
+            lines = str(result).splitlines()
+            for line in lines:
+                if filter_miner_output(line) or "❌" in line or "⛔" in line or "[ERROR]" in line or "⚠️" in line:
+                    self.append_output(line)
+        elif isinstance(result, str):
+            for line in result.splitlines():
+                if filter_miner_output(line) or "❌" in line or "⛔" in line or "[ERROR]" in line or "⚠️" in line:
+                    self.append_output(line)
+        else:
+            self.append_output(str(result))
+        finish_rpc()
 
     def run_loop_rpc(self, method, params=None):
-        def handle_result(result):
+        # Simulated mining loop with periodic RPC calls (not a real infinite loop)
+        def mine_step():
+            if not self.loop_active:
+                self.status_label.setText("🟡 <b>AlynCoin Miner Status: Idle</b>")
+                self.mining_banner.setText("💎 <b><font color='#00FFFF'>Ready to mine AlynCoin!</font></b>")
+                self.updateMiningUIState()
+                return
+
+            result = alyncoin_rpc(method, params)
+
             if isinstance(result, dict) and "error" in result:
                 self.append_output(f"❌ {result['error']}")
+                # Keep the loop active so it retries on the next timer tick
             elif isinstance(result, str) and re.fullmatch(r"[a-fA-F0-9]{40,}", result):
                 self.append_output(f"✅ Block mined! Hash: <b>{result}</b>")
             elif isinstance(result, (dict, list)):
@@ -208,16 +204,11 @@ class MinerTab(QWidget):
                 self.append_output(str(result))
 
             if self.loop_active:
-                QTimer.singleShot(3000, lambda: self.run_loop_rpc(method, params))
+                QTimer.singleShot(3000, mine_step)
             else:
                 self.status_label.setText("🟡 <b>AlynCoin Miner Status: Idle</b>")
                 self.mining_banner.setText("💎 <b><font color='#00FFFF'>Ready to mine AlynCoin!</font></b>")
                 self.updateMiningUIState()
-
-        if not self.loop_active:
-            self.status_label.setText("🟡 <b>AlynCoin Miner Status: Idle</b>")
-            self.mining_banner.setText("💎 <b><font color='#00FFFF'>Ready to mine AlynCoin!</font></b>")
-            self.updateMiningUIState()
-            return
-
-        self.run_rpc_async(method, params, handle_result)
+        self.loop_active = True
+        self.updateMiningUIState()
+        mine_step()
