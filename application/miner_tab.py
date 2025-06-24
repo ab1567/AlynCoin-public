@@ -18,7 +18,7 @@ def filter_miner_output(line: str) -> bool:
         r"^⏳ \[mineBlock\]", r"^✅ \[mineBlock\] PoW Complete\.",
         r"^🔢 Final Nonce:", r"^🧬 Block Hash \(BLAKE3\):",
         r"^✅ Block mined and added successfully\.", r"^✅ Block mined by:",
-        r"^🧱 Block Hash:"
+        r"^🧱 Block Hash:", r"^✅ Block mined, added and broadcasted"
     ]
     for pat in show_patterns:
         if re.search(pat, line):

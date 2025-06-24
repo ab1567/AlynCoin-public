@@ -77,7 +77,8 @@ void Miner::startMiningProcess(const std::string &minerAddress) {
                     Network::getInstance().broadcastBlock(minedBlock);
                 }
 
-                std::cout << "✅ Block mined, added and broadcasted.\n";
+                std::cout << "✅ Block mined, added and broadcasted. Hash: "
+                          << minedBlock.getHash() << "\n";
             } else {
                 std::cerr << "❌ addBlock() failed — block not added or broadcasted.\n";
             }
