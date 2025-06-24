@@ -40,8 +40,8 @@ class MinerTab(QWidget):
         self.executor    = ThreadPoolExecutor(max_workers=1)
         self._build_ui()
         if hasattr(parent, "walletChanged"):
-            parent.walletChanged.connect(self._on_wallet_changed)
-        self._on_wallet_changed(self.getWallet() or "")
+            parent.walletChanged.connect(self.onWalletChanged)
+        self.onWalletChanged(self.getWallet() or "")
 
     # ---------- Qt life-cycle ----------
 
@@ -121,6 +121,10 @@ class MinerTab(QWidget):
 
     def _on_wallet_changed(self, addr):
         self._refresh_buttons()
+
+    # Compatibility slot expected by main.py and other tabs
+    def onWalletChanged(self, addr):
+        self._on_wallet_changed(addr)
 
     # ---------- clicks ----------
 
