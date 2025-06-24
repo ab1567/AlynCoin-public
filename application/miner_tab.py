@@ -1,214 +1,242 @@
-import sys
-import re
+import sys, re, traceback
+from concurrent.futures import ThreadPoolExecutor
+from PyQt5.QtCore    import Qt, QTimer, pyqtSignal
 from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QPushButton, QLabel, QTextEdit, QHBoxLayout, QFrame
+    QWidget, QVBoxLayout, QPushButton, QLabel,
+    QTextEdit, QHBoxLayout, QFrame
 )
-from PyQt5.QtCore import Qt, QTimer
 
-from rpc_client import alyncoin_rpc
+from rpc_client import alyncoin_rpc                 # unchanged
+
+# ---------- helpers ----------------------------------------------------------
 
 def filter_miner_output(line: str) -> bool:
-    # Always show errors/warnings
-    if any(w in line for w in ["❌", "⛔", "[ERROR]", "⚠️"]):
+    """Return True for lines we want to surface in the GUI."""
+    if any(tok in line for tok in ("❌", "⛔", "[ERROR]", "⚠️")):
         return True
-    # Whitelist essential user lines only
-    show_patterns = [
+    whitelist = (
         r"^⛏️ Mining single block", r"^⛏️ Block reward", r"^⚙️ Difficulty set to",
-        r"^⏳ \[mineBlock\]", r"^✅ \[mineBlock\] PoW Complete\.",
-        r"^🔢 Final Nonce:", r"^🧬 Block Hash \(BLAKE3\):",
+        r"^⏳ \[mineBlock\]",        r"^✅ \[mineBlock\] PoW Complete\.",
+        r"^🔢 Final Nonce:",         r"^🧬 Block Hash \(BLAKE3\):",
         r"^✅ Block mined and added successfully\.", r"^✅ Block mined by:",
-        r"^🧱 Block Hash:"
-    ]
-    for pat in show_patterns:
-        if re.search(pat, line):
-            return True
-    return False
+        r"^🧱 Block Hash:",          r"^✅ Block mined!|^✅ Rollup|^✅ Recursive"
+    )
+    return any(re.search(pat, line) for pat in whitelist)
+
+# ---------- MinerTab ---------------------------------------------------------
 
 class MinerTab(QWidget):
-    def __init__(self, wallet_address_getter, parent=None):
+    """Qt tab that drives mining via RPC without freezing the GUI."""
+
+    # When a block is found we emit a signal so *other* tabs could react
+    blockMined = pyqtSignal(str)
+
+    def __init__(self, walletAddrFn, parent=None):
         super().__init__(parent)
-        self.parentWindow = parent
-        self.wallet_address_getter = wallet_address_getter
-        self.current_wallet = self.wallet_address_getter() or ""
-        self.loop_active = False
-        self.initUI()
+        self.getWallet   = walletAddrFn     # callback that returns address
+        self.parentWin   = parent
+        self.loop_active = False            # True while “mining loop” toggle is on
+        self.pending     = False            # True while one RPC is in-flight
+        self.executor    = ThreadPoolExecutor(max_workers=1)
+        self._build_ui()
         if hasattr(parent, "walletChanged"):
-            parent.walletChanged.connect(self.onWalletChanged)
-        self.updateMiningUIState()
+            parent.walletChanged.connect(self._on_wallet_changed)
+        self._on_wallet_changed(self.getWallet() or "")
 
-    def initUI(self):
-        layout = QVBoxLayout()
-        self.status_label = QLabel("🟡 <b>AlynCoin Miner Status: Idle</b>")
-        layout.addWidget(self.status_label)
+    # ---------- Qt life-cycle ----------
 
-        button_layout = QHBoxLayout()
-        self.mine_once_button = QPushButton("Mine One Block")
-        self.mine_loop_button = QPushButton("Start Mining Loop")
-        self.stop_mining_button = QPushButton("Stop Mining")
-        button_layout.addWidget(self.mine_once_button)
-        button_layout.addWidget(self.mine_loop_button)
-        button_layout.addWidget(self.stop_mining_button)
-        layout.addLayout(button_layout)
+    def closeEvent(self, ev):
+        # make sure no threads linger after the app closes
+        try:
+            self.executor.shutdown(wait=False, cancel_futures=True)
+        finally:
+            super().closeEvent(ev)
 
-        rollup_layout = QHBoxLayout()
-        self.rollup_button = QPushButton("Generate Rollup")
-        self.recursive_rollup_button = QPushButton("Generate Recursive Rollup")
-        rollup_layout.addWidget(self.rollup_button)
-        rollup_layout.addWidget(self.recursive_rollup_button)
-        layout.addLayout(rollup_layout)
+    # ---------- UI helpers ----------
 
-        self.mining_banner = QLabel("💎 <b><font color='#00FFFF'>Ready to mine AlynCoin!</font></b>")
-        self.mining_banner.setAlignment(Qt.AlignCenter)
-        layout.addWidget(self.mining_banner)
+    def _build_ui(self):
+        lay = QVBoxLayout(self)
 
-        divider = QFrame()
-        divider.setFrameShape(QFrame.HLine)
-        divider.setFrameShadow(QFrame.Sunken)
-        layout.addWidget(divider)
+        # banner / status
+        self.status = QLabel("🟡 <b>AlynCoin Miner Status: Idle</b>")
+        lay.addWidget(self.status)
 
-        self.miner_output = QTextEdit()
-        self.miner_output.setReadOnly(True)
-        layout.addWidget(self.miner_output)
-        self.setLayout(layout)
+        # main buttons
+        row = QHBoxLayout()
+        self.btn_mine_once    = QPushButton("Mine One Block")
+        self.btn_start_loop   = QPushButton("Start Mining Loop")
+        self.btn_stop_loop    = QPushButton("Stop Mining")
+        row.addWidget(self.btn_mine_once)
+        row.addWidget(self.btn_start_loop)
+        row.addWidget(self.btn_stop_loop)
+        lay.addLayout(row)
 
-        self.mine_once_button.clicked.connect(self.mine_once)
-        self.mine_loop_button.clicked.connect(self.start_mining_loop)
-        self.stop_mining_button.clicked.connect(self.stop_mining)
-        self.rollup_button.clicked.connect(self.trigger_rollup)
-        self.recursive_rollup_button.clicked.connect(self.trigger_recursive_rollup)
+        # rollup buttons
+        row2 = QHBoxLayout()
+        self.btn_rollup       = QPushButton("Generate Rollup")
+        self.btn_rec_rollup   = QPushButton("Generate Recursive Rollup")
+        row2.addWidget(self.btn_rollup)
+        row2.addWidget(self.btn_rec_rollup)
+        lay.addLayout(row2)
 
-    def onWalletChanged(self, address):
-        self.current_wallet = address
-        self.updateMiningUIState()
+        # pretty banner
+        self.banner = QLabel("💎 <b><font color='#00FFFF'>Ready to mine AlynCoin!</font></b>")
+        self.banner.setAlignment(Qt.AlignCenter)
+        lay.addWidget(self.banner)
 
-    def updateMiningUIState(self):
-        wallet_loaded = bool(self.current_wallet)
-        mining = self.loop_active
-        for btn in [
-            self.mine_once_button, self.mine_loop_button, self.rollup_button, self.recursive_rollup_button
-        ]:
-            btn.setEnabled(wallet_loaded and not mining)
-        self.stop_mining_button.setEnabled(mining)
+        # divider
+        line = QFrame(); line.setFrameShape(QFrame.HLine); line.setFrameShadow(QFrame.Sunken)
+        lay.addWidget(line)
 
-    def append_output(self, text: str):
-        self.miner_output.append(text)
-        self.miner_output.verticalScrollBar().setValue(
-            self.miner_output.verticalScrollBar().maximum()
-        )
-        if hasattr(self.parentWindow, "appendOutput"):
-            self.parentWindow.appendOutput(text)
+        # scrolling output
+        self.out = QTextEdit(readOnly=True)
+        lay.addWidget(self.out)
 
-    # --- MINING OPERATIONS USING RPC ---
-    def mine_once(self):
+        # wire buttons
+        self.btn_mine_once.clicked.connect(self._mine_once_clicked)
+        self.btn_start_loop.clicked.connect(self._start_loop_clicked)
+        self.btn_stop_loop.clicked.connect(self._stop_loop_clicked)
+        self.btn_rollup.clicked.connect(self._rollup_clicked)
+        self.btn_rec_rollup.clicked.connect(self._rec_rollup_clicked)
+
+    def _append(self, txt: str):
+        self.out.append(txt)
+        self.out.verticalScrollBar().setValue(self.out.verticalScrollBar().maximum())
+        if self.parentWin and hasattr(self.parentWin, "appendOutput"):
+            self.parentWin.appendOutput(txt)
+
+    def _set_idle(self):
+        self.banner.setText("💎 <b><font color='#00FFFF'>Ready to mine AlynCoin!</font></b>")
+        self.status.setText("🟡 <b>AlynCoin Miner Status: Idle</b>")
+        self._refresh_buttons()
+
+    def _refresh_buttons(self):
+        wallet_loaded = bool(self.getWallet())
+        busy          = self.loop_active or self.pending
+        for b in (self.btn_mine_once, self.btn_start_loop, self.btn_rollup, self.btn_rec_rollup):
+            b.setEnabled(wallet_loaded and not busy)
+        self.btn_stop_loop.setEnabled(self.loop_active)
+
+    # ---------- wallet change ----------
+
+    def _on_wallet_changed(self, addr):
+        self._refresh_buttons()
+
+    # ---------- clicks ----------
+
+    def _mine_once_clicked(self):
         self.loop_active = False
-        self.status_label.setText("🟢 <b>Mining one block...</b>")
-        self.mining_banner.setText("Mining one block...")
-        self.append_output("⏳ Mining one block...")
-        self.run_rpc("mineonce", [self.current_wallet])
+        self._one_off_rpc("mineonce")
 
-    def start_mining_loop(self):
-        if self.loop_active:
-            self.append_output("⚠️ Mining loop already running.")
+    def _start_loop_clicked(self):
+        if self.loop_active:                                     # already on
             return
         self.loop_active = True
-        self.status_label.setText("🟢 <b>Mining loop started...</b>")
-        self.mining_banner.setText("Mining loop started...")
-        self.append_output("⏳ Mining loop started...")
-        # Use repeated mineonce RPC calls rather than server-side mineloop
-        # so hashes are returned and the loop can be stopped from the GUI
-        self.run_loop_rpc("mineonce", [self.current_wallet])
+        self._append("⏳ Mining loop started…")
+        self.status.setText("🟢 <b>Mining loop running…</b>")
+        self._refresh_buttons()
+        self._schedule_next_loop_rpc(0)                          # fire immediately
 
-    def stop_mining(self):
+    def _stop_loop_clicked(self):
         if self.loop_active:
             self.loop_active = False
-            self.status_label.setText("🟡 <b>AlynCoin Miner Status: Idle</b>")
-            self.mining_banner.setText("💎 <b><font color='#00FFFF'>Ready to mine AlynCoin!</font></b>")
-            self.append_output("⛔ Mining stopped by user.")
-        self.updateMiningUIState()
+            self._append("⛔ Mining stopped by user.")
+        self._set_idle()
 
-    def trigger_rollup(self):
-        self.append_output("⏳ Generating rollup block...")
-        self.status_label.setText("🟢 <b>Generating Rollup Block...</b>")
-        self.mining_banner.setText("Generating Rollup Block...")
-        self.run_rpc("rollup", [self.current_wallet])
+    def _rollup_clicked(self):
+        self._one_off_rpc("rollup")
 
-    def trigger_recursive_rollup(self):
-        self.append_output("⏳ Generating recursive rollup...")
-        self.status_label.setText("🟢 <b>Generating Recursive Rollup Block...</b>")
-        self.mining_banner.setText("Generating Recursive Rollup Block...")
-        self.run_rpc("recursive-rollup", [self.current_wallet])
+    def _rec_rollup_clicked(self):
+        self._one_off_rpc("recursive-rollup")
 
-    def run_rpc(self, method, params=None):
-        def finish_rpc():
-            self.status_label.setText("🟡 <b>AlynCoin Miner Status: Idle</b>")
-            self.mining_banner.setText("💎 <b><font color='#00FFFF'>Ready to mine AlynCoin!</font></b>")
-            self.updateMiningUIState()
+    # ---------- RPC helpers (threaded) ----------
 
-        result = alyncoin_rpc(method, params)
+    def _one_off_rpc(self, method):
+        """A single RPC that changes banner, shows result, then goes idle."""
+        if self.pending:
+            self._append("⚠️ Another request is still running, please wait.")
+            return
+        self.pending = True
+        self.banner.setText(f"Running <b>{method}</b> …")
+        self.status.setText("🟢 <b>Working…</b>")
+        self._refresh_buttons()
 
-        # Special handling for mining and rollup-related methods
-        if method in ("mineonce", "rollup", "recursive-rollup"):
-            if isinstance(result, dict) and "error" in result:
-                self.append_output(f"❌ {result['error']}")
-            elif isinstance(result, str) and re.fullmatch(r"[a-fA-F0-9]{40,}", result):
-                label = "Block mined" if method == "mineonce" else (
-                    "Rollup Block created" if method == "rollup" else "Recursive Rollup Block created"
-                )
-                self.append_output(f"✅ {label}! Hash: <b>{result}</b>")
-            else:
-                self.append_output(str(result))
-            finish_rpc()
+        def _work():
+            try:
+                return alyncoin_rpc(method, [self.getWallet()])
+            except Exception as e:
+                return {"error": f"{type(e).__name__}: {e}"}
+
+        future = self.executor.submit(_work)
+        future.add_done_callback(lambda f: QTimer.singleShot(0, lambda: self._finish_rpc(method, f)))
+
+    def _finish_rpc(self, method, future):
+        self.pending = False
+        try:
+            res = future.result()
+        except Exception:
+            res = {"error": traceback.format_exc(limit=1)}
+        self._display_result(method, res)
+        if not self.loop_active:          # if we weren't a loop iteration
+            self._set_idle()
+        self._refresh_buttons()
+
+    # --------- mining loop helpers ---------
+
+    def _schedule_next_loop_rpc(self, delay_ms=0):
+        """Schedule next mineonce in the loop."""
+        if not self.loop_active:
+            return
+        QTimer.singleShot(delay_ms, self._loop_rpc_step)
+
+    def _loop_rpc_step(self):
+        if not self.loop_active:
+            self._set_idle(); return
+        if self.pending:                  # shouldn't happen, but double-check
+            self._schedule_next_loop_rpc(1000)
+            return
+        self.pending = True
+        self.status.setText("🟢 <b>Mining…</b>")
+        self.banner.setText("Mining loop running…")
+
+        def _work():
+            try:
+                return alyncoin_rpc("mineonce", [self.getWallet()])
+            except Exception as e:
+                return {"error": f"{type(e).__name__}: {e}"}
+
+        fut = self.executor.submit(_work)
+        fut.add_done_callback(lambda f: QTimer.singleShot(0, lambda: self._loop_finished(f)))
+
+    def _loop_finished(self, future):
+        self.pending = False
+        res = future.result()
+        self._display_result("mineonce", res)
+        # schedule the next attempt in 3 s (or immediately if error)
+        delay = 3000 if not (isinstance(res, dict) and "error" in res) else 1000
+        self._schedule_next_loop_rpc(delay)
+
+    # ---------- common result display ----------
+
+    def _display_result(self, method, result):
+        """Pretty-print an RPC result in the output box."""
+        if isinstance(result, dict) and "error" in result:
+            self._append(f"❌ {result['error']}")
             return
 
-        # Generic: for all other RPC calls
-        if isinstance(result, dict) and "error" in result:
-            self.append_output(f"❌ {result['error']}")
-        elif isinstance(result, (dict, list)):
-            lines = str(result).splitlines()
-            for line in lines:
-                if filter_miner_output(line) or "❌" in line or "⛔" in line or "[ERROR]" in line or "⚠️" in line:
-                    self.append_output(line)
-        elif isinstance(result, str):
-            for line in result.splitlines():
-                if filter_miner_output(line) or "❌" in line or "⛔" in line or "[ERROR]" in line or "⚠️" in line:
-                    self.append_output(line)
-        else:
-            self.append_output(str(result))
-        finish_rpc()
+        # special case: mine/rollup returning a hash
+        if isinstance(result, str) and re.fullmatch(r"[a-fA-F0-9]{40,}", result):
+            label = {
+                "mineonce": "Block mined",
+                "rollup": "Rollup block created",
+                "recursive-rollup": "Recursive rollup block created"
+            }.get(method, "Success")
+            self._append(f"✅ {label}! Hash: <b>{result}</b>")
+            if method == "mineonce":
+                self.blockMined.emit(result)
+            return
 
-    def run_loop_rpc(self, method, params=None):
-        # Simulated mining loop with periodic RPC calls (not a real infinite loop)
-        def mine_step():
-            if not self.loop_active:
-                self.status_label.setText("🟡 <b>AlynCoin Miner Status: Idle</b>")
-                self.mining_banner.setText("💎 <b><font color='#00FFFF'>Ready to mine AlynCoin!</font></b>")
-                self.updateMiningUIState()
-                return
-
-            result = alyncoin_rpc(method, params)
-
-            if isinstance(result, dict) and "error" in result:
-                self.append_output(f"❌ {result['error']}")
-                # Keep the loop active so it retries on the next timer tick
-            elif isinstance(result, str) and re.fullmatch(r"[a-fA-F0-9]{40,}", result):
-                self.append_output(f"✅ Block mined! Hash: <b>{result}</b>")
-            elif isinstance(result, (dict, list)):
-                for line in str(result).splitlines():
-                    if filter_miner_output(line):
-                        self.append_output(line)
-            elif isinstance(result, str):
-                for line in result.splitlines():
-                    if filter_miner_output(line):
-                        self.append_output(line)
-            else:
-                self.append_output(str(result))
-
-            if self.loop_active:
-                QTimer.singleShot(3000, mine_step)
-            else:
-                self.status_label.setText("🟡 <b>AlynCoin Miner Status: Idle</b>")
-                self.mining_banner.setText("💎 <b><font color='#00FFFF'>Ready to mine AlynCoin!</font></b>")
-                self.updateMiningUIState()
-        self.loop_active = True
-        self.updateMiningUIState()
-        mine_step()
+        # generic prints, filter for noise
+        for line in str(result).splitlines():
+            if filter_miner_output(line):
+                self._append(line)
