@@ -14,6 +14,11 @@ class WalletTab(QWidget):
         super().__init__(parent=parent)
         self.parent = parent
         self.walletDir = os.path.expanduser("~/.alyncoin")  # Match CLI's getKeyDir()
+        if not os.path.exists(self.walletDir):
+            try:
+                os.makedirs(self.walletDir, exist_ok=True)
+            except Exception as e:
+                print(f"⚠️ Failed to create wallet directory '{self.walletDir}': {e}")
         self.initUI()
         if hasattr(parent, 'walletChanged'):
             parent.walletChanged.connect(self.onWalletChanged)
