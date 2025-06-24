@@ -30,7 +30,9 @@ inline uint64_t calculateSmartDifficulty(const Blockchain &chain) {
 
     for (int i = chain.getBlockCount() - N; i < chain.getBlockCount(); ++i) {
         timestamps.push_back(chain.getChain()[i].getTimestamp());
-        difficulties.push_back(chain.getChain()[i].difficulty);
+        uint64_t diff = chain.getChain()[i].difficulty;
+        if (i == 0) diff = 1; // ignore extreme genesis difficulty
+        difficulties.push_back(diff);
     }
 
     int sumWeightedTime = 0;
