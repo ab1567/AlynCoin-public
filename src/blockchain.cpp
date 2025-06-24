@@ -91,7 +91,12 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath, bool bind
 
     if (!fs::exists(dbPathFinal)) {
         std::cerr << "⚠️ RocksDB directory missing. Creating: " << dbPathFinal << "\n";
-        fs::create_directories(dbPathFinal);
+        std::error_code ec;
+        fs::create_directories(dbPathFinal, ec);
+        if (ec) {
+            std::cerr << "❌ [ERROR] Failed to create RocksDB directory '" << dbPathFinal
+                      << "': " << ec.message() << "\n";
+        }
     }
 
     rocksdb::Options options;
@@ -2928,7 +2933,14 @@ void Blockchain::purgeDataForResync() {
     }
 
     std::filesystem::remove_all(dbPath);
-    std::filesystem::create_directories(dbPath);
+    {
+        std::error_code ec;
+        std::filesystem::create_directories(dbPath, ec);
+        if (ec) {
+            std::cerr << "❌ [ERROR] Failed to recreate DB path '" << dbPath
+                      << "': " << ec.message() << "\n";
+        }
+    }
 
     chain.clear();
     pendingTransactions.clear();

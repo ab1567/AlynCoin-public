@@ -649,7 +649,14 @@ int main(int argc, char *argv[]) {
         }
     }
     std::string blacklistPath = dbPath + "/blacklist";
-    std::filesystem::create_directories(blacklistPath);
+    {
+        std::error_code ec;
+        std::filesystem::create_directories(blacklistPath, ec);
+        if (ec) {
+            std::cerr << "⚠️ Failed to create blacklist directory '" << blacklistPath
+                      << "': " << ec.message() << "\n";
+        }
+    }
 
         // Initialize blockchain without binding to the network yet. The network
     // instance will be created immediately afterwards and injected via

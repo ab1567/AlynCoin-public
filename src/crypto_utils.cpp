@@ -621,7 +621,12 @@ std::vector<unsigned char> stringToBytes(const std::string &input) {
 // ✅ Ensure "keys" directory exists
 void ensureKeysDirectory() {
   if (!fs::exists(KEY_DIR)) {
-    fs::create_directories(KEY_DIR);
+    std::error_code ec;
+    fs::create_directories(KEY_DIR, ec);
+    if (ec) {
+      std::cerr << "⚠️ Failed to create key directory '" << KEY_DIR
+                << "': " << ec.message() << "\n";
+    }
   }
 }
 // ✅ Generate Private & Public Key Pair for a User (with Debugging)
