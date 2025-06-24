@@ -67,6 +67,23 @@ def is_alyncoin_dns_accessible():
         # Consider reachable if fallback peers are available
         return bool(DEFAULT_DNS_PEERS)
 
+# ---- Data Directory Helpers ----
+def ensure_blockchain_db_dir():
+    """Create the RocksDB directory if it doesn't exist."""
+    db_path = os.environ.get(
+        "ALYNCOIN_BLOCKCHAIN_DB",
+        os.path.expanduser("~/.alyncoin/blockchain_db")
+    )
+    try:
+        os.makedirs(db_path, exist_ok=True)
+    except Exception as e:
+        print(f"❌ Failed to create blockchain DB directory '{db_path}': {e}")
+        return False
+    if not os.access(db_path, os.W_OK):
+        print(f"❌ Blockchain DB directory '{db_path}' is not writable.")
+        return False
+    return True
+
 # ---- Node Launch/Detect Helpers ----
 def is_rpc_up(host=RPC_HOST, port=RPC_PORT):
     try:
@@ -81,6 +98,9 @@ def ensure_alyncoin_node(block=True):
         return True  # Node already running
     if node_process and node_process.poll() is None:
         return True  # process running but RPC not ready yet
+
+    if not ensure_blockchain_db_dir():
+        return False
 
     # If RPC host is remote, don't attempt to launch local node
     if RPC_HOST not in ("127.0.0.1", "localhost"):
