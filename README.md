@@ -59,6 +59,13 @@ if you need to change it and ensure it does not conflict with the peer network p
 Use `--dbpath <dir>` to specify a custom data directory or `--connect <ip>` to
 connect to an existing peer.
 
+### Permission denied when starting the node
+
+`alyncoind` stores its RocksDB files under `~/.alyncoin/blockchain_db` by
+default. The GUI launcher now creates this directory automatically if it is
+missing.  Should directory creation fail, the startup log will report the
+problem so you can adjust permissions.
+
 `alyncoin-cli` can be used for command line transactions without running the
 interactive node.
 
