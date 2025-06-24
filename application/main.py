@@ -143,8 +143,7 @@ def ensure_alyncoin_node(block=True):
             print("⚠️ 'ldd' not found; skipping shared library check")
         except Exception as e:
             print(f"⚠️ Could not verify shared libraries: {e}")
-    log_path = os.path.join(os.path.dirname(bin_path), "alyncoin_node.log")
-    log_file = open(log_path, "a")
+    log_file = open(os.devnull, "w")
 
     if platform.system() == "Windows":
         # Run the node directly through wsl so we retain a process handle
@@ -158,7 +157,7 @@ def ensure_alyncoin_node(block=True):
                 stdin=subprocess.DEVNULL,
                 creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
             )
-            print(f"🚀 Launched WSL node via wsl.exe (PID={node_process.pid}, log: {log_path})")
+            print(f"🚀 Launched WSL node via wsl.exe (PID={node_process.pid})")
         except Exception as e:
             print(f"❌ Failed to launch node via wsl: {e}")
             log_file.close()
@@ -172,7 +171,7 @@ def ensure_alyncoin_node(block=True):
                 stdout=log_file, stderr=log_file, stdin=subprocess.DEVNULL,
                 close_fds=True, start_new_session=True
             )
-            print(f"🚀 Launched node: {bin_path} (PID={node_process.pid}, log: {log_path})")
+            print(f"🚀 Launched node: {bin_path} (PID={node_process.pid})")
         except Exception as e:
             print(f"❌ Failed to launch node: {e}")
             log_file.close()
