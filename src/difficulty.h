@@ -13,55 +13,60 @@
 #include "transport/transport.h"
 #include "transport/peer_globals.h"
 
-// 🔍 Helper: Estimate number of connected miners
+// 🔍 Helper: Estimate number of connected miners (same as before)
 inline int getActiveMinerCount() {
     std::lock_guard<std::timed_mutex> lk(peersMutex);
     return std::max(1, static_cast<int>(peerTransports.size()));
 }
 
-// 🚀 Unstoppable Difficulty Scaling for AlynCoin
-inline uint64_t calculateSmartDifficulty(const Blockchain &chain) {
-    const int N = 120; // LWMA window
-    if (chain.getBlockCount() < N)
-        return 1;
+/*
+ * AlynCoin Dynamic Difficulty — LWMA-120
+ * - Uses 120-block Linearly Weighted Moving Average for block interval
+ * - ±2x clamp per retarget to avoid run-away or time-warp
+ * - Gentle scaling with supply and miner count
+ * - Target block time: 60 seconds
+ */
+inline uint64_t calculateSmartDifficulty(const Blockchain& chain)
+{
+    constexpr int    WINDOW         = 120;      // LWMA window size
+    constexpr double TARGET_SPACING = 60.0;     // Target block time (s)
+    constexpr double MAX_UP         = 2.0;      // max 2x per window
+    constexpr double MAX_DOWN       = 0.5;      // min 0.5x per window
+    constexpr double TOTAL_SUPPLY   = 100'000'000.0;
 
-    std::vector<int> timestamps;
-    std::vector<int> difficulties;
+    size_t height = chain.getBlockCount();
+    if (height < 2) return 1; // not enough data
 
-    for (int i = chain.getBlockCount() - N; i < chain.getBlockCount(); ++i) {
-        timestamps.push_back(chain.getChain()[i].getTimestamp());
-        uint64_t diff = chain.getChain()[i].difficulty;
-        if (i == 0) diff = 1; // ignore extreme genesis difficulty
-        difficulties.push_back(diff);
+    int N = static_cast<int>(std::min<size_t>(WINDOW, height - 1));
+    double sumWeighted = 0.0;
+    double sumWeights  = 0.0;
+
+    // Calculate LWMA over last N blocks
+    for (int i = 1; i <= N; ++i) {
+        const auto& cur  = chain.getChain()[height - i];
+        const auto& prev = chain.getChain()[height - i - 1];
+        double delta = std::max<double>(1.0, cur.getTimestamp() - prev.getTimestamp());
+        sumWeighted += i * delta;
+        sumWeights  += i;
     }
 
-    int sumWeightedTime = 0;
-    uint64_t sumDifficulty = std::accumulate(difficulties.begin(), difficulties.end(), uint64_t(0));
+    double lwma_interval = sumWeighted / sumWeights;
+    double prevDiff = chain.getLastBlock().difficulty;
+    double factor   = TARGET_SPACING / lwma_interval;
+    factor          = std::clamp(factor, MAX_DOWN, MAX_UP);
 
-    for (int i = 1; i < N; ++i) {
-        int delta = timestamps[i] - timestamps[i - 1];
-        if (delta < 1) delta = 1;
-        sumWeightedTime += delta * i;
-    }
+    double nextDiff = prevDiff * factor;
 
-    if (sumWeightedTime == 0) return 1;
+    // Gentle supply-based scaling (linear, not exponential)
+    double supplyRatio = std::clamp(chain.getTotalSupply() / TOTAL_SUPPLY, 0.0, 1.0);
+    nextDiff *= (1.0 + supplyRatio); // at max supply, 2x harder
 
-    uint64_t lwma = std::max(uint64_t(1), (sumDifficulty * N) / (2 * sumWeightedTime));
+    // Miner count scaling (small, capped at 3x)
+    double minerFactor = 1.0 + getActiveMinerCount() / 100.0; // +1% per miner
+    nextDiff *= std::min(minerFactor, 3.0);
 
-    // 📈 Difficulty scales with circulating supply (exponential curve)
-    double supply = chain.getTotalSupply();
-    const double totalSupply = 100000000.0;
-
-    double supplyRatio = std::clamp(supply / totalSupply, 0.0, 1.0);
-    double exponentialCurve = std::pow(1.0 + supplyRatio * 100.0, 2.5); // Non-linear growth
-
-    // 👥 Miner count adjustment
-    int miners = getActiveMinerCount();
-    double minerFactor = std::min(1.0 + (miners / 50.0), 3.0); // Max 3x boost
-
-    // 🔐 Final unstoppable difficulty
-    uint64_t finalDifficulty = static_cast<uint64_t>(lwma * exponentialCurve * minerFactor);
-    return std::max<uint64_t>(1, finalDifficulty);
+    // Clamp to [1, ...]
+    return static_cast<uint64_t>(std::max<double>(1.0, nextDiff));
 }
 
 #endif // DIFFICULTY_H
