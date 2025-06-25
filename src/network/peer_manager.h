@@ -36,6 +36,10 @@ public:
     std::string getPeerTipHash(const std::string& peer) const;
     void setPeerTipHash(const std::string& peer, const std::string& tipHash);
     void recordTipHash(const std::string& peer, const std::string& tipHash);
+
+    // --- New helpers for chain health ---------------------------------
+    int getMaxPeerHeight() const;
+    std::string getConsensusTipHash(int localHeight) const;
 };
 
 #endif // PEER_MANAGER_H
