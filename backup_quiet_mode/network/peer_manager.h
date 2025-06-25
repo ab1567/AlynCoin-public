@@ -25,7 +25,7 @@ public:
     int getPeerCount() const;
 
     uint64_t getMedianNetworkHeight();
-    std::string getMajorityTipHash();
+    std::string getMajorityTipHash() const;
 
     // Additional helpers used by self-healing logic
     int getMaxPeerHeight() const { return 0; }
