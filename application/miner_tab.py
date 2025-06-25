@@ -172,7 +172,11 @@ class MinerTab(QWidget):
                 return {"error": f"{type(e).__name__}: {e}"}
 
         future = self.executor.submit(_work)
-        future.add_done_callback(lambda f: QTimer.singleShot(0, lambda: self._finish_rpc(method, f)))
+        # QTimer.singleShot invoked with a receiver ensures the callback runs
+        # in the GUI thread even when this lambda executes in the worker
+        future.add_done_callback(
+            lambda f: QTimer.singleShot(0, self, lambda: self._finish_rpc(method, f))
+        )
 
     def _finish_rpc(self, method, future):
         self.pending = False
@@ -210,7 +214,9 @@ class MinerTab(QWidget):
                 return {"error": f"{type(e).__name__}: {e}"}
 
         fut = self.executor.submit(_work)
-        fut.add_done_callback(lambda f: QTimer.singleShot(0, lambda: self._loop_finished(f)))
+        fut.add_done_callback(
+            lambda f: QTimer.singleShot(0, self, lambda: self._loop_finished(f))
+        )
 
     def _loop_finished(self, future):
         self.pending = False
