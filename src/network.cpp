@@ -165,7 +165,7 @@ void Network::sendPeerList(const std::string& peer) {
 // Fallback peer(s) in case DNS discovery fails
 static const std::vector<std::string> DEFAULT_DNS_PEERS = {
     "49.206.56.213:15672", // Known bootstrap peer
-    "35.209.49.156:15671"
+    "35.208.110.26:15671"
 };
 
 // ==== [DNS Peer Discovery] ====

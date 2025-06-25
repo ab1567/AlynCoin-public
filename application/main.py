@@ -31,7 +31,7 @@ from nft_tab import NFTTab
 # Must mirror the list in src/network.cpp
 DEFAULT_DNS_PEERS = [
     "49.206.56.213:15672",
-    "35.209.49.156:15671",
+    "35.208.110.26:15671",
 ]
 
 # Keep track of the launched node process so we can terminate it on exit
