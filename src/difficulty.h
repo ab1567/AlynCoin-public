@@ -51,7 +51,7 @@ inline uint64_t calculateSmartDifficulty(const Blockchain& chain)
     }
 
     double lwma_interval = sumWeighted / sumWeights;
-    double prevDiff = chain.getLastBlock().difficulty;
+    double prevDiff = chain.getLatestBlock().difficulty;
     double factor   = TARGET_SPACING / lwma_interval;
     factor          = std::clamp(factor, MAX_DOWN, MAX_UP);
 
