@@ -231,6 +231,9 @@ class MinerTab(QWidget):
     def _display_result(self, method, result):
         """Pretty-print an RPC result in the output box."""
         if isinstance(result, dict) and "error" in result:
+            if "Read timed out" in result["error"]:
+                self._append("⚠️  RPC timed-out, retrying…")
+                return
             self._append(f"❌ {result['error']}")
             return
 
