@@ -1,5 +1,6 @@
 import os
 import requests
+from requests.adapters import HTTPAdapter, Retry
 
 # Allow overriding the RPC endpoint via environment variables. When only
 # ``ALYNCOIN_RPC_URL`` is provided, also derive the host and port so that other
@@ -24,11 +25,32 @@ else:
 
 RPC_PORT = int(RPC_PORT)
 
+# Shared session with retries for robustness
+SESSION = requests.Session()
+SESSION.mount(
+    "http://",
+    HTTPAdapter(
+        max_retries=Retry(
+            total=3,
+            backoff_factor=0.5,
+            status_forcelist=[500, 502, 503, 504]
+        )
+    ),
+)
+
+# Timeout for RPC calls (seconds)
+TIMEOUT_S = 90
+
 def alyncoin_rpc(method, params=None):
     headers = {"Content-Type": "application/json"}
     body = {"method": method, "params": params or []}
     try:
-        resp = requests.post(RPC_URL, headers=headers, json=body, timeout=30)
+        resp = SESSION.post(
+            RPC_URL,
+            headers=headers,
+            json=body,
+            timeout=TIMEOUT_S
+        )
         resp.raise_for_status()
         data = resp.json()
         if "error" in data:
