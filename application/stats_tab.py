@@ -28,6 +28,11 @@ class StatsTab(QWidget):
         self.showStatsBtn.clicked.connect(self.fetchStats)
         layout.addWidget(self.showStatsBtn)
 
+        self.syncBtn = QPushButton("🔄 Hard Sync")
+        self.syncBtn.setStyleSheet("padding: 10px; font-weight: bold;")
+        self.syncBtn.clicked.connect(self.triggerSync)
+        layout.addWidget(self.syncBtn)
+
         self.setLayout(layout)
 
     def fetchStats(self):
@@ -59,6 +64,16 @@ class StatsTab(QWidget):
                 self.appendText(f"🏛️ Dev Fund Balance: {result['devfund']} AlynCoin", color="cyan")
         except Exception as e:
             self.appendText(f"❌ Error parsing stats: {e}", color="red")
+
+    def triggerSync(self):
+        self.appendText("⏳ Initiating hard sync...", color="orange")
+        self.syncBtn.setEnabled(False)
+        result = alyncoin_rpc("selfheal")
+        self.syncBtn.setEnabled(True)
+        if isinstance(result, dict) and "error" in result:
+            self.appendText(f"❌ {result['error']}", color="red")
+        else:
+            self.appendText("✅ Sync triggered. Check node output for progress.", color="green")
 
     def appendText(self, text, color="white"):
         color_map = {
