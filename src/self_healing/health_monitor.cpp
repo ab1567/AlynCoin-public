@@ -18,10 +18,10 @@ NodeHealthStatus HealthMonitor::checkHealth() {
     status.localHeight = blockchain_->getHeight();
     status.networkHeight = getNetworkHeight();
     status.localTipHash = getLocalTipHash();
-    status.expectedTipHash = getNetworkTipHash();
+    status.expectedTipHash = peerManager_->getConsensusTipHash(status.localHeight);
     status.connectedPeers = peerManager_->getPeerCount();
     uint64_t localWork = blockchain_->computeCumulativeDifficulty(blockchain_->getChain());
-    uint64_t remoteWork = status.networkHeight; // proxy for total work
+    uint64_t remoteWork = peerManager_->getMaxPeerHeight(); // proxy for total work
     status.farBehind = false;
 
     if (remoteWork == 0) {
@@ -52,9 +52,12 @@ NodeHealthStatus HealthMonitor::checkHealth() {
     if (status.localHeight + 5 < status.networkHeight) {
         status.isHealthy = false;
         status.reason = "Node is behind the network";
-    } else if (status.localTipHash != status.expectedTipHash && status.networkHeight - status.localHeight < 10) {
+    } else if (remoteWork > localWork && status.localTipHash != status.expectedTipHash) {
         status.isHealthy = false;
-        status.reason = "Tip hash mismatch with peers";
+        status.reason = "Tip hash mismatch with stronger chain";
+    } else if (status.localTipHash != status.expectedTipHash) {
+        status.isHealthy = true;
+        status.reason = "Tip mismatch but we are heavier";
     }
     if (status.networkHeight > 0 &&
         status.networkHeight > status.localHeight + DESYNC_THRESHOLD) {
@@ -74,7 +77,7 @@ void HealthMonitor::logStatus(const NodeHealthStatus& status) {
         << "  • Network Height: " << status.networkHeight << "\n"
         << "  • Peers: " << status.connectedPeers << "\n"
         << "  • Local Work: " << blockchain_->computeCumulativeDifficulty(blockchain_->getChain()) << "\n"
-        << "  • Remote Work: " << status.networkHeight << "\n"
+        << "  • Remote Work: " << peerManager_->getMaxPeerHeight() << "\n"
         << "  • Local Tip Hash: " << status.localTipHash.substr(0, 10) << "...\n"
         << "  • Expected Tip Hash: " << status.expectedTipHash.substr(0, 10) << "...";
 

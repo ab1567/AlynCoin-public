@@ -27,6 +27,10 @@ public:
     uint64_t getMedianNetworkHeight();
     std::string getMajorityTipHash();
 
+    // Additional helpers used by self-healing logic
+    int getMaxPeerHeight() const { return 0; }
+    std::string getConsensusTipHash(int) const { return getMajorityTipHash(); }
+
     bool fetchBlockAtHeight(int height, Block& outBlock);
 };
 

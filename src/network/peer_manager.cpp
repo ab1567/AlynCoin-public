@@ -141,3 +141,34 @@ void PeerManager::setPeerTipHash(const std::string& peer, const std::string& tip
 void PeerManager::recordTipHash(const std::string& peer, const std::string& tipHash) {
     setPeerTipHash(peer, tipHash);
 }
+
+int PeerManager::getMaxPeerHeight() const {
+    int maxH = -1;
+    for (const auto& kv : peerHeights) {
+        if (kv.second > maxH)
+            maxH = kv.second;
+    }
+    return maxH;
+}
+
+std::string PeerManager::getConsensusTipHash(int localHeight) const {
+    std::map<std::string, int> hashVotes;
+    int threshold = static_cast<int>(localHeight * 0.10);
+    for (const std::string& peer : connected_peers) {
+        auto itH = peerHeights.find(peer);
+        if (itH != peerHeights.end() && itH->second < threshold)
+            continue;
+        auto it = peerTipHashes.find(peer);
+        if (it != peerTipHashes.end()) {
+            const std::string& hash = it->second;
+            if (hash.empty() || hash.length() < 64) continue;
+            hashVotes[hash]++;
+        }
+    }
+    if (hashVotes.empty())
+        return getMajorityTipHash();
+    auto majority = std::max_element(
+        hashVotes.begin(), hashVotes.end(),
+        [](const auto& a, const auto& b) { return a.second < b.second; });
+    return majority->first;
+}
