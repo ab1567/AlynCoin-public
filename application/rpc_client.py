@@ -8,20 +8,25 @@ from requests.adapters import HTTPAdapter, Retry
 RPC_URL_ENV = os.environ.get("ALYNCOIN_RPC_URL")
 RPC_HOST = os.environ.get("ALYNCOIN_RPC_HOST", "127.0.0.1")
 RPC_PORT = os.environ.get("ALYNCOIN_RPC_PORT", "1567")
+RPC_PATH = "/rpc"
 
 if RPC_URL_ENV:
-    RPC_URL = RPC_URL_ENV
     try:
-        from urllib.parse import urlparse
+        from urllib.parse import urlparse, urlunparse
         parsed = urlparse(RPC_URL_ENV)
         if parsed.hostname:
             RPC_HOST = parsed.hostname
         if parsed.port:
             RPC_PORT = str(parsed.port)
+        # Ensure we hit the correct RPC path regardless of user supplied path
+        path = parsed.path.rstrip("/") or RPC_PATH
+        if path != RPC_PATH:
+            parsed = parsed._replace(path=RPC_PATH)
+        RPC_URL = urlunparse(parsed)
     except Exception:
-        pass
+        RPC_URL = RPC_URL_ENV
 else:
-    RPC_URL = f"http://{RPC_HOST}:{RPC_PORT}/rpc"
+    RPC_URL = f"http://{RPC_HOST}:{RPC_PORT}{RPC_PATH}"
 
 RPC_PORT = int(RPC_PORT)
 
@@ -39,7 +44,9 @@ SESSION.mount(
 )
 
 # Timeout for RPC calls (seconds)
-TIMEOUT_S = 90
+# Mining a single block can take several minutes at high
+# difficulty, so allow a generous timeout.
+TIMEOUT_S = 300
 
 def alyncoin_rpc(method, params=None):
     headers = {"Content-Type": "application/json"}
