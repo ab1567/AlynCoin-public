@@ -34,10 +34,10 @@
 #include "nft/nft_utils.h"
 
 // --- AlynCoin RPC Server (port 1567) ---
-void start_rpc_server(Blockchain* blockchain, Network* network, int rpc_port = 1567) {
+void start_rpc_server(Blockchain* blockchain, Network* network, SelfHealingNode* healer, int rpc_port = 1567) {
     httplib::Server svr;
 
-svr.Post("/rpc", [blockchain, network](const httplib::Request& req, httplib::Response& res) {
+svr.Post("/rpc", [blockchain, network, healer](const httplib::Request& req, httplib::Response& res) {
     nlohmann::json input;
     try {
         input = nlohmann::json::parse(req.body);
@@ -160,6 +160,14 @@ svr.Post("/rpc", [blockchain, network](const httplib::Request& req, httplib::Res
                 {"synced", synced}
             };
             output = {{"result", status}};
+        }
+        else if (method == "selfheal") {
+            if (healer) {
+                healer->monitorAndHeal();
+                output = {{"result", "Self-heal triggered"}};
+            } else {
+                output = {{"error", "Healer unavailable"}};
+            }
         }
         // Send L1 Transaction
         else if (method == "sendl1" || method == "sendl2") {
@@ -679,12 +687,24 @@ int main(int argc, char *argv[]) {
         std::cerr << "⚠️ Network disabled due to PeerBlacklist failure.\n";
     }
 
-     blockchain.loadFromDB();
-     blockchain.reloadBlockchainState();
+    blockchain.loadFromDB();
+    blockchain.reloadBlockchainState();
 
-	// ---- Start RPC server in background thread ----
-        std::thread rpc_thread(start_rpc_server, &blockchain, network, rpcPort);
-        rpc_thread.detach();
+    PeerManager *peerManager = network ? network->getPeerManager() : nullptr;
+    SelfHealingNode healer(&blockchain, peerManager);
+
+    std::thread autoHealThread([&]() {
+        while (true) {
+            std::this_thread::sleep_for(std::chrono::seconds(30));
+            std::cout << "\n🩺 [Auto-Heal] Running periodic health monitor...\n";
+            healer.monitorAndHeal();
+        }
+    });
+    autoHealThread.detach();
+
+    // ---- Start RPC server in background thread ----
+    std::thread rpc_thread(start_rpc_server, &blockchain, network, &healer, rpcPort);
+    rpc_thread.detach();
 
     // ---- Helpers for CLI block ----
     static std::unordered_set<std::string> cliSeenTxHashes;
@@ -1530,18 +1550,6 @@ if (cmd == "nft-verifyhash" && argc >= 3) {
         }
     }
     std::this_thread::sleep_for(std::chrono::seconds(2));
-
-    PeerManager *peerManager = network ? network->getPeerManager() : nullptr;
-    SelfHealingNode healer(&blockchain, peerManager);
-
-    std::thread autoHealThread([&]() {
-        while (true) {
-            std::this_thread::sleep_for(std::chrono::seconds(30));
-            std::cout << "\n🩺 [Auto-Heal] Running periodic health monitor...\n";
-            healer.monitorAndHeal();
-        }
-    });
-    autoHealThread.detach();
 
     std::string minerAddress;
     bool running = true;
