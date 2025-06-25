@@ -74,12 +74,13 @@ uint64_t PeerManager::getMedianNetworkHeight() {
     return heights[heights.size() / 2];
 }
 
-std::string PeerManager::getMajorityTipHash() {
+std::string PeerManager::getMajorityTipHash() const {
     std::map<std::string, int> hashVotes;
 
     for (const std::string& peer : connected_peers) {
-        if (peerTipHashes.count(peer)) {
-            std::string hash = peerTipHashes[peer];
+        auto it = peerTipHashes.find(peer);
+        if (it != peerTipHashes.end()) {
+            const std::string& hash = it->second;
             if (hash.empty() || hash.length() < 64) continue;
             hashVotes[hash]++;
         }

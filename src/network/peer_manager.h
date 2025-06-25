@@ -27,7 +27,7 @@ public:
     int getPeerCount() const;
 
     uint64_t getMedianNetworkHeight();
-    std::string getMajorityTipHash();
+    std::string getMajorityTipHash() const;
 
     bool fetchBlockAtHeight(int height, Block& outBlock);
 
