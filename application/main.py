@@ -4,7 +4,11 @@ import socket
 import subprocess
 import time
 import platform
-import dns.resolver
+try:
+    import dns.resolver
+except Exception as e:
+    dns = None
+    print(f"[WARN] dnspython unavailable: {e}; using fallback peers only")
 
 from rpc_client import alyncoin_rpc, RPC_HOST, RPC_PORT
 
@@ -27,7 +31,7 @@ from nft_tab import NFTTab
 # Must mirror the list in src/network.cpp
 DEFAULT_DNS_PEERS = [
     "49.206.56.213:15672",
-    "35.208.189.39:15671",
+    "35.209.49.156:15671",
 ]
 
 # Keep track of the launched node process so we can terminate it on exit
@@ -45,26 +49,28 @@ def windows_to_wsl_path(path: str) -> str:
 # ---- DNS Peer Resolver (returns ALL peers) ----
 def get_peers_from_dns():
     peers = []
-    try:
-        answers = dns.resolver.resolve("peers.alyncoin.com", "TXT", lifetime=3)
-        for rdata in answers:
-            txt = rdata.to_text().strip('"')
-            for peer in txt.split(","):
-                peer = peer.strip()
-                if ":" in peer and peer not in peers:
-                    peers.append(peer)
-    except Exception as e:
-        print(f"[WARN] DNS peer resolution failed: {e}")
+    if dns is not None:
+        try:
+            answers = dns.resolver.resolve("peers.alyncoin.com", "TXT", lifetime=3)
+            for rdata in answers:
+                txt = rdata.to_text().strip('"')
+                for peer in txt.split(","):
+                    peer = peer.strip()
+                    if ":" in peer and peer not in peers:
+                        peers.append(peer)
+        except Exception as e:
+            print(f"[WARN] DNS peer resolution failed: {e}")
     if not peers:
         peers = DEFAULT_DNS_PEERS
     return peers
 
 def is_alyncoin_dns_accessible():
+    if dns is None:
+        return bool(DEFAULT_DNS_PEERS)
     try:
         answers = dns.resolver.resolve("peers.alyncoin.com", "TXT", lifetime=3)
         return any(answers)
     except Exception:
-        # Consider reachable if fallback peers are available
         return bool(DEFAULT_DNS_PEERS)
 
 # ---- Data Directory Helpers ----
