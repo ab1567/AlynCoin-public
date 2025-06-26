@@ -30,6 +30,9 @@ class MinerTab(QWidget):
 
     # When a block is found we emit a signal so *other* tabs could react
     blockMined = pyqtSignal(str)
+    # Internal signals used to marshal worker results back to the GUI thread
+    _rpcDone  = pyqtSignal(str, object)
+    _loopDone = pyqtSignal(object)
 
     def __init__(self, walletAddrFn, parent=None):
         super().__init__(parent)
@@ -39,6 +42,9 @@ class MinerTab(QWidget):
         self.pending     = False            # True while one RPC is in-flight
         self.executor    = ThreadPoolExecutor(max_workers=1)
         self._build_ui()
+        # wire internal signals so callbacks always run in the GUI thread
+        self._rpcDone.connect(self._finish_rpc)
+        self._loopDone.connect(self._loop_finished)
         if hasattr(parent, "walletChanged"):
             parent.walletChanged.connect(self.onWalletChanged)
         self.onWalletChanged(self.getWallet() or "")
@@ -185,12 +191,9 @@ class MinerTab(QWidget):
                 return {"error": f"{type(e).__name__}: {e}"}
 
         future = self.executor.submit(_work)
-        # Ensure _finish_rpc runs in the GUI thread once the worker completes.
-        # QTimer.singleShot expects a callable as the second argument, so we
-        # schedule _finish_rpc via a lambda without passing `self` as a receiver.
-        future.add_done_callback(
-            lambda f: QTimer.singleShot(0, lambda: self._finish_rpc(method, f))
-        )
+        # Emit a signal when the worker finishes so the GUI thread can
+        # safely process the result.
+        future.add_done_callback(lambda f, m=method: self._rpcDone.emit(m, f))
 
     def _finish_rpc(self, method, future):
         self.pending = False
@@ -234,13 +237,8 @@ class MinerTab(QWidget):
                 return {"error": f"{type(e).__name__}: {e}"}
 
         fut = self.executor.submit(_work)
-        # Ensure _loop_finished runs in the GUI thread once mining completes
-        fut.add_done_callback(
-            # QTimer.singleShot only expects the delay and a callable. The
-            # previous code passed `self` as a receiver which caused a type
-            # error under PyQt5. Schedule the callback directly instead.
-            lambda f: QTimer.singleShot(0, lambda: self._loop_finished(f))
-        )
+        # Emit signal when mining completes to run the callback in the GUI thread
+        fut.add_done_callback(lambda f: self._loopDone.emit(f))
 
     def _loop_finished(self, future):
         self.pending = False
