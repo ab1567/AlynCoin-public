@@ -185,9 +185,11 @@ class MinerTab(QWidget):
                 return {"error": f"{type(e).__name__}: {e}"}
 
         future = self.executor.submit(_work)
-        # Ensure _finish_rpc runs in the GUI thread once the worker completes
+        # Ensure _finish_rpc runs in the GUI thread once the worker completes.
+        # QTimer.singleShot expects a callable as the second argument, so we
+        # schedule _finish_rpc via a lambda without passing `self` as a receiver.
         future.add_done_callback(
-            lambda f: QTimer.singleShot(0, self, lambda: self._finish_rpc(method, f))
+            lambda f: QTimer.singleShot(0, lambda: self._finish_rpc(method, f))
         )
 
     def _finish_rpc(self, method, future):
@@ -234,7 +236,10 @@ class MinerTab(QWidget):
         fut = self.executor.submit(_work)
         # Ensure _loop_finished runs in the GUI thread once mining completes
         fut.add_done_callback(
-            lambda f: QTimer.singleShot(0, self, lambda: self._loop_finished(f))
+            # QTimer.singleShot only expects the delay and a callable. The
+            # previous code passed `self` as a receiver which caused a type
+            # error under PyQt5. Schedule the callback directly instead.
+            lambda f: QTimer.singleShot(0, lambda: self._loop_finished(f))
         )
 
     def _loop_finished(self, future):
