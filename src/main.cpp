@@ -4,7 +4,6 @@
 #include <chrono>
 #include "network.h"
 #include <thread>
-#include <mutex>
 #include "network/peer_blacklist.h"
 #include "wallet.h"
 #include <fstream>
@@ -102,7 +101,6 @@ svr.Post("/rpc", [blockchain, network, healer](const httplib::Request& req, http
                 output = {{"error", "mineonce expects miner address as first param"}};
             } else {
                 std::string miner = params.at(0);
-                std::lock_guard<std::mutex> g(blockchainMutex);
                 blockchain->loadPendingTransactionsFromDB();
                 Block mined = blockchain->mineBlock(miner);
                 if (!mined.getHash().empty()) {
