@@ -81,12 +81,21 @@ class HistoryTab(QWidget):
         filtered_txs = []
         for tx in txs:
             try:
-                # tx: dict with keys (time, from, to, amount, meta, hash, type)
-                tstamp = tx.get('time', '')
+                # rpc returns: timestamp(int), from, to, amount, metadata, hash, type
+                ts = tx.get('timestamp', tx.get('time'))
+                if ts:
+                    try:
+                        ts = int(ts)
+                        tstamp = datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
+                    except Exception:
+                        tstamp = str(ts)
+                else:
+                    tstamp = ''
+
                 from_ = tx.get('from', '')
                 to_ = tx.get('to', '')
                 amt = tx.get('amount', '')
-                meta = tx.get('meta', '')
+                meta = tx.get('metadata', tx.get('meta', ''))
                 hash_ = tx.get('hash', '')
                 typ = tx.get('type', '')
                 if tstamp and amt and hash_:
