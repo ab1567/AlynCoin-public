@@ -130,13 +130,13 @@ endif()
 # --------------------------
 # Include Directories
 include_directories(
+    ${CMAKE_BINARY_DIR}
     ${SOURCE_DIR}
     ${SOURCE_DIR}/zk
     ${SOURCE_DIR}/rollup
     ${SOURCE_DIR}/rollup/proofs
     ${SOURCE_DIR}/rollup/circuits
     ${SOURCE_DIR}/explorer
-    ${CMAKE_BINARY_DIR}
     ${SOURCE_DIR}/deps/CrowInclude
     /usr/include/jsoncpp
     /usr/include/rocksdb
