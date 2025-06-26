@@ -97,15 +97,19 @@ svr.Post("/rpc", [blockchain, network, healer](const httplib::Request& req, http
 	}
         // Mine One Block
         else if (method == "mineonce") {
-            std::string miner = params.at(0);
-            Block mined = blockchain->mineBlock(miner);
-            if (!mined.getHash().empty()) {
-                blockchain->saveToDB();
-                if (network) network->broadcastBlock(mined);
-                blockchain->reloadBlockchainState();
-                output = {{"result", mined.getHash()}};
+            if (params.empty() || !params.at(0).is_string()) {
+                output = {{"error", "mineonce expects miner address as first param"}};
             } else {
-                output = {{"error", "Mining failed"}};
+                std::string miner = params.at(0);
+                Block mined = blockchain->mineBlock(miner);
+                if (!mined.getHash().empty()) {
+                    blockchain->saveToDB();
+                    if (network) network->broadcastBlock(mined);
+                    blockchain->reloadBlockchainState();
+                    output = {{"result", mined.getHash()}};
+                } else {
+                    output = {{"error", "Mining failed or nothing to mine"}};
+                }
             }
         }
         // Start Mining Loop (Non-blocking trigger, returns immediately)
