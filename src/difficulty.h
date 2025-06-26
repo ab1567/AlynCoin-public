@@ -20,53 +20,50 @@ inline int getActiveMinerCount() {
 }
 
 /*
- * AlynCoin Dynamic Difficulty — LWMA-120
- * - Uses 120-block Linearly Weighted Moving Average for block interval
- * - ±2x clamp per retarget to avoid run-away or time-warp
- * - Gentle scaling with supply and miner count
+ * AlynCoin Dynamic Difficulty — LWMA-180 with supply ladder
+ * - Uses a 180-block Linearly Weighted Moving Average
+ * - Digishield-style clamps to smooth swings
+ * - Difficulty floor ratchets up every 10 M supply
  * - Target block time: 60 seconds
  */
 inline uint64_t calculateSmartDifficulty(const Blockchain& chain)
 {
-    constexpr int    WINDOW         = 120;      // LWMA window size
-    constexpr double TARGET_SPACING = 60.0;     // Target block time (s)
-    constexpr double MAX_UP         = 2.0;      // max 2x per window
-    constexpr double MAX_DOWN       = 0.5;      // min 0.5x per window
-    constexpr double TOTAL_SUPPLY   = 100'000'000.0;
+    constexpr int    LWMA_N         = 180;      // 3 hours of blocks
+    constexpr double TARGET         = 60.0;     // 1 min block time
+    constexpr double MAX_UP         = 1.8;      // Digishield dampening
+    constexpr double MAX_DOWN       = 0.7;
+    constexpr double DIFF_FLOOR_INC = 1.30;     // floor multiplier per 10M
+    constexpr uint64_t GENESIS_DIFF = 1;
 
-    size_t height = chain.getBlockCount();
-    if (height < 2) return 1; // not enough data
+    const size_t h = chain.getBlockCount();
+    if (h < 2) return GENESIS_DIFF;
 
-    int N = static_cast<int>(std::min<size_t>(WINDOW, height - 1));
-    double sumWeighted = 0.0;
-    double sumWeights  = 0.0;
+    // ── dynamic floor ─────────────────────────────
+    const uint64_t floor = static_cast<uint64_t>(
+        std::pow(DIFF_FLOOR_INC,
+                 static_cast<int>(chain.getTotalSupply() / 10'000'000)));
 
-    // Calculate LWMA over last N blocks
+    // ── LWMA-180 (weighted) ───────────────────────
+    const int  N = std::min<int>(LWMA_N, h - 1);
+    long double sumW = 0, sumD = 0;
     for (int i = 1; i <= N; ++i) {
-        const auto& cur  = chain.getChain()[height - i];
-        const auto& prev = chain.getChain()[height - i - 1];
-        double delta = std::max<double>(1.0, cur.getTimestamp() - prev.getTimestamp());
-        sumWeighted += i * delta;
-        sumWeights  += i;
+        const auto& cur  = chain.getChain()[h - i];
+        const auto& prev = chain.getChain()[h - i - 1];
+        long double solvetime = std::max<long double>(1,
+            cur.getTimestamp() - prev.getTimestamp());
+        sumW += i;
+        sumD += i * solvetime;
     }
 
-    double lwma_interval = sumWeighted / sumWeights;
-    double prevDiff = chain.getLatestBlock().difficulty;
-    double factor   = TARGET_SPACING / lwma_interval;
-    factor          = std::clamp(factor, MAX_DOWN, MAX_UP);
+    long double lwma = sumD / sumW;
+    long double adjust = TARGET / lwma;
+    adjust = std::clamp(adjust,
+                        static_cast<long double>(MAX_DOWN),
+                        static_cast<long double>(MAX_UP));
 
-    double nextDiff = prevDiff * factor;
-
-    // Gentle supply-based scaling (linear, not exponential)
-    double supplyRatio = std::clamp(chain.getTotalSupply() / TOTAL_SUPPLY, 0.0, 1.0);
-    nextDiff *= (1.0 + supplyRatio); // at max supply, 2x harder
-
-    // Miner count scaling (small, capped at 3x)
-    double minerFactor = 1.0 + getActiveMinerCount() / 100.0; // +1% per miner
-    nextDiff *= std::min(minerFactor, 3.0);
-
-    // Clamp to [1, ...]
-    return static_cast<uint64_t>(std::max<double>(1.0, nextDiff));
+    uint64_t next = std::max<uint64_t>(floor,
+        static_cast<uint64_t>(chain.getLatestBlock().difficulty * adjust));
+    return std::max<uint64_t>(1, next);
 }
 
 #endif // DIFFICULTY_H
