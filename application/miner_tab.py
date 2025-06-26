@@ -250,6 +250,11 @@ class MinerTab(QWidget):
             return
 
         # generic prints, filter for noise
+        printed = False
         for line in str(result).splitlines():
             if filter_miner_output(line):
                 self._append(line)
+                printed = True
+
+        if not printed and method == "mineonce":
+            self._append("Mining returned no result (possible backend error).")
