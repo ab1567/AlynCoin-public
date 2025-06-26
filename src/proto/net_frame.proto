@@ -18,23 +18,23 @@ message Handshake {
 message Ping {}
 message Pong {}
 message HeightRequest {}
-message HeightResponse {
+message HeightResponse { uint64 height = 1; }
+
+message BlockBroadcast { alyncoin.BlockProto block = 1; }
+
+message BlockBatch { alyncoin.BlockchainProto chain = 1; }
+
+message SnapshotMeta {
   uint64 height = 1;
-}
-
-message BlockBroadcast {
-  alyncoin.BlockProto block = 1;
-}
-
-message BlockBatch {
-  alyncoin.BlockchainProto chain = 1;
+  string root_hash = 2;
+  uint64 total_bytes = 3;
+  uint32 chunk_size = 4;
 }
 
 message SnapshotChunk { bytes data = 1; }
+message SnapshotAck { uint32 seq = 1; }
 message SnapshotEnd {}
-message TailBlocks {
-  repeated alyncoin.BlockProto blocks = 1;
-}
+message TailBlocks { repeated alyncoin.BlockProto blocks = 1; }
 message EpochProof { bytes data = 1; }
 message Inventory { repeated string hashes = 1; }
 message TipHashRequest {}
@@ -57,21 +57,23 @@ message Frame {
     HeightResponse height_res = 5;
     BlockBroadcast block_broadcast = 6;
     BlockBatch block_batch = 7;
-    SnapshotChunk snapshot_chunk = 8;
-    SnapshotEnd snapshot_end = 9;
-    TailBlocks tail_blocks = 10;
-    EpochProof agg_proof = 11;
-    Inventory inv = 12;
-    TipHashRequest tip_hash_req = 13;
-    TipHashResponse tip_hash_res = 14;
-    PeerListRequest peer_list_req = 15;
-    PeerList peer_list = 16;
-    RollupBlockMsg rollup_block = 17;
-    SnapshotRequest snapshot_req = 18;
-    TailBlocksRequest tail_req = 19;
-    StateProof state_proof = 20;
-    GetData get_data = 21;
-    BlockchainSyncProto blockchain_sync_request = 22;
-    TransactionBroadcast tx_broadcast = 23;
+    SnapshotMeta snapshot_meta = 8;
+    SnapshotChunk snapshot_chunk = 9;
+    SnapshotAck snapshot_ack = 10;
+    SnapshotEnd snapshot_end = 11;
+    TailBlocks tail_blocks = 12;
+    EpochProof agg_proof = 13;
+    Inventory inv = 14;
+    TipHashRequest tip_hash_req = 15;
+    TipHashResponse tip_hash_res = 16;
+    PeerListRequest peer_list_req = 17;
+    PeerList peer_list = 18;
+    RollupBlockMsg rollup_block = 19;
+    SnapshotRequest snapshot_req = 20;
+    TailBlocksRequest tail_req = 21;
+    StateProof state_proof = 22;
+    GetData get_data = 23;
+    BlockchainSyncProto blockchain_sync_request = 24;
+    TransactionBroadcast tx_broadcast = 25;
   }
 }
