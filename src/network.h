@@ -6,7 +6,7 @@
 #include "constants.h"
 #include "generated/block_protos.pb.h"
 #include "generated/blockchain_protos.pb.h"
-#include "generated/net_frame.pb.h"
+#include "../generated/net_frame.pb.h"
 #include "generated/transaction_protos.pb.h"
 #include "network/peer_manager.h"
 #include "transaction.h"
