@@ -695,6 +695,9 @@ int main(int argc, char *argv[]) {
     blockchain.loadFromDB();
     blockchain.reloadBlockchainState();
 
+    // Ensure a miner keypair exists so mining can start without manual setup
+    Crypto::ensureMinerKeys();
+
     PeerManager *peerManager = network ? network->getPeerManager() : nullptr;
     SelfHealingNode healer(&blockchain, peerManager);
 
