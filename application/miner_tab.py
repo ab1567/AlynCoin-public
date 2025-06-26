@@ -187,7 +187,7 @@ class MinerTab(QWidget):
         future = self.executor.submit(_work)
         # Ensure _finish_rpc runs in the GUI thread once the worker completes
         future.add_done_callback(
-            lambda f: QTimer.singleShot(0, lambda: self._finish_rpc(method, f))
+            lambda f: QTimer.singleShot(0, self, lambda: self._finish_rpc(method, f))
         )
 
     def _finish_rpc(self, method, future):
@@ -234,7 +234,7 @@ class MinerTab(QWidget):
         fut = self.executor.submit(_work)
         # Ensure _loop_finished runs in the GUI thread once mining completes
         fut.add_done_callback(
-            lambda f: QTimer.singleShot(0, lambda: self._loop_finished(f))
+            lambda f: QTimer.singleShot(0, self, lambda: self._loop_finished(f))
         )
 
     def _loop_finished(self, future):
