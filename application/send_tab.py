@@ -1,4 +1,7 @@
 import re
+import traceback
+from concurrent.futures import ThreadPoolExecutor
+from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLineEdit, QComboBox, QPushButton
 
 from rpc_client import alyncoin_rpc
@@ -9,6 +12,7 @@ class SendTab(QWidget):
         self.parent = parent
         self.sender = ""
         self.sendInProgress = False
+        self.executor = ThreadPoolExecutor(max_workers=1)
         self.initUI()
         if hasattr(parent, 'walletChanged'):
             parent.walletChanged.connect(self.onWalletChanged)
@@ -79,7 +83,25 @@ class SendTab(QWidget):
         tx_type = "sendl2" if isL2 else "sendl1"
         metadata = "viaGUI"
 
-        result = alyncoin_rpc(tx_type, [sender, recipient, amount, metadata])
+        def _work():
+            try:
+                return alyncoin_rpc(tx_type, [sender, recipient, amount, metadata])
+            except Exception as e:
+                return {"error": f"{type(e).__name__}: {e}"}
+
+        fut = self.executor.submit(_work)
+        fut.add_done_callback(
+            lambda f: QTimer.singleShot(
+                0, lambda: self._finish_send(sender, recipient, amount, f)
+            )
+        )
+
+    def _finish_send(self, sender, recipient, amount, future):
+        try:
+            result = future.result()
+        except Exception:
+            result = {"error": traceback.format_exc(limit=1)}
+
         if isinstance(result, dict) and "error" in result:
             self.parent.appendOutput(f"❌ {result['error']}")
         elif isinstance(result, str) and "broadcasted" in result.lower():
@@ -94,3 +116,10 @@ class SendTab(QWidget):
     def resetState(self):
         self.sendInProgress = False
         self.updateSendUIState()
+
+    def closeEvent(self, ev):
+        try:
+            self.executor.shutdown(wait=False, cancel_futures=True)
+        finally:
+            super().closeEvent(ev)
+

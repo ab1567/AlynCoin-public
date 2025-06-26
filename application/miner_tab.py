@@ -135,6 +135,9 @@ class MinerTab(QWidget):
     def _start_loop_clicked(self):
         if self.loop_active:                                     # already on
             return
+        if not self.getWallet():
+            self._append("❌ Please load a wallet first.")
+            return
         self.loop_active = True
         self._append("⏳ Mining loop started…")
         self.status.setText("🟢 <b>Mining loop running…</b>")
@@ -148,9 +151,15 @@ class MinerTab(QWidget):
         self._set_idle()
 
     def _rollup_clicked(self):
+        if not self.getWallet():
+            self._append("❌ Please load a wallet first.")
+            return
         self._one_off_rpc("rollup")
 
     def _rec_rollup_clicked(self):
+        if not self.getWallet():
+            self._append("❌ Please load a wallet first.")
+            return
         self._one_off_rpc("recursive-rollup")
 
     # ---------- RPC helpers (threaded) ----------
@@ -160,6 +169,10 @@ class MinerTab(QWidget):
         if self.pending:
             self._append("⚠️ Another request is still running, please wait.")
             return
+        wallet = self.getWallet()
+        if not wallet:
+            self._append("❌ Please load a wallet first.")
+            return
         self.pending = True
         self.banner.setText(f"Running <b>{method}</b> …")
         self.status.setText("🟢 <b>Working…</b>")
@@ -167,7 +180,7 @@ class MinerTab(QWidget):
 
         def _work():
             try:
-                return alyncoin_rpc(method, [self.getWallet()])
+                return alyncoin_rpc(method, [wallet])
             except Exception as e:
                 return {"error": f"{type(e).__name__}: {e}"}
 
@@ -199,6 +212,12 @@ class MinerTab(QWidget):
     def _loop_rpc_step(self):
         if not self.loop_active:
             self._set_idle(); return
+        wallet = self.getWallet()
+        if not wallet:
+            self._append("❌ Wallet unloaded; stopping loop.")
+            self.loop_active = False
+            self._set_idle()
+            return
         if self.pending:                  # shouldn't happen, but double-check
             self._schedule_next_loop_rpc(1000)
             return
@@ -208,7 +227,7 @@ class MinerTab(QWidget):
 
         def _work():
             try:
-                return alyncoin_rpc("mineonce", [self.getWallet()])
+                return alyncoin_rpc("mineonce", [wallet])
             except Exception as e:
                 return {"error": f"{type(e).__name__}: {e}"}
 
@@ -258,3 +277,4 @@ class MinerTab(QWidget):
 
         if not printed and method == "mineonce":
             self._append("Mining returned no result (possible backend error).")
+
