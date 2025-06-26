@@ -78,7 +78,7 @@ class HistoryTab(QWidget):
 
         txs = result if isinstance(result, list) else []
         # Ensure all txs have required fields
-        filtered_txs = []
+        parsed_txs = []
         for tx in txs:
             try:
                 # rpc returns: timestamp(int), from, to, amount, metadata, hash, type
@@ -99,12 +99,36 @@ class HistoryTab(QWidget):
                 hash_ = tx.get('hash', '')
                 typ = tx.get('type', '')
                 if tstamp and amt and hash_:
-                    filtered_txs.append((
-                        tstamp, from_, to_, amt, meta, hash_, typ
-                    ))
+                    parsed_txs.append(
+                        (
+                            tstamp,
+                            from_,
+                            to_,
+                            amt,
+                            meta,
+                            hash_,
+                            typ,
+                        )
+                    )
             except Exception:
                 continue
-        self.parsed_transactions = filtered_txs
+        # Consolidate mining reward duplicates ("L1" + "Mined")
+        unique = []
+        reward_map = {}
+        for tx in parsed_txs:
+            ts, frm, to_, amt, meta, hsh, typ = tx
+            if str(meta).lower() == "miningreward":
+                key = (ts, to_.lower(), str(amt))
+                if key in reward_map:
+                    idx = reward_map[key]
+                    existing = unique[idx]
+                    if existing[6] == "L1" and typ == "Mined":
+                        unique[idx] = tx
+                    continue
+                reward_map[key] = len(unique)
+            unique.append(tx)
+
+        self.parsed_transactions = unique
         self.fetchBtn.setEnabled(True)
         self.applyFilters()
 
