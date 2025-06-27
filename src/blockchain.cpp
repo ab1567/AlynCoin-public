@@ -162,14 +162,15 @@ bool Blockchain::isTransactionValid(const Transaction &tx) const {
     }
 
     try {
-        std::string canonicalHash = tx.getTransactionHash();  // ✅ Use canonical hash
-        std::vector<unsigned char> hashBytes = Crypto::fromHex(canonicalHash);
-        std::vector<unsigned char> sigDilithium = Crypto::fromHex(tx.getSignatureDilithium());
-        std::vector<unsigned char> sigFalcon = Crypto::fromHex(tx.getSignatureFalcon());
-        std::vector<unsigned char> pubKeyDilithium = Crypto::fromHex(tx.getSenderPublicKeyDilithium());
-        std::vector<unsigned char> pubKeyFalcon = Crypto::fromHex(tx.getSenderPublicKeyFalcon());
+        // Transaction::getTransactionHash() already returns the canonical hash
+        const std::string txHash = tx.getTransactionHash();
+        std::vector<unsigned char> hashBytes = Crypto::fromHex(txHash);
+        std::vector<unsigned char> sigDilithium(tx.getSignatureDilithium().begin(), tx.getSignatureDilithium().end());
+        std::vector<unsigned char> sigFalcon(tx.getSignatureFalcon().begin(), tx.getSignatureFalcon().end());
+        std::vector<unsigned char> pubKeyDilithium(tx.getSenderPublicKeyDilithium().begin(), tx.getSenderPublicKeyDilithium().end());
+        std::vector<unsigned char> pubKeyFalcon(tx.getSenderPublicKeyFalcon().begin(), tx.getSenderPublicKeyFalcon().end());
 
-        std::cout << "[DEBUG] Verifying TX: " << canonicalHash << "\n";
+        std::cout << "[DEBUG] Verifying TX: " << txHash << "\n";
         std::cout << "  - Sender: " << sender << "\n";
         std::cout << "  - Amount: " << tx.getAmount() << "\n";
         std::cout << "  - zkProof Size: " << tx.getZkProof().size() << " bytes\n";
