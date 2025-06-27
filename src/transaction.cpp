@@ -210,50 +210,73 @@ Transaction Transaction::fromProto(const alyncoin::TransactionProto& protoTx) {
         // 🚨 Direct assignment for raw binary fields
         if (!protoTx.signature_dilithium().empty()) {
             const std::string &sig = protoTx.signature_dilithium();
-            if (Crypto::isLikelyHex(sig)) {
-                auto decoded = Crypto::safeFromHex(sig, "dilithium_sig_hex");
-                if (decoded)
-                    tx.signatureDilithium.assign(decoded->begin(), decoded->end());
-                else
+            if (sig.size() <= 10000) {
+                if (Crypto::isLikelyHex(sig)) {
+                    auto decoded = Crypto::safeFromHex(sig, "dilithium_sig_hex");
+                    if (decoded)
+                        tx.signatureDilithium.assign(decoded->begin(), decoded->end());
+                    else
+                        tx.signatureDilithium = sig;
+                } else {
                     tx.signatureDilithium = sig;
+                }
             } else {
-                tx.signatureDilithium = sig;
+                std::cerr << "⚠️ [Transaction::fromProto] Dilithium signature too large: "
+                          << sig.size() << " bytes. Ignoring.\n";
             }
         }
+
         if (!protoTx.signature_falcon().empty()) {
             const std::string &sig = protoTx.signature_falcon();
-            if (Crypto::isLikelyHex(sig)) {
-                auto decoded = Crypto::safeFromHex(sig, "falcon_sig_hex");
-                if (decoded)
-                    tx.signatureFalcon.assign(decoded->begin(), decoded->end());
-                else
+            if (sig.size() <= 10000) {
+                if (Crypto::isLikelyHex(sig)) {
+                    auto decoded = Crypto::safeFromHex(sig, "falcon_sig_hex");
+                    if (decoded)
+                        tx.signatureFalcon.assign(decoded->begin(), decoded->end());
+                    else
+                        tx.signatureFalcon = sig;
+                } else {
                     tx.signatureFalcon = sig;
+                }
             } else {
-                tx.signatureFalcon = sig;
+                std::cerr << "⚠️ [Transaction::fromProto] Falcon signature too large: "
+                          << sig.size() << " bytes. Ignoring.\n";
             }
         }
+
         if (!protoTx.sender_pubkey_dilithium().empty()) {
             const std::string &pk = protoTx.sender_pubkey_dilithium();
-            if (Crypto::isLikelyHex(pk)) {
-                auto decoded = Crypto::safeFromHex(pk, "dilithium_pk_hex");
-                if (decoded)
-                    tx.senderPublicKeyDilithium.assign(decoded->begin(), decoded->end());
-                else
+            if (pk.size() <= 5000) {
+                if (Crypto::isLikelyHex(pk)) {
+                    auto decoded = Crypto::safeFromHex(pk, "dilithium_pk_hex");
+                    if (decoded)
+                        tx.senderPublicKeyDilithium.assign(decoded->begin(), decoded->end());
+                    else
+                        tx.senderPublicKeyDilithium = pk;
+                } else {
                     tx.senderPublicKeyDilithium = pk;
+                }
             } else {
-                tx.senderPublicKeyDilithium = pk;
+                std::cerr << "⚠️ [Transaction::fromProto] Dilithium pubkey too large: "
+                          << pk.size() << " bytes. Ignoring.\n";
             }
         }
+
         if (!protoTx.sender_pubkey_falcon().empty()) {
             const std::string &pk = protoTx.sender_pubkey_falcon();
-            if (Crypto::isLikelyHex(pk)) {
-                auto decoded = Crypto::safeFromHex(pk, "falcon_pk_hex");
-                if (decoded)
-                    tx.senderPublicKeyFalcon.assign(decoded->begin(), decoded->end());
-                else
+            if (pk.size() <= 5000) {
+                if (Crypto::isLikelyHex(pk)) {
+                    auto decoded = Crypto::safeFromHex(pk, "falcon_pk_hex");
+                    if (decoded)
+                        tx.senderPublicKeyFalcon.assign(decoded->begin(), decoded->end());
+                    else
+                        tx.senderPublicKeyFalcon = pk;
+                } else {
                     tx.senderPublicKeyFalcon = pk;
+                }
             } else {
-                tx.senderPublicKeyFalcon = pk;
+                std::cerr << "⚠️ [Transaction::fromProto] Falcon pubkey too large: "
+                          << pk.size() << " bytes. Ignoring.\n";
             }
         }
         if (!protoTx.zkproof().empty()) {
@@ -312,12 +335,22 @@ Transaction Transaction::fromJSON(const Json::Value &txJson) {
   tx.metadata = txJson.get("metadata", "").asString();
 
   if (tx.sender != "System") {
-    // ✅ Decode base64-encoded binary fields
-    tx.signatureDilithium = Crypto::base64Decode(txJson.get("signatureDilithium", "").asString());
-    tx.signatureFalcon = Crypto::base64Decode(txJson.get("signatureFalcon", "").asString());
-    tx.zkProof = Crypto::base64Decode(txJson.get("zkProof", "").asString());
-    tx.senderPublicKeyDilithium = Crypto::base64Decode(txJson.get("senderPublicKeyDilithium", "").asString());
-    tx.senderPublicKeyFalcon = Crypto::base64Decode(txJson.get("senderPublicKeyFalcon", "").asString());
+    // ✅ Decode base64-encoded binary fields with simple size guards
+    auto decodeSafe = [](const std::string &b64, size_t limit, const std::string &field) {
+      std::string decoded = Crypto::base64Decode(b64);
+      if (decoded.size() > limit) {
+        std::cerr << "⚠️ [Transaction::fromJSON] " << field << " too large: "
+                  << decoded.size() << " bytes. Ignoring.\n";
+        return std::string{};
+      }
+      return decoded;
+    };
+
+    tx.signatureDilithium = decodeSafe(txJson.get("signatureDilithium", "").asString(), 10000, "Dilithium signature");
+    tx.signatureFalcon = decodeSafe(txJson.get("signatureFalcon", "").asString(), 10000, "Falcon signature");
+    tx.zkProof = decodeSafe(txJson.get("zkProof", "").asString(), 10000, "zkProof");
+    tx.senderPublicKeyDilithium = decodeSafe(txJson.get("senderPublicKeyDilithium", "").asString(), 5000, "Dilithium pubkey");
+    tx.senderPublicKeyFalcon = decodeSafe(txJson.get("senderPublicKeyFalcon", "").asString(), 5000, "Falcon pubkey");
   }
 
   if (tx.hash.empty()) {
