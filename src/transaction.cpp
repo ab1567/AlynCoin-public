@@ -209,16 +209,52 @@ Transaction Transaction::fromProto(const alyncoin::TransactionProto& protoTx) {
 
         // 🚨 Direct assignment for raw binary fields
         if (!protoTx.signature_dilithium().empty()) {
-            tx.signatureDilithium = protoTx.signature_dilithium();
+            const std::string &sig = protoTx.signature_dilithium();
+            if (Crypto::isLikelyHex(sig)) {
+                auto decoded = Crypto::safeFromHex(sig, "dilithium_sig_hex");
+                if (decoded)
+                    tx.signatureDilithium.assign(decoded->begin(), decoded->end());
+                else
+                    tx.signatureDilithium = sig;
+            } else {
+                tx.signatureDilithium = sig;
+            }
         }
         if (!protoTx.signature_falcon().empty()) {
-            tx.signatureFalcon = protoTx.signature_falcon();
+            const std::string &sig = protoTx.signature_falcon();
+            if (Crypto::isLikelyHex(sig)) {
+                auto decoded = Crypto::safeFromHex(sig, "falcon_sig_hex");
+                if (decoded)
+                    tx.signatureFalcon.assign(decoded->begin(), decoded->end());
+                else
+                    tx.signatureFalcon = sig;
+            } else {
+                tx.signatureFalcon = sig;
+            }
         }
         if (!protoTx.sender_pubkey_dilithium().empty()) {
-            tx.senderPublicKeyDilithium = protoTx.sender_pubkey_dilithium();
+            const std::string &pk = protoTx.sender_pubkey_dilithium();
+            if (Crypto::isLikelyHex(pk)) {
+                auto decoded = Crypto::safeFromHex(pk, "dilithium_pk_hex");
+                if (decoded)
+                    tx.senderPublicKeyDilithium.assign(decoded->begin(), decoded->end());
+                else
+                    tx.senderPublicKeyDilithium = pk;
+            } else {
+                tx.senderPublicKeyDilithium = pk;
+            }
         }
         if (!protoTx.sender_pubkey_falcon().empty()) {
-            tx.senderPublicKeyFalcon = protoTx.sender_pubkey_falcon();
+            const std::string &pk = protoTx.sender_pubkey_falcon();
+            if (Crypto::isLikelyHex(pk)) {
+                auto decoded = Crypto::safeFromHex(pk, "falcon_pk_hex");
+                if (decoded)
+                    tx.senderPublicKeyFalcon.assign(decoded->begin(), decoded->end());
+                else
+                    tx.senderPublicKeyFalcon = pk;
+            } else {
+                tx.senderPublicKeyFalcon = pk;
+            }
         }
         if (!protoTx.zkproof().empty()) {
             tx.zkProof = protoTx.zkproof();  // raw binary

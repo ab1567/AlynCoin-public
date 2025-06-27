@@ -124,28 +124,13 @@ Transaction Wallet::createTransaction(const std::string& recipient, double amoun
 
     std::cout << "🔥 Burned: " << burnAmount << " AlynCoin (" << (burnRate * 100) << "%)\n";
 
-    // Prepare transaction hash
-    std::string txHashStr;
-    {
-        std::ostringstream data;
-        data << address << recipient << amount << std::time(nullptr);
-        txHashStr = Crypto::hybridHash(data.str());
-    }
-    std::vector<unsigned char> hashBytes = Crypto::fromHex(txHashStr);
-
-    // Signatures
-    std::vector<unsigned char> sig_dilithium = Crypto::signWithDilithium(hashBytes, dilithiumKeys.privateKey);
-    std::vector<unsigned char> sig_falcon    = Crypto::signWithFalcon(hashBytes, falconKeys.privateKey);
-
-    // zk-STARK proof
-    std::string zkProof = WinterfellStark::generateTransactionProof(address, recipient, amount, std::time(nullptr));
-
     Transaction tx(address, recipient, amount,
-                   Crypto::toHex(sig_dilithium),
-                   Crypto::toHex(sig_falcon),
+                   "",
+                   "",
                    std::time(nullptr));
 
-    tx.setZkProof(zkProof);
+    tx.signTransaction(dilithiumKeys.privateKey, falconKeys.privateKey);
+
     return tx;
 }
 
