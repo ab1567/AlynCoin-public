@@ -121,16 +121,24 @@ quietPrint( "❌ [ERROR] signature_dilithium is empty!" << std::endl);
 quietPrint( "❌ [ERROR] signature_falcon is empty!" << std::endl);
     }
 
-    std::vector<unsigned char> pubDil = Crypto::fromHex(proto.sender_pubkey_dilithium());
-    if (!pubDil.empty()) {
-        senderPublicKeyDilithium.assign(pubDil.begin(), pubDil.end());
+    std::string pkDil = proto.sender_pubkey_dilithium();
+    if (!pkDil.empty()) {
+        if (pkDil.size() == DILITHIUM_PUBLIC_KEY_BYTES) {
+            senderPublicKeyDilithium = pkDil;
+        } else {
+quietPrint( "⚠️ [ERROR] sender_pubkey_dilithium wrong length: " << pkDil.size() << std::endl);
+        }
     } else {
 quietPrint( "❌ [ERROR] sender_pubkey_dilithium is empty!" << std::endl);
     }
 
-    std::vector<unsigned char> pubFal = Crypto::fromHex(proto.sender_pubkey_falcon());
-    if (!pubFal.empty()) {
-        senderPublicKeyFalcon.assign(pubFal.begin(), pubFal.end());
+    std::string pkFal = proto.sender_pubkey_falcon();
+    if (!pkFal.empty()) {
+        if (pkFal.size() == FALCON_PUBLIC_KEY_BYTES) {
+            senderPublicKeyFalcon = pkFal;
+        } else {
+quietPrint( "⚠️ [ERROR] sender_pubkey_falcon wrong length: " << pkFal.size() << std::endl);
+        }
     } else {
 quietPrint( "❌ [ERROR] sender_pubkey_falcon is empty!" << std::endl);
     }
