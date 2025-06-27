@@ -1071,20 +1071,15 @@ void Blockchain::addTransaction(const Transaction &tx) {
     std::string senderLower = tx.getSender();
     std::transform(senderLower.begin(), senderLower.end(), senderLower.begin(), ::tolower);
 
-    // Check if public key exists, generate if missing
-    std::string keyDir = KEY_DIR;
-    std::string publicKeyPath = keyDir + senderLower + "_public.pem";
-
-    if (!fs::exists(publicKeyPath)) {
-        std::cerr << "⚠️ [WARNING] Public key missing for " << senderLower
-                  << "! Generating now...\n";
-        Crypto::generateKeysForUser(senderLower);
-        // A small wait to ensure key generation completes
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    // If we don\'t have the sender\'s PQ keys cached, reject the transaction
+    if (!tx.getSenderPublicKeyDilithium().empty() &&
+        !tx.getSenderPublicKeyFalcon().empty()) {
+        pendingTransactions.push_back(tx);
+    } else {
+        std::cerr << "⛔  [addTransaction] No PQ public keys for "
+                  << senderLower << ".  Transaction rejected.\n";
+        return;
     }
-
-    // Only ONE push_back(tx) — remove the duplicate
-    pendingTransactions.push_back(tx);
 
     // Monitor Dev Fund activity
     if (tx.getSender() == DEV_FUND_ADDRESS || tx.getRecipient() == DEV_FUND_ADDRESS) {
@@ -1641,6 +1636,10 @@ bool Blockchain::isValidNewBlock(const Block& newBlock) const {
     }
 
     const Block& lastBlock = getLatestBlock();
+
+    if (newBlock.getHash() == lastBlock.getHash()) {
+        return false; // already have this exact block
+    }
 
     if (newBlock.getIndex() <= lastBlock.getIndex()) {
         std::cerr << "⚠️ [Blockchain] Rejected duplicate/old block. Index: " << newBlock.getIndex()
