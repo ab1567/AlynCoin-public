@@ -176,10 +176,42 @@ bool Blockchain::isTransactionValid(const Transaction &tx) const {
             return false;
         }
         std::vector<unsigned char> hashBytes = Crypto::fromHex(txHash);
-        std::vector<unsigned char> sigDilithium(tx.getSignatureDilithium().begin(), tx.getSignatureDilithium().end());
-        std::vector<unsigned char> sigFalcon(tx.getSignatureFalcon().begin(), tx.getSignatureFalcon().end());
-        std::vector<unsigned char> pubKeyDilithium(tx.getSenderPublicKeyDilithium().begin(), tx.getSenderPublicKeyDilithium().end());
-        std::vector<unsigned char> pubKeyFalcon(tx.getSenderPublicKeyFalcon().begin(), tx.getSenderPublicKeyFalcon().end());
+
+        auto toVec = [](const std::string& data, size_t limit,
+                        const std::string& label)
+                        -> std::optional<std::vector<unsigned char>> {
+            if (data.size() > limit) {
+                std::cerr << "[ERROR] " << label << " too long: "
+                          << data.size() << " bytes\n";
+                return std::nullopt;
+            }
+            try {
+                return std::vector<unsigned char>(data.begin(), data.end());
+            } catch (const std::exception& e) {
+                std::cerr << "❌ Exception allocating vector for " << label
+                          << ": " << e.what() << "\n";
+                return std::nullopt;
+            }
+        };
+
+        auto sigDilithiumOpt =
+            toVec(tx.getSignatureDilithium(), 10000, "Dilithium signature");
+        auto sigFalconOpt =
+            toVec(tx.getSignatureFalcon(), 10000, "Falcon signature");
+        auto pubKeyDilithiumOpt =
+            toVec(tx.getSenderPublicKeyDilithium(), 5000, "Dilithium pubkey");
+        auto pubKeyFalconOpt =
+            toVec(tx.getSenderPublicKeyFalcon(), 5000, "Falcon pubkey");
+
+        if (!sigDilithiumOpt || !sigFalconOpt ||
+            !pubKeyDilithiumOpt || !pubKeyFalconOpt) {
+            return false;
+        }
+
+        const std::vector<unsigned char>& sigDilithium = *sigDilithiumOpt;
+        const std::vector<unsigned char>& sigFalcon = *sigFalconOpt;
+        const std::vector<unsigned char>& pubKeyDilithium = *pubKeyDilithiumOpt;
+        const std::vector<unsigned char>& pubKeyFalcon = *pubKeyFalconOpt;
 
         std::cout << "[DEBUG] Verifying TX: " << txHash << "\n";
         std::cout << "  - Sender: " << sender << "\n";

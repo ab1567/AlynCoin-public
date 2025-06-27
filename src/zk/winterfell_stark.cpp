@@ -62,8 +62,9 @@ std::string WinterfellStark::generateProof(const std::string& blockHash,
     std::cout << "[zkSTARK] ✅ zk-STARK proof generated. Size: " << proof.size() << " bytes\n";
     std::cout << "[zkSTARK] 🔍 First 32 proof bytes (hex): ";
     for (size_t i = 0; i < std::min<size_t>(32, proof.size()); ++i)
-        std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)(unsigned char)proof[i];
-    std::cout << "\n";
+        std::cout << std::hex << std::setw(2) << std::setfill('0')
+                  << (int)(unsigned char)proof[i];
+    std::cout << std::dec << "\n";
 
     return proof;
 }
@@ -105,6 +106,7 @@ bool WinterfellStark::verifyProof(const std::string& proof,
     std::cout << "\n  - Result Hash (raw bytes): ";
     for (unsigned char c : resultHashVec)
         std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)c;
+    std::cout << std::dec;
 
     std::cout << "\n  - Result Hash (printable): ";
     for (unsigned char c : resultHashVec)
@@ -294,8 +296,9 @@ std::string RollupStark::generateRollupProof(const std::string& blockHash,
     std::cout << "[zkSTARK] ✅ Rollup zk-STARK proof generated. Size: " << proof.size() << " bytes\n";
     std::cout << "[zkSTARK] 🔍 First 32 proof bytes (hex): ";
     for (size_t i = 0; i < std::min<size_t>(32, proof.size()); ++i)
-        std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)(unsigned char)proof[i];
-    std::cout << "\n";
+        std::cout << std::hex << std::setw(2) << std::setfill('0')
+                  << (int)(unsigned char)proof[i];
+    std::cout << std::dec << "\n";
 
     return proof;
 }
