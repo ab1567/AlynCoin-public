@@ -859,6 +859,9 @@ void ensureMinerKeys() {
   std::string minerPrivateKey = generatePrivateKey("miner", "defaultpass");
   std::string minerPublicKey = getPublicKey("miner");
 
+  // Also generate Dilithium & Falcon keypairs if missing
+  Crypto::generatePostQuantumKeys("miner");
+
   if (minerPrivateKey.empty() || minerPublicKey.empty()) {
     std::cerr << "❌ Critical Error: Miner keys could not be generated!"
               << std::endl;
