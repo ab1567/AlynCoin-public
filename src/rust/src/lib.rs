@@ -157,14 +157,11 @@ pub extern "C" fn generate_proof_bytes(seed_ptr: *const u8, seed_len: usize) -> 
 
     // Hash the seed string itself
     let digest = blake3::hash(seed_str.as_bytes());
-    let digest_bytes = digest.as_bytes(); // 32-byte slice
+    let digest_hex = hex::encode(digest.as_bytes());
 
-    let mut proof = Vec::new();
-    proof.extend_from_slice(b"zk-proof-v1:");
-    proof.extend_from_slice(seed_str.as_bytes());
-    proof.extend_from_slice(digest_bytes); // 👈 used for window match
+    let proof_str = format!("zk-proof-v1:{}{}", seed_str, digest_hex);
 
-    match CString::new(proof) {
+    match CString::new(proof_str) {
         Ok(c_string) => c_string.into_raw(),
         Err(_) => ptr::null_mut(),
     }
@@ -215,7 +212,7 @@ pub extern "C" fn verify_winterfell_proof(
     prev_hash_ptr: *const c_char,
     tx_root_ptr: *const c_char,
 ) -> bool {
-    let proof_bytes = unsafe { CStr::from_ptr(proof_ptr).to_bytes() };
+    let proof = unsafe { CStr::from_ptr(proof_ptr).to_string_lossy() };
     let block_hash = unsafe { CStr::from_ptr(block_hash_ptr).to_str().unwrap_or("") };
     let prev_hash = unsafe { CStr::from_ptr(prev_hash_ptr).to_str().unwrap_or("") };
     let tx_root = unsafe { CStr::from_ptr(tx_root_ptr).to_str().unwrap_or("") };
@@ -226,7 +223,6 @@ pub extern "C" fn verify_winterfell_proof(
 
     let final_seed = format!("{}{}{}", seed1, seed2, seed3);
     let final_hash = blake3_hex(&final_seed);
-    let computed = from_hex(&final_hash).unwrap_or_default();
 
     println!("[Rust] 🔬 verify_winterfell_proof()");
     println!("  - blockHash     = {}", block_hash);
@@ -234,16 +230,14 @@ pub extern "C" fn verify_winterfell_proof(
     println!("  - txRoot        = {}", tx_root);
     println!("  - finalSeed     = {}", final_seed);
     println!("  - BLAKE3(seed)  = {}", final_hash);
-    println!("  - computed.len  = {}", computed.len());
-    println!("  - computed(hex) = {:02x?}", computed);
 
-    if computed.is_empty() {
+    if final_hash.is_empty() {
         println!("❌ Computed hash is empty!");
         return false;
     }
 
-    let result = proof_bytes.windows(computed.len()).any(|w| w == computed.as_slice());
-    println!("✅ Window match = {}", result);
+    let result = proof.contains(&final_hash);
+    println!("✅ Substring match = {}", result);
     result
 }
 
@@ -276,14 +270,11 @@ pub extern "C" fn generate_rollup_proof(
     let static_salt = "b9fefa97b3a5995a8d8436a8bb1a06e15ddf5241075199be8d00e6eca7cd5479";
     let final_seed = format!("{}{}{}{}", seed1, seed2, static_salt, seed3);
     let digest = blake3::hash(final_seed.as_bytes());
-    let digest_bytes = digest.as_bytes();
+    let digest_hex = hex::encode(digest.as_bytes());
 
-    let mut proof = Vec::new();
-    proof.extend_from_slice(b"rollup-proof-v1:");
-    proof.extend_from_slice(final_seed.as_bytes());
-    proof.extend_from_slice(digest_bytes);
+    let proof_str = format!("rollup-proof-v1:{}{}", final_seed, digest_hex);
 
-    match CString::new(proof) {
+    match CString::new(proof_str) {
         Ok(c_string) => c_string.into_raw(),
         Err(_) => std::ptr::null_mut(),
     }
@@ -296,7 +287,7 @@ pub extern "C" fn verify_rollup_proof(
     prev_hash_ptr: *const c_char,
     tx_root_ptr: *const c_char,
 ) -> bool {
-    let proof_bytes = unsafe { CStr::from_ptr(proof_ptr).to_bytes() };
+    let proof = unsafe { CStr::from_ptr(proof_ptr).to_string_lossy() };
     let block_hash = unsafe { CStr::from_ptr(block_hash_ptr).to_str().unwrap_or("") };
     let prev_hash = unsafe { CStr::from_ptr(prev_hash_ptr).to_str().unwrap_or("") };
     let tx_root = unsafe { CStr::from_ptr(tx_root_ptr).to_str().unwrap_or("genesis-root") };
@@ -307,15 +298,14 @@ pub extern "C" fn verify_rollup_proof(
     let static_salt = "b9fefa97b3a5995a8d8436a8bb1a06e15ddf5241075199be8d00e6eca7cd5479";
     let final_seed = format!("{}{}{}{}", seed1, seed2, static_salt, seed3);
 
-    let expected_hash = blake3::hash(final_seed.as_bytes()).as_bytes().to_vec();
+    let expected_hash = blake3_hex(&final_seed);
 
     println!("[Rust] 🔬 verify_rollup_proof()");
     println!("  - finalSeed     = {}", final_seed);
-    println!("  - BLAKE3(seed)  = {:02x?}", expected_hash);
-    println!("  - computed.len  = {}", expected_hash.len());
+    println!("  - BLAKE3(seed)  = {}", expected_hash);
 
     // 🔍 Match only the final part of the proof
-    if proof_bytes.ends_with(&expected_hash) {
+    if proof.ends_with(&expected_hash) {
         println!("✅ Rollup Proof: Final hash matches tail of proof.");
         true
     } else {
