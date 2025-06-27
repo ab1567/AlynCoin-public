@@ -142,10 +142,31 @@ bool Blockchain::isTransactionValid(const Transaction &tx) const {
     try {
         std::string canonicalHash = tx.getTransactionHash();  // ✅ Use canonical hash
         std::vector<unsigned char> hashBytes = Crypto::fromHex(canonicalHash);
-        std::vector<unsigned char> sigDilithium = Crypto::fromHex(tx.getSignatureDilithium());
-        std::vector<unsigned char> sigFalcon = Crypto::fromHex(tx.getSignatureFalcon());
-        std::vector<unsigned char> pubKeyDilithium = Crypto::fromHex(tx.getSenderPublicKeyDilithium());
-        std::vector<unsigned char> pubKeyFalcon = Crypto::fromHex(tx.getSenderPublicKeyFalcon());
+        std::vector<unsigned char> sigDilithium(tx.getSignatureDilithium().begin(),
+                                               tx.getSignatureDilithium().end());
+        std::vector<unsigned char> sigFalcon(tx.getSignatureFalcon().begin(),
+                                             tx.getSignatureFalcon().end());
+
+        // Accept binary or legacy hex-encoded public keys
+        std::vector<unsigned char> pubKeyDilithium;
+        const std::string &rawDilPk = tx.getSenderPublicKeyDilithium();
+        if (rawDilPk.size() == DILITHIUM_PUBLIC_KEY_BYTES) {
+            pubKeyDilithium.assign(rawDilPk.begin(), rawDilPk.end());
+        } else if (rawDilPk.size() == DILITHIUM_PUBLIC_KEY_BYTES * 2) {
+            pubKeyDilithium = Crypto::fromHex(rawDilPk);
+        } else {
+            return false;
+        }
+
+        std::vector<unsigned char> pubKeyFalcon;
+        const std::string &rawFalPk = tx.getSenderPublicKeyFalcon();
+        if (rawFalPk.size() == FALCON_PUBLIC_KEY_BYTES) {
+            pubKeyFalcon.assign(rawFalPk.begin(), rawFalPk.end());
+        } else if (rawFalPk.size() == FALCON_PUBLIC_KEY_BYTES * 2) {
+            pubKeyFalcon = Crypto::fromHex(rawFalPk);
+        } else {
+            return false;
+        }
 
 debugPrint( "[DEBUG] Verifying TX: " << canonicalHash << "\n");
         std::cout << "  - Sender: " << sender << "\n";
