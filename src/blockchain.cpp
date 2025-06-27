@@ -164,6 +164,17 @@ bool Blockchain::isTransactionValid(const Transaction &tx) const {
     try {
         // Transaction::getTransactionHash() already returns the canonical hash
         const std::string txHash = tx.getTransactionHash();
+        // sanity check on data sizes before allocating vectors
+        if (tx.getSignatureDilithium().size() > 10000 ||
+            tx.getSignatureFalcon().size() > 10000) {
+            std::cerr << "[ERROR] Signature too long in tx " << txHash << "\n";
+            return false;
+        }
+        if (tx.getSenderPublicKeyDilithium().size() > 5000 ||
+            tx.getSenderPublicKeyFalcon().size() > 5000) {
+            std::cerr << "[ERROR] Public key too long in tx " << txHash << "\n";
+            return false;
+        }
         std::vector<unsigned char> hashBytes = Crypto::fromHex(txHash);
         std::vector<unsigned char> sigDilithium(tx.getSignatureDilithium().begin(), tx.getSignatureDilithium().end());
         std::vector<unsigned char> sigFalcon(tx.getSignatureFalcon().begin(), tx.getSignatureFalcon().end());
