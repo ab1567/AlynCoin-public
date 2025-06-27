@@ -1616,7 +1616,8 @@ if (cmd == "nft-verifyhash" && argc >= 3) {
             }
             if (duplicate) break;
 
-            if (!tx.isValid(Crypto::toHex(dilKeys.publicKey), Crypto::toHex(falKeys.publicKey))) {
+            if (!tx.isValid(std::string(dilKeys.publicKey.begin(), dilKeys.publicKey.end()),
+                           std::string(falKeys.publicKey.begin(), falKeys.publicKey.end()))) {
                 std::cout << "❌ Invalid transaction (signature check failed).\n";
                 break;
             }
