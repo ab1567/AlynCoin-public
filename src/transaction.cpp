@@ -77,16 +77,24 @@ void Transaction::serializeToProtobuf(alyncoin::TransactionProto &proto) const {
     proto.set_amount_str(canonicalAmount(amount));
 
     if (!signatureDilithium.empty())
-        proto.set_signature_dilithium(Crypto::toHex(std::vector<unsigned char>(signatureDilithium.begin(), signatureDilithium.end())));
+        proto.set_signature_dilithium(
+            reinterpret_cast<const char*>(signatureDilithium.data()),
+            signatureDilithium.size());
 
     if (!signatureFalcon.empty())
-        proto.set_signature_falcon(Crypto::toHex(std::vector<unsigned char>(signatureFalcon.begin(), signatureFalcon.end())));
+        proto.set_signature_falcon(
+            reinterpret_cast<const char*>(signatureFalcon.data()),
+            signatureFalcon.size());
 
     if (!senderPublicKeyDilithium.empty())
-        proto.set_sender_pubkey_dilithium(Crypto::toHex(std::vector<unsigned char>(senderPublicKeyDilithium.begin(), senderPublicKeyDilithium.end())));
+        proto.set_sender_pubkey_dilithium(
+            reinterpret_cast<const char*>(senderPublicKeyDilithium.data()),
+            senderPublicKeyDilithium.size());
 
     if (!senderPublicKeyFalcon.empty())
-        proto.set_sender_pubkey_falcon(Crypto::toHex(std::vector<unsigned char>(senderPublicKeyFalcon.begin(), senderPublicKeyFalcon.end())));
+        proto.set_sender_pubkey_falcon(
+            reinterpret_cast<const char*>(senderPublicKeyFalcon.data()),
+            senderPublicKeyFalcon.size());
 
     proto.set_timestamp(timestamp);
 
@@ -128,15 +136,15 @@ bool Transaction::deserializeFromProtobuf(const alyncoin::TransactionProto &prot
         hash = proto.hash();
 
         if (!proto.signature_dilithium().empty()) {
-            auto sigDil = Crypto::fromHex(proto.signature_dilithium());
-            signatureDilithium.assign(sigDil.begin(), sigDil.end());
+            const std::string& sig = proto.signature_dilithium();
+            signatureDilithium.assign(sig.begin(), sig.end());
         } else {
             std::cerr << "⚠️ [deserializeFromProtobuf] Missing dilithium signature.\n";
         }
 
         if (!proto.signature_falcon().empty()) {
-            auto sigFal = Crypto::fromHex(proto.signature_falcon());
-            signatureFalcon.assign(sigFal.begin(), sigFal.end());
+            const std::string& sig = proto.signature_falcon();
+            signatureFalcon.assign(sig.begin(), sig.end());
         } else {
             std::cerr << "⚠️ [deserializeFromProtobuf] Missing falcon signature.\n";
         }
@@ -144,7 +152,7 @@ bool Transaction::deserializeFromProtobuf(const alyncoin::TransactionProto &prot
         if (!proto.sender_pubkey_dilithium().empty()) {
             const std::string &pkDil = proto.sender_pubkey_dilithium();
             if (pkDil.size() == DILITHIUM_PUBLIC_KEY_BYTES)
-                senderPublicKeyDilithium = pkDil;
+                senderPublicKeyDilithium.assign(pkDil.begin(), pkDil.end());
             else
                 std::cerr << "⚠️ [deserializeFromProtobuf] Unexpected Dilithium key length: "
                           << pkDil.size() << "\n";
@@ -155,7 +163,7 @@ bool Transaction::deserializeFromProtobuf(const alyncoin::TransactionProto &prot
         if (!proto.sender_pubkey_falcon().empty()) {
             const std::string &pkFal = proto.sender_pubkey_falcon();
             if (pkFal.size() == FALCON_PUBLIC_KEY_BYTES)
-                senderPublicKeyFalcon = pkFal;
+                senderPublicKeyFalcon.assign(pkFal.begin(), pkFal.end());
             else
                 std::cerr << "⚠️ [deserializeFromProtobuf] Unexpected Falcon key length: "
                           << pkFal.size() << "\n";
@@ -211,15 +219,7 @@ Transaction Transaction::fromProto(const alyncoin::TransactionProto& protoTx) {
         if (!protoTx.signature_dilithium().empty()) {
             const std::string &sig = protoTx.signature_dilithium();
             if (sig.size() <= 10000) {
-                if (Crypto::isLikelyHex(sig)) {
-                    auto decoded = Crypto::safeFromHex(sig, "dilithium_sig_hex");
-                    if (decoded)
-                        tx.signatureDilithium.assign(decoded->begin(), decoded->end());
-                    else
-                        tx.signatureDilithium = sig;
-                } else {
-                    tx.signatureDilithium = sig;
-                }
+                tx.signatureDilithium.assign(sig.begin(), sig.end());
             } else {
                 std::cerr << "⚠️ [Transaction::fromProto] Dilithium signature too large: "
                           << sig.size() << " bytes. Ignoring.\n";
@@ -229,15 +229,7 @@ Transaction Transaction::fromProto(const alyncoin::TransactionProto& protoTx) {
         if (!protoTx.signature_falcon().empty()) {
             const std::string &sig = protoTx.signature_falcon();
             if (sig.size() <= 10000) {
-                if (Crypto::isLikelyHex(sig)) {
-                    auto decoded = Crypto::safeFromHex(sig, "falcon_sig_hex");
-                    if (decoded)
-                        tx.signatureFalcon.assign(decoded->begin(), decoded->end());
-                    else
-                        tx.signatureFalcon = sig;
-                } else {
-                    tx.signatureFalcon = sig;
-                }
+                tx.signatureFalcon.assign(sig.begin(), sig.end());
             } else {
                 std::cerr << "⚠️ [Transaction::fromProto] Falcon signature too large: "
                           << sig.size() << " bytes. Ignoring.\n";
@@ -247,15 +239,7 @@ Transaction Transaction::fromProto(const alyncoin::TransactionProto& protoTx) {
         if (!protoTx.sender_pubkey_dilithium().empty()) {
             const std::string &pk = protoTx.sender_pubkey_dilithium();
             if (pk.size() <= 5000) {
-                if (Crypto::isLikelyHex(pk)) {
-                    auto decoded = Crypto::safeFromHex(pk, "dilithium_pk_hex");
-                    if (decoded)
-                        tx.senderPublicKeyDilithium.assign(decoded->begin(), decoded->end());
-                    else
-                        tx.senderPublicKeyDilithium = pk;
-                } else {
-                    tx.senderPublicKeyDilithium = pk;
-                }
+                tx.senderPublicKeyDilithium.assign(pk.begin(), pk.end());
             } else {
                 std::cerr << "⚠️ [Transaction::fromProto] Dilithium pubkey too large: "
                           << pk.size() << " bytes. Ignoring.\n";
@@ -265,15 +249,7 @@ Transaction Transaction::fromProto(const alyncoin::TransactionProto& protoTx) {
         if (!protoTx.sender_pubkey_falcon().empty()) {
             const std::string &pk = protoTx.sender_pubkey_falcon();
             if (pk.size() <= 5000) {
-                if (Crypto::isLikelyHex(pk)) {
-                    auto decoded = Crypto::safeFromHex(pk, "falcon_pk_hex");
-                    if (decoded)
-                        tx.senderPublicKeyFalcon.assign(decoded->begin(), decoded->end());
-                    else
-                        tx.senderPublicKeyFalcon = pk;
-                } else {
-                    tx.senderPublicKeyFalcon = pk;
-                }
+                tx.senderPublicKeyFalcon.assign(pk.begin(), pk.end());
             } else {
                 std::cerr << "⚠️ [Transaction::fromProto] Falcon pubkey too large: "
                           << pk.size() << " bytes. Ignoring.\n";
