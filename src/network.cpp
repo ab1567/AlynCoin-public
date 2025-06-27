@@ -434,9 +434,8 @@ void Network::autoMineBlock() {
         Block minedBlock = blockchain.minePendingTransactions(
             minerAddress, dilithiumPriv, falconPriv);
 
-        // Validate signatures using raw block hash
-        std::vector<unsigned char> msgHash =
-            Crypto::fromHex(minedBlock.getHash());
+        // Validate signatures using the same message that was signed
+        std::vector<unsigned char> msgHash = minedBlock.getSignatureMessage();
         std::vector<unsigned char> sigDil = minedBlock.getDilithiumSignature();
         std::vector<unsigned char> pubDil =
             Crypto::getPublicKeyDilithium(minedBlock.getMinerAddress());
