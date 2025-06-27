@@ -142,15 +142,23 @@ bool Transaction::deserializeFromProtobuf(const alyncoin::TransactionProto &prot
         }
 
         if (!proto.sender_pubkey_dilithium().empty()) {
-            auto pubDil = Crypto::fromHex(proto.sender_pubkey_dilithium());
-            senderPublicKeyDilithium.assign(pubDil.begin(), pubDil.end());
+            const std::string &pkDil = proto.sender_pubkey_dilithium();
+            if (pkDil.size() == DILITHIUM_PUBLIC_KEY_BYTES)
+                senderPublicKeyDilithium = pkDil;
+            else
+                std::cerr << "⚠️ [deserializeFromProtobuf] Unexpected Dilithium key length: "
+                          << pkDil.size() << "\n";
         } else {
             std::cerr << "⚠️ [deserializeFromProtobuf] Missing Dilithium pubkey.\n";
         }
 
         if (!proto.sender_pubkey_falcon().empty()) {
-            auto pubFal = Crypto::fromHex(proto.sender_pubkey_falcon());
-            senderPublicKeyFalcon.assign(pubFal.begin(), pubFal.end());
+            const std::string &pkFal = proto.sender_pubkey_falcon();
+            if (pkFal.size() == FALCON_PUBLIC_KEY_BYTES)
+                senderPublicKeyFalcon = pkFal;
+            else
+                std::cerr << "⚠️ [deserializeFromProtobuf] Unexpected Falcon key length: "
+                          << pkFal.size() << "\n";
         } else {
             std::cerr << "⚠️ [deserializeFromProtobuf] Missing Falcon pubkey.\n";
         }
