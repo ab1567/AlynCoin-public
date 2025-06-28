@@ -1,6 +1,37 @@
 # AlynCoin
 
-Privacy-focused cryptocurrency based on PoW.
+AlynCoin is a quantum-resistant Layer-1 blockchain. It combines BLAKE3 and
+Keccak proof-of-work mining with advanced zk-STARK proofs and supports the
+Falcon and Dilithium digital signature schemes. The project targets future
+quantum threats while retaining the familiarity of a traditional PoW chain.
+
+## Key Features
+
+* **Quantum-secure signatures** using both Falcon and Dilithium
+* **zk-STARK proofs** with recursive rollups for scalability
+* **Self-healing nodes** that automatically resynchronize
+* **DAO governance** powered by zero-knowledge proofs
+* **Atomic swaps and NFT support**
+* **Hybrid PoW algorithm** blending BLAKE3 and Keccak
+
+## Tokenomics
+
+AlynCoin has a fixed cap of **100 million ALYN** tokens. The genesis block
+includes a premine of **10 million ALYN** distributed as follows:
+
+| Allocation           | Amount (ALYN) |
+|----------------------|---------------|
+| Airdrops             | 1,000,000     |
+| Liquidity            | 1,000,000     |
+| Investors            | 3,000,000     |
+| Development          | 2,000,000     |
+| Exchange Listings    | 1,000,000     |
+| Team/Founder         | 2,000,000     |
+
+Block rewards decline as circulating supply approaches the cap. A portion of
+transaction fees is burned while another portion funds ongoing development via
+the DAO treasury. The team allocation is locked for one year and vests
+linearly over the following three years.
 
 ## Generate RSA Keys
 
@@ -58,6 +89,17 @@ if you need to change it and ensure it does not conflict with the peer network p
 
 Use `--dbpath <dir>` to specify a custom data directory or `--connect <ip>` to
 connect to an existing peer.
+
+## Join the Network
+
+Peers can be listed in `peers.txt` or specified on the command line. To join the
+public test network, run:
+
+```bash
+./build/alyncoin --connect <peer_ip>
+```
+
+The default RPC port is `1567` and the peer port is `15671`.
 
 ### Automatic network sync
 
