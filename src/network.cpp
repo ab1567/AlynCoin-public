@@ -1151,10 +1151,21 @@ bool Network::isSelfPeer(const std::string &peer) const {
 
   if (!publicPeerId.empty()) {
     auto colon = publicPeerId.find(':');
-    std::string ipSelf = publicPeerId.substr(0, colon);
-    std::string peerIp = peer.substr(0, peer.find(':'));
-    if (peerIp == ipSelf)
-      return true;
+    if (colon == std::string::npos) {
+      // If no port was specified, fall back to IP only comparison
+      std::string peerIp = peer.substr(0, peer.find(':'));
+      if (peerIp == publicPeerId)
+        return true;
+    } else {
+      std::string ipSelf = publicPeerId.substr(0, colon);
+      std::string portSelf = publicPeerId.substr(colon + 1);
+      auto peerColon = peer.find(':');
+      std::string peerIp = peer.substr(0, peerColon);
+      std::string peerPort =
+          peerColon == std::string::npos ? "" : peer.substr(peerColon + 1);
+      if (peerIp == ipSelf && peerPort == portSelf)
+        return true;
+    }
   }
   return false;
 }
