@@ -54,6 +54,9 @@ using namespace alyncoin;
 static std::unordered_map<std::string, std::vector<Block>> incomingChains;
 // Buffers for in-progress FULL_CHAIN syncs
 // Per-peer sync buffers are now stored in PeerState via peerTransports
+static constexpr uint32_t kFrameRevision = 1;
+static_assert(alyncoin::net::Frame::kBlockBroadcast == 6,
+              "Frame field-numbers changed \u2013 bump kFrameRevision !");
 struct ScopedLockTracer {
   std::string name;
   ScopedLockTracer(const std::string &n) : name(n) {
@@ -701,6 +704,14 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     claimedNetwork = hs.network_id();
     remoteHeight = static_cast<int>(hs.height());
 
+    // ─── Compatibility gate ────────────────────
+    const uint32_t remoteRev = hs.frame_rev();
+    if (remoteRev != kFrameRevision) {
+      std::cerr << "⚠️  [handshake] peer uses frame_rev=" << remoteRev
+                << " but we need " << kFrameRevision << " – dropping.\n";
+      return;
+    }
+
     bool gotBinary = false;
     for (const auto &cap : hs.capabilities()) {
       if (cap == "agg_proof_v1")
@@ -779,6 +790,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     hs.add_capabilities("agg_proof_v1");
     hs.add_capabilities("snapshot_v1");
     hs.add_capabilities("binary_v1");
+    hs.set_frame_rev(kFrameRevision);
     alyncoin::net::Frame out;
     out.mutable_handshake()->CopyFrom(hs);
     sendFrame(transport, out);
@@ -1716,6 +1728,7 @@ bool Network::connectToNode(const std::string &host, int port) {
     hs.add_capabilities("agg_proof_v1");
     hs.add_capabilities("snapshot_v1");
     hs.add_capabilities("binary_v1");
+    hs.set_frame_rev(kFrameRevision);
     alyncoin::net::Frame out;
     out.mutable_handshake()->CopyFrom(hs);
     if (!sendFrame(tx, out)) {
@@ -1752,6 +1765,15 @@ bool Network::connectToNode(const std::string &host, int port) {
     }
     const auto &rhs = fr.handshake();
     theirHeight = static_cast<int>(rhs.height());
+
+    // ─── Compatibility gate ────────────────────────────
+    const uint32_t remoteRev = rhs.frame_rev();
+    if (remoteRev != kFrameRevision) {
+      std::cerr << "⚠️ [handshake] peer uses frame_rev=" << remoteRev
+                << " but we need " << kFrameRevision << " – dropping." << '\n';
+      tx->close();
+      return false;
+    }
     for (const auto &c : rhs.capabilities()) {
       if (c == "agg_proof_v1")
         theirAgg = true;
