@@ -497,6 +497,8 @@ void Network::autoMineBlock() {
             Blockchain::getInstance().saveToDB();
           }
           broadcastBlock(minedBlock);
+          broadcastHeight(minedBlock.getIndex());
+          autoSyncIfBehind();
           std::cout << "✅ Mined & broadcasted block: " << minedBlock.getHash()
                     << std::endl;
         } else {
@@ -1364,6 +1366,9 @@ void Network::handleNewBlock(const Block &newBlock) {
     }
 
     blockchain.saveToDB();
+    broadcastBlock(newBlock);
+    broadcastHeight(newBlock.getIndex());
+    autoSyncIfBehind();
     std::cout << "✅ Block added successfully! Index: " << newBlock.getIndex()
               << "\n";
 
