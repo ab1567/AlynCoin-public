@@ -57,13 +57,13 @@ std::atomic<bool> Blockchain::isMining{false};
 
 Blockchain::Blockchain()
     : difficulty(0), miningReward(100.0), db(nullptr), totalBurnedSupply(0.0),
-      network(nullptr) {
+      network(nullptr), totalWork(0) {
   std::cout << "[DEBUG] Default Blockchain constructor called.\n";
 }
 
 // ✅ Constructor: Open RocksDB
 Blockchain::Blockchain(unsigned short port, const std::string &dbPath, bool bindNetwork, bool isSyncMode)
-    : difficulty(0), miningReward(100.0), port(port), dbPath(dbPath) {
+    : difficulty(0), miningReward(100.0), port(port), dbPath(dbPath), totalWork(0) {
 
     // Only set network pointer if asked AND it's already initialized, otherwise nullptr
     if (bindNetwork) {
@@ -472,6 +472,7 @@ bool Blockchain::addBlock(const Block &block) {
         std::cerr << "[addBlock] PUSH_BACK to chain: idx=" << block.getIndex()
                   << ", hash=" << block.getHash() << std::endl;
         chain.push_back(block);
+        totalWork += (1ULL << block.getDifficulty());
     } catch (const std::exception& e) {
         std::cerr << "❌ [CRITICAL][addBlock] push_back failed: " << e.what() << "\n";
         return false;
@@ -929,6 +930,7 @@ Block Blockchain::minePendingTransactions(
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
         if (!Network::isUninitialized()) {
             Network::getInstance().broadcastBlock(blockCopy);
+            Network::getInstance().broadcastHeight(blockCopy.getIndex());
             if (!blockCopy.getEpochProof().empty()) {
                 Network::getInstance().broadcastEpochProof(
                     blockCopy.getIndex() / EPOCH_SIZE,
@@ -1283,6 +1285,10 @@ bool Blockchain::loadFromDB() {
         db->Put(rocksdb::WriteOptions(), "vesting_initialized", "true");
         std::cout << "✅ Vesting applied & marker set.\n";
     }
+
+    totalWork = 0;
+    for (const auto &b : chain)
+        totalWork += (1ULL << b.getDifficulty());
 
     difficulty = calculateSmartDifficulty(*this);
 

@@ -23,6 +23,7 @@
 #include <cstring>
 #include <filesystem>
 #include <generated/net_frame.pb.h>
+#include "protocol_codes.h"
 #include <google/protobuf/message.h>
 #include <google/protobuf/util/json_util.h>
 #include <iomanip>
@@ -115,12 +116,22 @@ bool Network::sendFrame(std::shared_ptr<Transport> tr,
   const alyncoin::net::Frame *fr =
       dynamic_cast<const alyncoin::net::Frame *>(&m);
   if (fr) {
-    std::string tag = fr->has_block_broadcast()  ? "BLOCK"
-                      : fr->has_snapshot_chunk() ? "SNAP_CHUNK"
-                      : fr->has_snapshot_end()   ? "SNAP_END"
-                      : fr->has_snapshot_req()   ? "SNAP_REQ"
-                                                 : "OTHER";
-    std::cerr << "[>>] Outgoing Frame Type=" << tag << "\n";
+    WireFrame tag = WireFrame::OTHER;
+    if (fr->has_handshake())
+      tag = WireFrame::HANDSHAKE;
+    else if (fr->has_height_res())
+      tag = WireFrame::HEIGHT;
+    else if (fr->has_peer_list())
+      tag = WireFrame::PEER_LIST;
+    else if (fr->has_block_broadcast())
+      tag = WireFrame::BLOCK;
+    else if (fr->has_snapshot_meta())
+      tag = WireFrame::SNAP_META;
+    else if (fr->has_snapshot_chunk())
+      tag = WireFrame::SNAP_CHUNK;
+    else if (fr->has_snapshot_end())
+      tag = WireFrame::SNAP_END;
+    std::cerr << "[>>] Outgoing Frame Type=" << static_cast<int>(tag) << "\n";
   }
   std::string payload = m.SerializeAsString();
   if (payload.empty()) {
@@ -1148,6 +1159,22 @@ void Network::broadcastBlocks(const std::vector<Block> &blocks) {
   }
 }
 
+void Network::broadcastHeight(uint32_t height) {
+  std::unordered_map<std::string, PeerEntry> peersCopy;
+  {
+    std::lock_guard<std::timed_mutex> lk(peersMutex);
+    peersCopy = peerTransports;
+  }
+  alyncoin::net::Frame fr;
+  fr.mutable_height_res()->set_height(height);
+  for (auto &kv : peersCopy) {
+    auto tr = kv.second.tx;
+    if (!tr || !tr->isOpen())
+      continue;
+    sendFrame(tr, fr);
+  }
+}
+
 void Network::sendBlockToPeer(const std::string &peer, const Block &blk) {
   {
     std::lock_guard<std::mutex> lk(seenBlockMutex);
@@ -1539,12 +1566,23 @@ void Network::startBinaryReadLoop(const std::string &peerId,
 }
 
 void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
-  std::string tag = f.has_block_broadcast()  ? "BLOCK"
-                    : f.has_snapshot_chunk() ? "SNAP_CHUNK"
-                    : f.has_snapshot_end()   ? "SNAP_END"
-                    : f.has_snapshot_req()   ? "SNAP_REQ"
-                                             : "OTHER";
-  std::cerr << "[<<] Incoming Frame from " << peer << " Type=" << tag << "\n";
+  WireFrame tag = WireFrame::OTHER;
+  if (f.has_handshake())
+    tag = WireFrame::HANDSHAKE;
+  else if (f.has_height_res())
+    tag = WireFrame::HEIGHT;
+  else if (f.has_peer_list())
+    tag = WireFrame::PEER_LIST;
+  else if (f.has_block_broadcast())
+    tag = WireFrame::BLOCK;
+  else if (f.has_snapshot_meta())
+    tag = WireFrame::SNAP_META;
+  else if (f.has_snapshot_chunk())
+    tag = WireFrame::SNAP_CHUNK;
+  else if (f.has_snapshot_end())
+    tag = WireFrame::SNAP_END;
+  std::cerr << "[<<] Incoming Frame from " << peer << " Type=" << static_cast<int>(tag)
+            << "\n";
   switch (f.kind_case()) {
   case alyncoin::net::Frame::kBlockBroadcast: {
     Block blk = Block::fromProto(f.block_broadcast().block());
@@ -1576,6 +1614,9 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
   case alyncoin::net::Frame::kHeightRes:
     if (peerManager)
       peerManager->setPeerHeight(peer, f.height_res().height());
+    if (f.height_res().height() > Blockchain::getInstance().getHeight() &&
+        !isSyncing())
+      requestTailBlocks(peer, Blockchain::getInstance().getHeight());
     break;
   case alyncoin::net::Frame::kSnapshotMeta:
     handleSnapshotMeta(peer, f.snapshot_meta());

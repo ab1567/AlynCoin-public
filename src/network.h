@@ -15,6 +15,7 @@
 #include <boost/asio.hpp>
 #include <fstream>
 #include <generated/net_frame.pb.h>
+#include <cstdint>
 #include <iostream>
 #include <mutex>
 #include <string>
@@ -73,6 +74,7 @@ public:
                                        const std::string &excludePeer);
   void broadcastBlock(const Block &block, bool force = false);
   void broadcastBlocks(const std::vector<Block> &blocks);
+  void broadcastHeight(uint32_t height);
   void sendBlockToPeer(const std::string &peer, const Block &blk);
   void sendInventory(const std::string &peer);
   PeerManager *getPeerManager();
