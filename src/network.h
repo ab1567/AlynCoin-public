@@ -138,7 +138,12 @@ public:
   static unsigned short findAvailablePort(unsigned short startPort,
                                           int maxTries = 10);
   bool sendFrame(std::shared_ptr<Transport> tr,
-                 const google::protobuf::Message &m);
+                 const google::protobuf::Message &m,
+                 bool immediate = false);
+  inline bool sendFrameImmediate(std::shared_ptr<Transport> tr,
+                                 const google::protobuf::Message &m) {
+    return sendFrame(std::move(tr), m, true);
+  }
   void broadcastFrame(const google::protobuf::Message &m);
   void sendHeight(const std::string &peer);
   void sendTipHash(const std::string &peer);

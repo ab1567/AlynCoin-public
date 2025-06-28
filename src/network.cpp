@@ -108,7 +108,8 @@ unsigned short Network::findAvailablePort(unsigned short startPort,
 //
 
 bool Network::sendFrame(std::shared_ptr<Transport> tr,
-                        const google::protobuf::Message &m) {
+                        const google::protobuf::Message &m,
+                        bool immediate) {
   if (!tr || !tr->isOpen())
     return false;
   const alyncoin::net::Frame *fr =
@@ -133,6 +134,11 @@ bool Network::sendFrame(std::shared_ptr<Transport> tr,
   out.append(payload);
   std::cerr << "[sendFrame] Sending frame, payload size: " << payload.size()
             << " bytes" << '\n';
+  if (immediate) {
+    if (auto tcp = std::dynamic_pointer_cast<TcpTransport>(tr))
+      return tcp->writeBinaryLocked(out);
+    return tr->writeBinary(out);
+  }
   tr->queueWrite(std::move(out), /*binary =*/true);
   return true;
 }
@@ -795,7 +801,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     hs.set_frame_rev(kFrameRevision);
     alyncoin::net::Frame out;
     out.mutable_handshake()->CopyFrom(hs);
-    sendFrame(transport, out);
+    sendFrameImmediate(transport, out);
   }
 
   // ── 5. arm read loop + initial requests ────────────────────────────────
@@ -1733,7 +1739,7 @@ bool Network::connectToNode(const std::string &host, int port) {
     hs.set_frame_rev(kFrameRevision);
     alyncoin::net::Frame out;
     out.mutable_handshake()->CopyFrom(hs);
-    if (!sendFrame(tx, out)) {
+    if (!sendFrameImmediate(tx, out)) {
       std::cerr << "❌ [connectToNode] failed to send handshake to " << peerKey
                 << '\n';
       return false;
