@@ -687,11 +687,11 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
 
     const std::string senderIP = transport->getRemoteIP();
     // The Handshake proto uses proto3 semantics so there is no
-    // `has_listen_port()` accessor. If the field is omitted the value will
-    // be zero, which is invalid for a listening port.
-    if (hs.listen_port() == 0)
-      throw std::runtime_error("peer did not declare listen_port");
-    const int finalPort = hs.listen_port();
+    // `has_listen_port()` accessor. Older nodes may omit this field, so
+    // fall back to the remote port if zero.
+    int finalPort = hs.listen_port();
+    if (finalPort == 0)
+      finalPort = transport->getRemotePort();
     realPeerId = senderIP + ':' + std::to_string(finalPort);
 
     claimedVersion = hs.version();
@@ -1703,7 +1703,11 @@ bool Network::connectToNode(const std::string &host, int port) {
     hs.add_capabilities("binary_v1");
     alyncoin::net::Frame out;
     out.mutable_handshake()->CopyFrom(hs);
-    sendFrame(tx, out);
+    if (!sendFrame(tx, out)) {
+      std::cerr << "❌ [connectToNode] failed to send handshake to " << peerKey
+                << '\n';
+      return false;
+    }
 
     /* read their handshake (2 s timeout) */
     std::string blob;
