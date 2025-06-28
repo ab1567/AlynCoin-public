@@ -119,7 +119,7 @@ bool Network::sendFrame(std::shared_ptr<Transport> tr,
     WireFrame tag = WireFrame::OTHER;
     if (fr->has_handshake())
       tag = WireFrame::HANDSHAKE;
-    else if (fr->has_height_res())
+    else if (fr->has_height_req() || fr->has_height_res())
       tag = WireFrame::HEIGHT;
     else if (fr->has_peer_list())
       tag = WireFrame::PEER_LIST;
@@ -1574,7 +1574,7 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
   WireFrame tag = WireFrame::OTHER;
   if (f.has_handshake())
     tag = WireFrame::HANDSHAKE;
-  else if (f.has_height_res())
+  else if (f.has_height_req() || f.has_height_res())
     tag = WireFrame::HEIGHT;
   else if (f.has_peer_list())
     tag = WireFrame::PEER_LIST;
