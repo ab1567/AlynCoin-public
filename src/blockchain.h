@@ -70,6 +70,7 @@ private:
   static constexpr const char *DEV_FUND_ADDRESS = "DevFundWallet";
   double devFundBalance = 0.0;
   std::time_t devFundLastActivity = std::time(nullptr);
+  uint64_t totalWork = 0;
 
   // --- Vesting ---
   struct VestingInfo {
@@ -202,6 +203,7 @@ public:
   std::string getLastRollupProof() const;
 
   int getHeight() const;
+  uint64_t getTotalWork() const { return totalWork; }
   std::string getBlockHashAtHeight(int height) const;
   bool rollbackToHeight(int height);
 
