@@ -30,6 +30,7 @@ public:
 
     // === NEW: BINARY ===
     bool         writeBinary(const std::string& data) override;
+    bool         writeBinaryLocked(const std::string& data);
     std::string  readBinaryBlocking() override;
     void         startReadBinaryLoop(std::function<void(const boost::system::error_code&, const std::string&)> cb) override;
     void         startReadLineLoop(std::function<void(const boost::system::error_code&, const std::string&)> cb) override;

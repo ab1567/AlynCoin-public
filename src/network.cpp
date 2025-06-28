@@ -133,7 +133,8 @@ bool Network::sendFrame(std::shared_ptr<Transport> tr,
   out.append(payload);
   std::cerr << "[sendFrame] Sending frame, payload size: " << payload.size()
             << " bytes" << '\n';
-  return tr->writeBinary(out);
+  tr->queueWrite(std::move(out), /*binary =*/true);
+  return true;
 }
 
 void Network::broadcastFrame(const google::protobuf::Message &m) {
