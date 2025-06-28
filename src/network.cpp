@@ -2,7 +2,6 @@
 #include "blockchain.h"
 #include "crypto_utils.h"
 #include "generated/block_protos.pb.h"
-#include <generated/net_frame.pb.h>
 #include "generated/sync_protos.pb.h"
 #include "generated/transaction_protos.pb.h"
 #include "proto_utils.h"
@@ -23,6 +22,7 @@
 #include <chrono>
 #include <cstring>
 #include <filesystem>
+#include <generated/net_frame.pb.h>
 #include <google/protobuf/message.h>
 #include <google/protobuf/util/json_util.h>
 #include <iomanip>
@@ -104,10 +104,10 @@ unsigned short Network::findAvailablePort(unsigned short startPort,
 }
 //
 
-void Network::sendFrame(std::shared_ptr<Transport> tr,
+bool Network::sendFrame(std::shared_ptr<Transport> tr,
                         const google::protobuf::Message &m) {
   if (!tr || !tr->isOpen())
-    return;
+    return false;
   const alyncoin::net::Frame *fr =
       dynamic_cast<const alyncoin::net::Frame *>(&m);
   if (fr) {
@@ -122,7 +122,7 @@ void Network::sendFrame(std::shared_ptr<Transport> tr,
   if (payload.empty()) {
     std::cerr << "[sendFrame] ❌ Attempting to send empty protobuf message!"
               << '\n';
-    return;
+    return false;
   }
   uint8_t var[10];
   size_t n = encodeVarInt(payload.size(), var);
@@ -130,15 +130,25 @@ void Network::sendFrame(std::shared_ptr<Transport> tr,
   out.append(payload);
   std::cerr << "[sendFrame] Sending frame, payload size: " << payload.size()
             << " bytes" << '\n';
-  tr->writeBinary(out);
+  return tr->writeBinary(out);
 }
 
 void Network::broadcastFrame(const google::protobuf::Message &m) {
-  std::lock_guard<std::timed_mutex> lk(peersMutex);
-  for (auto &kv : peerTransports) {
+  std::unordered_map<std::string, PeerEntry> peersCopy;
+  {
+    std::lock_guard<std::timed_mutex> lk(peersMutex);
+    peersCopy = peerTransports;
+  }
+  for (const auto &kv : peersCopy) {
+    const auto &peerId = kv.first;
     auto tr = kv.second.tx;
-    if (tr && tr->isOpen())
-      sendFrame(tr, m);
+    if (!tr || !tr->isOpen())
+      continue;
+    if (!sendFrame(tr, m)) {
+      std::cerr << "❌ failed to send frame to " << peerId
+                << " – marking peer offline" << '\n';
+      markPeerOffline(peerId);
+    }
   }
 }
 
@@ -171,6 +181,16 @@ void Network::sendPeerList(const std::string &peer) {
   for (const auto &kv : peerTransports)
     pl->add_peers(kv.first);
   sendFrame(it->second.tx, fr);
+}
+
+void Network::markPeerOffline(const std::string &peerId) {
+  std::lock_guard<std::timed_mutex> lk(peersMutex);
+  auto it = peerTransports.find(peerId);
+  if (it != peerTransports.end()) {
+    peerTransports.erase(it);
+  }
+  if (peerManager)
+    peerManager->disconnectPeer(peerId);
 }
 // Fallback peer(s) in case DNS discovery fails
 static const std::vector<std::string> DEFAULT_DNS_PEERS = {
@@ -727,6 +747,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
 
     auto &entry = peerTransports[claimedPeerId];
     entry.tx = transport;
+    knownPeers.insert(claimedPeerId);
     if (!entry.state)
       entry.state = std::make_shared<PeerState>();
     entry.state->supportsAggProof = remoteAgg;
@@ -958,15 +979,28 @@ void Network::periodicSync() {
   ScopedLockTracer tracer("periodicSync");
   std::lock_guard<std::timed_mutex> lock(peersMutex);
 
-  for (const auto &p : peerTransports) {
-    const auto &peerId = p.first;
-    const auto &transport = p.second.tx;
-    if (!transport || !transport->isOpen())
+  for (const auto &peerId : knownPeers) {
+    auto it = peerTransports.find(peerId);
+    if (it == peerTransports.end() || !it->second.tx ||
+        !it->second.tx->isOpen()) {
+      size_t pos = peerId.find(':');
+      if (pos != std::string::npos) {
+        std::string ip = peerId.substr(0, pos);
+        int port = std::stoi(peerId.substr(pos + 1));
+        connectToNode(ip, port);
+        auto it2 = peerTransports.find(peerId);
+        if (it2 != peerTransports.end() && it2->second.tx &&
+            it2->second.tx->isOpen()) {
+          int ph = peerManager ? peerManager->getPeerHeight(peerId) : 0;
+          sendTailBlocks(it2->second.tx, ph);
+        }
+      }
       continue;
+    }
 
     alyncoin::net::Frame f;
     f.mutable_height_req();
-    sendFrame(transport, f);
+    sendFrame(it->second.tx, f);
 
     std::cerr << "📡 [DEBUG] Height probe sent to " << peerId << '\n';
   }
@@ -1053,14 +1087,15 @@ void Network::broadcastBlock(const Block &block, bool /*force*/) {
     if (!seen.insert(transport).second)
       continue;
 
-    try {
-      sendFrame(transport, fr);
-      std::cout << "✅ [broadcastBlock] Block " << block.getIndex()
-                << " sent to " << peerId << '\n';
-    } catch (const std::exception &e) {
-      std::cerr << "❌ [broadcastBlock] Send to " << peerId
-                << " failed: " << e.what() << '\n';
+    bool ok = sendFrame(transport, fr);
+    if (!ok) {
+      std::cerr << "❌ failed to send block " << block.getIndex() << " to "
+                << peerId << " – marking peer offline" << '\n';
+      markPeerOffline(peerId);
+      continue;
     }
+    std::cout << "✅ [broadcastBlock] Block " << block.getIndex() << " sent to "
+              << peerId << '\n';
   }
 }
 
@@ -1713,6 +1748,7 @@ bool Network::connectToNode(const std::string &host, int port) {
         return false;
       }
       peerTransports[peerKey] = {tx, std::make_shared<PeerState>()};
+      knownPeers.insert(peerKey);
       auto st = peerTransports[peerKey].state;
       st->supportsAggProof = theirAgg;
       st->supportsSnapshot = theirSnap;

@@ -6,7 +6,6 @@
 #include "constants.h"
 #include "generated/block_protos.pb.h"
 #include "generated/blockchain_protos.pb.h"
-#include <generated/net_frame.pb.h>
 #include "generated/transaction_protos.pb.h"
 #include "network/peer_manager.h"
 #include "transaction.h"
@@ -15,6 +14,7 @@
 #include <atomic>
 #include <boost/asio.hpp>
 #include <fstream>
+#include <generated/net_frame.pb.h>
 #include <iostream>
 #include <mutex>
 #include <string>
@@ -137,12 +137,15 @@ public:
                                    const alyncoin::BlockchainSyncProto &req);
   static unsigned short findAvailablePort(unsigned short startPort,
                                           int maxTries = 10);
-  void sendFrame(std::shared_ptr<Transport> tr,
+  bool sendFrame(std::shared_ptr<Transport> tr,
                  const google::protobuf::Message &m);
   void broadcastFrame(const google::protobuf::Message &m);
   void sendHeight(const std::string &peer);
   void sendTipHash(const std::string &peer);
   void sendPeerList(const std::string &peer);
+
+  // Mark a peer offline and close its transport
+  void markPeerOffline(const std::string &peerId);
 
 private:
   unsigned short port;
@@ -159,6 +162,7 @@ private:
   std::unique_ptr<PeerManager> peerManager;
   std::string publicPeerId;
   std::unordered_set<std::string> bannedPeers;
+  std::unordered_set<std::string> knownPeers;
   PeerBlacklist *blacklist;
   std::unordered_set<std::string> seenTxHashes;
   static Network *instancePtr;
