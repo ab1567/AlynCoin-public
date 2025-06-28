@@ -19,3 +19,4 @@ temp_rocks/
 
 # Python cache
 **/__pycache__/
+src/rust/target/
