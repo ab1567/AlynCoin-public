@@ -19,6 +19,7 @@ public:
     std::string  remoteId()        const override;
     bool         write(const std::string& data) override;
     bool         isOpen()          const override;
+    void         close() override;
 
     bool         connect(const std::string& host, int port) override;
     std::string  getRemoteIP()     const override;

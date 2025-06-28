@@ -32,31 +32,41 @@ bool TcpTransport::isOpen() const
     return socket && socket->is_open();
 }
 
+void TcpTransport::close()
+{
+    if (socket && socket->is_open()) {
+        boost::system::error_code ec;
+        socket->close(ec);
+    }
+}
+
 bool TcpTransport::write(const std::string& data)
 {
     if (!isOpen()) return false;
-    try {
-        std::string msg = data;
-        if (msg.empty() || msg.back() != '\n') msg.push_back('\n');
-        boost::asio::write(*socket, boost::asio::buffer(msg));
-        return true;
-    } catch (const std::exception& ex) {
-        std::cerr << "[TcpTransport::write] " << ex.what() << '\n';
+    std::string msg = data;
+    if (msg.empty() || msg.back() != '\n') msg.push_back('\n');
+    boost::system::error_code ec;
+    boost::asio::write(*socket, boost::asio::buffer(msg), ec);
+    if (ec) {
+        std::cerr << "[TcpTransport::write] " << ec.message() << '\n';
+        close();
         return false;
     }
+    return true;
 }
 
 // === BINARY WRITE: raw protobuf frame ===
 bool TcpTransport::writeBinary(const std::string& data)
 {
     if (!isOpen()) return false;
-    try {
-        boost::asio::write(*socket, boost::asio::buffer(data));
-        return true;
-    } catch (const std::exception& ex) {
-        std::cerr << "[TcpTransport] ❌ Write binary failed: " << ex.what() << '\n';
+    boost::system::error_code ec;
+    boost::asio::write(*socket, boost::asio::buffer(data), ec);
+    if (ec) {
+        std::cerr << "[TcpTransport] ❌ Write binary failed: " << ec.message() << '\n';
+        close();
         return false;
     }
+    return true;
 }
 
 // === BINARY READ: blocking, returns string, empty if fail ===

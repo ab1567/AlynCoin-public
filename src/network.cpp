@@ -187,8 +187,11 @@ void Network::markPeerOffline(const std::string &peerId) {
   std::lock_guard<std::timed_mutex> lk(peersMutex);
   auto it = peerTransports.find(peerId);
   if (it != peerTransports.end()) {
+    if (it->second.tx)
+      it->second.tx->close();
     peerTransports.erase(it);
   }
+  knownPeers.erase(peerId);
   if (peerManager)
     peerManager->disconnectPeer(peerId);
 }
@@ -1496,8 +1499,9 @@ void Network::startBinaryReadLoop(const std::string &peerId,
   auto cb = [this, peerId](const boost::system::error_code &ec,
                            const std::string &blob) {
     if (ec) {
-      std::cerr << "[readLoop] " << peerId << " error: " << ec.message()
-                << '\n';
+      std::cerr << "[readLoop] " << peerId << " closed (" << ec.message()
+                << ")\n";
+      markPeerOffline(peerId);
       return;
     }
 
