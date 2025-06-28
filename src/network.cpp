@@ -707,9 +707,10 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
 
     // ─── Compatibility gate ────────────────────
     const uint32_t remoteRev = hs.frame_rev();
-    if (remoteRev != kFrameRevision) {
+    if (remoteRev != 0 && remoteRev != kFrameRevision) {
       std::cerr << "⚠️  [handshake] peer uses frame_rev=" << remoteRev
-                << " but we need " << kFrameRevision << " – dropping.\n";
+                << " but we need " << kFrameRevision
+                << " – dropping for incompatibility.\n";
       return;
     }
 
@@ -1769,9 +1770,10 @@ bool Network::connectToNode(const std::string &host, int port) {
 
     // ─── Compatibility gate ────────────────────────────
     const uint32_t remoteRev = rhs.frame_rev();
-    if (remoteRev != kFrameRevision) {
+    if (remoteRev != 0 && remoteRev != kFrameRevision) {
       std::cerr << "⚠️ [handshake] peer uses frame_rev=" << remoteRev
-                << " but we need " << kFrameRevision << " – dropping." << '\n';
+                << " but we need " << kFrameRevision
+                << " – dropping for incompatibility." << '\n';
       tx->close();
       return false;
     }
