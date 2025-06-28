@@ -59,6 +59,13 @@ if you need to change it and ensure it does not conflict with the peer network p
 Use `--dbpath <dir>` to specify a custom data directory or `--connect <ip>` to
 connect to an existing peer.
 
+### Automatic network sync
+
+The node shares its current block height with peers whenever a new block is
+mined or received. Peers compare heights and request any missing tail blocks or
+snapshots without needing a restart. Periodic health checks also probe peers to
+ensure connections stay alive and synchronize in the background.
+
 ### Permission denied when starting the node
 
 `alyncoind` stores its RocksDB files under `~/.alyncoin/blockchain_db` by
