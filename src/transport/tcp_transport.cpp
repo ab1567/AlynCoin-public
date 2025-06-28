@@ -58,6 +58,12 @@ bool TcpTransport::write(const std::string& data)
 // === BINARY WRITE: raw protobuf frame ===
 bool TcpTransport::writeBinary(const std::string& data)
 {
+    std::lock_guard<std::mutex> lock(writeMutex);
+    return writeBinaryLocked(data);
+}
+
+bool TcpTransport::writeBinaryLocked(const std::string& data)
+{
     if (!isOpen()) return false;
     boost::system::error_code ec;
     boost::asio::write(*socket, boost::asio::buffer(data), ec);
