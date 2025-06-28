@@ -30,6 +30,7 @@ PROTOBUF_CONSTEXPR Handshake::Handshake(
   , /*decltype(_impl_.genesis_hash_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
   , /*decltype(_impl_.height_)*/uint64_t{0u}
   , /*decltype(_impl_.listen_port_)*/0u
+  , /*decltype(_impl_.frame_rev_)*/0u
   , /*decltype(_impl_._cached_size_)*/{}} {}
 struct HandshakeDefaultTypeInternal {
   PROTOBUF_CONSTEXPR HandshakeDefaultTypeInternal()
@@ -112,6 +113,22 @@ struct BlockBatchDefaultTypeInternal {
   };
 };
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 BlockBatchDefaultTypeInternal _BlockBatch_default_instance_;
+PROTOBUF_CONSTEXPR SnapshotMeta::SnapshotMeta(
+    ::_pbi::ConstantInitialized): _impl_{
+    /*decltype(_impl_.root_hash_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
+  , /*decltype(_impl_.height_)*/uint64_t{0u}
+  , /*decltype(_impl_.total_bytes_)*/uint64_t{0u}
+  , /*decltype(_impl_.chunk_size_)*/0u
+  , /*decltype(_impl_._cached_size_)*/{}} {}
+struct SnapshotMetaDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR SnapshotMetaDefaultTypeInternal()
+      : _instance(::_pbi::ConstantInitialized{}) {}
+  ~SnapshotMetaDefaultTypeInternal() {}
+  union {
+    SnapshotMeta _instance;
+  };
+};
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 SnapshotMetaDefaultTypeInternal _SnapshotMeta_default_instance_;
 PROTOBUF_CONSTEXPR SnapshotChunk::SnapshotChunk(
     ::_pbi::ConstantInitialized): _impl_{
     /*decltype(_impl_.data_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
@@ -125,6 +142,19 @@ struct SnapshotChunkDefaultTypeInternal {
   };
 };
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 SnapshotChunkDefaultTypeInternal _SnapshotChunk_default_instance_;
+PROTOBUF_CONSTEXPR SnapshotAck::SnapshotAck(
+    ::_pbi::ConstantInitialized): _impl_{
+    /*decltype(_impl_.seq_)*/0u
+  , /*decltype(_impl_._cached_size_)*/{}} {}
+struct SnapshotAckDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR SnapshotAckDefaultTypeInternal()
+      : _instance(::_pbi::ConstantInitialized{}) {}
+  ~SnapshotAckDefaultTypeInternal() {}
+  union {
+    SnapshotAck _instance;
+  };
+};
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 SnapshotAckDefaultTypeInternal _SnapshotAck_default_instance_;
 PROTOBUF_CONSTEXPR SnapshotEnd::SnapshotEnd(
     ::_pbi::ConstantInitialized) {}
 struct SnapshotEndDefaultTypeInternal {
@@ -317,7 +347,7 @@ struct FrameDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 FrameDefaultTypeInternal _Frame_default_instance_;
 }  // namespace net
 }  // namespace alyncoin
-static ::_pb::Metadata file_level_metadata_net_5fframe_2eproto[23];
+static ::_pb::Metadata file_level_metadata_net_5fframe_2eproto[25];
 static constexpr ::_pb::EnumDescriptor const** file_level_enum_descriptors_net_5fframe_2eproto = nullptr;
 static constexpr ::_pb::ServiceDescriptor const** file_level_service_descriptors_net_5fframe_2eproto = nullptr;
 
@@ -334,6 +364,7 @@ const uint32_t TableStruct_net_5fframe_2eproto::offsets[] PROTOBUF_SECTION_VARIA
   PROTOBUF_FIELD_OFFSET(::alyncoin::net::Handshake, _impl_.listen_port_),
   PROTOBUF_FIELD_OFFSET(::alyncoin::net::Handshake, _impl_.genesis_hash_),
   PROTOBUF_FIELD_OFFSET(::alyncoin::net::Handshake, _impl_.capabilities_),
+  PROTOBUF_FIELD_OFFSET(::alyncoin::net::Handshake, _impl_.frame_rev_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::alyncoin::net::Ping, _internal_metadata_),
   ~0u,  // no _extensions_
@@ -374,12 +405,29 @@ const uint32_t TableStruct_net_5fframe_2eproto::offsets[] PROTOBUF_SECTION_VARIA
   ~0u,  // no _inlined_string_donated_
   PROTOBUF_FIELD_OFFSET(::alyncoin::net::BlockBatch, _impl_.chain_),
   ~0u,  // no _has_bits_
+  PROTOBUF_FIELD_OFFSET(::alyncoin::net::SnapshotMeta, _internal_metadata_),
+  ~0u,  // no _extensions_
+  ~0u,  // no _oneof_case_
+  ~0u,  // no _weak_field_map_
+  ~0u,  // no _inlined_string_donated_
+  PROTOBUF_FIELD_OFFSET(::alyncoin::net::SnapshotMeta, _impl_.height_),
+  PROTOBUF_FIELD_OFFSET(::alyncoin::net::SnapshotMeta, _impl_.root_hash_),
+  PROTOBUF_FIELD_OFFSET(::alyncoin::net::SnapshotMeta, _impl_.total_bytes_),
+  PROTOBUF_FIELD_OFFSET(::alyncoin::net::SnapshotMeta, _impl_.chunk_size_),
+  ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::alyncoin::net::SnapshotChunk, _internal_metadata_),
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
   ~0u,  // no _inlined_string_donated_
   PROTOBUF_FIELD_OFFSET(::alyncoin::net::SnapshotChunk, _impl_.data_),
+  ~0u,  // no _has_bits_
+  PROTOBUF_FIELD_OFFSET(::alyncoin::net::SnapshotAck, _internal_metadata_),
+  ~0u,  // no _extensions_
+  ~0u,  // no _oneof_case_
+  ~0u,  // no _weak_field_map_
+  ~0u,  // no _inlined_string_donated_
+  PROTOBUF_FIELD_OFFSET(::alyncoin::net::SnapshotAck, _impl_.seq_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::alyncoin::net::SnapshotEnd, _internal_metadata_),
   ~0u,  // no _extensions_
@@ -504,32 +552,36 @@ const uint32_t TableStruct_net_5fframe_2eproto::offsets[] PROTOBUF_SECTION_VARIA
   ::_pbi::kInvalidFieldOffsetTag,
   ::_pbi::kInvalidFieldOffsetTag,
   ::_pbi::kInvalidFieldOffsetTag,
+  ::_pbi::kInvalidFieldOffsetTag,
+  ::_pbi::kInvalidFieldOffsetTag,
   PROTOBUF_FIELD_OFFSET(::alyncoin::net::Frame, _impl_.kind_),
 };
 static const ::_pbi::MigrationSchema schemas[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
   { 0, -1, -1, sizeof(::alyncoin::net::Handshake)},
-  { 12, -1, -1, sizeof(::alyncoin::net::Ping)},
-  { 18, -1, -1, sizeof(::alyncoin::net::Pong)},
-  { 24, -1, -1, sizeof(::alyncoin::net::HeightRequest)},
-  { 30, -1, -1, sizeof(::alyncoin::net::HeightResponse)},
-  { 37, -1, -1, sizeof(::alyncoin::net::BlockBroadcast)},
-  { 44, -1, -1, sizeof(::alyncoin::net::BlockBatch)},
-  { 51, -1, -1, sizeof(::alyncoin::net::SnapshotChunk)},
-  { 58, -1, -1, sizeof(::alyncoin::net::SnapshotEnd)},
-  { 64, -1, -1, sizeof(::alyncoin::net::TailBlocks)},
-  { 71, -1, -1, sizeof(::alyncoin::net::EpochProof)},
-  { 78, -1, -1, sizeof(::alyncoin::net::Inventory)},
-  { 85, -1, -1, sizeof(::alyncoin::net::TipHashRequest)},
-  { 91, -1, -1, sizeof(::alyncoin::net::TipHashResponse)},
-  { 98, -1, -1, sizeof(::alyncoin::net::PeerListRequest)},
-  { 104, -1, -1, sizeof(::alyncoin::net::PeerList)},
-  { 111, -1, -1, sizeof(::alyncoin::net::RollupBlockMsg)},
-  { 118, -1, -1, sizeof(::alyncoin::net::SnapshotRequest)},
-  { 125, -1, -1, sizeof(::alyncoin::net::TailBlocksRequest)},
-  { 132, -1, -1, sizeof(::alyncoin::net::GetData)},
-  { 139, -1, -1, sizeof(::alyncoin::net::StateProof)},
-  { 146, -1, -1, sizeof(::alyncoin::net::TransactionBroadcast)},
-  { 153, -1, -1, sizeof(::alyncoin::net::Frame)},
+  { 13, -1, -1, sizeof(::alyncoin::net::Ping)},
+  { 19, -1, -1, sizeof(::alyncoin::net::Pong)},
+  { 25, -1, -1, sizeof(::alyncoin::net::HeightRequest)},
+  { 31, -1, -1, sizeof(::alyncoin::net::HeightResponse)},
+  { 38, -1, -1, sizeof(::alyncoin::net::BlockBroadcast)},
+  { 45, -1, -1, sizeof(::alyncoin::net::BlockBatch)},
+  { 52, -1, -1, sizeof(::alyncoin::net::SnapshotMeta)},
+  { 62, -1, -1, sizeof(::alyncoin::net::SnapshotChunk)},
+  { 69, -1, -1, sizeof(::alyncoin::net::SnapshotAck)},
+  { 76, -1, -1, sizeof(::alyncoin::net::SnapshotEnd)},
+  { 82, -1, -1, sizeof(::alyncoin::net::TailBlocks)},
+  { 89, -1, -1, sizeof(::alyncoin::net::EpochProof)},
+  { 96, -1, -1, sizeof(::alyncoin::net::Inventory)},
+  { 103, -1, -1, sizeof(::alyncoin::net::TipHashRequest)},
+  { 109, -1, -1, sizeof(::alyncoin::net::TipHashResponse)},
+  { 116, -1, -1, sizeof(::alyncoin::net::PeerListRequest)},
+  { 122, -1, -1, sizeof(::alyncoin::net::PeerList)},
+  { 129, -1, -1, sizeof(::alyncoin::net::RollupBlockMsg)},
+  { 136, -1, -1, sizeof(::alyncoin::net::SnapshotRequest)},
+  { 143, -1, -1, sizeof(::alyncoin::net::TailBlocksRequest)},
+  { 150, -1, -1, sizeof(::alyncoin::net::GetData)},
+  { 157, -1, -1, sizeof(::alyncoin::net::StateProof)},
+  { 164, -1, -1, sizeof(::alyncoin::net::TransactionBroadcast)},
+  { 171, -1, -1, sizeof(::alyncoin::net::Frame)},
 };
 
 static const ::_pb::Message* const file_default_instances[] = {
@@ -540,7 +592,9 @@ static const ::_pb::Message* const file_default_instances[] = {
   &::alyncoin::net::_HeightResponse_default_instance_._instance,
   &::alyncoin::net::_BlockBroadcast_default_instance_._instance,
   &::alyncoin::net::_BlockBatch_default_instance_._instance,
+  &::alyncoin::net::_SnapshotMeta_default_instance_._instance,
   &::alyncoin::net::_SnapshotChunk_default_instance_._instance,
+  &::alyncoin::net::_SnapshotAck_default_instance_._instance,
   &::alyncoin::net::_SnapshotEnd_default_instance_._instance,
   &::alyncoin::net::_TailBlocks_default_instance_._instance,
   &::alyncoin::net::_EpochProof_default_instance_._instance,
@@ -562,57 +616,63 @@ const char descriptor_table_protodef_net_5fframe_2eproto[] PROTOBUF_SECTION_VARI
   "\n\017net_frame.proto\022\014alyncoin.net\032\022block_p"
   "rotos.proto\032\027blockchain_protos.proto\032\021sy"
   "nc_protos.proto\032\030transaction_protos.prot"
-  "o\"\201\001\n\tHandshake\022\017\n\007version\030\001 \001(\t\022\022\n\nnetw"
+  "o\"\224\001\n\tHandshake\022\017\n\007version\030\001 \001(\t\022\022\n\nnetw"
   "ork_id\030\002 \001(\t\022\016\n\006height\030\003 \001(\004\022\023\n\013listen_p"
   "ort\030\004 \001(\r\022\024\n\014genesis_hash\030\005 \001(\014\022\024\n\014capab"
-  "ilities\030\006 \003(\t\"\006\n\004Ping\"\006\n\004Pong\"\017\n\rHeightR"
-  "equest\" \n\016HeightResponse\022\016\n\006height\030\001 \001(\004"
-  "\"5\n\016BlockBroadcast\022#\n\005block\030\001 \001(\0132\024.alyn"
-  "coin.BlockProto\"6\n\nBlockBatch\022(\n\005chain\030\001"
-  " \001(\0132\031.alyncoin.BlockchainProto\"\035\n\rSnaps"
-  "hotChunk\022\014\n\004data\030\001 \001(\014\"\r\n\013SnapshotEnd\"2\n"
-  "\nTailBlocks\022$\n\006blocks\030\001 \003(\0132\024.alyncoin.B"
-  "lockProto\"\032\n\nEpochProof\022\014\n\004data\030\001 \001(\014\"\033\n"
-  "\tInventory\022\016\n\006hashes\030\001 \003(\t\"\020\n\016TipHashReq"
-  "uest\"\037\n\017TipHashResponse\022\014\n\004hash\030\001 \001(\t\"\021\n"
-  "\017PeerListRequest\"\031\n\010PeerList\022\r\n\005peers\030\001 "
-  "\003(\t\"\036\n\016RollupBlockMsg\022\014\n\004data\030\001 \001(\014\"%\n\017S"
-  "napshotRequest\022\022\n\nuntil_hash\030\001 \001(\t\"(\n\021Ta"
-  "ilBlocksRequest\022\023\n\013from_height\030\001 \001(\004\"\031\n\007"
-  "GetData\022\016\n\006hashes\030\001 \003(\t\"6\n\nStateProof\022(\n"
-  "\005proof\030\001 \001(\0132\031.alyncoin.StateProofProto\""
-  ">\n\024TransactionBroadcast\022&\n\002tx\030\001 \001(\0132\032.al"
-  "yncoin.TransactionProto\"\226\t\n\005Frame\022,\n\than"
-  "dshake\030\001 \001(\0132\027.alyncoin.net.HandshakeH\000\022"
-  "\"\n\004ping\030\002 \001(\0132\022.alyncoin.net.PingH\000\022\"\n\004p"
-  "ong\030\003 \001(\0132\022.alyncoin.net.PongH\000\0221\n\nheigh"
-  "t_req\030\004 \001(\0132\033.alyncoin.net.HeightRequest"
-  "H\000\0222\n\nheight_res\030\005 \001(\0132\034.alyncoin.net.He"
-  "ightResponseH\000\0227\n\017block_broadcast\030\006 \001(\0132"
-  "\034.alyncoin.net.BlockBroadcastH\000\022/\n\013block"
-  "_batch\030\007 \001(\0132\030.alyncoin.net.BlockBatchH\000"
-  "\0225\n\016snapshot_chunk\030\010 \001(\0132\033.alyncoin.net."
-  "SnapshotChunkH\000\0221\n\014snapshot_end\030\t \001(\0132\031."
-  "alyncoin.net.SnapshotEndH\000\022/\n\013tail_block"
-  "s\030\n \001(\0132\030.alyncoin.net.TailBlocksH\000\022-\n\ta"
-  "gg_proof\030\013 \001(\0132\030.alyncoin.net.EpochProof"
-  "H\000\022&\n\003inv\030\014 \001(\0132\027.alyncoin.net.Inventory"
-  "H\000\0224\n\014tip_hash_req\030\r \001(\0132\034.alyncoin.net."
-  "TipHashRequestH\000\0225\n\014tip_hash_res\030\016 \001(\0132\035"
-  ".alyncoin.net.TipHashResponseH\000\0226\n\rpeer_"
-  "list_req\030\017 \001(\0132\035.alyncoin.net.PeerListRe"
-  "questH\000\022+\n\tpeer_list\030\020 \001(\0132\026.alyncoin.ne"
-  "t.PeerListH\000\0224\n\014rollup_block\030\021 \001(\0132\034.aly"
-  "ncoin.net.RollupBlockMsgH\000\0225\n\014snapshot_r"
-  "eq\030\022 \001(\0132\035.alyncoin.net.SnapshotRequestH"
-  "\000\0223\n\010tail_req\030\023 \001(\0132\037.alyncoin.net.TailB"
-  "locksRequestH\000\022/\n\013state_proof\030\024 \001(\0132\030.al"
-  "yncoin.net.StateProofH\000\022)\n\010get_data\030\025 \001("
-  "\0132\025.alyncoin.net.GetDataH\000\022@\n\027blockchain"
-  "_sync_request\030\026 \001(\0132\035.alyncoin.Blockchai"
-  "nSyncProtoH\000\022:\n\014tx_broadcast\030\027 \001(\0132\".aly"
-  "ncoin.net.TransactionBroadcastH\000B\006\n\004kind"
-  "b\006proto3"
+  "ilities\030\006 \003(\t\022\021\n\tframe_rev\030\007 \001(\r\"\006\n\004Ping"
+  "\"\006\n\004Pong\"\017\n\rHeightRequest\" \n\016HeightRespo"
+  "nse\022\016\n\006height\030\001 \001(\004\"5\n\016BlockBroadcast\022#\n"
+  "\005block\030\001 \001(\0132\024.alyncoin.BlockProto\"6\n\nBl"
+  "ockBatch\022(\n\005chain\030\001 \001(\0132\031.alyncoin.Block"
+  "chainProto\"Z\n\014SnapshotMeta\022\016\n\006height\030\001 \001"
+  "(\004\022\021\n\troot_hash\030\002 \001(\t\022\023\n\013total_bytes\030\003 \001"
+  "(\004\022\022\n\nchunk_size\030\004 \001(\r\"\035\n\rSnapshotChunk\022"
+  "\014\n\004data\030\001 \001(\014\"\032\n\013SnapshotAck\022\013\n\003seq\030\001 \001("
+  "\r\"\r\n\013SnapshotEnd\"2\n\nTailBlocks\022$\n\006blocks"
+  "\030\001 \003(\0132\024.alyncoin.BlockProto\"\032\n\nEpochPro"
+  "of\022\014\n\004data\030\001 \001(\014\"\033\n\tInventory\022\016\n\006hashes\030"
+  "\001 \003(\t\"\020\n\016TipHashRequest\"\037\n\017TipHashRespon"
+  "se\022\014\n\004hash\030\001 \001(\t\"\021\n\017PeerListRequest\"\031\n\010P"
+  "eerList\022\r\n\005peers\030\001 \003(\t\"\036\n\016RollupBlockMsg"
+  "\022\014\n\004data\030\001 \001(\014\"%\n\017SnapshotRequest\022\022\n\nunt"
+  "il_hash\030\001 \001(\t\"(\n\021TailBlocksRequest\022\023\n\013fr"
+  "om_height\030\001 \001(\004\"\031\n\007GetData\022\016\n\006hashes\030\001 \003"
+  "(\t\"6\n\nStateProof\022(\n\005proof\030\001 \001(\0132\031.alynco"
+  "in.StateProofProto\">\n\024TransactionBroadca"
+  "st\022&\n\002tx\030\001 \001(\0132\032.alyncoin.TransactionPro"
+  "to\"\376\t\n\005Frame\022,\n\thandshake\030\001 \001(\0132\027.alynco"
+  "in.net.HandshakeH\000\022\"\n\004ping\030\002 \001(\0132\022.alync"
+  "oin.net.PingH\000\022\"\n\004pong\030\003 \001(\0132\022.alyncoin."
+  "net.PongH\000\0221\n\nheight_req\030\004 \001(\0132\033.alyncoi"
+  "n.net.HeightRequestH\000\0222\n\nheight_res\030\005 \001("
+  "\0132\034.alyncoin.net.HeightResponseH\000\0227\n\017blo"
+  "ck_broadcast\030\006 \001(\0132\034.alyncoin.net.BlockB"
+  "roadcastH\000\022/\n\013block_batch\030\007 \001(\0132\030.alynco"
+  "in.net.BlockBatchH\000\0223\n\rsnapshot_meta\030\010 \001"
+  "(\0132\032.alyncoin.net.SnapshotMetaH\000\0225\n\016snap"
+  "shot_chunk\030\t \001(\0132\033.alyncoin.net.Snapshot"
+  "ChunkH\000\0221\n\014snapshot_ack\030\n \001(\0132\031.alyncoin"
+  ".net.SnapshotAckH\000\0221\n\014snapshot_end\030\013 \001(\013"
+  "2\031.alyncoin.net.SnapshotEndH\000\022/\n\013tail_bl"
+  "ocks\030\014 \001(\0132\030.alyncoin.net.TailBlocksH\000\022-"
+  "\n\tagg_proof\030\r \001(\0132\030.alyncoin.net.EpochPr"
+  "oofH\000\022&\n\003inv\030\016 \001(\0132\027.alyncoin.net.Invent"
+  "oryH\000\0224\n\014tip_hash_req\030\017 \001(\0132\034.alyncoin.n"
+  "et.TipHashRequestH\000\0225\n\014tip_hash_res\030\020 \001("
+  "\0132\035.alyncoin.net.TipHashResponseH\000\0226\n\rpe"
+  "er_list_req\030\021 \001(\0132\035.alyncoin.net.PeerLis"
+  "tRequestH\000\022+\n\tpeer_list\030\022 \001(\0132\026.alyncoin"
+  ".net.PeerListH\000\0224\n\014rollup_block\030\023 \001(\0132\034."
+  "alyncoin.net.RollupBlockMsgH\000\0225\n\014snapsho"
+  "t_req\030\024 \001(\0132\035.alyncoin.net.SnapshotReque"
+  "stH\000\0223\n\010tail_req\030\025 \001(\0132\037.alyncoin.net.Ta"
+  "ilBlocksRequestH\000\022/\n\013state_proof\030\026 \001(\0132\030"
+  ".alyncoin.net.StateProofH\000\022)\n\010get_data\030\027"
+  " \001(\0132\025.alyncoin.net.GetDataH\000\022@\n\027blockch"
+  "ain_sync_request\030\030 \001(\0132\035.alyncoin.Blockc"
+  "hainSyncProtoH\000\022:\n\014tx_broadcast\030\031 \001(\0132\"."
+  "alyncoin.net.TransactionBroadcastH\000B\006\n\004k"
+  "indb\006proto3"
   ;
 static const ::_pbi::DescriptorTable* const descriptor_table_net_5fframe_2eproto_deps[4] = {
   &::descriptor_table_block_5fprotos_2eproto,
@@ -622,9 +682,9 @@ static const ::_pbi::DescriptorTable* const descriptor_table_net_5fframe_2eproto
 };
 static ::_pbi::once_flag descriptor_table_net_5fframe_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_net_5fframe_2eproto = {
-    false, false, 2128, descriptor_table_protodef_net_5fframe_2eproto,
+    false, false, 2371, descriptor_table_protodef_net_5fframe_2eproto,
     "net_frame.proto",
-    &descriptor_table_net_5fframe_2eproto_once, descriptor_table_net_5fframe_2eproto_deps, 4, 23,
+    &descriptor_table_net_5fframe_2eproto_once, descriptor_table_net_5fframe_2eproto_deps, 4, 25,
     schemas, file_default_instances, TableStruct_net_5fframe_2eproto::offsets,
     file_level_metadata_net_5fframe_2eproto, file_level_enum_descriptors_net_5fframe_2eproto,
     file_level_service_descriptors_net_5fframe_2eproto,
@@ -660,6 +720,7 @@ Handshake::Handshake(const Handshake& from)
     , decltype(_impl_.genesis_hash_){}
     , decltype(_impl_.height_){}
     , decltype(_impl_.listen_port_){}
+    , decltype(_impl_.frame_rev_){}
     , /*decltype(_impl_._cached_size_)*/{}};
 
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
@@ -688,8 +749,8 @@ Handshake::Handshake(const Handshake& from)
       _this->GetArenaForAllocation());
   }
   ::memcpy(&_impl_.height_, &from._impl_.height_,
-    static_cast<size_t>(reinterpret_cast<char*>(&_impl_.listen_port_) -
-    reinterpret_cast<char*>(&_impl_.height_)) + sizeof(_impl_.listen_port_));
+    static_cast<size_t>(reinterpret_cast<char*>(&_impl_.frame_rev_) -
+    reinterpret_cast<char*>(&_impl_.height_)) + sizeof(_impl_.frame_rev_));
   // @@protoc_insertion_point(copy_constructor:alyncoin.net.Handshake)
 }
 
@@ -704,6 +765,7 @@ inline void Handshake::SharedCtor(
     , decltype(_impl_.genesis_hash_){}
     , decltype(_impl_.height_){uint64_t{0u}}
     , decltype(_impl_.listen_port_){0u}
+    , decltype(_impl_.frame_rev_){0u}
     , /*decltype(_impl_._cached_size_)*/{}
   };
   _impl_.version_.InitDefault();
@@ -752,8 +814,8 @@ void Handshake::Clear() {
   _impl_.network_id_.ClearToEmpty();
   _impl_.genesis_hash_.ClearToEmpty();
   ::memset(&_impl_.height_, 0, static_cast<size_t>(
-      reinterpret_cast<char*>(&_impl_.listen_port_) -
-      reinterpret_cast<char*>(&_impl_.height_)) + sizeof(_impl_.listen_port_));
+      reinterpret_cast<char*>(&_impl_.frame_rev_) -
+      reinterpret_cast<char*>(&_impl_.height_)) + sizeof(_impl_.frame_rev_));
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -820,6 +882,14 @@ const char* Handshake::_InternalParse(const char* ptr, ::_pbi::ParseContext* ctx
             CHK_(::_pbi::VerifyUTF8(str, "alyncoin.net.Handshake.capabilities"));
             if (!ctx->DataAvailable(ptr)) break;
           } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<50>(ptr));
+        } else
+          goto handle_unusual;
+        continue;
+      // uint32 frame_rev = 7;
+      case 7:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 56)) {
+          _impl_.frame_rev_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
+          CHK_(ptr);
         } else
           goto handle_unusual;
         continue;
@@ -900,6 +970,12 @@ uint8_t* Handshake::_InternalSerialize(
     target = stream->WriteString(6, s, target);
   }
 
+  // uint32 frame_rev = 7;
+  if (this->_internal_frame_rev() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt32ToArray(7, this->_internal_frame_rev(), target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
         _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
@@ -955,6 +1031,11 @@ size_t Handshake::ByteSizeLong() const {
     total_size += ::_pbi::WireFormatLite::UInt32SizePlusOne(this->_internal_listen_port());
   }
 
+  // uint32 frame_rev = 7;
+  if (this->_internal_frame_rev() != 0) {
+    total_size += ::_pbi::WireFormatLite::UInt32SizePlusOne(this->_internal_frame_rev());
+  }
+
   return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
 }
 
@@ -989,6 +1070,9 @@ void Handshake::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROT
   if (from._internal_listen_port() != 0) {
     _this->_internal_set_listen_port(from._internal_listen_port());
   }
+  if (from._internal_frame_rev() != 0) {
+    _this->_internal_set_frame_rev(from._internal_frame_rev());
+  }
   _this->_internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
 }
 
@@ -1022,8 +1106,8 @@ void Handshake::InternalSwap(Handshake* other) {
       &other->_impl_.genesis_hash_, rhs_arena
   );
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(Handshake, _impl_.listen_port_)
-      + sizeof(Handshake::_impl_.listen_port_)
+      PROTOBUF_FIELD_OFFSET(Handshake, _impl_.frame_rev_)
+      + sizeof(Handshake::_impl_.frame_rev_)
       - PROTOBUF_FIELD_OFFSET(Handshake, _impl_.height_)>(
           reinterpret_cast<char*>(&_impl_.height_),
           reinterpret_cast<char*>(&other->_impl_.height_));
@@ -1733,6 +1817,293 @@ void BlockBatch::InternalSwap(BlockBatch* other) {
 
 // ===================================================================
 
+class SnapshotMeta::_Internal {
+ public:
+};
+
+SnapshotMeta::SnapshotMeta(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                         bool is_message_owned)
+  : ::PROTOBUF_NAMESPACE_ID::Message(arena, is_message_owned) {
+  SharedCtor(arena, is_message_owned);
+  // @@protoc_insertion_point(arena_constructor:alyncoin.net.SnapshotMeta)
+}
+SnapshotMeta::SnapshotMeta(const SnapshotMeta& from)
+  : ::PROTOBUF_NAMESPACE_ID::Message() {
+  SnapshotMeta* const _this = this; (void)_this;
+  new (&_impl_) Impl_{
+      decltype(_impl_.root_hash_){}
+    , decltype(_impl_.height_){}
+    , decltype(_impl_.total_bytes_){}
+    , decltype(_impl_.chunk_size_){}
+    , /*decltype(_impl_._cached_size_)*/{}};
+
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+  _impl_.root_hash_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.root_hash_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (!from._internal_root_hash().empty()) {
+    _this->_impl_.root_hash_.Set(from._internal_root_hash(), 
+      _this->GetArenaForAllocation());
+  }
+  ::memcpy(&_impl_.height_, &from._impl_.height_,
+    static_cast<size_t>(reinterpret_cast<char*>(&_impl_.chunk_size_) -
+    reinterpret_cast<char*>(&_impl_.height_)) + sizeof(_impl_.chunk_size_));
+  // @@protoc_insertion_point(copy_constructor:alyncoin.net.SnapshotMeta)
+}
+
+inline void SnapshotMeta::SharedCtor(
+    ::_pb::Arena* arena, bool is_message_owned) {
+  (void)arena;
+  (void)is_message_owned;
+  new (&_impl_) Impl_{
+      decltype(_impl_.root_hash_){}
+    , decltype(_impl_.height_){uint64_t{0u}}
+    , decltype(_impl_.total_bytes_){uint64_t{0u}}
+    , decltype(_impl_.chunk_size_){0u}
+    , /*decltype(_impl_._cached_size_)*/{}
+  };
+  _impl_.root_hash_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.root_hash_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+}
+
+SnapshotMeta::~SnapshotMeta() {
+  // @@protoc_insertion_point(destructor:alyncoin.net.SnapshotMeta)
+  if (auto *arena = _internal_metadata_.DeleteReturnArena<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>()) {
+  (void)arena;
+    return;
+  }
+  SharedDtor();
+}
+
+inline void SnapshotMeta::SharedDtor() {
+  GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
+  _impl_.root_hash_.Destroy();
+}
+
+void SnapshotMeta::SetCachedSize(int size) const {
+  _impl_._cached_size_.Set(size);
+}
+
+void SnapshotMeta::Clear() {
+// @@protoc_insertion_point(message_clear_start:alyncoin.net.SnapshotMeta)
+  uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.root_hash_.ClearToEmpty();
+  ::memset(&_impl_.height_, 0, static_cast<size_t>(
+      reinterpret_cast<char*>(&_impl_.chunk_size_) -
+      reinterpret_cast<char*>(&_impl_.height_)) + sizeof(_impl_.chunk_size_));
+  _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
+}
+
+const char* SnapshotMeta::_InternalParse(const char* ptr, ::_pbi::ParseContext* ctx) {
+#define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
+  while (!ctx->Done(&ptr)) {
+    uint32_t tag;
+    ptr = ::_pbi::ReadTag(ptr, &tag);
+    switch (tag >> 3) {
+      // uint64 height = 1;
+      case 1:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 8)) {
+          _impl_.height_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      // string root_hash = 2;
+      case 2:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 18)) {
+          auto str = _internal_mutable_root_hash();
+          ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
+          CHK_(ptr);
+          CHK_(::_pbi::VerifyUTF8(str, "alyncoin.net.SnapshotMeta.root_hash"));
+        } else
+          goto handle_unusual;
+        continue;
+      // uint64 total_bytes = 3;
+      case 3:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 24)) {
+          _impl_.total_bytes_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      // uint32 chunk_size = 4;
+      case 4:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 32)) {
+          _impl_.chunk_size_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      default:
+        goto handle_unusual;
+    }  // switch
+  handle_unusual:
+    if ((tag == 0) || ((tag & 7) == 4)) {
+      CHK_(ptr);
+      ctx->SetLastTag(tag);
+      goto message_done;
+    }
+    ptr = UnknownFieldParse(
+        tag,
+        _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
+        ptr, ctx);
+    CHK_(ptr != nullptr);
+  }  // while
+message_done:
+  return ptr;
+failure:
+  ptr = nullptr;
+  goto message_done;
+#undef CHK_
+}
+
+uint8_t* SnapshotMeta::_InternalSerialize(
+    uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:alyncoin.net.SnapshotMeta)
+  uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  // uint64 height = 1;
+  if (this->_internal_height() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt64ToArray(1, this->_internal_height(), target);
+  }
+
+  // string root_hash = 2;
+  if (!this->_internal_root_hash().empty()) {
+    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
+      this->_internal_root_hash().data(), static_cast<int>(this->_internal_root_hash().length()),
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
+      "alyncoin.net.SnapshotMeta.root_hash");
+    target = stream->WriteStringMaybeAliased(
+        2, this->_internal_root_hash(), target);
+  }
+
+  // uint64 total_bytes = 3;
+  if (this->_internal_total_bytes() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt64ToArray(3, this->_internal_total_bytes(), target);
+  }
+
+  // uint32 chunk_size = 4;
+  if (this->_internal_chunk_size() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt32ToArray(4, this->_internal_chunk_size(), target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target = ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+        _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:alyncoin.net.SnapshotMeta)
+  return target;
+}
+
+size_t SnapshotMeta::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:alyncoin.net.SnapshotMeta)
+  size_t total_size = 0;
+
+  uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // string root_hash = 2;
+  if (!this->_internal_root_hash().empty()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+        this->_internal_root_hash());
+  }
+
+  // uint64 height = 1;
+  if (this->_internal_height() != 0) {
+    total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(this->_internal_height());
+  }
+
+  // uint64 total_bytes = 3;
+  if (this->_internal_total_bytes() != 0) {
+    total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(this->_internal_total_bytes());
+  }
+
+  // uint32 chunk_size = 4;
+  if (this->_internal_chunk_size() != 0) {
+    total_size += ::_pbi::WireFormatLite::UInt32SizePlusOne(this->_internal_chunk_size());
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData SnapshotMeta::_class_data_ = {
+    ::PROTOBUF_NAMESPACE_ID::Message::CopyWithSourceCheck,
+    SnapshotMeta::MergeImpl
+};
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*SnapshotMeta::GetClassData() const { return &_class_data_; }
+
+
+void SnapshotMeta::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg) {
+  auto* const _this = static_cast<SnapshotMeta*>(&to_msg);
+  auto& from = static_cast<const SnapshotMeta&>(from_msg);
+  // @@protoc_insertion_point(class_specific_merge_from_start:alyncoin.net.SnapshotMeta)
+  GOOGLE_DCHECK_NE(&from, _this);
+  uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (!from._internal_root_hash().empty()) {
+    _this->_internal_set_root_hash(from._internal_root_hash());
+  }
+  if (from._internal_height() != 0) {
+    _this->_internal_set_height(from._internal_height());
+  }
+  if (from._internal_total_bytes() != 0) {
+    _this->_internal_set_total_bytes(from._internal_total_bytes());
+  }
+  if (from._internal_chunk_size() != 0) {
+    _this->_internal_set_chunk_size(from._internal_chunk_size());
+  }
+  _this->_internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void SnapshotMeta::CopyFrom(const SnapshotMeta& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:alyncoin.net.SnapshotMeta)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool SnapshotMeta::IsInitialized() const {
+  return true;
+}
+
+void SnapshotMeta::InternalSwap(SnapshotMeta* other) {
+  using std::swap;
+  auto* lhs_arena = GetArenaForAllocation();
+  auto* rhs_arena = other->GetArenaForAllocation();
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::InternalSwap(
+      &_impl_.root_hash_, lhs_arena,
+      &other->_impl_.root_hash_, rhs_arena
+  );
+  ::PROTOBUF_NAMESPACE_ID::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(SnapshotMeta, _impl_.chunk_size_)
+      + sizeof(SnapshotMeta::_impl_.chunk_size_)
+      - PROTOBUF_FIELD_OFFSET(SnapshotMeta, _impl_.height_)>(
+          reinterpret_cast<char*>(&_impl_.height_),
+          reinterpret_cast<char*>(&other->_impl_.height_));
+}
+
+::PROTOBUF_NAMESPACE_ID::Metadata SnapshotMeta::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(
+      &descriptor_table_net_5fframe_2eproto_getter, &descriptor_table_net_5fframe_2eproto_once,
+      file_level_metadata_net_5fframe_2eproto[7]);
+}
+
+// ===================================================================
+
 class SnapshotChunk::_Internal {
  public:
 };
@@ -1926,7 +2297,185 @@ void SnapshotChunk::InternalSwap(SnapshotChunk* other) {
 ::PROTOBUF_NAMESPACE_ID::Metadata SnapshotChunk::GetMetadata() const {
   return ::_pbi::AssignDescriptors(
       &descriptor_table_net_5fframe_2eproto_getter, &descriptor_table_net_5fframe_2eproto_once,
-      file_level_metadata_net_5fframe_2eproto[7]);
+      file_level_metadata_net_5fframe_2eproto[8]);
+}
+
+// ===================================================================
+
+class SnapshotAck::_Internal {
+ public:
+};
+
+SnapshotAck::SnapshotAck(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                         bool is_message_owned)
+  : ::PROTOBUF_NAMESPACE_ID::Message(arena, is_message_owned) {
+  SharedCtor(arena, is_message_owned);
+  // @@protoc_insertion_point(arena_constructor:alyncoin.net.SnapshotAck)
+}
+SnapshotAck::SnapshotAck(const SnapshotAck& from)
+  : ::PROTOBUF_NAMESPACE_ID::Message() {
+  SnapshotAck* const _this = this; (void)_this;
+  new (&_impl_) Impl_{
+      decltype(_impl_.seq_){}
+    , /*decltype(_impl_._cached_size_)*/{}};
+
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+  _this->_impl_.seq_ = from._impl_.seq_;
+  // @@protoc_insertion_point(copy_constructor:alyncoin.net.SnapshotAck)
+}
+
+inline void SnapshotAck::SharedCtor(
+    ::_pb::Arena* arena, bool is_message_owned) {
+  (void)arena;
+  (void)is_message_owned;
+  new (&_impl_) Impl_{
+      decltype(_impl_.seq_){0u}
+    , /*decltype(_impl_._cached_size_)*/{}
+  };
+}
+
+SnapshotAck::~SnapshotAck() {
+  // @@protoc_insertion_point(destructor:alyncoin.net.SnapshotAck)
+  if (auto *arena = _internal_metadata_.DeleteReturnArena<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>()) {
+  (void)arena;
+    return;
+  }
+  SharedDtor();
+}
+
+inline void SnapshotAck::SharedDtor() {
+  GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
+}
+
+void SnapshotAck::SetCachedSize(int size) const {
+  _impl_._cached_size_.Set(size);
+}
+
+void SnapshotAck::Clear() {
+// @@protoc_insertion_point(message_clear_start:alyncoin.net.SnapshotAck)
+  uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.seq_ = 0u;
+  _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
+}
+
+const char* SnapshotAck::_InternalParse(const char* ptr, ::_pbi::ParseContext* ctx) {
+#define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
+  while (!ctx->Done(&ptr)) {
+    uint32_t tag;
+    ptr = ::_pbi::ReadTag(ptr, &tag);
+    switch (tag >> 3) {
+      // uint32 seq = 1;
+      case 1:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 8)) {
+          _impl_.seq_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      default:
+        goto handle_unusual;
+    }  // switch
+  handle_unusual:
+    if ((tag == 0) || ((tag & 7) == 4)) {
+      CHK_(ptr);
+      ctx->SetLastTag(tag);
+      goto message_done;
+    }
+    ptr = UnknownFieldParse(
+        tag,
+        _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
+        ptr, ctx);
+    CHK_(ptr != nullptr);
+  }  // while
+message_done:
+  return ptr;
+failure:
+  ptr = nullptr;
+  goto message_done;
+#undef CHK_
+}
+
+uint8_t* SnapshotAck::_InternalSerialize(
+    uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:alyncoin.net.SnapshotAck)
+  uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  // uint32 seq = 1;
+  if (this->_internal_seq() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt32ToArray(1, this->_internal_seq(), target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target = ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+        _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:alyncoin.net.SnapshotAck)
+  return target;
+}
+
+size_t SnapshotAck::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:alyncoin.net.SnapshotAck)
+  size_t total_size = 0;
+
+  uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // uint32 seq = 1;
+  if (this->_internal_seq() != 0) {
+    total_size += ::_pbi::WireFormatLite::UInt32SizePlusOne(this->_internal_seq());
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData SnapshotAck::_class_data_ = {
+    ::PROTOBUF_NAMESPACE_ID::Message::CopyWithSourceCheck,
+    SnapshotAck::MergeImpl
+};
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*SnapshotAck::GetClassData() const { return &_class_data_; }
+
+
+void SnapshotAck::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg) {
+  auto* const _this = static_cast<SnapshotAck*>(&to_msg);
+  auto& from = static_cast<const SnapshotAck&>(from_msg);
+  // @@protoc_insertion_point(class_specific_merge_from_start:alyncoin.net.SnapshotAck)
+  GOOGLE_DCHECK_NE(&from, _this);
+  uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (from._internal_seq() != 0) {
+    _this->_internal_set_seq(from._internal_seq());
+  }
+  _this->_internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void SnapshotAck::CopyFrom(const SnapshotAck& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:alyncoin.net.SnapshotAck)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool SnapshotAck::IsInitialized() const {
+  return true;
+}
+
+void SnapshotAck::InternalSwap(SnapshotAck* other) {
+  using std::swap;
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_.seq_, other->_impl_.seq_);
+}
+
+::PROTOBUF_NAMESPACE_ID::Metadata SnapshotAck::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(
+      &descriptor_table_net_5fframe_2eproto_getter, &descriptor_table_net_5fframe_2eproto_once,
+      file_level_metadata_net_5fframe_2eproto[9]);
 }
 
 // ===================================================================
@@ -1966,7 +2515,7 @@ const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*SnapshotEnd::GetClassData() co
 ::PROTOBUF_NAMESPACE_ID::Metadata SnapshotEnd::GetMetadata() const {
   return ::_pbi::AssignDescriptors(
       &descriptor_table_net_5fframe_2eproto_getter, &descriptor_table_net_5fframe_2eproto_once,
-      file_level_metadata_net_5fframe_2eproto[8]);
+      file_level_metadata_net_5fframe_2eproto[10]);
 }
 
 // ===================================================================
@@ -2154,7 +2703,7 @@ void TailBlocks::InternalSwap(TailBlocks* other) {
 ::PROTOBUF_NAMESPACE_ID::Metadata TailBlocks::GetMetadata() const {
   return ::_pbi::AssignDescriptors(
       &descriptor_table_net_5fframe_2eproto_getter, &descriptor_table_net_5fframe_2eproto_once,
-      file_level_metadata_net_5fframe_2eproto[9]);
+      file_level_metadata_net_5fframe_2eproto[11]);
 }
 
 // ===================================================================
@@ -2352,7 +2901,7 @@ void EpochProof::InternalSwap(EpochProof* other) {
 ::PROTOBUF_NAMESPACE_ID::Metadata EpochProof::GetMetadata() const {
   return ::_pbi::AssignDescriptors(
       &descriptor_table_net_5fframe_2eproto_getter, &descriptor_table_net_5fframe_2eproto_once,
-      file_level_metadata_net_5fframe_2eproto[10]);
+      file_level_metadata_net_5fframe_2eproto[12]);
 }
 
 // ===================================================================
@@ -2542,7 +3091,7 @@ void Inventory::InternalSwap(Inventory* other) {
 ::PROTOBUF_NAMESPACE_ID::Metadata Inventory::GetMetadata() const {
   return ::_pbi::AssignDescriptors(
       &descriptor_table_net_5fframe_2eproto_getter, &descriptor_table_net_5fframe_2eproto_once,
-      file_level_metadata_net_5fframe_2eproto[11]);
+      file_level_metadata_net_5fframe_2eproto[13]);
 }
 
 // ===================================================================
@@ -2582,7 +3131,7 @@ const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*TipHashRequest::GetClassData()
 ::PROTOBUF_NAMESPACE_ID::Metadata TipHashRequest::GetMetadata() const {
   return ::_pbi::AssignDescriptors(
       &descriptor_table_net_5fframe_2eproto_getter, &descriptor_table_net_5fframe_2eproto_once,
-      file_level_metadata_net_5fframe_2eproto[12]);
+      file_level_metadata_net_5fframe_2eproto[14]);
 }
 
 // ===================================================================
@@ -2785,7 +3334,7 @@ void TipHashResponse::InternalSwap(TipHashResponse* other) {
 ::PROTOBUF_NAMESPACE_ID::Metadata TipHashResponse::GetMetadata() const {
   return ::_pbi::AssignDescriptors(
       &descriptor_table_net_5fframe_2eproto_getter, &descriptor_table_net_5fframe_2eproto_once,
-      file_level_metadata_net_5fframe_2eproto[13]);
+      file_level_metadata_net_5fframe_2eproto[15]);
 }
 
 // ===================================================================
@@ -2825,7 +3374,7 @@ const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*PeerListRequest::GetClassData(
 ::PROTOBUF_NAMESPACE_ID::Metadata PeerListRequest::GetMetadata() const {
   return ::_pbi::AssignDescriptors(
       &descriptor_table_net_5fframe_2eproto_getter, &descriptor_table_net_5fframe_2eproto_once,
-      file_level_metadata_net_5fframe_2eproto[14]);
+      file_level_metadata_net_5fframe_2eproto[16]);
 }
 
 // ===================================================================
@@ -3015,7 +3564,7 @@ void PeerList::InternalSwap(PeerList* other) {
 ::PROTOBUF_NAMESPACE_ID::Metadata PeerList::GetMetadata() const {
   return ::_pbi::AssignDescriptors(
       &descriptor_table_net_5fframe_2eproto_getter, &descriptor_table_net_5fframe_2eproto_once,
-      file_level_metadata_net_5fframe_2eproto[15]);
+      file_level_metadata_net_5fframe_2eproto[17]);
 }
 
 // ===================================================================
@@ -3213,7 +3762,7 @@ void RollupBlockMsg::InternalSwap(RollupBlockMsg* other) {
 ::PROTOBUF_NAMESPACE_ID::Metadata RollupBlockMsg::GetMetadata() const {
   return ::_pbi::AssignDescriptors(
       &descriptor_table_net_5fframe_2eproto_getter, &descriptor_table_net_5fframe_2eproto_once,
-      file_level_metadata_net_5fframe_2eproto[16]);
+      file_level_metadata_net_5fframe_2eproto[18]);
 }
 
 // ===================================================================
@@ -3416,7 +3965,7 @@ void SnapshotRequest::InternalSwap(SnapshotRequest* other) {
 ::PROTOBUF_NAMESPACE_ID::Metadata SnapshotRequest::GetMetadata() const {
   return ::_pbi::AssignDescriptors(
       &descriptor_table_net_5fframe_2eproto_getter, &descriptor_table_net_5fframe_2eproto_once,
-      file_level_metadata_net_5fframe_2eproto[17]);
+      file_level_metadata_net_5fframe_2eproto[19]);
 }
 
 // ===================================================================
@@ -3594,7 +4143,7 @@ void TailBlocksRequest::InternalSwap(TailBlocksRequest* other) {
 ::PROTOBUF_NAMESPACE_ID::Metadata TailBlocksRequest::GetMetadata() const {
   return ::_pbi::AssignDescriptors(
       &descriptor_table_net_5fframe_2eproto_getter, &descriptor_table_net_5fframe_2eproto_once,
-      file_level_metadata_net_5fframe_2eproto[18]);
+      file_level_metadata_net_5fframe_2eproto[20]);
 }
 
 // ===================================================================
@@ -3784,7 +4333,7 @@ void GetData::InternalSwap(GetData* other) {
 ::PROTOBUF_NAMESPACE_ID::Metadata GetData::GetMetadata() const {
   return ::_pbi::AssignDescriptors(
       &descriptor_table_net_5fframe_2eproto_getter, &descriptor_table_net_5fframe_2eproto_once,
-      file_level_metadata_net_5fframe_2eproto[19]);
+      file_level_metadata_net_5fframe_2eproto[21]);
 }
 
 // ===================================================================
@@ -3983,7 +4532,7 @@ void StateProof::InternalSwap(StateProof* other) {
 ::PROTOBUF_NAMESPACE_ID::Metadata StateProof::GetMetadata() const {
   return ::_pbi::AssignDescriptors(
       &descriptor_table_net_5fframe_2eproto_getter, &descriptor_table_net_5fframe_2eproto_once,
-      file_level_metadata_net_5fframe_2eproto[20]);
+      file_level_metadata_net_5fframe_2eproto[22]);
 }
 
 // ===================================================================
@@ -4182,7 +4731,7 @@ void TransactionBroadcast::InternalSwap(TransactionBroadcast* other) {
 ::PROTOBUF_NAMESPACE_ID::Metadata TransactionBroadcast::GetMetadata() const {
   return ::_pbi::AssignDescriptors(
       &descriptor_table_net_5fframe_2eproto_getter, &descriptor_table_net_5fframe_2eproto_once,
-      file_level_metadata_net_5fframe_2eproto[21]);
+      file_level_metadata_net_5fframe_2eproto[23]);
 }
 
 // ===================================================================
@@ -4196,7 +4745,9 @@ class Frame::_Internal {
   static const ::alyncoin::net::HeightResponse& height_res(const Frame* msg);
   static const ::alyncoin::net::BlockBroadcast& block_broadcast(const Frame* msg);
   static const ::alyncoin::net::BlockBatch& block_batch(const Frame* msg);
+  static const ::alyncoin::net::SnapshotMeta& snapshot_meta(const Frame* msg);
   static const ::alyncoin::net::SnapshotChunk& snapshot_chunk(const Frame* msg);
+  static const ::alyncoin::net::SnapshotAck& snapshot_ack(const Frame* msg);
   static const ::alyncoin::net::SnapshotEnd& snapshot_end(const Frame* msg);
   static const ::alyncoin::net::TailBlocks& tail_blocks(const Frame* msg);
   static const ::alyncoin::net::EpochProof& agg_proof(const Frame* msg);
@@ -4242,9 +4793,17 @@ const ::alyncoin::net::BlockBatch&
 Frame::_Internal::block_batch(const Frame* msg) {
   return *msg->_impl_.kind_.block_batch_;
 }
+const ::alyncoin::net::SnapshotMeta&
+Frame::_Internal::snapshot_meta(const Frame* msg) {
+  return *msg->_impl_.kind_.snapshot_meta_;
+}
 const ::alyncoin::net::SnapshotChunk&
 Frame::_Internal::snapshot_chunk(const Frame* msg) {
   return *msg->_impl_.kind_.snapshot_chunk_;
+}
+const ::alyncoin::net::SnapshotAck&
+Frame::_Internal::snapshot_ack(const Frame* msg) {
+  return *msg->_impl_.kind_.snapshot_ack_;
 }
 const ::alyncoin::net::SnapshotEnd&
 Frame::_Internal::snapshot_end(const Frame* msg) {
@@ -4411,6 +4970,21 @@ void Frame::set_allocated_block_batch(::alyncoin::net::BlockBatch* block_batch) 
   }
   // @@protoc_insertion_point(field_set_allocated:alyncoin.net.Frame.block_batch)
 }
+void Frame::set_allocated_snapshot_meta(::alyncoin::net::SnapshotMeta* snapshot_meta) {
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
+  clear_kind();
+  if (snapshot_meta) {
+    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
+      ::PROTOBUF_NAMESPACE_ID::Arena::InternalGetOwningArena(snapshot_meta);
+    if (message_arena != submessage_arena) {
+      snapshot_meta = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
+          message_arena, snapshot_meta, submessage_arena);
+    }
+    set_has_snapshot_meta();
+    _impl_.kind_.snapshot_meta_ = snapshot_meta;
+  }
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.net.Frame.snapshot_meta)
+}
 void Frame::set_allocated_snapshot_chunk(::alyncoin::net::SnapshotChunk* snapshot_chunk) {
   ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_kind();
@@ -4425,6 +4999,21 @@ void Frame::set_allocated_snapshot_chunk(::alyncoin::net::SnapshotChunk* snapsho
     _impl_.kind_.snapshot_chunk_ = snapshot_chunk;
   }
   // @@protoc_insertion_point(field_set_allocated:alyncoin.net.Frame.snapshot_chunk)
+}
+void Frame::set_allocated_snapshot_ack(::alyncoin::net::SnapshotAck* snapshot_ack) {
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
+  clear_kind();
+  if (snapshot_ack) {
+    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
+      ::PROTOBUF_NAMESPACE_ID::Arena::InternalGetOwningArena(snapshot_ack);
+    if (message_arena != submessage_arena) {
+      snapshot_ack = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
+          message_arena, snapshot_ack, submessage_arena);
+    }
+    set_has_snapshot_ack();
+    _impl_.kind_.snapshot_ack_ = snapshot_ack;
+  }
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.net.Frame.snapshot_ack)
 }
 void Frame::set_allocated_snapshot_end(::alyncoin::net::SnapshotEnd* snapshot_end) {
   ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
@@ -4712,9 +5301,19 @@ Frame::Frame(const Frame& from)
           from._internal_block_batch());
       break;
     }
+    case kSnapshotMeta: {
+      _this->_internal_mutable_snapshot_meta()->::alyncoin::net::SnapshotMeta::MergeFrom(
+          from._internal_snapshot_meta());
+      break;
+    }
     case kSnapshotChunk: {
       _this->_internal_mutable_snapshot_chunk()->::alyncoin::net::SnapshotChunk::MergeFrom(
           from._internal_snapshot_chunk());
+      break;
+    }
+    case kSnapshotAck: {
+      _this->_internal_mutable_snapshot_ack()->::alyncoin::net::SnapshotAck::MergeFrom(
+          from._internal_snapshot_ack());
       break;
     }
     case kSnapshotEnd: {
@@ -4876,9 +5475,21 @@ void Frame::clear_kind() {
       }
       break;
     }
+    case kSnapshotMeta: {
+      if (GetArenaForAllocation() == nullptr) {
+        delete _impl_.kind_.snapshot_meta_;
+      }
+      break;
+    }
     case kSnapshotChunk: {
       if (GetArenaForAllocation() == nullptr) {
         delete _impl_.kind_.snapshot_chunk_;
+      }
+      break;
+    }
+    case kSnapshotAck: {
+      if (GetArenaForAllocation() == nullptr) {
+        delete _impl_.kind_.snapshot_ack_;
       }
       break;
     }
@@ -5052,129 +5663,145 @@ const char* Frame::_InternalParse(const char* ptr, ::_pbi::ParseContext* ctx) {
         } else
           goto handle_unusual;
         continue;
-      // .alyncoin.net.SnapshotChunk snapshot_chunk = 8;
+      // .alyncoin.net.SnapshotMeta snapshot_meta = 8;
       case 8:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 66)) {
+          ptr = ctx->ParseMessage(_internal_mutable_snapshot_meta(), ptr);
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      // .alyncoin.net.SnapshotChunk snapshot_chunk = 9;
+      case 9:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 74)) {
           ptr = ctx->ParseMessage(_internal_mutable_snapshot_chunk(), ptr);
           CHK_(ptr);
         } else
           goto handle_unusual;
         continue;
-      // .alyncoin.net.SnapshotEnd snapshot_end = 9;
-      case 9:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 74)) {
+      // .alyncoin.net.SnapshotAck snapshot_ack = 10;
+      case 10:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 82)) {
+          ptr = ctx->ParseMessage(_internal_mutable_snapshot_ack(), ptr);
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      // .alyncoin.net.SnapshotEnd snapshot_end = 11;
+      case 11:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 90)) {
           ptr = ctx->ParseMessage(_internal_mutable_snapshot_end(), ptr);
           CHK_(ptr);
         } else
           goto handle_unusual;
         continue;
-      // .alyncoin.net.TailBlocks tail_blocks = 10;
-      case 10:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 82)) {
+      // .alyncoin.net.TailBlocks tail_blocks = 12;
+      case 12:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 98)) {
           ptr = ctx->ParseMessage(_internal_mutable_tail_blocks(), ptr);
           CHK_(ptr);
         } else
           goto handle_unusual;
         continue;
-      // .alyncoin.net.EpochProof agg_proof = 11;
-      case 11:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 90)) {
+      // .alyncoin.net.EpochProof agg_proof = 13;
+      case 13:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 106)) {
           ptr = ctx->ParseMessage(_internal_mutable_agg_proof(), ptr);
           CHK_(ptr);
         } else
           goto handle_unusual;
         continue;
-      // .alyncoin.net.Inventory inv = 12;
-      case 12:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 98)) {
+      // .alyncoin.net.Inventory inv = 14;
+      case 14:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 114)) {
           ptr = ctx->ParseMessage(_internal_mutable_inv(), ptr);
           CHK_(ptr);
         } else
           goto handle_unusual;
         continue;
-      // .alyncoin.net.TipHashRequest tip_hash_req = 13;
-      case 13:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 106)) {
+      // .alyncoin.net.TipHashRequest tip_hash_req = 15;
+      case 15:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 122)) {
           ptr = ctx->ParseMessage(_internal_mutable_tip_hash_req(), ptr);
           CHK_(ptr);
         } else
           goto handle_unusual;
         continue;
-      // .alyncoin.net.TipHashResponse tip_hash_res = 14;
-      case 14:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 114)) {
+      // .alyncoin.net.TipHashResponse tip_hash_res = 16;
+      case 16:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 130)) {
           ptr = ctx->ParseMessage(_internal_mutable_tip_hash_res(), ptr);
           CHK_(ptr);
         } else
           goto handle_unusual;
         continue;
-      // .alyncoin.net.PeerListRequest peer_list_req = 15;
-      case 15:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 122)) {
+      // .alyncoin.net.PeerListRequest peer_list_req = 17;
+      case 17:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 138)) {
           ptr = ctx->ParseMessage(_internal_mutable_peer_list_req(), ptr);
           CHK_(ptr);
         } else
           goto handle_unusual;
         continue;
-      // .alyncoin.net.PeerList peer_list = 16;
-      case 16:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 130)) {
+      // .alyncoin.net.PeerList peer_list = 18;
+      case 18:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 146)) {
           ptr = ctx->ParseMessage(_internal_mutable_peer_list(), ptr);
           CHK_(ptr);
         } else
           goto handle_unusual;
         continue;
-      // .alyncoin.net.RollupBlockMsg rollup_block = 17;
-      case 17:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 138)) {
+      // .alyncoin.net.RollupBlockMsg rollup_block = 19;
+      case 19:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 154)) {
           ptr = ctx->ParseMessage(_internal_mutable_rollup_block(), ptr);
           CHK_(ptr);
         } else
           goto handle_unusual;
         continue;
-      // .alyncoin.net.SnapshotRequest snapshot_req = 18;
-      case 18:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 146)) {
+      // .alyncoin.net.SnapshotRequest snapshot_req = 20;
+      case 20:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 162)) {
           ptr = ctx->ParseMessage(_internal_mutable_snapshot_req(), ptr);
           CHK_(ptr);
         } else
           goto handle_unusual;
         continue;
-      // .alyncoin.net.TailBlocksRequest tail_req = 19;
-      case 19:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 154)) {
+      // .alyncoin.net.TailBlocksRequest tail_req = 21;
+      case 21:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 170)) {
           ptr = ctx->ParseMessage(_internal_mutable_tail_req(), ptr);
           CHK_(ptr);
         } else
           goto handle_unusual;
         continue;
-      // .alyncoin.net.StateProof state_proof = 20;
-      case 20:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 162)) {
+      // .alyncoin.net.StateProof state_proof = 22;
+      case 22:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 178)) {
           ptr = ctx->ParseMessage(_internal_mutable_state_proof(), ptr);
           CHK_(ptr);
         } else
           goto handle_unusual;
         continue;
-      // .alyncoin.net.GetData get_data = 21;
-      case 21:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 170)) {
+      // .alyncoin.net.GetData get_data = 23;
+      case 23:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 186)) {
           ptr = ctx->ParseMessage(_internal_mutable_get_data(), ptr);
           CHK_(ptr);
         } else
           goto handle_unusual;
         continue;
-      // .alyncoin.BlockchainSyncProto blockchain_sync_request = 22;
-      case 22:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 178)) {
+      // .alyncoin.BlockchainSyncProto blockchain_sync_request = 24;
+      case 24:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 194)) {
           ptr = ctx->ParseMessage(_internal_mutable_blockchain_sync_request(), ptr);
           CHK_(ptr);
         } else
           goto handle_unusual;
         continue;
-      // .alyncoin.net.TransactionBroadcast tx_broadcast = 23;
-      case 23:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 186)) {
+      // .alyncoin.net.TransactionBroadcast tx_broadcast = 25;
+      case 25:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 202)) {
           ptr = ctx->ParseMessage(_internal_mutable_tx_broadcast(), ptr);
           CHK_(ptr);
         } else
@@ -5258,115 +5885,129 @@ uint8_t* Frame::_InternalSerialize(
         _Internal::block_batch(this).GetCachedSize(), target, stream);
   }
 
-  // .alyncoin.net.SnapshotChunk snapshot_chunk = 8;
+  // .alyncoin.net.SnapshotMeta snapshot_meta = 8;
+  if (_internal_has_snapshot_meta()) {
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(8, _Internal::snapshot_meta(this),
+        _Internal::snapshot_meta(this).GetCachedSize(), target, stream);
+  }
+
+  // .alyncoin.net.SnapshotChunk snapshot_chunk = 9;
   if (_internal_has_snapshot_chunk()) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(8, _Internal::snapshot_chunk(this),
+      InternalWriteMessage(9, _Internal::snapshot_chunk(this),
         _Internal::snapshot_chunk(this).GetCachedSize(), target, stream);
   }
 
-  // .alyncoin.net.SnapshotEnd snapshot_end = 9;
+  // .alyncoin.net.SnapshotAck snapshot_ack = 10;
+  if (_internal_has_snapshot_ack()) {
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(10, _Internal::snapshot_ack(this),
+        _Internal::snapshot_ack(this).GetCachedSize(), target, stream);
+  }
+
+  // .alyncoin.net.SnapshotEnd snapshot_end = 11;
   if (_internal_has_snapshot_end()) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(9, _Internal::snapshot_end(this),
+      InternalWriteMessage(11, _Internal::snapshot_end(this),
         _Internal::snapshot_end(this).GetCachedSize(), target, stream);
   }
 
-  // .alyncoin.net.TailBlocks tail_blocks = 10;
+  // .alyncoin.net.TailBlocks tail_blocks = 12;
   if (_internal_has_tail_blocks()) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(10, _Internal::tail_blocks(this),
+      InternalWriteMessage(12, _Internal::tail_blocks(this),
         _Internal::tail_blocks(this).GetCachedSize(), target, stream);
   }
 
-  // .alyncoin.net.EpochProof agg_proof = 11;
+  // .alyncoin.net.EpochProof agg_proof = 13;
   if (_internal_has_agg_proof()) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(11, _Internal::agg_proof(this),
+      InternalWriteMessage(13, _Internal::agg_proof(this),
         _Internal::agg_proof(this).GetCachedSize(), target, stream);
   }
 
-  // .alyncoin.net.Inventory inv = 12;
+  // .alyncoin.net.Inventory inv = 14;
   if (_internal_has_inv()) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(12, _Internal::inv(this),
+      InternalWriteMessage(14, _Internal::inv(this),
         _Internal::inv(this).GetCachedSize(), target, stream);
   }
 
-  // .alyncoin.net.TipHashRequest tip_hash_req = 13;
+  // .alyncoin.net.TipHashRequest tip_hash_req = 15;
   if (_internal_has_tip_hash_req()) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(13, _Internal::tip_hash_req(this),
+      InternalWriteMessage(15, _Internal::tip_hash_req(this),
         _Internal::tip_hash_req(this).GetCachedSize(), target, stream);
   }
 
-  // .alyncoin.net.TipHashResponse tip_hash_res = 14;
+  // .alyncoin.net.TipHashResponse tip_hash_res = 16;
   if (_internal_has_tip_hash_res()) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(14, _Internal::tip_hash_res(this),
+      InternalWriteMessage(16, _Internal::tip_hash_res(this),
         _Internal::tip_hash_res(this).GetCachedSize(), target, stream);
   }
 
-  // .alyncoin.net.PeerListRequest peer_list_req = 15;
+  // .alyncoin.net.PeerListRequest peer_list_req = 17;
   if (_internal_has_peer_list_req()) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(15, _Internal::peer_list_req(this),
+      InternalWriteMessage(17, _Internal::peer_list_req(this),
         _Internal::peer_list_req(this).GetCachedSize(), target, stream);
   }
 
-  // .alyncoin.net.PeerList peer_list = 16;
+  // .alyncoin.net.PeerList peer_list = 18;
   if (_internal_has_peer_list()) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(16, _Internal::peer_list(this),
+      InternalWriteMessage(18, _Internal::peer_list(this),
         _Internal::peer_list(this).GetCachedSize(), target, stream);
   }
 
-  // .alyncoin.net.RollupBlockMsg rollup_block = 17;
+  // .alyncoin.net.RollupBlockMsg rollup_block = 19;
   if (_internal_has_rollup_block()) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(17, _Internal::rollup_block(this),
+      InternalWriteMessage(19, _Internal::rollup_block(this),
         _Internal::rollup_block(this).GetCachedSize(), target, stream);
   }
 
-  // .alyncoin.net.SnapshotRequest snapshot_req = 18;
+  // .alyncoin.net.SnapshotRequest snapshot_req = 20;
   if (_internal_has_snapshot_req()) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(18, _Internal::snapshot_req(this),
+      InternalWriteMessage(20, _Internal::snapshot_req(this),
         _Internal::snapshot_req(this).GetCachedSize(), target, stream);
   }
 
-  // .alyncoin.net.TailBlocksRequest tail_req = 19;
+  // .alyncoin.net.TailBlocksRequest tail_req = 21;
   if (_internal_has_tail_req()) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(19, _Internal::tail_req(this),
+      InternalWriteMessage(21, _Internal::tail_req(this),
         _Internal::tail_req(this).GetCachedSize(), target, stream);
   }
 
-  // .alyncoin.net.StateProof state_proof = 20;
+  // .alyncoin.net.StateProof state_proof = 22;
   if (_internal_has_state_proof()) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(20, _Internal::state_proof(this),
+      InternalWriteMessage(22, _Internal::state_proof(this),
         _Internal::state_proof(this).GetCachedSize(), target, stream);
   }
 
-  // .alyncoin.net.GetData get_data = 21;
+  // .alyncoin.net.GetData get_data = 23;
   if (_internal_has_get_data()) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(21, _Internal::get_data(this),
+      InternalWriteMessage(23, _Internal::get_data(this),
         _Internal::get_data(this).GetCachedSize(), target, stream);
   }
 
-  // .alyncoin.BlockchainSyncProto blockchain_sync_request = 22;
+  // .alyncoin.BlockchainSyncProto blockchain_sync_request = 24;
   if (_internal_has_blockchain_sync_request()) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(22, _Internal::blockchain_sync_request(this),
+      InternalWriteMessage(24, _Internal::blockchain_sync_request(this),
         _Internal::blockchain_sync_request(this).GetCachedSize(), target, stream);
   }
 
-  // .alyncoin.net.TransactionBroadcast tx_broadcast = 23;
+  // .alyncoin.net.TransactionBroadcast tx_broadcast = 25;
   if (_internal_has_tx_broadcast()) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(23, _Internal::tx_broadcast(this),
+      InternalWriteMessage(25, _Internal::tx_broadcast(this),
         _Internal::tx_broadcast(this).GetCachedSize(), target, stream);
   }
 
@@ -5436,112 +6077,126 @@ size_t Frame::ByteSizeLong() const {
           *_impl_.kind_.block_batch_);
       break;
     }
-    // .alyncoin.net.SnapshotChunk snapshot_chunk = 8;
+    // .alyncoin.net.SnapshotMeta snapshot_meta = 8;
+    case kSnapshotMeta: {
+      total_size += 1 +
+        ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+          *_impl_.kind_.snapshot_meta_);
+      break;
+    }
+    // .alyncoin.net.SnapshotChunk snapshot_chunk = 9;
     case kSnapshotChunk: {
       total_size += 1 +
         ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
           *_impl_.kind_.snapshot_chunk_);
       break;
     }
-    // .alyncoin.net.SnapshotEnd snapshot_end = 9;
+    // .alyncoin.net.SnapshotAck snapshot_ack = 10;
+    case kSnapshotAck: {
+      total_size += 1 +
+        ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+          *_impl_.kind_.snapshot_ack_);
+      break;
+    }
+    // .alyncoin.net.SnapshotEnd snapshot_end = 11;
     case kSnapshotEnd: {
       total_size += 1 +
         ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
           *_impl_.kind_.snapshot_end_);
       break;
     }
-    // .alyncoin.net.TailBlocks tail_blocks = 10;
+    // .alyncoin.net.TailBlocks tail_blocks = 12;
     case kTailBlocks: {
       total_size += 1 +
         ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
           *_impl_.kind_.tail_blocks_);
       break;
     }
-    // .alyncoin.net.EpochProof agg_proof = 11;
+    // .alyncoin.net.EpochProof agg_proof = 13;
     case kAggProof: {
       total_size += 1 +
         ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
           *_impl_.kind_.agg_proof_);
       break;
     }
-    // .alyncoin.net.Inventory inv = 12;
+    // .alyncoin.net.Inventory inv = 14;
     case kInv: {
       total_size += 1 +
         ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
           *_impl_.kind_.inv_);
       break;
     }
-    // .alyncoin.net.TipHashRequest tip_hash_req = 13;
+    // .alyncoin.net.TipHashRequest tip_hash_req = 15;
     case kTipHashReq: {
       total_size += 1 +
         ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
           *_impl_.kind_.tip_hash_req_);
       break;
     }
-    // .alyncoin.net.TipHashResponse tip_hash_res = 14;
+    // .alyncoin.net.TipHashResponse tip_hash_res = 16;
     case kTipHashRes: {
-      total_size += 1 +
+      total_size += 2 +
         ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
           *_impl_.kind_.tip_hash_res_);
       break;
     }
-    // .alyncoin.net.PeerListRequest peer_list_req = 15;
+    // .alyncoin.net.PeerListRequest peer_list_req = 17;
     case kPeerListReq: {
-      total_size += 1 +
+      total_size += 2 +
         ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
           *_impl_.kind_.peer_list_req_);
       break;
     }
-    // .alyncoin.net.PeerList peer_list = 16;
+    // .alyncoin.net.PeerList peer_list = 18;
     case kPeerList: {
       total_size += 2 +
         ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
           *_impl_.kind_.peer_list_);
       break;
     }
-    // .alyncoin.net.RollupBlockMsg rollup_block = 17;
+    // .alyncoin.net.RollupBlockMsg rollup_block = 19;
     case kRollupBlock: {
       total_size += 2 +
         ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
           *_impl_.kind_.rollup_block_);
       break;
     }
-    // .alyncoin.net.SnapshotRequest snapshot_req = 18;
+    // .alyncoin.net.SnapshotRequest snapshot_req = 20;
     case kSnapshotReq: {
       total_size += 2 +
         ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
           *_impl_.kind_.snapshot_req_);
       break;
     }
-    // .alyncoin.net.TailBlocksRequest tail_req = 19;
+    // .alyncoin.net.TailBlocksRequest tail_req = 21;
     case kTailReq: {
       total_size += 2 +
         ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
           *_impl_.kind_.tail_req_);
       break;
     }
-    // .alyncoin.net.StateProof state_proof = 20;
+    // .alyncoin.net.StateProof state_proof = 22;
     case kStateProof: {
       total_size += 2 +
         ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
           *_impl_.kind_.state_proof_);
       break;
     }
-    // .alyncoin.net.GetData get_data = 21;
+    // .alyncoin.net.GetData get_data = 23;
     case kGetData: {
       total_size += 2 +
         ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
           *_impl_.kind_.get_data_);
       break;
     }
-    // .alyncoin.BlockchainSyncProto blockchain_sync_request = 22;
+    // .alyncoin.BlockchainSyncProto blockchain_sync_request = 24;
     case kBlockchainSyncRequest: {
       total_size += 2 +
         ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
           *_impl_.kind_.blockchain_sync_request_);
       break;
     }
-    // .alyncoin.net.TransactionBroadcast tx_broadcast = 23;
+    // .alyncoin.net.TransactionBroadcast tx_broadcast = 25;
     case kTxBroadcast: {
       total_size += 2 +
         ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
@@ -5606,9 +6261,19 @@ void Frame::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF
           from._internal_block_batch());
       break;
     }
+    case kSnapshotMeta: {
+      _this->_internal_mutable_snapshot_meta()->::alyncoin::net::SnapshotMeta::MergeFrom(
+          from._internal_snapshot_meta());
+      break;
+    }
     case kSnapshotChunk: {
       _this->_internal_mutable_snapshot_chunk()->::alyncoin::net::SnapshotChunk::MergeFrom(
           from._internal_snapshot_chunk());
+      break;
+    }
+    case kSnapshotAck: {
+      _this->_internal_mutable_snapshot_ack()->::alyncoin::net::SnapshotAck::MergeFrom(
+          from._internal_snapshot_ack());
       break;
     }
     case kSnapshotEnd: {
@@ -5714,7 +6379,7 @@ void Frame::InternalSwap(Frame* other) {
 ::PROTOBUF_NAMESPACE_ID::Metadata Frame::GetMetadata() const {
   return ::_pbi::AssignDescriptors(
       &descriptor_table_net_5fframe_2eproto_getter, &descriptor_table_net_5fframe_2eproto_once,
-      file_level_metadata_net_5fframe_2eproto[22]);
+      file_level_metadata_net_5fframe_2eproto[24]);
 }
 
 // @@protoc_insertion_point(namespace_scope)
@@ -5749,9 +6414,17 @@ template<> PROTOBUF_NOINLINE ::alyncoin::net::BlockBatch*
 Arena::CreateMaybeMessage< ::alyncoin::net::BlockBatch >(Arena* arena) {
   return Arena::CreateMessageInternal< ::alyncoin::net::BlockBatch >(arena);
 }
+template<> PROTOBUF_NOINLINE ::alyncoin::net::SnapshotMeta*
+Arena::CreateMaybeMessage< ::alyncoin::net::SnapshotMeta >(Arena* arena) {
+  return Arena::CreateMessageInternal< ::alyncoin::net::SnapshotMeta >(arena);
+}
 template<> PROTOBUF_NOINLINE ::alyncoin::net::SnapshotChunk*
 Arena::CreateMaybeMessage< ::alyncoin::net::SnapshotChunk >(Arena* arena) {
   return Arena::CreateMessageInternal< ::alyncoin::net::SnapshotChunk >(arena);
+}
+template<> PROTOBUF_NOINLINE ::alyncoin::net::SnapshotAck*
+Arena::CreateMaybeMessage< ::alyncoin::net::SnapshotAck >(Arena* arena) {
+  return Arena::CreateMessageInternal< ::alyncoin::net::SnapshotAck >(arena);
 }
 template<> PROTOBUF_NOINLINE ::alyncoin::net::SnapshotEnd*
 Arena::CreateMaybeMessage< ::alyncoin::net::SnapshotEnd >(Arena* arena) {

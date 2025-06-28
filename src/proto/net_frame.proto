@@ -13,6 +13,10 @@ message Handshake {
   uint32 listen_port = 4;
   bytes genesis_hash = 5;
   repeated string capabilities = 6;
+
+  // NEW — bump this whenever the `Frame` message layout changes.
+  // 0 means "unknown / pre-rev".  The current software uses 1.
+  uint32 frame_rev = 7;
 }
 
 message Ping {}
