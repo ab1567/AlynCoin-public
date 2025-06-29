@@ -55,7 +55,7 @@ using namespace alyncoin;
 static std::unordered_map<std::string, std::vector<Block>> incomingChains;
 // Buffers for in-progress FULL_CHAIN syncs
 // Per-peer sync buffers are now stored in PeerState via peerTransports
-static constexpr uint32_t kFrameRevision = 1;
+static constexpr uint32_t kFrameRevision = 2;
 static_assert(alyncoin::net::Frame::kBlockBroadcast == 6,
               "Frame field-numbers changed \u2013 bump kFrameRevision !");
 struct ScopedLockTracer {
@@ -178,7 +178,12 @@ void Network::sendHeight(const std::string &peer) {
   if (it == peerTransports.end() || !it->second.tx)
     return;
   alyncoin::net::Frame fr;
-  fr.mutable_height_res()->set_height(Blockchain::getInstance().getHeight());
+  Blockchain &bc = Blockchain::getInstance();
+  auto *hr = fr.mutable_height_res();
+  hr->set_height(bc.getHeight());
+  uint64_t work = peerManager ? peerManager->getLocalWork()
+                              : bc.computeCumulativeDifficulty(bc.getChain());
+  hr->set_total_work(work);
   sendFrame(it->second.tx, fr);
 }
 
@@ -1192,7 +1197,12 @@ void Network::broadcastHeight(uint32_t height) {
     peersCopy = peerTransports;
   }
   alyncoin::net::Frame fr;
-  fr.mutable_height_res()->set_height(height);
+  Blockchain &bc = Blockchain::getInstance();
+  auto *hr = fr.mutable_height_res();
+  hr->set_height(height);
+  uint64_t work = peerManager ? peerManager->getLocalWork()
+                              : bc.computeCumulativeDifficulty(bc.getChain());
+  hr->set_total_work(work);
   for (auto &kv : peersCopy) {
     auto tr = kv.second.tx;
     if (!tr || !tr->isOpen())
@@ -1685,8 +1695,10 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
     sendHeight(peer);
     break;
   case alyncoin::net::Frame::kHeightRes:
-    if (peerManager)
+    if (peerManager) {
       peerManager->setPeerHeight(peer, f.height_res().height());
+      peerManager->setPeerWork(peer, f.height_res().total_work());
+    }
     if (f.height_res().height() > Blockchain::getInstance().getHeight() &&
         !isSyncing())
       requestTailBlocks(peer, Blockchain::getInstance().getHeight());
@@ -2383,8 +2395,14 @@ void Network::handleSnapshotEnd(const std::string &peer) {
     int localHeight = chain.getHeight();
     uint64_t localWork = chain.computeCumulativeDifficulty(chain.getChain());
     uint64_t remoteWork = chain.computeCumulativeDifficulty(snapBlocks);
+    std::string localTipHash = chain.getLatestBlockHash();
+    std::string remoteTipHash = snapBlocks.empty() ? "" : snapBlocks.back().getHash();
 
-    if (snap.height() <= localHeight || remoteWork <= localWork) {
+    bool accept = (remoteTipHash != localTipHash &&
+                   snap.height() >= localHeight &&
+                   remoteWork >= localWork);
+
+    if (!accept) {
       std::cerr << "⚠️ [SNAPSHOT] Rejected snapshot from " << peer << " (height "
                 << snap.height() << ", work " << remoteWork
                 << ") localHeight=" << localHeight << " localWork=" << localWork
@@ -2403,8 +2421,10 @@ void Network::handleSnapshotEnd(const std::string &peer) {
     ps->snapshotB64.clear();
     ps->snapState = PeerState::SnapState::Idle;
 
-    if (peerManager)
+    if (peerManager) {
       peerManager->setPeerHeight(peer, snap.height());
+      peerManager->setPeerWork(peer, remoteWork);
+    }
     broadcastHeight(chain.getHeight());
 
     // Immediately request tail blocks for any missing blocks

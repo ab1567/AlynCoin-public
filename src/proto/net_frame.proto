@@ -22,7 +22,11 @@ message Handshake {
 message Ping {}
 message Pong {}
 message HeightRequest {}
-message HeightResponse { uint64 height = 1; }
+message HeightResponse {
+  uint64 height = 1;
+  // cumulative work of the sender's chain at this height
+  uint64 total_work = 2;
+}
 
 message BlockBroadcast { alyncoin.BlockProto block = 1; }
 
