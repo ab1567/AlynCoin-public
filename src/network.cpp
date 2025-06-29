@@ -1152,7 +1152,7 @@ void Network::broadcastBlock(const Block &block, bool /*force*/) {
     if (!seen.insert(transport).second)
       continue;
 
-    bool ok = sendFrame(transport, fr);
+    bool ok = sendFrameImmediate(transport, fr);
     if (!ok) {
       std::cerr << "❌ failed to send block " << block.getIndex() << " to "
                 << peerId << " – marking peer offline" << '\n';
@@ -1434,12 +1434,13 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
 
     blockchain.saveToDB();
     broadcastBlock(newBlock);
+    // Update cached height and tip hash for the sending peer if provided
+    if (peerManager && !sender.empty()) {
+      peerManager->setPeerHeight(sender, newBlock.getIndex());
+      peerManager->setPeerTipHash(sender, newBlock.getHash());
+    }
     broadcastHeight(newBlock.getIndex());
     autoSyncIfBehind();
-
-    // Update cached height for the sending peer if provided
-    if (peerManager && !sender.empty())
-      peerManager->setPeerHeight(sender, newBlock.getIndex());
 
     std::cout << "✅ Block added successfully! Index: " << newBlock.getIndex()
               << "\n";
@@ -2280,6 +2281,10 @@ void Network::sendSnapshot(std::shared_ptr<Transport> transport,
 void Network::sendTailBlocks(std::shared_ptr<Transport> transport,
                              int fromHeight) {
   Blockchain &bc = Blockchain::getInstance();
+  if (fromHeight >= bc.getHeight()) {
+    std::cerr << "[sendTailBlocks] aborting: peer height >= local height\n";
+    return;
+  }
   std::vector<Block> tail;
   for (int i = fromHeight + 1; i <= bc.getHeight(); ++i) {
     tail.push_back(bc.getChain()[i]);
