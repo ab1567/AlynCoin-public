@@ -22,6 +22,16 @@ NodeHealthStatus HealthMonitor::checkHealth() {
     status.connectedPeers = peerManager_->getPeerCount();
     uint64_t localWork = blockchain_->computeCumulativeDifficulty(blockchain_->getChain());
     uint64_t remoteWork = peerManager_->getMaxPeerWork();
+
+    const uint64_t THRESHOLD = 1'000'000ULL;
+    bool useHeightOnly = false;
+
+    if (remoteWork > 0 && localWork > 0) {
+        if (remoteWork / localWork > THRESHOLD ||
+            localWork / remoteWork > THRESHOLD) {
+            useHeightOnly = true;
+        }
+    }
     status.farBehind = false;
 
     if (remoteWork == 0) {
@@ -32,7 +42,11 @@ NodeHealthStatus HealthMonitor::checkHealth() {
         return status;
     }
 
-    if (remoteWork < localWork) {
+    bool stronger = useHeightOnly
+                    ? (status.networkHeight > status.localHeight)
+                    : (remoteWork > localWork);
+
+    if (!stronger) {
         status.isHealthy = true;
         status.reason = "Local chain heavier";
     } else if (status.localHeight > status.networkHeight + 3) {
@@ -52,7 +66,7 @@ NodeHealthStatus HealthMonitor::checkHealth() {
     if (status.localHeight + 5 < status.networkHeight) {
         status.isHealthy = false;
         status.reason = "Node is behind the network";
-    } else if (remoteWork > localWork && status.localTipHash != status.expectedTipHash) {
+    } else if (stronger && status.localTipHash != status.expectedTipHash) {
         status.isHealthy = false;
         status.reason = "Tip hash mismatch with stronger chain";
     } else if (status.localTipHash != status.expectedTipHash) {
