@@ -612,6 +612,22 @@ void Network::intelligentSync() {
     return;
   }
 
+  {
+    std::lock_guard<std::timed_mutex> lk(peersMutex);
+    for (const auto &kv : peerTransports) {
+      auto tr = kv.second.tx;
+      if (!tr || !tr->isOpen())
+        continue;
+      alyncoin::net::Frame req1;
+      req1.mutable_height_req();
+      sendFrame(tr, req1);
+      alyncoin::net::Frame req2;
+      req2.mutable_tip_hash_req();
+      sendFrame(tr, req2);
+    }
+  }
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+
   const int localHeight = blockchain->getHeight();
   const int networkHeight = peerManager->getMedianNetworkHeight();
 

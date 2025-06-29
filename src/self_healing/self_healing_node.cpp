@@ -14,6 +14,12 @@ SelfHealingNode::SelfHealingNode(Blockchain* blockchain, PeerManager* peerManage
 }
 
 void SelfHealingNode::monitorAndHeal() {
+    if (auto net = Network::getExistingInstance()) {
+        alyncoin::net::Frame fr;
+        fr.mutable_height_req();
+        net->broadcastFrame(fr);
+    }
+
     NodeHealthStatus status = healthMonitor_->checkHealth();
     healthMonitor_->logStatus(status);
 
