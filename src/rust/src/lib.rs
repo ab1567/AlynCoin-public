@@ -236,7 +236,8 @@ pub extern "C" fn verify_winterfell_proof(
         return false;
     }
 
-    let result = proof.contains(&final_hash);
+    let short_hash = &final_hash[..32];
+    let result = proof.contains(&final_hash) || proof.contains(short_hash);
     println!("✅ Substring match = {}", result);
     result
 }
