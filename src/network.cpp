@@ -899,7 +899,8 @@ void Network::run() {
 
   // Initial sync/gossip setup
   requestPeerList();
-  autoMineBlock();
+  if (autoMineEnabled)
+    autoMineBlock();
 
   // Trigger a sync immediately after startup so the node isn't left waiting
   // for the periodic thread to run before catching up with peers.

@@ -617,6 +617,7 @@ int main(int argc, char *argv[]) {
     std::string dbPath = DBPaths::getBlockchainDB();
     std::string connectIP = "";
     std::string keyDir = DBPaths::getKeyDir();
+    bool autoMine = true;
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
@@ -637,6 +638,8 @@ int main(int argc, char *argv[]) {
         } else if (arg == "--keypath" && i + 1 < argc) {
             keyDir = argv[++i];
             if (keyDir.back() != '/') keyDir += '/';
+        } else if (arg == "--no-auto-mine") {
+            autoMine = false;
         }
     }
     if (!portSpecified) {
@@ -686,6 +689,7 @@ int main(int argc, char *argv[]) {
 
     Network* network = nullptr;
     if (peerBlacklistPtr) {
+        Network::autoMineEnabled = autoMine;
         network = &Network::getInstance(port, &blockchain, peerBlacklistPtr.get());
         blockchain.setNetwork(network);
     } else {
