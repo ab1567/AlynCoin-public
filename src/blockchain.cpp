@@ -472,7 +472,10 @@ bool Blockchain::addBlock(const Block &block) {
         std::cerr << "[addBlock] PUSH_BACK to chain: idx=" << block.getIndex()
                   << ", hash=" << block.getHash() << std::endl;
         chain.push_back(block);
-        totalWork += (1ULL << block.getDifficulty());
+        if (block.getDifficulty() >= 0 && block.getDifficulty() < 64)
+            totalWork += (1ULL << block.getDifficulty());
+        else
+            totalWork += 1ULL;
         if (network && network->getPeerManager())
             network->getPeerManager()->setLocalWork(totalWork);
     } catch (const std::exception& e) {
@@ -1289,8 +1292,12 @@ bool Blockchain::loadFromDB() {
     }
 
     totalWork = 0;
-    for (const auto &b : chain)
-        totalWork += (1ULL << b.getDifficulty());
+    for (const auto &b : chain) {
+        if (b.getDifficulty() >= 0 && b.getDifficulty() < 64)
+            totalWork += (1ULL << b.getDifficulty());
+        else
+            totalWork += 1ULL;
+    }
     if (network && network->getPeerManager())
         network->getPeerManager()->setLocalWork(totalWork);
 
