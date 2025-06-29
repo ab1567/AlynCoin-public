@@ -904,6 +904,14 @@ void Network::run() {
     }
   }).detach();
 
+  // Periodically refresh handshake metadata so peers keep our latest height
+  std::thread([this]() {
+    while (true) {
+      std::this_thread::sleep_for(std::chrono::minutes(5));
+      this->broadcastHandshake();
+    }
+  }).detach();
+
   std::cout << "✅ [Network] Network loop launched successfully.\n";
 }
 
@@ -1177,6 +1185,39 @@ void Network::broadcastHeight(uint32_t height) {
   }
 }
 
+void Network::broadcastHandshake() {
+  std::unordered_map<std::string, PeerEntry> peersCopy;
+  {
+    std::lock_guard<std::timed_mutex> lk(peersMutex);
+    peersCopy = peerTransports;
+  }
+
+  alyncoin::net::Handshake hs;
+  Blockchain &bc = Blockchain::getInstance();
+  hs.set_version("1.0.0");
+  hs.set_network_id("mainnet");
+  hs.set_height(bc.getHeight());
+  hs.set_listen_port(this->port);
+  if (!bc.getChain().empty())
+    hs.set_genesis_hash(bc.getChain().front().getHash());
+  hs.add_capabilities("full");
+  hs.add_capabilities("miner");
+  hs.add_capabilities("agg_proof_v1");
+  hs.add_capabilities("snapshot_v1");
+  hs.add_capabilities("binary_v1");
+  hs.set_frame_rev(kFrameRevision);
+
+  alyncoin::net::Frame fr;
+  *fr.mutable_handshake() = hs;
+
+  for (auto &kv : peersCopy) {
+    auto tr = kv.second.tx;
+    if (!tr || !tr->isOpen())
+      continue;
+    sendFrame(tr, fr);
+  }
+}
+
 void Network::sendBlockToPeer(const std::string &peer, const Block &blk) {
   {
     std::lock_guard<std::mutex> lk(seenBlockMutex);
@@ -1264,7 +1305,7 @@ void Network::receiveTransaction(const Transaction &tx) {
 
 // Valid peer
 // Handle new block
-void Network::handleNewBlock(const Block &newBlock) {
+void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
   Blockchain &blockchain = Blockchain::getInstance();
   std::cerr << "[handleNewBlock] Attempting to add block idx="
             << newBlock.getIndex() << " hash=" << newBlock.getHash() << '\n';
@@ -1369,6 +1410,11 @@ void Network::handleNewBlock(const Block &newBlock) {
     broadcastBlock(newBlock);
     broadcastHeight(newBlock.getIndex());
     autoSyncIfBehind();
+
+    // Update cached height for the sending peer if provided
+    if (peerManager && !sender.empty())
+      peerManager->setPeerHeight(sender, newBlock.getIndex());
+
     std::cout << "✅ Block added successfully! Index: " << newBlock.getIndex()
               << "\n";
 
@@ -1382,7 +1428,7 @@ void Network::handleNewBlock(const Block &newBlock) {
     auto nextBlk = futureBlockBuffer[nextIndex];
     futureBlockBuffer.erase(nextIndex);
     std::cout << "⏩ Processing buffered block: " << nextIndex << "\n";
-    handleNewBlock(nextBlk);
+    handleNewBlock(nextBlk, "");
     ++nextIndex;
   }
 }
@@ -1589,11 +1635,17 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
   std::cerr << "[<<] Incoming Frame from " << peer << " Type=" << static_cast<int>(tag)
             << "\n";
   switch (f.kind_case()) {
+  case alyncoin::net::Frame::kHandshake: {
+    const auto &hs = f.handshake();
+    if (peerManager)
+      peerManager->setPeerHeight(peer, hs.height());
+    break;
+  }
   case alyncoin::net::Frame::kBlockBroadcast: {
     Block blk = Block::fromProto(f.block_broadcast().block());
     std::cerr << "[dispatch] kBlockBroadcast frame detected. idx="
               << blk.getIndex() << " hash=" << blk.getHash() << '\n';
-    handleNewBlock(blk);
+    handleNewBlock(blk, peer);
     break;
   }
   case alyncoin::net::Frame::kBlockBatch: {
@@ -1601,7 +1653,7 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
       Block blk = Block::fromProto(pb);
       std::cerr << "[dispatch] Batch block idx=" << blk.getIndex()
                 << " hash=" << blk.getHash() << '\n';
-      handleNewBlock(blk);
+      handleNewBlock(blk, peer);
     }
     break;
   }
@@ -2335,6 +2387,10 @@ void Network::handleSnapshotEnd(const std::string &peer) {
     ps->snapshotB64.clear();
     ps->snapState = PeerState::SnapState::Idle;
 
+    if (peerManager)
+      peerManager->setPeerHeight(peer, snap.height());
+    broadcastHeight(chain.getHeight());
+
     // Immediately request tail blocks for any missing blocks
     requestTailBlocks(peer, snap.height());
 
@@ -2402,6 +2458,10 @@ void Network::handleTailBlocks(const std::string &peer,
     std::cout << "✅ [TAIL_BLOCKS] Appended " << appended << " of "
               << proto.blocks_size() << " tail blocks from peer " << peer
               << "\n";
+
+    if (peerManager)
+      peerManager->setPeerHeight(peer, chain.getHeight());
+    broadcastHeight(chain.getHeight());
   } catch (const std::exception &ex) {
     std::cerr << "❌ [TAIL_BLOCKS] Failed to apply tail blocks from peer "
               << peer << ": " << ex.what() << "\n";

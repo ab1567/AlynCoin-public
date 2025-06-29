@@ -75,6 +75,7 @@ public:
   void broadcastBlock(const Block &block, bool force = false);
   void broadcastBlocks(const std::vector<Block> &blocks);
   void broadcastHeight(uint32_t height);
+  void broadcastHandshake();
   void sendBlockToPeer(const std::string &peer, const Block &blk);
   void sendInventory(const std::string &peer);
   PeerManager *getPeerManager();
@@ -107,7 +108,10 @@ public:
   void handleNewRollupBlock(const RollupBlock &newRollupBlock);
   void receiveRollupBlock(const std::string &data);
   void listenForConnections();
-  void handleNewBlock(const Block &newBlock);
+  // Handle a new block received from a peer or mined locally.
+  // The optional sender argument is the peer ID that relayed the block.
+  // When provided we will update our cached height for that peer.
+  void handleNewBlock(const Block &newBlock, const std::string &sender = "");
   void blacklistPeer(const std::string &peer);
   bool isBlacklisted(const std::string &peer);
   void cleanupPeers();
