@@ -8,7 +8,7 @@
 #include <sstream>
 
 PeerManager::PeerManager(PeerBlacklist* bl, Network* net)
-    : blacklist(bl), network(net) {}
+    : blacklist(bl), network(net), localWork(0) {}
 
 bool PeerManager::connectToPeer(const std::string& peer_id) {
     if (blacklist->isBlacklisted(peer_id)) {
@@ -55,6 +55,33 @@ std::vector<std::string> PeerManager::getConnectedPeers() {
 
 int PeerManager::getPeerCount() const {
     return connected_peers.size();
+}
+
+void PeerManager::setLocalWork(uint64_t work) {
+    localWork = work;
+}
+
+uint64_t PeerManager::getLocalWork() const {
+    return localWork;
+}
+
+void PeerManager::setPeerWork(const std::string& peer, uint64_t work) {
+    peerWorks[peer] = work;
+}
+
+uint64_t PeerManager::getPeerWork(const std::string& peer) const {
+    auto it = peerWorks.find(peer);
+    if (it != peerWorks.end()) return it->second;
+    return 0;
+}
+
+uint64_t PeerManager::getMaxPeerWork() const {
+    uint64_t maxW = 0;
+    for (const auto& kv : peerWorks) {
+        if (kv.second > maxW)
+            maxW = kv.second;
+    }
+    return maxW;
 }
 
 uint64_t PeerManager::getMedianNetworkHeight() {

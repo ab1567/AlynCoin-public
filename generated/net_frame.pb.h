@@ -287,6 +287,7 @@ class Handshake final :
     kGenesisHashFieldNumber = 5,
     kHeightFieldNumber = 3,
     kListenPortFieldNumber = 4,
+    kFrameRevFieldNumber = 7,
   };
   // repeated string capabilities = 6;
   int capabilities_size() const;
@@ -372,6 +373,15 @@ class Handshake final :
   void _internal_set_listen_port(uint32_t value);
   public:
 
+  // uint32 frame_rev = 7;
+  void clear_frame_rev();
+  uint32_t frame_rev() const;
+  void set_frame_rev(uint32_t value);
+  private:
+  uint32_t _internal_frame_rev() const;
+  void _internal_set_frame_rev(uint32_t value);
+  public:
+
   // @@protoc_insertion_point(class_scope:alyncoin.net.Handshake)
  private:
   class _Internal;
@@ -386,6 +396,7 @@ class Handshake final :
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr genesis_hash_;
     uint64_t height_;
     uint32_t listen_port_;
+    uint32_t frame_rev_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   };
   union { Impl_ _impl_; };
@@ -869,6 +880,7 @@ class HeightResponse final :
 
   enum : int {
     kHeightFieldNumber = 1,
+    kTotalWorkFieldNumber = 2,
   };
   // uint64 height = 1;
   void clear_height();
@@ -877,6 +889,15 @@ class HeightResponse final :
   private:
   uint64_t _internal_height() const;
   void _internal_set_height(uint64_t value);
+  public:
+
+  // uint64 total_work = 2;
+  void clear_total_work();
+  uint64_t total_work() const;
+  void set_total_work(uint64_t value);
+  private:
+  uint64_t _internal_total_work() const;
+  void _internal_set_total_work(uint64_t value);
   public:
 
   // @@protoc_insertion_point(class_scope:alyncoin.net.HeightResponse)
@@ -888,6 +909,7 @@ class HeightResponse final :
   typedef void DestructorSkippable_;
   struct Impl_ {
     uint64_t height_;
+    uint64_t total_work_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   };
   union { Impl_ _impl_; };
@@ -4746,6 +4768,26 @@ Handshake::mutable_capabilities() {
   return &_impl_.capabilities_;
 }
 
+// uint32 frame_rev = 7;
+inline void Handshake::clear_frame_rev() {
+  _impl_.frame_rev_ = 0u;
+}
+inline uint32_t Handshake::_internal_frame_rev() const {
+  return _impl_.frame_rev_;
+}
+inline uint32_t Handshake::frame_rev() const {
+  // @@protoc_insertion_point(field_get:alyncoin.net.Handshake.frame_rev)
+  return _internal_frame_rev();
+}
+inline void Handshake::_internal_set_frame_rev(uint32_t value) {
+  
+  _impl_.frame_rev_ = value;
+}
+inline void Handshake::set_frame_rev(uint32_t value) {
+  _internal_set_frame_rev(value);
+  // @@protoc_insertion_point(field_set:alyncoin.net.Handshake.frame_rev)
+}
+
 // -------------------------------------------------------------------
 
 // Ping
@@ -4780,6 +4822,26 @@ inline void HeightResponse::_internal_set_height(uint64_t value) {
 inline void HeightResponse::set_height(uint64_t value) {
   _internal_set_height(value);
   // @@protoc_insertion_point(field_set:alyncoin.net.HeightResponse.height)
+}
+
+// uint64 total_work = 2;
+inline void HeightResponse::clear_total_work() {
+  _impl_.total_work_ = uint64_t{0u};
+}
+inline uint64_t HeightResponse::_internal_total_work() const {
+  return _impl_.total_work_;
+}
+inline uint64_t HeightResponse::total_work() const {
+  // @@protoc_insertion_point(field_get:alyncoin.net.HeightResponse.total_work)
+  return _internal_total_work();
+}
+inline void HeightResponse::_internal_set_total_work(uint64_t value) {
+  
+  _impl_.total_work_ = value;
+}
+inline void HeightResponse::set_total_work(uint64_t value) {
+  _internal_set_total_work(value);
+  // @@protoc_insertion_point(field_set:alyncoin.net.HeightResponse.total_work)
 }
 
 // -------------------------------------------------------------------

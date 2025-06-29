@@ -21,7 +21,7 @@ NodeHealthStatus HealthMonitor::checkHealth() {
     status.expectedTipHash = peerManager_->getConsensusTipHash(status.localHeight);
     status.connectedPeers = peerManager_->getPeerCount();
     uint64_t localWork = blockchain_->computeCumulativeDifficulty(blockchain_->getChain());
-    uint64_t remoteWork = peerManager_->getMaxPeerHeight(); // proxy for total work
+    uint64_t remoteWork = peerManager_->getMaxPeerWork();
     status.farBehind = false;
 
     if (remoteWork == 0) {
@@ -77,7 +77,7 @@ void HealthMonitor::logStatus(const NodeHealthStatus& status) {
         << "  • Network Height: " << status.networkHeight << "\n"
         << "  • Peers: " << status.connectedPeers << "\n"
         << "  • Local Work: " << blockchain_->computeCumulativeDifficulty(blockchain_->getChain()) << "\n"
-        << "  • Remote Work: " << peerManager_->getMaxPeerHeight() << "\n"
+        << "  • Remote Work: " << peerManager_->getMaxPeerWork() << "\n"
         << "  • Local Tip Hash: " << status.localTipHash.substr(0, 10) << "...\n"
         << "  • Expected Tip Hash: " << status.expectedTipHash.substr(0, 10) << "...";
 
