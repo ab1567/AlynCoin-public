@@ -1844,6 +1844,9 @@ bool Network::connectToNode(const std::string &host, int port) {
       std::lock_guard<std::timed_mutex> g(peersMutex);
       if (peerTransports.count(peerKey)) {
         std::cout << "🔁 already connected to " << peerKey << '\n';
+        // ensure pending handshake is cleaned up before returning
+        if (tx)
+          tx->close();
         return false;
       }
     }
@@ -1921,6 +1924,9 @@ bool Network::connectToNode(const std::string &host, int port) {
       std::lock_guard<std::timed_mutex> lk(peersMutex);
       if (peerTransports.count(peerKey)) {
         std::cout << "🔁 already connected to " << peerKey << '\n';
+        // ensure pending handshake is cleaned up before returning
+        if (tx)
+          tx->close();
         return false;
       }
       peerTransports[peerKey] = {tx, std::make_shared<PeerState>()};
