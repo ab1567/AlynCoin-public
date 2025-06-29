@@ -99,6 +99,7 @@ public:
   void run();
   bool isSyncing() const;
   bool connectToNode(const std::string &ip, int port);
+  bool finishOutboundHandshake(std::shared_ptr<Transport> tx);
   void autoMineBlock();
   void periodicSync();
   void broadcastRollupBlock(const RollupBlock &rollupBlock);
