@@ -105,8 +105,10 @@ The default RPC port is `1567` and the peer port is `15671`.
 
 The node shares its current block height with peers whenever a new block is
 mined or received. Peers compare heights and request any missing tail blocks or
-snapshots without needing a restart. Periodic health checks also probe peers to
-ensure connections stay alive and synchronize in the background.
+snapshots without needing a restart. If a snapshot message contains exactly one
+block at the next height, the node treats it as a live tail push and appends the
+block immediately. Periodic health checks also probe peers to ensure connections
+stay alive and synchronize in the background.
 
 ### Permission denied when starting the node
 
