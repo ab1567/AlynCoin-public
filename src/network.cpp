@@ -801,6 +801,16 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     ScopedLockTracer t("handlePeer/register");
     std::lock_guard<std::timed_mutex> lk(peersMutex);
 
+    auto itExisting = peerTransports.find(claimedPeerId);
+    if (itExisting != peerTransports.end() && itExisting->second.tx &&
+        itExisting->second.tx->isOpen()) {
+      std::cout << "🔁 duplicate connection from " << claimedPeerId
+                << " closed\n";
+      if (transport)
+        transport->close();
+      return;
+    }
+
     auto &entry = peerTransports[claimedPeerId];
     entry.tx = transport;
     knownPeers.insert(claimedPeerId);
@@ -1262,30 +1272,11 @@ void Network::sendBlockToPeer(const std::string &peer, const Block &blk) {
     sendFrame(it->second.tx, fr);
 }
 //
-bool Network::isSelfPeer(const std::string &peer) const {
-  std::string selfAddr = getSelfAddressAndPort();
-  if (peer == selfAddr || peer == "127.0.0.1:" + std::to_string(this->port) ||
-      peer == "localhost:" + std::to_string(this->port))
+bool Network::isSelfPeer(const std::string &p) const {
+  if (!publicPeerId.empty() && p == publicPeerId)
     return true;
-
-  if (!publicPeerId.empty()) {
-    auto colon = publicPeerId.find(':');
-    if (colon == std::string::npos) {
-      // If no port was specified, fall back to IP only comparison
-      std::string peerIp = peer.substr(0, peer.find(':'));
-      if (peerIp == publicPeerId)
-        return true;
-    } else {
-      std::string ipSelf = publicPeerId.substr(0, colon);
-      std::string portSelf = publicPeerId.substr(colon + 1);
-      auto peerColon = peer.find(':');
-      std::string peerIp = peer.substr(0, peerColon);
-      std::string peerPort =
-          peerColon == std::string::npos ? "" : peer.substr(peerColon + 1);
-      if (peerIp == ipSelf && peerPort == portSelf)
-        return true;
-    }
-  }
+  if (p == "127.0.0.1:" + std::to_string(port))
+    return true;
   return false;
 }
 
@@ -1583,6 +1574,31 @@ void Network::addPeer(const std::string &peer) {
 }
 
 // ------------------------------------------------------------------
+//  Helper: send our handshake right after connecting outbound
+// ------------------------------------------------------------------
+bool Network::finishOutboundHandshake(std::shared_ptr<Transport> tx) {
+  if (!tx || !tx->isOpen())
+    return false;
+  alyncoin::net::Handshake hs;
+  Blockchain &bc = Blockchain::getInstance();
+  hs.set_version("1.0.0");
+  hs.set_network_id("mainnet");
+  hs.set_height(bc.getHeight());
+  hs.set_listen_port(this->port);
+  if (!bc.getChain().empty())
+    hs.set_genesis_hash(bc.getChain().front().getHash());
+  hs.add_capabilities("full");
+  hs.add_capabilities("miner");
+  hs.add_capabilities("agg_proof_v1");
+  hs.add_capabilities("snapshot_v1");
+  hs.add_capabilities("binary_v1");
+  hs.set_frame_rev(kFrameRevision);
+  alyncoin::net::Frame fr;
+  *fr.mutable_handshake() = hs;
+  return sendFrameImmediate(tx, fr);
+}
+
+// ------------------------------------------------------------------
 //  Helper: send the three “kick-off” messages after a connection
 // ------------------------------------------------------------------
 void Network::sendInitialRequests(const std::string &peerId) {
@@ -1853,23 +1869,7 @@ bool Network::connectToNode(const std::string &host, int port) {
     }
 
     /* our handshake */
-    alyncoin::net::Handshake hs;
-    Blockchain &bc = Blockchain::getInstance();
-    hs.set_version("1.0.0");
-    hs.set_network_id("mainnet");
-    hs.set_height(bc.getHeight());
-    hs.set_listen_port(this->port);
-    if (!bc.getChain().empty())
-      hs.set_genesis_hash(bc.getChain().front().getHash());
-    hs.add_capabilities("full");
-    hs.add_capabilities("miner");
-    hs.add_capabilities("agg_proof_v1");
-    hs.add_capabilities("snapshot_v1");
-    hs.add_capabilities("binary_v1");
-    hs.set_frame_rev(kFrameRevision);
-    alyncoin::net::Frame out;
-    out.mutable_handshake()->CopyFrom(hs);
-    if (!sendFrameImmediate(tx, out)) {
+    if (!finishOutboundHandshake(tx)) {
       std::cerr << "❌ [connectToNode] failed to send handshake to " << peerKey
                 << '\n';
       return false;
