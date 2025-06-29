@@ -29,6 +29,7 @@ using boost::asio::ip::tcp;
 class Network {
 public:
   // Singleton initialization
+  inline static bool autoMineEnabled = true;
   inline static Network &getInstance(unsigned short port,
                                      Blockchain *blockchain = nullptr,
                                      PeerBlacklist *blacklistPtr = nullptr) {
