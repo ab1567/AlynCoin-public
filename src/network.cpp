@@ -2382,6 +2382,27 @@ void Network::handleSnapshotEnd(const std::string &peer) {
       snapBlocks.push_back(Block::fromProto(pb, false));
     }
 
+    // --- Quick path: height == localHeight + 1 -> treat as tail push
+    int localHeight = chain.getHeight();
+    if (snap.height() == localHeight + 1 && snapBlocks.size() == 1) {
+      const Block &b = snapBlocks.front();
+      if (chain.addBlock(b)) {
+        ps->snapshotActive = false;
+        ps->snapshotB64.clear();
+        ps->snapState = PeerState::SnapState::Idle;
+        if (peerManager) {
+          peerManager->setPeerHeight(peer, chain.getHeight());
+          peerManager->setPeerWork(
+              peer, chain.computeCumulativeDifficulty(chain.getChain()));
+        }
+        broadcastHeight(chain.getHeight());
+        return;
+      } else {
+        std::cerr << "⚠️ [SNAPSHOT] Tail push block failed validation\n";
+        // fall through to regular snapshot logic
+      }
+    }
+
     // [Optional] Validate Merkle root if provided
     if (!snap.merkle_root().empty()) {
       if (!snapBlocks.empty()) {
@@ -2392,7 +2413,6 @@ void Network::handleSnapshotEnd(const std::string &peer) {
     }
 
     // --- Fork choice: accept snapshot only if heavier ---
-    int localHeight = chain.getHeight();
     uint64_t localWork = chain.computeCumulativeDifficulty(chain.getChain());
     uint64_t remoteWork = chain.computeCumulativeDifficulty(snapBlocks);
     std::string localTipHash = chain.getLatestBlockHash();
