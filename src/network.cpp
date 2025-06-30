@@ -1883,7 +1883,13 @@ bool Network::connectToNode(const std::string &host, int port) {
         std::cerr << "⚠️ [connectToNode] handshake timeout for " << peerKey
                   << '\n';
         std::lock_guard<std::timed_mutex> g(peersMutex);
-        peerTransports.erase(peerKey);
+        auto it = peerTransports.find(peerKey);
+        if (it != peerTransports.end() && it->second.tx &&
+            it->second.tx->isOpen()) {
+          tcp->close();
+        } else {
+          peerTransports.erase(peerKey);
+        }
         return false;
       }
       blob = tcp->readBinaryBlocking();
@@ -1899,7 +1905,13 @@ bool Network::connectToNode(const std::string &host, int port) {
       std::cerr << "⚠️ [connectToNode] invalid handshake from " << peerKey
                 << '\n';
       std::lock_guard<std::timed_mutex> g(peersMutex);
-      peerTransports.erase(peerKey);
+      auto it = peerTransports.find(peerKey);
+      if (it != peerTransports.end() && it->second.tx && it->second.tx->isOpen()) {
+        if (auto tcp = std::dynamic_pointer_cast<TcpTransport>(tx))
+          tcp->close();
+      } else {
+        peerTransports.erase(peerKey);
+      }
       return false;
     }
     const auto &rhs = fr.handshake();

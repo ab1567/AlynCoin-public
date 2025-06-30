@@ -478,6 +478,8 @@ bool Blockchain::addBlock(const Block &block) {
             totalWork += 1ULL;
         if (network && network->getPeerManager())
             network->getPeerManager()->setLocalWork(totalWork);
+        if (network)
+            network->broadcastHeight(chain.back().getIndex());
     } catch (const std::exception& e) {
         std::cerr << "❌ [CRITICAL][addBlock] push_back failed: " << e.what() << "\n";
         return false;
