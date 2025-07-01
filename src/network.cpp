@@ -1355,12 +1355,28 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
     if (newBlock.getPreviousHash() != localTipHash) {
       std::cerr
           << "⚠️ [Fork Detected] Previous hash mismatch at incoming block.\n";
-      std::vector<Block> forkCandidate = {newBlock};
-      blockchain.saveForkView(forkCandidate);
 
-      for (const auto &peer : peerTransports) {
-        sendForkRecoveryRequest(peer.first, newBlock.getHash());
+      blockchain.saveForkView({newBlock});
+
+      bool added = blockchain.addBlock(newBlock);
+      if (!added) {
+        for (const auto &peer : peerTransports) {
+          sendForkRecoveryRequest(peer.first, newBlock.getHash());
+        }
+        return;
       }
+
+      blockchain.saveToDB();
+      broadcastBlock(newBlock);
+      if (peerManager && !sender.empty()) {
+        peerManager->setPeerHeight(sender, newBlock.getIndex());
+        peerManager->setPeerTipHash(sender, newBlock.getHash());
+      }
+      broadcastHeight(blockchain.getHeight());
+      autoSyncIfBehind();
+
+      std::cout << "✅ Block added successfully (fork branch). Index: "
+                << newBlock.getIndex() << "\n";
       return;
     }
   }
