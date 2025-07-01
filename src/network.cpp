@@ -1446,6 +1446,9 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
     if (peerManager && !sender.empty()) {
       peerManager->setPeerHeight(sender, newBlock.getIndex());
       peerManager->setPeerTipHash(sender, newBlock.getHash());
+      peerManager->setPeerWork(
+          sender,
+          blockchain.computeCumulativeDifficulty(blockchain.getChain()));
     }
     broadcastHeight(newBlock.getIndex());
     autoSyncIfBehind();
