@@ -180,8 +180,8 @@ void Network::sendHeight(const std::string &peer) {
   alyncoin::net::Frame fr;
   Blockchain &bc = Blockchain::getInstance();
   auto *hr = fr.mutable_height_res();
-  hr->set_height(bc.getHeight());
-  uint64_t work = bc.computeCumulativeDifficulty(bc.getChain());
+  hr->set_height(advertisedHeight);
+  uint64_t work = advertisedWork;
   if (peerManager)
     peerManager->setLocalWork(work);
   hr->set_total_work(work);
@@ -405,6 +405,9 @@ Network::Network(unsigned short port, Blockchain *blockchain,
     std::cout << "🌐 Network listener started on port: " << std::dec << port
               << "\n";
     peerManager = std::make_unique<PeerManager>(blacklistPtr, this);
+    // Cache the current height/work for outgoing probes
+    advertisedHeight = blockchain->getHeight();
+    advertisedWork = blockchain->computeCumulativeDifficulty(blockchain->getChain());
     isRunning = true;
     listenerThread = std::thread(&Network::listenForConnections, this);
     threads_.push_back(std::move(listenerThread));
@@ -504,6 +507,10 @@ void Network::autoMineBlock() {
           }
           broadcastBlock(minedBlock);
           broadcastHeight(minedBlock.getIndex());
+          advertisedHeight = minedBlock.getIndex();
+          advertisedWork =
+              Blockchain::getInstance().computeCumulativeDifficulty(
+                  Blockchain::getInstance().getChain());
           autoSyncIfBehind();
           std::cout << "✅ Mined & broadcasted block: " << minedBlock.getHash()
                     << std::endl;
@@ -1212,7 +1219,9 @@ void Network::broadcastHeight(uint32_t height) {
   Blockchain &bc = Blockchain::getInstance();
   auto *hr = fr.mutable_height_res();
   hr->set_height(height);
+  advertisedHeight = height;
   uint64_t work = bc.computeCumulativeDifficulty(bc.getChain());
+  advertisedWork = work;
   if (peerManager)
     peerManager->setLocalWork(work);
   hr->set_total_work(work);
@@ -1235,7 +1244,9 @@ void Network::broadcastHandshake() {
   Blockchain &bc = Blockchain::getInstance();
   hs.set_version("1.0.0");
   hs.set_network_id("mainnet");
-  hs.set_height(bc.getHeight());
+  advertisedHeight = bc.getHeight();
+  advertisedWork = bc.computeCumulativeDifficulty(bc.getChain());
+  hs.set_height(advertisedHeight);
   hs.set_listen_port(this->port);
   if (!bc.getChain().empty())
     hs.set_genesis_hash(bc.getChain().front().getHash());
@@ -1375,6 +1386,8 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
         peerManager->setPeerTipHash(sender, newBlock.getHash());
       }
       broadcastHeight(blockchain.getHeight());
+      advertisedHeight = blockchain.getHeight();
+      advertisedWork = blockchain.computeCumulativeDifficulty(blockchain.getChain());
       autoSyncIfBehind();
 
       std::cout << "✅ Block added successfully (fork branch). Index: "
@@ -1453,6 +1466,8 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
           blockchain.computeCumulativeDifficulty(blockchain.getChain()));
     }
     broadcastHeight(newBlock.getIndex());
+    advertisedHeight = newBlock.getIndex();
+    advertisedWork = blockchain.computeCumulativeDifficulty(blockchain.getChain());
     autoSyncIfBehind();
 
     std::cout << "✅ Block added successfully! Index: " << newBlock.getIndex()
@@ -1605,7 +1620,9 @@ bool Network::finishOutboundHandshake(std::shared_ptr<Transport> tx) {
   Blockchain &bc = Blockchain::getInstance();
   hs.set_version("1.0.0");
   hs.set_network_id("mainnet");
-  hs.set_height(bc.getHeight());
+  advertisedHeight = bc.getHeight();
+  advertisedWork = bc.computeCumulativeDifficulty(bc.getChain());
+  hs.set_height(advertisedHeight);
   hs.set_listen_port(this->port);
   if (!bc.getChain().empty())
     hs.set_genesis_hash(bc.getChain().front().getHash());
@@ -2441,6 +2458,8 @@ void Network::handleSnapshotEnd(const std::string &peer) {
               peer, chain.computeCumulativeDifficulty(chain.getChain()));
         }
         broadcastHeight(chain.getHeight());
+        advertisedHeight = chain.getHeight();
+        advertisedWork = chain.computeCumulativeDifficulty(chain.getChain());
         return;
       } else {
         std::cerr << "⚠️ [SNAPSHOT] Tail push block failed validation\n";
@@ -2491,6 +2510,8 @@ void Network::handleSnapshotEnd(const std::string &peer) {
       peerManager->setPeerWork(peer, remoteWork);
     }
     broadcastHeight(chain.getHeight());
+    advertisedHeight = chain.getHeight();
+    advertisedWork = chain.computeCumulativeDifficulty(chain.getChain());
 
     // Immediately request tail blocks for any missing blocks
     requestTailBlocks(peer, snap.height());
@@ -2563,6 +2584,8 @@ void Network::handleTailBlocks(const std::string &peer,
     if (peerManager)
       peerManager->setPeerHeight(peer, chain.getHeight());
     broadcastHeight(chain.getHeight());
+    advertisedHeight = chain.getHeight();
+    advertisedWork = chain.computeCumulativeDifficulty(chain.getChain());
   } catch (const std::exception &ex) {
     std::cerr << "❌ [TAIL_BLOCKS] Failed to apply tail blocks from peer "
               << peer << ": " << ex.what() << "\n";
