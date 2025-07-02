@@ -847,7 +847,6 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     alyncoin::net::Frame out;
     out.mutable_handshake()->CopyFrom(hs);
     sendFrameImmediate(transport, out);
-    sendHeight(claimedPeerId);          // ACK
   }
 
   // ── 5. arm read loop + initial requests ────────────────────────────────
@@ -1976,20 +1975,6 @@ bool Network::connectToNode(const std::string &host, int port) {
       }
     }
 
-    sendHeight(peerKey); // Advertise our height early
-    if (auto tcp = std::dynamic_pointer_cast<TcpTransport>(tx)) {
-      if (tcp->waitReadable(5)) {
-        std::string ack = tcp->readBinaryBlocking();
-        alyncoin::net::Frame frAck;
-        if (!ack.empty() && frAck.ParseFromString(ack) && frAck.has_height_res()) {
-          if (peerManager) {
-            peerManager->setPeerHeight(peerKey, frAck.height_res().height());
-            peerManager->setPeerWork(peerKey, frAck.height_res().total_work());
-          }
-        }
-      }
-    }
-
     /* pick correct sync action now */
     const int localHeight = Blockchain::getInstance().getHeight();
     if (theirHeight > localHeight) {
@@ -2480,7 +2465,7 @@ void Network::handleSnapshotEnd(const std::string &peer) {
 
     bool accept = (remoteTipHash != localTipHash &&
                    snap.height() >= localHeight &&
-                   chain.shouldSwitchTo(snapBlocks));
+                   remoteWork >= localWork);
 
     if (!accept) {
       std::cerr << "⚠️ [SNAPSHOT] Rejected snapshot from " << peer << " (height "
