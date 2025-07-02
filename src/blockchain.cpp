@@ -57,13 +57,13 @@ std::atomic<bool> Blockchain::isMining{false};
 
 Blockchain::Blockchain()
     : difficulty(0), miningReward(100.0), db(nullptr), totalBurnedSupply(0.0),
-      network(nullptr), totalWork(0) {
+      network(nullptr), totalWorkLocal(0) {
   std::cout << "[DEBUG] Default Blockchain constructor called.\n";
 }
 
 // ✅ Constructor: Open RocksDB
 Blockchain::Blockchain(unsigned short port, const std::string &dbPath, bool bindNetwork, bool isSyncMode)
-    : difficulty(0), miningReward(100.0), port(port), dbPath(dbPath), totalWork(0) {
+    : difficulty(0), miningReward(100.0), port(port), dbPath(dbPath), totalWorkLocal(0) {
 
     // Only set network pointer if asked AND it's already initialized, otherwise nullptr
     if (bindNetwork) {
@@ -473,11 +473,11 @@ bool Blockchain::addBlock(const Block &block) {
                   << ", hash=" << block.getHash() << std::endl;
         chain.push_back(block);
         if (block.getDifficulty() >= 0 && block.getDifficulty() < 64)
-            totalWork += (1ULL << block.getDifficulty());
+            totalWorkLocal += (1ULL << block.getDifficulty());
         else
-            totalWork += 1ULL;
+            totalWorkLocal += 1ULL;
         if (network && network->getPeerManager())
-            network->getPeerManager()->setLocalWork(totalWork);
+            network->getPeerManager()->setLocalWork(totalWorkLocal);
         if (network)
             network->broadcastHeight(chain.back().getIndex());
     } catch (const std::exception& e) {
@@ -760,7 +760,7 @@ void Blockchain::mergeWith(const Blockchain &other) {
         newChain.push_back(block);
     }
 
-    if (newChain.size() > chain.size()) {
+    if (shouldSwitchTo(newChain)) {
         std::cout << "✅ Replacing current blockchain with a longer valid chain!\n";
         chain = newChain;
         adjustDifficulty();
@@ -969,7 +969,7 @@ void Blockchain::syncChain(const Json::Value &jsonData) {
         newChain.push_back(newBlock);
     }
 
-    if (newChain.size() > chain.size()) {
+    if (shouldSwitchTo(newChain)) {
         chain = newChain;
         saveToDB();
         std::cout << "✅ Blockchain successfully synchronized with a longer chain!\n";
@@ -1293,15 +1293,15 @@ bool Blockchain::loadFromDB() {
         std::cout << "✅ Vesting applied & marker set.\n";
     }
 
-    totalWork = 0;
+    totalWorkLocal = 0;
     for (const auto &b : chain) {
         if (b.getDifficulty() >= 0 && b.getDifficulty() < 64)
-            totalWork += (1ULL << b.getDifficulty());
+            totalWorkLocal += (1ULL << b.getDifficulty());
         else
-            totalWork += 1ULL;
+            totalWorkLocal += 1ULL;
     }
     if (network && network->getPeerManager())
-        network->getPeerManager()->setLocalWork(totalWork);
+        network->getPeerManager()->setLocalWork(totalWorkLocal);
 
     difficulty = calculateSmartDifficulty(*this);
 
@@ -1577,7 +1577,7 @@ bool Blockchain::loadFromProto(const alyncoin::BlockchainProto &protoChain) {
 void Blockchain::replaceChain(const std::vector<Block> &newChain) {
     std::lock_guard<std::mutex> lock(blockchainMutex);
 
-    if (newChain.size() > chain.size()) {
+    if (shouldSwitchTo(newChain)) {
         // 1. Check genesis block matches our chain
         if (chain.size() > 0 && newChain[0].getHash() != chain[0].getHash()) {
             std::cerr << "❌ [replaceChain] Genesis block mismatch. Rejecting chain.\n";
@@ -2754,6 +2754,18 @@ uint64_t Blockchain::computeCumulativeDifficulty(const std::vector<Block>& chain
                   << " diff=" << blk.difficulty << " total=" << total << "\n";
     }
     return total;
+}
+
+// --- utility: cumulative work  ------------------------------------
+uint64_t Blockchain::totalWork(const std::vector<Block>& chain) const {
+    uint64_t sum = 0;
+    for (const auto& b : chain) sum += (1ULL << b.getDifficulty()); // 2^d
+    return sum;
+}
+
+// --- fork-choice: heavier is better -------------------------------
+bool Blockchain::shouldSwitchTo(const std::vector<Block>& incoming) const {
+    return totalWork(incoming) > totalWork(this->chain);
 }
 //
 std::vector<Block> Blockchain::getChainUpTo(size_t height) const
