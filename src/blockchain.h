@@ -221,6 +221,7 @@ public:
   bool verifyForkSafety(const std::vector<Block>& otherChain) const;
   int findForkCommonAncestor(const std::vector<Block>& otherChain) const;
   uint64_t computeCumulativeDifficulty(const std::vector<Block>& chainRef) const;
+  bool shouldSwitchTo(const std::vector<Block>& otherChain) const;
   void setPendingForkChain(const std::vector<Block>& fork);
   std::vector<Block> getPendingForkChain() const;
   void clearPendingForkChain();
