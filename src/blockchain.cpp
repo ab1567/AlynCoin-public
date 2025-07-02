@@ -787,7 +787,7 @@ Block Blockchain::minePendingTransactions(
     const std::vector<unsigned char> &minerFalconPriv)
 {
     std::cout << "[DEBUG] Waiting on blockchainMutex in minePendingTransactions()...\n";
-    std::lock_guard<std::mutex> lock(blockchainMutex);
+    std::unique_lock<std::mutex> lock(blockchainMutex);
     std::cout << "[DEBUG] Acquired blockchainMutex in minePendingTransactions()!\n";
 
     std::map<std::string, double> tempBalances;
@@ -900,10 +900,12 @@ Block Blockchain::minePendingTransactions(
     newBlock.setReward(blockRewardVal);
     std::cout << "[DEBUG] Block reward now: " << newBlock.getReward() << "\n";
 
+    lock.unlock();
     if (!newBlock.mineBlock(difficulty)) {
         std::cerr << "❌ Mining process returned false!\n";
         return Block();
     }
+    lock.lock();
 
     // If this block completes an epoch, compute aggregated root and dummy proof
     size_t nextIndex = chain.size();
@@ -930,6 +932,7 @@ Block Blockchain::minePendingTransactions(
     }
 
     clearPendingTransactions();
+    lock.unlock();
     std::cout << "[DEBUG] About to serialize block with reward = " << newBlock.getReward() << "\n";
     saveToDB();
 
