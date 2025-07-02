@@ -149,8 +149,9 @@ public:
                  const google::protobuf::Message &m,
                  bool immediate = false);
   inline bool sendFrameImmediate(std::shared_ptr<Transport> tr,
-                                 const google::protobuf::Message &m) {
-    return sendFrame(std::move(tr), m, true);
+                                 const google::protobuf::Message &m)
+  {
+    return sendFrame(tr, m, true);
   }
   void broadcastFrame(const google::protobuf::Message &m);
   void sendHeight(const std::string &peer);
