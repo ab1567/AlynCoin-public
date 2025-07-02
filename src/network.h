@@ -181,6 +181,10 @@ private:
   static Network *instancePtr;
   std::vector<std::thread> threads_;
 
+  // Latest height/work we advertise to peers
+  std::atomic<uint32_t> advertisedHeight{0};
+  std::atomic<uint64_t> advertisedWork{0};
+
   // Helpers reused by handlePeer & connectToNode
   void startBinaryReadLoop(const std::string &peerId,
                            std::shared_ptr<Transport> transport);
