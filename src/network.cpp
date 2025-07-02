@@ -181,8 +181,9 @@ void Network::sendHeight(const std::string &peer) {
   Blockchain &bc = Blockchain::getInstance();
   auto *hr = fr.mutable_height_res();
   hr->set_height(bc.getHeight());
-  uint64_t work = peerManager ? peerManager->getLocalWork()
-                              : bc.computeCumulativeDifficulty(bc.getChain());
+  uint64_t work = bc.computeCumulativeDifficulty(bc.getChain());
+  if (peerManager)
+    peerManager->setLocalWork(work);
   hr->set_total_work(work);
   sendFrame(it->second.tx, fr);
 }
@@ -1211,8 +1212,9 @@ void Network::broadcastHeight(uint32_t height) {
   Blockchain &bc = Blockchain::getInstance();
   auto *hr = fr.mutable_height_res();
   hr->set_height(height);
-  uint64_t work = peerManager ? peerManager->getLocalWork()
-                              : bc.computeCumulativeDifficulty(bc.getChain());
+  uint64_t work = bc.computeCumulativeDifficulty(bc.getChain());
+  if (peerManager)
+    peerManager->setLocalWork(work);
   hr->set_total_work(work);
   for (auto &kv : peersCopy) {
     auto tr = kv.second.tx;
