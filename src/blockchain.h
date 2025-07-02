@@ -70,7 +70,7 @@ private:
   static constexpr const char *DEV_FUND_ADDRESS = "DevFundWallet";
   double devFundBalance = 0.0;
   std::time_t devFundLastActivity = std::time(nullptr);
-  uint64_t totalWork = 0;
+  uint64_t totalWorkLocal = 0;
 
   // --- Vesting ---
   struct VestingInfo {
@@ -203,7 +203,7 @@ public:
   std::string getLastRollupProof() const;
 
   int getHeight() const;
-  uint64_t getTotalWork() const { return totalWork; }
+  uint64_t getTotalWork() const { return totalWorkLocal; }
   std::string getBlockHashAtHeight(int height) const;
   bool rollbackToHeight(int height);
 
@@ -221,6 +221,8 @@ public:
   bool verifyForkSafety(const std::vector<Block>& otherChain) const;
   int findForkCommonAncestor(const std::vector<Block>& otherChain) const;
   uint64_t computeCumulativeDifficulty(const std::vector<Block>& chainRef) const;
+  uint64_t totalWork(const std::vector<Block>& chain) const;
+  bool shouldSwitchTo(const std::vector<Block>& incoming) const;
   void setPendingForkChain(const std::vector<Block>& fork);
   std::vector<Block> getPendingForkChain() const;
   void clearPendingForkChain();
