@@ -847,7 +847,6 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     alyncoin::net::Frame out;
     out.mutable_handshake()->CopyFrom(hs);
     sendFrameImmediate(transport, out);
-    sendHeight(claimedPeerId);              // <-- ACK with our current height
   }
 
   // ── 5. arm read loop + initial requests ────────────────────────────────
@@ -1974,29 +1973,6 @@ bool Network::connectToNode(const std::string &host, int port) {
         peerManager->connectToPeer(peerKey);
         peerManager->setPeerHeight(peerKey, theirHeight);
       }
-    }
-
-    //------------------------------------------------------------------
-    // NEW: finish the handshake – send ACK with our real height
-    //      and block a few seconds waiting for their ACK.
-    //------------------------------------------------------------------
-    sendHeight(peerKey);                         // our ACK
-
-    if (auto tcp = std::dynamic_pointer_cast<TcpTransport>(tx)) {
-        if (!tcp->waitReadable(5)) {
-            std::cerr << "⚠️  ACK timeout for " << peerKey << '\n';
-            tx->close();
-            return false;
-        }
-        std::string ackBlob = tcp->readBinaryBlocking();
-        alyncoin::net::Frame ackFr;
-        if (!ackFr.ParseFromString(ackBlob) || !ackFr.has_height_res()) {
-            std::cerr << "⚠️  expected height_res from " << peerKey << '\n';
-            tx->close();
-            return false;
-        }
-        theirHeight = static_cast<int>(ackFr.height_res().height());
-        if (peerManager) peerManager->setPeerHeight(peerKey, theirHeight);
     }
 
     /* pick correct sync action now */
