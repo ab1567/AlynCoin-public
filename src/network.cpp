@@ -1897,10 +1897,10 @@ bool Network::connectToNode(const std::string &host, int port) {
       return false;
     }
 
-    /* read their handshake (30 s timeout) */
+    /* read their handshake (10 s timeout) */
     std::string blob;
     if (auto tcp = std::dynamic_pointer_cast<TcpTransport>(tx)) {
-      if (!tcp->waitReadable(30)) {
+      if (!tcp->waitReadable(10)) {
         std::cerr << "⚠️ [connectToNode] handshake timeout for " << peerKey
                   << '\n';
         std::lock_guard<std::timed_mutex> g(peersMutex);
