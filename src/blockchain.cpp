@@ -2755,14 +2755,6 @@ uint64_t Blockchain::computeCumulativeDifficulty(const std::vector<Block>& chain
     }
     return total;
 }
-
-bool Blockchain::shouldSwitchTo(const std::vector<Block>& otherChain) const {
-    uint64_t localWork = computeCumulativeDifficulty(chain);
-    uint64_t remoteWork = computeCumulativeDifficulty(otherChain);
-    if (remoteWork > localWork)
-        return true;
-    return false;
-}
 //
 std::vector<Block> Blockchain::getChainUpTo(size_t height) const
 {
