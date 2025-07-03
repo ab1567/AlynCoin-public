@@ -223,6 +223,8 @@ void Network::markPeerOffline(const std::string &peerId) {
     peerManager->disconnectPeer(peerId);
 }
 
+// Build a handshake using the most up-to-date blockchain metadata so
+// newly connected peers know our real tip height and capabilities.
 alyncoin::net::Handshake Network::buildHandshake() const {
   alyncoin::net::Handshake hs;
   Blockchain &bc = Blockchain::getInstance();
