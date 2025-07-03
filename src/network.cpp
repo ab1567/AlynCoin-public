@@ -222,6 +222,26 @@ void Network::markPeerOffline(const std::string &peerId) {
   if (peerManager)
     peerManager->disconnectPeer(peerId);
 }
+
+// Build a handshake using the most up-to-date blockchain metadata so
+// newly connected peers know our real tip height and capabilities.
+alyncoin::net::Handshake Network::buildHandshake() const {
+  alyncoin::net::Handshake hs;
+  Blockchain &bc = Blockchain::getInstance();
+  hs.set_version("1.0.0");
+  hs.set_network_id("mainnet");
+  hs.set_height(bc.getHeight());
+  hs.set_listen_port(this->port);
+  if (!bc.getChain().empty())
+    hs.set_genesis_hash(bc.getChain().front().getHash());
+  hs.add_capabilities("full");
+  hs.add_capabilities("miner");
+  hs.add_capabilities("agg_proof_v1");
+  hs.add_capabilities("snapshot_v1");
+  hs.add_capabilities("binary_v1");
+  hs.set_frame_rev(kFrameRevision);
+  return hs;
+}
 // Fallback peer(s) in case DNS discovery fails
 static const std::vector<std::string> DEFAULT_DNS_PEERS = {
     "49.206.56.213:15672", // Known bootstrap peer
@@ -830,23 +850,11 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
 
   // ── 4. push our handshake back ──────────────────────────────────────────
   {
-    alyncoin::net::Handshake hs;
-    Blockchain &bc = Blockchain::getInstance();
-    hs.set_version("1.0.0");
-    hs.set_network_id("mainnet");
-    hs.set_height(bc.getHeight());
-    hs.set_listen_port(this->port);
-    if (!bc.getChain().empty())
-      hs.set_genesis_hash(bc.getChain().front().getHash());
-    hs.add_capabilities("full");
-    hs.add_capabilities("miner");
-    hs.add_capabilities("agg_proof_v1");
-    hs.add_capabilities("snapshot_v1");
-    hs.add_capabilities("binary_v1");
-    hs.set_frame_rev(kFrameRevision);
+    alyncoin::net::Handshake hs = buildHandshake();
     alyncoin::net::Frame out;
-    out.mutable_handshake()->CopyFrom(hs);
+    *out.mutable_handshake() = hs;
     sendFrameImmediate(transport, out);
+    sendHeight(claimedPeerId);
   }
 
   // ── 5. arm read loop + initial requests ────────────────────────────────
@@ -1231,20 +1239,7 @@ void Network::broadcastHandshake() {
     peersCopy = peerTransports;
   }
 
-  alyncoin::net::Handshake hs;
-  Blockchain &bc = Blockchain::getInstance();
-  hs.set_version("1.0.0");
-  hs.set_network_id("mainnet");
-  hs.set_height(bc.getHeight());
-  hs.set_listen_port(this->port);
-  if (!bc.getChain().empty())
-    hs.set_genesis_hash(bc.getChain().front().getHash());
-  hs.add_capabilities("full");
-  hs.add_capabilities("miner");
-  hs.add_capabilities("agg_proof_v1");
-  hs.add_capabilities("snapshot_v1");
-  hs.add_capabilities("binary_v1");
-  hs.set_frame_rev(kFrameRevision);
+  alyncoin::net::Handshake hs = buildHandshake();
 
   alyncoin::net::Frame fr;
   *fr.mutable_handshake() = hs;
@@ -1601,23 +1596,15 @@ void Network::addPeer(const std::string &peer) {
 bool Network::finishOutboundHandshake(std::shared_ptr<Transport> tx) {
   if (!tx || !tx->isOpen())
     return false;
-  alyncoin::net::Handshake hs;
-  Blockchain &bc = Blockchain::getInstance();
-  hs.set_version("1.0.0");
-  hs.set_network_id("mainnet");
-  hs.set_height(bc.getHeight());
-  hs.set_listen_port(this->port);
-  if (!bc.getChain().empty())
-    hs.set_genesis_hash(bc.getChain().front().getHash());
-  hs.add_capabilities("full");
-  hs.add_capabilities("miner");
-  hs.add_capabilities("agg_proof_v1");
-  hs.add_capabilities("snapshot_v1");
-  hs.add_capabilities("binary_v1");
-  hs.set_frame_rev(kFrameRevision);
+  alyncoin::net::Handshake hs = buildHandshake();
   alyncoin::net::Frame fr;
   *fr.mutable_handshake() = hs;
-  return sendFrameImmediate(tx, fr);
+  if (!sendFrameImmediate(tx, fr))
+    return false;
+  // Provide our current height immediately after the handshake
+  std::string peer = tx->getRemoteIP() + ':' + std::to_string(tx->getRemotePort());
+  sendHeight(peer);
+  return true;
 }
 
 // ------------------------------------------------------------------

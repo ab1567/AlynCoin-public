@@ -161,6 +161,10 @@ public:
   void markPeerOffline(const std::string &peerId);
 
 private:
+  // Construct a Handshake populated with the current chain height
+  // and supported feature list.
+  alyncoin::net::Handshake buildHandshake() const;
+
   unsigned short port;
   Blockchain *blockchain;
 
