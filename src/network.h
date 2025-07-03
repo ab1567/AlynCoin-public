@@ -161,6 +161,9 @@ public:
   void markPeerOffline(const std::string &peerId);
 
 private:
+  // Build a fresh Handshake message using current blockchain state.
+  alyncoin::net::Handshake buildHandshake() const;
+
   unsigned short port;
   Blockchain *blockchain;
 
