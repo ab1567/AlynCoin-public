@@ -102,7 +102,8 @@ public:
   void run();
   bool isSyncing() const;
   bool connectToNode(const std::string &ip, int port);
-  bool finishOutboundHandshake(std::shared_ptr<Transport> tx);
+  bool finishOutboundHandshake(std::shared_ptr<Transport> tx,
+                               std::array<uint8_t, 32> &privOut);
   void autoMineBlock();
   void periodicSync();
   void broadcastRollupBlock(const RollupBlock &rollupBlock);
@@ -155,6 +156,8 @@ public:
     return sendFrame(std::move(tr), m, true);
   }
   void broadcastFrame(const google::protobuf::Message &m);
+  void sendPrivate(const std::string &peer,
+                   const google::protobuf::Message &m);
   void sendHeight(const std::string &peer);
   void sendTipHash(const std::string &peer);
   void sendPeerList(const std::string &peer);

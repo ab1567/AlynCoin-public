@@ -126,6 +126,9 @@ extern TipHashResponseDefaultTypeInternal _TipHashResponse_default_instance_;
 class TransactionBroadcast;
 struct TransactionBroadcastDefaultTypeInternal;
 extern TransactionBroadcastDefaultTypeInternal _TransactionBroadcast_default_instance_;
+class Whisper;
+struct WhisperDefaultTypeInternal;
+extern WhisperDefaultTypeInternal _Whisper_default_instance_;
 }  // namespace net
 }  // namespace alyncoin
 PROTOBUF_NAMESPACE_OPEN
@@ -154,6 +157,7 @@ template<> ::alyncoin::net::TailBlocksRequest* Arena::CreateMaybeMessage<::alync
 template<> ::alyncoin::net::TipHashRequest* Arena::CreateMaybeMessage<::alyncoin::net::TipHashRequest>(Arena*);
 template<> ::alyncoin::net::TipHashResponse* Arena::CreateMaybeMessage<::alyncoin::net::TipHashResponse>(Arena*);
 template<> ::alyncoin::net::TransactionBroadcast* Arena::CreateMaybeMessage<::alyncoin::net::TransactionBroadcast>(Arena*);
+template<> ::alyncoin::net::Whisper* Arena::CreateMaybeMessage<::alyncoin::net::Whisper>(Arena*);
 PROTOBUF_NAMESPACE_CLOSE
 namespace alyncoin {
 namespace net {
@@ -285,9 +289,10 @@ class Handshake final :
     kVersionFieldNumber = 1,
     kNetworkIdFieldNumber = 2,
     kGenesisHashFieldNumber = 5,
+    kPubKeyFieldNumber = 7,
     kHeightFieldNumber = 3,
     kListenPortFieldNumber = 4,
-    kFrameRevFieldNumber = 7,
+    kFrameRevFieldNumber = 8,
   };
   // repeated string capabilities = 6;
   int capabilities_size() const;
@@ -355,6 +360,20 @@ class Handshake final :
   std::string* _internal_mutable_genesis_hash();
   public:
 
+  // bytes pub_key = 7;
+  void clear_pub_key();
+  const std::string& pub_key() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_pub_key(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_pub_key();
+  PROTOBUF_NODISCARD std::string* release_pub_key();
+  void set_allocated_pub_key(std::string* pub_key);
+  private:
+  const std::string& _internal_pub_key() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_pub_key(const std::string& value);
+  std::string* _internal_mutable_pub_key();
+  public:
+
   // uint64 height = 3;
   void clear_height();
   uint64_t height() const;
@@ -373,7 +392,7 @@ class Handshake final :
   void _internal_set_listen_port(uint32_t value);
   public:
 
-  // uint32 frame_rev = 7;
+  // uint32 frame_rev = 8;
   void clear_frame_rev();
   uint32_t frame_rev() const;
   void set_frame_rev(uint32_t value);
@@ -394,6 +413,7 @@ class Handshake final :
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr version_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr network_id_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr genesis_hash_;
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr pub_key_;
     uint64_t height_;
     uint32_t listen_port_;
     uint32_t frame_rev_;
@@ -880,6 +900,7 @@ class HeightResponse final :
 
   enum : int {
     kHeightFieldNumber = 1,
+    kTotalWorkFieldNumber = 2,
   };
   // uint64 height = 1;
   void clear_height();
@@ -888,6 +909,15 @@ class HeightResponse final :
   private:
   uint64_t _internal_height() const;
   void _internal_set_height(uint64_t value);
+  public:
+
+  // uint64 total_work = 2;
+  void clear_total_work();
+  uint64_t total_work() const;
+  void set_total_work(uint64_t value);
+  private:
+  uint64_t _internal_total_work() const;
+  void _internal_set_total_work(uint64_t value);
   public:
 
   // @@protoc_insertion_point(class_scope:alyncoin.net.HeightResponse)
@@ -899,6 +929,7 @@ class HeightResponse final :
   typedef void DestructorSkippable_;
   struct Impl_ {
     uint64_t height_;
+    uint64_t total_work_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   };
   union { Impl_ _impl_; };
@@ -3781,6 +3812,159 @@ class TransactionBroadcast final :
 };
 // -------------------------------------------------------------------
 
+class Whisper final :
+    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:alyncoin.net.Whisper) */ {
+ public:
+  inline Whisper() : Whisper(nullptr) {}
+  ~Whisper() override;
+  explicit PROTOBUF_CONSTEXPR Whisper(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+
+  Whisper(const Whisper& from);
+  Whisper(Whisper&& from) noexcept
+    : Whisper() {
+    *this = ::std::move(from);
+  }
+
+  inline Whisper& operator=(const Whisper& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline Whisper& operator=(Whisper&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetOwningArena() == from.GetOwningArena()
+  #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetOwningArena() != nullptr
+  #endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const Whisper& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const Whisper* internal_default_instance() {
+    return reinterpret_cast<const Whisper*>(
+               &_Whisper_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    24;
+
+  friend void swap(Whisper& a, Whisper& b) {
+    a.Swap(&b);
+  }
+  inline void Swap(Whisper* other) {
+    if (other == this) return;
+  #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() != nullptr &&
+        GetOwningArena() == other->GetOwningArena()) {
+   #else  // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() == other->GetOwningArena()) {
+  #endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(Whisper* other) {
+    if (other == this) return;
+    GOOGLE_DCHECK(GetOwningArena() == other->GetOwningArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  Whisper* New(::PROTOBUF_NAMESPACE_ID::Arena* arena = nullptr) const final {
+    return CreateMaybeMessage<Whisper>(arena);
+  }
+  using ::PROTOBUF_NAMESPACE_ID::Message::CopyFrom;
+  void CopyFrom(const Whisper& from);
+  using ::PROTOBUF_NAMESPACE_ID::Message::MergeFrom;
+  void MergeFrom( const Whisper& from) {
+    Whisper::MergeImpl(*this, from);
+  }
+  private:
+  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg);
+  public:
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
+  uint8_t* _InternalSerialize(
+      uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const final { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena* arena, bool is_message_owned);
+  void SharedDtor();
+  void SetCachedSize(int size) const final;
+  void InternalSwap(Whisper* other);
+
+  private:
+  friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
+  static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
+    return "alyncoin.net.Whisper";
+  }
+  protected:
+  explicit Whisper(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                       bool is_message_owned = false);
+  public:
+
+  static const ClassData _class_data_;
+  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*GetClassData() const final;
+
+  ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  enum : int {
+    kDataFieldNumber = 1,
+  };
+  // bytes data = 1;
+  void clear_data();
+  const std::string& data() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_data(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_data();
+  PROTOBUF_NODISCARD std::string* release_data();
+  void set_allocated_data(std::string* data);
+  private:
+  const std::string& _internal_data() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_data(const std::string& value);
+  std::string* _internal_mutable_data();
+  public:
+
+  // @@protoc_insertion_point(class_scope:alyncoin.net.Whisper)
+ private:
+  class _Internal;
+
+  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
+  typedef void InternalArenaConstructable_;
+  typedef void DestructorSkippable_;
+  struct Impl_ {
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr data_;
+    mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_net_5fframe_2eproto;
+};
+// -------------------------------------------------------------------
+
 class Frame final :
     public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:alyncoin.net.Frame) */ {
  public:
@@ -3850,6 +4034,7 @@ class Frame final :
     kGetData = 23,
     kBlockchainSyncRequest = 24,
     kTxBroadcast = 25,
+    kWhisper = 26,
     KIND_NOT_SET = 0,
   };
 
@@ -3858,7 +4043,7 @@ class Frame final :
                &_Frame_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    24;
+    25;
 
   friend void swap(Frame& a, Frame& b) {
     a.Swap(&b);
@@ -3956,6 +4141,7 @@ class Frame final :
     kGetDataFieldNumber = 23,
     kBlockchainSyncRequestFieldNumber = 24,
     kTxBroadcastFieldNumber = 25,
+    kWhisperFieldNumber = 26,
   };
   // .alyncoin.net.Handshake handshake = 1;
   bool has_handshake() const;
@@ -4407,6 +4593,24 @@ class Frame final :
       ::alyncoin::net::TransactionBroadcast* tx_broadcast);
   ::alyncoin::net::TransactionBroadcast* unsafe_arena_release_tx_broadcast();
 
+  // .alyncoin.net.Whisper whisper = 26;
+  bool has_whisper() const;
+  private:
+  bool _internal_has_whisper() const;
+  public:
+  void clear_whisper();
+  const ::alyncoin::net::Whisper& whisper() const;
+  PROTOBUF_NODISCARD ::alyncoin::net::Whisper* release_whisper();
+  ::alyncoin::net::Whisper* mutable_whisper();
+  void set_allocated_whisper(::alyncoin::net::Whisper* whisper);
+  private:
+  const ::alyncoin::net::Whisper& _internal_whisper() const;
+  ::alyncoin::net::Whisper* _internal_mutable_whisper();
+  public:
+  void unsafe_arena_set_allocated_whisper(
+      ::alyncoin::net::Whisper* whisper);
+  ::alyncoin::net::Whisper* unsafe_arena_release_whisper();
+
   void clear_kind();
   KindCase kind_case() const;
   // @@protoc_insertion_point(class_scope:alyncoin.net.Frame)
@@ -4437,6 +4641,7 @@ class Frame final :
   void set_has_get_data();
   void set_has_blockchain_sync_request();
   void set_has_tx_broadcast();
+  void set_has_whisper();
 
   inline bool has_kind() const;
   inline void clear_has_kind();
@@ -4473,6 +4678,7 @@ class Frame final :
       ::alyncoin::net::GetData* get_data_;
       ::alyncoin::BlockchainSyncProto* blockchain_sync_request_;
       ::alyncoin::net::TransactionBroadcast* tx_broadcast_;
+      ::alyncoin::net::Whisper* whisper_;
     } kind_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
     uint32_t _oneof_case_[1];
@@ -4757,7 +4963,57 @@ Handshake::mutable_capabilities() {
   return &_impl_.capabilities_;
 }
 
-// uint32 frame_rev = 7;
+// bytes pub_key = 7;
+inline void Handshake::clear_pub_key() {
+  _impl_.pub_key_.ClearToEmpty();
+}
+inline const std::string& Handshake::pub_key() const {
+  // @@protoc_insertion_point(field_get:alyncoin.net.Handshake.pub_key)
+  return _internal_pub_key();
+}
+template <typename ArgT0, typename... ArgT>
+inline PROTOBUF_ALWAYS_INLINE
+void Handshake::set_pub_key(ArgT0&& arg0, ArgT... args) {
+ 
+ _impl_.pub_key_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:alyncoin.net.Handshake.pub_key)
+}
+inline std::string* Handshake::mutable_pub_key() {
+  std::string* _s = _internal_mutable_pub_key();
+  // @@protoc_insertion_point(field_mutable:alyncoin.net.Handshake.pub_key)
+  return _s;
+}
+inline const std::string& Handshake::_internal_pub_key() const {
+  return _impl_.pub_key_.Get();
+}
+inline void Handshake::_internal_set_pub_key(const std::string& value) {
+  
+  _impl_.pub_key_.Set(value, GetArenaForAllocation());
+}
+inline std::string* Handshake::_internal_mutable_pub_key() {
+  
+  return _impl_.pub_key_.Mutable(GetArenaForAllocation());
+}
+inline std::string* Handshake::release_pub_key() {
+  // @@protoc_insertion_point(field_release:alyncoin.net.Handshake.pub_key)
+  return _impl_.pub_key_.Release();
+}
+inline void Handshake::set_allocated_pub_key(std::string* pub_key) {
+  if (pub_key != nullptr) {
+    
+  } else {
+    
+  }
+  _impl_.pub_key_.SetAllocated(pub_key, GetArenaForAllocation());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (_impl_.pub_key_.IsDefault()) {
+    _impl_.pub_key_.Set("", GetArenaForAllocation());
+  }
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.net.Handshake.pub_key)
+}
+
+// uint32 frame_rev = 8;
 inline void Handshake::clear_frame_rev() {
   _impl_.frame_rev_ = 0u;
 }
@@ -4811,6 +5067,26 @@ inline void HeightResponse::_internal_set_height(uint64_t value) {
 inline void HeightResponse::set_height(uint64_t value) {
   _internal_set_height(value);
   // @@protoc_insertion_point(field_set:alyncoin.net.HeightResponse.height)
+}
+
+// uint64 total_work = 2;
+inline void HeightResponse::clear_total_work() {
+  _impl_.total_work_ = uint64_t{0u};
+}
+inline uint64_t HeightResponse::_internal_total_work() const {
+  return _impl_.total_work_;
+}
+inline uint64_t HeightResponse::total_work() const {
+  // @@protoc_insertion_point(field_get:alyncoin.net.HeightResponse.total_work)
+  return _internal_total_work();
+}
+inline void HeightResponse::_internal_set_total_work(uint64_t value) {
+  
+  _impl_.total_work_ = value;
+}
+inline void HeightResponse::set_total_work(uint64_t value) {
+  _internal_set_total_work(value);
+  // @@protoc_insertion_point(field_set:alyncoin.net.HeightResponse.total_work)
 }
 
 // -------------------------------------------------------------------
@@ -5889,6 +6165,60 @@ inline void TransactionBroadcast::set_allocated_tx(::alyncoin::TransactionProto*
   }
   _impl_.tx_ = tx;
   // @@protoc_insertion_point(field_set_allocated:alyncoin.net.TransactionBroadcast.tx)
+}
+
+// -------------------------------------------------------------------
+
+// Whisper
+
+// bytes data = 1;
+inline void Whisper::clear_data() {
+  _impl_.data_.ClearToEmpty();
+}
+inline const std::string& Whisper::data() const {
+  // @@protoc_insertion_point(field_get:alyncoin.net.Whisper.data)
+  return _internal_data();
+}
+template <typename ArgT0, typename... ArgT>
+inline PROTOBUF_ALWAYS_INLINE
+void Whisper::set_data(ArgT0&& arg0, ArgT... args) {
+ 
+ _impl_.data_.SetBytes(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:alyncoin.net.Whisper.data)
+}
+inline std::string* Whisper::mutable_data() {
+  std::string* _s = _internal_mutable_data();
+  // @@protoc_insertion_point(field_mutable:alyncoin.net.Whisper.data)
+  return _s;
+}
+inline const std::string& Whisper::_internal_data() const {
+  return _impl_.data_.Get();
+}
+inline void Whisper::_internal_set_data(const std::string& value) {
+  
+  _impl_.data_.Set(value, GetArenaForAllocation());
+}
+inline std::string* Whisper::_internal_mutable_data() {
+  
+  return _impl_.data_.Mutable(GetArenaForAllocation());
+}
+inline std::string* Whisper::release_data() {
+  // @@protoc_insertion_point(field_release:alyncoin.net.Whisper.data)
+  return _impl_.data_.Release();
+}
+inline void Whisper::set_allocated_data(std::string* data) {
+  if (data != nullptr) {
+    
+  } else {
+    
+  }
+  _impl_.data_.SetAllocated(data, GetArenaForAllocation());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (_impl_.data_.IsDefault()) {
+    _impl_.data_.Set("", GetArenaForAllocation());
+  }
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.net.Whisper.data)
 }
 
 // -------------------------------------------------------------------
@@ -7737,6 +8067,80 @@ inline ::alyncoin::net::TransactionBroadcast* Frame::mutable_tx_broadcast() {
   return _msg;
 }
 
+// .alyncoin.net.Whisper whisper = 26;
+inline bool Frame::_internal_has_whisper() const {
+  return kind_case() == kWhisper;
+}
+inline bool Frame::has_whisper() const {
+  return _internal_has_whisper();
+}
+inline void Frame::set_has_whisper() {
+  _impl_._oneof_case_[0] = kWhisper;
+}
+inline void Frame::clear_whisper() {
+  if (_internal_has_whisper()) {
+    if (GetArenaForAllocation() == nullptr) {
+      delete _impl_.kind_.whisper_;
+    }
+    clear_has_kind();
+  }
+}
+inline ::alyncoin::net::Whisper* Frame::release_whisper() {
+  // @@protoc_insertion_point(field_release:alyncoin.net.Frame.whisper)
+  if (_internal_has_whisper()) {
+    clear_has_kind();
+    ::alyncoin::net::Whisper* temp = _impl_.kind_.whisper_;
+    if (GetArenaForAllocation() != nullptr) {
+      temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.kind_.whisper_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::alyncoin::net::Whisper& Frame::_internal_whisper() const {
+  return _internal_has_whisper()
+      ? *_impl_.kind_.whisper_
+      : reinterpret_cast< ::alyncoin::net::Whisper&>(::alyncoin::net::_Whisper_default_instance_);
+}
+inline const ::alyncoin::net::Whisper& Frame::whisper() const {
+  // @@protoc_insertion_point(field_get:alyncoin.net.Frame.whisper)
+  return _internal_whisper();
+}
+inline ::alyncoin::net::Whisper* Frame::unsafe_arena_release_whisper() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:alyncoin.net.Frame.whisper)
+  if (_internal_has_whisper()) {
+    clear_has_kind();
+    ::alyncoin::net::Whisper* temp = _impl_.kind_.whisper_;
+    _impl_.kind_.whisper_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void Frame::unsafe_arena_set_allocated_whisper(::alyncoin::net::Whisper* whisper) {
+  clear_kind();
+  if (whisper) {
+    set_has_whisper();
+    _impl_.kind_.whisper_ = whisper;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:alyncoin.net.Frame.whisper)
+}
+inline ::alyncoin::net::Whisper* Frame::_internal_mutable_whisper() {
+  if (!_internal_has_whisper()) {
+    clear_kind();
+    set_has_whisper();
+    _impl_.kind_.whisper_ = CreateMaybeMessage< ::alyncoin::net::Whisper >(GetArenaForAllocation());
+  }
+  return _impl_.kind_.whisper_;
+}
+inline ::alyncoin::net::Whisper* Frame::mutable_whisper() {
+  ::alyncoin::net::Whisper* _msg = _internal_mutable_whisper();
+  // @@protoc_insertion_point(field_mutable:alyncoin.net.Frame.whisper)
+  return _msg;
+}
+
 inline bool Frame::has_kind() const {
   return kind_case() != KIND_NOT_SET;
 }
@@ -7749,6 +8153,8 @@ inline Frame::KindCase Frame::kind_case() const {
 #ifdef __GNUC__
   #pragma GCC diagnostic pop
 #endif  // __GNUC__
+// -------------------------------------------------------------------
+
 // -------------------------------------------------------------------
 
 // -------------------------------------------------------------------
