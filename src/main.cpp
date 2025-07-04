@@ -154,10 +154,15 @@ svr.Post("/rpc", [blockchain, network, healer](const httplib::Request& req, http
             bool synced = false;
             if (network && network->getPeerManager()) {
                 networkHeight = network->getPeerManager()->getMedianNetworkHeight();
-                // Treat networkHeight=0 as "unknown" rather than unsynced
-                // so the GUI can start even before any peers report heights.
-                synced = (networkHeight == 0 || localHeight >= networkHeight);
+                if (networkHeight == 0) {
+                    networkHeight = network->getPeerManager()->getMaxPeerHeight();
+                }
+                if (networkHeight == 0) {
+                    networkHeight = localHeight;
+                }
+                synced = (localHeight >= networkHeight);
             } else {
+                networkHeight = localHeight;
                 synced = true; // assume synced if no network
             }
             nlohmann::json status = {
