@@ -98,15 +98,23 @@ static_assert(alyncoin::net::Frame::kBlockBroadcast == 6,
 static constexpr uint64_t FRAME_LIMIT_MIN = 200;
 static constexpr uint64_t BYTE_LIMIT_MIN = 1 << 20;
 static constexpr int MAX_REORG = 100;
+// TRACE-level lock diagnostics can overwhelm logs on busy nodes. They are now
+// compiled in only when ENABLE_LOCK_TRACING is defined at build time.
+#ifdef ENABLE_LOCK_TRACING
 struct ScopedLockTracer {
   std::string name;
-  ScopedLockTracer(const std::string &n) : name(n) {
+  explicit ScopedLockTracer(const std::string &n) : name(n) {
     std::cerr << "[TRACE] Lock entered: " << name << std::endl;
   }
   ~ScopedLockTracer() {
     std::cerr << "[TRACE] Lock exited: " << name << std::endl;
   }
 };
+#else
+struct ScopedLockTracer {
+  explicit ScopedLockTracer(const std::string &) {}
+};
+#endif
 static std::unordered_set<std::string> seenTxHashes;
 static std::mutex seenTxMutex;
 static std::unordered_set<std::string> seenBlockHashes;
