@@ -1,6 +1,7 @@
 #include "network.h"
 #include "transport/ssl_transport.h"
 #include "tls_utils.h"
+#include "config.h"
 #include "blockchain.h"
 #include "crypto_utils.h"
 #include "generated/block_protos.pb.h"
@@ -277,6 +278,8 @@ alyncoin::net::Handshake Network::buildHandshake() const {
   hs.add_capabilities("agg_proof_v1");
   hs.add_capabilities("snapshot_v1");
   hs.add_capabilities("binary_v1");
+  hs.add_capabilities("whisper_v1");
+  hs.add_capabilities("tls_v1");
   hs.set_frame_rev(kFrameRevision);
   return hs;
 }
@@ -606,8 +609,12 @@ void Network::broadcastTransaction(const Transaction &tx) {
   alyncoin::TransactionProto proto = tx.toProto();
   alyncoin::net::Frame fr;
   *fr.mutable_tx_broadcast()->mutable_tx() = proto;
-  for (const auto &kv : peerTransports)
-    sendPrivate(kv.first, fr);
+  for (const auto &kv : peerTransports) {
+    if (peerSupportsWhisper(kv.first))
+      sendPrivate(kv.first, fr);
+    else if (kv.second.tx && kv.second.tx->isOpen())
+      sendFrame(kv.second.tx, fr);
+  }
 }
 
 // Broadcast transaction to all peers except sender (to prevent echo storms)
@@ -619,7 +626,10 @@ void Network::broadcastTransactionToAllExcept(const Transaction &tx,
   for (const auto &kv : peerTransports) {
     if (kv.first == excludePeer)
       continue;
-    sendPrivate(kv.first, fr);
+    if (peerSupportsWhisper(kv.first))
+      sendPrivate(kv.first, fr);
+    else if (kv.second.tx && kv.second.tx->isOpen())
+      sendFrame(kv.second.tx, fr);
   }
 }
 
@@ -777,6 +787,8 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
   int remoteHeight = 0;
   bool remoteAgg = false;
   bool remoteSnap = false;
+  bool remoteWhisper = false;
+  bool remoteTls = false;
 
   /* what *we* look like to the outside world */
   const auto selfAddr = [this] {
@@ -831,6 +843,10 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
         remoteAgg = true;
       if (cap == "snapshot_v1")
         remoteSnap = true;
+      if (cap == "whisper_v1")
+        remoteWhisper = true;
+      if (cap == "tls_v1")
+        remoteTls = true;
       if (cap == "binary_v1")
         gotBinary = true;
     }
@@ -889,6 +905,8 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
       entry.state = std::make_shared<PeerState>();
     entry.state->supportsAggProof = remoteAgg;
     entry.state->supportsSnapshot = remoteSnap;
+    entry.state->supportsWhisper = remoteWhisper;
+    entry.state->supportsTls = remoteTls;
     std::copy(shared.begin(), shared.end(), entry.state->linkKey.begin());
 
     if (peerManager) {
@@ -2078,6 +2096,8 @@ bool Network::connectToNode(const std::string &host, int port) {
 
     bool theirAgg = false;
     bool theirSnap = false;
+    bool theirWhisper = false;
+    bool theirTls = false;
     int theirHeight = 0;
     alyncoin::net::Frame fr;
     if (blob.empty() || !fr.ParseFromString(blob) || !fr.has_handshake()) {
@@ -2112,6 +2132,10 @@ bool Network::connectToNode(const std::string &host, int port) {
         theirAgg = true;
       if (c == "snapshot_v1")
         theirSnap = true;
+      if (c == "whisper_v1")
+        theirWhisper = true;
+      if (c == "tls_v1")
+        theirTls = true;
     }
 
     std::array<uint8_t, 32> shared{};
@@ -2135,6 +2159,8 @@ bool Network::connectToNode(const std::string &host, int port) {
       auto st = peerTransports[peerKey].state;
       st->supportsAggProof = theirAgg;
       st->supportsSnapshot = theirSnap;
+      st->supportsWhisper = theirWhisper;
+      st->supportsTls = theirTls;
       if (rhs.pub_key().size() == 32)
         std::copy(shared.begin(), shared.end(), st->linkKey.begin());
       if (peerManager) {
@@ -2200,11 +2226,16 @@ void Network::loadPeers() {
 
   std::string line;
   while (std::getline(file, line)) {
-    if (line.empty() || line.find(":") == std::string::npos)
+    if (line.empty())
       continue;
-
-    std::string ip = line.substr(0, line.find(":"));
-    int portVal = std::stoi(line.substr(line.find(":") + 1));
+    std::istringstream iss(line);
+    std::string addr;
+    std::string keyB64;
+    iss >> addr >> keyB64;
+    if (addr.find(":") == std::string::npos)
+      continue;
+    std::string ip = addr.substr(0, addr.find(":"));
+    int portVal = std::stoi(addr.substr(addr.find(":") + 1));
     std::string peerKey = ip + ":" + std::to_string(portVal);
 
     // Exclude self and local-only
@@ -2215,6 +2246,16 @@ void Network::loadPeers() {
 
     if (connectToNode(ip, portVal)) {
       std::cout << "✅ Peer loaded & connected: " << line << "\n";
+      if (!keyB64.empty()) {
+        std::string decoded = Crypto::base64Decode(keyB64, false);
+        if (decoded.size() == 32) {
+          std::lock_guard<std::timed_mutex> lk(peersMutex);
+          auto it = peerTransports.find(peerKey);
+          if (it != peerTransports.end() && it->second.state)
+            std::copy(decoded.begin(), decoded.end(),
+                      it->second.state->linkKey.begin());
+        }
+      }
     }
   }
   file.close();
@@ -2269,9 +2310,11 @@ void Network::savePeers() {
     return;
   }
 
-  for (const auto &[peer, _] : peerTransports) {
+  for (const auto &[peer, entry] : peerTransports) {
     if (!peer.empty() && peer.find(":") != std::string::npos) {
-      file << peer << std::endl;
+      std::string keyStr = Crypto::base64Encode(std::string(
+          entry.state->linkKey.begin(), entry.state->linkKey.end()), false);
+      file << peer << ' ' << keyStr << std::endl;
     }
   }
 
@@ -2439,6 +2482,22 @@ bool Network::peerSupportsSnapshot(const std::string &peerId) const {
     return false;
   auto st = it->second.state;
   return st ? st->supportsSnapshot : false;
+}
+
+bool Network::peerSupportsWhisper(const std::string &peerId) const {
+  auto it = peerTransports.find(peerId);
+  if (it == peerTransports.end())
+    return false;
+  auto st = it->second.state;
+  return st ? st->supportsWhisper : false;
+}
+
+bool Network::peerSupportsTls(const std::string &peerId) const {
+  auto it = peerTransports.find(peerId);
+  if (it == peerTransports.end())
+    return false;
+  auto st = it->second.state;
+  return st ? st->supportsTls : false;
 }
 //
 void Network::sendSnapshot(std::shared_ptr<Transport> transport,

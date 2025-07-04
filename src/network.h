@@ -132,6 +132,8 @@ public:
                      const std::vector<std::string> &hashes);
   void sendStateProof(std::shared_ptr<Transport> tr);
   bool peerSupportsSnapshot(const std::string &peerId) const;
+  bool peerSupportsWhisper(const std::string &peerId) const;
+  bool peerSupportsTls(const std::string &peerId) const;
   void requestSnapshotSync(const std::string &peer);
   void requestTailBlocks(const std::string &peer, int fromHeight);
   void sendForkRecoveryRequest(const std::string &peer, const std::string &tip);
