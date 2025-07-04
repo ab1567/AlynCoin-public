@@ -17,6 +17,7 @@
 #include "governance/devfund.h"
 #include "governance/dao_storage.h"
 #include <ctime>
+#include <cstdlib>
 #include "db/db_instance.h"
 #include "zk/recursive_proof_helper.h"
 #include "difficulty.h"
@@ -610,6 +611,7 @@ void clearInputBuffer() {
 }
 
 int main(int argc, char *argv[]) {
+    std::srand(std::time(nullptr));
     unsigned short port = DEFAULT_PORT;
     bool portSpecified = false;
     unsigned short rpcPort = 1567;

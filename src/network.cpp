@@ -194,21 +194,28 @@ void Network::sendPrivate(const std::string &peer,
   if (peers.empty())
     return;
   std::shuffle(peers.begin(), peers.end(), std::mt19937{std::random_device{}()});
-  std::vector<std::vector<uint8_t>> route;
-  route.emplace_back(publicPeerId.begin(), publicPeerId.end());
   size_t hops = std::min<size_t>(3, peers.size());
+  std::vector<std::string> route;
   for (size_t i = 0; i < hops - 1; ++i)
-    route.emplace_back(peers[i].begin(), peers[i].end());
-  route.emplace_back(peer.begin(), peer.end());
+    route.push_back(peers[i]);
+  route.push_back(peer);
 
-  auto firstHop = peers[0];
-  auto &lk = peerTransports[firstHop].state->linkKey;
+  std::vector<std::vector<uint8_t>> keys;
+  for (const auto &hop : route) {
+    auto it = peerTransports.find(hop);
+    if (it == peerTransports.end())
+      return;
+    keys.emplace_back(it->second.state->linkKey.begin(), it->second.state->linkKey.end());
+  }
+
+  auto firstHop = route.front();
   std::string payload = m.SerializeAsString();
-  auto pkt = crypto::createPacket(std::vector<uint8_t>(payload.begin(), payload.end()), route,
-                                  std::vector<uint8_t>(lk.begin(), lk.end()));
+  auto pkt = crypto::createPacket(std::vector<uint8_t>(payload.begin(), payload.end()),
+                                  route, keys);
   alyncoin::net::Frame fr;
   fr.mutable_whisper()->set_data(std::string(pkt.header.begin(), pkt.header.end()) +
                                  std::string(pkt.payload.begin(), pkt.payload.end()));
+  std::this_thread::sleep_for(std::chrono::milliseconds(50 + rand() % 101));
   sendFrame(peerTransports[firstHop].tx, fr);
 }
 
@@ -609,11 +616,22 @@ void Network::broadcastTransaction(const Transaction &tx) {
   alyncoin::TransactionProto proto = tx.toProto();
   alyncoin::net::Frame fr;
   *fr.mutable_tx_broadcast()->mutable_tx() = proto;
+  if (peerTransports.size() <= 1) {
+    for (const auto &kv : peerTransports) {
+      if (kv.second.tx && kv.second.tx->isOpen()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50 + rand() % 101));
+        sendFrame(kv.second.tx, fr);
+      }
+    }
+    return;
+  }
   for (const auto &kv : peerTransports) {
     if (peerSupportsWhisper(kv.first))
       sendPrivate(kv.first, fr);
-    else if (kv.second.tx && kv.second.tx->isOpen())
+    else if (kv.second.tx && kv.second.tx->isOpen()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(50 + rand() % 101));
       sendFrame(kv.second.tx, fr);
+    }
   }
 }
 
@@ -628,8 +646,10 @@ void Network::broadcastTransactionToAllExcept(const Transaction &tx,
       continue;
     if (peerSupportsWhisper(kv.first))
       sendPrivate(kv.first, fr);
-    else if (kv.second.tx && kv.second.tx->isOpen())
+    else if (kv.second.tx && kv.second.tx->isOpen()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(50 + rand() % 101));
       sendFrame(kv.second.tx, fr);
+    }
   }
 }
 
@@ -1967,25 +1987,43 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
     break;
   }
   case alyncoin::net::Frame::kWhisper: {
-    if (f.whisper().data().size() <= 24)
+    if (f.whisper().data().size() < 25)
       break;
     crypto::SphinxPacket pkt;
+    uint8_t len = static_cast<uint8_t>(f.whisper().data()[24]);
+    size_t hdrSize = 25 + len;
+    if (f.whisper().data().size() < hdrSize)
+      break;
     pkt.header.assign(f.whisper().data().begin(),
-                      f.whisper().data().begin() + 24);
-    pkt.payload.assign(f.whisper().data().begin() + 24,
+                      f.whisper().data().begin() + hdrSize);
+    pkt.payload.assign(f.whisper().data().begin() + hdrSize,
                        f.whisper().data().end());
     auto it = peerTransports.find(peer);
     if (it == peerTransports.end())
       break;
-    std::vector<uint8_t> inner;
+    crypto::SphinxPacket inner;
+    std::string nextHop;
     if (!crypto::peelPacket(pkt,
                             std::vector<uint8_t>(it->second.state->linkKey.begin(),
                                                  it->second.state->linkKey.end()),
-                            nullptr, &inner))
+                            &nextHop, &inner))
       break;
-    alyncoin::net::Frame innerFr;
-    if (innerFr.ParseFromArray(inner.data(), inner.size()))
-      dispatch(innerFr, peer);
+    if (!nextHop.empty()) {
+      auto itF = peerTransports.find(nextHop);
+      if (itF != peerTransports.end() && itF->second.tx && itF->second.tx->isOpen()) {
+        alyncoin::net::Frame fr;
+        fr.mutable_whisper()->set_data(std::string(inner.header.begin(), inner.header.end()) +
+                                       std::string(inner.payload.begin(), inner.payload.end()));
+        std::this_thread::sleep_for(std::chrono::milliseconds(50 + rand() % 101));
+        sendFrame(itF->second.tx, fr);
+      }
+    } else {
+      std::string blob(inner.header.begin(), inner.header.end());
+      blob.append(inner.payload.begin(), inner.payload.end());
+      alyncoin::net::Frame innerFr;
+      if (innerFr.ParseFromString(blob))
+        dispatch(innerFr, peer);
+    }
     break;
   }
   case alyncoin::net::Frame::kSnapshotReq:

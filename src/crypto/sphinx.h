@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include <string>
 #include <sodium.h>
 
 namespace crypto {
@@ -9,10 +10,9 @@ struct SphinxPacket {
 };
 
 SphinxPacket createPacket(const std::vector<uint8_t>& payload,
-                          const std::vector<std::vector<uint8_t>>& route,
-                          const std::vector<uint8_t>& sharedSecret);
+                          const std::vector<std::string>& route,
+                          const std::vector<std::vector<uint8_t>>& secrets);
 
-bool peelPacket(const SphinxPacket& pkt, const std::vector<uint8_t>& privKey,
-                std::vector<uint8_t>* nextHop,
-                std::vector<uint8_t>* innerPayload);
+bool peelPacket(const SphinxPacket& pkt, const std::vector<uint8_t>& key,
+                std::string* nextHop, SphinxPacket* inner);
 }
