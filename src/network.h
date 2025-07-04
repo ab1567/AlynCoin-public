@@ -188,6 +188,7 @@ private:
   std::string publicPeerId;
   std::unordered_set<std::string> bannedPeers;
   std::unordered_set<std::string> knownPeers;
+  std::unordered_set<std::string> anchorPeers;
   PeerBlacklist *blacklist;
   std::unordered_set<std::string> seenTxHashes;
   static Network *instancePtr;
