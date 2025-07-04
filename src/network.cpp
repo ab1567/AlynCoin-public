@@ -856,6 +856,8 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
   bool remoteBanDecay = false;
 
   /* what *we* look like to the outside world */
+  // Determine how peers see this node. We capture `this` so the lambda
+  // always uses our own listening port rather than the remote port.
   const auto selfAddr = [this] {
     return publicPeerId.empty() ? "127.0.0.1:" + std::to_string(this->port)
                                 : publicPeerId;
@@ -2191,16 +2193,17 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
 }
 // Connect to Node
 
-bool Network::connectToNode(const std::string &host, int port) {
+bool Network::connectToNode(const std::string &host, int remotePort) {
   if (peerTransports.size() >= MAX_PEERS) {
     std::cerr << "⚠️ [connectToNode] peer cap reached, skip " << host << ':'
-              << port << '\n';
+              << remotePort << '\n';
     return false;
   }
 
-  const std::string peerKey = host + ':' + std::to_string(port);
-  const auto selfAddr = [this, port] {
-    return publicPeerId.empty() ? "127.0.0.1:" + std::to_string(port)
+  const std::string peerKey = host + ':' + std::to_string(remotePort);
+  // Use our own listening port to recognize self-connections.
+  const auto selfAddr = [this] {
+    return publicPeerId.empty() ? "127.0.0.1:" + std::to_string(this->port)
                                 : publicPeerId;
   };
   if (isBlacklisted(peerKey)) {
@@ -2235,21 +2238,21 @@ bool Network::connectToNode(const std::string &host, int port) {
   }
 
   try {
-    std::cout << "[PEER_CONNECT] → " << host << ':' << port << '\n';
+    std::cout << "[PEER_CONNECT] → " << host << ':' << remotePort << '\n';
 
     std::shared_ptr<Transport> tx;
     if (getAppConfig().enable_tls && tlsContext) {
       auto sslTx = std::make_shared<SslTransport>(ioContext, *tlsContext);
-      if (!sslTx->connect(host, port)) {
-        std::cerr << "❌ [connectToNode] Connection to " << host << ':' << port
+      if (!sslTx->connect(host, remotePort)) {
+        std::cerr << "❌ [connectToNode] Connection to " << host << ':' << remotePort
                   << " failed." << '\n';
         return false;
       }
       tx = sslTx;
     } else {
       auto plain = std::make_shared<TcpTransport>(ioContext);
-      if (!plain->connect(host, port)) {
-      std::cerr << "❌ [connectToNode] Connection to " << host << ':' << port
+      if (!plain->connect(host, remotePort)) {
+      std::cerr << "❌ [connectToNode] Connection to " << host << ':' << remotePort
                 << " failed." << '\n';
       return false;
       }
@@ -2428,7 +2431,7 @@ bool Network::connectToNode(const std::string &host, int port) {
     syncWithPeers();
     return true;
   } catch (const std::exception &e) {
-    std::cerr << "❌ [connectToNode] " << host << ':' << port << " – "
+    std::cerr << "❌ [connectToNode] " << host << ':' << remotePort << " – "
               << e.what() << '\n';
     return false;
   }

@@ -101,7 +101,7 @@ public:
   void broadcastPeerList();
   void run();
   bool isSyncing() const;
-  bool connectToNode(const std::string &ip, int port);
+  bool connectToNode(const std::string &ip, int remotePort);
   bool finishOutboundHandshake(std::shared_ptr<Transport> tx,
                                std::array<uint8_t, 32> &privOut);
   void autoMineBlock();
