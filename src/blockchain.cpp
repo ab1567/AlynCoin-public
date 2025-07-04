@@ -2818,18 +2818,12 @@ void Blockchain::compareAndMergeChains(const std::vector<Block>& otherChain) {
 
     const uint64_t mainWork = computeCumulativeDifficulty(chain);
     const uint64_t newWork  = computeCumulativeDifficulty(otherChain);
-    const uint64_t safetyMargin = 10;
 
     int commonIdxTmp = findForkCommonAncestor(otherChain);
     int reorgDepth = commonIdxTmp == -1 ? chain.size() : chain.size() - commonIdxTmp - 1;
-    if (reorgDepth > 100 && newWork <= mainWork + mainWork / 10) {
-        std::cerr << "⚠️ [Fork] Deep reorg of depth " << reorgDepth << " rejected" << std::endl;
-        return;
-    }
-
-    if (newWork <= mainWork + safetyMargin) {
-        std::cout << "⚠️ [Fork] Incoming chain work " << newWork
-                  << " not greater than local work " << mainWork + safetyMargin << std::endl;
+    if (reorgDepth > 100 || newWork <= static_cast<uint64_t>(mainWork * 1.01)) {
+        std::cerr << "⚠️ [Fork] Rejected chain with work " << newWork
+                  << " (local=" << mainWork << ", reorgDepth=" << reorgDepth << ")" << std::endl;
         return;
     }
 

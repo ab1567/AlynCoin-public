@@ -27,6 +27,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <cctype>
 #include <chrono>
+#include <ctime>
 #include <cstring>
 #include <filesystem>
 #include <generated/net_frame.pb.h>
@@ -1108,6 +1109,18 @@ void Network::run() {
         }
         st->frameCountMin = 0;
         st->byteCountMin = 0;
+        // decay misbehavior score gradually
+        if (st->misScore > 0)
+          st->misScore--;
+      }
+
+      auto now = std::time(nullptr);
+      // purge expired temporary bans
+      for (auto it = bannedPeers.begin(); it != bannedPeers.end();) {
+        if (now >= it->second)
+          it = bannedPeers.erase(it);
+        else
+          ++it;
       }
     }
   }).detach();
@@ -1649,11 +1662,20 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
 // Black list peer
 void Network::blacklistPeer(const std::string &peer) {
   peerTransports.erase(peer);
-  bannedPeers.insert(peer);
+  // ban peer for 24 hours
+  bannedPeers[peer] = std::time(nullptr) + 24 * 60 * 60;
 }
 
 bool Network::isBlacklisted(const std::string &peer) {
-  return bannedPeers.find(peer) != bannedPeers.end();
+  auto it = bannedPeers.find(peer);
+  if (it == bannedPeers.end())
+    return false;
+  // clear expired ban
+  if (std::time(nullptr) >= it->second) {
+    bannedPeers.erase(it);
+    return false;
+  }
+  return true;
 }
 
 // ✅ **Send Data to Peer with Error Handling**
@@ -2125,7 +2147,7 @@ bool Network::connectToNode(const std::string &host, int port) {
   }
 
   const std::string peerKey = host + ':' + std::to_string(port);
-  if (bannedPeers.count(peerKey)) {
+  if (isBlacklisted(peerKey)) {
     std::cerr << "⚠️ [connectToNode] " << peerKey << " is banned.\n";
     return false;
   }
@@ -2824,21 +2846,26 @@ void Network::handleSnapshotEnd(const std::string &peer) {
       }
     }
 
-    // --- Fork choice: accept snapshot only if heavier ---
+    // --- Fork choice: strict cumulative work rule ---
     uint64_t localWork = chain.computeCumulativeDifficulty(chain.getChain());
     uint64_t remoteWork = chain.computeCumulativeDifficulty(snapBlocks);
     std::string localTipHash = chain.getLatestBlockHash();
     std::string remoteTipHash = snapBlocks.empty() ? "" : snapBlocks.back().getHash();
-
+    int reorgDepth = std::max(0, localHeight - snap.height());
     bool accept = (remoteTipHash != localTipHash &&
                    snap.height() >= localHeight &&
-                   remoteWork >= localWork);
+                   remoteWork > localWork * 1.01 &&
+                   reorgDepth <= 100);
 
     if (!accept) {
       std::cerr << "⚠️ [SNAPSHOT] Rejected snapshot from " << peer << " (height "
                 << snap.height() << ", work " << remoteWork
                 << ") localHeight=" << localHeight << " localWork=" << localWork
-                << "\n";
+                << " reorgDepth=" << reorgDepth << "\n";
+      auto itBad = peerTransports.find(peer);
+      if (itBad != peerTransports.end())
+        itBad->second.state->misScore += 50;
+      blacklistPeer(peer);
       ps->snapshotActive = false;
       ps->snapshotB64.clear();
       return;

@@ -186,7 +186,7 @@ private:
   std::thread serverThread;
   std::unique_ptr<PeerManager> peerManager;
   std::string publicPeerId;
-  std::unordered_set<std::string> bannedPeers;
+  std::unordered_map<std::string, uint64_t> bannedPeers;
   std::unordered_set<std::string> knownPeers;
   std::unordered_set<std::string> anchorPeers;
   PeerBlacklist *blacklist;
