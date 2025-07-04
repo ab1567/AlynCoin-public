@@ -73,6 +73,10 @@ cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j$(nproc)
 ```
 
+Trace-level lock diagnostics are disabled by default. If you need detailed
+mutex tracing for debugging, pass `-DENABLE_LOCK_TRACING=ON` to CMake when
+configuring the build.
+
 Binaries such as `alyncoin` and `alyncoin-cli` will be placed in the `build`
 directory.
 
