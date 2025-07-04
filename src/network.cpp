@@ -1,4 +1,6 @@
 #include "network.h"
+#include "transport/ssl_transport.h"
+#include "tls_utils.h"
 #include "blockchain.h"
 #include "crypto_utils.h"
 #include "generated/block_protos.pb.h"
@@ -385,12 +387,20 @@ void tryNATPMPPortMapping(int port) {
 
 Network::Network(unsigned short port, Blockchain *blockchain,
                  PeerBlacklist *blacklistPtr)
-    : port(port), blockchain(blockchain), isRunning(false), syncing(true),
-      ioContext(), acceptor(ioContext), blacklist(blacklistPtr) {
+      : port(port), blockchain(blockchain), isRunning(false), syncing(true),
+      ioContext(), tlsContext(nullptr), acceptor(ioContext), blacklist(blacklistPtr) {
   if (!blacklistPtr) {
     std::cerr
         << "❌ [FATAL] PeerBlacklist is null! Cannot initialize network.\n";
     throw std::runtime_error("PeerBlacklist is null");
+  }
+
+  if (getAppConfig().enable_tls) {
+    tlsContext = std::make_unique<boost::asio::ssl::context>(boost::asio::ssl::context::tlsv12);
+    std::string cert, key;
+    tls::ensure_self_signed_cert(getAppConfig().data_dir, cert, key);
+    tlsContext->use_certificate_chain_file(cert);
+    tlsContext->use_private_key_file(key, boost::asio::ssl::context::pem);
   }
 
   try {
@@ -458,8 +468,22 @@ void Network::listenForConnections() {
       [this](boost::system::error_code ec, tcp::socket socket) {
         if (!ec) {
           std::cout << "🌐 [ACCEPTED] Incoming connection accepted.\n";
-          auto sockPtr = std::make_shared<tcp::socket>(std::move(socket));
-          auto transport = std::make_shared<TcpTransport>(sockPtr);
+          std::shared_ptr<Transport> transport;
+          if (getAppConfig().enable_tls && tlsContext) {
+            auto stream = std::make_shared<boost::asio::ssl::stream<tcp::socket>>(std::move(socket), *tlsContext);
+            transport = std::make_shared<SslTransport>(stream);
+            boost::system::error_code ec2;
+            stream->handshake(boost::asio::ssl::stream_base::server, ec2);
+            if (ec2) {
+              std::cerr << "❌ [TLS handshake] " << ec2.message() << "\n";
+              return;
+            }
+          } else {
+            auto sockPtr = std::make_shared<tcp::socket>(std::move(socket));
+            transport = std::make_shared<TcpTransport>(sockPtr);
+          }
+          if (transport)
+            std::thread(&Network::handlePeer, this, transport).detach();
           std::thread(&Network::handlePeer, this, transport).detach();
         } else {
           std::cerr << "❌ [Network] Accept error: " << ec.message() << "\n";
@@ -1858,11 +1882,23 @@ bool Network::connectToNode(const std::string &host, int port) {
   try {
     std::cout << "[PEER_CONNECT] → " << host << ':' << port << '\n';
 
-    auto tx = std::make_shared<TcpTransport>(ioContext);
-    if (!tx->connect(host, port)) {
+    std::shared_ptr<Transport> tx;
+    if (getAppConfig().enable_tls && tlsContext) {
+      auto sslTx = std::make_shared<SslTransport>(ioContext, *tlsContext);
+      if (!sslTx->connect(host, port)) {
+        std::cerr << "❌ [connectToNode] Connection to " << host << ':' << port
+                  << " failed." << '\n';
+        return false;
+      }
+      tx = sslTx;
+    } else {
+      auto plain = std::make_shared<TcpTransport>(ioContext);
+      if (!plain->connect(host, port)) {
       std::cerr << "❌ [connectToNode] Connection to " << host << ':' << port
                 << " failed." << '\n';
       return false;
+      }
+      tx = plain;
     }
 
     {
@@ -1901,6 +1937,21 @@ bool Network::connectToNode(const std::string &host, int port) {
         return false;
       }
       blob = tcp->readBinaryBlocking();
+    } else if (auto ssl = std::dynamic_pointer_cast<SslTransport>(tx)) {
+      if (!ssl->waitReadable(30)) {
+        std::cerr << "⚠️ [connectToNode] handshake timeout for " << peerKey
+                  << '\n';
+        std::lock_guard<std::timed_mutex> g(peersMutex);
+        auto it = peerTransports.find(peerKey);
+        if (it != peerTransports.end() && it->second.tx &&
+            it->second.tx->isOpen()) {
+          ssl->close();
+        } else {
+          peerTransports.erase(peerKey);
+        }
+        return false;
+      }
+      blob = ssl->readBinaryBlocking();
     } else {
       blob = tx->readBinaryBlocking();
     }
@@ -1917,6 +1968,8 @@ bool Network::connectToNode(const std::string &host, int port) {
       if (it != peerTransports.end() && it->second.tx && it->second.tx->isOpen()) {
         if (auto tcp = std::dynamic_pointer_cast<TcpTransport>(tx))
           tcp->close();
+        else if (auto ssl = std::dynamic_pointer_cast<SslTransport>(tx))
+          ssl->close();
       } else {
         peerTransports.erase(peerKey);
       }

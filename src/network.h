@@ -11,6 +11,8 @@
 #include "transaction.h"
 #include "transport/peer_globals.h" // <<--- ONLY include, don't redeclare!
 #include "transport/transport.h"
+#include "config.h"
+#include <boost/asio/ssl.hpp>
 #include <atomic>
 #include <boost/asio.hpp>
 #include <fstream>
@@ -173,6 +175,7 @@ private:
   std::mutex fileIOMutex;
 
   boost::asio::io_context ioContext;
+  std::unique_ptr<boost::asio::ssl::context> tlsContext;
   boost::asio::ip::tcp::acceptor acceptor;
   std::thread listenerThread;
   std::thread serverThread;

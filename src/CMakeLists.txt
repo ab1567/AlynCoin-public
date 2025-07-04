@@ -101,10 +101,14 @@ list(APPEND SOURCES
     ${SOURCE_DIR}/transport/transport.h
     ${SOURCE_DIR}/transport/tcp_transport.cpp
     ${SOURCE_DIR}/transport/tcp_transport.h
+    ${SOURCE_DIR}/transport/ssl_transport.cpp
+    ${SOURCE_DIR}/transport/ssl_transport.h
     ${SOURCE_DIR}/transport/pubsub_router.cpp
     ${SOURCE_DIR}/transport/pubsub_router.h
     ${SOURCE_DIR}/transport/peer_globals.cpp
     ${SOURCE_DIR}/epoch_sync.cpp
+    ${SOURCE_DIR}/config.cpp
+    ${SOURCE_DIR}/tls_utils.cpp
 )
 
 file(GLOB EXPLORER_SOURCES ${SOURCE_DIR}/explorer/*.cpp)
@@ -157,6 +161,9 @@ find_package(OpenSSL REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(JSONCPP jsoncpp)
 find_package(Protobuf REQUIRED)
+find_library(SODIUM_LIB sodium REQUIRED)
+find_path(SODIUM_INCLUDE_DIR sodium.h)
+include_directories(${SODIUM_INCLUDE_DIR})
 find_library(ROCKSDB_LIB rocksdb REQUIRED)
 find_path(ROCKSDB_INCLUDE_DIR rocksdb/db.h)
 
@@ -338,6 +345,7 @@ set_source_files_properties(
 
 target_link_libraries(alyncoin_lib
     OpenSSL::Crypto
+    OpenSSL::SSL
     ${JSONCPP_LIBRARIES}
     pthread
     crypto
@@ -347,6 +355,7 @@ target_link_libraries(alyncoin_lib
     ${Protobuf_LIBRARIES}
     falcon
     dilithium
+    ${SODIUM_LIB}
     ${SOURCE_DIR}/rust/target/release/libzk_winterfell.a
     resolv
 )
