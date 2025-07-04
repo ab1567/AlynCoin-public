@@ -91,7 +91,7 @@ quietPrint( "❌ Failed to bind Network on port " << port << ": " << ex.what() <
   void broadcastPeerList();
   void run();
   bool isSyncing() const;
-  bool connectToNode(const std::string &ip, int port);
+  bool connectToNode(const std::string &ip, int remotePort);
   void receiveFullChain(const std::string &sender,
                         const std::string &serializedData);
   void autoMineBlock();
