@@ -80,20 +80,14 @@ std::string TcpTransport::readBinaryBlocking()
 {
     if (!isOpen()) return {};
     try {
-        uint8_t hdr[10];
-        size_t pos = 0; uint64_t need = 0; size_t used = 0;
-        while (pos < sizeof(hdr)) {
-            size_t got = boost::asio::read(*socket, boost::asio::buffer(hdr + pos, 1));
-            if (got != 1) return {};
-            ++pos;
-            if (decodeVarInt(hdr, pos, &need, &used))
-                break;
-        }
-        if (used == 0 || need > 32 * 1024 * 1024)
+        uint64_t need = 0;
+        if (!readVarIntBlocking(*socket, need))
+            return {};
+        if (need == 0 || need > 32 * 1024 * 1024)
             return {};
         std::string buf(need, '\0');
         boost::asio::read(*socket, boost::asio::buffer(buf));
-        return buf;
+        return buf;            // protobuf-ready
     } catch (const std::exception& ex) {
         std::cerr << "[TcpTransport::readBinaryBlocking] " << ex.what() << '\n';
         return {};
