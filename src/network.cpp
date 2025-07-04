@@ -11,9 +11,12 @@
 #include "rollup/rollup_block.h"
 #include "syncing.h"
 #include "transaction.h"
+#include "crypto/sphinx.h"
 #include "wire/varint.h"
 #include "zk/winterfell_stark.h"
+#include <sodium.h>
 #include <algorithm>
+#include <random>
 #include <arpa/nameser.h>
 #include <array>
 #include <boost/asio.hpp>
@@ -57,9 +60,11 @@ using namespace alyncoin;
 static std::unordered_map<std::string, std::vector<Block>> incomingChains;
 // Buffers for in-progress FULL_CHAIN syncs
 // Per-peer sync buffers are now stored in PeerState via peerTransports
-static constexpr uint32_t kFrameRevision = 2;
+static constexpr uint32_t kFrameRevision = 3;
 static_assert(alyncoin::net::Frame::kBlockBroadcast == 6,
               "Frame field-numbers changed \u2013 bump kFrameRevision !");
+static constexpr uint64_t FRAME_LIMIT_MIN = 200;
+static constexpr uint64_t BYTE_LIMIT_MIN = 1 << 20;
 struct ScopedLockTracer {
   std::string name;
   ScopedLockTracer(const std::string &n) : name(n) {
@@ -173,6 +178,36 @@ void Network::broadcastFrame(const google::protobuf::Message &m) {
       markPeerOffline(peerId);
     }
   }
+}
+
+void Network::sendPrivate(const std::string &peer,
+                          const google::protobuf::Message &m) {
+  std::vector<std::string> peers;
+  {
+    std::lock_guard<std::timed_mutex> lk(peersMutex);
+    for (const auto &kv : peerTransports)
+      if (kv.first != peer)
+        peers.push_back(kv.first);
+  }
+  if (peers.empty())
+    return;
+  std::shuffle(peers.begin(), peers.end(), std::mt19937{std::random_device{}()});
+  std::vector<std::vector<uint8_t>> route;
+  route.emplace_back(publicPeerId.begin(), publicPeerId.end());
+  size_t hops = std::min<size_t>(3, peers.size());
+  for (size_t i = 0; i < hops - 1; ++i)
+    route.emplace_back(peers[i].begin(), peers[i].end());
+  route.emplace_back(peer.begin(), peer.end());
+
+  auto firstHop = peers[0];
+  auto &lk = peerTransports[firstHop].state->linkKey;
+  std::string payload = m.SerializeAsString();
+  auto pkt = crypto::createPacket(std::vector<uint8_t>(payload.begin(), payload.end()), route,
+                                  std::vector<uint8_t>(lk.begin(), lk.end()));
+  alyncoin::net::Frame fr;
+  fr.mutable_whisper()->set_data(std::string(pkt.header.begin(), pkt.header.end()) +
+                                 std::string(pkt.payload.begin(), pkt.payload.end()));
+  sendFrame(peerTransports[firstHop].tx, fr);
 }
 
 void Network::sendHeight(const std::string &peer) {
@@ -570,19 +605,8 @@ void Network::broadcastTransaction(const Transaction &tx) {
   alyncoin::TransactionProto proto = tx.toProto();
   alyncoin::net::Frame fr;
   *fr.mutable_tx_broadcast()->mutable_tx() = proto;
-  for (const auto &peer : peerTransports) {
-    auto transport = peer.second.tx;
-    if (transport && transport->isOpen()) {
-      try {
-        sendFrame(transport, fr);
-        std::cout << "📡 Transaction broadcasted to peer: " << peer.first
-                  << std::endl;
-      } catch (const std::exception &e) {
-        std::cerr << "❌ [ERROR] Failed to broadcast transaction to "
-                  << peer.first << ": " << e.what() << std::endl;
-      }
-    }
-  }
+  for (const auto &kv : peerTransports)
+    sendPrivate(kv.first, fr);
 }
 
 // Broadcast transaction to all peers except sender (to prevent echo storms)
@@ -591,19 +615,10 @@ void Network::broadcastTransactionToAllExcept(const Transaction &tx,
   alyncoin::TransactionProto proto = tx.toProto();
   alyncoin::net::Frame fr;
   *fr.mutable_tx_broadcast()->mutable_tx() = proto;
-  for (const auto &peer : peerTransports) {
-    if (peer.first == excludePeer)
+  for (const auto &kv : peerTransports) {
+    if (kv.first == excludePeer)
       continue;
-    auto transport = peer.second.tx;
-    if (transport && transport->isOpen()) {
-      try {
-        sendFrame(transport, fr);
-        std::cout << "📡 [TX] Rebroadcast to peer: " << peer.first << std::endl;
-      } catch (const std::exception &e) {
-        std::cerr << "❌ [ERROR] Failed to broadcast tx to " << peer.first
-                  << ": " << e.what() << std::endl;
-      }
-    }
+    sendPrivate(kv.first, fr);
   }
 }
 
@@ -769,6 +784,9 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
   };
 
   // ── 1. read + verify handshake ──────────────────────────────────────────
+  std::array<uint8_t, 32> myPriv{};
+  std::array<uint8_t, 32> myPub{};
+  std::array<uint8_t, 32> shared{};
   try {
     std::string blob = transport->readBinaryBlocking();
     alyncoin::net::Frame fr;
@@ -776,6 +794,13 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
       throw std::runtime_error("invalid handshake");
 
     const auto &hs = fr.handshake();
+
+    randombytes_buf(myPriv.data(), myPriv.size());
+    crypto_scalarmult_curve25519_base(myPub.data(), myPriv.data());
+    if (hs.pub_key().size() == 32)
+      (void)crypto_scalarmult_curve25519(
+          shared.data(), myPriv.data(),
+          reinterpret_cast<const unsigned char *>(hs.pub_key().data()));
 
     const std::string senderIP = transport->getRemoteIP();
     // The Handshake proto uses proto3 semantics so there is no
@@ -863,6 +888,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
       entry.state = std::make_shared<PeerState>();
     entry.state->supportsAggProof = remoteAgg;
     entry.state->supportsSnapshot = remoteSnap;
+    std::copy(shared.begin(), shared.end(), entry.state->linkKey.begin());
 
     if (peerManager) {
       peerManager->connectToPeer(claimedPeerId);
@@ -875,6 +901,8 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
   // ── 4. push our handshake back ──────────────────────────────────────────
   {
     alyncoin::net::Handshake hs = buildHandshake();
+    hs.set_pub_key(std::string(reinterpret_cast<char *>(myPub.data()),
+                               myPub.size()));
     alyncoin::net::Frame out;
     *out.mutable_handshake() = hs;
     sendFrameImmediate(transport, out);
@@ -1349,16 +1377,28 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
   std::cerr << "[handleNewBlock] Attempting to add block idx="
             << newBlock.getIndex() << " hash=" << newBlock.getHash() << '\n';
   const int expectedIndex = blockchain.getLatestBlock().getIndex() + 1;
+  auto punish = [&] {
+    if (!sender.empty()) {
+      auto it = peerTransports.find(sender);
+      if (it != peerTransports.end()) {
+        it->second.state->misScore += 100;
+        if (it->second.state->misScore >= 100)
+          blacklistPeer(sender);
+      }
+    }
+  };
 
   // 1) PoW and zk-STARK check
   if (!newBlock.hasValidProofOfWork()) {
     std::cerr << "❌ [ERROR] Block PoW check failed!\n";
+    punish();
     return;
   }
 
   const auto &zkVec = newBlock.getZkProof();
   if (zkVec.empty()) {
     std::cerr << "❌ [ERROR] Missing zkProof in incoming block!\n";
+    punish();
     return;
   }
 
@@ -1367,6 +1407,7 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
                                     newBlock.getPreviousHash(),
                                     newBlock.getTransactionsHash())) {
     std::cerr << "❌ [ERROR] Invalid zk-STARK proof detected in new block!\n";
+    punish();
     return;
   }
 
@@ -1384,6 +1425,7 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
         for (const auto &peer : peerTransports) {
           sendForkRecoveryRequest(peer.first, newBlock.getHash());
         }
+        punish();
         return;
       }
 
@@ -1414,6 +1456,7 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
         sendForkRecoveryRequest(peer.first, newBlock.getHash());
       }
     }
+    punish();
     return;
   }
   if (newBlock.getIndex() > expectedIndex) {
@@ -1437,6 +1480,7 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
 
     if (!Crypto::verifyWithDilithium(msgBytes, sigDil, pubDil)) {
       std::cerr << "❌ Dilithium signature verification failed!\n";
+      punish();
       return;
     }
 
@@ -1445,12 +1489,14 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
 
     if (!Crypto::verifyWithFalcon(msgBytes, sigFal, pubFal)) {
       std::cerr << "❌ Falcon signature verification failed!\n";
+      punish();
       return;
     }
 
   } catch (const std::exception &e) {
     std::cerr << "❌ [Exception] Signature verification error: " << e.what()
               << "\n";
+    punish();
     return;
   }
 
@@ -1458,6 +1504,7 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
   try {
     if (!blockchain.addBlock(newBlock)) {
       std::cerr << "❌ [ERROR] Failed to add new block.\n";
+      punish();
       return;
     }
 
@@ -1617,10 +1664,15 @@ void Network::addPeer(const std::string &peer) {
 // ------------------------------------------------------------------
 //  Helper: send our handshake right after connecting outbound
 // ------------------------------------------------------------------
-bool Network::finishOutboundHandshake(std::shared_ptr<Transport> tx) {
+bool Network::finishOutboundHandshake(std::shared_ptr<Transport> tx,
+                                      std::array<uint8_t, 32> &privOut) {
   if (!tx || !tx->isOpen())
     return false;
   alyncoin::net::Handshake hs = buildHandshake();
+  std::array<uint8_t, 32> pub{};
+  randombytes_buf(privOut.data(), privOut.size());
+  crypto_scalarmult_curve25519_base(pub.data(), privOut.data());
+  hs.set_pub_key(std::string(reinterpret_cast<char *>(pub.data()), pub.size()));
   alyncoin::net::Frame fr;
   *fr.mutable_handshake() = hs;
   if (!sendFrameImmediate(tx, fr))
@@ -1677,6 +1729,17 @@ void Network::startBinaryReadLoop(const std::string &peerId,
                 << ")\n";
       markPeerOffline(peerId);
       return;
+    }
+
+    auto it = peerTransports.find(peerId);
+    if (it != peerTransports.end()) {
+      auto &st = *it->second.state;
+      st.frameCountMin++;
+      st.byteCountMin += blob.size();
+      if (st.frameCountMin > FRAME_LIMIT_MIN || st.byteCountMin > BYTE_LIMIT_MIN)
+        st.misScore += 5;
+      if (st.misScore >= 100)
+        blacklistPeer(peerId);
     }
 
     alyncoin::net::Frame f;
@@ -1803,6 +1866,14 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
       std::cerr << "⚠️  [dispatch] malformed tip hash from " << peer << "\n";
       if (peerManager)
         peerManager->disconnectPeer(peer);
+      {
+        auto it = peerTransports.find(peer);
+        if (it != peerTransports.end()) {
+          it->second.state->misScore += 100;
+          if (it->second.state->misScore >= 100)
+            blacklistPeer(peer);
+        }
+      }
       break;
     }
     if (peerManager)
@@ -1849,6 +1920,28 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
   case alyncoin::net::Frame::kTxBroadcast: {
     Transaction tx = Transaction::fromProto(f.tx_broadcast().tx());
     receiveTransaction(tx);
+    break;
+  }
+  case alyncoin::net::Frame::kWhisper: {
+    if (f.whisper().data().size() <= 24)
+      break;
+    crypto::SphinxPacket pkt;
+    pkt.header.assign(f.whisper().data().begin(),
+                      f.whisper().data().begin() + 24);
+    pkt.payload.assign(f.whisper().data().begin() + 24,
+                       f.whisper().data().end());
+    auto it = peerTransports.find(peer);
+    if (it == peerTransports.end())
+      break;
+    std::vector<uint8_t> inner;
+    if (!crypto::peelPacket(pkt,
+                            std::vector<uint8_t>(it->second.state->linkKey.begin(),
+                                                 it->second.state->linkKey.end()),
+                            nullptr, &inner))
+      break;
+    alyncoin::net::Frame innerFr;
+    if (innerFr.ParseFromArray(inner.data(), inner.size()))
+      dispatch(innerFr, peer);
     break;
   }
   case alyncoin::net::Frame::kSnapshotReq:
@@ -1914,7 +2007,8 @@ bool Network::connectToNode(const std::string &host, int port) {
     }
 
     /* our handshake */
-    if (!finishOutboundHandshake(tx)) {
+    std::array<uint8_t, 32> myPriv{};
+    if (!finishOutboundHandshake(tx, myPriv)) {
       std::cerr << "❌ [connectToNode] failed to send handshake to " << peerKey
                 << '\n';
       return false;
@@ -1994,6 +2088,12 @@ bool Network::connectToNode(const std::string &host, int port) {
         theirSnap = true;
     }
 
+    std::array<uint8_t, 32> shared{};
+    if (rhs.pub_key().size() == 32)
+      (void)crypto_scalarmult_curve25519(
+          shared.data(), myPriv.data(),
+          reinterpret_cast<const unsigned char *>(rhs.pub_key().data()));
+
     {
       ScopedLockTracer t("connectToNode/register");
       std::lock_guard<std::timed_mutex> lk(peersMutex);
@@ -2009,6 +2109,8 @@ bool Network::connectToNode(const std::string &host, int port) {
       auto st = peerTransports[peerKey].state;
       st->supportsAggProof = theirAgg;
       st->supportsSnapshot = theirSnap;
+      if (rhs.pub_key().size() == 32)
+        std::copy(shared.begin(), shared.end(), st->linkKey.begin());
       if (peerManager) {
         peerManager->connectToPeer(peerKey);
         peerManager->setPeerHeight(peerKey, theirHeight);

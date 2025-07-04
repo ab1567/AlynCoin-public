@@ -55,6 +55,7 @@ file(GLOB SOURCES
     ${SOURCE_DIR}/transaction.cpp
     ${SOURCE_DIR}/network.cpp
     ${SOURCE_DIR}/crypto_utils.cpp
+    ${SOURCE_DIR}/crypto/sphinx.cpp
     ${SOURCE_DIR}/miner.cpp
     ${SOURCE_DIR}/wallet.cpp
     ${SOURCE_DIR}/keccak.cpp

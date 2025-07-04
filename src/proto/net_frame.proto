@@ -14,9 +14,12 @@ message Handshake {
   bytes genesis_hash = 5;
   repeated string capabilities = 6;
 
+  // X25519 public key for per-link key exchange
+  bytes pub_key = 7;
+
   // NEW — bump this whenever the `Frame` message layout changes.
   // 0 means "unknown / pre-rev".  The current software uses 1.
-  uint32 frame_rev = 7;
+  uint32 frame_rev = 8;
 }
 
 message Ping {}
@@ -55,6 +58,7 @@ message TailBlocksRequest { uint64 from_height = 1; }
 message GetData { repeated string hashes = 1; }
 message StateProof { alyncoin.StateProofProto proof = 1; }
 message TransactionBroadcast { alyncoin.TransactionProto tx = 1; }
+message Whisper { bytes data = 1; }
 
 message Frame {
   oneof kind {
@@ -83,5 +87,6 @@ message Frame {
     GetData get_data = 23;
     BlockchainSyncProto blockchain_sync_request = 24;
     TransactionBroadcast tx_broadcast = 25;
+    Whisper whisper = 26;
   }
 }

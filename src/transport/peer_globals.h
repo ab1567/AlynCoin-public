@@ -6,6 +6,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <array>
 
 // Per-peer state used during sync and message reassembly
 struct PeerState {
@@ -27,6 +28,10 @@ struct PeerState {
   bool fullChainActive{false};
   bool supportsAggProof{false};
   bool supportsSnapshot{false};
+  uint64_t frameCountMin{0};
+  uint64_t byteCountMin{0};
+  int misScore{0};
+  std::array<uint8_t, 32> linkKey{};
   std::mutex m;
 };
 
