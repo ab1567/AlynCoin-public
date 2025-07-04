@@ -56,7 +56,7 @@ sudo apt install -y \
   libssl-dev libprotobuf-dev protobuf-compiler \
   libjsoncpp-dev libboost-all-dev \
   librocksdb-dev zlib1g-dev libbz2-dev \
-  libsnappy-dev liblz4-dev libzstd-dev \
+  libsnappy-dev liblz4-dev libzstd-dev libsodium-dev \
   libasio-dev nlohmann-json3-dev \
   zip unzip git curl python3 python3-pip
 
