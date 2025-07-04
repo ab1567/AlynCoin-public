@@ -90,7 +90,9 @@ static std::string ipPrefix(const std::string &ip) {
 static std::unordered_map<std::string, std::vector<Block>> incomingChains;
 // Buffers for in-progress FULL_CHAIN syncs
 // Per-peer sync buffers are now stored in PeerState via peerTransports
-static constexpr uint32_t kFrameRevision = 3;
+// Protocol frame revision. Bumped whenever the on-wire format or required
+// capabilities change.
+static constexpr uint32_t kFrameRevision = 4;
 static_assert(alyncoin::net::Frame::kBlockBroadcast == 6,
               "Frame field-numbers changed \u2013 bump kFrameRevision !");
 static constexpr uint64_t FRAME_LIMIT_MIN = 200;
@@ -329,6 +331,7 @@ alyncoin::net::Handshake Network::buildHandshake() const {
   hs.add_capabilities("binary_v1");
   hs.add_capabilities("whisper_v1");
   hs.add_capabilities("tls_v1");
+  hs.add_capabilities("ban_decay_v1");
   hs.set_frame_rev(kFrameRevision);
   return hs;
 }
@@ -851,6 +854,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
   bool remoteSnap = false;
   bool remoteWhisper = false;
   bool remoteTls = false;
+  bool remoteBanDecay = false;
 
   /* what *we* look like to the outside world */
   const auto selfAddr = [this] {
@@ -909,6 +913,8 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
         remoteWhisper = true;
       if (cap == "tls_v1")
         remoteTls = true;
+      if (cap == "ban_decay_v1")
+        remoteBanDecay = true;
       if (cap == "binary_v1")
         gotBinary = true;
     }
@@ -985,6 +991,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     entry.state->supportsSnapshot = remoteSnap;
     entry.state->supportsWhisper = remoteWhisper;
     entry.state->supportsTls = remoteTls;
+    entry.state->supportsBanDecay = remoteBanDecay;
     std::copy(shared.begin(), shared.end(), entry.state->linkKey.begin());
 
     if (peerManager) {
@@ -1126,17 +1133,22 @@ void Network::run() {
         if (st->misScore > 0)
           st->misScore--;
         if (st->banUntil != std::chrono::steady_clock::time_point{} &&
-            std::chrono::steady_clock::now() >= st->banUntil)
+            std::chrono::steady_clock::now() >= st->banUntil) {
           st->banUntil = std::chrono::steady_clock::time_point{};
+          std::cerr << "ℹ️  [ban] unbanned peer " << kv.first << '\n';
+        }
       }
 
       auto now = std::time(nullptr);
       // purge expired temporary bans
       for (auto it = bannedPeers.begin(); it != bannedPeers.end();) {
-        if (now >= it->second)
+        if (now >= it->second) {
+          std::cerr << "ℹ️  [ban] temporary ban expired for " << it->first
+                    << '\n';
           it = bannedPeers.erase(it);
-        else
+        } else {
           ++it;
+        }
       }
     }
   }).detach();
@@ -1697,6 +1709,7 @@ bool Network::isBlacklisted(const std::string &peer) {
   // clear expired ban
   if (std::time(nullptr) >= it->second) {
     bannedPeers.erase(it);
+    std::cerr << "ℹ️  [ban] unbanned peer " << peer << '\n';
     return false;
   }
   return true;
@@ -2284,6 +2297,7 @@ bool Network::connectToNode(const std::string &host, int port) {
     bool theirSnap = false;
     bool theirWhisper = false;
     bool theirTls = false;
+    bool theirBanDecay = false;
     int theirHeight = 0;
     alyncoin::net::Frame fr;
     if (blob.empty() || !fr.ParseFromString(blob) || !fr.has_handshake()) {
@@ -2322,6 +2336,8 @@ bool Network::connectToNode(const std::string &host, int port) {
         theirWhisper = true;
       if (c == "tls_v1")
         theirTls = true;
+      if (c == "ban_decay_v1")
+        theirBanDecay = true;
     }
 
     std::array<uint8_t, 32> shared{};
@@ -2349,6 +2365,7 @@ bool Network::connectToNode(const std::string &host, int port) {
       st->supportsSnapshot = theirSnap;
       st->supportsWhisper = theirWhisper;
       st->supportsTls = theirTls;
+      st->supportsBanDecay = theirBanDecay;
       if (rhs.pub_key().size() == 32)
         std::copy(shared.begin(), shared.end(), st->linkKey.begin());
       if (peerManager) {
