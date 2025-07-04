@@ -202,10 +202,18 @@ void TcpTransport::startReadBinaryLoop(std::function<void(const boost::system::e
             dataBuffer->erase(dataBuffer->begin(), dataBuffer->begin() + used + frameLen);
         }
 
-        socket->async_read_some(boost::asio::buffer(*readBuffer), *handler);
+        socket->async_read_some(
+            boost::asio::buffer(*readBuffer),
+            [handler](const boost::system::error_code& ec, std::size_t n) {
+                (*handler)(ec, n);
+            });
     };
 
-    socket->async_read_some(boost::asio::buffer(*readBuffer), *handler);
+    socket->async_read_some(
+        boost::asio::buffer(*readBuffer),
+        [handler](const boost::system::error_code& ec, std::size_t n) {
+            (*handler)(ec, n);
+        });
 }
 
 // ---- Async queue write implementation ----

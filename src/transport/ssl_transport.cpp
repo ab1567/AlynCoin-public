@@ -170,9 +170,17 @@ void SslTransport::startReadBinaryLoop(std::function<void(const boost::system::e
             cb(boost::system::error_code(), frame);
             dataBuffer->erase(dataBuffer->begin(), dataBuffer->begin() + used + frameLen);
         }
-        sslSocket->async_read_some(boost::asio::buffer(*readBuffer), *handler);
+        sslSocket->async_read_some(
+            boost::asio::buffer(*readBuffer),
+            [handler](const boost::system::error_code& ec, std::size_t n) {
+                (*handler)(ec, n);
+            });
     };
-    sslSocket->async_read_some(boost::asio::buffer(*readBuffer), *handler);
+    sslSocket->async_read_some(
+        boost::asio::buffer(*readBuffer),
+        [handler](const boost::system::error_code& ec, std::size_t n) {
+            (*handler)(ec, n);
+        });
 }
 
 void SslTransport::startReadLineLoop(std::function<void(const boost::system::error_code&, const std::string&)> cb) {
