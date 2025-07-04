@@ -201,5 +201,6 @@ private:
   void sendInitialRequests(const std::string &peerId);
   void handlePeer(std::shared_ptr<Transport> transport);
   bool validateBlockSignatures(const Block &blk);
+  void penalizePeer(const std::string &peer, int points);
 };
 #endif // NETWORK_H

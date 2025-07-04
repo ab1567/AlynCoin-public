@@ -95,6 +95,7 @@ static_assert(alyncoin::net::Frame::kBlockBroadcast == 6,
               "Frame field-numbers changed \u2013 bump kFrameRevision !");
 static constexpr uint64_t FRAME_LIMIT_MIN = 200;
 static constexpr uint64_t BYTE_LIMIT_MIN = 1 << 20;
+static constexpr int MAX_REORG = 100;
 struct ScopedLockTracer {
   std::string name;
   ScopedLockTracer(const std::string &n) : name(n) {
@@ -219,12 +220,14 @@ void Network::sendPrivate(const std::string &peer,
       if (kv.first != peer)
         peers.push_back(kv.first);
   }
-  if (peers.empty())
+  if (peers.empty()) {
+    broadcastFrame(m);
     return;
+  }
   std::shuffle(peers.begin(), peers.end(), std::mt19937{std::random_device{}()});
-  size_t hops = std::min<size_t>(3, peers.size());
+  size_t hops = std::min<size_t>(3, peers.size() + 1);
   std::vector<std::string> route;
-  for (size_t i = 0; i < hops - 1; ++i)
+  for (size_t i = 0; i + 1 < hops; ++i)
     route.push_back(peers[i]);
   route.push_back(peer);
 
@@ -296,6 +299,16 @@ void Network::markPeerOffline(const std::string &peerId) {
   knownPeers.erase(peerId);
   if (peerManager)
     peerManager->disconnectPeer(peerId);
+}
+
+void Network::penalizePeer(const std::string &peer, int points) {
+  std::lock_guard<std::timed_mutex> lk(peersMutex);
+  auto it = peerTransports.find(peer);
+  if (it != peerTransports.end()) {
+    it->second.state->misScore += points;
+    if (it->second.state->misScore >= 100)
+      blacklistPeer(peer);
+  }
 }
 
 // Build a handshake using the most up-to-date blockchain metadata so
@@ -1112,6 +1125,9 @@ void Network::run() {
         // decay misbehavior score gradually
         if (st->misScore > 0)
           st->misScore--;
+        if (st->banUntil != std::chrono::steady_clock::time_point{} &&
+            std::chrono::steady_clock::now() >= st->banUntil)
+          st->banUntil = std::chrono::steady_clock::time_point{};
       }
 
       auto now = std::time(nullptr);
@@ -1661,7 +1677,15 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
 
 // Black list peer
 void Network::blacklistPeer(const std::string &peer) {
-  peerTransports.erase(peer);
+  {
+    std::lock_guard<std::timed_mutex> lk(peersMutex);
+    auto it = peerTransports.find(peer);
+    if (it != peerTransports.end()) {
+      it->second.state->banUntil =
+          std::chrono::steady_clock::now() + std::chrono::hours(24);
+    }
+    peerTransports.erase(peer);
+  }
   // ban peer for 24 hours
   bannedPeers[peer] = std::time(nullptr) + 24 * 60 * 60;
 }
@@ -2150,6 +2174,16 @@ bool Network::connectToNode(const std::string &host, int port) {
   if (isBlacklisted(peerKey)) {
     std::cerr << "⚠️ [connectToNode] " << peerKey << " is banned.\n";
     return false;
+  }
+  {
+    std::lock_guard<std::timed_mutex> g(peersMutex);
+    auto it = peerTransports.find(peerKey);
+    if (it != peerTransports.end() &&
+        std::chrono::steady_clock::now() < it->second.state->banUntil) {
+      std::cerr << "⚠️ [connectToNode] " << peerKey
+                << " is temporarily banned." << '\n';
+      return false;
+    }
   }
 
   std::string prefix = ipPrefix(host);
@@ -2852,20 +2886,17 @@ void Network::handleSnapshotEnd(const std::string &peer) {
     std::string localTipHash = chain.getLatestBlockHash();
     std::string remoteTipHash = snapBlocks.empty() ? "" : snapBlocks.back().getHash();
     int reorgDepth = std::max(0, localHeight - snap.height());
-    bool accept = (remoteTipHash != localTipHash &&
-                   snap.height() >= localHeight &&
-                   remoteWork > localWork * 1.01 &&
-                   reorgDepth <= 100);
+    bool accept = remoteTipHash != localTipHash && remoteWork > localWork * 1.01;
+    if (snap.height() < localHeight - MAX_REORG &&
+        remoteWork <= localWork * 1.20)
+      accept = false;
 
     if (!accept) {
       std::cerr << "⚠️ [SNAPSHOT] Rejected snapshot from " << peer << " (height "
                 << snap.height() << ", work " << remoteWork
                 << ") localHeight=" << localHeight << " localWork=" << localWork
                 << " reorgDepth=" << reorgDepth << "\n";
-      auto itBad = peerTransports.find(peer);
-      if (itBad != peerTransports.end())
-        itBad->second.state->misScore += 50;
-      blacklistPeer(peer);
+      penalizePeer(peer, 50);
       ps->snapshotActive = false;
       ps->snapshotB64.clear();
       return;

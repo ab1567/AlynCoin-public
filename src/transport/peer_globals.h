@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <vector>
 #include <array>
+#include <chrono>
 
 // Per-peer state used during sync and message reassembly
 struct PeerState {
@@ -34,6 +35,7 @@ struct PeerState {
   uint64_t byteCountMin{0};
   int limitStrikes{0};
   int misScore{0};
+  std::chrono::steady_clock::time_point banUntil{};
   std::array<uint8_t, 32> linkKey{};
   std::mutex m;
 };
