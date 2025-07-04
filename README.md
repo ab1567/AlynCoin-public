@@ -76,6 +76,14 @@ make -j$(nproc)
 Binaries such as `alyncoin` and `alyncoin-cli` will be placed in the `build`
 directory.
 
+## Networking updates
+
+Version 4 of the network frame protocol introduces temporary-ban decay
+support. Nodes now advertise a `ban_decay_v1` capability in their handshake
+messages. When connections are denied due to the /24 prefix cap or when a
+24-hour ban expires, informative log messages are written so operators can
+easily trace peer reputation changes.
+
 ## Run
 
 Start a standalone node (network port 15671 by default) with:
