@@ -857,7 +857,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
 
   /* what *we* look like to the outside world */
   const auto selfAddr = [this] {
-    return publicPeerId.empty() ? "127.0.0.1:" + std::to_string(port)
+    return publicPeerId.empty() ? "127.0.0.1:" + std::to_string(this->port)
                                 : publicPeerId;
   };
 
@@ -974,15 +974,31 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     auto itExisting = peerTransports.find(claimedPeerId);
     if (itExisting != peerTransports.end() && itExisting->second.tx &&
         itExisting->second.tx->isOpen()) {
-      std::cout << "🔁 duplicate connection from " << claimedPeerId
-                << " closed\n";
-      if (transport)
-        transport->close();
-      return;
+      bool keepExisting = true;
+      bool newInitiated = false;
+      if (itExisting->second.initiatedByUs != newInitiated) {
+        // each side initiated one, choose lexicographically smaller id
+        if (selfAddr() > claimedPeerId)
+          keepExisting = false;
+      }
+      if (keepExisting) {
+        std::cout << "🔁 duplicate connection from " << claimedPeerId
+                  << " closed\n";
+        if (transport)
+          transport->closeGraceful();
+        return;
+      } else {
+        std::cout << "🔁 replacing connection for " << claimedPeerId << "\n";
+        if (itExisting->second.tx)
+          itExisting->second.tx->closeGraceful();
+        itExisting->second.tx = transport;
+        itExisting->second.initiatedByUs = newInitiated;
+      }
     }
 
     auto &entry = peerTransports[claimedPeerId];
     entry.tx = transport;
+    entry.initiatedByUs = false;
     knownPeers.insert(claimedPeerId);
     if (!entry.state)
       entry.state = std::make_shared<PeerState>();
@@ -1821,7 +1837,7 @@ void Network::addPeer(const std::string &peer) {
   auto transport = std::make_shared<TcpTransport>(ioContext);
 
   peerTransports.emplace(peer,
-                         PeerEntry{transport, std::make_shared<PeerState>()});
+                         PeerEntry{transport, std::make_shared<PeerState>(), false});
   std::cout << "📡 Peer added: " << peer << std::endl;
   savePeers(); // ✅ Save immediately
 }
@@ -2183,6 +2199,10 @@ bool Network::connectToNode(const std::string &host, int port) {
   }
 
   const std::string peerKey = host + ':' + std::to_string(port);
+  const auto selfAddr = [this, port] {
+    return publicPeerId.empty() ? "127.0.0.1:" + std::to_string(port)
+                                : publicPeerId;
+  };
   if (isBlacklisted(peerKey)) {
     std::cerr << "⚠️ [connectToNode] " << peerKey << " is banned.\n";
     return false;
@@ -2239,12 +2259,30 @@ bool Network::connectToNode(const std::string &host, int port) {
     {
       ScopedLockTracer _t("connectToNode");
       std::lock_guard<std::timed_mutex> g(peersMutex);
-      if (peerTransports.count(peerKey)) {
-        std::cout << "🔁 already connected to " << peerKey << '\n';
-        // ensure pending handshake is cleaned up before returning
-        if (tx)
-          tx->close();
-        return false;
+      auto it = peerTransports.find(peerKey);
+      if (it != peerTransports.end() && it->second.tx && it->second.tx->isOpen()) {
+        bool keepNew = false;
+        bool newInitiated = true;
+        if (it->second.initiatedByUs == newInitiated) {
+          keepNew = false; // same initiator -> keep existing
+        } else {
+          if (selfAddr() < peerKey)
+            keepNew = newInitiated;
+          else
+            keepNew = !newInitiated;
+        }
+        if (!keepNew) {
+          std::cout << "🔁 already connected to " << peerKey << '\n';
+          if (tx)
+            tx->closeGraceful();
+          return false;
+        } else {
+          std::cout << "🔁 replacing connection to " << peerKey << '\n';
+          if (it->second.tx)
+            it->second.tx->closeGraceful();
+          it->second.tx = tx;
+          it->second.initiatedByUs = newInitiated;
+        }
       }
     }
 
@@ -2355,7 +2393,7 @@ bool Network::connectToNode(const std::string &host, int port) {
           tx->close();
         return false;
       }
-      peerTransports[peerKey] = {tx, std::make_shared<PeerState>()};
+        peerTransports[peerKey] = {tx, std::make_shared<PeerState>(), true};
       knownPeers.insert(peerKey);
       if (anchorPeers.size() < 2)
         anchorPeers.insert(peerKey);
