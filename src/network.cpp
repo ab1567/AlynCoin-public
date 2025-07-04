@@ -10,6 +10,7 @@
 #include "rollup/proofs/proof_verifier.h"
 #include "rollup/rollup_block.h"
 #include "syncing.h"
+#include "syncing/headers_sync.h"
 #include "transaction.h"
 #include "crypto/sphinx.h"
 #include "wire/varint.h"
@@ -1858,6 +1859,31 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
     handleGetData(peer, hashes);
     break;
   }
+  case alyncoin::net::Frame::kGetHeaders: {
+    std::string start = f.get_headers().from_hash();
+    int startIdx = -1;
+    const auto &ch = Blockchain::getInstance().getChain();
+    for (size_t i = 0; i < ch.size(); ++i) {
+      if (ch[i].getHash() == start) {
+        startIdx = static_cast<int>(i) + 1;
+        break;
+      }
+    }
+    if (startIdx != -1) {
+      alyncoin::net::Frame out;
+      auto *hdr = out.mutable_headers();
+      for (size_t i = startIdx; i < ch.size(); ++i)
+        *hdr->add_headers() = ch[i].toProtobuf();
+      auto it = peerTransports.find(peer);
+      if (it != peerTransports.end() && it->second.tx)
+        sendFrame(it->second.tx, out);
+    }
+    break;
+  }
+  case alyncoin::net::Frame::kHeaders: {
+    HeadersSync::handleHeaders(peer, f.headers());
+    break;
+  }
   case alyncoin::net::Frame::kTipHashReq:
     sendTipHash(peer);
     break;
@@ -2567,6 +2593,11 @@ void Network::handleSnapshotEnd(const std::string &peer) {
     std::vector<Block> snapBlocks;
     for (const auto &pb : snap.blocks()) {
       snapBlocks.push_back(Block::fromProto(pb, false));
+    }
+
+    for (const auto &b : snapBlocks) {
+      if (!b.isGenesisBlock() && !b.hasValidProofOfWork())
+        throw std::runtime_error("Snapshot block failed PoW");
     }
 
     // --- Quick path: height == localHeight + 1 -> treat as tail push

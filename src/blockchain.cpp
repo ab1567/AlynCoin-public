@@ -2816,6 +2816,23 @@ void Blockchain::compareAndMergeChains(const std::vector<Block>& otherChain) {
         return;
     }
 
+    const uint64_t mainWork = computeCumulativeDifficulty(chain);
+    const uint64_t newWork  = computeCumulativeDifficulty(otherChain);
+    const uint64_t safetyMargin = 10;
+
+    int commonIdxTmp = findForkCommonAncestor(otherChain);
+    int reorgDepth = commonIdxTmp == -1 ? chain.size() : chain.size() - commonIdxTmp - 1;
+    if (reorgDepth > 100 && newWork <= mainWork + mainWork / 10) {
+        std::cerr << "⚠️ [Fork] Deep reorg of depth " << reorgDepth << " rejected" << std::endl;
+        return;
+    }
+
+    if (newWork <= mainWork + safetyMargin) {
+        std::cout << "⚠️ [Fork] Incoming chain work " << newWork
+                  << " not greater than local work " << mainWork + safetyMargin << std::endl;
+        return;
+    }
+
     // ✅ CASE: local is prefix — always append, skip difficulty
     bool isPrefix = true;
     for (size_t i = 0; i < std::min(chain.size(), otherChain.size()); ++i) {
@@ -2841,10 +2858,7 @@ void Blockchain::compareAndMergeChains(const std::vector<Block>& otherChain) {
     // ✅ CASE: same length but different tip
     if (otherChain.size() == chain.size() &&
         chain.back().getHash() != otherChain.back().getHash()) {
-        uint64_t localDiff = computeCumulativeDifficulty(chain);
-        uint64_t remoteDiff = computeCumulativeDifficulty(otherChain);
-
-        if (remoteDiff > localDiff) {
+        if (newWork > mainWork) {
             std::cerr << "🔁 [Fork] Same length but higher difficulty. Replacing chain.\n";
             chain = otherChain;
             saveToDB();
@@ -2857,16 +2871,13 @@ void Blockchain::compareAndMergeChains(const std::vector<Block>& otherChain) {
     }
 
     // ✅ CASE: longer but not prefix — use difficulty
-    uint64_t localDiff = computeCumulativeDifficulty(chain);
-    uint64_t remoteDiff = computeCumulativeDifficulty(otherChain);
-
-    if (remoteDiff <= localDiff) {
+    if (newWork <= mainWork) {
         std::cout << "⚠️ [Fork] Incoming chain is not stronger. Skipping merge.\n";
         return;
     }
 
     std::cout << "✅ [Fork] Stronger chain received. Attempting merge...\n";
-    int commonIndex = findForkCommonAncestor(otherChain);
+    int commonIndex = commonIdxTmp;
 
     if (commonIndex == -1) {
         std::cerr << "⚠️ [Fork] No common ancestor. Replacing full chain.\n";
