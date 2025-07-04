@@ -44,6 +44,7 @@ struct PeerState {
 struct PeerEntry {
   std::shared_ptr<Transport> tx;
   std::shared_ptr<PeerState> state;
+  bool initiatedByUs{false};
 };
 
 // Canonical global peer table and mutex for the entire app:

@@ -15,6 +15,7 @@ public:
     bool         write(const std::string& data) override;
     bool         isOpen() const override;
     void         close() override;
+    void         closeGraceful() override;
 
     bool         connect(const std::string& host, int port) override;
     std::string  getRemoteIP() const override;

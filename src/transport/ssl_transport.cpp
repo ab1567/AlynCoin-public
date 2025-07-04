@@ -6,6 +6,8 @@
 
 #include <iostream>
 #include <sys/select.h>
+#include <thread>
+#include <chrono>
 
 using boost::asio::ip::tcp;
 
@@ -33,6 +35,15 @@ bool SslTransport::isOpen() const {
 void SslTransport::close() {
     if (sslSocket && sslSocket->lowest_layer().is_open()) {
         boost::system::error_code ec;
+        sslSocket->lowest_layer().close(ec);
+    }
+}
+
+void SslTransport::closeGraceful() {
+    if (sslSocket && sslSocket->lowest_layer().is_open()) {
+        boost::system::error_code ec;
+        sslSocket->lowest_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_send, ec);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
         sslSocket->lowest_layer().close(ec);
     }
 }

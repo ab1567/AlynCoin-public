@@ -13,6 +13,7 @@ public:
     virtual bool         write     (const std::string& data)                      = 0;
     virtual bool         isOpen    () const                                       = 0;
     virtual void         close() {}
+    virtual void         closeGraceful() { close(); }
 
     // Legacy helpers
     virtual bool send(const std::string& data)            { return write(data); }

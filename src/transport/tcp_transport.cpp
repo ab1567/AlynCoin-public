@@ -8,6 +8,8 @@
 #include <mutex>
 #include <iostream>
 #include <cstring>
+#include <thread>
+#include <chrono>
 #include <sys/select.h>
 #include "wire/varint.h"
 
@@ -36,6 +38,16 @@ void TcpTransport::close()
 {
     if (socket && socket->is_open()) {
         boost::system::error_code ec;
+        socket->close(ec);
+    }
+}
+
+void TcpTransport::closeGraceful()
+{
+    if (socket && socket->is_open()) {
+        boost::system::error_code ec;
+        socket->shutdown(boost::asio::ip::tcp::socket::shutdown_send, ec);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
         socket->close(ec);
     }
 }
