@@ -28,6 +28,8 @@ struct PeerState {
   bool fullChainActive{false};
   bool supportsAggProof{false};
   bool supportsSnapshot{false};
+  bool supportsWhisper{false};
+  bool supportsTls{false};
   uint64_t frameCountMin{0};
   uint64_t byteCountMin{0};
   int misScore{0};

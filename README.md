@@ -162,4 +162,7 @@ Example: mine a single block for your address:
 
 See subdirectory README files for modules such as the explorer, identity tools, and atomic swaps.
 
+Additional details on rolling out the Whisper/TLS update can be found in
+[docs/deployment_migration.md](docs/deployment_migration.md).
+
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
