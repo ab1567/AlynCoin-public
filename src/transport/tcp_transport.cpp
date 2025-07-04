@@ -168,7 +168,7 @@ void TcpTransport::startReadBinaryLoop(std::function<void(const boost::system::e
 
     // Keep the async handler alive across invocations using a shared_ptr.
     auto handler = std::make_shared<std::function<void(const boost::system::error_code&, std::size_t)>>();
-    *handler = [=, this](const boost::system::error_code& ec, std::size_t bytes) mutable {
+    *handler = [=, self, this](const boost::system::error_code& ec, std::size_t bytes) mutable {
         if (ec) {
             cb(ec, "");
             return;
@@ -248,7 +248,7 @@ void TcpTransport::startReadLineLoop(std::function<void(const boost::system::err
     auto buf  = std::make_shared<boost::asio::streambuf>();
     auto self = shared_from_this();
     auto handler = std::make_shared<std::function<void(const boost::system::error_code&, std::size_t)>>();
-    *handler = [=, this](const boost::system::error_code& ec, std::size_t) mutable {
+    *handler = [=, self, this](const boost::system::error_code& ec, std::size_t) mutable {
         if (ec) { cb(ec, ""); return; }
         std::istream is(buf.get());
         std::string line; std::getline(is, line);
