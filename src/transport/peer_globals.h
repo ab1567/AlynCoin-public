@@ -32,6 +32,7 @@ struct PeerState {
   bool supportsTls{false};
   uint64_t frameCountMin{0};
   uint64_t byteCountMin{0};
+  int limitStrikes{0};
   int misScore{0};
   std::array<uint8_t, 32> linkKey{};
   std::mutex m;

@@ -58,6 +58,33 @@
 
 using namespace alyncoin;
 
+static std::string ipPrefix(const std::string &ip) {
+  if (ip.find(':') == std::string::npos) {
+    std::stringstream ss(ip);
+    std::string seg;
+    std::string out;
+    int count = 0;
+    while (std::getline(ss, seg, '.') && count < 3) {
+      if (count)
+        out += '.';
+      out += seg;
+      ++count;
+    }
+    return count == 3 ? out : std::string();
+  }
+  std::stringstream ss(ip);
+  std::string seg;
+  std::string out;
+  int count = 0;
+  while (std::getline(ss, seg, ':') && count < 3) {
+    if (count)
+      out += ':';
+    out += seg;
+    ++count;
+  }
+  return count == 3 ? out : std::string();
+}
+
 // ==== [Globals, Statics] ====
 static std::unordered_map<std::string, std::vector<Block>> incomingChains;
 // Buffers for in-progress FULL_CHAIN syncs
@@ -264,6 +291,7 @@ void Network::markPeerOffline(const std::string &peerId) {
       it->second.tx->close();
     peerTransports.erase(it);
   }
+  anchorPeers.erase(peerId);
   knownPeers.erase(peerId);
   if (peerManager)
     peerManager->disconnectPeer(peerId);
@@ -891,6 +919,22 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
       std::cerr << "⚠️  [handlePeer] peer is on another network – dropped.\n";
       return;
     }
+
+    std::string prefix = ipPrefix(senderIP);
+    if (!prefix.empty()) {
+      std::lock_guard<std::timed_mutex> g(peersMutex);
+      int count = 0;
+      for (const auto &kv : peerTransports) {
+        std::string ip = kv.first.substr(0, kv.first.find(':'));
+        if (ipPrefix(ip) == prefix)
+          ++count;
+      }
+      if (count >= 2) {
+        std::cerr << "⚠️  [handlePeer] prefix limit reached for " << senderIP
+                  << '\n';
+        return;
+      }
+    }
   } catch (const std::exception &ex) {
     std::cerr << "❌ [handlePeer] invalid binary handshake (" << ex.what()
               << ")" << '\n';
@@ -1041,6 +1085,30 @@ void Network::run() {
     while (true) {
       std::this_thread::sleep_for(std::chrono::minutes(5));
       this->broadcastHandshake();
+    }
+  }).detach();
+
+  std::thread([this]() {
+    while (true) {
+      std::this_thread::sleep_for(std::chrono::minutes(1));
+      std::lock_guard<std::timed_mutex> lk(peersMutex);
+      for (auto &kv : peerTransports) {
+        auto st = kv.second.state;
+        if (!st)
+          continue;
+        if (st->frameCountMin > FRAME_LIMIT_MIN ||
+            st->byteCountMin > BYTE_LIMIT_MIN) {
+          st->limitStrikes++;
+          if (st->limitStrikes > 3) {
+            markPeerOffline(kv.first);
+            continue;
+          }
+        } else {
+          st->limitStrikes = 0;
+        }
+        st->frameCountMin = 0;
+        st->byteCountMin = 0;
+      }
     }
   }).detach();
 
@@ -1968,17 +2036,25 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
   }
   case alyncoin::net::Frame::kAggProof: {
     const std::string &blob = f.agg_proof().data();
-    if (blob.size() > sizeof(int) + 64) {
-      int epoch = 0;
-      std::memcpy(&epoch, blob.data(), sizeof(int));
-      std::string root = blob.substr(sizeof(int), 64);
-      std::vector<uint8_t> proof(blob.begin() + sizeof(int) + 64, blob.end());
-      {
-        std::lock_guard<std::mutex> lk(epochProofMutex);
-        receivedEpochProofs[epoch] = {root, proof};
-      }
-      std::cerr << "[agg_proof] stored proof for epoch " << epoch << '\n';
+    if (blob.size() <= sizeof(int) + 64) {
+      std::cerr << "❌ [agg_proof] malformed proof from " << peer << '\n';
+      auto itBad = peerTransports.find(peer);
+      if (itBad != peerTransports.end())
+        itBad->second.state->misScore += 100;
+      blacklistPeer(peer);
+      break;
     }
+
+    int epoch = 0;
+    std::memcpy(&epoch, blob.data(), sizeof(int));
+    std::string root = blob.substr(sizeof(int), 64);
+    std::vector<uint8_t> proof(blob.begin() + sizeof(int) + 64, blob.end());
+
+    {
+      std::lock_guard<std::mutex> lk(epochProofMutex);
+      receivedEpochProofs[epoch] = {root, proof};
+    }
+    std::cerr << "[agg_proof] stored proof for epoch " << epoch << '\n';
     break;
   }
   case alyncoin::net::Frame::kTxBroadcast: {
@@ -2052,6 +2128,22 @@ bool Network::connectToNode(const std::string &host, int port) {
   if (bannedPeers.count(peerKey)) {
     std::cerr << "⚠️ [connectToNode] " << peerKey << " is banned.\n";
     return false;
+  }
+
+  std::string prefix = ipPrefix(host);
+  if (!prefix.empty()) {
+    std::lock_guard<std::timed_mutex> g(peersMutex);
+    int count = 0;
+    for (const auto &kv : peerTransports) {
+      std::string ip = kv.first.substr(0, kv.first.find(':'));
+      if (ipPrefix(ip) == prefix)
+        ++count;
+    }
+    if (count >= 2) {
+      std::cerr << "⚠️ [connectToNode] prefix limit reached for " << host
+                << '\n';
+      return false;
+    }
   }
 
   try {
@@ -2194,6 +2286,8 @@ bool Network::connectToNode(const std::string &host, int port) {
       }
       peerTransports[peerKey] = {tx, std::make_shared<PeerState>()};
       knownPeers.insert(peerKey);
+      if (anchorPeers.size() < 2)
+        anchorPeers.insert(peerKey);
       auto st = peerTransports[peerKey].state;
       st->supportsAggProof = theirAgg;
       st->supportsSnapshot = theirSnap;
@@ -2392,7 +2486,8 @@ void Network::cleanupPeers() {
       try {
         if (!peer.second.tx || !peer.second.tx->isOpen()) {
           std::cerr << "⚠️ Peer transport closed: " << peer.first << "\n";
-          inactivePeers.push_back(peer.first);
+          if (!anchorPeers.count(peer.first))
+            inactivePeers.push_back(peer.first);
           continue;
         }
 
@@ -2404,12 +2499,14 @@ void Network::cleanupPeers() {
       } catch (const std::exception &e) {
         std::cerr << "⚠️ Exception checking peer " << peer.first << ": "
                   << e.what() << "\n";
-        inactivePeers.push_back(peer.first);
+        if (!anchorPeers.count(peer.first))
+          inactivePeers.push_back(peer.first);
       }
     }
 
     for (const auto &peer : inactivePeers) {
       peerTransports.erase(peer);
+      anchorPeers.erase(peer);
       std::cout << "🗑️ Removed inactive peer: " << peer << "\n";
     }
     if (!inactivePeers.empty()) {
@@ -2768,12 +2865,24 @@ void Network::handleSnapshotEnd(const std::string &peer) {
   } catch (const std::exception &ex) {
     std::cerr << "❌ [SNAPSHOT] Failed to apply snapshot from peer " << peer
               << ": " << ex.what() << "\n";
+    {
+      auto itBad = peerTransports.find(peer);
+      if (itBad != peerTransports.end())
+        itBad->second.state->misScore += 100;
+    }
+    blacklistPeer(peer);
     ps->snapshotActive = false;
     ps->snapshotB64.clear();
     ps->snapState = PeerState::SnapState::Idle;
   } catch (...) {
     std::cerr << "❌ [SNAPSHOT] Unknown error applying snapshot from peer "
               << peer << "\n";
+    {
+      auto itBad = peerTransports.find(peer);
+      if (itBad != peerTransports.end())
+        itBad->second.state->misScore += 100;
+    }
+    blacklistPeer(peer);
     ps->snapshotActive = false;
     ps->snapshotB64.clear();
     ps->snapState = PeerState::SnapState::Idle;
@@ -2836,10 +2945,22 @@ void Network::handleTailBlocks(const std::string &peer,
   } catch (const std::exception &ex) {
     std::cerr << "❌ [TAIL_BLOCKS] Failed to apply tail blocks from peer "
               << peer << ": " << ex.what() << "\n";
+    {
+      auto itBad = peerTransports.find(peer);
+      if (itBad != peerTransports.end())
+        itBad->second.state->misScore += 100;
+    }
+    blacklistPeer(peer);
   } catch (...) {
     std::cerr
         << "❌ [TAIL_BLOCKS] Unknown error applying tail blocks from peer "
         << peer << "\n";
+    {
+      auto itBad = peerTransports.find(peer);
+      if (itBad != peerTransports.end())
+        itBad->second.state->misScore += 100;
+    }
+    blacklistPeer(peer);
   }
 }
 
