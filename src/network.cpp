@@ -575,7 +575,6 @@ void Network::listenForConnections() {
           }
           if (transport)
             std::thread(&Network::handlePeer, this, transport).detach();
-          std::thread(&Network::handlePeer, this, transport).detach();
         } else {
           std::cerr << "❌ [Network] Accept error: " << ec.message() << "\n";
         }
