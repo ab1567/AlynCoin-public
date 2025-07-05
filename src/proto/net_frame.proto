@@ -34,6 +34,10 @@ message HeightResponse {
 message BlockBroadcast { alyncoin.BlockProto block = 1; }
 
 message BlockBatch { alyncoin.BlockchainProto chain = 1; }
+// Request a single block by index
+message BlockRequest { uint64 index = 1; }
+// Response containing the requested block
+message BlockResponse { alyncoin.BlockProto block = 1; }
 
 message SnapshotMeta {
   uint64 height = 1;
@@ -71,6 +75,8 @@ message Frame {
     HeightResponse height_res = 5;
     BlockBroadcast block_broadcast = 6;
     BlockBatch block_batch = 7;
+    BlockRequest block_request = 29;
+    BlockResponse block_response = 30;
     SnapshotMeta snapshot_meta = 8;
     SnapshotChunk snapshot_chunk = 9;
     SnapshotAck snapshot_ack = 10;

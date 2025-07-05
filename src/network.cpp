@@ -95,6 +95,9 @@ static std::unordered_map<std::string, std::vector<Block>> incomingChains;
 static constexpr uint32_t kFrameRevision = 4;
 static_assert(alyncoin::net::Frame::kBlockBroadcast == 6,
               "Frame field-numbers changed \u2013 bump kFrameRevision !");
+static_assert(alyncoin::net::Frame::kBlockRequest == 29 &&
+              alyncoin::net::Frame::kBlockResponse == 30,
+              "Frame field-numbers changed \u2013 bump kFrameRevision !");
 static constexpr uint64_t FRAME_LIMIT_MIN = 200;
 static constexpr uint64_t BYTE_LIMIT_MIN = 1 << 20;
 static constexpr int MAX_REORG = 100;
@@ -1986,6 +1989,24 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
                 << " hash=" << blk.getHash() << '\n';
       handleNewBlock(blk, peer);
     }
+    break;
+  }
+  case alyncoin::net::Frame::kBlockRequest: {
+    uint64_t idx = f.block_request().index();
+    Blockchain &bc = Blockchain::getInstance();
+    if (idx < bc.getChain().size()) {
+      alyncoin::net::Frame out;
+      *out.mutable_block_response()->mutable_block() =
+          bc.getChain()[static_cast<size_t>(idx)].toProtobuf();
+      auto it = peerTransports.find(peer);
+      if (it != peerTransports.end() && it->second.tx)
+        sendFrame(it->second.tx, out);
+    }
+    break;
+  }
+  case alyncoin::net::Frame::kBlockResponse: {
+    Block blk = Block::fromProto(f.block_response().block());
+    handleNewBlock(blk, peer);
     break;
   }
   case alyncoin::net::Frame::kPing: {
