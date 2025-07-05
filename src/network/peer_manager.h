@@ -21,9 +21,10 @@ private:
     Network* network;
 
 public:
-        PeerManager(PeerBlacklist* bl, Network* net = nullptr);
+    PeerManager(PeerBlacklist* bl, Network* net = nullptr);
 
     bool connectToPeer(const std::string& peer_id);
+    bool registerPeer(const std::string& peer_id);
     void disconnectPeer(const std::string& peer_id);
 
     std::vector<std::string> getConnectedPeers();

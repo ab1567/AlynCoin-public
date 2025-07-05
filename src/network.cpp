@@ -243,6 +243,10 @@ void Network::sendPrivate(const std::string &peer,
   for (size_t i = 0; i + 1 < hops; ++i)
     route.push_back(peers[i]);
   route.push_back(peer);
+  if (route.size() < 2) {
+    broadcastFrame(m);
+    return;
+  }
 
   std::vector<std::vector<uint8_t>> keys;
   for (const auto &hop : route) {
@@ -1025,8 +1029,8 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     std::copy(shared.begin(), shared.end(), entry.state->linkKey.begin());
 
     if (peerManager) {
-      peerManager->connectToPeer(claimedPeerId);
-      peerManager->setPeerHeight(claimedPeerId, remoteHeight);
+      if (peerManager->registerPeer(claimedPeerId))
+        peerManager->setPeerHeight(claimedPeerId, remoteHeight);
     }
   }
 
@@ -1152,8 +1156,8 @@ void Network::run() {
         if (st->frameCountMin > FRAME_LIMIT_MIN ||
             st->byteCountMin > BYTE_LIMIT_MIN) {
           st->limitStrikes++;
-          if (st->limitStrikes > 3) {
-            markPeerOffline(kv.first);
+          if (st->limitStrikes >= 3) {
+            blacklistPeer(kv.first);
             continue;
           }
         } else {
@@ -1161,14 +1165,6 @@ void Network::run() {
         }
         st->frameCountMin = 0;
         st->byteCountMin = 0;
-        // decay misbehavior score gradually
-        if (st->misScore > 0)
-          st->misScore--;
-        if (st->banUntil != std::chrono::steady_clock::time_point{} &&
-            std::chrono::steady_clock::now() >= st->banUntil) {
-          st->banUntil = std::chrono::steady_clock::time_point{};
-          std::cerr << "ℹ️  [ban] unbanned peer " << kv.first << '\n';
-        }
       }
 
       auto now = std::time(nullptr);
@@ -1721,6 +1717,10 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
 
 // Black list peer
 void Network::blacklistPeer(const std::string &peer) {
+  if (anchorPeers.count(peer)) {
+    std::cerr << "ℹ️  [ban] skipping anchor/selfheal peer " << peer << '\n';
+    return;
+  }
   {
     std::lock_guard<std::timed_mutex> lk(peersMutex);
     auto it = peerTransports.find(peer);
@@ -1934,10 +1934,17 @@ void Network::startBinaryReadLoop(const std::string &peerId,
       auto &st = *it->second.state;
       st.frameCountMin++;
       st.byteCountMin += blob.size();
-      if (st.frameCountMin > FRAME_LIMIT_MIN || st.byteCountMin > BYTE_LIMIT_MIN)
-        st.misScore += 5;
-      if (st.misScore >= 100)
-        blacklistPeer(peerId);
+      if (!anchorPeers.count(peerId)) {
+        if (st.frameCountMin > FRAME_LIMIT_MIN ||
+            st.byteCountMin > BYTE_LIMIT_MIN) {
+          st.limitStrikes++;
+          st.misScore += 5;
+          if (st.limitStrikes >= 3)
+            blacklistPeer(peerId);
+        }
+        if (st.misScore >= 100)
+          blacklistPeer(peerId);
+      }
     }
 
     alyncoin::net::Frame f;
@@ -2442,8 +2449,8 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
       if (rhs.pub_key().size() == 32)
         std::copy(shared.begin(), shared.end(), st->linkKey.begin());
       if (peerManager) {
-        peerManager->connectToPeer(peerKey);
-        peerManager->setPeerHeight(peerKey, theirHeight);
+        if (peerManager->registerPeer(peerKey))
+          peerManager->setPeerHeight(peerKey, theirHeight);
       }
     }
 
@@ -2625,6 +2632,13 @@ void Network::sendInventory(const std::string &peer) {
 // cleanup
 void Network::cleanupPeers() {
   ScopedLockTracer tracer("cleanupPeers");
+  static auto lastDecay = std::chrono::steady_clock::now();
+  bool doDecay = false;
+  auto nowSteady = std::chrono::steady_clock::now();
+  if (nowSteady - lastDecay >= std::chrono::minutes(1)) {
+    doDecay = true;
+    lastDecay = nowSteady;
+  }
   std::vector<std::string> inactivePeers;
   {
     std::lock_guard<std::timed_mutex> lock(peersMutex);
@@ -2647,6 +2661,16 @@ void Network::cleanupPeers() {
                   << e.what() << "\n";
         if (!anchorPeers.count(peer.first))
           inactivePeers.push_back(peer.first);
+      }
+      if (doDecay) {
+        auto st = peer.second.state;
+        if (st && st->misScore > 0)
+          st->misScore--;
+        if (st && st->banUntil != std::chrono::steady_clock::time_point{} &&
+            nowSteady >= st->banUntil) {
+          st->banUntil = std::chrono::steady_clock::time_point{};
+          std::cerr << "ℹ️  [ban] unbanned peer " << peer.first << '\n';
+        }
       }
     }
 

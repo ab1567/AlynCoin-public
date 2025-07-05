@@ -10,6 +10,47 @@
 PeerManager::PeerManager(PeerBlacklist* bl, Network* net)
     : blacklist(bl), network(net), localWork(0) {}
 
+static std::string ipPrefixPM(const std::string &ip) {
+    if (ip.find(':') == std::string::npos) {
+        std::stringstream ss(ip);
+        std::string seg, out; int count = 0;
+        while (std::getline(ss, seg, '.') && count < 3) {
+            if (count) out += '.';
+            out += seg; ++count;
+        }
+        return count == 3 ? out : std::string();
+    }
+    std::stringstream ss(ip);
+    std::string seg, out; int count = 0;
+    while (std::getline(ss, seg, ':') && count < 3) {
+        if (count) out += ':';
+        out += seg; ++count;
+    }
+    return count == 3 ? out : std::string();
+}
+
+bool PeerManager::registerPeer(const std::string &peer_id) {
+    if (blacklist->isBlacklisted(peer_id)) {
+        std::cout << "❌ Rejected blacklisted peer: " << peer_id << std::endl;
+        return false;
+    }
+    std::string ip = peer_id.substr(0, peer_id.find(':'));
+    std::string prefix = ipPrefixPM(ip);
+    if (!prefix.empty()) {
+        int cnt = 0;
+        for (const auto &p : connected_peers) {
+            std::string pIp = p.substr(0, p.find(':'));
+            if (ipPrefixPM(pIp) == prefix)
+                ++cnt;
+        }
+        if (cnt >= 2) {
+            std::cerr << "⚠️ [registerPeer] netgroup limit" << std::endl;
+            return false;
+        }
+    }
+    return connectToPeer(peer_id);
+}
+
 bool PeerManager::connectToPeer(const std::string& peer_id) {
     if (blacklist->isBlacklisted(peer_id)) {
         std::cout << "❌ Rejected blacklisted peer: " << peer_id << std::endl;
