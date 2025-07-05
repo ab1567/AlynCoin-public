@@ -57,6 +57,12 @@ extern BlockBatchDefaultTypeInternal _BlockBatch_default_instance_;
 class BlockBroadcast;
 struct BlockBroadcastDefaultTypeInternal;
 extern BlockBroadcastDefaultTypeInternal _BlockBroadcast_default_instance_;
+class BlockRequest;
+struct BlockRequestDefaultTypeInternal;
+extern BlockRequestDefaultTypeInternal _BlockRequest_default_instance_;
+class BlockResponse;
+struct BlockResponseDefaultTypeInternal;
+extern BlockResponseDefaultTypeInternal _BlockResponse_default_instance_;
 class EpochProof;
 struct EpochProofDefaultTypeInternal;
 extern EpochProofDefaultTypeInternal _EpochProof_default_instance_;
@@ -66,9 +72,15 @@ extern FrameDefaultTypeInternal _Frame_default_instance_;
 class GetData;
 struct GetDataDefaultTypeInternal;
 extern GetDataDefaultTypeInternal _GetData_default_instance_;
+class GetHeaders;
+struct GetHeadersDefaultTypeInternal;
+extern GetHeadersDefaultTypeInternal _GetHeaders_default_instance_;
 class Handshake;
 struct HandshakeDefaultTypeInternal;
 extern HandshakeDefaultTypeInternal _Handshake_default_instance_;
+class Headers;
+struct HeadersDefaultTypeInternal;
+extern HeadersDefaultTypeInternal _Headers_default_instance_;
 class HeightRequest;
 struct HeightRequestDefaultTypeInternal;
 extern HeightRequestDefaultTypeInternal _HeightRequest_default_instance_;
@@ -134,10 +146,14 @@ extern WhisperDefaultTypeInternal _Whisper_default_instance_;
 PROTOBUF_NAMESPACE_OPEN
 template<> ::alyncoin::net::BlockBatch* Arena::CreateMaybeMessage<::alyncoin::net::BlockBatch>(Arena*);
 template<> ::alyncoin::net::BlockBroadcast* Arena::CreateMaybeMessage<::alyncoin::net::BlockBroadcast>(Arena*);
+template<> ::alyncoin::net::BlockRequest* Arena::CreateMaybeMessage<::alyncoin::net::BlockRequest>(Arena*);
+template<> ::alyncoin::net::BlockResponse* Arena::CreateMaybeMessage<::alyncoin::net::BlockResponse>(Arena*);
 template<> ::alyncoin::net::EpochProof* Arena::CreateMaybeMessage<::alyncoin::net::EpochProof>(Arena*);
 template<> ::alyncoin::net::Frame* Arena::CreateMaybeMessage<::alyncoin::net::Frame>(Arena*);
 template<> ::alyncoin::net::GetData* Arena::CreateMaybeMessage<::alyncoin::net::GetData>(Arena*);
+template<> ::alyncoin::net::GetHeaders* Arena::CreateMaybeMessage<::alyncoin::net::GetHeaders>(Arena*);
 template<> ::alyncoin::net::Handshake* Arena::CreateMaybeMessage<::alyncoin::net::Handshake>(Arena*);
+template<> ::alyncoin::net::Headers* Arena::CreateMaybeMessage<::alyncoin::net::Headers>(Arena*);
 template<> ::alyncoin::net::HeightRequest* Arena::CreateMaybeMessage<::alyncoin::net::HeightRequest>(Arena*);
 template<> ::alyncoin::net::HeightResponse* Arena::CreateMaybeMessage<::alyncoin::net::HeightResponse>(Arena*);
 template<> ::alyncoin::net::Inventory* Arena::CreateMaybeMessage<::alyncoin::net::Inventory>(Arena*);
@@ -1251,6 +1267,311 @@ class BlockBatch final :
 };
 // -------------------------------------------------------------------
 
+class BlockRequest final :
+    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:alyncoin.net.BlockRequest) */ {
+ public:
+  inline BlockRequest() : BlockRequest(nullptr) {}
+  ~BlockRequest() override;
+  explicit PROTOBUF_CONSTEXPR BlockRequest(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+
+  BlockRequest(const BlockRequest& from);
+  BlockRequest(BlockRequest&& from) noexcept
+    : BlockRequest() {
+    *this = ::std::move(from);
+  }
+
+  inline BlockRequest& operator=(const BlockRequest& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline BlockRequest& operator=(BlockRequest&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetOwningArena() == from.GetOwningArena()
+  #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetOwningArena() != nullptr
+  #endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const BlockRequest& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const BlockRequest* internal_default_instance() {
+    return reinterpret_cast<const BlockRequest*>(
+               &_BlockRequest_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    7;
+
+  friend void swap(BlockRequest& a, BlockRequest& b) {
+    a.Swap(&b);
+  }
+  inline void Swap(BlockRequest* other) {
+    if (other == this) return;
+  #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() != nullptr &&
+        GetOwningArena() == other->GetOwningArena()) {
+   #else  // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() == other->GetOwningArena()) {
+  #endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(BlockRequest* other) {
+    if (other == this) return;
+    GOOGLE_DCHECK(GetOwningArena() == other->GetOwningArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  BlockRequest* New(::PROTOBUF_NAMESPACE_ID::Arena* arena = nullptr) const final {
+    return CreateMaybeMessage<BlockRequest>(arena);
+  }
+  using ::PROTOBUF_NAMESPACE_ID::Message::CopyFrom;
+  void CopyFrom(const BlockRequest& from);
+  using ::PROTOBUF_NAMESPACE_ID::Message::MergeFrom;
+  void MergeFrom( const BlockRequest& from) {
+    BlockRequest::MergeImpl(*this, from);
+  }
+  private:
+  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg);
+  public:
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
+  uint8_t* _InternalSerialize(
+      uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const final { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena* arena, bool is_message_owned);
+  void SharedDtor();
+  void SetCachedSize(int size) const final;
+  void InternalSwap(BlockRequest* other);
+
+  private:
+  friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
+  static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
+    return "alyncoin.net.BlockRequest";
+  }
+  protected:
+  explicit BlockRequest(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                       bool is_message_owned = false);
+  public:
+
+  static const ClassData _class_data_;
+  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*GetClassData() const final;
+
+  ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  enum : int {
+    kIndexFieldNumber = 1,
+  };
+  // uint64 index = 1;
+  void clear_index();
+  uint64_t index() const;
+  void set_index(uint64_t value);
+  private:
+  uint64_t _internal_index() const;
+  void _internal_set_index(uint64_t value);
+  public:
+
+  // @@protoc_insertion_point(class_scope:alyncoin.net.BlockRequest)
+ private:
+  class _Internal;
+
+  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
+  typedef void InternalArenaConstructable_;
+  typedef void DestructorSkippable_;
+  struct Impl_ {
+    uint64_t index_;
+    mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_net_5fframe_2eproto;
+};
+// -------------------------------------------------------------------
+
+class BlockResponse final :
+    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:alyncoin.net.BlockResponse) */ {
+ public:
+  inline BlockResponse() : BlockResponse(nullptr) {}
+  ~BlockResponse() override;
+  explicit PROTOBUF_CONSTEXPR BlockResponse(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+
+  BlockResponse(const BlockResponse& from);
+  BlockResponse(BlockResponse&& from) noexcept
+    : BlockResponse() {
+    *this = ::std::move(from);
+  }
+
+  inline BlockResponse& operator=(const BlockResponse& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline BlockResponse& operator=(BlockResponse&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetOwningArena() == from.GetOwningArena()
+  #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetOwningArena() != nullptr
+  #endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const BlockResponse& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const BlockResponse* internal_default_instance() {
+    return reinterpret_cast<const BlockResponse*>(
+               &_BlockResponse_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    8;
+
+  friend void swap(BlockResponse& a, BlockResponse& b) {
+    a.Swap(&b);
+  }
+  inline void Swap(BlockResponse* other) {
+    if (other == this) return;
+  #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() != nullptr &&
+        GetOwningArena() == other->GetOwningArena()) {
+   #else  // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() == other->GetOwningArena()) {
+  #endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(BlockResponse* other) {
+    if (other == this) return;
+    GOOGLE_DCHECK(GetOwningArena() == other->GetOwningArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  BlockResponse* New(::PROTOBUF_NAMESPACE_ID::Arena* arena = nullptr) const final {
+    return CreateMaybeMessage<BlockResponse>(arena);
+  }
+  using ::PROTOBUF_NAMESPACE_ID::Message::CopyFrom;
+  void CopyFrom(const BlockResponse& from);
+  using ::PROTOBUF_NAMESPACE_ID::Message::MergeFrom;
+  void MergeFrom( const BlockResponse& from) {
+    BlockResponse::MergeImpl(*this, from);
+  }
+  private:
+  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg);
+  public:
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
+  uint8_t* _InternalSerialize(
+      uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const final { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena* arena, bool is_message_owned);
+  void SharedDtor();
+  void SetCachedSize(int size) const final;
+  void InternalSwap(BlockResponse* other);
+
+  private:
+  friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
+  static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
+    return "alyncoin.net.BlockResponse";
+  }
+  protected:
+  explicit BlockResponse(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                       bool is_message_owned = false);
+  public:
+
+  static const ClassData _class_data_;
+  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*GetClassData() const final;
+
+  ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  enum : int {
+    kBlockFieldNumber = 1,
+  };
+  // .alyncoin.BlockProto block = 1;
+  bool has_block() const;
+  private:
+  bool _internal_has_block() const;
+  public:
+  void clear_block();
+  const ::alyncoin::BlockProto& block() const;
+  PROTOBUF_NODISCARD ::alyncoin::BlockProto* release_block();
+  ::alyncoin::BlockProto* mutable_block();
+  void set_allocated_block(::alyncoin::BlockProto* block);
+  private:
+  const ::alyncoin::BlockProto& _internal_block() const;
+  ::alyncoin::BlockProto* _internal_mutable_block();
+  public:
+  void unsafe_arena_set_allocated_block(
+      ::alyncoin::BlockProto* block);
+  ::alyncoin::BlockProto* unsafe_arena_release_block();
+
+  // @@protoc_insertion_point(class_scope:alyncoin.net.BlockResponse)
+ private:
+  class _Internal;
+
+  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
+  typedef void InternalArenaConstructable_;
+  typedef void DestructorSkippable_;
+  struct Impl_ {
+    ::alyncoin::BlockProto* block_;
+    mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_net_5fframe_2eproto;
+};
+// -------------------------------------------------------------------
+
 class SnapshotMeta final :
     public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:alyncoin.net.SnapshotMeta) */ {
  public:
@@ -1299,7 +1620,7 @@ class SnapshotMeta final :
                &_SnapshotMeta_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    7;
+    9;
 
   friend void swap(SnapshotMeta& a, SnapshotMeta& b) {
     a.Swap(&b);
@@ -1485,7 +1806,7 @@ class SnapshotChunk final :
                &_SnapshotChunk_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    8;
+    10;
 
   friend void swap(SnapshotChunk& a, SnapshotChunk& b) {
     a.Swap(&b);
@@ -1638,7 +1959,7 @@ class SnapshotAck final :
                &_SnapshotAck_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    9;
+    11;
 
   friend void swap(SnapshotAck& a, SnapshotAck& b) {
     a.Swap(&b);
@@ -1785,7 +2106,7 @@ class SnapshotEnd final :
                &_SnapshotEnd_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    10;
+    12;
 
   friend void swap(SnapshotEnd& a, SnapshotEnd& b) {
     a.Swap(&b);
@@ -1904,7 +2225,7 @@ class TailBlocks final :
                &_TailBlocks_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    11;
+    13;
 
   friend void swap(TailBlocks& a, TailBlocks& b) {
     a.Swap(&b);
@@ -2061,7 +2382,7 @@ class EpochProof final :
                &_EpochProof_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    12;
+    14;
 
   friend void swap(EpochProof& a, EpochProof& b) {
     a.Swap(&b);
@@ -2214,7 +2535,7 @@ class Inventory final :
                &_Inventory_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    13;
+    15;
 
   friend void swap(Inventory& a, Inventory& b) {
     a.Swap(&b);
@@ -2376,7 +2697,7 @@ class TipHashRequest final :
                &_TipHashRequest_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    14;
+    16;
 
   friend void swap(TipHashRequest& a, TipHashRequest& b) {
     a.Swap(&b);
@@ -2495,7 +2816,7 @@ class TipHashResponse final :
                &_TipHashResponse_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    15;
+    17;
 
   friend void swap(TipHashResponse& a, TipHashResponse& b) {
     a.Swap(&b);
@@ -2647,7 +2968,7 @@ class PeerListRequest final :
                &_PeerListRequest_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    16;
+    18;
 
   friend void swap(PeerListRequest& a, PeerListRequest& b) {
     a.Swap(&b);
@@ -2766,7 +3087,7 @@ class PeerList final :
                &_PeerList_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    17;
+    19;
 
   friend void swap(PeerList& a, PeerList& b) {
     a.Swap(&b);
@@ -2929,7 +3250,7 @@ class RollupBlockMsg final :
                &_RollupBlockMsg_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    18;
+    20;
 
   friend void swap(RollupBlockMsg& a, RollupBlockMsg& b) {
     a.Swap(&b);
@@ -3082,7 +3403,7 @@ class SnapshotRequest final :
                &_SnapshotRequest_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    19;
+    21;
 
   friend void swap(SnapshotRequest& a, SnapshotRequest& b) {
     a.Swap(&b);
@@ -3235,7 +3556,7 @@ class TailBlocksRequest final :
                &_TailBlocksRequest_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    20;
+    22;
 
   friend void swap(TailBlocksRequest& a, TailBlocksRequest& b) {
     a.Swap(&b);
@@ -3383,7 +3704,7 @@ class GetData final :
                &_GetData_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    21;
+    23;
 
   friend void swap(GetData& a, GetData& b) {
     a.Swap(&b);
@@ -3498,6 +3819,316 @@ class GetData final :
 };
 // -------------------------------------------------------------------
 
+class GetHeaders final :
+    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:alyncoin.net.GetHeaders) */ {
+ public:
+  inline GetHeaders() : GetHeaders(nullptr) {}
+  ~GetHeaders() override;
+  explicit PROTOBUF_CONSTEXPR GetHeaders(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+
+  GetHeaders(const GetHeaders& from);
+  GetHeaders(GetHeaders&& from) noexcept
+    : GetHeaders() {
+    *this = ::std::move(from);
+  }
+
+  inline GetHeaders& operator=(const GetHeaders& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline GetHeaders& operator=(GetHeaders&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetOwningArena() == from.GetOwningArena()
+  #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetOwningArena() != nullptr
+  #endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const GetHeaders& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const GetHeaders* internal_default_instance() {
+    return reinterpret_cast<const GetHeaders*>(
+               &_GetHeaders_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    24;
+
+  friend void swap(GetHeaders& a, GetHeaders& b) {
+    a.Swap(&b);
+  }
+  inline void Swap(GetHeaders* other) {
+    if (other == this) return;
+  #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() != nullptr &&
+        GetOwningArena() == other->GetOwningArena()) {
+   #else  // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() == other->GetOwningArena()) {
+  #endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(GetHeaders* other) {
+    if (other == this) return;
+    GOOGLE_DCHECK(GetOwningArena() == other->GetOwningArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  GetHeaders* New(::PROTOBUF_NAMESPACE_ID::Arena* arena = nullptr) const final {
+    return CreateMaybeMessage<GetHeaders>(arena);
+  }
+  using ::PROTOBUF_NAMESPACE_ID::Message::CopyFrom;
+  void CopyFrom(const GetHeaders& from);
+  using ::PROTOBUF_NAMESPACE_ID::Message::MergeFrom;
+  void MergeFrom( const GetHeaders& from) {
+    GetHeaders::MergeImpl(*this, from);
+  }
+  private:
+  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg);
+  public:
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
+  uint8_t* _InternalSerialize(
+      uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const final { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena* arena, bool is_message_owned);
+  void SharedDtor();
+  void SetCachedSize(int size) const final;
+  void InternalSwap(GetHeaders* other);
+
+  private:
+  friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
+  static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
+    return "alyncoin.net.GetHeaders";
+  }
+  protected:
+  explicit GetHeaders(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                       bool is_message_owned = false);
+  public:
+
+  static const ClassData _class_data_;
+  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*GetClassData() const final;
+
+  ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  enum : int {
+    kFromHashFieldNumber = 1,
+  };
+  // string from_hash = 1;
+  void clear_from_hash();
+  const std::string& from_hash() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_from_hash(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_from_hash();
+  PROTOBUF_NODISCARD std::string* release_from_hash();
+  void set_allocated_from_hash(std::string* from_hash);
+  private:
+  const std::string& _internal_from_hash() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_from_hash(const std::string& value);
+  std::string* _internal_mutable_from_hash();
+  public:
+
+  // @@protoc_insertion_point(class_scope:alyncoin.net.GetHeaders)
+ private:
+  class _Internal;
+
+  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
+  typedef void InternalArenaConstructable_;
+  typedef void DestructorSkippable_;
+  struct Impl_ {
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr from_hash_;
+    mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_net_5fframe_2eproto;
+};
+// -------------------------------------------------------------------
+
+class Headers final :
+    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:alyncoin.net.Headers) */ {
+ public:
+  inline Headers() : Headers(nullptr) {}
+  ~Headers() override;
+  explicit PROTOBUF_CONSTEXPR Headers(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+
+  Headers(const Headers& from);
+  Headers(Headers&& from) noexcept
+    : Headers() {
+    *this = ::std::move(from);
+  }
+
+  inline Headers& operator=(const Headers& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline Headers& operator=(Headers&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetOwningArena() == from.GetOwningArena()
+  #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetOwningArena() != nullptr
+  #endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const Headers& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const Headers* internal_default_instance() {
+    return reinterpret_cast<const Headers*>(
+               &_Headers_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    25;
+
+  friend void swap(Headers& a, Headers& b) {
+    a.Swap(&b);
+  }
+  inline void Swap(Headers* other) {
+    if (other == this) return;
+  #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() != nullptr &&
+        GetOwningArena() == other->GetOwningArena()) {
+   #else  // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() == other->GetOwningArena()) {
+  #endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(Headers* other) {
+    if (other == this) return;
+    GOOGLE_DCHECK(GetOwningArena() == other->GetOwningArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  Headers* New(::PROTOBUF_NAMESPACE_ID::Arena* arena = nullptr) const final {
+    return CreateMaybeMessage<Headers>(arena);
+  }
+  using ::PROTOBUF_NAMESPACE_ID::Message::CopyFrom;
+  void CopyFrom(const Headers& from);
+  using ::PROTOBUF_NAMESPACE_ID::Message::MergeFrom;
+  void MergeFrom( const Headers& from) {
+    Headers::MergeImpl(*this, from);
+  }
+  private:
+  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg);
+  public:
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
+  uint8_t* _InternalSerialize(
+      uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const final { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena* arena, bool is_message_owned);
+  void SharedDtor();
+  void SetCachedSize(int size) const final;
+  void InternalSwap(Headers* other);
+
+  private:
+  friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
+  static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
+    return "alyncoin.net.Headers";
+  }
+  protected:
+  explicit Headers(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                       bool is_message_owned = false);
+  public:
+
+  static const ClassData _class_data_;
+  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*GetClassData() const final;
+
+  ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  enum : int {
+    kHeadersFieldNumber = 1,
+  };
+  // repeated .alyncoin.BlockProto headers = 1;
+  int headers_size() const;
+  private:
+  int _internal_headers_size() const;
+  public:
+  void clear_headers();
+  ::alyncoin::BlockProto* mutable_headers(int index);
+  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::BlockProto >*
+      mutable_headers();
+  private:
+  const ::alyncoin::BlockProto& _internal_headers(int index) const;
+  ::alyncoin::BlockProto* _internal_add_headers();
+  public:
+  const ::alyncoin::BlockProto& headers(int index) const;
+  ::alyncoin::BlockProto* add_headers();
+  const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::BlockProto >&
+      headers() const;
+
+  // @@protoc_insertion_point(class_scope:alyncoin.net.Headers)
+ private:
+  class _Internal;
+
+  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
+  typedef void InternalArenaConstructable_;
+  typedef void DestructorSkippable_;
+  struct Impl_ {
+    ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::BlockProto > headers_;
+    mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_net_5fframe_2eproto;
+};
+// -------------------------------------------------------------------
+
 class StateProof final :
     public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:alyncoin.net.StateProof) */ {
  public:
@@ -3546,7 +4177,7 @@ class StateProof final :
                &_StateProof_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    22;
+    26;
 
   friend void swap(StateProof& a, StateProof& b) {
     a.Swap(&b);
@@ -3703,7 +4334,7 @@ class TransactionBroadcast final :
                &_TransactionBroadcast_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    23;
+    27;
 
   friend void swap(TransactionBroadcast& a, TransactionBroadcast& b) {
     a.Swap(&b);
@@ -3860,7 +4491,7 @@ class Whisper final :
                &_Whisper_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    24;
+    28;
 
   friend void swap(Whisper& a, Whisper& b) {
     a.Swap(&b);
@@ -4016,6 +4647,8 @@ class Frame final :
     kHeightRes = 5,
     kBlockBroadcast = 6,
     kBlockBatch = 7,
+    kBlockRequest = 29,
+    kBlockResponse = 30,
     kSnapshotMeta = 8,
     kSnapshotChunk = 9,
     kSnapshotAck = 10,
@@ -4035,6 +4668,8 @@ class Frame final :
     kBlockchainSyncRequest = 24,
     kTxBroadcast = 25,
     kWhisper = 26,
+    kGetHeaders = 27,
+    kHeaders = 28,
     KIND_NOT_SET = 0,
   };
 
@@ -4043,7 +4678,7 @@ class Frame final :
                &_Frame_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    25;
+    29;
 
   friend void swap(Frame& a, Frame& b) {
     a.Swap(&b);
@@ -4123,6 +4758,8 @@ class Frame final :
     kHeightResFieldNumber = 5,
     kBlockBroadcastFieldNumber = 6,
     kBlockBatchFieldNumber = 7,
+    kBlockRequestFieldNumber = 29,
+    kBlockResponseFieldNumber = 30,
     kSnapshotMetaFieldNumber = 8,
     kSnapshotChunkFieldNumber = 9,
     kSnapshotAckFieldNumber = 10,
@@ -4142,6 +4779,8 @@ class Frame final :
     kBlockchainSyncRequestFieldNumber = 24,
     kTxBroadcastFieldNumber = 25,
     kWhisperFieldNumber = 26,
+    kGetHeadersFieldNumber = 27,
+    kHeadersFieldNumber = 28,
   };
   // .alyncoin.net.Handshake handshake = 1;
   bool has_handshake() const;
@@ -4268,6 +4907,42 @@ class Frame final :
   void unsafe_arena_set_allocated_block_batch(
       ::alyncoin::net::BlockBatch* block_batch);
   ::alyncoin::net::BlockBatch* unsafe_arena_release_block_batch();
+
+  // .alyncoin.net.BlockRequest block_request = 29;
+  bool has_block_request() const;
+  private:
+  bool _internal_has_block_request() const;
+  public:
+  void clear_block_request();
+  const ::alyncoin::net::BlockRequest& block_request() const;
+  PROTOBUF_NODISCARD ::alyncoin::net::BlockRequest* release_block_request();
+  ::alyncoin::net::BlockRequest* mutable_block_request();
+  void set_allocated_block_request(::alyncoin::net::BlockRequest* block_request);
+  private:
+  const ::alyncoin::net::BlockRequest& _internal_block_request() const;
+  ::alyncoin::net::BlockRequest* _internal_mutable_block_request();
+  public:
+  void unsafe_arena_set_allocated_block_request(
+      ::alyncoin::net::BlockRequest* block_request);
+  ::alyncoin::net::BlockRequest* unsafe_arena_release_block_request();
+
+  // .alyncoin.net.BlockResponse block_response = 30;
+  bool has_block_response() const;
+  private:
+  bool _internal_has_block_response() const;
+  public:
+  void clear_block_response();
+  const ::alyncoin::net::BlockResponse& block_response() const;
+  PROTOBUF_NODISCARD ::alyncoin::net::BlockResponse* release_block_response();
+  ::alyncoin::net::BlockResponse* mutable_block_response();
+  void set_allocated_block_response(::alyncoin::net::BlockResponse* block_response);
+  private:
+  const ::alyncoin::net::BlockResponse& _internal_block_response() const;
+  ::alyncoin::net::BlockResponse* _internal_mutable_block_response();
+  public:
+  void unsafe_arena_set_allocated_block_response(
+      ::alyncoin::net::BlockResponse* block_response);
+  ::alyncoin::net::BlockResponse* unsafe_arena_release_block_response();
 
   // .alyncoin.net.SnapshotMeta snapshot_meta = 8;
   bool has_snapshot_meta() const;
@@ -4611,6 +5286,42 @@ class Frame final :
       ::alyncoin::net::Whisper* whisper);
   ::alyncoin::net::Whisper* unsafe_arena_release_whisper();
 
+  // .alyncoin.net.GetHeaders get_headers = 27;
+  bool has_get_headers() const;
+  private:
+  bool _internal_has_get_headers() const;
+  public:
+  void clear_get_headers();
+  const ::alyncoin::net::GetHeaders& get_headers() const;
+  PROTOBUF_NODISCARD ::alyncoin::net::GetHeaders* release_get_headers();
+  ::alyncoin::net::GetHeaders* mutable_get_headers();
+  void set_allocated_get_headers(::alyncoin::net::GetHeaders* get_headers);
+  private:
+  const ::alyncoin::net::GetHeaders& _internal_get_headers() const;
+  ::alyncoin::net::GetHeaders* _internal_mutable_get_headers();
+  public:
+  void unsafe_arena_set_allocated_get_headers(
+      ::alyncoin::net::GetHeaders* get_headers);
+  ::alyncoin::net::GetHeaders* unsafe_arena_release_get_headers();
+
+  // .alyncoin.net.Headers headers = 28;
+  bool has_headers() const;
+  private:
+  bool _internal_has_headers() const;
+  public:
+  void clear_headers();
+  const ::alyncoin::net::Headers& headers() const;
+  PROTOBUF_NODISCARD ::alyncoin::net::Headers* release_headers();
+  ::alyncoin::net::Headers* mutable_headers();
+  void set_allocated_headers(::alyncoin::net::Headers* headers);
+  private:
+  const ::alyncoin::net::Headers& _internal_headers() const;
+  ::alyncoin::net::Headers* _internal_mutable_headers();
+  public:
+  void unsafe_arena_set_allocated_headers(
+      ::alyncoin::net::Headers* headers);
+  ::alyncoin::net::Headers* unsafe_arena_release_headers();
+
   void clear_kind();
   KindCase kind_case() const;
   // @@protoc_insertion_point(class_scope:alyncoin.net.Frame)
@@ -4623,6 +5334,8 @@ class Frame final :
   void set_has_height_res();
   void set_has_block_broadcast();
   void set_has_block_batch();
+  void set_has_block_request();
+  void set_has_block_response();
   void set_has_snapshot_meta();
   void set_has_snapshot_chunk();
   void set_has_snapshot_ack();
@@ -4642,6 +5355,8 @@ class Frame final :
   void set_has_blockchain_sync_request();
   void set_has_tx_broadcast();
   void set_has_whisper();
+  void set_has_get_headers();
+  void set_has_headers();
 
   inline bool has_kind() const;
   inline void clear_has_kind();
@@ -4660,6 +5375,8 @@ class Frame final :
       ::alyncoin::net::HeightResponse* height_res_;
       ::alyncoin::net::BlockBroadcast* block_broadcast_;
       ::alyncoin::net::BlockBatch* block_batch_;
+      ::alyncoin::net::BlockRequest* block_request_;
+      ::alyncoin::net::BlockResponse* block_response_;
       ::alyncoin::net::SnapshotMeta* snapshot_meta_;
       ::alyncoin::net::SnapshotChunk* snapshot_chunk_;
       ::alyncoin::net::SnapshotAck* snapshot_ack_;
@@ -4679,6 +5396,8 @@ class Frame final :
       ::alyncoin::BlockchainSyncProto* blockchain_sync_request_;
       ::alyncoin::net::TransactionBroadcast* tx_broadcast_;
       ::alyncoin::net::Whisper* whisper_;
+      ::alyncoin::net::GetHeaders* get_headers_;
+      ::alyncoin::net::Headers* headers_;
     } kind_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
     uint32_t _oneof_case_[1];
@@ -5265,6 +5984,119 @@ inline void BlockBatch::set_allocated_chain(::alyncoin::BlockchainProto* chain) 
   }
   _impl_.chain_ = chain;
   // @@protoc_insertion_point(field_set_allocated:alyncoin.net.BlockBatch.chain)
+}
+
+// -------------------------------------------------------------------
+
+// BlockRequest
+
+// uint64 index = 1;
+inline void BlockRequest::clear_index() {
+  _impl_.index_ = uint64_t{0u};
+}
+inline uint64_t BlockRequest::_internal_index() const {
+  return _impl_.index_;
+}
+inline uint64_t BlockRequest::index() const {
+  // @@protoc_insertion_point(field_get:alyncoin.net.BlockRequest.index)
+  return _internal_index();
+}
+inline void BlockRequest::_internal_set_index(uint64_t value) {
+  
+  _impl_.index_ = value;
+}
+inline void BlockRequest::set_index(uint64_t value) {
+  _internal_set_index(value);
+  // @@protoc_insertion_point(field_set:alyncoin.net.BlockRequest.index)
+}
+
+// -------------------------------------------------------------------
+
+// BlockResponse
+
+// .alyncoin.BlockProto block = 1;
+inline bool BlockResponse::_internal_has_block() const {
+  return this != internal_default_instance() && _impl_.block_ != nullptr;
+}
+inline bool BlockResponse::has_block() const {
+  return _internal_has_block();
+}
+inline const ::alyncoin::BlockProto& BlockResponse::_internal_block() const {
+  const ::alyncoin::BlockProto* p = _impl_.block_;
+  return p != nullptr ? *p : reinterpret_cast<const ::alyncoin::BlockProto&>(
+      ::alyncoin::_BlockProto_default_instance_);
+}
+inline const ::alyncoin::BlockProto& BlockResponse::block() const {
+  // @@protoc_insertion_point(field_get:alyncoin.net.BlockResponse.block)
+  return _internal_block();
+}
+inline void BlockResponse::unsafe_arena_set_allocated_block(
+    ::alyncoin::BlockProto* block) {
+  if (GetArenaForAllocation() == nullptr) {
+    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(_impl_.block_);
+  }
+  _impl_.block_ = block;
+  if (block) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:alyncoin.net.BlockResponse.block)
+}
+inline ::alyncoin::BlockProto* BlockResponse::release_block() {
+  
+  ::alyncoin::BlockProto* temp = _impl_.block_;
+  _impl_.block_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old =  reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(temp);
+  temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
+  if (GetArenaForAllocation() == nullptr) { delete old; }
+#else  // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArenaForAllocation() != nullptr) {
+    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return temp;
+}
+inline ::alyncoin::BlockProto* BlockResponse::unsafe_arena_release_block() {
+  // @@protoc_insertion_point(field_release:alyncoin.net.BlockResponse.block)
+  
+  ::alyncoin::BlockProto* temp = _impl_.block_;
+  _impl_.block_ = nullptr;
+  return temp;
+}
+inline ::alyncoin::BlockProto* BlockResponse::_internal_mutable_block() {
+  
+  if (_impl_.block_ == nullptr) {
+    auto* p = CreateMaybeMessage<::alyncoin::BlockProto>(GetArenaForAllocation());
+    _impl_.block_ = p;
+  }
+  return _impl_.block_;
+}
+inline ::alyncoin::BlockProto* BlockResponse::mutable_block() {
+  ::alyncoin::BlockProto* _msg = _internal_mutable_block();
+  // @@protoc_insertion_point(field_mutable:alyncoin.net.BlockResponse.block)
+  return _msg;
+}
+inline void BlockResponse::set_allocated_block(::alyncoin::BlockProto* block) {
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
+  if (message_arena == nullptr) {
+    delete reinterpret_cast< ::PROTOBUF_NAMESPACE_ID::MessageLite*>(_impl_.block_);
+  }
+  if (block) {
+    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
+        ::PROTOBUF_NAMESPACE_ID::Arena::InternalGetOwningArena(
+                reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(block));
+    if (message_arena != submessage_arena) {
+      block = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
+          message_arena, block, submessage_arena);
+    }
+    
+  } else {
+    
+  }
+  _impl_.block_ = block;
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.net.BlockResponse.block)
 }
 
 // -------------------------------------------------------------------
@@ -5987,6 +6819,101 @@ inline ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>*
 GetData::mutable_hashes() {
   // @@protoc_insertion_point(field_mutable_list:alyncoin.net.GetData.hashes)
   return &_impl_.hashes_;
+}
+
+// -------------------------------------------------------------------
+
+// GetHeaders
+
+// string from_hash = 1;
+inline void GetHeaders::clear_from_hash() {
+  _impl_.from_hash_.ClearToEmpty();
+}
+inline const std::string& GetHeaders::from_hash() const {
+  // @@protoc_insertion_point(field_get:alyncoin.net.GetHeaders.from_hash)
+  return _internal_from_hash();
+}
+template <typename ArgT0, typename... ArgT>
+inline PROTOBUF_ALWAYS_INLINE
+void GetHeaders::set_from_hash(ArgT0&& arg0, ArgT... args) {
+ 
+ _impl_.from_hash_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:alyncoin.net.GetHeaders.from_hash)
+}
+inline std::string* GetHeaders::mutable_from_hash() {
+  std::string* _s = _internal_mutable_from_hash();
+  // @@protoc_insertion_point(field_mutable:alyncoin.net.GetHeaders.from_hash)
+  return _s;
+}
+inline const std::string& GetHeaders::_internal_from_hash() const {
+  return _impl_.from_hash_.Get();
+}
+inline void GetHeaders::_internal_set_from_hash(const std::string& value) {
+  
+  _impl_.from_hash_.Set(value, GetArenaForAllocation());
+}
+inline std::string* GetHeaders::_internal_mutable_from_hash() {
+  
+  return _impl_.from_hash_.Mutable(GetArenaForAllocation());
+}
+inline std::string* GetHeaders::release_from_hash() {
+  // @@protoc_insertion_point(field_release:alyncoin.net.GetHeaders.from_hash)
+  return _impl_.from_hash_.Release();
+}
+inline void GetHeaders::set_allocated_from_hash(std::string* from_hash) {
+  if (from_hash != nullptr) {
+    
+  } else {
+    
+  }
+  _impl_.from_hash_.SetAllocated(from_hash, GetArenaForAllocation());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (_impl_.from_hash_.IsDefault()) {
+    _impl_.from_hash_.Set("", GetArenaForAllocation());
+  }
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.net.GetHeaders.from_hash)
+}
+
+// -------------------------------------------------------------------
+
+// Headers
+
+// repeated .alyncoin.BlockProto headers = 1;
+inline int Headers::_internal_headers_size() const {
+  return _impl_.headers_.size();
+}
+inline int Headers::headers_size() const {
+  return _internal_headers_size();
+}
+inline ::alyncoin::BlockProto* Headers::mutable_headers(int index) {
+  // @@protoc_insertion_point(field_mutable:alyncoin.net.Headers.headers)
+  return _impl_.headers_.Mutable(index);
+}
+inline ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::BlockProto >*
+Headers::mutable_headers() {
+  // @@protoc_insertion_point(field_mutable_list:alyncoin.net.Headers.headers)
+  return &_impl_.headers_;
+}
+inline const ::alyncoin::BlockProto& Headers::_internal_headers(int index) const {
+  return _impl_.headers_.Get(index);
+}
+inline const ::alyncoin::BlockProto& Headers::headers(int index) const {
+  // @@protoc_insertion_point(field_get:alyncoin.net.Headers.headers)
+  return _internal_headers(index);
+}
+inline ::alyncoin::BlockProto* Headers::_internal_add_headers() {
+  return _impl_.headers_.Add();
+}
+inline ::alyncoin::BlockProto* Headers::add_headers() {
+  ::alyncoin::BlockProto* _add = _internal_add_headers();
+  // @@protoc_insertion_point(field_add:alyncoin.net.Headers.headers)
+  return _add;
+}
+inline const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::BlockProto >&
+Headers::headers() const {
+  // @@protoc_insertion_point(field_list:alyncoin.net.Headers.headers)
+  return _impl_.headers_;
 }
 
 // -------------------------------------------------------------------
@@ -6740,6 +7667,154 @@ inline ::alyncoin::net::BlockBatch* Frame::_internal_mutable_block_batch() {
 inline ::alyncoin::net::BlockBatch* Frame::mutable_block_batch() {
   ::alyncoin::net::BlockBatch* _msg = _internal_mutable_block_batch();
   // @@protoc_insertion_point(field_mutable:alyncoin.net.Frame.block_batch)
+  return _msg;
+}
+
+// .alyncoin.net.BlockRequest block_request = 29;
+inline bool Frame::_internal_has_block_request() const {
+  return kind_case() == kBlockRequest;
+}
+inline bool Frame::has_block_request() const {
+  return _internal_has_block_request();
+}
+inline void Frame::set_has_block_request() {
+  _impl_._oneof_case_[0] = kBlockRequest;
+}
+inline void Frame::clear_block_request() {
+  if (_internal_has_block_request()) {
+    if (GetArenaForAllocation() == nullptr) {
+      delete _impl_.kind_.block_request_;
+    }
+    clear_has_kind();
+  }
+}
+inline ::alyncoin::net::BlockRequest* Frame::release_block_request() {
+  // @@protoc_insertion_point(field_release:alyncoin.net.Frame.block_request)
+  if (_internal_has_block_request()) {
+    clear_has_kind();
+    ::alyncoin::net::BlockRequest* temp = _impl_.kind_.block_request_;
+    if (GetArenaForAllocation() != nullptr) {
+      temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.kind_.block_request_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::alyncoin::net::BlockRequest& Frame::_internal_block_request() const {
+  return _internal_has_block_request()
+      ? *_impl_.kind_.block_request_
+      : reinterpret_cast< ::alyncoin::net::BlockRequest&>(::alyncoin::net::_BlockRequest_default_instance_);
+}
+inline const ::alyncoin::net::BlockRequest& Frame::block_request() const {
+  // @@protoc_insertion_point(field_get:alyncoin.net.Frame.block_request)
+  return _internal_block_request();
+}
+inline ::alyncoin::net::BlockRequest* Frame::unsafe_arena_release_block_request() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:alyncoin.net.Frame.block_request)
+  if (_internal_has_block_request()) {
+    clear_has_kind();
+    ::alyncoin::net::BlockRequest* temp = _impl_.kind_.block_request_;
+    _impl_.kind_.block_request_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void Frame::unsafe_arena_set_allocated_block_request(::alyncoin::net::BlockRequest* block_request) {
+  clear_kind();
+  if (block_request) {
+    set_has_block_request();
+    _impl_.kind_.block_request_ = block_request;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:alyncoin.net.Frame.block_request)
+}
+inline ::alyncoin::net::BlockRequest* Frame::_internal_mutable_block_request() {
+  if (!_internal_has_block_request()) {
+    clear_kind();
+    set_has_block_request();
+    _impl_.kind_.block_request_ = CreateMaybeMessage< ::alyncoin::net::BlockRequest >(GetArenaForAllocation());
+  }
+  return _impl_.kind_.block_request_;
+}
+inline ::alyncoin::net::BlockRequest* Frame::mutable_block_request() {
+  ::alyncoin::net::BlockRequest* _msg = _internal_mutable_block_request();
+  // @@protoc_insertion_point(field_mutable:alyncoin.net.Frame.block_request)
+  return _msg;
+}
+
+// .alyncoin.net.BlockResponse block_response = 30;
+inline bool Frame::_internal_has_block_response() const {
+  return kind_case() == kBlockResponse;
+}
+inline bool Frame::has_block_response() const {
+  return _internal_has_block_response();
+}
+inline void Frame::set_has_block_response() {
+  _impl_._oneof_case_[0] = kBlockResponse;
+}
+inline void Frame::clear_block_response() {
+  if (_internal_has_block_response()) {
+    if (GetArenaForAllocation() == nullptr) {
+      delete _impl_.kind_.block_response_;
+    }
+    clear_has_kind();
+  }
+}
+inline ::alyncoin::net::BlockResponse* Frame::release_block_response() {
+  // @@protoc_insertion_point(field_release:alyncoin.net.Frame.block_response)
+  if (_internal_has_block_response()) {
+    clear_has_kind();
+    ::alyncoin::net::BlockResponse* temp = _impl_.kind_.block_response_;
+    if (GetArenaForAllocation() != nullptr) {
+      temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.kind_.block_response_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::alyncoin::net::BlockResponse& Frame::_internal_block_response() const {
+  return _internal_has_block_response()
+      ? *_impl_.kind_.block_response_
+      : reinterpret_cast< ::alyncoin::net::BlockResponse&>(::alyncoin::net::_BlockResponse_default_instance_);
+}
+inline const ::alyncoin::net::BlockResponse& Frame::block_response() const {
+  // @@protoc_insertion_point(field_get:alyncoin.net.Frame.block_response)
+  return _internal_block_response();
+}
+inline ::alyncoin::net::BlockResponse* Frame::unsafe_arena_release_block_response() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:alyncoin.net.Frame.block_response)
+  if (_internal_has_block_response()) {
+    clear_has_kind();
+    ::alyncoin::net::BlockResponse* temp = _impl_.kind_.block_response_;
+    _impl_.kind_.block_response_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void Frame::unsafe_arena_set_allocated_block_response(::alyncoin::net::BlockResponse* block_response) {
+  clear_kind();
+  if (block_response) {
+    set_has_block_response();
+    _impl_.kind_.block_response_ = block_response;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:alyncoin.net.Frame.block_response)
+}
+inline ::alyncoin::net::BlockResponse* Frame::_internal_mutable_block_response() {
+  if (!_internal_has_block_response()) {
+    clear_kind();
+    set_has_block_response();
+    _impl_.kind_.block_response_ = CreateMaybeMessage< ::alyncoin::net::BlockResponse >(GetArenaForAllocation());
+  }
+  return _impl_.kind_.block_response_;
+}
+inline ::alyncoin::net::BlockResponse* Frame::mutable_block_response() {
+  ::alyncoin::net::BlockResponse* _msg = _internal_mutable_block_response();
+  // @@protoc_insertion_point(field_mutable:alyncoin.net.Frame.block_response)
   return _msg;
 }
 
@@ -8141,6 +9216,154 @@ inline ::alyncoin::net::Whisper* Frame::mutable_whisper() {
   return _msg;
 }
 
+// .alyncoin.net.GetHeaders get_headers = 27;
+inline bool Frame::_internal_has_get_headers() const {
+  return kind_case() == kGetHeaders;
+}
+inline bool Frame::has_get_headers() const {
+  return _internal_has_get_headers();
+}
+inline void Frame::set_has_get_headers() {
+  _impl_._oneof_case_[0] = kGetHeaders;
+}
+inline void Frame::clear_get_headers() {
+  if (_internal_has_get_headers()) {
+    if (GetArenaForAllocation() == nullptr) {
+      delete _impl_.kind_.get_headers_;
+    }
+    clear_has_kind();
+  }
+}
+inline ::alyncoin::net::GetHeaders* Frame::release_get_headers() {
+  // @@protoc_insertion_point(field_release:alyncoin.net.Frame.get_headers)
+  if (_internal_has_get_headers()) {
+    clear_has_kind();
+    ::alyncoin::net::GetHeaders* temp = _impl_.kind_.get_headers_;
+    if (GetArenaForAllocation() != nullptr) {
+      temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.kind_.get_headers_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::alyncoin::net::GetHeaders& Frame::_internal_get_headers() const {
+  return _internal_has_get_headers()
+      ? *_impl_.kind_.get_headers_
+      : reinterpret_cast< ::alyncoin::net::GetHeaders&>(::alyncoin::net::_GetHeaders_default_instance_);
+}
+inline const ::alyncoin::net::GetHeaders& Frame::get_headers() const {
+  // @@protoc_insertion_point(field_get:alyncoin.net.Frame.get_headers)
+  return _internal_get_headers();
+}
+inline ::alyncoin::net::GetHeaders* Frame::unsafe_arena_release_get_headers() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:alyncoin.net.Frame.get_headers)
+  if (_internal_has_get_headers()) {
+    clear_has_kind();
+    ::alyncoin::net::GetHeaders* temp = _impl_.kind_.get_headers_;
+    _impl_.kind_.get_headers_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void Frame::unsafe_arena_set_allocated_get_headers(::alyncoin::net::GetHeaders* get_headers) {
+  clear_kind();
+  if (get_headers) {
+    set_has_get_headers();
+    _impl_.kind_.get_headers_ = get_headers;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:alyncoin.net.Frame.get_headers)
+}
+inline ::alyncoin::net::GetHeaders* Frame::_internal_mutable_get_headers() {
+  if (!_internal_has_get_headers()) {
+    clear_kind();
+    set_has_get_headers();
+    _impl_.kind_.get_headers_ = CreateMaybeMessage< ::alyncoin::net::GetHeaders >(GetArenaForAllocation());
+  }
+  return _impl_.kind_.get_headers_;
+}
+inline ::alyncoin::net::GetHeaders* Frame::mutable_get_headers() {
+  ::alyncoin::net::GetHeaders* _msg = _internal_mutable_get_headers();
+  // @@protoc_insertion_point(field_mutable:alyncoin.net.Frame.get_headers)
+  return _msg;
+}
+
+// .alyncoin.net.Headers headers = 28;
+inline bool Frame::_internal_has_headers() const {
+  return kind_case() == kHeaders;
+}
+inline bool Frame::has_headers() const {
+  return _internal_has_headers();
+}
+inline void Frame::set_has_headers() {
+  _impl_._oneof_case_[0] = kHeaders;
+}
+inline void Frame::clear_headers() {
+  if (_internal_has_headers()) {
+    if (GetArenaForAllocation() == nullptr) {
+      delete _impl_.kind_.headers_;
+    }
+    clear_has_kind();
+  }
+}
+inline ::alyncoin::net::Headers* Frame::release_headers() {
+  // @@protoc_insertion_point(field_release:alyncoin.net.Frame.headers)
+  if (_internal_has_headers()) {
+    clear_has_kind();
+    ::alyncoin::net::Headers* temp = _impl_.kind_.headers_;
+    if (GetArenaForAllocation() != nullptr) {
+      temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.kind_.headers_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::alyncoin::net::Headers& Frame::_internal_headers() const {
+  return _internal_has_headers()
+      ? *_impl_.kind_.headers_
+      : reinterpret_cast< ::alyncoin::net::Headers&>(::alyncoin::net::_Headers_default_instance_);
+}
+inline const ::alyncoin::net::Headers& Frame::headers() const {
+  // @@protoc_insertion_point(field_get:alyncoin.net.Frame.headers)
+  return _internal_headers();
+}
+inline ::alyncoin::net::Headers* Frame::unsafe_arena_release_headers() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:alyncoin.net.Frame.headers)
+  if (_internal_has_headers()) {
+    clear_has_kind();
+    ::alyncoin::net::Headers* temp = _impl_.kind_.headers_;
+    _impl_.kind_.headers_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void Frame::unsafe_arena_set_allocated_headers(::alyncoin::net::Headers* headers) {
+  clear_kind();
+  if (headers) {
+    set_has_headers();
+    _impl_.kind_.headers_ = headers;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:alyncoin.net.Frame.headers)
+}
+inline ::alyncoin::net::Headers* Frame::_internal_mutable_headers() {
+  if (!_internal_has_headers()) {
+    clear_kind();
+    set_has_headers();
+    _impl_.kind_.headers_ = CreateMaybeMessage< ::alyncoin::net::Headers >(GetArenaForAllocation());
+  }
+  return _impl_.kind_.headers_;
+}
+inline ::alyncoin::net::Headers* Frame::mutable_headers() {
+  ::alyncoin::net::Headers* _msg = _internal_mutable_headers();
+  // @@protoc_insertion_point(field_mutable:alyncoin.net.Frame.headers)
+  return _msg;
+}
+
 inline bool Frame::has_kind() const {
   return kind_case() != KIND_NOT_SET;
 }
@@ -8153,6 +9376,14 @@ inline Frame::KindCase Frame::kind_case() const {
 #ifdef __GNUC__
   #pragma GCC diagnostic pop
 #endif  // __GNUC__
+// -------------------------------------------------------------------
+
+// -------------------------------------------------------------------
+
+// -------------------------------------------------------------------
+
+// -------------------------------------------------------------------
+
 // -------------------------------------------------------------------
 
 // -------------------------------------------------------------------
