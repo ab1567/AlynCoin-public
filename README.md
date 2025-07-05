@@ -64,6 +64,12 @@ sudo apt install -y \
 sudo apt install -y libminiupnpc-dev
 ```
 
+To install all of these packages automatically, run:
+
+```bash
+./scripts/install_deps.sh
+```
+
 Compile the project using CMake:
 
 ```bash

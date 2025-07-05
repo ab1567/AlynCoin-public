@@ -283,6 +283,22 @@ void Network::sendHeight(const std::string &peer) {
   sendFrame(it->second.tx, fr);
 }
 
+void Network::sendHeightProbe(std::shared_ptr<Transport> tr) {
+  if (!tr || !tr->isOpen())
+    return;
+  Blockchain &bc = Blockchain::getInstance();
+  alyncoin::net::Frame fr;
+  auto *hp = fr.mutable_height_probe();
+  hp->set_height(bc.getHeight());
+  hp->set_tip_hash(bc.getLatestBlockHash());
+  auto work = bc.computeCumulativeDifficulty(bc.getChain());
+  uint64_t w64 = work.convert_to<uint64_t>();
+  if (peerManager)
+    peerManager->setLocalWork(w64);
+  hp->set_total_work(w64);
+  sendFrame(tr, fr);
+}
+
 void Network::sendTipHash(const std::string &peer) {
   auto it = peerTransports.find(peer);
   if (it == peerTransports.end() || !it->second.tx)
@@ -1202,6 +1218,8 @@ void Network::autoSyncIfBehind() {
     alyncoin::net::Frame f2;
     f2.mutable_tip_hash_req();
     sendFrame(tr, f2);
+    // Advertise our own height information to avoid isolation
+    sendHeightProbe(tr);
 
     if (!peerManager)
       continue;
