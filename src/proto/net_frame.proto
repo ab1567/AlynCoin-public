@@ -31,6 +31,13 @@ message HeightResponse {
   uint64 total_work = 2;
 }
 
+// Broadcast our current height along with tip hash and total work
+message HeightProbe {
+  uint32 height = 1;
+  bytes  tip_hash = 2;   // 32-byte block hash
+  uint64 total_work = 3;
+}
+
 message BlockBroadcast { alyncoin.BlockProto block = 1; }
 
 message BlockBatch { alyncoin.BlockchainProto chain = 1; }
@@ -73,6 +80,7 @@ message Frame {
     Pong pong = 3;
     HeightRequest height_req = 4;
     HeightResponse height_res = 5;
+    HeightProbe height_probe = 31;
     BlockBroadcast block_broadcast = 6;
     BlockBatch block_batch = 7;
     BlockRequest block_request = 29;

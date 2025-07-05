@@ -162,6 +162,7 @@ public:
   void sendPrivate(const std::string &peer,
                    const google::protobuf::Message &m);
   void sendHeight(const std::string &peer);
+  void sendHeightProbe(std::shared_ptr<Transport> tr);
   void sendTipHash(const std::string &peer);
   void sendPeerList(const std::string &peer);
 
