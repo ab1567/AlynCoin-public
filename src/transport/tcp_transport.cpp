@@ -12,6 +12,7 @@
 #include <chrono>
 #include <sys/select.h>
 #include "wire/varint.h"
+#include "config.h"
 
 TcpTransport::TcpTransport(boost::asio::io_context& ctx)
     : socket(std::make_shared<boost::asio::ip::tcp::socket>(ctx)) {}
@@ -112,15 +113,62 @@ bool TcpTransport::connect(const std::string& host, int port)
 {
     try {
         boost::asio::ip::tcp::resolver res(socket->get_executor());
-        auto eps = res.resolve(host, std::to_string(port));
+        std::string connectHost = host;
+        int connectPort = port;
+
+        if (!getAppConfig().proxy_host.empty() && getAppConfig().proxy_port > 0) {
+            connectHost = getAppConfig().proxy_host;
+            connectPort = getAppConfig().proxy_port;
+        }
+
+        auto eps = res.resolve(connectHost, std::to_string(connectPort));
         boost::asio::connect(*socket, eps);
+
+        if (connectHost != host) {
+            uint8_t req1[3] = {0x05, 0x01, 0x00};
+            boost::asio::write(*socket, boost::asio::buffer(req1, 3));
+            uint8_t resp1[2];
+            boost::asio::read(*socket, boost::asio::buffer(resp1, 2));
+            if (resp1[0] != 0x05 || resp1[1] != 0x00) {
+                std::cerr << "[TcpTransport::connect] SOCKS5 auth failed\n";
+                return false;
+            }
+
+            std::vector<uint8_t> req2;
+            req2.push_back(0x05);
+            req2.push_back(0x01);
+            req2.push_back(0x00);
+            req2.push_back(0x03);
+            req2.push_back(static_cast<uint8_t>(host.size()));
+            req2.insert(req2.end(), host.begin(), host.end());
+            req2.push_back(static_cast<uint8_t>((port >> 8) & 0xFF));
+            req2.push_back(static_cast<uint8_t>(port & 0xFF));
+            boost::asio::write(*socket, boost::asio::buffer(req2));
+
+            uint8_t resp2[4];
+            boost::asio::read(*socket, boost::asio::buffer(resp2, 4));
+            if (resp2[1] != 0x00) {
+                std::cerr << "[TcpTransport::connect] SOCKS5 connect failed\n";
+                return false;
+            }
+            size_t addrLen = 0;
+            if (resp2[3] == 0x01) addrLen = 4;
+            else if (resp2[3] == 0x03) {
+                uint8_t len; boost::asio::read(*socket, boost::asio::buffer(&len,1));
+                addrLen = len;
+            } else if (resp2[3] == 0x04) addrLen = 16;
+            if (addrLen) {
+                std::vector<uint8_t> discard(addrLen + 2);
+                boost::asio::read(*socket, boost::asio::buffer(discard));
+            }
+        }
+
         return true;
     } catch (const std::exception& ex) {
         std::cerr << "[TcpTransport::connect] " << ex.what() << '\n';
         return false;
     }
 }
-
 std::string TcpTransport::getRemoteIP() const
 {
     try { return socket->remote_endpoint().address().to_string(); }

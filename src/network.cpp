@@ -964,7 +964,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
       }
       if (count >= 2) {
         std::cerr << "⚠️  [handlePeer] prefix limit reached for " << senderIP
-                  << '\n';
+                  << " (" << prefix << " count=" << count << ")" << '\n';
         return;
       }
     }
@@ -2262,7 +2262,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     }
     if (count >= 2) {
       std::cerr << "⚠️ [connectToNode] prefix limit reached for " << host
-                << '\n';
+                << " (" << prefix << " count=" << count << ")" << '\n';
       return false;
     }
   }
