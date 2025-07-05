@@ -3,7 +3,6 @@
 #include "sync_recovery.h"
 #include "logger.h"
 #include "network.h"
-
 #include <thread>
 #include <chrono>
 
@@ -13,7 +12,7 @@ SelfHealingNode::SelfHealingNode(Blockchain* blockchain, PeerManager* peerManage
     syncRecovery_ = std::make_unique<SyncRecovery>(blockchain, peerManager);
 }
 
-void SelfHealingNode::monitorAndHeal() {
+void SelfHealingNode::checkPeerHeights() {
     if (auto net = Network::getExistingInstance()) {
         alyncoin::net::Frame fr;
         fr.mutable_height_req();
@@ -43,9 +42,32 @@ void SelfHealingNode::monitorAndHeal() {
         Logger::error("❌ Self-healing failed. Manual intervention may be required.");
     }
 }
+
+void SelfHealingNode::kickStalledSync() {
+    if (auto net = Network::getExistingInstance()) {
+        net->autoSyncIfBehind();
+    }
+}
+
+void SelfHealingNode::rescanDB() {
+    Logger::info("[SelfHealer] Rescanning blockchain DB...");
+    blockchain_->reloadBlockchainState();
+    blockchain_->validateChainContinuity();
+}
+
+void SelfHealingNode::checkIdentityService() {}
+
+void SelfHealingNode::checkSwapLiquidity() {}
+
+// ---------------------------------------------------------------------
+// Legacy wrappers used by older CLI paths
+void SelfHealingNode::monitorAndHeal() {
+    checkPeerHeights();
+}
+
 void SelfHealingNode::runPeriodicCheck(std::chrono::seconds interval) {
     while (true) {
-        monitorAndHeal();
+        checkPeerHeights();
         std::this_thread::sleep_for(interval);
     }
 }

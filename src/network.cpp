@@ -10,6 +10,7 @@
 #include "proto_utils.h"
 #include "rollup/proofs/proof_verifier.h"
 #include "rollup/rollup_block.h"
+#include "self_healing/self_healing_node.h"
 #include "syncing.h"
 #include "syncing/headers_sync.h"
 #include "transaction.h"
@@ -537,6 +538,7 @@ Network::Network(unsigned short port, Blockchain *blockchain,
     std::cout << "🌐 Network listener started on port: " << std::dec << port
               << "\n";
     peerManager = std::make_unique<PeerManager>(blacklistPtr, this);
+    selfHealer = std::make_unique<SelfHealingNode>(blockchain, peerManager.get());
     isRunning = true;
     listenerThread = std::thread(&Network::listenForConnections, this);
     threads_.push_back(std::move(listenerThread));
@@ -1112,6 +1114,8 @@ void Network::run() {
     while (true) {
       std::this_thread::sleep_for(std::chrono::seconds(15));
       periodicSync();
+      if (selfHealer)
+        selfHealer->checkPeerHeights();
     }
   }).detach();
 
