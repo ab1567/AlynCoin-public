@@ -1542,7 +1542,7 @@ bool Blockchain::deserializeBlockchainBase64(const std::string &base64Str) {
 
 //
 bool Blockchain::loadFromProto(const alyncoin::BlockchainProto &protoChain) {
-    std::cout << "[DEBUG] 🚨 loadFromProto() invoked. Block count: " << protoChain.blocks_size() << "\n";
+
 
     if (protoChain.blocks_size() == 0) {
         std::cerr << "⚠️ Skipping loadFromProto: Empty block list received!\n";
@@ -1557,7 +1557,6 @@ bool Blockchain::loadFromProto(const alyncoin::BlockchainProto &protoChain) {
     // Load blocks
     for (int i = 0; i < protoChain.blocks_size(); ++i) {
         const auto &blockProto = protoChain.blocks(i);
-        std::cout << "[DEBUG] 🧱 Parsing Block[" << i << "]...\n";
         try {
             Block block = Block::fromProto(blockProto);
             cpp_int thisWork = workFromDifficulty(block.getDifficulty());
@@ -1574,7 +1573,6 @@ bool Blockchain::loadFromProto(const alyncoin::BlockchainProto &protoChain) {
     // Load pending transactions
     for (int i = 0; i < protoChain.pending_transactions_size(); ++i) {
         const auto &txProto = protoChain.pending_transactions(i);
-        std::cout << "[DEBUG] 🔄 Parsing Pending TX[" << i << "]...\n";
         try {
             Transaction tx = Transaction::fromProto(txProto);
             pendingTransactions.push_back(tx);
@@ -1585,8 +1583,7 @@ bool Blockchain::loadFromProto(const alyncoin::BlockchainProto &protoChain) {
         }
     }
 
-    std::cout << "✅ Blockchain deserialization completed! Blocks: " << chain.size()
-              << ", Pending Transactions: " << pendingTransactions.size() << std::endl;
+
 
     // 🔁 Ensure full state is recomputed
     recalculateBalancesFromChain();

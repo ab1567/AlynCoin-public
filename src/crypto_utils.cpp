@@ -608,8 +608,6 @@ std::vector<unsigned char> fromHex(const std::string &hex) {
         bytes.push_back(static_cast<unsigned char>((highVal << 4) | lowVal));
     }
 
-    std::cout << "✅ [DEBUG] fromHex() - Parsed " << bytes.size()
-              << " bytes from hex string (expected: " << (hex.length() / 2) << ")\n";
     return bytes;
 }
 
