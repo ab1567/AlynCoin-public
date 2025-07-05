@@ -268,10 +268,11 @@ void Network::sendHeight(const std::string &peer) {
   Blockchain &bc = Blockchain::getInstance();
   auto *hr = fr.mutable_height_res();
   hr->set_height(bc.getHeight());
-  uint64_t work = bc.computeCumulativeDifficulty(bc.getChain());
+  auto work = bc.computeCumulativeDifficulty(bc.getChain());
+  uint64_t w64 = work.convert_to<uint64_t>();
   if (peerManager)
-    peerManager->setLocalWork(work);
-  hr->set_total_work(work);
+    peerManager->setLocalWork(w64);
+  hr->set_total_work(w64);
   sendFrame(it->second.tx, fr);
 }
 
@@ -645,7 +646,7 @@ void Network::autoMineBlock() {
             Blockchain::getInstance().saveToDB();
           }
           broadcastBlock(minedBlock);
-          broadcastHeight(minedBlock.getIndex());
+          blockchain.broadcastNewTip();
           autoSyncIfBehind();
           std::cout << "✅ Mined & broadcasted block: " << minedBlock.getHash()
                     << std::endl;
@@ -1445,10 +1446,11 @@ void Network::broadcastHeight(uint32_t height) {
   Blockchain &bc = Blockchain::getInstance();
   auto *hr = fr.mutable_height_res();
   hr->set_height(height);
-  uint64_t work = bc.computeCumulativeDifficulty(bc.getChain());
+  auto work = bc.computeCumulativeDifficulty(bc.getChain());
+  uint64_t w64 = work.convert_to<uint64_t>();
   if (peerManager)
-    peerManager->setLocalWork(work);
-  hr->set_total_work(work);
+    peerManager->setLocalWork(w64);
+  hr->set_total_work(w64);
   for (auto &kv : peersCopy) {
     auto tr = kv.second.tx;
     if (!tr || !tr->isOpen())
@@ -1608,7 +1610,7 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
         peerManager->setPeerHeight(sender, newBlock.getIndex());
         peerManager->setPeerTipHash(sender, newBlock.getHash());
       }
-      broadcastHeight(blockchain.getHeight());
+      blockchain.broadcastNewTip();
       autoSyncIfBehind();
 
       std::cout << "✅ Block added successfully (fork branch). Index: "
@@ -1687,11 +1689,10 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
     if (peerManager && !sender.empty()) {
       peerManager->setPeerHeight(sender, newBlock.getIndex());
       peerManager->setPeerTipHash(sender, newBlock.getHash());
-      peerManager->setPeerWork(
-          sender,
-          blockchain.computeCumulativeDifficulty(blockchain.getChain()));
+      auto work = blockchain.computeCumulativeDifficulty(blockchain.getChain());
+      peerManager->setPeerWork(sender, work.convert_to<uint64_t>());
     }
-    broadcastHeight(newBlock.getIndex());
+    blockchain.broadcastNewTip();
     autoSyncIfBehind();
 
     std::cout << "✅ Block added successfully! Index: " << newBlock.getIndex()
@@ -2925,10 +2926,10 @@ void Network::handleSnapshotEnd(const std::string &peer) {
         ps->snapState = PeerState::SnapState::Idle;
         if (peerManager) {
           peerManager->setPeerHeight(peer, chain.getHeight());
-          peerManager->setPeerWork(
-              peer, chain.computeCumulativeDifficulty(chain.getChain()));
+          auto work = chain.computeCumulativeDifficulty(chain.getChain());
+          peerManager->setPeerWork(peer, work.convert_to<uint64_t>());
         }
-        broadcastHeight(chain.getHeight());
+        chain.broadcastNewTip();
         return;
       } else {
         std::cerr << "⚠️ [SNAPSHOT] Tail push block failed validation\n";
@@ -2946,20 +2947,22 @@ void Network::handleSnapshotEnd(const std::string &peer) {
     }
 
     // --- Fork choice: strict cumulative work rule ---
-    uint64_t localWork = chain.computeCumulativeDifficulty(chain.getChain());
-    uint64_t remoteWork = chain.computeCumulativeDifficulty(snapBlocks);
+    auto localWork = chain.computeCumulativeDifficulty(chain.getChain());
+    auto remoteWork = chain.computeCumulativeDifficulty(snapBlocks);
+    uint64_t localW64 = localWork.convert_to<uint64_t>();
+    uint64_t remoteW64 = remoteWork.convert_to<uint64_t>();
     std::string localTipHash = chain.getLatestBlockHash();
     std::string remoteTipHash = snapBlocks.empty() ? "" : snapBlocks.back().getHash();
     int reorgDepth = std::max(0, localHeight - snap.height());
-    bool accept = remoteTipHash != localTipHash && remoteWork > localWork * 1.01;
+    bool accept = remoteTipHash != localTipHash && remoteW64 > localW64 * 1.01;
     if (snap.height() < localHeight - MAX_REORG &&
-        remoteWork <= localWork * 1.20)
+        remoteW64 <= localW64 * 1.20)
       accept = false;
 
     if (!accept) {
       std::cerr << "⚠️ [SNAPSHOT] Rejected snapshot from " << peer << " (height "
-                << snap.height() << ", work " << remoteWork
-                << ") localHeight=" << localHeight << " localWork=" << localWork
+                << snap.height() << ", work " << remoteW64
+                << ") localHeight=" << localHeight << " localWork=" << localW64
                 << " reorgDepth=" << reorgDepth << "\n";
       penalizePeer(peer, 50);
       ps->snapshotActive = false;
@@ -2978,9 +2981,9 @@ void Network::handleSnapshotEnd(const std::string &peer) {
 
     if (peerManager) {
       peerManager->setPeerHeight(peer, snap.height());
-      peerManager->setPeerWork(peer, remoteWork);
+      peerManager->setPeerWork(peer, remoteW64);
     }
-    broadcastHeight(chain.getHeight());
+    chain.broadcastNewTip();
 
     // Immediately request tail blocks for any missing blocks
     requestTailBlocks(peer, snap.height());
@@ -3064,7 +3067,7 @@ void Network::handleTailBlocks(const std::string &peer,
 
     if (peerManager)
       peerManager->setPeerHeight(peer, chain.getHeight());
-    broadcastHeight(chain.getHeight());
+    chain.broadcastNewTip();
   } catch (const std::exception &ex) {
     std::cerr << "❌ [TAIL_BLOCKS] Failed to apply tail blocks from peer "
               << peer << ": " << ex.what() << "\n";

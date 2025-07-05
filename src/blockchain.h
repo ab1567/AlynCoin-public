@@ -18,6 +18,7 @@
 #include "db/db_paths.h"
 #include <deque>
 #include <functional>
+#include <boost/multiprecision/cpp_int.hpp>
 #include <json/json.h>
 #include <map>
 #include <mutex>
@@ -204,6 +205,7 @@ public:
 
   int getHeight() const;
   uint64_t getTotalWork() const { return totalWork; }
+  void broadcastNewTip();
   std::string getBlockHashAtHeight(int height) const;
   bool rollbackToHeight(int height);
 
@@ -220,7 +222,7 @@ public:
   // New fork sync and comparison helpers
   bool verifyForkSafety(const std::vector<Block>& otherChain) const;
   int findForkCommonAncestor(const std::vector<Block>& otherChain) const;
-  uint64_t computeCumulativeDifficulty(const std::vector<Block>& chainRef) const;
+  boost::multiprecision::cpp_int computeCumulativeDifficulty(const std::vector<Block>& chainRef) const;
   void setPendingForkChain(const std::vector<Block>& fork);
   std::vector<Block> getPendingForkChain() const;
   void clearPendingForkChain();
