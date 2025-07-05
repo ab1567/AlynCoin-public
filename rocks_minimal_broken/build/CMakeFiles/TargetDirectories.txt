@@ -1,3 +1,0 @@
-/root/AlynCoin/rocks_minimal/build/CMakeFiles/rocksdb_min.dir
-/root/AlynCoin/rocks_minimal/build/CMakeFiles/edit_cache.dir
-/root/AlynCoin/rocks_minimal/build/CMakeFiles/rebuild_cache.dir
