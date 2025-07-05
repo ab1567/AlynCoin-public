@@ -114,6 +114,7 @@ list(APPEND SOURCES
 )
 
 file(GLOB EXPLORER_SOURCES ${SOURCE_DIR}/explorer/*.cpp)
+file(GLOB METRICS_SOURCES ${SOURCE_DIR}/metrics/*.cpp)
 
 set(MAIN_SOURCE ${SOURCE_DIR}/main.cpp)
 
@@ -155,6 +156,7 @@ include_directories(
     ${SOURCE_DIR}/self_healing
     ${SOURCE_DIR}/utils
     ${SOURCE_DIR}/network
+    ${SOURCE_DIR}/metrics
 )
 
 # --------------------------
@@ -502,8 +504,21 @@ target_link_libraries(explorer_server
 )
 
 # --------------------------
+# Metrics Server Executable
+add_executable(metrics_server ${METRICS_SOURCES})
+add_dependencies(metrics_server winterfell_ffi)
+target_include_directories(metrics_server PRIVATE ${SOURCE_DIR}/metrics ${SOURCE_DIR}/deps/CrowInclude)
+target_link_libraries(metrics_server
+    alyncoin_lib
+    ${JSONCPP_LIBRARIES}
+    pthread
+    m
+    dl
+)
+
+# --------------------------
 # Output Binaries Location
-set_target_properties(alyncoin alyncoin-cli explorer_server peer_blacklist_cli blacklist_test swapcli identitycli PROPERTIES
+set_target_properties(alyncoin alyncoin-cli explorer_server metrics_server peer_blacklist_cli blacklist_test swapcli identitycli PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
 )
 
