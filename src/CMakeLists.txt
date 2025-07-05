@@ -60,6 +60,7 @@ file(GLOB SOURCES
     ${SOURCE_DIR}/wallet.cpp
     ${SOURCE_DIR}/keccak.cpp
     ${SOURCE_DIR}/key_paths.cpp
+    ${SOURCE_DIR}/consensus/difficulty.cpp
     ${SOURCE_DIR}/zk/*.cpp
     ${SOURCE_DIR}/rollup/rollup_block.cpp
     ${SOURCE_DIR}/rollup/rollup_utils.cpp

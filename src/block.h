@@ -26,6 +26,7 @@ private:
   int nonce;
   time_t timestamp;
   mutable std::string transactionsHash;
+  mutable std::string cachedRoot;
   std::string blockSignature;
   std::vector<unsigned char> dilithiumSignature;
   std::vector<unsigned char> falconSignature;
@@ -83,7 +84,10 @@ public:
   // --- Setters ---
   void setIndex(int idx) { index = idx; }
   void setPreviousHash(const std::string &prev) { previousHash = Crypto::normaliseHash(prev); }
-  void setTransactions(const std::vector<Transaction> &txs) { transactions = txs; }
+  void setTransactions(const std::vector<Transaction> &txs) {
+    transactions = txs;
+    cachedRoot.clear();
+  }
   void setHash(const std::string &value)        { hash         = Crypto::normaliseHash(value); }
   void setMinerAddress(const std::string &addr) { minerAddress = addr; }
   void setNonce(int value) { nonce = value; }

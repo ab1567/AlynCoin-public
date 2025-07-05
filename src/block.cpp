@@ -51,6 +51,7 @@ Block::Block()
   zkProof = std::vector<uint8_t>();
   epochRoot.clear();
   epochProof.clear();
+  cachedRoot.clear();
 }
 
 // ✅ Parameterized Constructor (Used When Mining Blocks)
@@ -70,6 +71,7 @@ Block::Block(int index, const std::string &previousHash,
   zkProof = std::vector<uint8_t>();
   epochRoot.clear();
   epochProof.clear();
+  cachedRoot.clear();
 }
 
 
@@ -138,9 +140,10 @@ std::string Block::calculateHash() const {
 bool Block::mineBlock(int difficulty) {
     std::cerr << "[mineBlock] START for idx=" << getIndex()
               << ", prev=" << getPreviousHash() << '\n';
-
+#ifdef LOG_DEBUG
     std::cout << "\n⏳ [mineBlock] Mining block for: " << minerAddress
               << " with difficulty: " << difficulty << "...\n";
+#endif
 
     /* ───────────────────────────────────── 0 · Merkle root ── */
     if (transactions.empty()) {
@@ -153,8 +156,11 @@ bool Block::mineBlock(int difficulty) {
     /* ───────────────────────────────────── 1 · PoW loop ──── */
     do {
         ++nonce;
-        if (nonce % 50'000 == 0)
+        if (nonce % 50'000 == 0) {
+#ifdef LOG_DEBUG
             std::cout << "\r[Mining] Nonce: " << nonce << std::flush;
+#endif
+        }
 
         std::string txRoot = getTransactionsHash();
         std::stringstream ss;
@@ -162,18 +168,24 @@ bool Block::mineBlock(int difficulty) {
         hash = Crypto::hybridHash(ss.str());
     } while (hash.substr(0, difficulty) != std::string(difficulty, '0'));
 
+#ifdef LOG_DEBUG
     std::cout << "\n✅ [mineBlock] PoW Complete.\n"
               << "🔢 Final Nonce: " << nonce << '\n'
               << "🧬 Block Hash (BLAKE3): " << hash << '\n';
+#endif
 
     /* ───────────────────────────────────── 2 · Keccak ────── */
     keccakHash = Crypto::keccak256(hash);
+#ifdef LOG_DEBUG
     std::cout << "✅ Keccak Hash: " << keccakHash << '\n';
+#endif
 
     /* ───────────────────────────────────── 3 · zk-STARK ──── */
     std::string txRoot = getTransactionsHash();
     ensureRootConsistency(*this, index);
+#ifdef LOG_DEBUG
     std::cout << "🧬 Transactions Merkle Root: " << txRoot << '\n';
+#endif
 
     std::string proofStr;
     if (transactions.empty()) {
@@ -194,8 +206,10 @@ bool Block::mineBlock(int difficulty) {
     }
 
     zkProof.assign(proofStr.begin(), proofStr.end());
+#ifdef LOG_DEBUG
     std::cout << "✅ zk-STARK Proof Generated. Size: "
               << zkProof.size() << " bytes\n";
+#endif
 
     /* ───────────────────────────────────── 4 · Signatures ─── */
     signBlock(minerAddress);
@@ -215,14 +229,18 @@ bool Block::mineBlock(int difficulty) {
               << ", prev=" << getPreviousHash()
               << ", zkProof=" << zkProof.size() << '\n';
 
+#ifdef LOG_DEBUG
     std::cout << "✅ Block Signed Successfully.\n";
+#endif
     return true;
 }
 
 // --- signBlock: Sign and store binary signatures and public keys
 void Block::signBlock(const std::string &minerAddress) {
+#ifdef LOG_DEBUG
     std::cout << "🔐 [DEBUG] Signing block with Dilithium and Falcon for: "
               << minerAddress << "\n";
+#endif
 
     auto msgBytes = getSignatureMessage();
     if (msgBytes.size() != 32) {
@@ -232,7 +250,9 @@ void Block::signBlock(const std::string &minerAddress) {
 
     // Dilithium
     if (!Crypto::fileExists(DBPaths::getKeyDir() + minerAddress + "_dilithium.key")) {
+#ifdef LOG_DEBUG
         std::cout << "⚠️ Dilithium key missing. Generating...\n";
+#endif
         Crypto::generateDilithiumKeys(minerAddress);
     }
     auto dkeys = Crypto::loadDilithiumKeys(minerAddress);
@@ -250,7 +270,9 @@ void Block::signBlock(const std::string &minerAddress) {
 
     // Falcon
     if (!Crypto::fileExists(DBPaths::getKeyDir() + minerAddress + "_falcon.key")) {
+#ifdef LOG_DEBUG
         std::cout << "⚠️ Falcon key missing. Generating...\n";
+#endif
         Crypto::generateFalconKeys(minerAddress);
     }
     auto fkeys = Crypto::loadFalconKeys(minerAddress);
@@ -266,7 +288,9 @@ void Block::signBlock(const std::string &minerAddress) {
     falconSignature = sigF;
     publicKeyFalcon = fkeys.publicKey;
 
+#ifdef LOG_DEBUG
     std::cout << "✅ [DEBUG] Block signatures applied.\n";
+#endif
 }
 
 // ✅ Validate Block: Use raw binary, no Crypto::fromHex!
@@ -402,21 +426,27 @@ std::string Block::getTransactionsHash() const {
 void Block::setMerkleRoot(const std::string &root) {
     merkleRoot = root;
     transactionsHash = root; // Always mirror!
+    cachedRoot = root;
     ensureRootConsistency(*this, index);
 }
 
 void Block::setTransactionsHash(const std::string &hash) {
     transactionsHash = hash;
     merkleRoot = hash; // Always mirror!
+    cachedRoot = hash;
     ensureRootConsistency(*this, index);
 }
 
 std::string Block::computeTransactionsHash() const {
+    if (!cachedRoot.empty())
+        return cachedRoot;
+
     std::string combined;
     for (const auto &tx : transactions) {
         combined += tx.getHash();  // Uses existing hashes
     }
-    return Crypto::hybridHash(combined);  // Or Crypto::blake3()
+    cachedRoot = Crypto::hybridHash(combined);  // Or Crypto::blake3()
+    return cachedRoot;
 }
 
 // valid pow

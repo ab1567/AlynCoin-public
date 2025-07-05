@@ -1660,6 +1660,21 @@ bool Blockchain::replaceChainUpTo(const std::vector<Block>& blocks, int upToHeig
         }
     }
 
+    int localHeight = getHeight();
+    int reorgDepth = std::max(0, localHeight - upToHeight);
+
+    auto localPrefix = getChainUpTo(upToHeight);
+    auto localWork = computeCumulativeDifficulty(localPrefix);
+    auto remoteWork = computeCumulativeDifficulty(blocks);
+
+    if (reorgDepth > 100 ||
+        remoteWork * cpp_int(100) <= localWork * cpp_int(101)) {
+        std::cerr << "⚠️ [replaceChainUpTo] Rejecting snapshot prefix. reorgDepth="
+                  << reorgDepth << " remoteWork=" << remoteWork
+                  << " localWork=" << localWork << "\n";
+        return false;
+    }
+
     // Truncate and replace local chain with the provided prefix
     chain.assign(blocks.begin(), blocks.end());
 
