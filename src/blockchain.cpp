@@ -25,6 +25,9 @@
 #include <sys/stat.h>
 #include <thread>
 #include <shared_mutex>
+#include <boost/multiprecision/cpp_int.hpp>
+
+using boost::multiprecision::cpp_int;
 
 #define EMPTY_TX_ROOT_HASH "0c11a17c8610d35fe17aed2a5a5c682a6cdfb8b6ecf56a95605ebb1475b345de"
 #define ROLLUP_CHAIN_FILE "rollup_chain.dat"
@@ -34,6 +37,14 @@ std::vector<StateChannel> stateChannels;
 std::vector<RollupBlock> rollupBlocks;
 double totalSupply = 0.0;
 static Blockchain* g_blockchain_singleton = nullptr;
+
+// --- helper ---------------------------------------------------------------
+static inline cpp_int workFromDifficulty(int diff)
+{
+    if (diff >= 0)
+        return cpp_int(1) << diff;
+    return cpp_int(1);
+}
 // Compute BLAKE3 hash of concatenated block hashes for the epoch ending at
 // endIndex (inclusive). Returns empty string if insufficient history.
 std::string Blockchain::computeEpochRoot(size_t endIndex) const {
@@ -468,10 +479,15 @@ bool Blockchain::addBlock(const Block &block) {
     std::cerr << "  - Falcon PK: " << block.getPublicKeyFalcon().size() << "\n";
 
     // 7. Actually add the block
+    Block blkCopy = block;
+    cpp_int thisWork = workFromDifficulty(block.getDifficulty());
+    cpp_int parentWork = chain.empty() ? cpp_int(0) : chain.back().getAccumulatedWork();
+    blkCopy.setAccumulatedWork(parentWork + thisWork);
+
     try {
-        std::cerr << "[addBlock] PUSH_BACK to chain: idx=" << block.getIndex()
-                  << ", hash=" << block.getHash() << std::endl;
-        chain.push_back(block);
+        std::cerr << "[addBlock] PUSH_BACK to chain: idx=" << blkCopy.getIndex()
+                  << ", hash=" << blkCopy.getHash() << std::endl;
+        chain.push_back(blkCopy);
         if (block.getDifficulty() >= 0 && block.getDifficulty() < 64)
             totalWork += (1ULL << block.getDifficulty());
         else
@@ -479,7 +495,7 @@ bool Blockchain::addBlock(const Block &block) {
         if (network && network->getPeerManager())
             network->getPeerManager()->setLocalWork(totalWork);
         if (network)
-            network->broadcastHeight(chain.back().getIndex());
+            broadcastNewTip();
     } catch (const std::exception& e) {
         std::cerr << "❌ [CRITICAL][addBlock] push_back failed: " << e.what() << "\n";
         return false;
@@ -585,8 +601,13 @@ bool Blockchain::forceAddBlock(const Block& block) {
         return false;
     }
 
+    Block blkCopy = block;
+    cpp_int thisWork = workFromDifficulty(block.getDifficulty());
+    cpp_int parentWork = chain.empty() ? cpp_int(0) : chain.back().getAccumulatedWork();
+    blkCopy.setAccumulatedWork(parentWork + thisWork);
+
     try {
-        chain.push_back(block);
+        chain.push_back(blkCopy);
     } catch (const std::exception& e) {
         std::cerr << "❌ [forceAddBlock] push_back failed: " << e.what() << "\n";
         return false;
@@ -940,7 +961,7 @@ Block Blockchain::minePendingTransactions(
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
         if (!Network::isUninitialized()) {
             Network::getInstance().broadcastBlock(blockCopy);
-            Network::getInstance().broadcastHeight(blockCopy.getIndex());
+            Blockchain::getInstance().broadcastNewTip();
             if (!blockCopy.getEpochProof().empty()) {
                 Network::getInstance().broadcastEpochProof(
                     blockCopy.getIndex() / EPOCH_SIZE,
@@ -1539,6 +1560,9 @@ bool Blockchain::loadFromProto(const alyncoin::BlockchainProto &protoChain) {
         std::cout << "[DEBUG] 🧱 Parsing Block[" << i << "]...\n";
         try {
             Block block = Block::fromProto(blockProto);
+            cpp_int thisWork = workFromDifficulty(block.getDifficulty());
+            cpp_int parentWork = chain.empty() ? cpp_int(0) : chain.back().getAccumulatedWork();
+            block.setAccumulatedWork(parentWork + thisWork);
             chain.push_back(block);
         } catch (const std::exception &e) {
             std::cerr << "❌ [ERROR] Invalid block format during deserialization at index " << i
@@ -1827,6 +1851,9 @@ void Blockchain::fromJSON(const Json::Value &json) {
 
   for (const auto &blockJson : json["chain"]) {  // ✅ Corrected from "blocks"
     Block block = Block::fromJSON(blockJson);
+    cpp_int thisWork = workFromDifficulty(block.getDifficulty());
+    cpp_int parentWork = chain.empty() ? cpp_int(0) : chain.back().getAccumulatedWork();
+    block.setAccumulatedWork(parentWork + thisWork);
     chain.push_back(block);
   }
 
@@ -2745,18 +2772,10 @@ int Blockchain::findForkCommonAncestor(const std::vector<Block>& otherChain) con
 }
 
 // ✅ Compute total cumulative difficulty of a chain
-uint64_t Blockchain::computeCumulativeDifficulty(const std::vector<Block>& chainRef) const {
-    uint64_t total = 0;
-    for (size_t i = 0; i < chainRef.size(); ++i) {
-        const Block& blk = chainRef[i];
-        if (blk.difficulty >= 0 && blk.difficulty < 64)
-            total += (1ULL << blk.difficulty);
-        else
-            total += 1;
-        std::cerr << "[DIFF] Block idx=" << blk.getIndex() << " hash=" << blk.getHash().substr(0,12)
-                  << " diff=" << blk.difficulty << " total=" << total << "\n";
-    }
-    return total;
+cpp_int Blockchain::computeCumulativeDifficulty(const std::vector<Block>& chainRef) const {
+    if (chainRef.empty())
+        return cpp_int(0);
+    return chainRef.back().getAccumulatedWork();
 }
 //
 std::vector<Block> Blockchain::getChainUpTo(size_t height) const
@@ -2782,7 +2801,11 @@ bool Blockchain::tryAppendBlock(const Block &blk)
     if (!chain.empty() && blk.getPreviousHash() != chain.back().getHash())
         return false;
 
-    chain.push_back(blk);
+    Block blkCopy = blk;
+    cpp_int thisWork = workFromDifficulty(blk.getDifficulty());
+    cpp_int parentWork = chain.empty() ? cpp_int(0) : chain.back().getAccumulatedWork();
+    blkCopy.setAccumulatedWork(parentWork + thisWork);
+    chain.push_back(blkCopy);
 
 
     return true;
@@ -2816,12 +2839,12 @@ void Blockchain::compareAndMergeChains(const std::vector<Block>& otherChain) {
         return;
     }
 
-    const uint64_t mainWork = computeCumulativeDifficulty(chain);
-    const uint64_t newWork  = computeCumulativeDifficulty(otherChain);
+    const cpp_int mainWork = computeCumulativeDifficulty(chain);
+    const cpp_int newWork  = computeCumulativeDifficulty(otherChain);
 
     int commonIdxTmp = findForkCommonAncestor(otherChain);
     int reorgDepth = commonIdxTmp == -1 ? chain.size() : chain.size() - commonIdxTmp - 1;
-    if (reorgDepth > 100 || newWork <= static_cast<uint64_t>(mainWork * 1.01)) {
+    if (reorgDepth > 100 || newWork <= mainWork * cpp_int(101) / cpp_int(100)) {
         std::cerr << "⚠️ [Fork] Rejected chain with work " << newWork
                   << " (local=" << mainWork << ", reorgDepth=" << reorgDepth << ")" << std::endl;
         return;
@@ -2852,7 +2875,8 @@ void Blockchain::compareAndMergeChains(const std::vector<Block>& otherChain) {
     // ✅ CASE: same length but different tip
     if (otherChain.size() == chain.size() &&
         chain.back().getHash() != otherChain.back().getHash()) {
-        if (newWork > mainWork) {
+        if (newWork > mainWork ||
+            (newWork == mainWork && otherChain.back().getHash() < chain.back().getHash())) {
             std::cerr << "🔁 [Fork] Same length but higher difficulty. Replacing chain.\n";
             chain = otherChain;
             saveToDB();
@@ -2865,7 +2889,8 @@ void Blockchain::compareAndMergeChains(const std::vector<Block>& otherChain) {
     }
 
     // ✅ CASE: longer but not prefix — use difficulty
-    if (newWork <= mainWork) {
+    if (newWork < mainWork ||
+        (newWork == mainWork && otherChain.back().getHash() >= chain.back().getHash())) {
         std::cout << "⚠️ [Fork] Incoming chain is not stronger. Skipping merge.\n";
         return;
     }
@@ -3074,4 +3099,11 @@ size_t Blockchain::getOrphanPoolSize() const
     for (const auto& [_, vec] : orphanBlocks)
         total += vec.size();
     return total;
+}
+
+void Blockchain::broadcastNewTip()
+{
+    if (!network)
+        return;
+    network->broadcastHeight(chain.back().getIndex());
 }

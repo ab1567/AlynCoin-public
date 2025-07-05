@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 #include "constants.h"
+#include <boost/multiprecision/cpp_int.hpp>
 
 class Block {
 private:
@@ -36,6 +37,7 @@ private:
   std::vector<Transaction> l2Transactions;
   std::string epochRoot;
   std::vector<uint8_t> epochProof;
+  boost::multiprecision::cpp_int accumulatedWork;
   std::string transactionsToString() const;
 
 public:
@@ -76,6 +78,8 @@ public:
   std::vector<unsigned char> getPublicKeyFalcon() const { return publicKeyFalcon; }
   double getReward() const;
   int getDifficulty() const { return difficulty; }
+  const boost::multiprecision::cpp_int& getAccumulatedWork() const { return accumulatedWork; }
+  void setAccumulatedWork(const boost::multiprecision::cpp_int& w) { accumulatedWork = w; }
   // --- Setters ---
   void setIndex(int idx) { index = idx; }
   void setPreviousHash(const std::string &prev) { previousHash = Crypto::normaliseHash(prev); }
