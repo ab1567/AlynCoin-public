@@ -100,10 +100,11 @@ quietPrint( "⚠️ [PeerManager] No valid tip hashes received from peers.\n");
 }
 
 bool PeerManager::fetchBlockAtHeight(int height, Block& outBlock) {
-    std::string request = R"({"type": "block_request", "height": )" + std::to_string(height) + "}";
+    alyncoin::net::Frame request;
+    request.mutable_block_request()->set_index(height);
 
     for (const std::string& peer : connected_peers) {
-        network->sendData(peer, request);
+        network->sendFrame(peer, request, /*immediate=*/true);
         std::string response = network->receiveData(peer);
 
         if (response.empty()) continue;
