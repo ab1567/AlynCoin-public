@@ -87,9 +87,8 @@ static std::string ipPrefix(const std::string &ip) {
 }
 
 // ==== [Globals, Statics] ====
-static std::unordered_map<std::string, std::vector<Block>> incomingChains;
-// Buffers for in-progress FULL_CHAIN syncs
-// Per-peer sync buffers are now stored in PeerState via peerTransports
+// Incoming FULL_CHAIN buffers were removed; per-peer state now tracks
+// snapshot or header sync progress directly via peerTransports.
 // Protocol frame revision. Bumped whenever the on-wire format or required
 // capabilities change.
 static constexpr uint32_t kFrameRevision = 4;
@@ -3155,16 +3154,22 @@ void Network::handleBlockchainSyncRequest(
   std::cout << "📡 [SYNC REQUEST] Received from " << peer
             << " type: " << request.request_type() << "\n";
 
-  if (request.request_type() == "full_sync") {
-    if (peerSupportsSnapshot(peer)) {
-      requestSnapshotSync(peer);
-    } else if (peerSupportsAggProof(peer)) {
-      requestEpochHeaders(peer);
-    } else {
-      int peerHeight = peerManager ? peerManager->getPeerHeight(peer) : 0;
-      auto it = peerTransports.find(peer);
-      if (it != peerTransports.end() && it->second.tx)
-        sendTailBlocks(it->second.tx, peerHeight);
+  if (request.request_type() == "snapshot") {
+    auto it = peerTransports.find(peer);
+    if (it != peerTransports.end() && it->second.tx)
+      sendSnapshot(it->second.tx, -1);
+  } else if (request.request_type() == "epoch_headers") {
+    auto it = peerTransports.find(peer);
+    if (it != peerTransports.end() && it->second.tx) {
+      for (const auto &[epoch, entry] : receivedEpochProofs) {
+        std::string blob;
+        blob.append(reinterpret_cast<const char *>(&epoch), sizeof(int));
+        blob.append(entry.root);
+        blob.append(entry.proof.begin(), entry.proof.end());
+        alyncoin::net::Frame fr;
+        fr.mutable_agg_proof()->set_data(blob);
+        sendFrame(it->second.tx, fr);
+      }
     }
   } else if (request.request_type() == "latest_block") {
     sendLatestBlock(peer);
