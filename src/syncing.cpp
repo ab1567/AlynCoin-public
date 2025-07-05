@@ -25,19 +25,16 @@ void Syncing::requestLatestBlock() {
   }
 }
 
-// ✅ Full blockchain sync request
+// ✅ Trigger sync with peers using modern snapshot or epoch-header modes
 void Syncing::syncWithNetwork() {
-  alyncoin::BlockchainSyncProto syncProto;
-  syncProto.set_request_type("full_sync");
-
-  alyncoin::net::Frame fr;
-  *fr.mutable_blockchain_sync_request() = syncProto;
-
   Network &net = getNet();
+
   for (const auto &peer : net.getPeers()) {
-      auto it = net.getPeerTable().find(peer);
-      if (it != net.getPeerTable().end() && it->second.tx)
-          net.sendFrame(it->second.tx, fr);
+    if (net.peerSupportsSnapshot(peer)) {
+      net.requestSnapshotSync(peer);
+    } else if (net.peerSupportsAggProof(peer)) {
+      net.requestEpochHeaders(peer);
+    }
   }
 }
 
