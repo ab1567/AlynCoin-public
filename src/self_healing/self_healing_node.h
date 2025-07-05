@@ -15,11 +15,18 @@ class SelfHealingNode {
 public:
     SelfHealingNode(Blockchain* blockchain, PeerManager* peerManager);
 
-    // Runs health check + recovery if needed
-    void monitorAndHeal();
+    // Periodic checks hooked into Network timers
+    void checkPeerHeights();
+    void kickStalledSync();
+    void rescanDB();
 
-    // Can be scheduled in main node loop
+    // Legacy wrappers (compat with CLI / tests)
+    void monitorAndHeal();
     void runPeriodicCheck(std::chrono::seconds interval);
+
+    // --- future health modules (stubs) ---------------------------------
+    void checkIdentityService();
+    void checkSwapLiquidity();
 
 private:
     std::unique_ptr<HealthMonitor> healthMonitor_;

@@ -11,6 +11,7 @@
 #include "transaction.h"
 #include "transport/peer_globals.h" // <<--- ONLY include, don't redeclare!
 #include "transport/transport.h"
+#include "self_healing/self_healing_node.h"
 #include "config.h"
 #include <boost/asio/ssl.hpp>
 #include <atomic>
@@ -185,6 +186,7 @@ private:
   std::thread listenerThread;
   std::thread serverThread;
   std::unique_ptr<PeerManager> peerManager;
+  std::unique_ptr<SelfHealingNode> selfHealer;
   std::string publicPeerId;
   std::unordered_map<std::string, uint64_t> bannedPeers;
   std::unordered_set<std::string> knownPeers;
