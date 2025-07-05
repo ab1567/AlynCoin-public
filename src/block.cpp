@@ -658,14 +658,11 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
 
     // STRICT: For required fields
     auto safeStr = [&](const std::string& val, const std::string& label, size_t maxLen = 10000) -> std::string {
-        std::cerr << "[fromProto] Checking field: " << label << " (length = " << val.size() << ")\n";
         if (val.empty()) {
             if (!allowPartial) throw std::runtime_error("[fromProto] " + label + " is empty.");
-            std::cerr << "⚠️ [fromProto] " << label << " is empty.\n";
             return "";
         }
         if (val.size() > maxLen) {
-            std::cerr << "⚠️ [fromProto] " << label << " too long: " << val.size() << " bytes.\n";
             if (!allowPartial) throw std::runtime_error("[fromProto] " + label + " too long.");
             return "";
         }
@@ -679,7 +676,6 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
     };
 
     auto safeBinaryField = [&](const std::string& bin, const std::string& label, size_t maxLen = 10000) -> std::vector<unsigned char> {
-        std::cerr << "[fromProto] Checking binary field: " << label << " (length = " << bin.size() << ")\n";
         if (bin.empty()) {
             if (!allowPartial) std::cerr << "❌ [fromProto] Required binary field " << label << " is empty.\n";
             return {};
@@ -691,7 +687,6 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
         }
         std::vector<unsigned char> binary(bin.begin(), bin.end());
         while (!binary.empty() && binary.back() == '\0') {
-            std::cerr << "⚠️ [fromProto] Trimming null terminator from " << label << "\n";
             binary.pop_back();
         }
         if (label == "Falcon Public Key" && binary.size() != FALCON_PUBLIC_KEY_BYTES) {
@@ -713,10 +708,6 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
     auto optionalStr = [&](const std::string& s, const std::string& label, size_t maxLen = 128) -> std::string {
         if (s.empty()) {
             static bool warned = false;
-            if (!warned) {
-                std::cerr << "ℹ️  [fromProto] " << label << " not present (expected for non-epoch blocks)\n";
-                warned = true;
-            }
             return "";
         }
         return (s.size() <= maxLen) ? s : s.substr(0, maxLen);
@@ -724,14 +715,9 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
     auto optionalBinaryField = [&](const std::string& bin, const std::string& label, size_t maxLen = 10000) -> std::vector<uint8_t> {
         if (bin.empty()) {
             static bool warned = false;
-            if (!warned) {
-                std::cerr << "ℹ️  [fromProto] " << label << " not present (expected for non-epoch blocks)\n";
-                warned = true;
-            }
             return {};
         }
         if (bin.size() > maxLen) {
-            std::cerr << "⚠️ [fromProto] " << label << " too long: " << bin.size() << " bytes (truncating)\n";
             return std::vector<uint8_t>(bin.begin(), bin.begin() + maxLen);
         }
         return std::vector<uint8_t>(bin.begin(), bin.end());
@@ -739,7 +725,6 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
 
     try {
         newBlock.index              = protoBlock.index();
-        std::cerr << "[fromProto] Index: " << newBlock.index << "\n";
 
         newBlock.previousHash       = Crypto::normaliseHash(safeStr(protoBlock.previous_hash(),     "previous_hash"));
         newBlock.hash               = Crypto::normaliseHash(safeStr(protoBlock.hash(),              "hash"));
@@ -757,11 +742,7 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
             newBlock.setMerkleRoot(protoTxRoot); // Always use setter!
         } else {
             newBlock.setMerkleRoot(EMPTY_TX_ROOT_HASH);
-            std::cerr << "[fromProto] WARNING: tx_merkle_root missing, set to EMPTY_TX_ROOT_HASH (idx=" << newBlock.index << ")\n";
         }
-        std::cerr << "[fromProto] Restored merkleRoot: " << newBlock.merkleRoot
-                  << " | transactionsHash: " << newBlock.transactionsHash
-                  << " (idx=" << newBlock.index << ")\n";
         // === END CRITICAL ===
 
         newBlock.zkProof            = safeBinaryField(protoBlock.zk_stark_proof(),      "zkProof",             2'000'000);
@@ -820,13 +801,7 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
         throw std::runtime_error("Transactions present but none valid.");
     }
 
-    std::cerr << "[fromProto] ✅ Final sanity: idx=" << newBlock.index
-              << ", L1 txs=" << newBlock.transactions.size()
-              << ", L2 txs=" << newBlock.l2Transactions.size()
-              << ", zkProof=" << newBlock.zkProof.size()
-              << ", falSig=" << newBlock.falconSignature.size()
-              << ", falPK=" << newBlock.publicKeyFalcon.size()
-              << "\n";
+
 
     // DO NOT recompute root or merkle here!
 
