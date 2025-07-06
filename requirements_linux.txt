@@ -1,0 +1,31 @@
+# Packages to build and run AlynCoin on Linux
+build-essential
+cmake
+pkg-config
+libssl-dev
+libprotobuf-dev
+protobuf-compiler
+libjsoncpp-dev
+libboost-all-dev
+librocksdb-dev
+zlib1g-dev
+libbz2-dev
+libsnappy-dev
+liblz4-dev
+libzstd-dev
+libsodium-dev
+libasio-dev
+nlohmann-json3-dev
+dnsutils
+zip
+unzip
+git
+curl
+python3
+python3-pip
+libminiupnpc-dev
+
+# Python packages
+PyQt5
+requests
+dnspython

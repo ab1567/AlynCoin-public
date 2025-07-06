@@ -1,0 +1,28 @@
+# Packages to build and run AlynCoin on macOS
+cmake
+pkg-config
+openssl@1.1
+protobuf
+jsoncpp
+boost
+rocksdb
+zlib
+bzip2
+snappy
+lz4
+zstd
+libsodium
+asio
+nlohmann-json
+bind
+zip
+unzip
+git
+curl
+python
+miniupnpc
+
+# Python packages
+PyQt5
+requests
+dnspython
