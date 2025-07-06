@@ -882,6 +882,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
   std::string realPeerId, claimedPeerId;
   std::string claimedVersion, claimedNetwork;
   int remoteHeight = 0;
+  uint32_t remoteRev = 0;
   bool remoteAgg = false;
   bool remoteSnap = false;
   bool remoteWhisper = false;
@@ -929,7 +930,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     remoteHeight = static_cast<int>(hs.height());
 
     // ─── Compatibility gate ────────────────────
-    const uint32_t remoteRev = hs.frame_rev();
+    remoteRev = hs.frame_rev();
     if (remoteRev != 0 && remoteRev != kFrameRevision) {
       std::cerr << "⚠️  [handshake] peer uses frame_rev=" << remoteRev
                 << " but we need " << kFrameRevision
@@ -1042,6 +1043,8 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     entry.state->supportsWhisper = remoteWhisper;
     entry.state->supportsTls = remoteTls;
     entry.state->supportsBanDecay = remoteBanDecay;
+    entry.state->frameRev = remoteRev;
+    entry.state->version = claimedVersion;
     std::copy(shared.begin(), shared.end(), entry.state->linkKey.begin());
 
     if (peerManager) {
@@ -2397,6 +2400,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     bool theirTls = false;
     bool theirBanDecay = false;
     int theirHeight = 0;
+    uint32_t remoteRev = 0;
     alyncoin::net::Frame fr;
     if (blob.empty() || !fr.ParseFromString(blob) || !fr.has_handshake()) {
       std::cerr << "⚠️ [connectToNode] invalid handshake from " << peerKey
@@ -2417,7 +2421,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     theirHeight = static_cast<int>(rhs.height());
 
     // ─── Compatibility gate ────────────────────────────
-    const uint32_t remoteRev = rhs.frame_rev();
+    remoteRev = rhs.frame_rev();
     if (remoteRev != 0 && remoteRev != kFrameRevision) {
       std::cerr << "⚠️ [handshake] peer uses frame_rev=" << remoteRev
                 << " but we need " << kFrameRevision
@@ -2464,6 +2468,8 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
       st->supportsWhisper = theirWhisper;
       st->supportsTls = theirTls;
       st->supportsBanDecay = theirBanDecay;
+      st->frameRev = remoteRev;
+      st->version = rhs.version();
       if (rhs.pub_key().size() == 32)
         std::copy(shared.begin(), shared.end(), st->linkKey.begin());
       if (peerManager) {
@@ -2669,9 +2675,12 @@ void Network::cleanupPeers() {
           continue;
         }
 
-        alyncoin::net::Frame f;
-        f.mutable_ping();
-        sendFrame(peer.second.tx, f);
+        auto st = peer.second.state;
+        if (st && st->frameRev == kFrameRevision) {
+          alyncoin::net::Frame f;
+          f.mutable_ping();
+          sendFrame(peer.second.tx, f);
+        }
 
         std::cout << "✅ Peer active: " << peer.first << "\n";
       } catch (const std::exception &e) {
