@@ -45,6 +45,8 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <boost/lockfree/queue.hpp>
+#include "httplib.h"
 #ifdef HAVE_MINIUPNPC
 #include <miniupnpc/miniupnpc.h>
 #include <miniupnpc/upnpcommands.h>
@@ -133,6 +135,35 @@ static std::map<uint64_t, Block> futureBlockBuffer;
 PubSubRouter g_pubsub;
 namespace fs = std::filesystem;
 Network *Network::instancePtr = nullptr;
+
+// Queue item containing a frame and originating peer for worker threads
+struct RxItem {
+  alyncoin::net::Frame frame;
+  std::string peer;
+};
+// Lock-free bounded queue for decoupling network I/O from processing
+static boost::lockfree::queue<RxItem *, boost::lockfree::capacity<128>> rxQ;
+// Thread pool used to process frames popped from the queue
+static httplib::ThreadPool pool(std::max(1u, std::thread::hardware_concurrency()));
+static bool workersStarted = [] {
+  unsigned n = std::max(1u, std::thread::hardware_concurrency());
+  for (unsigned i = 0; i < n; ++i) {
+    pool.enqueue([] {
+      for (;;) {
+        RxItem *item = nullptr;
+        while (!rxQ.pop(item)) {
+          std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        if (item) {
+          if (!Network::isUninitialized())
+            Network::getInstance().processFrame(item->frame, item->peer);
+          delete item;
+        }
+      }
+    });
+  }
+  return true;
+}();
 
 static bool isPortAvailable(unsigned short port) {
   boost::asio::io_context io;
@@ -1459,6 +1490,26 @@ void Network::broadcastBlocks(const std::vector<Block> &blocks) {
   }
 }
 
+void Network::broadcastINV(const std::vector<std::string> &hashes) {
+  if (hashes.empty())
+    return;
+  std::unordered_map<std::string, PeerEntry> peersCopy;
+  {
+    std::lock_guard<std::timed_mutex> lk(peersMutex);
+    peersCopy = peerTransports;
+  }
+  alyncoin::net::Frame fr;
+  auto *inv = fr.mutable_inv();
+  for (const auto &h : hashes)
+    inv->add_hashes(h);
+  for (auto &kv : peersCopy) {
+    auto tr = kv.second.tx;
+    if (!tr || !tr->isOpen())
+      continue;
+    sendFrame(tr, fr);
+  }
+}
+
 void Network::broadcastHeight(uint32_t height) {
   std::unordered_map<std::string, PeerEntry> peersCopy;
   {
@@ -1972,13 +2023,19 @@ void Network::startBinaryReadLoop(const std::string &peerId,
     if (f.ParseFromString(blob)) {
       std::cerr << "[readLoop] ✅ Parsed frame successfully from peer: "
                 << peerId << '\n';
-      dispatch(f, peerId);
+      auto *item = new RxItem{f, peerId};
+      while (!rxQ.push(item))
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
     } else {
       std::cerr << "[readLoop] ❌ Failed to parse protobuf frame!" << '\n';
     }
   };
   transport->startReadBinaryLoop(cb);
   std::cout << "🔄 Binary read-loop armed for " << peerId << '\n';
+}
+
+void Network::processFrame(const alyncoin::net::Frame &f, const std::string &peer) {
+  dispatch(f, peer);
 }
 
 void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
