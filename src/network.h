@@ -71,7 +71,6 @@ public:
   Blockchain &getBlockchain() { return *blockchain; }
   void setPublicPeerId(const std::string &peerId);
   void start();
-  void syncWithPeers();
   void connectToPeer(const std::string &host, short port);
   void broadcastTransaction(const Transaction &tx);
   void broadcastTransactionToAllExcept(const Transaction &tx,

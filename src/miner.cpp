@@ -1,5 +1,4 @@
 #include <generated/block_protos.pb.h>
-#include <generated/sync_protos.pb.h>
 #include "miner.h"
 #include "blake3.h"
 #include "blockchain.h"

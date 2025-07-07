@@ -11,7 +11,6 @@
 #include "rollup/proofs/proof_verifier.h"
 #include "rollup/rollup_block.h"
 #include "self_healing/self_healing_node.h"
-#include "syncing.h"
 #include "syncing/headers_sync.h"
 #include "transaction.h"
 #include "crypto/sphinx.h"
@@ -761,52 +760,6 @@ void Network::broadcastTransactionToAllExcept(const Transaction &tx,
   }
 }
 
-// sync with peers
-void Network::syncWithPeers() {
-  std::cout << "🔄 [INFO] Syncing with peers..." << std::endl;
-  if (peerTransports.empty()) {
-    std::cerr << "⚠️ [WARNING] No peers available for sync!\n";
-    return;
-  }
-
-  const size_t myHeight = Blockchain::getInstance().getHeight();
-
-  for (const auto &[peer, entry] : peerTransports) {
-    if (peer.empty())
-      continue;
-
-    auto transport = entry.tx;
-    int peerHeight = peerManager ? peerManager->getPeerHeight(peer) : -1;
-
-    /* ask for height if unknown */
-    if (peerHeight == -1) {
-      auto it2 = peerTransports.find(peer);
-      if (it2 != peerTransports.end() && it2->second.tx) {
-        alyncoin::net::Frame fr;
-        fr.mutable_height_req();
-        sendFrame(it2->second.tx, fr);
-      }
-      continue;
-    }
-
-    /* ── peer is *ahead* ── */
-    if (static_cast<size_t>(peerHeight) > myHeight) {
-      if (peerSupportsSnapshot(peer))
-        requestSnapshotSync(peer);
-      else if (peerSupportsAggProof(peer))
-        requestEpochHeaders(peer);
-      continue;
-    }
-
-    /* ── peer is *behind* ── */
-    if (static_cast<size_t>(peerHeight) < myHeight && transport &&
-        transport->isOpen()) {
-      if (peerSupportsSnapshot(peer))
-        sendTailBlocks(transport,
-                       peerHeight); // push just the tail they’re missing
-    }
-  }
-}
 // ✅ New smart sync method
 void Network::intelligentSync() {
   std::cout << "🔄 [Smart Sync] Starting intelligent sync process...\n";
@@ -1113,7 +1066,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     sendTailBlocks(transport, remoteHeight);
 
   autoSyncIfBehind();
-  syncWithPeers();
+  intelligentSync();
 
   // ── 7. optional reverse connect removed for binary protocol ──
 }
@@ -2549,7 +2502,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     sendInitialRequests(peerKey);
 
     autoSyncIfBehind();
-    syncWithPeers();
+    intelligentSync();
     return true;
   } catch (const std::exception &e) {
     std::cerr << "❌ [connectToNode] " << host << ':' << remotePort << " – "

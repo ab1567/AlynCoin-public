@@ -51,7 +51,6 @@ file(MAKE_DIRECTORY ${GENERATED_DIR})
 file(GLOB SOURCES
     ${SOURCE_DIR}/block.cpp
     ${SOURCE_DIR}/blockchain.cpp
-    ${SOURCE_DIR}/syncing.cpp
     ${SOURCE_DIR}/transaction.cpp
     ${SOURCE_DIR}/network.cpp
     ${SOURCE_DIR}/crypto_utils.cpp
