@@ -3,7 +3,7 @@
 
 #include "block.h"
 #include "blockchain.h"
-#include "difficulty.h" // LWMA-based difficulty adjustment
+#include "difficulty.h" // smart difficulty adjustment
 #include <string>
 
 // ✅ **Compute BLAKE3 hash for mining**
@@ -15,7 +15,7 @@ void mineBlock(Block &block, int difficulty);
 // ✅ **Parallel mining with multiple threads**
 void parallelMine(Block &block, int difficulty);
 
-// ✅ **Calculate the next difficulty using LWMA**
+// ✅ **Calculate the next difficulty using smart algorithm**
 int getNextDifficulty(const Blockchain &chain);
 
 // ✅ **Validate checkpoint every 100 blocks**

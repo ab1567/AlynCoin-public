@@ -1,7 +1,7 @@
 #include "blake3.h"
 #include "block.h"
 #include "blockchain.h"
-#include "difficulty.h" // LWMA-based difficulty adjustment
+#include "difficulty.h" // smart difficulty adjustment
 #include <chrono>
 #include <iostream>
 #include <random>
@@ -62,9 +62,9 @@ void parallelMine(Block &block, int difficulty) {
   std::cout << "⛏️ Parallel block mined: " << block.getHash() << std::endl;
 }
 
-// ✅ **LWMA-based adaptive difficulty adjustment**
+// ✅ **Smart adaptive difficulty adjustment**
 int getNextDifficulty(const Blockchain &chain) {
-  return LWMA_calculate_difficulty(chain);
+  return static_cast<int>(calculateSmartDifficulty(chain));
 }
 
 // ✅ **Checkpointing to prevent 51% attacks**
