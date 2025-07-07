@@ -108,6 +108,7 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath, bool bind
 
     rocksdb::Options options;
     options.create_if_missing = true;
+    options.create_missing_column_families = true;
 
     std::vector<std::string> cfNames;
     rocksdb::Status status = rocksdb::DB::ListColumnFamilies(options, dbPathFinal, &cfNames);
