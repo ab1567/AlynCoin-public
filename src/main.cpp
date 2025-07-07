@@ -16,6 +16,7 @@
 #include "governance/dao.h"
 #include "governance/devfund.h"
 #include "governance/dao_storage.h"
+#include "rpc/metrics.h"
 #include <ctime>
 #include <cstdlib>
 #include "db/db_instance.h"
@@ -37,6 +38,25 @@
 // --- AlynCoin RPC Server (port 1567) ---
 void start_rpc_server(Blockchain* blockchain, Network* network, SelfHealingNode* healer, int rpc_port = 1567) {
     httplib::Server svr;
+
+    std::thread updater([blockchain, network]() {
+        while (true) {
+            metrics::chain_height.value = blockchain->getHeight();
+            metrics::orphan_pool_size.value = blockchain->getOrphanPoolSize();
+            int pc = 0;
+            if (network && network->getPeerManager())
+                pc = network->getPeerManager()->getPeerCount();
+            metrics::peer_count.value = pc;
+            metrics::rx_queue_depth.value = 0;
+            metrics::reorg_depth.value = 0;
+            std::this_thread::sleep_for(std::chrono::seconds(5));
+        }
+    });
+    updater.detach();
+
+    svr.Get("/metrics", [](const httplib::Request&, httplib::Response& res) {
+        res.set_content(metrics::toPrometheus(), "text/plain");
+    });
 
 svr.Post("/rpc", [blockchain, network, healer](const httplib::Request& req, httplib::Response& res) {
     nlohmann::json input;

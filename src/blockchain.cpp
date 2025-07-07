@@ -24,6 +24,7 @@
 #include <mutex>
 #include <sys/stat.h>
 #include <thread>
+#include "rpc/metrics.h"
 #include <shared_mutex>
 #include <boost/multiprecision/cpp_int.hpp>
 #include <unordered_map>
@@ -118,10 +119,29 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath, bool bind
     rocksdb::Options options;
     options.create_if_missing = true;
 
-    rocksdb::Status status = rocksdb::DB::Open(options, dbPathFinal, &db);
+    std::vector<std::string> cfNames;
+    rocksdb::Status status = rocksdb::DB::ListColumnFamilies(options, dbPathFinal, &cfNames);
+    bool hasCheck = false;
+    std::vector<rocksdb::ColumnFamilyDescriptor> cfDesc;
+    if (status.ok()) {
+        for (const auto& name : cfNames) {
+            if (name == "cfCheck") hasCheck = true;
+            cfDesc.emplace_back(name, rocksdb::ColumnFamilyOptions());
+        }
+    }
+    if (cfDesc.empty())
+        cfDesc.emplace_back(rocksdb::kDefaultColumnFamilyName, rocksdb::ColumnFamilyOptions());
+    if (!hasCheck)
+        cfDesc.emplace_back("cfCheck", rocksdb::ColumnFamilyOptions());
+
+    std::vector<rocksdb::ColumnFamilyHandle*> handles;
+    status = rocksdb::DB::Open(options, dbPathFinal, cfDesc, &handles, &db);
     if (!status.ok()) {
         std::cerr << "❌ [ERROR] Failed to open RocksDB: " << status.ToString() << std::endl;
         exit(1);
+    }
+    for (size_t i=0;i<cfDesc.size();++i) {
+        if (cfDesc[i].name == "cfCheck") cfCheck = handles[i];
     }
 
     std::cout << "[DEBUG] Attempting to load blockchain from DB...\n";
@@ -139,6 +159,7 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath, bool bind
     }
 
     loadVestingInfoFromDB();
+    loadCheckpointFromDB();
 
     std::string vestingMarker;
     status = db->Get(rocksdb::ReadOptions(), "vesting_initialized", &vestingMarker);
@@ -156,6 +177,10 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath, bool bind
 // ✅ **Destructor: Close RocksDB**
 Blockchain::~Blockchain() {
   if (db) {
+    if (cfCheck) {
+        db->DestroyColumnFamilyHandle(cfCheck);
+        cfCheck = nullptr;
+    }
     delete db;
     db = nullptr; // ✅ Prevent potential use-after-free issues
   }
@@ -552,6 +577,8 @@ bool Blockchain::addBlock(const Block &block) {
             std::cerr << "❌ [addBlock] Failed to save blockchain to database after adding block.\n";
             return false;
         }
+        if (block.getIndex() % 1000 == 0)
+            saveCheckpoint(block.getIndex(), block.getHash());
     } else {
         std::cerr << "⚠️ [addBlock] Skipped RocksDB writes: DB not initialized (--nodb mode).\n";
     }
@@ -642,6 +669,8 @@ bool Blockchain::forceAddBlock(const Block& block) {
             std::cerr << "❌ Failed to save block by hash during force add: " << statusHash.ToString() << "\n";
             return false;
         }
+        if (block.getIndex() % 1000 == 0)
+            saveCheckpoint(block.getIndex(), block.getHash());
     } else {
         std::cerr << "⚠️ [forceAddBlock] RocksDB disabled. Block only added in memory.\n";
     }
@@ -1429,6 +1458,24 @@ void Blockchain::loadVestingInfoFromDB() {
   delete it;
 }
 
+void Blockchain::loadCheckpointFromDB()
+{
+    checkpointHeight = 0;
+    if (!db || !cfCheck) return;
+    std::unique_ptr<rocksdb::Iterator> it(db->NewIterator(rocksdb::ReadOptions(), cfCheck));
+    it->SeekToLast();
+    if (it->Valid()) {
+        checkpointHeight = std::stoi(it->key().ToString());
+    }
+}
+
+void Blockchain::saveCheckpoint(int height, const std::string& hash)
+{
+    if (!db || !cfCheck) return;
+    db->Put(rocksdb::WriteOptions(), cfCheck, std::to_string(height), hash);
+    checkpointHeight = height;
+}
+
 // vesting
 void Blockchain::addVestingForEarlySupporter(const std::string &address,
                                              double initialAmount) {
@@ -1664,6 +1711,12 @@ bool Blockchain::replaceChainUpTo(const std::vector<Block>& blocks, int upToHeig
 
     int localHeight = getHeight();
     int reorgDepth = std::max(0, localHeight - upToHeight);
+    metrics::reorg_depth.value = reorgDepth;
+    if (checkpointHeight > 0 && localHeight - reorgDepth < checkpointHeight - 2) {
+        std::cerr << "⚠️ [replaceChainUpTo] Reorg past checkpoint disallowed. depth="
+                  << reorgDepth << " checkpoint=" << checkpointHeight << "\n";
+        return false;
+    }
 
     auto localPrefix = getChainUpTo(upToHeight);
     auto localWork = computeCumulativeDifficulty(localPrefix);
@@ -2861,6 +2914,13 @@ void Blockchain::compareAndMergeChains(const std::vector<Block>& otherChain) {
 
     int commonIdxTmp = findForkCommonAncestor(otherChain);
     int reorgDepth = commonIdxTmp == -1 ? chain.size() : chain.size() - commonIdxTmp - 1;
+    metrics::reorg_depth.value = reorgDepth;
+    int localHeight = getHeight();
+    if (checkpointHeight > 0 && localHeight - reorgDepth < checkpointHeight - 2) {
+        std::cerr << "⚠️ [Fork] Reorg past checkpoint disallowed. depth=" << reorgDepth
+                  << " checkpoint=" << checkpointHeight << std::endl;
+        return;
+    }
     if (reorgDepth > 100 || newWork <= mainWork * cpp_int(101) / cpp_int(100)) {
         std::cerr << "⚠️ [Fork] Rejected chain with work " << newWork
                   << " (local=" << mainWork << ", reorgDepth=" << reorgDepth << ")" << std::endl;

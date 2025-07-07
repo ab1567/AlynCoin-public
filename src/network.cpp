@@ -3086,9 +3086,13 @@ void Network::handleSnapshotEnd(const std::string &peer) {
     std::string localTipHash = chain.getLatestBlockHash();
     std::string remoteTipHash = snapBlocks.empty() ? "" : snapBlocks.back().getHash();
     int reorgDepth = std::max(0, localHeight - snap.height());
+    int chk = chain.getCheckpointHeight();
+    int maxReorg = MAX_REORG;
+    if (chk > 0)
+        maxReorg = std::min(maxReorg, localHeight - (chk - 2));
     bool accept = remoteTipHash != localTipHash &&
                   remoteW64 > localW64 * 1.01 &&
-                  reorgDepth <= MAX_REORG;
+                  reorgDepth <= maxReorg;
 
     if (!accept) {
       std::cerr << "⚠️ [SNAPSHOT] Rejected snapshot from " << peer << " (height "

@@ -118,6 +118,11 @@ list(APPEND SOURCES
 
 file(GLOB EXPLORER_SOURCES ${SOURCE_DIR}/explorer/*.cpp)
 file(GLOB METRICS_SOURCES ${SOURCE_DIR}/metrics/*.cpp)
+file(GLOB RPC_SOURCES ${SOURCE_DIR}/rpc/*.cpp)
+
+list(APPEND SOURCES
+    ${RPC_SOURCES}
+)
 
 set(MAIN_SOURCE ${SOURCE_DIR}/main.cpp)
 
@@ -160,6 +165,7 @@ include_directories(
     ${SOURCE_DIR}/utils
     ${SOURCE_DIR}/network
     ${SOURCE_DIR}/metrics
+    ${SOURCE_DIR}/rpc
 )
 
 # --------------------------

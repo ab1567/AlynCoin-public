@@ -66,6 +66,8 @@ private:
   std::string minerAddress;
   Network *network;
   rocksdb::DB *db;
+  rocksdb::ColumnFamilyHandle* cfCheck{nullptr};
+  int checkpointHeight{0};
   std::unordered_map<std::string, double> balances;
   std::vector<RollupBlock> rollupChain;
   static constexpr const char *DEV_FUND_ADDRESS = "DevFundWallet";
@@ -96,6 +98,8 @@ private:
   void tallyVotes();
   void loadVestingInfoFromDB();
   void saveVestingInfoToDB();
+  void loadCheckpointFromDB();
+  void saveCheckpoint(int height, const std::string& hash);
 
 public:
   static Blockchain &getInstance(unsigned short port,
@@ -204,6 +208,7 @@ public:
   std::string getLastRollupProof() const;
 
   int getHeight() const;
+  int getCheckpointHeight() const { return checkpointHeight; }
   uint64_t getTotalWork() const { return totalWork; }
   void broadcastNewTip();
   std::string getBlockHashAtHeight(int height) const;
