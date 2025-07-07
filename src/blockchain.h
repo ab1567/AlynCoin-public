@@ -30,7 +30,9 @@
 #define DIFFICULTY 4
 #define DEFAULT_PORT 15671
 
-extern std::mutex blockchainMutex;
+// Use recursive mutex so saveToDB can be called while the mutex is already held
+// by the same thread without causing a deadlock.
+extern std::recursive_mutex blockchainMutex;
 extern double totalSupply;
 
 using boost::asio::ip::tcp;
