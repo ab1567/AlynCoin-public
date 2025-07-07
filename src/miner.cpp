@@ -75,6 +75,7 @@ void Miner::startMiningProcess(const std::string &minerAddress) {
 
                 if (!Network::isUninitialized()) {
                     Network::getInstance().broadcastBlock(minedBlock);
+                    Network::getInstance().broadcastINV({minedBlock.getHash()});
                 }
 
                 std::cout << "✅ Block mined, added and broadcasted. Hash: "

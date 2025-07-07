@@ -26,6 +26,7 @@
 #include <thread>
 #include <shared_mutex>
 #include <boost/multiprecision/cpp_int.hpp>
+#include <unordered_map>
 
 using boost::multiprecision::cpp_int;
 
@@ -39,11 +40,15 @@ double totalSupply = 0.0;
 static Blockchain* g_blockchain_singleton = nullptr;
 
 // --- helper ---------------------------------------------------------------
+static std::unordered_map<int, cpp_int> workCache;
 static inline cpp_int difficultyToWork(int diff)
 {
-    if (diff >= 0)
-        return cpp_int(1) << diff;
-    return cpp_int(1);
+    auto it = workCache.find(diff);
+    if (it != workCache.end())
+        return it->second;
+    cpp_int w = (diff >= 0) ? (cpp_int(1) << diff) : cpp_int(1);
+    workCache[diff] = w;
+    return w;
 }
 // Compute BLAKE3 hash of concatenated block hashes for the epoch ending at
 // endIndex (inclusive). Returns empty string if insufficient history.

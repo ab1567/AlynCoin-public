@@ -78,6 +78,7 @@ public:
                                        const std::string &excludePeer);
   void broadcastBlock(const Block &block, bool force = false);
   void broadcastBlocks(const std::vector<Block> &blocks);
+  void broadcastINV(const std::vector<std::string> &hashes);
   void broadcastHeight(uint32_t height);
   void broadcastHandshake();
   void sendBlockToPeer(const std::string &peer, const Block &blk);
@@ -165,6 +166,9 @@ public:
   void sendHeightProbe(std::shared_ptr<Transport> tr);
   void sendTipHash(const std::string &peer);
   void sendPeerList(const std::string &peer);
+
+  // Expose frame processing for worker threads
+  void processFrame(const alyncoin::net::Frame &f, const std::string &peer);
 
   // Mark a peer offline and close its transport
   void markPeerOffline(const std::string &peerId);
