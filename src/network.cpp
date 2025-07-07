@@ -274,7 +274,7 @@ void Network::sendPrivate(const std::string &peer,
   for (size_t i = 0; i + 1 < hops; ++i)
     route.push_back(peers[i]);
   route.push_back(peer);
-  if (route.size() < 2) {
+  if (route.size() <= 1) {
     broadcastFrame(m);
     return;
   }
@@ -1699,7 +1699,7 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
               << newBlock.getIndex() << ").\n";
     if (!blockchain.hasBlockHash(newBlock.getHash())) {
       std::cerr
-          << "🧐 [Node] Unknown historical block. Requesting full sync.\n";
+          << "🧐 [Node] Unknown historical block. Requesting fork recovery.\n";
       blockchain.setPendingForkChain({newBlock});
       for (const auto &peer : peerTransports) {
         sendForkRecoveryRequest(peer.first, newBlock.getHash());

@@ -2,11 +2,26 @@
 #include <algorithm>
 #include <cmath>
 #include <mutex>
+#include <unordered_map>
+#include <boost/multiprecision/cpp_int.hpp>
+
+using boost::multiprecision::cpp_int;
 
 int getActiveMinerCount()
 {
     std::lock_guard<std::timed_mutex> lk(peersMutex);
     return std::max(1, static_cast<int>(peerTransports.size()));
+}
+
+static std::unordered_map<int, cpp_int> workCache;
+
+cpp_int difficultyToWork(int diff) {
+    auto it = workCache.find(diff);
+    if (it != workCache.end())
+        return it->second;
+    cpp_int w = (diff >= 0) ? (cpp_int(1) << diff) : cpp_int(1);
+    workCache[diff] = w;
+    return w;
 }
 
 uint64_t calculateSmartDifficulty(const Blockchain& chain)

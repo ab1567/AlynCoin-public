@@ -4,6 +4,7 @@
 #include "blockchain.h"
 #include <cstdint>
 #include <boost/asio.hpp>
+#include <boost/multiprecision/cpp_int.hpp>
 #include "transport/peer_globals.h"
 
 // ===========================================================================
@@ -20,6 +21,7 @@ constexpr uint64_t PREMINE_SUPPLY = 10'000'000;   // For clarity in docs/tests
 //  Helper: how many peers are actually submitting shares?
 // ─────────────────────────────────────────────────────────────────────────────
 int getActiveMinerCount();
+boost::multiprecision::cpp_int difficultyToWork(int diff);
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Difficulty ladder – user-friendly, piece-wise floor
