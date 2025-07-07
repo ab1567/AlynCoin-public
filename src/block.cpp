@@ -138,8 +138,10 @@ std::string Block::calculateHash() const {
 
 // ✅ Mine Block with Protobuf and RocksDB Storage
 bool Block::mineBlock(int difficulty) {
+#ifdef LOG_DEBUG
     std::cerr << "[mineBlock] START for idx=" << getIndex()
               << ", prev=" << getPreviousHash() << '\n';
+#endif
 #ifdef LOG_DEBUG
     std::cout << "\n⏳ [mineBlock] Mining block for: " << minerAddress
               << " with difficulty: " << difficulty << "...\n";
@@ -224,10 +226,12 @@ bool Block::mineBlock(int difficulty) {
     }
 
     /* ───────────────────────────────────── Final log ─────── */
+#ifdef LOG_DEBUG
     std::cerr << "[mineBlock] DONE for idx=" << getIndex()
               << ", hash=" << getHash()
               << ", prev=" << getPreviousHash()
               << ", zkProof=" << zkProof.size() << '\n';
+#endif
 
 #ifdef LOG_DEBUG
     std::cout << "✅ Block Signed Successfully.\n";
@@ -301,8 +305,10 @@ bool Block::isValid(const std::string &prevHash, int expectedDifficulty) const {
         return true;
     }
 
+#ifdef LOG_DEBUG
     std::cout << "\n🔍 Validating Block Index: " << index
               << ", Miner: " << minerAddress << "\n";
+#endif
 
     // === Always use merkleRoot if set (including for empty blocks) ===
     std::string txRoot;
