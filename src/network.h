@@ -4,9 +4,9 @@
 #include "block.h"
 #include "blockchain.h"
 #include "constants.h"
-#include "generated/block_protos.pb.h"
-#include "generated/blockchain_protos.pb.h"
-#include "generated/transaction_protos.pb.h"
+#include <generated/block_protos.pb.h>
+#include <generated/blockchain_protos.pb.h>
+#include <generated/transaction_protos.pb.h>
 #include "network/peer_manager.h"
 #include "transaction.h"
 #include "transport/peer_globals.h" // <<--- ONLY include, don't redeclare!

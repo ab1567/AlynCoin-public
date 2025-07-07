@@ -1,5 +1,5 @@
-#include "generated/block_protos.pb.h"
-#include "generated/sync_protos.pb.h"
+#include <generated/block_protos.pb.h>
+#include <generated/sync_protos.pb.h>
 #include "syncing.h"
 #include "network.h"
 #include <iostream>

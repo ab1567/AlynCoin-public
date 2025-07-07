@@ -1,5 +1,5 @@
-#include "generated/block_protos.pb.h"
-#include "generated/blockchain_protos.pb.h"
+#include <generated/block_protos.pb.h>
+#include <generated/blockchain_protos.pb.h>
 #include "blockchain.h"
 #include "blake3.h"
 #include "difficulty.h"
@@ -39,7 +39,7 @@ double totalSupply = 0.0;
 static Blockchain* g_blockchain_singleton = nullptr;
 
 // --- helper ---------------------------------------------------------------
-static inline cpp_int workFromDifficulty(int diff)
+static inline cpp_int difficultyToWork(int diff)
 {
     if (diff >= 0)
         return cpp_int(1) << diff;
@@ -480,7 +480,7 @@ bool Blockchain::addBlock(const Block &block) {
 
     // 7. Actually add the block
     Block blkCopy = block;
-    cpp_int thisWork = workFromDifficulty(block.getDifficulty());
+    cpp_int thisWork = difficultyToWork(block.getDifficulty());
     cpp_int parentWork = chain.empty() ? cpp_int(0) : chain.back().getAccumulatedWork();
     blkCopy.setAccumulatedWork(parentWork + thisWork);
 
@@ -602,7 +602,7 @@ bool Blockchain::forceAddBlock(const Block& block) {
     }
 
     Block blkCopy = block;
-    cpp_int thisWork = workFromDifficulty(block.getDifficulty());
+    cpp_int thisWork = difficultyToWork(block.getDifficulty());
     cpp_int parentWork = chain.empty() ? cpp_int(0) : chain.back().getAccumulatedWork();
     blkCopy.setAccumulatedWork(parentWork + thisWork);
 
@@ -1559,7 +1559,7 @@ bool Blockchain::loadFromProto(const alyncoin::BlockchainProto &protoChain) {
         const auto &blockProto = protoChain.blocks(i);
         try {
             Block block = Block::fromProto(blockProto);
-            cpp_int thisWork = workFromDifficulty(block.getDifficulty());
+            cpp_int thisWork = difficultyToWork(block.getDifficulty());
             cpp_int parentWork = chain.empty() ? cpp_int(0) : chain.back().getAccumulatedWork();
             block.setAccumulatedWork(parentWork + thisWork);
             chain.push_back(block);
@@ -1863,7 +1863,7 @@ void Blockchain::fromJSON(const Json::Value &json) {
 
   for (const auto &blockJson : json["chain"]) {  // ✅ Corrected from "blocks"
     Block block = Block::fromJSON(blockJson);
-    cpp_int thisWork = workFromDifficulty(block.getDifficulty());
+    cpp_int thisWork = difficultyToWork(block.getDifficulty());
     cpp_int parentWork = chain.empty() ? cpp_int(0) : chain.back().getAccumulatedWork();
     block.setAccumulatedWork(parentWork + thisWork);
     chain.push_back(block);
@@ -2814,7 +2814,7 @@ bool Blockchain::tryAppendBlock(const Block &blk)
         return false;
 
     Block blkCopy = blk;
-    cpp_int thisWork = workFromDifficulty(blk.getDifficulty());
+    cpp_int thisWork = difficultyToWork(blk.getDifficulty());
     cpp_int parentWork = chain.empty() ? cpp_int(0) : chain.back().getAccumulatedWork();
     blkCopy.setAccumulatedWork(parentWork + thisWork);
     chain.push_back(blkCopy);

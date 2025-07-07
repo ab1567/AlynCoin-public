@@ -1,5 +1,5 @@
-#include "generated/block_protos.pb.h"
-#include "generated/transaction_protos.pb.h"
+#include <generated/block_protos.pb.h>
+#include <generated/transaction_protos.pb.h>
 #include "block.h"
 #include "blake3.h"
 #include "blockchain.h"
@@ -489,6 +489,8 @@ Json::Value Block::toJSON() const {
   block["publicKeyFalcon"] = Crypto::base64Encode(
     std::string(publicKeyFalcon.begin(), publicKeyFalcon.end()));
 
+  block["accumulatedWork"] = accumulatedWork.convert_to<std::string>();
+
   Json::Value txArray(Json::arrayValue);
   for (const auto &tx : transactions) {
     txArray.append(tx.toJSON());
@@ -536,11 +538,15 @@ Block Block::fromJSON(const Json::Value &blockJson) {
     std::string decoded = Crypto::base64Decode(blockJson.get("publicKeyDilithium", "").asString());
     block.publicKeyDilithium = std::vector<unsigned char>(decoded.begin(), decoded.end());
   }
- {
+  {
     std::string decoded = Crypto::base64Decode(blockJson.get("publicKeyFalcon", "").asString());
     block.publicKeyFalcon = std::vector<unsigned char>(decoded.begin(), decoded.end());
   }
-    ensureRootConsistency(block, block.index);
+
+  if (blockJson.isMember("accumulatedWork"))
+    block.accumulatedWork = boost::multiprecision::cpp_int(blockJson["accumulatedWork"].asString());
+
+  ensureRootConsistency(block, block.index);
   return block;
 }
 
@@ -646,6 +652,8 @@ alyncoin::BlockProto Block::toProtobuf() const {
         proto.set_epoch_root(epochRoot);
     if (!epochProof.empty())
         proto.set_epoch_proof(reinterpret_cast<const char*>(epochProof.data()), epochProof.size());
+
+    proto.set_accumulated_work(accumulatedWork.convert_to<std::string>());
 
     std::cerr << "[toProtobuf] index=" << index << " tx_merkle_root=" << txRoot << std::endl;
     return proto;
@@ -754,6 +762,11 @@ Block Block::fromProto(const alyncoin::BlockProto& protoBlock, bool allowPartial
         // ---- ONLY soft for epoch fields! ----
         newBlock.epochRoot  = optionalStr(protoBlock.epoch_root(), "epoch_root", 128);
         newBlock.epochProof = optionalBinaryField(protoBlock.epoch_proof(), "epoch_proof", 5000);
+
+        if (!protoBlock.accumulated_work().empty())
+            newBlock.accumulatedWork = boost::multiprecision::cpp_int(protoBlock.accumulated_work());
+        else
+            newBlock.accumulatedWork = 0;
 
     } catch (const std::exception& ex) {
         std::cerr << "❌ [fromProto] Critical error: " << ex.what() << "\n";

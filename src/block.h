@@ -1,9 +1,9 @@
 #ifndef BLOCK_H
 #define BLOCK_H
 
-#include "generated/block_protos.pb.h"
-#include "generated/blockchain_protos.pb.h"
-#include "generated/transaction_protos.pb.h"
+#include <generated/block_protos.pb.h>
+#include <generated/blockchain_protos.pb.h>
+#include <generated/transaction_protos.pb.h>
 #include "crypto_utils.h"
 #include "crypto_protos.pb.h"
 #include "transaction.h"
