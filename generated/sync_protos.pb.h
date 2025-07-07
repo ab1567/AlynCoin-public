@@ -30,6 +30,7 @@
 #include <google/protobuf/repeated_field.h>  // IWYU pragma: export
 #include <google/protobuf/extension_set.h>  // IWYU pragma: export
 #include <google/protobuf/unknown_field_set.h>
+#include "block_protos.pb.h"
 // @@protoc_insertion_point(includes)
 #include <google/protobuf/port_def.inc>
 #define PROTOBUF_INTERNAL_EXPORT_sync_5fprotos_2eproto
@@ -51,6 +52,9 @@ extern BlockRequestProtoDefaultTypeInternal _BlockRequestProto_default_instance_
 class BlockchainSyncProto;
 struct BlockchainSyncProtoDefaultTypeInternal;
 extern BlockchainSyncProtoDefaultTypeInternal _BlockchainSyncProto_default_instance_;
+class SnapshotProto;
+struct SnapshotProtoDefaultTypeInternal;
+extern SnapshotProtoDefaultTypeInternal _SnapshotProto_default_instance_;
 class StateProofProto;
 struct StateProofProtoDefaultTypeInternal;
 extern StateProofProtoDefaultTypeInternal _StateProofProto_default_instance_;
@@ -60,13 +64,18 @@ extern SyncRequestProtoDefaultTypeInternal _SyncRequestProto_default_instance_;
 class SyncResponseProto;
 struct SyncResponseProtoDefaultTypeInternal;
 extern SyncResponseProtoDefaultTypeInternal _SyncResponseProto_default_instance_;
+class TailBlocksProto;
+struct TailBlocksProtoDefaultTypeInternal;
+extern TailBlocksProtoDefaultTypeInternal _TailBlocksProto_default_instance_;
 }  // namespace alyncoin
 PROTOBUF_NAMESPACE_OPEN
 template<> ::alyncoin::BlockRequestProto* Arena::CreateMaybeMessage<::alyncoin::BlockRequestProto>(Arena*);
 template<> ::alyncoin::BlockchainSyncProto* Arena::CreateMaybeMessage<::alyncoin::BlockchainSyncProto>(Arena*);
+template<> ::alyncoin::SnapshotProto* Arena::CreateMaybeMessage<::alyncoin::SnapshotProto>(Arena*);
 template<> ::alyncoin::StateProofProto* Arena::CreateMaybeMessage<::alyncoin::StateProofProto>(Arena*);
 template<> ::alyncoin::SyncRequestProto* Arena::CreateMaybeMessage<::alyncoin::SyncRequestProto>(Arena*);
 template<> ::alyncoin::SyncResponseProto* Arena::CreateMaybeMessage<::alyncoin::SyncResponseProto>(Arena*);
+template<> ::alyncoin::TailBlocksProto* Arena::CreateMaybeMessage<::alyncoin::TailBlocksProto>(Arena*);
 PROTOBUF_NAMESPACE_CLOSE
 namespace alyncoin {
 
@@ -900,6 +909,347 @@ class StateProofProto final :
   union { Impl_ _impl_; };
   friend struct ::TableStruct_sync_5fprotos_2eproto;
 };
+// -------------------------------------------------------------------
+
+class SnapshotProto final :
+    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:alyncoin.SnapshotProto) */ {
+ public:
+  inline SnapshotProto() : SnapshotProto(nullptr) {}
+  ~SnapshotProto() override;
+  explicit PROTOBUF_CONSTEXPR SnapshotProto(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+
+  SnapshotProto(const SnapshotProto& from);
+  SnapshotProto(SnapshotProto&& from) noexcept
+    : SnapshotProto() {
+    *this = ::std::move(from);
+  }
+
+  inline SnapshotProto& operator=(const SnapshotProto& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline SnapshotProto& operator=(SnapshotProto&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetOwningArena() == from.GetOwningArena()
+  #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetOwningArena() != nullptr
+  #endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const SnapshotProto& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const SnapshotProto* internal_default_instance() {
+    return reinterpret_cast<const SnapshotProto*>(
+               &_SnapshotProto_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    5;
+
+  friend void swap(SnapshotProto& a, SnapshotProto& b) {
+    a.Swap(&b);
+  }
+  inline void Swap(SnapshotProto* other) {
+    if (other == this) return;
+  #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() != nullptr &&
+        GetOwningArena() == other->GetOwningArena()) {
+   #else  // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() == other->GetOwningArena()) {
+  #endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(SnapshotProto* other) {
+    if (other == this) return;
+    GOOGLE_DCHECK(GetOwningArena() == other->GetOwningArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  SnapshotProto* New(::PROTOBUF_NAMESPACE_ID::Arena* arena = nullptr) const final {
+    return CreateMaybeMessage<SnapshotProto>(arena);
+  }
+  using ::PROTOBUF_NAMESPACE_ID::Message::CopyFrom;
+  void CopyFrom(const SnapshotProto& from);
+  using ::PROTOBUF_NAMESPACE_ID::Message::MergeFrom;
+  void MergeFrom( const SnapshotProto& from) {
+    SnapshotProto::MergeImpl(*this, from);
+  }
+  private:
+  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg);
+  public:
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
+  uint8_t* _InternalSerialize(
+      uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const final { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena* arena, bool is_message_owned);
+  void SharedDtor();
+  void SetCachedSize(int size) const final;
+  void InternalSwap(SnapshotProto* other);
+
+  private:
+  friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
+  static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
+    return "alyncoin.SnapshotProto";
+  }
+  protected:
+  explicit SnapshotProto(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                       bool is_message_owned = false);
+  public:
+
+  static const ClassData _class_data_;
+  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*GetClassData() const final;
+
+  ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  enum : int {
+    kBlocksFieldNumber = 2,
+    kMerkleRootFieldNumber = 3,
+    kHeightFieldNumber = 1,
+  };
+  // repeated .alyncoin.BlockProto blocks = 2;
+  int blocks_size() const;
+  private:
+  int _internal_blocks_size() const;
+  public:
+  void clear_blocks();
+  ::alyncoin::BlockProto* mutable_blocks(int index);
+  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::BlockProto >*
+      mutable_blocks();
+  private:
+  const ::alyncoin::BlockProto& _internal_blocks(int index) const;
+  ::alyncoin::BlockProto* _internal_add_blocks();
+  public:
+  const ::alyncoin::BlockProto& blocks(int index) const;
+  ::alyncoin::BlockProto* add_blocks();
+  const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::BlockProto >&
+      blocks() const;
+
+  // string merkle_root = 3;
+  void clear_merkle_root();
+  const std::string& merkle_root() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_merkle_root(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_merkle_root();
+  PROTOBUF_NODISCARD std::string* release_merkle_root();
+  void set_allocated_merkle_root(std::string* merkle_root);
+  private:
+  const std::string& _internal_merkle_root() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_merkle_root(const std::string& value);
+  std::string* _internal_mutable_merkle_root();
+  public:
+
+  // int32 height = 1;
+  void clear_height();
+  int32_t height() const;
+  void set_height(int32_t value);
+  private:
+  int32_t _internal_height() const;
+  void _internal_set_height(int32_t value);
+  public:
+
+  // @@protoc_insertion_point(class_scope:alyncoin.SnapshotProto)
+ private:
+  class _Internal;
+
+  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
+  typedef void InternalArenaConstructable_;
+  typedef void DestructorSkippable_;
+  struct Impl_ {
+    ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::BlockProto > blocks_;
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr merkle_root_;
+    int32_t height_;
+    mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_sync_5fprotos_2eproto;
+};
+// -------------------------------------------------------------------
+
+class TailBlocksProto final :
+    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:alyncoin.TailBlocksProto) */ {
+ public:
+  inline TailBlocksProto() : TailBlocksProto(nullptr) {}
+  ~TailBlocksProto() override;
+  explicit PROTOBUF_CONSTEXPR TailBlocksProto(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+
+  TailBlocksProto(const TailBlocksProto& from);
+  TailBlocksProto(TailBlocksProto&& from) noexcept
+    : TailBlocksProto() {
+    *this = ::std::move(from);
+  }
+
+  inline TailBlocksProto& operator=(const TailBlocksProto& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline TailBlocksProto& operator=(TailBlocksProto&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetOwningArena() == from.GetOwningArena()
+  #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetOwningArena() != nullptr
+  #endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const TailBlocksProto& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const TailBlocksProto* internal_default_instance() {
+    return reinterpret_cast<const TailBlocksProto*>(
+               &_TailBlocksProto_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    6;
+
+  friend void swap(TailBlocksProto& a, TailBlocksProto& b) {
+    a.Swap(&b);
+  }
+  inline void Swap(TailBlocksProto* other) {
+    if (other == this) return;
+  #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() != nullptr &&
+        GetOwningArena() == other->GetOwningArena()) {
+   #else  // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() == other->GetOwningArena()) {
+  #endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(TailBlocksProto* other) {
+    if (other == this) return;
+    GOOGLE_DCHECK(GetOwningArena() == other->GetOwningArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  TailBlocksProto* New(::PROTOBUF_NAMESPACE_ID::Arena* arena = nullptr) const final {
+    return CreateMaybeMessage<TailBlocksProto>(arena);
+  }
+  using ::PROTOBUF_NAMESPACE_ID::Message::CopyFrom;
+  void CopyFrom(const TailBlocksProto& from);
+  using ::PROTOBUF_NAMESPACE_ID::Message::MergeFrom;
+  void MergeFrom( const TailBlocksProto& from) {
+    TailBlocksProto::MergeImpl(*this, from);
+  }
+  private:
+  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg);
+  public:
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
+  uint8_t* _InternalSerialize(
+      uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const final { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena* arena, bool is_message_owned);
+  void SharedDtor();
+  void SetCachedSize(int size) const final;
+  void InternalSwap(TailBlocksProto* other);
+
+  private:
+  friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
+  static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
+    return "alyncoin.TailBlocksProto";
+  }
+  protected:
+  explicit TailBlocksProto(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                       bool is_message_owned = false);
+  public:
+
+  static const ClassData _class_data_;
+  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*GetClassData() const final;
+
+  ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  enum : int {
+    kBlocksFieldNumber = 1,
+  };
+  // repeated .alyncoin.BlockProto blocks = 1;
+  int blocks_size() const;
+  private:
+  int _internal_blocks_size() const;
+  public:
+  void clear_blocks();
+  ::alyncoin::BlockProto* mutable_blocks(int index);
+  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::BlockProto >*
+      mutable_blocks();
+  private:
+  const ::alyncoin::BlockProto& _internal_blocks(int index) const;
+  ::alyncoin::BlockProto* _internal_add_blocks();
+  public:
+  const ::alyncoin::BlockProto& blocks(int index) const;
+  ::alyncoin::BlockProto* add_blocks();
+  const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::BlockProto >&
+      blocks() const;
+
+  // @@protoc_insertion_point(class_scope:alyncoin.TailBlocksProto)
+ private:
+  class _Internal;
+
+  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
+  typedef void InternalArenaConstructable_;
+  typedef void DestructorSkippable_;
+  struct Impl_ {
+    ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::BlockProto > blocks_;
+    mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_sync_5fprotos_2eproto;
+};
 // ===================================================================
 
 
@@ -1337,9 +1687,165 @@ inline void StateProofProto::set_allocated_zk_proof(std::string* zk_proof) {
   // @@protoc_insertion_point(field_set_allocated:alyncoin.StateProofProto.zk_proof)
 }
 
+// -------------------------------------------------------------------
+
+// SnapshotProto
+
+// int32 height = 1;
+inline void SnapshotProto::clear_height() {
+  _impl_.height_ = 0;
+}
+inline int32_t SnapshotProto::_internal_height() const {
+  return _impl_.height_;
+}
+inline int32_t SnapshotProto::height() const {
+  // @@protoc_insertion_point(field_get:alyncoin.SnapshotProto.height)
+  return _internal_height();
+}
+inline void SnapshotProto::_internal_set_height(int32_t value) {
+  
+  _impl_.height_ = value;
+}
+inline void SnapshotProto::set_height(int32_t value) {
+  _internal_set_height(value);
+  // @@protoc_insertion_point(field_set:alyncoin.SnapshotProto.height)
+}
+
+// repeated .alyncoin.BlockProto blocks = 2;
+inline int SnapshotProto::_internal_blocks_size() const {
+  return _impl_.blocks_.size();
+}
+inline int SnapshotProto::blocks_size() const {
+  return _internal_blocks_size();
+}
+inline ::alyncoin::BlockProto* SnapshotProto::mutable_blocks(int index) {
+  // @@protoc_insertion_point(field_mutable:alyncoin.SnapshotProto.blocks)
+  return _impl_.blocks_.Mutable(index);
+}
+inline ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::BlockProto >*
+SnapshotProto::mutable_blocks() {
+  // @@protoc_insertion_point(field_mutable_list:alyncoin.SnapshotProto.blocks)
+  return &_impl_.blocks_;
+}
+inline const ::alyncoin::BlockProto& SnapshotProto::_internal_blocks(int index) const {
+  return _impl_.blocks_.Get(index);
+}
+inline const ::alyncoin::BlockProto& SnapshotProto::blocks(int index) const {
+  // @@protoc_insertion_point(field_get:alyncoin.SnapshotProto.blocks)
+  return _internal_blocks(index);
+}
+inline ::alyncoin::BlockProto* SnapshotProto::_internal_add_blocks() {
+  return _impl_.blocks_.Add();
+}
+inline ::alyncoin::BlockProto* SnapshotProto::add_blocks() {
+  ::alyncoin::BlockProto* _add = _internal_add_blocks();
+  // @@protoc_insertion_point(field_add:alyncoin.SnapshotProto.blocks)
+  return _add;
+}
+inline const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::BlockProto >&
+SnapshotProto::blocks() const {
+  // @@protoc_insertion_point(field_list:alyncoin.SnapshotProto.blocks)
+  return _impl_.blocks_;
+}
+
+// string merkle_root = 3;
+inline void SnapshotProto::clear_merkle_root() {
+  _impl_.merkle_root_.ClearToEmpty();
+}
+inline const std::string& SnapshotProto::merkle_root() const {
+  // @@protoc_insertion_point(field_get:alyncoin.SnapshotProto.merkle_root)
+  return _internal_merkle_root();
+}
+template <typename ArgT0, typename... ArgT>
+inline PROTOBUF_ALWAYS_INLINE
+void SnapshotProto::set_merkle_root(ArgT0&& arg0, ArgT... args) {
+ 
+ _impl_.merkle_root_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:alyncoin.SnapshotProto.merkle_root)
+}
+inline std::string* SnapshotProto::mutable_merkle_root() {
+  std::string* _s = _internal_mutable_merkle_root();
+  // @@protoc_insertion_point(field_mutable:alyncoin.SnapshotProto.merkle_root)
+  return _s;
+}
+inline const std::string& SnapshotProto::_internal_merkle_root() const {
+  return _impl_.merkle_root_.Get();
+}
+inline void SnapshotProto::_internal_set_merkle_root(const std::string& value) {
+  
+  _impl_.merkle_root_.Set(value, GetArenaForAllocation());
+}
+inline std::string* SnapshotProto::_internal_mutable_merkle_root() {
+  
+  return _impl_.merkle_root_.Mutable(GetArenaForAllocation());
+}
+inline std::string* SnapshotProto::release_merkle_root() {
+  // @@protoc_insertion_point(field_release:alyncoin.SnapshotProto.merkle_root)
+  return _impl_.merkle_root_.Release();
+}
+inline void SnapshotProto::set_allocated_merkle_root(std::string* merkle_root) {
+  if (merkle_root != nullptr) {
+    
+  } else {
+    
+  }
+  _impl_.merkle_root_.SetAllocated(merkle_root, GetArenaForAllocation());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (_impl_.merkle_root_.IsDefault()) {
+    _impl_.merkle_root_.Set("", GetArenaForAllocation());
+  }
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.SnapshotProto.merkle_root)
+}
+
+// -------------------------------------------------------------------
+
+// TailBlocksProto
+
+// repeated .alyncoin.BlockProto blocks = 1;
+inline int TailBlocksProto::_internal_blocks_size() const {
+  return _impl_.blocks_.size();
+}
+inline int TailBlocksProto::blocks_size() const {
+  return _internal_blocks_size();
+}
+inline ::alyncoin::BlockProto* TailBlocksProto::mutable_blocks(int index) {
+  // @@protoc_insertion_point(field_mutable:alyncoin.TailBlocksProto.blocks)
+  return _impl_.blocks_.Mutable(index);
+}
+inline ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::BlockProto >*
+TailBlocksProto::mutable_blocks() {
+  // @@protoc_insertion_point(field_mutable_list:alyncoin.TailBlocksProto.blocks)
+  return &_impl_.blocks_;
+}
+inline const ::alyncoin::BlockProto& TailBlocksProto::_internal_blocks(int index) const {
+  return _impl_.blocks_.Get(index);
+}
+inline const ::alyncoin::BlockProto& TailBlocksProto::blocks(int index) const {
+  // @@protoc_insertion_point(field_get:alyncoin.TailBlocksProto.blocks)
+  return _internal_blocks(index);
+}
+inline ::alyncoin::BlockProto* TailBlocksProto::_internal_add_blocks() {
+  return _impl_.blocks_.Add();
+}
+inline ::alyncoin::BlockProto* TailBlocksProto::add_blocks() {
+  ::alyncoin::BlockProto* _add = _internal_add_blocks();
+  // @@protoc_insertion_point(field_add:alyncoin.TailBlocksProto.blocks)
+  return _add;
+}
+inline const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::alyncoin::BlockProto >&
+TailBlocksProto::blocks() const {
+  // @@protoc_insertion_point(field_list:alyncoin.TailBlocksProto.blocks)
+  return _impl_.blocks_;
+}
+
 #ifdef __GNUC__
   #pragma GCC diagnostic pop
 #endif  // __GNUC__
+// -------------------------------------------------------------------
+
+// -------------------------------------------------------------------
+
 // -------------------------------------------------------------------
 
 // -------------------------------------------------------------------

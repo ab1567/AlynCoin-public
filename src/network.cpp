@@ -4,9 +4,9 @@
 #include "config.h"
 #include "blockchain.h"
 #include "crypto_utils.h"
-#include "generated/block_protos.pb.h"
-#include "generated/sync_protos.pb.h"
-#include "generated/transaction_protos.pb.h"
+#include <generated/block_protos.pb.h>
+#include <generated/sync_protos.pb.h>
+#include <generated/transaction_protos.pb.h>
 #include "proto_utils.h"
 #include "rollup/proofs/proof_verifier.h"
 #include "rollup/rollup_block.h"

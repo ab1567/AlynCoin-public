@@ -26,4 +26,5 @@ message BlockProto {
     repeated TransactionProto l2_transactions = 19;
     string epoch_root = 20;        // sha256 of the epoch commitment
     bytes epoch_proof = 21;        // compressed zk-STARK proof for the epoch
+    string accumulated_work = 22;  // cumulative chain work in hex
 }

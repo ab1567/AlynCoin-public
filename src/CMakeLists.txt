@@ -61,6 +61,7 @@ file(GLOB SOURCES
     ${SOURCE_DIR}/keccak.cpp
     ${SOURCE_DIR}/key_paths.cpp
     ${SOURCE_DIR}/consensus/difficulty.cpp
+    ${SOURCE_DIR}/consensus/fork_choice.cpp
     ${SOURCE_DIR}/zk/*.cpp
     ${SOURCE_DIR}/rollup/rollup_block.cpp
     ${SOURCE_DIR}/rollup/rollup_utils.cpp
@@ -110,6 +111,7 @@ list(APPEND SOURCES
     ${SOURCE_DIR}/transport/peer_globals.cpp
     ${SOURCE_DIR}/epoch_sync.cpp
     ${SOURCE_DIR}/syncing/headers_sync.cpp
+    ${SOURCE_DIR}/syncing/orphan_pool.cpp
     ${SOURCE_DIR}/config.cpp
     ${SOURCE_DIR}/tls_utils.cpp
 )

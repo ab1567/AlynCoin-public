@@ -194,6 +194,7 @@ class BlockProto final :
     kTxMerkleRootFieldNumber = 17,
     kEpochRootFieldNumber = 20,
     kEpochProofFieldNumber = 21,
+    kAccumulatedWorkFieldNumber = 22,
     kIndexFieldNumber = 1,
     kDifficultyFieldNumber = 8,
     kNonceFieldNumber = 6,
@@ -432,6 +433,20 @@ class BlockProto final :
   std::string* _internal_mutable_epoch_proof();
   public:
 
+  // string accumulated_work = 22;
+  void clear_accumulated_work();
+  const std::string& accumulated_work() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_accumulated_work(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_accumulated_work();
+  PROTOBUF_NODISCARD std::string* release_accumulated_work();
+  void set_allocated_accumulated_work(std::string* accumulated_work);
+  private:
+  const std::string& _internal_accumulated_work() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_accumulated_work(const std::string& value);
+  std::string* _internal_mutable_accumulated_work();
+  public:
+
   // int32 index = 1;
   void clear_index();
   int32_t index() const;
@@ -507,6 +522,7 @@ class BlockProto final :
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr tx_merkle_root_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr epoch_root_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr epoch_proof_;
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr accumulated_work_;
     int32_t index_;
     int32_t difficulty_;
     uint64_t nonce_;
@@ -1407,6 +1423,56 @@ inline void BlockProto::set_allocated_epoch_proof(std::string* epoch_proof) {
   }
 #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
   // @@protoc_insertion_point(field_set_allocated:alyncoin.BlockProto.epoch_proof)
+}
+
+// string accumulated_work = 22;
+inline void BlockProto::clear_accumulated_work() {
+  _impl_.accumulated_work_.ClearToEmpty();
+}
+inline const std::string& BlockProto::accumulated_work() const {
+  // @@protoc_insertion_point(field_get:alyncoin.BlockProto.accumulated_work)
+  return _internal_accumulated_work();
+}
+template <typename ArgT0, typename... ArgT>
+inline PROTOBUF_ALWAYS_INLINE
+void BlockProto::set_accumulated_work(ArgT0&& arg0, ArgT... args) {
+ 
+ _impl_.accumulated_work_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:alyncoin.BlockProto.accumulated_work)
+}
+inline std::string* BlockProto::mutable_accumulated_work() {
+  std::string* _s = _internal_mutable_accumulated_work();
+  // @@protoc_insertion_point(field_mutable:alyncoin.BlockProto.accumulated_work)
+  return _s;
+}
+inline const std::string& BlockProto::_internal_accumulated_work() const {
+  return _impl_.accumulated_work_.Get();
+}
+inline void BlockProto::_internal_set_accumulated_work(const std::string& value) {
+  
+  _impl_.accumulated_work_.Set(value, GetArenaForAllocation());
+}
+inline std::string* BlockProto::_internal_mutable_accumulated_work() {
+  
+  return _impl_.accumulated_work_.Mutable(GetArenaForAllocation());
+}
+inline std::string* BlockProto::release_accumulated_work() {
+  // @@protoc_insertion_point(field_release:alyncoin.BlockProto.accumulated_work)
+  return _impl_.accumulated_work_.Release();
+}
+inline void BlockProto::set_allocated_accumulated_work(std::string* accumulated_work) {
+  if (accumulated_work != nullptr) {
+    
+  } else {
+    
+  }
+  _impl_.accumulated_work_.SetAllocated(accumulated_work, GetArenaForAllocation());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (_impl_.accumulated_work_.IsDefault()) {
+    _impl_.accumulated_work_.Set("", GetArenaForAllocation());
+  }
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.BlockProto.accumulated_work)
 }
 
 #ifdef __GNUC__
