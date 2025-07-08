@@ -17,10 +17,7 @@ inline constexpr int DESYNC_THRESHOLD = 5000;
 // Network stacks are happier with smaller writes, so cap snapshot chunks
 // at 256 KiB to avoid overrunning peer receive windows.
 // Keeping below MAX_WIRE_PAYLOAD to account for frame overhead
-// Allow larger snapshot transfers for cold sync without exceeding typical
-// receive windows. 128 KiB works well across a wide range of networks and
-// keeps memory usage modest during initial sync.
-inline constexpr std::size_t MAX_SNAPSHOT_CHUNK_SIZE = 128 * 1024; // 128 KiB
+inline constexpr std::size_t MAX_SNAPSHOT_CHUNK_SIZE = 250 * 1024; // 250 KiB
 inline constexpr std::size_t MAX_PEERS = 32;                       // hard cap
 inline constexpr int MAX_TAIL_BLOCKS = 256;      // limit tail block batches
 inline constexpr std::size_t MAX_WIRE_PAYLOAD = 256 * 1024; // 256 KiB frame cap
