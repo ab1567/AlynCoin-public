@@ -1004,8 +1004,6 @@ Block Blockchain::minePendingTransactions(
 
 // ✅ **Sync Blockchain**
 void Blockchain::syncChain(const Json::Value &jsonData) {
-    std::unique_lock<std::recursive_mutex> lock(blockchainMutex);
-
     std::vector<Block> newChain;
     for (const auto &blockJson : jsonData["chain"]) {
         alyncoin::BlockProto protoBlock;
@@ -1019,6 +1017,7 @@ void Blockchain::syncChain(const Json::Value &jsonData) {
         newChain.push_back(newBlock);
     }
 
+    std::unique_lock<std::recursive_mutex> lock(blockchainMutex);
     if (newChain.size() > chain.size()) {
         chain = newChain;
         lock.unlock();
