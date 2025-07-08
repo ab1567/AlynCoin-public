@@ -90,6 +90,7 @@ list(APPEND SOURCES
 list(APPEND SOURCES
     ${SOURCE_DIR}/db/rocksdb_wrapper.cpp
     ${SOURCE_DIR}/db/db_instance.cpp
+    ${SOURCE_DIR}/db/db_writer.cpp
 )
 
 list(APPEND SOURCES
