@@ -10,6 +10,7 @@
 #include "rollup/proofs/proof_verifier.h"
 #include "rollup/rollup_block.h"
 #include "transaction.h"
+#include "db/db_writer.h"
 #include "zk/winterfell_stark.h"
 #include "json/json.h"
 #include <algorithm>
@@ -135,6 +136,8 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath, bool bind
     for (size_t i=0;i<cfDesc.size();++i) {
         if (cfDesc[i].name == "cfCheck") cfCheck = handles[i];
     }
+    if (!g_dbWriter)
+        g_dbWriter = new DBWriter(db);
 
     std::cout << "[DEBUG] Attempting to load blockchain from DB...\n";
     bool found = loadFromDB();
@@ -175,6 +178,10 @@ Blockchain::~Blockchain() {
     }
     delete db;
     db = nullptr; // ✅ Prevent potential use-after-free issues
+  }
+  if (g_dbWriter) {
+    delete g_dbWriter;
+    g_dbWriter = nullptr;
   }
 }
 // ✅ **Validate a Transaction**
@@ -1173,12 +1180,13 @@ bool Blockchain::saveToDB() {
     }
 
     /* --- zap stale heights ----------------------------------- */
+    rocksdb::WriteBatch batch;
     std::string v;
     int lastHeight = 0;
     if (db->Get(rocksdb::ReadOptions(), "last_height", &v).ok())
         lastHeight = std::stoi(v);
     for (int h = chain.size(); h <= lastHeight; ++h) {
-        db->Delete(rocksdb::WriteOptions(), "block_height_" + std::to_string(h));
+        batch.Delete("block_height_" + std::to_string(h));
     }
     /* ---------------------------------------------------------- */
 
@@ -1232,14 +1240,8 @@ bool Blockchain::saveToDB() {
                                            serializedData.begin() + std::min<size_t>(32, serializedData.size()));
     std::cout << "🧪 [DEBUG] First 32 bytes of serialized proto (hex): " << Crypto::toHex(sampleBytes) << std::endl;
 
-    rocksdb::Status status = db->Put(rocksdb::WriteOptions(), "blockchain", serializedData);
-    if (!status.ok()) {
-        std::cerr << "❌ [ERROR] Failed to save blockchain: " << status.ToString() << "\n";
-        return false;
-    }
-
-    // Save burned supply explicitly (again) for consistency
-    db->Put(rocksdb::WriteOptions(), "burned_supply", std::to_string(totalBurnedSupply));
+    batch.Put("blockchain", serializedData);
+    batch.Put("burned_supply", std::to_string(totalBurnedSupply));
 
     saveVestingInfoToDB();
 
@@ -1250,7 +1252,7 @@ bool Blockchain::saveToDB() {
         for (it->SeekToFirst(); it->Valid(); it->Next()) {
             std::string key = it->key().ToString();
             if (key.rfind("rollup_", 0) == 0) {
-                db->Delete(rocksdb::WriteOptions(), key);
+                batch.Delete(key);
                 ++deleted;
             }
         }
@@ -1263,7 +1265,7 @@ bool Blockchain::saveToDB() {
     for (const auto& rb : rollupChain) {
         std::string key = "rollup_" + std::to_string(rollupCount);  // Clean index
         std::string value = rb.serialize();
-        db->Put(rocksdb::WriteOptions(), key, value);
+        batch.Put(key, value);
         ++rollupCount;
     }
     std::cout << "🧱 Saved " << rollupCount << " rollup blocks to DB.\n";
@@ -1271,16 +1273,28 @@ bool Blockchain::saveToDB() {
     // ✅ Save final balances
     int balanceCount = 0;
     for (const auto& [address, balance] : balances) {
-        db->Put(rocksdb::WriteOptions(), "balance_" + address, std::to_string(balance));
+        batch.Put("balance_" + address, std::to_string(balance));
         ++balanceCount;
     }
 
     // ✅ Save supply + burned supply (now AFTER rollup deltas applied)
-    db->Put(rocksdb::WriteOptions(), "total_supply", std::to_string(totalSupply));
-    db->Put(rocksdb::WriteOptions(), "burned_supply", std::to_string(totalBurnedSupply));
+    batch.Put("total_supply", std::to_string(totalSupply));
+    batch.Put("burned_supply", std::to_string(totalBurnedSupply));
 
     std::cout << "💾 Persisted " << balanceCount << " balances to DB.\n";
-    db->Put(rocksdb::WriteOptions(), "last_height", std::to_string(chain.size() - 1));
+    batch.Put("last_height", std::to_string(chain.size() - 1));
+
+    rocksdb::WriteOptions wo;
+    wo.sync = true;
+    rocksdb::Status status;
+    if (g_dbWriter)
+        status = g_dbWriter->enqueue(std::make_unique<rocksdb::WriteBatch>(batch), wo).get();
+    else
+        status = db->Write(wo, &batch);
+    if (!status.ok()) {
+        std::cerr << "❌ [saveToDB] Failed to write batch: " << status.ToString() << "\n";
+        return false;
+    }
     std::cout << "✅ Blockchain saved successfully to RocksDB.\n";
     return true;
 }

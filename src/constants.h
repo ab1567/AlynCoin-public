@@ -18,3 +18,4 @@ inline constexpr int DESYNC_THRESHOLD = 5000;
 // at 256 KiB to avoid overrunning peer receive windows.
 inline constexpr std::size_t MAX_SNAPSHOT_CHUNK_SIZE = 256 * 1024; // 256 KiB
 inline constexpr std::size_t MAX_PEERS = 32;                       // hard cap
+inline constexpr int MAX_TAIL_BLOCKS = 256;      // limit tail block batches

@@ -13,6 +13,7 @@
 #include "self_healing/self_healing_node.h"
 #include "syncing/headers_sync.h"
 #include "transaction.h"
+#include "constants.h"
 #include "crypto/sphinx.h"
 #include "wire/varint.h"
 #include "zk/winterfell_stark.h"
@@ -2888,13 +2889,12 @@ void Network::sendTailBlocks(std::shared_ptr<Transport> transport,
     std::cerr << "[sendTailBlocks] aborting: peer height >= local height\n";
     return;
   }
-  std::vector<Block> tail;
-  for (int i = fromHeight + 1; i <= bc.getHeight(); ++i) {
-    tail.push_back(bc.getChain()[i]);
-  }
+  int start = fromHeight + 1;
+  int end = std::min(bc.getHeight(), start + MAX_TAIL_BLOCKS - 1);
   alyncoin::net::TailBlocks proto;
-  for (const auto &blk : tail)
-    *proto.add_blocks() = blk.toProtobuf();
+  for (int i = start; i <= end; ++i) {
+    *proto.add_blocks() = bc.getChain()[i].toProtobuf();
+  }
 
   alyncoin::net::Frame fr;
   *fr.mutable_tail_blocks() = proto;
