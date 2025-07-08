@@ -30,8 +30,8 @@
 #define DIFFICULTY 4
 #define DEFAULT_PORT 15671
 
-// Use recursive mutex so saveToDB can be called while the mutex is already held
-// by the same thread without causing a deadlock.
+// Recursive mutex protecting in-memory chain state. Callers should release
+// this lock before performing any RocksDB writes to avoid deadlocks.
 extern std::recursive_mutex blockchainMutex;
 extern double totalSupply;
 
