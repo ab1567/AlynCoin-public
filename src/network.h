@@ -139,7 +139,8 @@ public:
   void requestTailBlocks(const std::string &peer, int fromHeight);
   void sendForkRecoveryRequest(const std::string &peer, const std::string &tip);
   void sendSnapshot(std::shared_ptr<Transport> tr, int upToHeight = -1);
-  void sendTailBlocks(std::shared_ptr<Transport> tr, int fromHeight);
+  void sendTailBlocks(std::shared_ptr<Transport> tr, int fromHeight,
+                      const std::string &peerId);
   void handleSnapshotMeta(const std::string &peer,
                           const alyncoin::net::SnapshotMeta &meta);
   void handleSnapshotChunk(const std::string &peer, const std::string &b64);
