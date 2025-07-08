@@ -1004,8 +1004,6 @@ Block Blockchain::minePendingTransactions(
 
 // ✅ **Sync Blockchain**
 void Blockchain::syncChain(const Json::Value &jsonData) {
-    std::lock_guard<std::recursive_mutex> lock(blockchainMutex);
-
     std::vector<Block> newChain;
     for (const auto &blockJson : jsonData["chain"]) {
         alyncoin::BlockProto protoBlock;
@@ -1019,8 +1017,10 @@ void Blockchain::syncChain(const Json::Value &jsonData) {
         newChain.push_back(newBlock);
     }
 
+    std::unique_lock<std::recursive_mutex> lock(blockchainMutex);
     if (newChain.size() > chain.size()) {
         chain = newChain;
+        lock.unlock();
         saveToDB();
         std::cout << "✅ Blockchain successfully synchronized with a longer chain!\n";
     } else {
@@ -1164,7 +1164,6 @@ double Blockchain::getBalance(const std::string &publicKey) const {
 
 // ✅ **Save Blockchain to RocksDB using Protobuf**
 bool Blockchain::saveToDB() {
-    std::lock_guard<std::recursive_mutex> lock(blockchainMutex);
     std::cout << "[DEBUG] Attempting to save blockchain to DB..." << std::endl;
 
     if (!db) {
@@ -1531,7 +1530,7 @@ bool Blockchain::serializeBlockchain(std::string &outData) const {
 
 // ✅ Deserialize Blockchain from Protobuf
 bool Blockchain::deserializeBlockchain(const std::string &data) {
-    std::lock_guard<std::recursive_mutex> lock(blockchainMutex);
+    std::unique_lock<std::recursive_mutex> lock(blockchainMutex);
 
     if (data.empty()) {
         std::cerr << "❌ [ERROR] Received empty Protobuf blockchain data!\n";
@@ -1561,6 +1560,7 @@ bool Blockchain::deserializeBlockchain(const std::string &data) {
     }
 
     // 🔥 New: Call fork comparison logic
+    lock.unlock();
     compareAndMergeChains(receivedChain);
 
     return true;  // Always return true even if fork was weaker (forkView saved)
@@ -1644,7 +1644,7 @@ bool Blockchain::loadFromProto(const alyncoin::BlockchainProto &protoChain) {
 
 // ✅ **Replace blockchain if a longer valid chain is found**
 void Blockchain::replaceChain(const std::vector<Block> &newChain) {
-    std::lock_guard<std::recursive_mutex> lock(blockchainMutex);
+    std::unique_lock<std::recursive_mutex> lock(blockchainMutex);
 
     if (newChain.size() > chain.size()) {
         // 1. Check genesis block matches our chain
@@ -1668,6 +1668,7 @@ void Blockchain::replaceChain(const std::vector<Block> &newChain) {
         // 3. Replace and update
         chain = newChain;
         recalculateBalancesFromChain();
+        lock.unlock();
         saveToDB();
         std::cout << "✅ [replaceChain] Blockchain replaced with a longer, validated chain!\n";
     } else {
@@ -1677,7 +1678,7 @@ void Blockchain::replaceChain(const std::vector<Block> &newChain) {
 
 // ✅ Replace a prefix of the blockchain using a snapshot
 bool Blockchain::replaceChainUpTo(const std::vector<Block>& blocks, int upToHeight) {
-    std::lock_guard<std::recursive_mutex> lock(blockchainMutex);
+    std::unique_lock<std::recursive_mutex> lock(blockchainMutex);
 
     if (blocks.empty() || upToHeight < 0 || static_cast<int>(blocks.size()) != upToHeight + 1) {
         std::cerr << "❌ [replaceChainUpTo] Invalid input parameters\n";
@@ -1728,6 +1729,7 @@ bool Blockchain::replaceChainUpTo(const std::vector<Block>& blocks, int upToHeig
 
     recalculateBalancesFromChain();
     applyRollupDeltasToBalances();
+    lock.unlock();
     saveToDB();
 
     std::cout << "✅ [replaceChainUpTo] Replaced chain up to height " << upToHeight << "\n";
@@ -2713,7 +2715,7 @@ std::string Blockchain::getBlockHashAtHeight(int height) const {
 
 // Rollback to a specific block height (inclusive)
 bool Blockchain::rollbackToHeight(int height) {
-    std::lock_guard<std::recursive_mutex> lock(blockchainMutex);
+    std::unique_lock<std::recursive_mutex> lock(blockchainMutex);
 
     if (height < 0 || height >= static_cast<int>(chain.size())) {
         std::cerr << "❌ Invalid rollback height: " << height << "\n";
@@ -2726,6 +2728,7 @@ bool Blockchain::rollbackToHeight(int height) {
     // Recalculate everything post-trim
     recalculateBalancesFromChain();
     applyRollupDeltasToBalances();
+    lock.unlock();
     saveToDB();
 
     return true;
