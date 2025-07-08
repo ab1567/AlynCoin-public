@@ -41,6 +41,7 @@ struct PeerState {
   std::chrono::steady_clock::time_point banUntil{};
   std::array<uint8_t, 32> linkKey{};
   int lastTailHeight{-1};
+  uint32_t highestSeen{0};
   std::mutex m;
 };
 
