@@ -221,6 +221,11 @@ bool Network::sendFrame(std::shared_ptr<Transport> tr,
               << '\n';
     return false;
   }
+  if (payload.size() > MAX_WIRE_PAYLOAD) {
+    std::cerr << "[sendFrame] ❌ Payload too large: " << payload.size()
+              << " bytes (limit " << MAX_WIRE_PAYLOAD << ")" << '\n';
+    return false;
+  }
   uint8_t var[10];
   size_t n = encodeVarInt(payload.size(), var);
   std::string out(reinterpret_cast<char *>(var), n);
@@ -2889,16 +2894,32 @@ void Network::sendTailBlocks(std::shared_ptr<Transport> transport,
     std::cerr << "[sendTailBlocks] aborting: peer height >= local height\n";
     return;
   }
+  constexpr std::size_t MSG_LIMIT = MAX_TAIL_PAYLOAD;
   int start = fromHeight + 1;
   int end = std::min(bc.getHeight(), start + MAX_TAIL_BLOCKS - 1);
-  alyncoin::net::TailBlocks proto;
-  for (int i = start; i <= end; ++i) {
-    *proto.add_blocks() = bc.getChain()[i].toProtobuf();
-  }
+  std::vector<Block> chainCopy = bc.snapshot();
+  auto flushTail = [&](alyncoin::net::TailBlocks &tb) {
+    if (tb.blocks_size() == 0)
+      return;
+    alyncoin::net::Frame f;
+    *f.mutable_tail_blocks() = tb;
+    sendFrame(transport, f);
+  };
 
-  alyncoin::net::Frame fr;
-  *fr.mutable_tail_blocks() = proto;
-  sendFrame(transport, fr);
+  alyncoin::net::TailBlocks proto;
+  size_t current = 0;
+  for (int i = start; i <= end && i < static_cast<int>(chainCopy.size()); ++i) {
+    const auto &bp = chainCopy[i].toProtobuf();
+    size_t add = bp.ByteSizeLong();
+    if (current && current + add > MSG_LIMIT) {
+      flushTail(proto);
+      proto.clear_blocks();
+      current = 0;
+    }
+    *proto.add_blocks() = bp;
+    current += add;
+  }
+  flushTail(proto);
 }
 
 void Network::handleSnapshotMeta(const std::string &peer,
