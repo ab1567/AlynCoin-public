@@ -1221,12 +1221,6 @@ void Network::autoSyncIfBehind() {
     if (!peerManager)
       continue;
     int peerHeight = peerManager->getPeerHeight(peerAddr);
-    int gap = peerHeight - static_cast<int>(myHeight);
-    if (gap > 10 && peerSupportsSnapshot(peerAddr)) {
-      std::cout << "  → gap=" << gap << ", going straight to snapshot\n";
-      requestSnapshotSync(peerAddr);
-      continue;
-    }
     std::string peerTip = peerManager->getPeerTipHash(peerAddr);
 
     std::cout << "[autoSync] peer=" << peerAddr << " height=" << peerHeight
@@ -2074,12 +2068,6 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
         !isSyncing())
       requestTailBlocks(peer, Blockchain::getInstance().getHeight());
     break;
-  case alyncoin::net::Frame::kHeightProbe:
-    if (peerManager) {
-      peerManager->setPeerHeight(peer, f.height_probe().height());
-      peerManager->setPeerWork(peer, f.height_probe().total_work());
-    }
-    break;
   case alyncoin::net::Frame::kSnapshotMeta:
     handleSnapshotMeta(peer, f.snapshot_meta());
     break;
@@ -2478,14 +2466,11 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
           tx->close();
         return false;
       }
-      int oldTail = -1;
-      if (peerTransports.count(peerKey) && peerTransports[peerKey].state)
-        oldTail = peerTransports[peerKey].state->lastTailHeight;
-      peerTransports[peerKey] = {tx, std::make_shared<PeerState>(), true};
+        peerTransports[peerKey] = {tx, std::make_shared<PeerState>(), true};
       knownPeers.insert(peerKey);
       if (anchorPeers.size() < 2)
         anchorPeers.insert(peerKey);
-      auto st = peerTransports[peerKey].state;
+        auto st = peerTransports[peerKey].state;
         st->supportsAggProof = theirAgg;
         st->supportsSnapshot = theirSnap;
         st->supportsWhisper = theirWhisper;
@@ -2493,9 +2478,6 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
         st->supportsBanDecay = theirBanDecay;
         st->frameRev = remoteRev;
         st->version = rhs.version();
-      if (oldTail >= 0)
-        st->lastTailHeight = oldTail;
-      else
         st->lastTailHeight = theirHeight;
         st->highestSeen = static_cast<uint32_t>(theirHeight);
       if (rhs.pub_key().size() == 32)
@@ -2914,7 +2896,7 @@ void Network::sendTailBlocks(std::shared_ptr<Transport> transport,
   auto ps = it->second.state;
   if (fromHeight < ps->lastTailHeight)
     fromHeight = ps->lastTailHeight;
-  if (fromHeight < 0 || fromHeight >= bc.getHeight()) {
+  if (fromHeight >= bc.getHeight()) {
     std::cerr << "[sendTailBlocks] aborting: peer height >= local height\n";
     return;
   }
