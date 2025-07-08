@@ -215,23 +215,27 @@ bool Network::sendFrame(std::shared_ptr<Transport> tr,
       tag = WireFrame::SNAP_END;
     std::cerr << "[>>] Outgoing Frame Type=" << static_cast<int>(tag) << "\n";
   }
-  std::string payload = m.SerializeAsString();
-  if (payload.empty()) {
-    std::cerr << "[sendFrame] ❌ Attempting to send empty protobuf message!"
-              << '\n';
+size_t sz = m.ByteSizeLong();
+if (sz == 0) {
+    std::cerr << "[sendFrame] ❌ Attempting to send empty protobuf message!" << '\n';
     return false;
-  }
-  if (payload.size() > MAX_WIRE_PAYLOAD) {
-    std::cerr << "[sendFrame] ❌ Payload too large: " << payload.size()
+}
+if (sz > MAX_WIRE_PAYLOAD) {
+    std::cerr << "[sendFrame] ❌ Payload too large: " << sz
               << " bytes (limit " << MAX_WIRE_PAYLOAD << ")" << '\n';
     return false;
-  }
-  uint8_t var[10];
-  size_t n = encodeVarInt(payload.size(), var);
-  std::string out(reinterpret_cast<char *>(var), n);
-  out.append(payload);
-  std::cerr << "[sendFrame] Sending frame, payload size: " << payload.size()
-            << " bytes" << '\n';
+}
+std::vector<uint8_t> buf(sz);
+if (!m.SerializeToArray(buf.data(), static_cast<int>(sz))) {
+    std::cerr << "[sendFrame] ❌ SerializeToArray failed" << '\n';
+    return false;
+}
+uint8_t var[10];
+size_t n = encodeVarInt(sz, var);
+std::string out(reinterpret_cast<char *>(var), n);
+out.append(reinterpret_cast<const char *>(buf.data()), sz);
+std::cerr << "[sendFrame] Sending frame, payload size: " << sz
+          << " bytes" << '\n';
   if (immediate) {
     if (auto tcp = std::dynamic_pointer_cast<TcpTransport>(tr))
       return tcp->writeBinaryLocked(out);
@@ -1528,6 +1532,8 @@ void Network::sendBlockToPeer(const std::string &peer, const Block &blk) {
   auto it = peerTransports.find(peer);
   if (it != peerTransports.end() && it->second.tx && it->second.tx->isOpen())
     sendFrame(it->second.tx, fr);
+  if (it != peerTransports.end() && it->second.state)
+    it->second.state->highestSeen = blk.getIndex();
 }
 //
 bool Network::isSelfPeer(const std::string &p) const {
@@ -1724,6 +1730,9 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
       peerManager->setPeerTipHash(sender, newBlock.getHash());
       auto work = blockchain.computeCumulativeDifficulty(blockchain.getChain());
       peerManager->setPeerWork(sender, work.convert_to<uint64_t>());
+      auto it = peerTransports.find(sender);
+      if (it != peerTransports.end() && it->second.state)
+        it->second.state->highestSeen = newBlock.getIndex();
     }
     blockchain.broadcastNewTip();
     autoSyncIfBehind();
@@ -2071,6 +2080,11 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
     if (peerManager) {
       peerManager->setPeerHeight(peer, f.height_res().height());
       peerManager->setPeerWork(peer, f.height_res().total_work());
+    }
+    {
+      auto it = peerTransports.find(peer);
+      if (it != peerTransports.end() && it->second.state)
+        it->second.state->highestSeen = f.height_res().height();
     }
     if (f.height_res().height() > Blockchain::getInstance().getHeight() &&
         !isSyncing())
@@ -2487,6 +2501,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
         st->frameRev = remoteRev;
         st->version = rhs.version();
         st->lastTailHeight = theirHeight;
+        st->highestSeen = static_cast<uint32_t>(theirHeight);
       if (rhs.pub_key().size() == 32)
         std::copy(shared.begin(), shared.end(), st->linkKey.begin());
       if (peerManager) {
@@ -2663,11 +2678,17 @@ void Network::sendInventory(const std::string &peer) {
   auto it = peerTransports.find(peer);
   if (it == peerTransports.end() || !it->second.tx)
     return;
-  alyncoin::net::Frame fr;
-  auto *inv = fr.mutable_inv();
-  for (const auto &blk : bc.getChain())
-    inv->add_hashes(blk.getHash());
-  sendFrame(it->second.tx, fr);
+  uint32_t start = 0;
+  if (it->second.state)
+    start = it->second.state->highestSeen + 1;
+  const auto &chain = bc.getChain();
+  for (size_t i = start; i < chain.size(); i += MAX_INV_PER_MSG) {
+    alyncoin::net::Frame fr;
+    auto *inv = fr.mutable_inv();
+    for (size_t j = i; j < chain.size() && j < i + MAX_INV_PER_MSG; ++j)
+      inv->add_hashes(chain[j].getHash());
+    sendFrame(it->second.tx, fr);
+  }
 }
 
 // cleanup
@@ -2928,6 +2949,7 @@ void Network::sendTailBlocks(std::shared_ptr<Transport> transport,
   }
   flushTail(proto);
   ps->lastTailHeight = end;
+  ps->highestSeen = static_cast<uint32_t>(end);
 }
 
 void Network::handleSnapshotMeta(const std::string &peer,

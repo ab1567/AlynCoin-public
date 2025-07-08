@@ -22,3 +22,4 @@ inline constexpr std::size_t MAX_PEERS = 32;                       // hard cap
 inline constexpr int MAX_TAIL_BLOCKS = 256;      // limit tail block batches
 inline constexpr std::size_t MAX_WIRE_PAYLOAD = 256 * 1024; // 256 KiB frame cap
 inline constexpr std::size_t MAX_TAIL_PAYLOAD = 200 * 1024; // safe tail chunk
+inline constexpr std::size_t MAX_INV_PER_MSG = 500;         // inventory batch cap
