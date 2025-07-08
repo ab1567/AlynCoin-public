@@ -5,7 +5,6 @@
 #include "blockchain.h"
 #include "constants.h"
 #include <generated/block_protos.pb.h>
-#include <generated/blockchain_protos.pb.h>
 #include <generated/transaction_protos.pb.h>
 #include "network/peer_manager.h"
 #include "transaction.h"
@@ -28,6 +27,9 @@
 #include <vector>
 
 using boost::asio::ip::tcp;
+
+static_assert(alyncoin::net::Frame::kBlockBatch == 7,
+              "If you resurrect block_batch, you MUST chunk it first!");
 
 class Network {
 public:
@@ -157,6 +159,12 @@ public:
                  bool immediate = false);
   inline bool sendFrameImmediate(std::shared_ptr<Transport> tr,
                                  const google::protobuf::Message &m) {
+    const size_t sz = m.ByteSizeLong();
+    if (sz > MAX_WIRE_PAYLOAD) {
+      std::cerr << "[sendFrameImmediate] \xE2\x9D\x8C Payload too large: " << sz
+                << " bytes (limit " << MAX_WIRE_PAYLOAD << ")" << '\n';
+      return false;
+    }
     return sendFrame(std::move(tr), m, true);
   }
   void broadcastFrame(const google::protobuf::Message &m);

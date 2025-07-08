@@ -1427,30 +1427,12 @@ void Network::broadcastBlock(const Block &block, bool /*force*/) {
   }
 }
 
-// Broadcast a batch of blocks
+// Broadcast a batch of blocks (legacy path removed)
 void Network::broadcastBlocks(const std::vector<Block> &blocks) {
   if (blocks.empty())
     return;
-  for (const auto &b : blocks) {
-    std::lock_guard<std::mutex> lk(seenBlockMutex);
-    seenBlockHashes.insert(b.getHash());
-  }
-  alyncoin::BlockchainProto proto;
   for (const auto &b : blocks)
-    *proto.add_blocks() = b.toProtobuf();
-  std::string raw;
-  if (!proto.SerializeToString(&raw) || raw.empty())
-    return;
-
-  alyncoin::net::Frame fr;
-  fr.mutable_block_batch()->mutable_chain()->CopyFrom(proto);
-
-  for (auto &[peerId, entry] : peerTransports) {
-    auto transport = entry.tx;
-    if (isSelfPeer(peerId) || !transport || !transport->isOpen())
-      continue;
-    sendFrame(transport, fr);
-  }
+    broadcastBlock(b);
 }
 
 void Network::broadcastINV(const std::vector<std::string> &hashes) {
@@ -2039,13 +2021,9 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
     break;
   }
   case alyncoin::net::Frame::kBlockBatch: {
-    for (const auto &pb : f.block_batch().chain().blocks()) {
-      Block blk = Block::fromProto(pb);
-      std::cerr << "[dispatch] Batch block idx=" << blk.getIndex()
-                << " hash=" << blk.getHash() << '\n';
-      handleNewBlock(blk, peer);
-    }
-    break;
+    penalizePeer(peer, 20);
+    std::cerr << "[WARN] obsolete block_batch frame from " << peer << '\n';
+    return;
   }
   case alyncoin::net::Frame::kBlockRequest: {
     uint64_t idx = f.block_request().index();
