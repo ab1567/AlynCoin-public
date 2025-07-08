@@ -43,14 +43,14 @@ static Proposal deserializeProposal(const std::string& data) {
 
 bool DAOStorage::storeProposal(const Proposal& proposal) {
     RocksDBWrapper db(DBPaths::getGovernanceDB());
-    std::string key = "proposal_" + proposal.proposal_id;
+    std::string key = "proposal:" + proposal.proposal_id;
     std::string value = serializeProposal(proposal);
     return db.put(key, value);
 }
 
 bool DAOStorage::loadProposal(const std::string& proposal_id, Proposal& proposal) {
     RocksDBWrapper db(DBPaths::getGovernanceDB());
-    std::string key = "proposal_" + proposal_id;
+    std::string key = "proposal:" + proposal_id;
     std::string value;
     if (!db.get(key, value)) {
         return false;
@@ -61,16 +61,30 @@ bool DAOStorage::loadProposal(const std::string& proposal_id, Proposal& proposal
 
 bool DAOStorage::proposalExists(const std::string& proposal_id) {
     RocksDBWrapper db(DBPaths::getGovernanceDB());
-    std::string key = "proposal_" + proposal_id;
+    std::string key = "proposal:" + proposal_id;
     return db.exists(key);
 }
 std::vector<Proposal> DAOStorage::getAllProposals() {
     std::vector<Proposal> result;
     RocksDBWrapper db(DBPaths::getGovernanceDB());
 
-    auto all = db.prefixScan("proposal_");
+    auto all = db.prefixScan("proposal:");
     for (const auto& [key, value] : all) {
         result.push_back(deserializeProposal(value));
     }
     return result;
+}
+
+bool DAOStorage::hasVoted(const std::string& proposal_id, const std::string& voter) {
+    RocksDBWrapper db(DBPaths::getGovernanceDB());
+    std::string key = "vote:" + proposal_id + ":" + voter;
+    return db.exists(key);
+}
+
+bool DAOStorage::recordVote(const std::string& proposal_id, const std::string& voter,
+                            bool vote_yes, uint64_t weight) {
+    RocksDBWrapper db(DBPaths::getGovernanceDB());
+    std::string key = "vote:" + proposal_id + ":" + voter;
+    std::string val = std::string(vote_yes ? "yes" : "no") + ":" + std::to_string(weight);
+    return db.put(key, val);
 }

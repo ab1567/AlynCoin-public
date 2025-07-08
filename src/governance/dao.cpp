@@ -23,10 +23,16 @@ bool createProposal(const Proposal& proposal) {
 }
 
 // Cast a vote on a proposal
-bool castVote(const std::string& proposal_id, bool vote_yes, uint64_t vote_weight) {
+bool castVote(const std::string& proposal_id, const std::string& voter,
+              bool vote_yes, uint64_t vote_weight) {
     Proposal proposal;
     if (!DAOStorage::loadProposal(proposal_id, proposal)) {
         std::cerr << "[DAO] Proposal not found.\n";
+        return false;
+    }
+
+    if (DAOStorage::hasVoted(proposal_id, voter)) {
+        std::cerr << "[DAO] Voter has already voted.\n";
         return false;
     }
 
@@ -41,6 +47,8 @@ bool castVote(const std::string& proposal_id, bool vote_yes, uint64_t vote_weigh
     } else {
         proposal.no_votes += vote_weight;
     }
+
+    DAOStorage::recordVote(proposal_id, voter, vote_yes, vote_weight);
 
     // Update proposal
     return DAOStorage::storeProposal(proposal);
@@ -73,8 +81,13 @@ bool finalizeProposal(const std::string& proposal_id) {
         return true; // Already finalized
     }
 
-    // Determine outcome
-    if (proposal.yes_votes > proposal.no_votes) {
+    // Determine outcome with quorum and threshold
+    uint64_t total_votes = proposal.yes_votes + proposal.no_votes;
+    double yes_ratio = total_votes > 0 ?
+        static_cast<double>(proposal.yes_votes) / static_cast<double>(total_votes)
+        : 0.0;
+
+    if (total_votes >= MIN_TOTAL_VOTES && yes_ratio >= APPROVAL_THRESHOLD) {
         proposal.status = ProposalStatus::APPROVED;
 
         // ✅ Trigger DevFund transfer if applicable

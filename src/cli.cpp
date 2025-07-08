@@ -85,7 +85,7 @@ int main(int argc, char **argv) {
     auto isFullNet =
         cmd == "mine" || cmd == "mineonce" || cmd == "mineloop" ||
         cmd == "sendl1" || cmd == "sendl2" ||
-        cmd == "dao-submit" || cmd == "dao-vote" ||
+        cmd == "dao-submit" || cmd == "dao-vote" || cmd == "dao-finalize" ||
         cmd == "rollup" || cmd == "recursive-rollup" ||
         // Peer connect if host:port in arg
         (cmd.find(':') != std::string::npos && cmd.find('.') != std::string::npos);
@@ -379,12 +379,24 @@ if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == 
 
         Blockchain &b = getBlockchain();
         double weight = b.getBalance(from);
-        if (DAO::castVote(propID, yes, static_cast<uint64_t>(weight))) {
+        if (DAO::castVote(propID, from, yes, static_cast<uint64_t>(weight))) {
             std::cout << "✅ Vote cast!\n";
         } else {
             std::cerr << "❌ Failed to vote.\n";
         }
         std::exit(0);
+    }
+
+    // === DAO finalize ===
+    if (argc >= 3 && std::string(argv[1]) == "dao-finalize") {
+        std::string propID = argv[2];
+        if (DAO::finalizeProposal(propID)) {
+            std::cout << "✅ Proposal finalized.\n";
+            std::exit(0);
+        } else {
+            std::cerr << "❌ Failed to finalize proposal.\n";
+            std::exit(1);
+        }
     }
 
   // === Transaction history ===
@@ -1159,7 +1171,7 @@ int cliMain(int argc, char *argv[]) {
         break;
     }
 
-    if (DAO::castVote(proposal_id, voteYes, weight)) {
+    if (DAO::castVote(proposal_id, wallet->getAddress(), voteYes, weight)) {
         std::cout << "✅ Vote cast successfully! Weight: " << weight << "\n";
     } else {
         std::cerr << "❌ Failed to cast vote.\n";
