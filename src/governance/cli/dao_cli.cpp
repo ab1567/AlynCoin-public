@@ -42,6 +42,9 @@ void voteCLI() {
     std::string proposal_id;
     std::cout << "Enter Proposal ID: ";
     std::cin >> proposal_id;
+    std::string voter;
+    std::cout << "Enter Your Address: ";
+    std::cin >> voter;
     std::string vote;
     std::cout << "Vote (yes/no): ";
     std::cin >> vote;
@@ -51,7 +54,7 @@ void voteCLI() {
 
     bool vote_yes = (vote == "yes");
 
-    if (DAO::castVote(proposal_id, vote_yes, weight)) {
+    if (DAO::castVote(proposal_id, voter, vote_yes, weight)) {
         std::cout << "Vote Cast Successfully!\n";
     } else {
         std::cout << "Failed to cast vote.\n";

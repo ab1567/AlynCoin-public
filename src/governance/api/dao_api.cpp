@@ -65,10 +65,11 @@ void setupGovernanceAPI(crow::SimpleApp& app) {
     ([](const crow::request& req) {
         auto body = json::parse(req.body);
         std::string proposal_id = body["proposal_id"];
+        std::string voter = body["voter"];
         bool vote_yes = body["vote"] == "yes";
         uint64_t weight = body["weight"];
 
-        bool result = DAO::castVote(proposal_id, vote_yes, weight);
+        bool result = DAO::castVote(proposal_id, voter, vote_yes, weight);
 
         json res;
         res["status"] = result ? "Vote Cast" : "Failed";

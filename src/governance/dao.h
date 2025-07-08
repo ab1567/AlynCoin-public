@@ -21,6 +21,10 @@ enum class ProposalStatus {
     EXPIRED
 };
 
+// Basic quorum/threshold rules
+constexpr uint64_t MIN_TOTAL_VOTES = 100;
+constexpr double APPROVAL_THRESHOLD = 0.6; // 60% yes
+
 // Struct: Governance Proposal
 struct Proposal {
     std::string proposal_id;       // Unique ID (hash or UUID)
@@ -41,7 +45,8 @@ struct Proposal {
 // DAO Logic Functions
 namespace DAO {
     bool createProposal(const Proposal& proposal);
-    bool castVote(const std::string& proposal_id, bool vote_yes, uint64_t vote_weight);
+    bool castVote(const std::string& proposal_id, const std::string& voter,
+                  bool vote_yes, uint64_t vote_weight);
     ProposalStatus checkProposalStatus(const std::string& proposal_id);
     bool finalizeProposal(const std::string& proposal_id);
 }

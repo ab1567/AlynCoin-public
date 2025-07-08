@@ -383,7 +383,7 @@ svr.Post("/rpc", [blockchain, network, healer](const httplib::Request& req, http
             std::string vote = params.at(2);
             bool yes = (vote == "yes" || vote == "y");
             double weight = blockchain->getBalance(from);
-            if (DAO::castVote(propID, yes, static_cast<uint64_t>(weight))) {
+            if (DAO::castVote(propID, from, yes, static_cast<uint64_t>(weight))) {
                 output = {{"result", "Vote cast"}};
             } else {
                 output = {{"error", "Failed to vote"}};
@@ -997,7 +997,7 @@ if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == 
 
         Blockchain &b = Blockchain::getInstance();
         double weight = b.getBalance(from);
-        if (DAO::castVote(propID, yes, static_cast<uint64_t>(weight))) {
+        if (DAO::castVote(propID, from, yes, static_cast<uint64_t>(weight))) {
             std::cout << "✅ Vote cast!\n";
         } else {
             std::cerr << "❌ Failed to vote.\n";
