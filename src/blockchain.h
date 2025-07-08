@@ -64,6 +64,7 @@ private:
   int difficulty;
   double miningReward;
   mutable std::mutex mutex;
+  mutable std::mutex chainMtx;  // protects in-memory chain vector
   std::string minerAddress;
   Network *network;
   rocksdb::DB *db;
@@ -186,6 +187,7 @@ public:
   bool replaceChainUpTo(const std::vector<Block>& blocks, int upToHeight);
   void updateTransactionHistory(int newTxCount);
   const std::vector<Block> &getChain() const;
+  std::vector<Block> snapshot() const; // thread-safe copy of chain
   Json::Value toJSON() const;
   void addRollupBlock(const RollupBlock &newRollupBlock);
   bool isRollupBlockValid(const RollupBlock &newRollupBlock, bool skipProofVerification = false) const;

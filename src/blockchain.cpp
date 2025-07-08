@@ -380,6 +380,7 @@ Block Blockchain::createGenesisBlock(bool force)
 
 // ✅ Adds block, applies smart burn, and broadcasts to peers
 bool Blockchain::addBlock(const Block &block) {
+    std::lock_guard<std::mutex> lk(chainMtx);
     std::cerr << "[addBlock] Attempting: idx=" << block.getIndex()
               << ", hash=" << block.getHash()
               << ", prev=" << block.getPreviousHash()
@@ -710,6 +711,11 @@ rocksdb::DB* Blockchain::getRawDB() {
 }
 //
 const std::vector<Block> &Blockchain::getChain() const { return chain; }
+
+std::vector<Block> Blockchain::snapshot() const {
+    std::lock_guard<std::mutex> lk(chainMtx);
+    return chain;
+}
 //
 void Blockchain::loadFromPeers() {
   if (!network) {

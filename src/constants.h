@@ -19,3 +19,5 @@ inline constexpr int DESYNC_THRESHOLD = 5000;
 inline constexpr std::size_t MAX_SNAPSHOT_CHUNK_SIZE = 256 * 1024; // 256 KiB
 inline constexpr std::size_t MAX_PEERS = 32;                       // hard cap
 inline constexpr int MAX_TAIL_BLOCKS = 256;      // limit tail block batches
+inline constexpr std::size_t MAX_WIRE_PAYLOAD = 256 * 1024; // 256 KiB frame cap
+inline constexpr std::size_t MAX_TAIL_PAYLOAD = 200 * 1024; // safe tail chunk
