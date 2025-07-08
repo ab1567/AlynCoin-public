@@ -40,6 +40,7 @@ struct PeerState {
   std::string version;
   std::chrono::steady_clock::time_point banUntil{};
   std::array<uint8_t, 32> linkKey{};
+  int lastTailHeight{-1};
   std::mutex m;
 };
 

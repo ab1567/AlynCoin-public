@@ -1069,7 +1069,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     else if (remoteAgg)
       requestEpochHeaders(claimedPeerId);
   } else if (remoteHeight < static_cast<int>(myHeight) && remoteSnap)
-    sendTailBlocks(transport, remoteHeight);
+    sendTailBlocks(transport, remoteHeight, claimedPeerId);
 
   autoSyncIfBehind();
   intelligentSync();
@@ -1242,7 +1242,7 @@ void Network::autoSyncIfBehind() {
     } else if (peerHeight < static_cast<int>(myHeight)) {
       if (peerSupportsSnapshot(peerAddr)) {
         std::cout << "  → sending tail blocks\n";
-        sendTailBlocks(tr, peerHeight);
+        sendTailBlocks(tr, peerHeight, peerAddr);
       }
     }
   }
@@ -1316,7 +1316,7 @@ void Network::periodicSync() {
         if (it2 != peerTransports.end() && it2->second.tx &&
             it2->second.tx->isOpen()) {
           int ph = peerManager ? peerManager->getPeerHeight(peerId) : 0;
-          sendTailBlocks(it2->second.tx, ph);
+          sendTailBlocks(it2->second.tx, ph, peerId);
         }
       }
       continue;
@@ -2478,14 +2478,15 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
       knownPeers.insert(peerKey);
       if (anchorPeers.size() < 2)
         anchorPeers.insert(peerKey);
-      auto st = peerTransports[peerKey].state;
-      st->supportsAggProof = theirAgg;
-      st->supportsSnapshot = theirSnap;
-      st->supportsWhisper = theirWhisper;
-      st->supportsTls = theirTls;
-      st->supportsBanDecay = theirBanDecay;
-      st->frameRev = remoteRev;
-      st->version = rhs.version();
+        auto st = peerTransports[peerKey].state;
+        st->supportsAggProof = theirAgg;
+        st->supportsSnapshot = theirSnap;
+        st->supportsWhisper = theirWhisper;
+        st->supportsTls = theirTls;
+        st->supportsBanDecay = theirBanDecay;
+        st->frameRev = remoteRev;
+        st->version = rhs.version();
+        st->lastTailHeight = theirHeight;
       if (rhs.pub_key().size() == 32)
         std::copy(shared.begin(), shared.end(), st->linkKey.begin());
       if (peerManager) {
@@ -2502,7 +2503,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
       else if (theirAgg)
         requestEpochHeaders(peerKey);
     } else if (theirHeight < localHeight && theirSnap)
-      sendTailBlocks(tx, theirHeight);
+      sendTailBlocks(tx, theirHeight, peerKey);
 
     startBinaryReadLoop(peerKey, tx);
     sendInitialRequests(peerKey);
@@ -2888,8 +2889,14 @@ void Network::sendSnapshot(std::shared_ptr<Transport> transport,
 //
 
 void Network::sendTailBlocks(std::shared_ptr<Transport> transport,
-                             int fromHeight) {
+                             int fromHeight, const std::string &peerId) {
   Blockchain &bc = Blockchain::getInstance();
+  auto it = peerTransports.find(peerId);
+  if (it == peerTransports.end() || !it->second.state)
+    return;
+  auto ps = it->second.state;
+  if (fromHeight < ps->lastTailHeight)
+    fromHeight = ps->lastTailHeight;
   if (fromHeight >= bc.getHeight()) {
     std::cerr << "[sendTailBlocks] aborting: peer height >= local height\n";
     return;
@@ -2920,6 +2927,7 @@ void Network::sendTailBlocks(std::shared_ptr<Transport> transport,
     current += add;
   }
   flushTail(proto);
+  ps->lastTailHeight = end;
 }
 
 void Network::handleSnapshotMeta(const std::string &peer,
@@ -2969,7 +2977,7 @@ void Network::handleTailRequest(const std::string &peer, int fromHeight) {
   auto it = peerTransports.find(peer);
   if (it == peerTransports.end() || !it->second.tx)
     return;
-  sendTailBlocks(it->second.tx, fromHeight);
+  sendTailBlocks(it->second.tx, fromHeight, peer);
 }
 void Network::handleSnapshotEnd(const std::string &peer) {
   auto it = peerTransports.find(peer);
