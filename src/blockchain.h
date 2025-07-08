@@ -30,9 +30,9 @@
 #define DIFFICULTY 4
 #define DEFAULT_PORT 15671
 
-// Recursive mutex protecting in-memory chain state. Callers should release
-// this lock before performing any RocksDB writes to avoid deadlocks.
-extern std::recursive_mutex blockchainMutex;
+// Mutex protecting in-memory chain state. Functions interacting with RocksDB
+// should release this lock before performing disk writes to avoid deadlocks.
+extern std::mutex blockchainMutex;
 extern double totalSupply;
 
 using boost::asio::ip::tcp;

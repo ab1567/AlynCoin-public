@@ -696,7 +696,7 @@ void Network::autoMineBlock() {
 
         if (blockchain.isValidNewBlock(minedBlock) && validSignatures) {
           {
-            std::lock_guard<std::recursive_mutex> lock(blockchainMutex);
+            std::lock_guard<std::mutex> lock(blockchainMutex);
             Blockchain::getInstance().saveToDB();
           }
           broadcastBlock(minedBlock);
@@ -2742,7 +2742,7 @@ void Network::receiveRollupBlock(const std::string &data) {
 void Network::handleNewRollupBlock(const RollupBlock &newRollupBlock) {
   if (Blockchain::getInstance().isRollupBlockValid(newRollupBlock)) {
     Blockchain::getInstance().addRollupBlock(newRollupBlock);
-    std::lock_guard<std::recursive_mutex> lock(blockchainMutex);
+    std::lock_guard<std::mutex> lock(blockchainMutex);
     Blockchain::getInstance().saveRollupChain();
     std::cout << "[INFO] New rollup block added. Index: "
               << newRollupBlock.getIndex() << "\n";

@@ -7,7 +7,9 @@
 inline constexpr std::string_view GENESIS_PARENT_HASH =
     "0000000000000000000000000000000000000000000000000000000000000000";
 
-inline constexpr uint32_t GENESIS_DIFFICULTY = 0x1e777777;
+// Use a minimal difficulty for the genesis block. A large value causes
+// massive allocations when computing the initial accumulated work.
+inline constexpr uint32_t GENESIS_DIFFICULTY = 1;
 
 inline constexpr int DESYNC_THRESHOLD = 5000;
 
