@@ -201,7 +201,8 @@ bool Network::sendFrame(std::shared_ptr<Transport> tr,
     WireFrame tag = WireFrame::OTHER;
     if (fr->has_handshake())
       tag = WireFrame::HANDSHAKE;
-    else if (fr->has_height_req() || fr->has_height_res())
+    else if (fr->has_height_req() || fr->has_height_res() ||
+             fr->has_height_probe())
       tag = WireFrame::HEIGHT;
     else if (fr->has_peer_list())
       tag = WireFrame::PEER_LIST;
@@ -1992,7 +1993,7 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
   WireFrame tag = WireFrame::OTHER;
   if (f.has_handshake())
     tag = WireFrame::HANDSHAKE;
-  else if (f.has_height_req() || f.has_height_res())
+  else if (f.has_height_req() || f.has_height_res() || f.has_height_probe())
     tag = WireFrame::HEIGHT;
   else if (f.has_peer_list())
     tag = WireFrame::PEER_LIST;
@@ -2068,6 +2069,18 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
         !isSyncing())
       requestTailBlocks(peer, Blockchain::getInstance().getHeight());
     break;
+  case alyncoin::net::Frame::kHeightProbe: {
+    const auto &hp = f.height_probe();
+    if (peerManager) {
+      peerManager->setPeerHeight(peer, hp.height());
+      peerManager->setPeerWork(peer, hp.total_work());
+      peerManager->setPeerTipHash(peer, hp.tip_hash());
+    }
+    auto it = peerTransports.find(peer);
+    if (it != peerTransports.end() && it->second.state)
+      it->second.state->highestSeen = hp.height();
+    break;
+  }
   case alyncoin::net::Frame::kSnapshotMeta:
     handleSnapshotMeta(peer, f.snapshot_meta());
     break;
@@ -2275,6 +2288,14 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     return publicPeerId.empty() ? "127.0.0.1:" + std::to_string(this->port)
                                 : publicPeerId;
   };
+  {
+    std::lock_guard<std::timed_mutex> g(peersMutex);
+    auto it = peerTransports.find(peerKey);
+    if (it != peerTransports.end() && it->second.tx && it->second.tx->isOpen())
+      return true;
+  }
+  if (selfAddr() > peerKey)
+    return false;
   if (isBlacklisted(peerKey)) {
     std::cerr << "⚠️ [connectToNode] " << peerKey << " is banned.\n";
     return false;
@@ -2890,6 +2911,9 @@ void Network::sendSnapshot(std::shared_ptr<Transport> transport,
 void Network::sendTailBlocks(std::shared_ptr<Transport> transport,
                              int fromHeight, const std::string &peerId) {
   Blockchain &bc = Blockchain::getInstance();
+  int myHeight = bc.getHeight();
+  if (fromHeight < 0 || fromHeight >= myHeight)
+    return;
   auto it = peerTransports.find(peerId);
   if (it == peerTransports.end() || !it->second.state)
     return;
