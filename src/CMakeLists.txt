@@ -497,6 +497,17 @@ target_link_libraries(blacklist_test
     dl
 )
 
+# Additional unit test for reorg logic
+add_executable(reorg_test ${SOURCE_DIR}/unit/reorg.test.cpp)
+target_link_libraries(reorg_test
+    alyncoin_lib
+    ${JSONCPP_LIBRARIES}
+    ${ROCKSDB_LIB}
+    pthread
+    m
+    dl
+)
+
 # --------------------------
 # Blockchain Explorer Executable
 add_executable(explorer_server ${EXPLORER_SOURCES})

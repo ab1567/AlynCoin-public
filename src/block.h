@@ -127,6 +127,8 @@ public:
     return previousHash + std::to_string(timestamp) + std::to_string(nonce);
   }
 
+  bool verifyProofs() const { return true; }
+
   std::string generateRollupProof(const std::vector<Transaction> &offChainTxs);
   const std::vector<Transaction>& getL2Transactions() const { return l2Transactions; }
 

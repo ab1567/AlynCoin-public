@@ -66,13 +66,14 @@ std::atomic<bool> Blockchain::isMining{false};
 
 Blockchain::Blockchain()
     : difficulty(0), miningReward(100.0), db(nullptr), totalBurnedSupply(0.0),
-      network(nullptr), totalWork(0) {
+      network(nullptr), totalWork(0), cfBlockIndex(nullptr) {
   std::cout << "[DEBUG] Default Blockchain constructor called.\n";
 }
 
 // ✅ Constructor: Open RocksDB
 Blockchain::Blockchain(unsigned short port, const std::string &dbPath, bool bindNetwork, bool isSyncMode)
-    : difficulty(0), miningReward(100.0), port(port), dbPath(dbPath), totalWork(0) {
+    : difficulty(0), miningReward(100.0), port(port), dbPath(dbPath), totalWork(0),
+      cfBlockIndex(nullptr) {
 
     // Only set network pointer if asked AND it's already initialized, otherwise nullptr
     if (bindNetwork) {
@@ -115,10 +116,12 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath, bool bind
     std::vector<std::string> cfNames;
     rocksdb::Status status = rocksdb::DB::ListColumnFamilies(options, dbPathFinal, &cfNames);
     bool hasCheck = false;
+    bool hasIndexCf = false;
     std::vector<rocksdb::ColumnFamilyDescriptor> cfDesc;
     if (status.ok()) {
         for (const auto& name : cfNames) {
             if (name == "cfCheck") hasCheck = true;
+            if (name == "block_index_cf") hasIndexCf = true;
             cfDesc.emplace_back(name, rocksdb::ColumnFamilyOptions());
         }
     }
@@ -126,6 +129,8 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath, bool bind
         cfDesc.emplace_back(rocksdb::kDefaultColumnFamilyName, rocksdb::ColumnFamilyOptions());
     if (!hasCheck)
         cfDesc.emplace_back("cfCheck", rocksdb::ColumnFamilyOptions());
+    if (!hasIndexCf)
+        cfDesc.emplace_back("block_index_cf", rocksdb::ColumnFamilyOptions());
 
     std::vector<rocksdb::ColumnFamilyHandle*> handles;
     status = rocksdb::DB::Open(options, dbPathFinal, cfDesc, &handles, &db);
@@ -135,6 +140,7 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath, bool bind
     }
     for (size_t i=0;i<cfDesc.size();++i) {
         if (cfDesc[i].name == "cfCheck") cfCheck = handles[i];
+        if (cfDesc[i].name == "block_index_cf") cfBlockIndex = handles[i];
     }
     if (!g_dbWriter)
         g_dbWriter = new DBWriter(db);
@@ -175,6 +181,10 @@ Blockchain::~Blockchain() {
     if (cfCheck) {
         db->DestroyColumnFamilyHandle(cfCheck);
         cfCheck = nullptr;
+    }
+    if (cfBlockIndex) {
+        db->DestroyColumnFamilyHandle(cfBlockIndex);
+        cfBlockIndex = nullptr;
     }
     delete db;
     db = nullptr; // ✅ Prevent potential use-after-free issues
@@ -522,6 +532,15 @@ bool Blockchain::addBlock(const Block &block) {
             totalWork += (1ULL << block.getDifficulty());
         else
             totalWork += 1ULL;
+
+        uint64_t cum = 0;
+        if (!chain.empty()) {
+            if (chain.size() > 1)
+                cum = index[block.getPreviousHash()].cumWork;
+        }
+        cum += difficultyToWork64(block.getDifficulty());
+        index[block.getHash()] = {static_cast<uint32_t>(block.getIndex()), cum, block.getPreviousHash()};
+        heightToHash[block.getIndex()] = block.getHash();
         if (network && network->getPeerManager())
             network->getPeerManager()->setLocalWork(totalWork);
         if (network)
@@ -572,6 +591,12 @@ bool Blockchain::addBlock(const Block &block) {
         if (!statusHash.ok()) {
             std::cerr << "❌ [addBlock] Failed to save block by hash: " << statusHash.ToString() << "\n";
             return false;
+        }
+        if (cfBlockIndex) {
+            std::string meta = std::to_string(index[block.getHash()].height) + "|" +
+                               std::to_string(index[block.getHash()].cumWork) + "|" +
+                               index[block.getHash()].prev;
+            db->Put(rocksdb::WriteOptions(), cfBlockIndex, block.getHash(), meta);
         }
         if (!saveToDB()) {
             std::cerr << "❌ [addBlock] Failed to save blockchain to database after adding block.\n";
@@ -1362,6 +1387,15 @@ bool Blockchain::loadFromDB() {
         applyVestingSchedule();
         db->Put(rocksdb::WriteOptions(), "vesting_initialized", "true");
         std::cout << "✅ Vesting applied & marker set.\n";
+    }
+
+    index.clear();
+    heightToHash.clear();
+    uint64_t cumWork = 0;
+    for (const auto& b : chain) {
+        cumWork += difficultyToWork64(b.getDifficulty());
+        index[b.getHash()] = {static_cast<uint32_t>(b.getIndex()), cumWork, b.getPreviousHash()};
+        heightToHash[b.getIndex()] = b.getHash();
     }
 
     totalWork = 0;
@@ -2896,6 +2930,69 @@ bool Blockchain::tryAppendBlock(const Block &blk)
 
 
     return true;
+}
+
+bool Blockchain::acceptBlock(const Block& blk) {
+    if (!blk.verifyProofs()) return false;
+    const std::string& ph = blk.getPreviousHash();
+    uint64_t blkWork = difficultyToWork64(blk.getDifficulty());
+    uint64_t parentWork = index.count(ph) ? index[ph].cumWork : 0;
+    uint64_t newCumWork = parentWork + blkWork;
+
+    index[blk.getHash()] = {index.count(ph) ? index[ph].height + 1 : 0, newCumWork, ph};
+    if (cfBlockIndex) {
+        std::string meta = std::to_string(index[blk.getHash()].height) + "|" +
+                           std::to_string(index[blk.getHash()].cumWork) + "|" +
+                           index[blk.getHash()].prev;
+        db->Put(rocksdb::WriteOptions(), cfBlockIndex, blk.getHash(), meta);
+    }
+
+    if (ph == (chain.empty() ? "" : chain.back().getHash())) {
+        applyBlock(blk);
+        return true;
+    }
+
+    sideTips.insert(blk.getHash());
+
+    if (newCumWork > (chain.empty() ? 0 : index[chain.back().getHash()].cumWork)) {
+        reorgTo(blk.getHash());
+        return true;
+    }
+    return true;
+}
+
+void Blockchain::reorgTo(const std::string& newTip) {
+    std::vector<Block> connect;
+    std::unordered_set<std::string> oldPath;
+    std::string a = chain.empty() ? "" : chain.back().getHash();
+    while (!a.empty()) { oldPath.insert(a); a = index[a].prev; }
+
+    std::string b = newTip;
+    Block temp;
+    while (!oldPath.count(b)) { getBlockByHash(b, temp); connect.push_back(temp); b = index[b].prev; }
+    std::string forkPoint = b;
+
+    rollbackToHeight(index[forkPoint].height);
+
+    std::reverse(connect.begin(), connect.end());
+    for (auto& blk : connect) applyBlock(blk);
+
+    rebuildHeightMap();
+    std::cout << "Chain re-organised to new tip " << newTip << " (height " << chain.back().getIndex() << ")" << std::endl;
+}
+
+void Blockchain::rebuildHeightMap() {
+    heightToHash.clear();
+    for (size_t i = 0; i < chain.size(); ++i)
+        heightToHash[chain[i].getIndex()] = chain[i].getHash();
+}
+
+void Blockchain::applyBlock(const Block& blk) {
+    addBlock(blk);
+}
+
+void Blockchain::undoBlock(const Block& blk) {
+    (void)blk;
 }
 // ✅ Compare incoming chain and merge if better
 void Blockchain::compareAndMergeChains(const std::vector<Block>& otherChain) {

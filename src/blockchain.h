@@ -69,6 +69,7 @@ private:
   Network *network;
   rocksdb::DB *db;
   rocksdb::ColumnFamilyHandle* cfCheck{nullptr};
+  rocksdb::ColumnFamilyHandle* cfBlockIndex{nullptr};
   int checkpointHeight{0};
   std::unordered_map<std::string, double> balances;
   std::vector<RollupBlock> rollupChain;
@@ -76,6 +77,16 @@ private:
   double devFundBalance = 0.0;
   std::time_t devFundLastActivity = std::time(nullptr);
   uint64_t totalWork = 0;
+
+  struct BlockMeta {
+    uint32_t height;
+    uint64_t cumWork;
+    std::string prev;
+  };
+
+  std::unordered_map<std::string, BlockMeta> index;
+  std::unordered_map<uint32_t, std::string> heightToHash;
+  std::unordered_set<std::string> sideTips;
 
   // --- Vesting ---
   struct VestingInfo {
@@ -259,6 +270,13 @@ public:
   // --- Snapshot/fast sync helpers ---
   std::vector<Block> getChainUpTo(size_t height) const;
   bool tryAppendBlock(const Block &blk);
+
+  // New cumulative-work fork handling
+  bool acceptBlock(const Block& blk);
+  void reorgTo(const std::string& newTip);
+  void rebuildHeightMap();
+  void applyBlock(const Block& blk);
+  void undoBlock(const Block& blk);
 
 };
 

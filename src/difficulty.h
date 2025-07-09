@@ -22,6 +22,7 @@ constexpr uint64_t PREMINE_SUPPLY = 10'000'000;   // For clarity in docs/tests
 // ─────────────────────────────────────────────────────────────────────────────
 int getActiveMinerCount();
 boost::multiprecision::cpp_int difficultyToWork(int diff);
+uint64_t difficultyToWork64(int diff);
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Difficulty ladder – user-friendly, piece-wise floor

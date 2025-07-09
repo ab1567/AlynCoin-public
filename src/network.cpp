@@ -1646,7 +1646,6 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender,
     }
     return;
   }
-  const int expectedIndex = blockchain.getLatestBlock().getIndex() + 1;
   auto punish = [&] {
     if (!sender.empty()) {
       auto it = peerTransports.find(sender);
@@ -1693,68 +1692,7 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender,
   }
   }
 
-  // 2) Fork detection
-  if (!blockchain.getChain().empty()) {
-    std::string localTipHash = blockchain.getLatestBlockHash();
-    if (newBlock.getPreviousHash() != localTipHash) {
-      std::cerr
-          << "⚠️ [Fork Detected] Previous hash mismatch at incoming block.\n";
-
-      blockchain.saveForkView({newBlock});
-
-      bool added = blockchain.addBlock(newBlock);
-      if (!added) {
-        for (const auto &peer : peerTransports) {
-          sendForkRecoveryRequest(peer.first, newBlock.getHash());
-        }
-        punish();
-        return;
-      }
-
-      blockchain.saveToDB();
-      broadcastBlock(newBlock);
-      if (peerManager && !sender.empty()) {
-        peerManager->setPeerHeight(sender, newBlock.getIndex());
-        peerManager->setPeerTipHash(sender, newBlock.getHash());
-      }
-      blockchain.broadcastNewTip();
-      autoSyncIfBehind();
-
-      std::cout << "✅ Block added successfully (fork branch). Index: "
-                << newBlock.getIndex() << "\n";
-      return;
-    }
-  }
-
-  // 3) Index ordering
-  if (newBlock.getIndex() < expectedIndex) {
-    std::cerr << "⚠️ [Node] Ignoring duplicate or old block (idx="
-              << newBlock.getIndex() << ").\n";
-    if (!blockchain.hasBlockHash(newBlock.getHash())) {
-      std::cerr
-          << "🧐 [Node] Unknown historical block. Requesting fork recovery.\n";
-      blockchain.setPendingForkChain({newBlock});
-      for (const auto &peer : peerTransports) {
-        sendForkRecoveryRequest(peer.first, newBlock.getHash());
-      }
-    }
-    punish();
-    return;
-  }
-  if (newBlock.getIndex() > expectedIndex) {
-    std::cerr << "⚠️ [Node] Received future block. Buffering (idx="
-              << newBlock.getIndex() << ").\n";
-    futureBlockBuffer[newBlock.getIndex()] = newBlock;
-
-    if (newBlock.getIndex() > expectedIndex + 5) {
-      for (const auto &peer : peerTransports) {
-        sendForkRecoveryRequest(peer.first, newBlock.getHash());
-      }
-    }
-    return;
-  }
-
-  // 4) Signature validation
+  // 2) Signature validation
   try {
     auto msgBytes = newBlock.getSignatureMessage();
     auto sigDil = newBlock.getDilithiumSignature();
@@ -1782,9 +1720,9 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender,
     return;
   }
 
-  // 5) Add and save
+  // 3) Add and save using cumulative work logic
   try {
-    if (!blockchain.addBlock(newBlock)) {
+    if (!blockchain.acceptBlock(newBlock)) {
       std::cerr << "❌ [ERROR] Failed to add new block.\n";
       punish();
       return;
