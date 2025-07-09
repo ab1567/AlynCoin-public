@@ -87,7 +87,13 @@ void interactiveMenu() {
 	    int64_t ts = std::time(nullptr);
 	    std::string id = generateNFTID(creator, imageHash, ts);
 
-	    NFT nft{id, creator, owner, metadata, imageHash, ts, {}};
+            NFT nft;
+            nft.id = id;
+            nft.creator = creator;
+            nft.owner = owner;
+            nft.metadata = metadata;
+            nft.imageHash = imageHash;
+            nft.timestamp = ts;
 	    nft.creator_identity = identity;
 
 	    std::string message = nft.getSignatureMessage();
@@ -234,7 +240,13 @@ void interactiveMenu() {
     int64_t ts = std::time(nullptr);
     std::string newId = generateNFTID(currentUser, nft.imageHash, ts);
 
-    NFT updated{newId, currentUser, currentUser, newMetadata, nft.imageHash, ts, {}};
+    NFT updated;
+    updated.id = newId;
+    updated.creator = currentUser;
+    updated.owner = currentUser;
+    updated.metadata = newMetadata;
+    updated.imageHash = nft.imageHash;
+    updated.timestamp = ts;
     updated.version = std::to_string(newVersion);
     updated.creator_identity = nft.creator_identity;
     updated.expiry_timestamp = nft.expiry_timestamp;
@@ -434,7 +446,14 @@ if (cmd == "mint" && argc >= 5) {
 
     std::vector<uint8_t> sig = Crypto::signWithFalcon(msgHash, keypair.privateKey);
 
-    NFT nft{id, creator, creator, metadata, imageHash, ts, sig};
+    NFT nft;
+    nft.id = id;
+    nft.creator = creator;
+    nft.owner = creator;
+    nft.metadata = metadata;
+    nft.imageHash = imageHash;
+    nft.timestamp = ts;
+    nft.signature = sig;
     nft.creator_identity = identity;
     nft.generateZkStarkProof();
 
@@ -524,7 +543,14 @@ if (cmd == "remint" && argc >= 5) {
     auto keys = Crypto::loadFalconKeys(currentUser);
     std::vector<uint8_t> sig = Crypto::signWithFalcon(msgHash, keys.privateKey);
 
-    NFT updated{newId, currentUser, currentUser, newMetadata, nft.imageHash, ts, sig};
+    NFT updated;
+    updated.id = newId;
+    updated.creator = currentUser;
+    updated.owner = currentUser;
+    updated.metadata = newMetadata;
+    updated.imageHash = nft.imageHash;
+    updated.timestamp = ts;
+    updated.signature = sig;
     updated.version = std::to_string(newVersion);
     updated.creator_identity = nft.creator_identity;
     updated.expiry_timestamp = nft.expiry_timestamp;

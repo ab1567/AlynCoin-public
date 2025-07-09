@@ -135,6 +135,8 @@ static std::unordered_set<std::string> seenTxHashes;
 static std::mutex seenTxMutex;
 static std::unordered_set<std::string> seenBlockHashes;
 static std::mutex seenBlockMutex;
+static std::unordered_set<std::string> verifiedBlocks;
+static std::mutex verifiedMutex;
 
 struct EpochProofEntry {
   std::string root;
@@ -146,6 +148,10 @@ static std::map<uint64_t, Block> futureBlockBuffer;
 PubSubRouter g_pubsub;
 namespace fs = std::filesystem;
 Network *Network::instancePtr = nullptr;
+bool Network::asyncVerifyEnabled = false;
+std::vector<std::jthread> Network::verifyThreads;
+boost::lockfree::queue<Network::PendingBlock *, boost::lockfree::capacity<64>>
+    Network::verifyQueue;
 
 // Queue item containing a frame and originating peer for worker threads
 struct RxItem {
@@ -198,6 +204,34 @@ unsigned short Network::findAvailablePort(unsigned short startPort,
       return p;
   }
   return 0;
+}
+
+void Network::setAsyncVerify(bool enable) {
+  asyncVerifyEnabled = enable;
+  if (enable && verifyThreads.empty()) {
+    unsigned n = std::max(1u, std::thread::hardware_concurrency());
+    for (unsigned i = 0; i < n; ++i) {
+      verifyThreads.emplace_back([] {
+        while (Network::asyncVerifyEnabled) {
+          PendingBlock *pb = nullptr;
+          if (Network::verifyQueue.pop(pb)) {
+            if (pb) {
+              Network::getInstance().handleNewBlock(pb->block, pb->sender, true);
+              delete pb;
+            }
+          } else {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+          }
+        }
+      });
+    }
+  }
+  if (!enable) {
+    for (auto &t : verifyThreads)
+      if (t.joinable())
+        t.join();
+    verifyThreads.clear();
+  }
 }
 //
 
@@ -1056,6 +1090,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
       entry.state = std::make_shared<PeerState>();
     entry.state->supportsAggProof = remoteAgg;
     entry.state->supportsSnapshot = remoteSnap;
+    entry.state->wantSnapshot = remoteWantSnap;
     entry.state->supportsWhisper = remoteWhisper;
     entry.state->supportsTls = remoteTls;
     entry.state->supportsBanDecay = remoteBanDecay;
@@ -1598,10 +1633,18 @@ void Network::receiveTransaction(const Transaction &tx) {
 
 // Valid peer
 // Handle new block
-void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
+void Network::handleNewBlock(const Block &newBlock, const std::string &sender,
+                             bool fromWorker) {
   Blockchain &blockchain = Blockchain::getInstance();
   std::cerr << "[handleNewBlock] Attempting to add block idx="
             << newBlock.getIndex() << " hash=" << newBlock.getHash() << '\n';
+  if (asyncVerifyEnabled && !fromWorker) {
+    auto *pb = new PendingBlock{newBlock, sender};
+    while (!verifyQueue.push(pb)) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    return;
+  }
   const int expectedIndex = blockchain.getLatestBlock().getIndex() + 1;
   auto punish = [&] {
     if (!sender.empty()) {
@@ -1615,6 +1658,12 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
   };
 
   // 1) PoW and zk-STARK check
+  bool cached = false;
+  {
+    std::lock_guard<std::mutex> g(verifiedMutex);
+    cached = verifiedBlocks.count(newBlock.getHash()) > 0;
+  }
+  if (!cached) {
   if (!newBlock.hasValidProofOfWork()) {
     std::cerr << "❌ [ERROR] Block PoW check failed!\n";
     punish();
@@ -1635,6 +1684,12 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
     std::cerr << "❌ [ERROR] Invalid zk-STARK proof detected in new block!\n";
     punish();
     return;
+  }
+
+  {
+    std::lock_guard<std::mutex> g(verifiedMutex);
+    verifiedBlocks.insert(newBlock.getHash());
+  }
   }
 
   // 2) Fork detection
@@ -2320,7 +2375,11 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
     break;
   }
   case alyncoin::net::Frame::kSnapshotReq:
-    sendSnapshot(peerTransports[peer].tx, -1);
+    if (peerTransports[peer].state && peerTransports[peer].state->wantSnapshot)
+      sendSnapshot(peerTransports[peer].tx, -1, peer);
+    else
+      std::cerr << "⚠️ [SNAPSHOT] Ignoring request from " << peer
+                << " (flag not set)" << '\n';
     break;
   case alyncoin::net::Frame::kTailReq:
     handleTailRequest(peer, f.tail_req().from_height());
@@ -2929,7 +2988,17 @@ bool Network::peerSupportsTls(const std::string &peerId) const {
 }
 //
 void Network::sendSnapshot(std::shared_ptr<Transport> transport,
-                           int upToHeight) {
+                           int upToHeight,
+                           const std::string &peerId) {
+  if (!peerId.empty()) {
+    auto it = peerTransports.find(peerId);
+    if (it != peerTransports.end() && it->second.state &&
+        !it->second.state->wantSnapshot) {
+      std::cerr << "⚠️ [sendSnapshot] Peer " << peerId
+                << " did not request snapshots" << '\n';
+      return;
+    }
+  }
   Blockchain &bc = Blockchain::getInstance();
   int height = upToHeight < 0 ? bc.getHeight() : upToHeight;
   std::vector<Block> blocks = bc.getChainUpTo(height); // Implement as needed
@@ -3037,7 +3106,8 @@ void Network::handleSnapshotChunk(const std::string &peer,
     return;
   auto ps = it->second.state;
   if (ps->snapState != PeerState::SnapState::WaitChunks) {
-    std::cerr << "⚠️ [SNAPSHOT] Unexpected chunk from " << peer << '\n';
+    std::cerr << "⚠️ [SNAPSHOT] Dropping chunk from " << peer
+              << " - not streaming" << '\n';
     return;
   }
   if (chunk.size() > MAX_SNAPSHOT_CHUNK_SIZE) {
@@ -3343,7 +3413,7 @@ void Network::handleBlockchainSyncRequest(
   if (request.request_type() == "snapshot") {
     auto it = peerTransports.find(peer);
     if (it != peerTransports.end() && it->second.tx)
-      sendSnapshot(it->second.tx, -1);
+      sendSnapshot(it->second.tx, -1, peer);
   } else if (request.request_type() == "epoch_headers") {
     auto it = peerTransports.find(peer);
     if (it != peerTransports.end() && it->second.tx) {
