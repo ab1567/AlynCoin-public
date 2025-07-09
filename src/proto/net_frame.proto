@@ -23,6 +23,14 @@ message Handshake {
 
   // total cumulative work of the sender's chain
   uint64 total_work = 9;
+
+  // If true, the sender is requesting a snapshot sync. The server should echo
+  // this flag only if it was set by the initiator.
+  bool want_snapshot = 10;
+
+  // Preferred snapshot chunk size in bytes. Nodes should respect the smaller
+  // of their own capability and the peer's preference.
+  uint32 snapshot_size = 11;
 }
 
 message Ping {}

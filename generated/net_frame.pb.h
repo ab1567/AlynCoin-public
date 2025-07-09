@@ -314,6 +314,8 @@ class Handshake final :
     kListenPortFieldNumber = 4,
     kFrameRevFieldNumber = 8,
     kTotalWorkFieldNumber = 9,
+    kWantSnapshotFieldNumber = 10,
+    kSnapshotSizeFieldNumber = 11,
   };
   // repeated string capabilities = 6;
   int capabilities_size() const;
@@ -431,6 +433,24 @@ class Handshake final :
   void _internal_set_total_work(uint64_t value);
   public:
 
+  // bool want_snapshot = 10;
+  void clear_want_snapshot();
+  bool want_snapshot() const;
+  void set_want_snapshot(bool value);
+  private:
+  bool _internal_want_snapshot() const;
+  void _internal_set_want_snapshot(bool value);
+  public:
+
+  // uint32 snapshot_size = 11;
+  void clear_snapshot_size();
+  uint32_t snapshot_size() const;
+  void set_snapshot_size(uint32_t value);
+  private:
+  uint32_t _internal_snapshot_size() const;
+  void _internal_set_snapshot_size(uint32_t value);
+  public:
+
   // @@protoc_insertion_point(class_scope:alyncoin.net.Handshake)
  private:
   class _Internal;
@@ -448,6 +468,8 @@ class Handshake final :
     uint32_t listen_port_;
     uint32_t frame_rev_;
     uint64_t total_work_;
+    bool want_snapshot_;
+    uint32_t snapshot_size_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   };
   union { Impl_ _impl_; };
@@ -5998,6 +6020,46 @@ inline void Handshake::_internal_set_total_work(uint64_t value) {
 inline void Handshake::set_total_work(uint64_t value) {
   _internal_set_total_work(value);
   // @@protoc_insertion_point(field_set:alyncoin.net.Handshake.total_work)
+}
+
+// bool want_snapshot = 10;
+inline void Handshake::clear_want_snapshot() {
+  _impl_.want_snapshot_ = false;
+}
+inline bool Handshake::_internal_want_snapshot() const {
+  return _impl_.want_snapshot_;
+}
+inline bool Handshake::want_snapshot() const {
+  // @@protoc_insertion_point(field_get:alyncoin.net.Handshake.want_snapshot)
+  return _internal_want_snapshot();
+}
+inline void Handshake::_internal_set_want_snapshot(bool value) {
+  
+  _impl_.want_snapshot_ = value;
+}
+inline void Handshake::set_want_snapshot(bool value) {
+  _internal_set_want_snapshot(value);
+  // @@protoc_insertion_point(field_set:alyncoin.net.Handshake.want_snapshot)
+}
+
+// uint32 snapshot_size = 11;
+inline void Handshake::clear_snapshot_size() {
+  _impl_.snapshot_size_ = 0u;
+}
+inline uint32_t Handshake::_internal_snapshot_size() const {
+  return _impl_.snapshot_size_;
+}
+inline uint32_t Handshake::snapshot_size() const {
+  // @@protoc_insertion_point(field_get:alyncoin.net.Handshake.snapshot_size)
+  return _internal_snapshot_size();
+}
+inline void Handshake::_internal_set_snapshot_size(uint32_t value) {
+  
+  _impl_.snapshot_size_ = value;
+}
+inline void Handshake::set_snapshot_size(uint32_t value) {
+  _internal_set_snapshot_size(value);
+  // @@protoc_insertion_point(field_set:alyncoin.net.Handshake.snapshot_size)
 }
 
 // -------------------------------------------------------------------
