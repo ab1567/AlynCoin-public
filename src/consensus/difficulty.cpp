@@ -24,6 +24,14 @@ cpp_int difficultyToWork(int diff) {
     return w;
 }
 
+uint64_t difficultyToWork64(int diff) {
+    if (diff >= 0 && diff < 63)
+        return 1ULL << diff;
+    if (diff == 63)
+        return 1ULL << 63;
+    return 1ULL;
+}
+
 uint64_t calculateSmartDifficulty(const Blockchain& chain)
 {
     constexpr int    LWMA_N     = 180;      // sample window (blocks)
