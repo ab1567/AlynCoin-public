@@ -20,6 +20,9 @@ message Handshake {
   // NEW — bump this whenever the `Frame` message layout changes.
   // 0 means "unknown / pre-rev".  The current software uses 1.
   uint32 frame_rev = 8;
+
+  // total cumulative work of the sender's chain
+  uint64 total_work = 9;
 }
 
 message Ping {}
