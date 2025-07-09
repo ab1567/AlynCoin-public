@@ -201,7 +201,11 @@ private:
   std::unique_ptr<PeerManager> peerManager;
   std::unique_ptr<SelfHealingNode> selfHealer;
   std::string publicPeerId;
-  std::unordered_map<std::string, uint64_t> bannedPeers;
+  struct BanEntry {
+    uint64_t until{0};
+    int strikes{0};
+  };
+  std::unordered_map<std::string, BanEntry> bannedPeers;
   std::unordered_set<std::string> knownPeers;
   std::unordered_set<std::string> anchorPeers;
   PeerBlacklist *blacklist;

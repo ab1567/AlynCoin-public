@@ -1162,29 +1162,32 @@ void Network::run() {
   std::thread([this]() {
     while (true) {
       std::this_thread::sleep_for(std::chrono::minutes(1));
-      std::lock_guard<std::timed_mutex> lk(peersMutex);
-      for (auto &kv : peerTransports) {
-        auto st = kv.second.state;
-        if (!st)
-          continue;
-        if (st->frameCountMin > FRAME_LIMIT_MIN ||
-            st->byteCountMin > BYTE_LIMIT_MIN) {
-          st->limitStrikes++;
-          if (st->limitStrikes >= 3) {
-            blacklistPeer(kv.first);
+      std::vector<std::string> banList;
+      {
+        std::lock_guard<std::timed_mutex> lk(peersMutex);
+        for (auto &kv : peerTransports) {
+          auto st = kv.second.state;
+          if (!st)
             continue;
+          if (st->frameCountMin > FRAME_LIMIT_MIN ||
+              st->byteCountMin > BYTE_LIMIT_MIN) {
+            st->misScore += 5;
+          } else if (st->misScore > 0) {
+            st->misScore--;
           }
-        } else {
-          st->limitStrikes = 0;
+          st->frameCountMin = 0;
+          st->byteCountMin = 0;
+          if (st->misScore >= 100)
+            banList.push_back(kv.first);
         }
-        st->frameCountMin = 0;
-        st->byteCountMin = 0;
       }
+      for (const auto &p : banList)
+        blacklistPeer(p);
 
       auto now = std::time(nullptr);
       // purge expired temporary bans
       for (auto it = bannedPeers.begin(); it != bannedPeers.end();) {
-        if (now >= it->second) {
+        if (now >= it->second.until) {
           std::cerr << "ℹ️  [ban] temporary ban expired for " << it->first
                     << '\n';
           it = bannedPeers.erase(it);
@@ -1744,17 +1747,22 @@ void Network::blacklistPeer(const std::string &peer) {
     std::cerr << "ℹ️  [ban] skipping anchor/selfheal peer " << peer << '\n';
     return;
   }
+  int hours = 1;
   {
     std::lock_guard<std::timed_mutex> lk(peersMutex);
     auto it = peerTransports.find(peer);
     if (it != peerTransports.end()) {
+      it->second.state->banCount++;
+      hours = std::min(24, 1 << (it->second.state->banCount - 1));
       it->second.state->banUntil =
-          std::chrono::steady_clock::now() + std::chrono::hours(24);
+          std::chrono::steady_clock::now() + std::chrono::hours(hours);
     }
     peerTransports.erase(peer);
   }
-  // ban peer for 24 hours
-  bannedPeers[peer] = std::time(nullptr) + 24 * 60 * 60;
+  auto &be = bannedPeers[peer];
+  be.strikes++;
+  int bh = std::min(24, 1 << (be.strikes - 1));
+  be.until = std::time(nullptr) + bh * 60 * 60;
 }
 
 bool Network::isBlacklisted(const std::string &peer) {
@@ -1762,7 +1770,7 @@ bool Network::isBlacklisted(const std::string &peer) {
   if (it == bannedPeers.end())
     return false;
   // clear expired ban
-  if (std::time(nullptr) >= it->second) {
+  if (std::time(nullptr) >= it->second.until) {
     bannedPeers.erase(it);
     std::cerr << "ℹ️  [ban] unbanned peer " << peer << '\n';
     return false;
@@ -2068,6 +2076,14 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
     if (f.height_res().height() > Blockchain::getInstance().getHeight() &&
         !isSyncing())
       requestTailBlocks(peer, Blockchain::getInstance().getHeight());
+    {
+      Blockchain &bc = Blockchain::getInstance();
+      uint64_t localWork =
+          bc.computeCumulativeDifficulty(bc.getChain()).convert_to<uint64_t>();
+      if (f.height_res().height() > bc.getHeight() &&
+          f.height_res().total_work() <= localWork)
+        penalizePeer(peer, 20);
+    }
     break;
   case alyncoin::net::Frame::kHeightProbe: {
     const auto &hp = f.height_probe();
@@ -2079,6 +2095,13 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
     auto it = peerTransports.find(peer);
     if (it != peerTransports.end() && it->second.state)
       it->second.state->highestSeen = hp.height();
+    {
+      Blockchain &bc = Blockchain::getInstance();
+      uint64_t localWork =
+          bc.computeCumulativeDifficulty(bc.getChain()).convert_to<uint64_t>();
+      if (hp.height() > bc.getHeight() && hp.total_work() <= localWork)
+        penalizePeer(peer, 20);
+    }
     break;
   }
   case alyncoin::net::Frame::kSnapshotMeta:
