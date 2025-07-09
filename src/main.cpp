@@ -426,7 +426,14 @@ svr.Post("/rpc", [blockchain, network, healer](const httplib::Request& req, http
                 auto keypair = Crypto::loadFalconKeys(creator);
                 std::vector<uint8_t> sig = Crypto::signWithFalcon(msgHash, keypair.privateKey);
 
-                NFT nft{id, creator, creator, metadata, imageHash, ts, sig};
+                NFT nft;
+                nft.id = id;
+                nft.creator = creator;
+                nft.owner = creator;
+                nft.metadata = metadata;
+                nft.imageHash = imageHash;
+                nft.timestamp = ts;
+                nft.signature = sig;
                 nft.creator_identity = identity;
                 nft.generateZkStarkProof();
 
@@ -492,7 +499,14 @@ svr.Post("/rpc", [blockchain, network, healer](const httplib::Request& req, http
                     auto keys = Crypto::loadFalconKeys(currentUser);
                     std::vector<uint8_t> sig = Crypto::signWithFalcon(msgHash, keys.privateKey);
 
-                    NFT updated{newId, currentUser, currentUser, newMetadata, nft.imageHash, ts, sig};
+                    NFT updated;
+                    updated.id = newId;
+                    updated.creator = currentUser;
+                    updated.owner = currentUser;
+                    updated.metadata = newMetadata;
+                    updated.imageHash = nft.imageHash;
+                    updated.timestamp = ts;
+                    updated.signature = sig;
                     updated.version = std::to_string(newVersion);
                     updated.creator_identity = nft.creator_identity;
                     updated.expiry_timestamp = nft.expiry_timestamp;
@@ -645,6 +659,7 @@ int main(int argc, char *argv[]) {
     std::string connectIP = "";
     std::string keyDir = DBPaths::getKeyDir();
     bool autoMine = true;
+    bool asyncVerify = false;
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
@@ -667,6 +682,8 @@ int main(int argc, char *argv[]) {
             if (keyDir.back() != '/') keyDir += '/';
         } else if (arg == "--no-auto-mine") {
             autoMine = false;
+        } else if (arg == "--async-verify") {
+            asyncVerify = true;
         }
     }
     if (!portSpecified) {
@@ -719,6 +736,7 @@ int main(int argc, char *argv[]) {
         Network::autoMineEnabled = autoMine;
         network = &Network::getInstance(port, &blockchain, peerBlacklistPtr.get());
         blockchain.setNetwork(network);
+        Network::setAsyncVerify(asyncVerify);
     } else {
         std::cerr << "⚠️ Network disabled due to PeerBlacklist failure.\n";
     }
@@ -1299,7 +1317,14 @@ if (cmd == "nft-mint" && argc >= 5) {
 
     std::vector<uint8_t> sig = Crypto::signWithFalcon(msgHash, keypair.privateKey);
 
-    NFT nft{id, creator, creator, metadata, imageHash, ts, sig};
+    NFT nft;
+    nft.id = id;
+    nft.creator = creator;
+    nft.owner = creator;
+    nft.metadata = metadata;
+    nft.imageHash = imageHash;
+    nft.timestamp = ts;
+    nft.signature = sig;
     nft.creator_identity = identity;
     nft.generateZkStarkProof();
 
@@ -1391,7 +1416,14 @@ if (cmd == "nft-remint" && argc >= 5) {
     auto keys = Crypto::loadFalconKeys(currentUser);
     std::vector<uint8_t> sig = Crypto::signWithFalcon(msgHash, keys.privateKey);
 
-    NFT updated{newId, currentUser, currentUser, newMetadata, nft.imageHash, ts, sig};
+    NFT updated;
+    updated.id = newId;
+    updated.creator = currentUser;
+    updated.owner = currentUser;
+    updated.metadata = newMetadata;
+    updated.imageHash = nft.imageHash;
+    updated.timestamp = ts;
+    updated.signature = sig;
     updated.version = std::to_string(newVersion);
     updated.creator_identity = nft.creator_identity;
     updated.expiry_timestamp = nft.expiry_timestamp;

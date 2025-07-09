@@ -22,6 +22,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <boost/lockfree/queue.hpp>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -119,7 +120,8 @@ public:
   // Handle a new block received from a peer or mined locally.
   // The optional sender argument is the peer ID that relayed the block.
   // When provided we will update our cached height for that peer.
-  void handleNewBlock(const Block &newBlock, const std::string &sender = "");
+  void handleNewBlock(const Block &newBlock, const std::string &sender = "",
+                      bool fromWorker = false);
   void blacklistPeer(const std::string &peer);
   bool isBlacklisted(const std::string &peer);
   void cleanupPeers();
@@ -141,7 +143,8 @@ public:
   void requestTailBlocks(const std::string &peer, int fromHeight,
                          const std::string &anchorHash);
   void sendForkRecoveryRequest(const std::string &peer, const std::string &tip);
-  void sendSnapshot(std::shared_ptr<Transport> tr, int upToHeight = -1);
+  void sendSnapshot(std::shared_ptr<Transport> tr, int upToHeight = -1,
+                    const std::string &peerId = "");
   void sendTailBlocks(std::shared_ptr<Transport> tr, int fromHeight,
                       const std::string &peerId);
   void handleSnapshotMeta(const std::string &peer,
@@ -153,6 +156,7 @@ public:
   void handleTailBlocks(const std::string &peer, const std::string &b64);
   void handleBlockchainSyncRequest(const std::string &peer,
                                    const alyncoin::BlockchainSyncProto &req);
+  static void setAsyncVerify(bool enable);
   static unsigned short findAvailablePort(unsigned short startPort,
                                           int maxTries = 10);
   bool sendFrame(std::shared_ptr<Transport> tr,
@@ -212,6 +216,14 @@ private:
   PeerBlacklist *blacklist;
   std::unordered_set<std::string> seenTxHashes;
   static Network *instancePtr;
+  static bool asyncVerifyEnabled;
+  static std::vector<std::jthread> verifyThreads;
+  struct PendingBlock {
+    Block block;
+    std::string sender;
+  };
+  static boost::lockfree::queue<PendingBlock *, boost::lockfree::capacity<64>>
+      verifyQueue;
   std::vector<std::thread> threads_;
 
   // Helpers reused by handlePeer & connectToNode

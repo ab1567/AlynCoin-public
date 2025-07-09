@@ -29,6 +29,7 @@ struct PeerState {
   bool supportsWhisper{false};
   bool supportsTls{false};
   bool supportsBanDecay{false};
+  bool wantSnapshot{false};
   uint64_t frameCountMin{0};
   uint64_t byteCountMin{0};
   int limitStrikes{0};
