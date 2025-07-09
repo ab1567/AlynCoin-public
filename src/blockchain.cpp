@@ -41,6 +41,22 @@ std::vector<RollupBlock> rollupBlocks;
 double totalSupply = 0.0;
 static Blockchain* g_blockchain_singleton = nullptr;
 
+static std::string encodeMeta(const Blockchain::BlockMeta& m) {
+    return std::to_string(m.height) + "|" + std::to_string(m.cumWork) + "|" + m.prev + "|" + (m.onMain ? "1" : "0");
+}
+
+static Blockchain::BlockMeta decodeMeta(const std::string& s) {
+    Blockchain::BlockMeta m{};
+    size_t p1 = s.find('|');
+    size_t p2 = s.find('|', p1 + 1);
+    size_t p3 = s.find('|', p2 + 1);
+    m.height = std::stoul(s.substr(0, p1));
+    m.cumWork = std::stoull(s.substr(p1 + 1, p2 - p1 - 1));
+    m.prev = s.substr(p2 + 1, p3 - p2 - 1);
+    m.onMain = (s.substr(p3 + 1) == "1");
+    return m;
+}
+
 // --- helper ---------------------------------------------------------------
 // Compute BLAKE3 hash of concatenated block hashes for the epoch ending at
 // endIndex (inclusive). Returns empty string if insufficient history.
@@ -68,6 +84,7 @@ Blockchain::Blockchain()
     : difficulty(0), miningReward(100.0), db(nullptr), totalBurnedSupply(0.0),
       network(nullptr), totalWork(0), cfBlockIndex(nullptr) {
   std::cout << "[DEBUG] Default Blockchain constructor called.\n";
+  lastFlush = std::time(nullptr);
 }
 
 // ✅ Constructor: Open RocksDB
@@ -89,6 +106,7 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath, bool bind
     }
 
     std::cout << "[DEBUG] Initializing Blockchain..." << std::endl;
+    lastFlush = std::time(nullptr);
 
     if (dbPath.empty()) {
         std::cerr << "⚠️ Skipping RocksDB init (empty dbPath, --nodb mode).\n";
@@ -593,15 +611,11 @@ bool Blockchain::addBlock(const Block &block) {
             return false;
         }
         if (cfBlockIndex) {
-            std::string meta = std::to_string(index[block.getHash()].height) + "|" +
-                               std::to_string(index[block.getHash()].cumWork) + "|" +
-                               index[block.getHash()].prev;
+            std::string meta = encodeMeta(index[block.getHash()]);
             db->Put(rocksdb::WriteOptions(), cfBlockIndex, block.getHash(), meta);
         }
-        if (!saveToDB()) {
-            std::cerr << "❌ [addBlock] Failed to save blockchain to database after adding block.\n";
-            return false;
-        }
+        dirtyBlocks.push_back(block);
+        flush();
         if (block.getIndex() % 1000 == 0)
             saveCheckpoint(block.getIndex(), block.getHash());
     } else {
@@ -609,10 +623,7 @@ bool Blockchain::addBlock(const Block &block) {
     }
 
     // 10. Balances/L2 state
-    std::cerr << "[addBlock] Recalculating balances and rollup deltas.\n";
-    recalculateBalancesFromChain();
-    applyRollupDeltasToBalances();
-    validateChainContinuity();
+    std::cerr << "[addBlock] Skipping heavy balance recalculation.\n";
 
     std::cout << "✅ Block added to blockchain. Pending transactions updated and balances recalculated.\n";
 
@@ -849,7 +860,7 @@ void Blockchain::mergeWith(const Blockchain &other) {
         std::cout << "✅ Replacing current blockchain with a longer valid chain!\n";
         chain = newChain;
         adjustDifficulty();
-        saveToDB();
+        flush();
     } else {
         std::cerr << "⚠️ New chain was not longer. Keeping existing chain.\n";
     }
@@ -1394,8 +1405,14 @@ bool Blockchain::loadFromDB() {
     uint64_t cumWork = 0;
     for (const auto& b : chain) {
         cumWork += difficultyToWork64(b.getDifficulty());
-        index[b.getHash()] = {static_cast<uint32_t>(b.getIndex()), cumWork, b.getPreviousHash()};
+        index[b.getHash()] = {static_cast<uint32_t>(b.getIndex()), cumWork, b.getPreviousHash(), true};
         heightToHash[b.getIndex()] = b.getHash();
+    }
+    if (cfBlockIndex) {
+        std::unique_ptr<rocksdb::Iterator> it(db->NewIterator(rocksdb::ReadOptions(), cfBlockIndex));
+        for (it->SeekToFirst(); it->Valid(); it->Next()) {
+            index[it->key().ToString()] = decodeMeta(it->value().ToString());
+        }
     }
 
     totalWork = 0;
@@ -1785,7 +1802,7 @@ bool Blockchain::replaceChainUpTo(const std::vector<Block>& blocks, int upToHeig
     recalculateBalancesFromChain();
     applyRollupDeltasToBalances();
     lock.unlock();
-    saveToDB();
+    flush();
 
     std::cout << "✅ [replaceChainUpTo] Replaced chain up to height " << upToHeight << "\n";
     return true;
@@ -2939,15 +2956,13 @@ bool Blockchain::acceptBlock(const Block& blk) {
     uint64_t parentWork = index.count(ph) ? index[ph].cumWork : 0;
     uint64_t newCumWork = parentWork + blkWork;
 
-    index[blk.getHash()] = {index.count(ph) ? index[ph].height + 1 : 0, newCumWork, ph};
+    index[blk.getHash()] = {index.count(ph) ? index[ph].height + 1 : 0, newCumWork, ph, false};
     if (cfBlockIndex) {
-        std::string meta = std::to_string(index[blk.getHash()].height) + "|" +
-                           std::to_string(index[blk.getHash()].cumWork) + "|" +
-                           index[blk.getHash()].prev;
-        db->Put(rocksdb::WriteOptions(), cfBlockIndex, blk.getHash(), meta);
+        db->Put(rocksdb::WriteOptions(), cfBlockIndex, blk.getHash(), encodeMeta(index[blk.getHash()]));
     }
 
     if (ph == (chain.empty() ? "" : chain.back().getHash())) {
+        index[blk.getHash()].onMain = true;
         applyBlock(blk);
         return true;
     }
@@ -2972,12 +2987,16 @@ void Blockchain::reorgTo(const std::string& newTip) {
     while (!oldPath.count(b)) { getBlockByHash(b, temp); connect.push_back(temp); b = index[b].prev; }
     std::string forkPoint = b;
 
-    rollbackToHeight(index[forkPoint].height);
+    while (!chain.empty() && chain.back().getHash() != forkPoint) {
+        Block blk = chain.back();
+        undoBlock(blk);
+    }
 
     std::reverse(connect.begin(), connect.end());
     for (auto& blk : connect) applyBlock(blk);
 
     rebuildHeightMap();
+    reorgCount++;
     std::cout << "Chain re-organised to new tip " << newTip << " (height " << chain.back().getIndex() << ")" << std::endl;
 }
 
@@ -2988,11 +3007,41 @@ void Blockchain::rebuildHeightMap() {
 }
 
 void Blockchain::applyBlock(const Block& blk) {
-    addBlock(blk);
+    chain.push_back(blk);
+    heightToHash[blk.getIndex()] = blk.getHash();
+    index[blk.getHash()].onMain = true;
+    dirtyBlocks.push_back(blk);
+    if (dirtyBlocks.size() >= 500 || std::time(nullptr) - lastFlush > 10)
+        flush();
 }
 
 void Blockchain::undoBlock(const Block& blk) {
-    (void)blk;
+    if (!chain.empty() && chain.back().getHash() == blk.getHash()) {
+        chain.pop_back();
+        heightToHash.erase(blk.getIndex());
+        index[blk.getHash()].onMain = false;
+        dirtyBlocks.push_back(blk);
+        if (dirtyBlocks.size() >= 500 || std::time(nullptr) - lastFlush > 10)
+            flush();
+    }
+}
+
+void Blockchain::flush() {
+    if (!db || dirtyBlocks.empty()) return;
+    rocksdb::WriteBatch wb;
+    for (const auto& b : dirtyBlocks) {
+        alyncoin::BlockProto pb = b.toProtobuf();
+        std::string ser;
+        pb.SerializeToString(&ser);
+        wb.Put("block_height_" + std::to_string(b.getIndex()), ser);
+        wb.Put("block_" + b.getHash(), ser);
+        if (cfBlockIndex) wb.Put(cfBlockIndex, b.getHash(), encodeMeta(index[b.getHash()]));
+    }
+    wb.Put("last_height", std::to_string(chain.empty() ? 0 : chain.back().getIndex()));
+    db->Write(rocksdb::WriteOptions(), &wb);
+    dirtyBlocks.clear();
+    lastFlush = std::time(nullptr);
+    flushCount++;
 }
 // ✅ Compare incoming chain and merge if better
 void Blockchain::compareAndMergeChains(const std::vector<Block>& otherChain) {

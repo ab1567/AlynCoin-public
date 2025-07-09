@@ -78,15 +78,24 @@ private:
   std::time_t devFundLastActivity = std::time(nullptr);
   uint64_t totalWork = 0;
 
+public:
   struct BlockMeta {
-    uint32_t height;
-    uint64_t cumWork;
+    uint32_t   height;
+    uint64_t   cumWork;
     std::string prev;
+    bool       onMain{false};
   };
+
+private:
 
   std::unordered_map<std::string, BlockMeta> index;
   std::unordered_map<uint32_t, std::string> heightToHash;
   std::unordered_set<std::string> sideTips;
+
+  std::vector<Block> dirtyBlocks;
+  std::time_t lastFlush{0};
+  size_t flushCount{0};
+  size_t reorgCount{0};
 
   // --- Vesting ---
   struct VestingInfo {
@@ -277,6 +286,9 @@ public:
   void rebuildHeightMap();
   void applyBlock(const Block& blk);
   void undoBlock(const Block& blk);
+  void flush();
+  size_t getFlushCount() const { return flushCount; }
+  size_t getReorgCount() const { return reorgCount; }
 
 };
 
