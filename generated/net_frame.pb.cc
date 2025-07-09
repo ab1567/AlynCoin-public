@@ -325,7 +325,8 @@ struct SnapshotRequestDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 SnapshotRequestDefaultTypeInternal _SnapshotRequest_default_instance_;
 PROTOBUF_CONSTEXPR TailBlocksRequest::TailBlocksRequest(
     ::_pbi::ConstantInitialized): _impl_{
-    /*decltype(_impl_.from_height_)*/uint64_t{0u}
+    /*decltype(_impl_.anchor_hash_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
+  , /*decltype(_impl_.from_height_)*/uint64_t{0u}
   , /*decltype(_impl_._cached_size_)*/{}} {}
 struct TailBlocksRequestDefaultTypeInternal {
   PROTOBUF_CONSTEXPR TailBlocksRequestDefaultTypeInternal()
@@ -611,6 +612,7 @@ const uint32_t TableStruct_net_5fframe_2eproto::offsets[] PROTOBUF_SECTION_VARIA
   ~0u,  // no _weak_field_map_
   ~0u,  // no _inlined_string_donated_
   PROTOBUF_FIELD_OFFSET(::alyncoin::net::TailBlocksRequest, _impl_.from_height_),
+  PROTOBUF_FIELD_OFFSET(::alyncoin::net::TailBlocksRequest, _impl_.anchor_hash_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::alyncoin::net::GetData, _internal_metadata_),
   ~0u,  // no _extensions_
@@ -717,13 +719,13 @@ static const ::_pbi::MigrationSchema schemas[] PROTOBUF_SECTION_VARIABLE(protode
   { 155, -1, -1, sizeof(::alyncoin::net::RollupBlockMsg)},
   { 162, -1, -1, sizeof(::alyncoin::net::SnapshotRequest)},
   { 169, -1, -1, sizeof(::alyncoin::net::TailBlocksRequest)},
-  { 176, -1, -1, sizeof(::alyncoin::net::GetData)},
-  { 183, -1, -1, sizeof(::alyncoin::net::GetHeaders)},
-  { 190, -1, -1, sizeof(::alyncoin::net::Headers)},
-  { 197, -1, -1, sizeof(::alyncoin::net::StateProof)},
-  { 204, -1, -1, sizeof(::alyncoin::net::TransactionBroadcast)},
-  { 211, -1, -1, sizeof(::alyncoin::net::Whisper)},
-  { 218, -1, -1, sizeof(::alyncoin::net::Frame)},
+  { 177, -1, -1, sizeof(::alyncoin::net::GetData)},
+  { 184, -1, -1, sizeof(::alyncoin::net::GetHeaders)},
+  { 191, -1, -1, sizeof(::alyncoin::net::Headers)},
+  { 198, -1, -1, sizeof(::alyncoin::net::StateProof)},
+  { 205, -1, -1, sizeof(::alyncoin::net::TransactionBroadcast)},
+  { 212, -1, -1, sizeof(::alyncoin::net::Whisper)},
+  { 219, -1, -1, sizeof(::alyncoin::net::Frame)},
 };
 
 static const ::_pb::Message* const file_default_instances[] = {
@@ -788,54 +790,55 @@ const char descriptor_table_protodef_net_5fframe_2eproto[] PROTOBUF_SECTION_VARI
   "pHashResponse\022\014\n\004hash\030\001 \001(\t\"\021\n\017PeerListR"
   "equest\"\031\n\010PeerList\022\r\n\005peers\030\001 \003(\t\"\036\n\016Rol"
   "lupBlockMsg\022\014\n\004data\030\001 \001(\014\"%\n\017SnapshotReq"
-  "uest\022\022\n\nuntil_hash\030\001 \001(\t\"(\n\021TailBlocksRe"
-  "quest\022\023\n\013from_height\030\001 \001(\004\"\031\n\007GetData\022\016\n"
-  "\006hashes\030\001 \003(\t\"\037\n\nGetHeaders\022\021\n\tfrom_hash"
-  "\030\001 \001(\t\"0\n\007Headers\022%\n\007headers\030\001 \003(\0132\024.aly"
-  "ncoin.BlockProto\"6\n\nStateProof\022(\n\005proof\030"
-  "\001 \001(\0132\031.alyncoin.StateProofProto\">\n\024Tran"
-  "sactionBroadcast\022&\n\002tx\030\001 \001(\0132\032.alyncoin."
-  "TransactionProto\"\027\n\007Whisper\022\014\n\004data\030\001 \001("
-  "\014\"\242\014\n\005Frame\022,\n\thandshake\030\001 \001(\0132\027.alyncoi"
-  "n.net.HandshakeH\000\022\"\n\004ping\030\002 \001(\0132\022.alynco"
-  "in.net.PingH\000\022\"\n\004pong\030\003 \001(\0132\022.alyncoin.n"
-  "et.PongH\000\0221\n\nheight_req\030\004 \001(\0132\033.alyncoin"
-  ".net.HeightRequestH\000\0222\n\nheight_res\030\005 \001(\013"
-  "2\034.alyncoin.net.HeightResponseH\000\0221\n\014heig"
-  "ht_probe\030\037 \001(\0132\031.alyncoin.net.HeightProb"
-  "eH\000\0227\n\017block_broadcast\030\006 \001(\0132\034.alyncoin."
-  "net.BlockBroadcastH\000\022/\n\013block_batch\030\007 \001("
-  "\0132\030.alyncoin.net.BlockBatchH\000\0223\n\rblock_r"
-  "equest\030\035 \001(\0132\032.alyncoin.net.BlockRequest"
-  "H\000\0225\n\016block_response\030\036 \001(\0132\033.alyncoin.ne"
-  "t.BlockResponseH\000\0223\n\rsnapshot_meta\030\010 \001(\013"
-  "2\032.alyncoin.net.SnapshotMetaH\000\0225\n\016snapsh"
-  "ot_chunk\030\t \001(\0132\033.alyncoin.net.SnapshotCh"
-  "unkH\000\0221\n\014snapshot_ack\030\n \001(\0132\031.alyncoin.n"
-  "et.SnapshotAckH\000\0221\n\014snapshot_end\030\013 \001(\0132\031"
-  ".alyncoin.net.SnapshotEndH\000\022/\n\013tail_bloc"
-  "ks\030\014 \001(\0132\030.alyncoin.net.TailBlocksH\000\022-\n\t"
-  "agg_proof\030\r \001(\0132\030.alyncoin.net.EpochProo"
-  "fH\000\022&\n\003inv\030\016 \001(\0132\027.alyncoin.net.Inventor"
-  "yH\000\0224\n\014tip_hash_req\030\017 \001(\0132\034.alyncoin.net"
-  ".TipHashRequestH\000\0225\n\014tip_hash_res\030\020 \001(\0132"
-  "\035.alyncoin.net.TipHashResponseH\000\0226\n\rpeer"
-  "_list_req\030\021 \001(\0132\035.alyncoin.net.PeerListR"
-  "equestH\000\022+\n\tpeer_list\030\022 \001(\0132\026.alyncoin.n"
-  "et.PeerListH\000\0224\n\014rollup_block\030\023 \001(\0132\034.al"
-  "yncoin.net.RollupBlockMsgH\000\0225\n\014snapshot_"
-  "req\030\024 \001(\0132\035.alyncoin.net.SnapshotRequest"
-  "H\000\0223\n\010tail_req\030\025 \001(\0132\037.alyncoin.net.Tail"
-  "BlocksRequestH\000\022/\n\013state_proof\030\026 \001(\0132\030.a"
-  "lyncoin.net.StateProofH\000\022)\n\010get_data\030\027 \001"
-  "(\0132\025.alyncoin.net.GetDataH\000\022@\n\027blockchai"
-  "n_sync_request\030\030 \001(\0132\035.alyncoin.Blockcha"
-  "inSyncProtoH\000\022:\n\014tx_broadcast\030\031 \001(\0132\".al"
-  "yncoin.net.TransactionBroadcastH\000\022(\n\007whi"
-  "sper\030\032 \001(\0132\025.alyncoin.net.WhisperH\000\022/\n\013g"
-  "et_headers\030\033 \001(\0132\030.alyncoin.net.GetHeade"
-  "rsH\000\022(\n\007headers\030\034 \001(\0132\025.alyncoin.net.Hea"
-  "dersH\000B\006\n\004kindb\006proto3"
+  "uest\022\022\n\nuntil_hash\030\001 \001(\t\"=\n\021TailBlocksRe"
+  "quest\022\023\n\013from_height\030\001 \001(\004\022\023\n\013anchor_has"
+  "h\030\002 \001(\t\"\031\n\007GetData\022\016\n\006hashes\030\001 \003(\t\"\037\n\nGe"
+  "tHeaders\022\021\n\tfrom_hash\030\001 \001(\t\"0\n\007Headers\022%"
+  "\n\007headers\030\001 \003(\0132\024.alyncoin.BlockProto\"6\n"
+  "\nStateProof\022(\n\005proof\030\001 \001(\0132\031.alyncoin.St"
+  "ateProofProto\">\n\024TransactionBroadcast\022&\n"
+  "\002tx\030\001 \001(\0132\032.alyncoin.TransactionProto\"\027\n"
+  "\007Whisper\022\014\n\004data\030\001 \001(\014\"\242\014\n\005Frame\022,\n\thand"
+  "shake\030\001 \001(\0132\027.alyncoin.net.HandshakeH\000\022\""
+  "\n\004ping\030\002 \001(\0132\022.alyncoin.net.PingH\000\022\"\n\004po"
+  "ng\030\003 \001(\0132\022.alyncoin.net.PongH\000\0221\n\nheight"
+  "_req\030\004 \001(\0132\033.alyncoin.net.HeightRequestH"
+  "\000\0222\n\nheight_res\030\005 \001(\0132\034.alyncoin.net.Hei"
+  "ghtResponseH\000\0221\n\014height_probe\030\037 \001(\0132\031.al"
+  "yncoin.net.HeightProbeH\000\0227\n\017block_broadc"
+  "ast\030\006 \001(\0132\034.alyncoin.net.BlockBroadcastH"
+  "\000\022/\n\013block_batch\030\007 \001(\0132\030.alyncoin.net.Bl"
+  "ockBatchH\000\0223\n\rblock_request\030\035 \001(\0132\032.alyn"
+  "coin.net.BlockRequestH\000\0225\n\016block_respons"
+  "e\030\036 \001(\0132\033.alyncoin.net.BlockResponseH\000\0223"
+  "\n\rsnapshot_meta\030\010 \001(\0132\032.alyncoin.net.Sna"
+  "pshotMetaH\000\0225\n\016snapshot_chunk\030\t \001(\0132\033.al"
+  "yncoin.net.SnapshotChunkH\000\0221\n\014snapshot_a"
+  "ck\030\n \001(\0132\031.alyncoin.net.SnapshotAckH\000\0221\n"
+  "\014snapshot_end\030\013 \001(\0132\031.alyncoin.net.Snaps"
+  "hotEndH\000\022/\n\013tail_blocks\030\014 \001(\0132\030.alyncoin"
+  ".net.TailBlocksH\000\022-\n\tagg_proof\030\r \001(\0132\030.a"
+  "lyncoin.net.EpochProofH\000\022&\n\003inv\030\016 \001(\0132\027."
+  "alyncoin.net.InventoryH\000\0224\n\014tip_hash_req"
+  "\030\017 \001(\0132\034.alyncoin.net.TipHashRequestH\000\0225"
+  "\n\014tip_hash_res\030\020 \001(\0132\035.alyncoin.net.TipH"
+  "ashResponseH\000\0226\n\rpeer_list_req\030\021 \001(\0132\035.a"
+  "lyncoin.net.PeerListRequestH\000\022+\n\tpeer_li"
+  "st\030\022 \001(\0132\026.alyncoin.net.PeerListH\000\0224\n\014ro"
+  "llup_block\030\023 \001(\0132\034.alyncoin.net.RollupBl"
+  "ockMsgH\000\0225\n\014snapshot_req\030\024 \001(\0132\035.alyncoi"
+  "n.net.SnapshotRequestH\000\0223\n\010tail_req\030\025 \001("
+  "\0132\037.alyncoin.net.TailBlocksRequestH\000\022/\n\013"
+  "state_proof\030\026 \001(\0132\030.alyncoin.net.StatePr"
+  "oofH\000\022)\n\010get_data\030\027 \001(\0132\025.alyncoin.net.G"
+  "etDataH\000\022@\n\027blockchain_sync_request\030\030 \001("
+  "\0132\035.alyncoin.BlockchainSyncProtoH\000\022:\n\014tx"
+  "_broadcast\030\031 \001(\0132\".alyncoin.net.Transact"
+  "ionBroadcastH\000\022(\n\007whisper\030\032 \001(\0132\025.alynco"
+  "in.net.WhisperH\000\022/\n\013get_headers\030\033 \001(\0132\030."
+  "alyncoin.net.GetHeadersH\000\022(\n\007headers\030\034 \001"
+  "(\0132\025.alyncoin.net.HeadersH\000B\006\n\004kindb\006pro"
+  "to3"
   ;
 static const ::_pbi::DescriptorTable* const descriptor_table_net_5fframe_2eproto_deps[4] = {
   &::descriptor_table_block_5fprotos_2eproto,
@@ -845,7 +848,7 @@ static const ::_pbi::DescriptorTable* const descriptor_table_net_5fframe_2eproto
 };
 static ::_pbi::once_flag descriptor_table_net_5fframe_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_net_5fframe_2eproto = {
-    false, false, 2982, descriptor_table_protodef_net_5fframe_2eproto,
+    false, false, 3003, descriptor_table_protodef_net_5fframe_2eproto,
     "net_frame.proto",
     &descriptor_table_net_5fframe_2eproto_once, descriptor_table_net_5fframe_2eproto_deps, 4, 31,
     schemas, file_default_instances, TableStruct_net_5fframe_2eproto::offsets,
@@ -4884,10 +4887,19 @@ TailBlocksRequest::TailBlocksRequest(const TailBlocksRequest& from)
   : ::PROTOBUF_NAMESPACE_ID::Message() {
   TailBlocksRequest* const _this = this; (void)_this;
   new (&_impl_) Impl_{
-      decltype(_impl_.from_height_){}
+      decltype(_impl_.anchor_hash_){}
+    , decltype(_impl_.from_height_){}
     , /*decltype(_impl_._cached_size_)*/{}};
 
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+  _impl_.anchor_hash_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.anchor_hash_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (!from._internal_anchor_hash().empty()) {
+    _this->_impl_.anchor_hash_.Set(from._internal_anchor_hash(), 
+      _this->GetArenaForAllocation());
+  }
   _this->_impl_.from_height_ = from._impl_.from_height_;
   // @@protoc_insertion_point(copy_constructor:alyncoin.net.TailBlocksRequest)
 }
@@ -4897,9 +4909,14 @@ inline void TailBlocksRequest::SharedCtor(
   (void)arena;
   (void)is_message_owned;
   new (&_impl_) Impl_{
-      decltype(_impl_.from_height_){uint64_t{0u}}
+      decltype(_impl_.anchor_hash_){}
+    , decltype(_impl_.from_height_){uint64_t{0u}}
     , /*decltype(_impl_._cached_size_)*/{}
   };
+  _impl_.anchor_hash_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.anchor_hash_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
 }
 
 TailBlocksRequest::~TailBlocksRequest() {
@@ -4913,6 +4930,7 @@ TailBlocksRequest::~TailBlocksRequest() {
 
 inline void TailBlocksRequest::SharedDtor() {
   GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
+  _impl_.anchor_hash_.Destroy();
 }
 
 void TailBlocksRequest::SetCachedSize(int size) const {
@@ -4925,6 +4943,7 @@ void TailBlocksRequest::Clear() {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
+  _impl_.anchor_hash_.ClearToEmpty();
   _impl_.from_height_ = uint64_t{0u};
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
@@ -4940,6 +4959,16 @@ const char* TailBlocksRequest::_InternalParse(const char* ptr, ::_pbi::ParseCont
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 8)) {
           _impl_.from_height_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
           CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      // string anchor_hash = 2;
+      case 2:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 18)) {
+          auto str = _internal_mutable_anchor_hash();
+          ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
+          CHK_(ptr);
+          CHK_(::_pbi::VerifyUTF8(str, "alyncoin.net.TailBlocksRequest.anchor_hash"));
         } else
           goto handle_unusual;
         continue;
@@ -4978,6 +5007,16 @@ uint8_t* TailBlocksRequest::_InternalSerialize(
     target = ::_pbi::WireFormatLite::WriteUInt64ToArray(1, this->_internal_from_height(), target);
   }
 
+  // string anchor_hash = 2;
+  if (!this->_internal_anchor_hash().empty()) {
+    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
+      this->_internal_anchor_hash().data(), static_cast<int>(this->_internal_anchor_hash().length()),
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
+      "alyncoin.net.TailBlocksRequest.anchor_hash");
+    target = stream->WriteStringMaybeAliased(
+        2, this->_internal_anchor_hash(), target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
         _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
@@ -4993,6 +5032,13 @@ size_t TailBlocksRequest::ByteSizeLong() const {
   uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
+
+  // string anchor_hash = 2;
+  if (!this->_internal_anchor_hash().empty()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+        this->_internal_anchor_hash());
+  }
 
   // uint64 from_height = 1;
   if (this->_internal_from_height() != 0) {
@@ -5017,6 +5063,9 @@ void TailBlocksRequest::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, cons
   uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
+  if (!from._internal_anchor_hash().empty()) {
+    _this->_internal_set_anchor_hash(from._internal_anchor_hash());
+  }
   if (from._internal_from_height() != 0) {
     _this->_internal_set_from_height(from._internal_from_height());
   }
@@ -5036,7 +5085,13 @@ bool TailBlocksRequest::IsInitialized() const {
 
 void TailBlocksRequest::InternalSwap(TailBlocksRequest* other) {
   using std::swap;
+  auto* lhs_arena = GetArenaForAllocation();
+  auto* rhs_arena = other->GetArenaForAllocation();
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::InternalSwap(
+      &_impl_.anchor_hash_, lhs_arena,
+      &other->_impl_.anchor_hash_, rhs_arena
+  );
   swap(_impl_.from_height_, other->_impl_.from_height_);
 }
 

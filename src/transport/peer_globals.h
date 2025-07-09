@@ -39,6 +39,7 @@ struct PeerState {
   int banCount{0};
   std::array<uint8_t, 32> linkKey{};
   int lastTailHeight{-1};
+  std::string lastTailAnchor;
   uint32_t highestSeen{0};
   std::mutex m;
 };
