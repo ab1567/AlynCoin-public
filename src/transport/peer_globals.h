@@ -11,8 +11,6 @@
 
 // Per-peer state used during sync and message reassembly
 struct PeerState {
-  std::string fullChainB64;
-  std::string legacyChainB64;
   std::string jsonBuf;
   std::string prefixBuf; // holds partial protocol prefix across chunks
   std::vector<Block> orphanBuf;
@@ -26,7 +24,6 @@ struct PeerState {
   size_t snapshotExpectBytes{0};
   size_t snapshotReceived{0};
   bool snapshotActive{false};
-  bool fullChainActive{false};
   bool supportsAggProof{false};
   bool supportsSnapshot{false};
   bool supportsWhisper{false};
@@ -39,6 +36,7 @@ struct PeerState {
   uint32_t frameRev{0};
   std::string version;
   std::chrono::steady_clock::time_point banUntil{};
+  int banCount{0};
   std::array<uint8_t, 32> linkKey{};
   int lastTailHeight{-1};
   uint32_t highestSeen{0};

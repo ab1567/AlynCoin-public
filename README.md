@@ -79,6 +79,13 @@ cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j$(nproc)
 ```
 
+Run the basic unit tests to verify the build:
+
+```bash
+make blacklist_test
+./blacklist_test
+```
+
 Trace-level lock diagnostics are disabled by default. If you need detailed
 mutex tracing for debugging, pass `-DENABLE_LOCK_TRACING=ON` to CMake when
 configuring the build.
@@ -93,6 +100,12 @@ support. Nodes now advertise a `ban_decay_v1` capability in their handshake
 messages. When connections are denied due to the /24 prefix cap or when a
 24-hour ban expires, informative log messages are written so operators can
 easily trace peer reputation changes.
+
+Peers accrue a small `mis_score` when they exceed reasonable bandwidth
+limits. The score decays every minute and only triggers a ban once it reaches
+100 points. Height responses with less cumulative work than the local node
+also increase `mis_score`, helping catch dishonest peers without penalizing
+legitimate traffic.
 
 ## Run
 
