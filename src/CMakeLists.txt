@@ -179,6 +179,7 @@ find_path(SODIUM_INCLUDE_DIR sodium.h)
 include_directories(${SODIUM_INCLUDE_DIR})
 find_library(ROCKSDB_LIB rocksdb REQUIRED)
 find_path(ROCKSDB_INCLUDE_DIR rocksdb/db.h)
+find_library(ZSTD_LIB zstd REQUIRED)
 
 include_directories(${ROCKSDB_INCLUDE_DIR})
 
@@ -365,6 +366,7 @@ target_link_libraries(alyncoin_lib
     m
     dl
     ${ROCKSDB_LIB}
+    ${ZSTD_LIB}
     ${Protobuf_LIBRARIES}
     falcon
     dilithium

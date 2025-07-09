@@ -4,6 +4,7 @@
 #include "config.h"
 #include "blockchain.h"
 #include "crypto_utils.h"
+#include <zstd.h>
 #include <generated/block_protos.pb.h>
 #include <generated/sync_protos.pb.h>
 #include <generated/transaction_protos.pb.h>
@@ -3012,21 +3013,39 @@ void Network::sendSnapshot(std::shared_ptr<Transport> transport,
   if (!snap.SerializeToString(&raw))
     return;
 
+  // Compress entire snapshot and encode as Base64
+  size_t maxSize = ZSTD_compressBound(raw.size());
+  std::string comp;
+  comp.resize(maxSize);
+  size_t cSize = ZSTD_compress(comp.data(), maxSize, raw.data(), raw.size(), 1);
+  if (ZSTD_isError(cSize))
+    return;
+  comp.resize(cSize);
+
+  // Prepend uncompressed size (little-endian)
+  uint32_t origSize = static_cast<uint32_t>(raw.size());
+  std::string blob;
+  blob.resize(4 + comp.size());
+  memcpy(blob.data(), &origSize, 4);
+  memcpy(blob.data() + 4, comp.data(), comp.size());
+
+  std::string b64 = Crypto::base64Encode(blob, false);
+
   const size_t CHUNK_SIZE = MAX_SNAPSHOT_CHUNK_SIZE;
   // --- Send metadata first ---
   alyncoin::net::Frame meta;
   meta.mutable_snapshot_meta()->set_height(height);
   meta.mutable_snapshot_meta()->set_root_hash(bc.getHeaderMerkleRoot());
-  meta.mutable_snapshot_meta()->set_total_bytes(raw.size());
+  meta.mutable_snapshot_meta()->set_total_bytes(b64.size());
   meta.mutable_snapshot_meta()->set_chunk_size(CHUNK_SIZE);
   sendFrame(transport, meta);
 
   // --- Stream snapshot in bounded chunks ---
   uint32_t seq = 0;
-  for (size_t off = 0; off < raw.size(); off += CHUNK_SIZE) {
-    size_t len = std::min(CHUNK_SIZE, raw.size() - off);
+  for (size_t off = 0; off < b64.size(); off += CHUNK_SIZE) {
+    size_t len = std::min(CHUNK_SIZE, b64.size() - off);
     alyncoin::net::Frame fr;
-    fr.mutable_snapshot_chunk()->set_data(raw.substr(off, len));
+    fr.mutable_snapshot_chunk()->set_data(b64.substr(off, len));
     sendFrame(transport, fr);
     ++seq;
   }
@@ -3157,7 +3176,19 @@ void Network::handleSnapshotEnd(const std::string &peer) {
     return;
   }
   try {
-    std::string raw = ps->snapshotB64;
+    std::string decoded = Crypto::base64Decode(ps->snapshotB64, false);
+    if (decoded.size() < 4)
+      throw std::runtime_error("Snapshot too small");
+    uint32_t origSize;
+    memcpy(&origSize, decoded.data(), 4);
+    std::string raw;
+    raw.resize(origSize);
+    size_t dSize =
+        ZSTD_decompress(raw.data(), origSize, decoded.data() + 4,
+                        decoded.size() - 4);
+    if (ZSTD_isError(dSize) || dSize != origSize)
+      throw std::runtime_error("Decompression failed");
+
     SnapshotProto snap;
     if (!snap.ParseFromString(raw))
       throw std::runtime_error("Bad snapshot");
