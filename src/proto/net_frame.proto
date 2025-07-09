@@ -68,7 +68,10 @@ message PeerListRequest {}
 message PeerList { repeated string peers = 1; }
 message RollupBlockMsg { bytes data = 1; }
 message SnapshotRequest { string until_hash = 1; }
-message TailBlocksRequest { uint64 from_height = 1; }
+message TailBlocksRequest {
+  uint64 from_height = 1;
+  string anchor_hash = 2; // tip hash when request was sent
+}
 message GetData { repeated string hashes = 1; }
 message GetHeaders { string from_hash = 1; }
 message Headers { repeated alyncoin.BlockProto headers = 1; }

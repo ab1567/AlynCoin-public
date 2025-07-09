@@ -138,7 +138,8 @@ public:
   bool peerSupportsWhisper(const std::string &peerId) const;
   bool peerSupportsTls(const std::string &peerId) const;
   void requestSnapshotSync(const std::string &peer);
-  void requestTailBlocks(const std::string &peer, int fromHeight);
+  void requestTailBlocks(const std::string &peer, int fromHeight,
+                         const std::string &anchorHash);
   void sendForkRecoveryRequest(const std::string &peer, const std::string &tip);
   void sendSnapshot(std::shared_ptr<Transport> tr, int upToHeight = -1);
   void sendTailBlocks(std::shared_ptr<Transport> tr, int fromHeight,

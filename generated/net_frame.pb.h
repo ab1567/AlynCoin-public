@@ -3819,8 +3819,23 @@ class TailBlocksRequest final :
   // accessors -------------------------------------------------------
 
   enum : int {
+    kAnchorHashFieldNumber = 2,
     kFromHeightFieldNumber = 1,
   };
+  // string anchor_hash = 2;
+  void clear_anchor_hash();
+  const std::string& anchor_hash() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_anchor_hash(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_anchor_hash();
+  PROTOBUF_NODISCARD std::string* release_anchor_hash();
+  void set_allocated_anchor_hash(std::string* anchor_hash);
+  private:
+  const std::string& _internal_anchor_hash() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_anchor_hash(const std::string& value);
+  std::string* _internal_mutable_anchor_hash();
+  public:
+
   // uint64 from_height = 1;
   void clear_from_height();
   uint64_t from_height() const;
@@ -3838,6 +3853,7 @@ class TailBlocksRequest final :
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
   struct Impl_ {
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr anchor_hash_;
     uint64_t from_height_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   };
@@ -7066,6 +7082,56 @@ inline void TailBlocksRequest::_internal_set_from_height(uint64_t value) {
 inline void TailBlocksRequest::set_from_height(uint64_t value) {
   _internal_set_from_height(value);
   // @@protoc_insertion_point(field_set:alyncoin.net.TailBlocksRequest.from_height)
+}
+
+// string anchor_hash = 2;
+inline void TailBlocksRequest::clear_anchor_hash() {
+  _impl_.anchor_hash_.ClearToEmpty();
+}
+inline const std::string& TailBlocksRequest::anchor_hash() const {
+  // @@protoc_insertion_point(field_get:alyncoin.net.TailBlocksRequest.anchor_hash)
+  return _internal_anchor_hash();
+}
+template <typename ArgT0, typename... ArgT>
+inline PROTOBUF_ALWAYS_INLINE
+void TailBlocksRequest::set_anchor_hash(ArgT0&& arg0, ArgT... args) {
+ 
+ _impl_.anchor_hash_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:alyncoin.net.TailBlocksRequest.anchor_hash)
+}
+inline std::string* TailBlocksRequest::mutable_anchor_hash() {
+  std::string* _s = _internal_mutable_anchor_hash();
+  // @@protoc_insertion_point(field_mutable:alyncoin.net.TailBlocksRequest.anchor_hash)
+  return _s;
+}
+inline const std::string& TailBlocksRequest::_internal_anchor_hash() const {
+  return _impl_.anchor_hash_.Get();
+}
+inline void TailBlocksRequest::_internal_set_anchor_hash(const std::string& value) {
+  
+  _impl_.anchor_hash_.Set(value, GetArenaForAllocation());
+}
+inline std::string* TailBlocksRequest::_internal_mutable_anchor_hash() {
+  
+  return _impl_.anchor_hash_.Mutable(GetArenaForAllocation());
+}
+inline std::string* TailBlocksRequest::release_anchor_hash() {
+  // @@protoc_insertion_point(field_release:alyncoin.net.TailBlocksRequest.anchor_hash)
+  return _impl_.anchor_hash_.Release();
+}
+inline void TailBlocksRequest::set_allocated_anchor_hash(std::string* anchor_hash) {
+  if (anchor_hash != nullptr) {
+    
+  } else {
+    
+  }
+  _impl_.anchor_hash_.SetAllocated(anchor_hash, GetArenaForAllocation());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (_impl_.anchor_hash_.IsDefault()) {
+    _impl_.anchor_hash_.Set("", GetArenaForAllocation());
+  }
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.net.TailBlocksRequest.anchor_hash)
 }
 
 // -------------------------------------------------------------------

@@ -35,11 +35,9 @@ NodeHealthStatus HealthMonitor::checkHealth() {
     }
     status.farBehind = false;
 
-    if (remoteWork == 0) {
-        status.isHealthy = true;
-        status.reason = "Isolated";
-        Logger::info("[🩺 NODE HEALTH] local_work=" + std::to_string(localWork) +
-                    " remote_work=0 (isolated)");
+    if (remoteWork > localWork) {
+        status.isHealthy = false;
+        status.reason = "Out of sync";
         return status;
     }
 

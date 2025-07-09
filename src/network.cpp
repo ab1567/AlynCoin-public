@@ -2091,8 +2091,10 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
         it->second.state->highestSeen = f.height_res().height();
     }
     if (f.height_res().height() > Blockchain::getInstance().getHeight() &&
-        !isSyncing())
-      requestTailBlocks(peer, Blockchain::getInstance().getHeight());
+        !isSyncing()) {
+      Blockchain &bc = Blockchain::getInstance();
+      requestTailBlocks(peer, bc.getHeight(), bc.getLatestBlockHash());
+    }
     {
       Blockchain &bc = Blockchain::getInstance();
       uint64_t localWork =
@@ -3167,7 +3169,7 @@ void Network::handleSnapshotEnd(const std::string &peer) {
     chain.broadcastNewTip();
 
     // Immediately request tail blocks for any missing blocks
-    requestTailBlocks(peer, snap.height());
+    requestTailBlocks(peer, snap.height(), chain.getLatestBlockHash());
 
   } catch (const std::exception &ex) {
     std::cerr << "❌ [SNAPSHOT] Failed to apply snapshot from peer " << peer
@@ -3203,6 +3205,14 @@ void Network::handleTailBlocks(const std::string &peer,
     if (!proto.ParseFromString(data))
       throw std::runtime_error("Bad tailblocks");
     Blockchain &chain = Blockchain::getInstance();
+    std::string anchor;
+    auto itP = peerTransports.find(peer);
+    if (itP != peerTransports.end() && itP->second.state)
+      anchor = itP->second.state->lastTailAnchor;
+    if (!anchor.empty() && chain.getLatestBlockHash() != anchor) {
+      requestTailBlocks(peer, chain.getHeight(), chain.getLatestBlockHash());
+      return;
+    }
 
     // Convert proto to vector of blocks
     std::vector<Block> blocks;
@@ -3211,27 +3221,14 @@ void Network::handleTailBlocks(const std::string &peer,
       blocks.push_back(Block::fromProto(pb, false));
     }
 
-    int tipIndex = chain.getHeight();
-    const auto &localChain = chain.getChain();
-
     size_t pos = 0;
-    while (pos < blocks.size() && blocks[pos].getIndex() <= tipIndex) {
-      const Block &remote = blocks[pos];
-      if (remote.getIndex() < chain.getBlockCount()) {
-        const Block &local = localChain[remote.getIndex()];
-        if (remote.getHash() != local.getHash()) {
-          throw std::runtime_error("Fork mismatch in tail blocks");
-        }
-      }
+    const std::string localTip = chain.getLatestBlockHash();
+    while (pos < blocks.size() &&
+           blocks[pos].getPreviousHash() != localTip) {
       ++pos;
     }
-
     if (pos == blocks.size())
-      return; // nothing new
-
-    if (blocks[pos].getPreviousHash() != localChain.back().getHash()) {
-      throw std::runtime_error("Tail does not connect to tip");
-    }
+      return; // no connector
 
     size_t appended = 0;
     for (; pos < blocks.size(); ++pos) {
@@ -3253,7 +3250,7 @@ void Network::handleTailBlocks(const std::string &peer,
     if (peerManager) {
       int remoteH = peerManager->getPeerHeight(peer);
       if (remoteH > static_cast<int>(chain.getHeight()))
-        requestTailBlocks(peer, chain.getHeight());
+        requestTailBlocks(peer, chain.getHeight(), chain.getLatestBlockHash());
     }
   } catch (const std::exception &ex) {
     std::cerr << "❌ [TAIL_BLOCKS] Failed to apply tail blocks from peer "
@@ -3294,12 +3291,17 @@ void Network::requestSnapshotSync(const std::string &peer) {
   sendFrame(it->second.tx, fr);
 }
 
-void Network::requestTailBlocks(const std::string &peer, int fromHeight) {
+void Network::requestTailBlocks(const std::string &peer, int fromHeight,
+                               const std::string &anchorHash) {
   auto it = peerTransports.find(peer);
   if (it == peerTransports.end() || !it->second.tx)
     return;
   alyncoin::net::Frame fr;
-  fr.mutable_tail_req()->set_from_height(fromHeight);
+  auto *req = fr.mutable_tail_req();
+  req->set_from_height(fromHeight);
+  req->set_anchor_hash(anchorHash);
+  if (it->second.state)
+    it->second.state->lastTailAnchor = anchorHash;
   sendFrame(it->second.tx, fr);
 }
 //
