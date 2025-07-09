@@ -419,6 +419,8 @@ alyncoin::net::Handshake Network::buildHandshake() const {
   hs.set_frame_rev(kFrameRevision);
   auto work = bc.computeCumulativeDifficulty(bc.getChain());
   hs.set_total_work(safeUint64(work));
+  hs.set_want_snapshot(false);
+  hs.set_snapshot_size(static_cast<uint32_t>(MAX_SNAPSHOT_CHUNK_SIZE));
   return hs;
 }
 // Fallback peer(s) in case DNS discovery fails
@@ -894,6 +896,8 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
   uint32_t remoteRev = 0;
   bool remoteAgg = false;
   bool remoteSnap = false;
+  bool remoteWantSnap = false;
+  uint32_t remoteSnapSize = 0;
   bool remoteWhisper = false;
   bool remoteTls = false;
   bool remoteBanDecay = false;
@@ -938,6 +942,8 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     claimedNetwork = hs.network_id();
     remoteHeight = static_cast<int>(hs.height());
     remoteWork = hs.total_work();
+    remoteWantSnap = hs.want_snapshot();
+    remoteSnapSize = hs.snapshot_size();
 
     // ─── Compatibility gate ────────────────────
     remoteRev = hs.frame_rev();
@@ -1069,11 +1075,14 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
 
   // ── 4. push our handshake back ──────────────────────────────────────────
   {
-    alyncoin::net::Handshake hs = buildHandshake();
-    hs.set_pub_key(std::string(reinterpret_cast<char *>(myPub.data()),
-                               myPub.size()));
+    alyncoin::net::Handshake hs_out = buildHandshake();
+    hs_out.set_pub_key(std::string(reinterpret_cast<char *>(myPub.data()),
+                                   myPub.size()));
+    hs_out.set_snapshot_size(static_cast<uint32_t>(MAX_SNAPSHOT_CHUNK_SIZE));
+    if (remoteWantSnap)
+      hs_out.set_want_snapshot(true);
     alyncoin::net::Frame out;
-    *out.mutable_handshake() = hs;
+    *out.mutable_handshake() = hs_out;
     sendFrameImmediate(transport, out);
     sendHeight(claimedPeerId);
   }
@@ -1919,6 +1928,7 @@ bool Network::finishOutboundHandshake(std::shared_ptr<Transport> tx,
   randombytes_buf(privOut.data(), privOut.size());
   crypto_scalarmult_curve25519_base(pub.data(), privOut.data());
   hs.set_pub_key(std::string(reinterpret_cast<char *>(pub.data()), pub.size()));
+  hs.set_snapshot_size(static_cast<uint32_t>(MAX_SNAPSHOT_CHUNK_SIZE));
   alyncoin::net::Frame fr;
   *fr.mutable_handshake() = hs;
   if (!sendFrameImmediate(tx, fr))
@@ -2035,8 +2045,15 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
   switch (f.kind_case()) {
   case alyncoin::net::Frame::kHandshake: {
     const auto &hs = f.handshake();
-    if (peerManager)
+    if (peerManager) {
       peerManager->setPeerHeight(peer, hs.height());
+      peerManager->setPeerWork(peer, hs.total_work());
+    }
+    {
+      auto it = peerTransports.find(peer);
+      if (it != peerTransports.end() && it->second.state)
+        it->second.state->highestSeen = hs.height();
+    }
     break;
   }
   case alyncoin::net::Frame::kBlockBroadcast: {
