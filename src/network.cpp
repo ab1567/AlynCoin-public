@@ -23,11 +23,13 @@
 #include <arpa/nameser.h>
 #include <array>
 #include <boost/asio.hpp>
+#include <boost/multiprecision/cpp_int.hpp>
 #include <boost/asio/connect.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <cctype>
 #include <chrono>
+#include <limits>
 #include <ctime>
 #include <cstring>
 #include <filesystem>
@@ -103,6 +105,15 @@ static_assert(alyncoin::net::Frame::kBlockRequest == 29 &&
 static constexpr uint64_t FRAME_LIMIT_MIN = 200;
 static constexpr uint64_t BYTE_LIMIT_MIN = 1 << 20;
 static constexpr int MAX_REORG = 100;
+static constexpr int BAN_THRESHOLD = 200;
+
+static uint64_t safeUint64(const boost::multiprecision::cpp_int &bi) {
+  using boost::multiprecision::cpp_int;
+  static const cpp_int max64 = cpp_int(std::numeric_limits<uint64_t>::max());
+  if (bi > max64)
+    return std::numeric_limits<uint64_t>::max();
+  return bi.convert_to<uint64_t>();
+}
 // TRACE-level lock diagnostics can overwhelm logs on busy nodes. They are now
 // compiled in only when ENABLE_LOCK_TRACING is defined at build time.
 #ifdef ENABLE_LOCK_TRACING
@@ -317,7 +328,7 @@ void Network::sendHeight(const std::string &peer) {
   auto *hr = fr.mutable_height_res();
   hr->set_height(bc.getHeight());
   auto work = bc.computeCumulativeDifficulty(bc.getChain());
-  uint64_t w64 = work.convert_to<uint64_t>();
+  uint64_t w64 = safeUint64(work);
   if (peerManager)
     peerManager->setLocalWork(w64);
   hr->set_total_work(w64);
@@ -333,7 +344,7 @@ void Network::sendHeightProbe(std::shared_ptr<Transport> tr) {
   hp->set_height(bc.getHeight());
   hp->set_tip_hash(bc.getLatestBlockHash());
   auto work = bc.computeCumulativeDifficulty(bc.getChain());
-  uint64_t w64 = work.convert_to<uint64_t>();
+  uint64_t w64 = safeUint64(work);
   if (peerManager)
     peerManager->setLocalWork(w64);
   hp->set_total_work(w64);
@@ -381,7 +392,7 @@ void Network::penalizePeer(const std::string &peer, int points) {
   auto it = peerTransports.find(peer);
   if (it != peerTransports.end()) {
     it->second.state->misScore += points;
-    if (it->second.state->misScore >= 100)
+    if (it->second.state->misScore >= BAN_THRESHOLD)
       blacklistPeer(peer);
   }
 }
@@ -406,6 +417,8 @@ alyncoin::net::Handshake Network::buildHandshake() const {
   hs.add_capabilities("tls_v1");
   hs.add_capabilities("ban_decay_v1");
   hs.set_frame_rev(kFrameRevision);
+  auto work = bc.computeCumulativeDifficulty(bc.getChain());
+  hs.set_total_work(safeUint64(work));
   return hs;
 }
 // Fallback peer(s) in case DNS discovery fails
@@ -877,6 +890,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
   std::string realPeerId, claimedPeerId;
   std::string claimedVersion, claimedNetwork;
   int remoteHeight = 0;
+  uint64_t remoteWork = 0;
   uint32_t remoteRev = 0;
   bool remoteAgg = false;
   bool remoteSnap = false;
@@ -923,6 +937,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     claimedVersion = hs.version();
     claimedNetwork = hs.network_id();
     remoteHeight = static_cast<int>(hs.height());
+    remoteWork = hs.total_work();
 
     // ─── Compatibility gate ────────────────────
     remoteRev = hs.frame_rev();
@@ -1043,8 +1058,10 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     std::copy(shared.begin(), shared.end(), entry.state->linkKey.begin());
 
     if (peerManager) {
-      if (peerManager->registerPeer(claimedPeerId))
+      if (peerManager->registerPeer(claimedPeerId)) {
         peerManager->setPeerHeight(claimedPeerId, remoteHeight);
+        peerManager->setPeerWork(claimedPeerId, remoteWork);
+      }
     }
   }
 
@@ -1470,7 +1487,7 @@ void Network::broadcastHeight(uint32_t height) {
   auto *hr = fr.mutable_height_res();
   hr->set_height(height);
   auto work = bc.computeCumulativeDifficulty(bc.getChain());
-  uint64_t w64 = work.convert_to<uint64_t>();
+  uint64_t w64 = safeUint64(work);
   if (peerManager)
     peerManager->setLocalWork(w64);
   hr->set_total_work(w64);
@@ -1582,7 +1599,7 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
       auto it = peerTransports.find(sender);
       if (it != peerTransports.end()) {
         it->second.state->misScore += 100;
-        if (it->second.state->misScore >= 100)
+        if (it->second.state->misScore >= BAN_THRESHOLD)
           blacklistPeer(sender);
       }
     }
@@ -1715,7 +1732,7 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
       peerManager->setPeerHeight(sender, newBlock.getIndex());
       peerManager->setPeerTipHash(sender, newBlock.getHash());
       auto work = blockchain.computeCumulativeDifficulty(blockchain.getChain());
-      peerManager->setPeerWork(sender, work.convert_to<uint64_t>());
+      peerManager->setPeerWork(sender, safeUint64(work));
       auto it = peerTransports.find(sender);
       if (it != peerTransports.end() && it->second.state)
         it->second.state->highestSeen = newBlock.getIndex();
@@ -1973,7 +1990,7 @@ void Network::startBinaryReadLoop(const std::string &peerId,
           if (st.limitStrikes >= 3)
             blacklistPeer(peerId);
         }
-        if (st.misScore >= 100)
+        if (st.misScore >= BAN_THRESHOLD)
           blacklistPeer(peerId);
       }
     }
@@ -2183,7 +2200,7 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
         auto it = peerTransports.find(peer);
         if (it != peerTransports.end()) {
           it->second.state->misScore += 100;
-          if (it->second.state->misScore >= 100)
+          if (it->second.state->misScore >= BAN_THRESHOLD)
             blacklistPeer(peer);
         }
       }
@@ -3088,7 +3105,7 @@ void Network::handleSnapshotEnd(const std::string &peer) {
         if (peerManager) {
           peerManager->setPeerHeight(peer, chain.getHeight());
           auto work = chain.computeCumulativeDifficulty(chain.getChain());
-          peerManager->setPeerWork(peer, work.convert_to<uint64_t>());
+          peerManager->setPeerWork(peer, safeUint64(work));
         }
         chain.broadcastNewTip();
         return;
@@ -3110,8 +3127,8 @@ void Network::handleSnapshotEnd(const std::string &peer) {
     // --- Fork choice: strict cumulative work rule ---
     auto localWork = chain.computeCumulativeDifficulty(chain.getChain());
     auto remoteWork = chain.computeCumulativeDifficulty(snapBlocks);
-    uint64_t localW64 = localWork.convert_to<uint64_t>();
-    uint64_t remoteW64 = remoteWork.convert_to<uint64_t>();
+    uint64_t localW64 = safeUint64(localWork);
+    uint64_t remoteW64 = safeUint64(remoteWork);
     std::string localTipHash = chain.getLatestBlockHash();
     std::string remoteTipHash = snapBlocks.empty() ? "" : snapBlocks.back().getHash();
     int reorgDepth = std::max(0, localHeight - snap.height());
@@ -3232,6 +3249,12 @@ void Network::handleTailBlocks(const std::string &peer,
     if (peerManager)
       peerManager->setPeerHeight(peer, chain.getHeight());
     chain.broadcastNewTip();
+
+    if (peerManager) {
+      int remoteH = peerManager->getPeerHeight(peer);
+      if (remoteH > static_cast<int>(chain.getHeight()))
+        requestTailBlocks(peer, chain.getHeight());
+    }
   } catch (const std::exception &ex) {
     std::cerr << "❌ [TAIL_BLOCKS] Failed to apply tail blocks from peer "
               << peer << ": " << ex.what() << "\n";
