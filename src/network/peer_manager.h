@@ -4,6 +4,10 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <deque>
+#include <thread>
+#include <atomic>
+#include <chrono>
 #include <cstdint>
 #include "peer_blacklist.h"
 #include "block.h"
@@ -20,8 +24,20 @@ private:
     PeerBlacklist* blacklist;
     Network* network;
 
+    struct ReconnectEntry {
+        std::string peer;
+        std::chrono::steady_clock::time_point when;
+    };
+    std::deque<ReconnectEntry> reconnectQueue;
+    std::thread reconnectThread;
+    std::atomic<bool> stopReconnect{false};
+
+    void reconnectLoop();
+    void scheduleReconnect(const std::string& peer, std::chrono::seconds delay);
+
 public:
     PeerManager(PeerBlacklist* bl, Network* net = nullptr);
+    ~PeerManager();
 
     bool connectToPeer(const std::string& peer_id);
     bool registerPeer(const std::string& peer_id);

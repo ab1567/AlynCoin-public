@@ -6,9 +6,17 @@
 #include <algorithm>
 #include <numeric>
 #include <sstream>
+#include <chrono>
 
 PeerManager::PeerManager(PeerBlacklist* bl, Network* net)
-    : blacklist(bl), network(net), localWork(0) {}
+    : blacklist(bl), network(net), localWork(0) {
+    reconnectThread = std::thread([this]() { reconnectLoop(); });
+}
+
+PeerManager::~PeerManager() {
+    stopReconnect = true;
+    if (reconnectThread.joinable()) reconnectThread.join();
+}
 
 static std::string ipPrefixPM(const std::string &ip) {
     if (ip.find(':') == std::string::npos) {
@@ -88,6 +96,8 @@ void PeerManager::disconnectPeer(const std::string& peer_id) {
         connected_peers.end()
     );
     std::cout << "🔌 Disconnected peer: " << peer_id << std::endl;
+    if (blacklist && !blacklist->isBlacklisted(peer_id))
+        scheduleReconnect(peer_id, std::chrono::seconds(3));
 }
 
 std::vector<std::string> PeerManager::getConnectedPeers() {
@@ -238,4 +248,29 @@ std::string PeerManager::getConsensusTipHash(int localHeight) const {
         hashVotes.begin(), hashVotes.end(),
         [](const auto& a, const auto& b) { return a.second < b.second; });
     return majority->first;
+}
+
+void PeerManager::scheduleReconnect(const std::string& peer, std::chrono::seconds delay) {
+    reconnectQueue.push_back({peer, std::chrono::steady_clock::now() + delay});
+}
+
+void PeerManager::reconnectLoop() {
+    while (!stopReconnect) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        auto now = std::chrono::steady_clock::now();
+        while (!reconnectQueue.empty() && reconnectQueue.front().when <= now) {
+            auto peer = reconnectQueue.front().peer;
+            reconnectQueue.pop_front();
+            if (blacklist && blacklist->isBlacklisted(peer))
+                continue;
+            if (!network)
+                continue;
+            size_t pos = peer.find(":");
+            if (pos == std::string::npos)
+                continue;
+            std::string ip = peer.substr(0, pos);
+            int port = std::stoi(peer.substr(pos + 1));
+            network->connectToNode(ip, port);
+        }
+    }
 }
