@@ -3,11 +3,9 @@
 #include "transport/transport.h"
 #include "peer_state.h"
 #include <memory>
-#include <mutex>
 #include <shared_mutex>
-#include <deque>
-#include <thread>
-#include <condition_variable>
+#include <boost/asio/strand.hpp>
+#include <boost/asio/io_context.hpp>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -18,14 +16,7 @@ struct PeerEntry {
   std::shared_ptr<Transport> tx;
   std::shared_ptr<PeerState> state;
   bool initiatedByUs{false};
-  struct Outgoing {
-    std::deque<std::string> queue;
-    std::mutex m;
-    std::condition_variable cv;
-    std::thread writer;
-    bool stop{false};
-  };
-  std::shared_ptr<Outgoing> out{std::make_shared<Outgoing>()};
+  std::shared_ptr<boost::asio::strand<boost::asio::io_context::executor_type>> strand;
 };
 
 // Canonical global peer table and mutex for the entire app:

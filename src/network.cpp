@@ -49,8 +49,6 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include <boost/lockfree/queue.hpp>
-#include "httplib.h"
 #include "core/Metrics.hpp"
 #ifdef HAVE_MINIUPNPC
 #include <miniupnpc/miniupnpc.h>
@@ -66,6 +64,7 @@
 #include "transport/tcp_transport.h"
 
 using namespace alyncoin;
+namespace asio = boost::asio;
 
 static std::string ipPrefix(const std::string &ip) {
   if (ip.find(':') == std::string::npos) {
@@ -152,38 +151,6 @@ PubSubRouter g_pubsub;
 namespace fs = std::filesystem;
 Network *Network::instancePtr = nullptr;
 bool Network::asyncVerifyEnabled = false;
-std::vector<std::jthread> Network::verifyThreads;
-boost::lockfree::queue<Network::PendingBlock *, boost::lockfree::capacity<10000>>
-    Network::verifyQueue;
-
-// Queue item containing a frame and originating peer for worker threads
-struct RxItem {
-  alyncoin::net::Frame frame;
-  std::string peer;
-};
-// Lock-free bounded queue for decoupling network I/O from processing
-static boost::lockfree::queue<RxItem *, boost::lockfree::capacity<128>> rxQ;
-// Thread pool used to process frames popped from the queue
-static httplib::ThreadPool pool(std::max(1u, std::thread::hardware_concurrency()));
-static bool workersStarted = [] {
-  unsigned n = std::max(1u, std::thread::hardware_concurrency());
-  for (unsigned i = 0; i < n; ++i) {
-    pool.enqueue([] {
-      for (;;) {
-        RxItem *item = nullptr;
-        while (!rxQ.pop(item)) {
-          std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        }
-        if (item) {
-          if (!Network::isUninitialized())
-            Network::getInstance().processFrame(item->frame, item->peer);
-          delete item;
-        }
-      }
-    });
-  }
-  return true;
-}();
 
 static bool isPortAvailable(unsigned short port) {
   boost::asio::io_context io;
@@ -211,32 +178,6 @@ unsigned short Network::findAvailablePort(unsigned short startPort,
 
 void Network::setAsyncVerify(bool enable) {
   asyncVerifyEnabled = enable;
-  if (enable && verifyThreads.empty()) {
-    unsigned n = std::max(1u, 2 * std::thread::hardware_concurrency());
-    for (unsigned i = 0; i < n; ++i) {
-      verifyThreads.emplace_back([] {
-        while (Network::asyncVerifyEnabled) {
-          PendingBlock *pb = nullptr;
-          if (Network::verifyQueue.pop(pb)) {
-            if (pb) {
-              Network::getInstance().handleNewBlock(pb->block, pb->sender, true);
-              delete pb;
-              Metrics::pending_block_verifications.fetch_sub(
-                  1, std::memory_order_relaxed);
-            }
-          } else {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-          }
-        }
-      });
-    }
-  }
-  if (!enable) {
-    for (auto &t : verifyThreads)
-      if (t.joinable())
-        t.join();
-    verifyThreads.clear();
-  }
 }
 //
 
@@ -297,13 +238,15 @@ LOG_W("[net]") << "[sendFrame] Sending frame, payload size: " << sz
   for (auto &kv : peerTransports) {
     if (kv.second.tx == tr) {
       auto &entry = kv.second;
-      {
-        std::lock_guard<std::mutex> ql(entry.out->m);
-        entry.out->queue.push_back(std::move(out));
+      if (entry.strand) {
+        auto msg = std::move(out);
+        asio::post(*entry.strand, [tr, msg = std::move(msg)]() mutable {
+          if (tr && tr->isOpen())
+            tr->queueWrite(std::move(msg), true);
+        });
         Metrics::broadcast_queue_len.fetch_add(1, std::memory_order_relaxed);
+        return true;
       }
-      entry.out->cv.notify_one();
-      return true;
     }
   }
   return false;
@@ -431,13 +374,6 @@ void Network::markPeerOffline(const std::string &peerId) {
   if (it != peerTransports.end()) {
     if (it->second.tx)
       it->second.tx->close();
-    {
-      std::lock_guard<std::mutex> ql(it->second.out->m);
-      it->second.out->stop = true;
-    }
-    it->second.out->cv.notify_one();
-    if (it->second.out->writer.joinable())
-      it->second.out->writer.join();
     peerTransports.erase(it);
   }
   anchorPeers.erase(peerId);
@@ -686,6 +622,8 @@ Network::Network(unsigned short port, Blockchain *blockchain,
 
 Network::~Network() {
   try {
+    stopRx.request_stop();
+    workPool.join();
     ioContext.stop();
     acceptor.close();
     for (auto &t : threads_)
@@ -739,8 +677,8 @@ void Network::start() {
 
 // ✅ **Auto-Mining Background Thread**
 void Network::autoMineBlock() {
-  std::thread([this]() {
-    while (true) {
+  asio::post(workPool, [this, tok = stopRx.get_token()] {
+    while (!tok.stop_requested()) {
       std::this_thread::sleep_for(std::chrono::seconds(5));
 
       Blockchain &blockchain = *this->blockchain;
@@ -794,7 +732,7 @@ void Network::autoMineBlock() {
         }
       }
     }
-  }).detach();
+  });
 }
 
 //
@@ -1122,23 +1060,9 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     entry.state->version = claimedVersion;
     std::copy(shared.begin(), shared.end(), entry.state->linkKey.begin());
 
-    if (!entry.out->writer.joinable()) {
-      entry.out->stop = false;
-      entry.out->writer = std::thread([tr = entry.tx, out = entry.out] {
-        for (;;) {
-          std::unique_lock<std::mutex> lk(out->m);
-          out->cv.wait(lk, [&] { return out->stop || !out->queue.empty(); });
-          if (out->stop && out->queue.empty())
-            break;
-          std::string msg = std::move(out->queue.front());
-          out->queue.pop_front();
-          Metrics::broadcast_queue_len.fetch_sub(1, std::memory_order_relaxed);
-          lk.unlock();
-          if (tr && tr->isOpen())
-            tr->queueWrite(std::move(msg), true);
-        }
-      });
-    }
+    if (!entry.strand)
+      entry.strand = std::make_shared<boost::asio::strand<
+          boost::asio::io_context::executor_type>>(ioContext.get_executor());
 
     if (peerManager) {
       if (peerManager->registerPeer(claimedPeerId)) {
@@ -1224,46 +1148,46 @@ void Network::run() {
 
   // Give some additional time for peers to connect, then try again to ensure
   // we didn't miss any height updates.
-  std::thread([this]() {
-    std::this_thread::sleep_for(
-        std::chrono::seconds(3)); // Let connectToNode finish
-    this->autoSyncIfBehind();
-  }).detach();
+  asio::post(workPool, [this, tok = stopRx.get_token()] {
+    std::this_thread::sleep_for(std::chrono::seconds(3));
+    if (!tok.stop_requested())
+      this->autoSyncIfBehind();
+  });
 
   // Periodic tasks (sync, cleanup, gossip mesh)
-  std::thread([this]() {
-    while (true) {
+  asio::post(workPool, [this, tok = stopRx.get_token()] {
+    while (!tok.stop_requested()) {
       std::this_thread::sleep_for(std::chrono::seconds(15));
       periodicSync();
       if (selfHealer)
         selfHealer->checkPeerHeights();
     }
-  }).detach();
+  });
 
-  std::thread([this]() {
-    while (true) {
+  asio::post(workPool, [this, tok = stopRx.get_token()] {
+    while (!tok.stop_requested()) {
       std::this_thread::sleep_for(std::chrono::seconds(20));
       cleanupPeers();
     }
-  }).detach();
+  });
 
-  std::thread([this]() {
-    while (true) {
+  asio::post(workPool, [this, tok = stopRx.get_token()] {
+    while (!tok.stop_requested()) {
       std::this_thread::sleep_for(std::chrono::seconds(30));
       this->requestPeerList();
     }
-  }).detach();
+  });
 
   // Periodically refresh handshake metadata so peers keep our latest height
-  std::thread([this]() {
-    while (true) {
+  asio::post(workPool, [this, tok = stopRx.get_token()] {
+    while (!tok.stop_requested()) {
       std::this_thread::sleep_for(std::chrono::minutes(5));
       this->broadcastHandshake();
     }
-  }).detach();
+  });
 
-  std::thread([this]() {
-    while (true) {
+  asio::post(workPool, [this, tok = stopRx.get_token()] {
+    while (!tok.stop_requested()) {
       std::this_thread::sleep_for(std::chrono::minutes(1));
       std::vector<std::string> banList;
       {
@@ -1299,7 +1223,7 @@ void Network::run() {
         }
       }
     }
-  }).detach();
+  });
 
   LOG_I("[net]") << "✅ [Network] Network loop launched successfully.\n";
 }
@@ -1677,11 +1601,11 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender,
   LOG_W("[net]") << "[handleNewBlock] Attempting to add block idx="
             << newBlock.getIndex() << " hash=" << newBlock.getHash() << '\n';
   if (asyncVerifyEnabled && !fromWorker) {
-    auto *pb = new PendingBlock{newBlock, sender};
-    while (!verifyQueue.push(pb)) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
+    auto pb = std::make_shared<PendingBlock>(PendingBlock{newBlock, sender});
     Metrics::pending_block_verifications.fetch_add(1, std::memory_order_relaxed);
+    asio::post(workPool, [this, pb]{
+      handleNewBlock(pb->block, pb->sender, true);
+    });
     return;
   }
   auto punish = [&] {
@@ -2042,9 +1966,7 @@ void Network::startBinaryReadLoop(const std::string &peerId,
     if (f.ParseFromString(blob)) {
       LOG_W("[net]") << "[readLoop] ✅ Parsed frame successfully from peer: "
                 << peerId << '\n';
-      auto *item = new RxItem{f, peerId};
-      while (!rxQ.push(item))
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      asio::post(workPool, [this, f, peer=peerId] { processFrame(f, peer); });
     } else {
       LOG_W("[net]") << "[readLoop] ❌ Failed to parse protobuf frame!" << '\n';
     }
