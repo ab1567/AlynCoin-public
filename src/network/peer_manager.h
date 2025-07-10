@@ -9,6 +9,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <unordered_map>
 #include "peer_blacklist.h"
 #include "block.h"
 
@@ -28,7 +29,12 @@ private:
         std::string peer;
         std::chrono::steady_clock::time_point when;
     };
+    struct BackoffInfo {
+        int misses{0};
+        std::chrono::steady_clock::time_point nextTry{std::chrono::steady_clock::now()};
+    };
     std::deque<ReconnectEntry> reconnectQueue;
+    std::unordered_map<std::string, BackoffInfo> backoff;
     std::thread reconnectThread;
     std::atomic<bool> stopReconnect{false};
 
