@@ -660,6 +660,7 @@ int main(int argc, char *argv[]) {
     std::string keyDir = DBPaths::getKeyDir();
     bool autoMine = true;
     bool asyncVerify = false;
+    unsigned verifyThreads = 0;
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
@@ -684,6 +685,8 @@ int main(int argc, char *argv[]) {
             autoMine = false;
         } else if (arg == "--async-verify") {
             asyncVerify = true;
+        } else if (arg == "--verify-threads" && i + 1 < argc) {
+            verifyThreads = static_cast<unsigned>(std::stoi(argv[++i]));
         }
     }
     if (!portSpecified) {
@@ -693,6 +696,9 @@ int main(int argc, char *argv[]) {
             std::cout << "🌐 Auto-selected available port: " << port << std::endl;
         }
     }
+
+    if (verifyThreads > 0)
+        getAppConfig().verify_threads = verifyThreads;
 
     if (port == rpcPort) {
         if (!rpcPortSpecified) {

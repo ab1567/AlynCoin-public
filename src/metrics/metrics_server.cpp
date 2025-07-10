@@ -16,6 +16,8 @@ void MetricsServer::startServer() {
             << Metrics::pending_block_verifications.load() << "\n";
         out << "broadcast_queue_len "
             << Metrics::broadcast_queue_len.load() << "\n";
+        out << "orphan_pool_size "
+            << Metrics::orphan_pool_size.load() << "\n";
         return crow::response(out.str());
     });
 

@@ -2,6 +2,8 @@
 #include "transport/ssl_transport.h"
 #include "tls_utils.h"
 #include "config.h"
+#include "network/RateLimiter.hpp"
+#include "network/OrphanPool.hpp"
 #include "blockchain.h"
 #include "crypto_utils.h"
 #include <zstd.h>
@@ -152,8 +154,10 @@ namespace fs = std::filesystem;
 Network *Network::instancePtr = nullptr;
 bool Network::asyncVerifyEnabled = false;
 std::vector<std::jthread> Network::verifyThreads;
-boost::lockfree::queue<Network::PendingBlock *, boost::lockfree::capacity<10000>>
+boost::lockfree::queue<Network::PendingBlock *, boost::lockfree::capacity<50000>>
     Network::verifyQueue;
+static OrphanPool g_orphanPool;
+static RateLimiter g_rateLimiter;
 
 // Queue item containing a frame and originating peer for worker threads
 struct RxItem {
@@ -211,7 +215,10 @@ unsigned short Network::findAvailablePort(unsigned short startPort,
 void Network::setAsyncVerify(bool enable) {
   asyncVerifyEnabled = enable;
   if (enable && verifyThreads.empty()) {
-    unsigned n = std::max(1u, 2 * std::thread::hardware_concurrency());
+    unsigned cfg = getAppConfig().verify_threads;
+    if (cfg == 0)
+      cfg = std::thread::hardware_concurrency() * 2;
+    unsigned n = std::max(1u, cfg);
     for (unsigned i = 0; i < n; ++i) {
       verifyThreads.emplace_back([] {
         while (Network::asyncVerifyEnabled) {
@@ -1761,6 +1768,13 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender,
   // 3) Add and save using cumulative work logic
   try {
     if (!blockchain.acceptBlock(newBlock)) {
+      if (!blockchain.hasBlockHash(newBlock.getPreviousHash())) {
+        std::cerr << "⚠️  Missing parent for block " << newBlock.getHash()
+                  << ". Queued as orphan.\n";
+        g_orphanPool.add(newBlock);
+        blockchain.requestMissingParent(newBlock.getPreviousHash());
+        return;
+      }
       std::cerr << "❌ [ERROR] Failed to add new block.\n";
       punish();
       return;
@@ -1779,6 +1793,9 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender,
         it->second.state->highestSeen = newBlock.getIndex();
     }
     blockchain.broadcastNewTip();
+    auto orphans = g_orphanPool.popChildren(newBlock.getHash());
+    for (const auto &ob : orphans)
+      handleNewBlock(ob, "");
     autoSyncIfBehind();
 
     std::cout << "✅ Block added successfully! Index: " << newBlock.getIndex()
@@ -2057,6 +2074,10 @@ void Network::processFrame(const alyncoin::net::Frame &f, const std::string &pee
 }
 
 void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
+  if (!g_rateLimiter.allow(peer)) {
+    std::cerr << "⚠️  rate limit exceeded for " << peer << '\n';
+    return;
+  }
   WireFrame tag = WireFrame::OTHER;
   if (f.has_handshake())
     tag = WireFrame::HANDSHAKE;
