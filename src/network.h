@@ -15,6 +15,8 @@
 #include <boost/asio/ssl.hpp>
 #include <atomic>
 #include <boost/asio.hpp>
+#include <boost/asio/thread_pool.hpp>
+#include <stop_token>
 #include <fstream>
 #include <generated/net_frame.pb.h>
 #include <cstdint>
@@ -22,7 +24,6 @@
 #include <mutex>
 #include <string>
 #include <thread>
-#include <boost/lockfree/queue.hpp>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -217,13 +218,12 @@ private:
   std::unordered_set<std::string> seenTxHashes;
   static Network *instancePtr;
   static bool asyncVerifyEnabled;
-  static std::vector<std::jthread> verifyThreads;
+  boost::asio::thread_pool workPool{std::thread::hardware_concurrency()};
+  std::stop_source stopRx;
   struct PendingBlock {
     Block block;
     std::string sender;
   };
-  static boost::lockfree::queue<PendingBlock *, boost::lockfree::capacity<10000>>
-      verifyQueue;
   std::vector<std::thread> threads_;
 
   // Helpers reused by handlePeer & connectToNode
