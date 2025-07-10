@@ -222,7 +222,7 @@ private:
     Block block;
     std::string sender;
   };
-  static boost::lockfree::queue<PendingBlock *, boost::lockfree::capacity<64>>
+  static boost::lockfree::queue<PendingBlock *, boost::lockfree::capacity<10000>>
       verifyQueue;
   std::vector<std::thread> threads_;
 

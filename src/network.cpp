@@ -50,6 +50,7 @@
 #include <vector>
 #include <boost/lockfree/queue.hpp>
 #include "httplib.h"
+#include "core/Metrics.hpp"
 #ifdef HAVE_MINIUPNPC
 #include <miniupnpc/miniupnpc.h>
 #include <miniupnpc/upnpcommands.h>
@@ -151,7 +152,7 @@ namespace fs = std::filesystem;
 Network *Network::instancePtr = nullptr;
 bool Network::asyncVerifyEnabled = false;
 std::vector<std::jthread> Network::verifyThreads;
-boost::lockfree::queue<Network::PendingBlock *, boost::lockfree::capacity<64>>
+boost::lockfree::queue<Network::PendingBlock *, boost::lockfree::capacity<10000>>
     Network::verifyQueue;
 
 // Queue item containing a frame and originating peer for worker threads
@@ -210,7 +211,7 @@ unsigned short Network::findAvailablePort(unsigned short startPort,
 void Network::setAsyncVerify(bool enable) {
   asyncVerifyEnabled = enable;
   if (enable && verifyThreads.empty()) {
-    unsigned n = std::max(1u, std::thread::hardware_concurrency());
+    unsigned n = std::max(1u, 2 * std::thread::hardware_concurrency());
     for (unsigned i = 0; i < n; ++i) {
       verifyThreads.emplace_back([] {
         while (Network::asyncVerifyEnabled) {
@@ -219,6 +220,8 @@ void Network::setAsyncVerify(bool enable) {
             if (pb) {
               Network::getInstance().handleNewBlock(pb->block, pb->sender, true);
               delete pb;
+              Metrics::pending_block_verifications.fetch_sub(
+                  1, std::memory_order_relaxed);
             }
           } else {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -288,14 +291,27 @@ std::cerr << "[sendFrame] Sending frame, payload size: " << sz
       return tcp->writeBinaryLocked(out);
     return tr->writeBinary(out);
   }
-  tr->queueWrite(std::move(out), /*binary =*/true);
-  return true;
+
+  std::shared_lock<std::shared_mutex> lk(peersMutex);
+  for (auto &kv : peerTransports) {
+    if (kv.second.tx == tr) {
+      auto &entry = kv.second;
+      {
+        std::lock_guard<std::mutex> ql(entry.out->m);
+        entry.out->queue.push_back(std::move(out));
+        Metrics::broadcast_queue_len.fetch_add(1, std::memory_order_relaxed);
+      }
+      entry.out->cv.notify_one();
+      return true;
+    }
+  }
+  return false;
 }
 
 void Network::broadcastFrame(const google::protobuf::Message &m) {
   std::unordered_map<std::string, PeerEntry> peersCopy;
   {
-    std::lock_guard<std::timed_mutex> lk(peersMutex);
+    std::shared_lock<std::shared_mutex> lk(peersMutex);
     peersCopy = peerTransports;
   }
   for (const auto &kv : peersCopy) {
@@ -315,7 +331,7 @@ void Network::sendPrivate(const std::string &peer,
                           const google::protobuf::Message &m) {
   std::vector<std::string> peers;
   {
-    std::lock_guard<std::timed_mutex> lk(peersMutex);
+    std::shared_lock<std::shared_mutex> lk(peersMutex);
     for (const auto &kv : peerTransports)
       if (kv.first != peer)
         peers.push_back(kv.first);
@@ -402,18 +418,25 @@ void Network::sendPeerList(const std::string &peer) {
     return;
   alyncoin::net::Frame fr;
   auto *pl = fr.mutable_peer_list();
-  std::lock_guard<std::timed_mutex> lk(peersMutex);
+  std::shared_lock<std::shared_mutex> lk(peersMutex);
   for (const auto &kv : peerTransports)
     pl->add_peers(kv.first);
   sendFrame(it->second.tx, fr);
 }
 
 void Network::markPeerOffline(const std::string &peerId) {
-  std::lock_guard<std::timed_mutex> lk(peersMutex);
+  std::lock_guard<std::shared_mutex> lk(peersMutex);
   auto it = peerTransports.find(peerId);
   if (it != peerTransports.end()) {
     if (it->second.tx)
       it->second.tx->close();
+    {
+      std::lock_guard<std::mutex> ql(it->second.out->m);
+      it->second.out->stop = true;
+    }
+    it->second.out->cv.notify_one();
+    if (it->second.out->writer.joinable())
+      it->second.out->writer.join();
     peerTransports.erase(it);
   }
   anchorPeers.erase(peerId);
@@ -423,7 +446,7 @@ void Network::markPeerOffline(const std::string &peerId) {
 }
 
 void Network::penalizePeer(const std::string &peer, int points) {
-  std::lock_guard<std::timed_mutex> lk(peersMutex);
+  std::lock_guard<std::shared_mutex> lk(peersMutex);
   auto it = peerTransports.find(peer);
   if (it != peerTransports.end()) {
     it->second.state->misScore += points;
@@ -831,7 +854,7 @@ void Network::intelligentSync() {
   }
 
   {
-    std::lock_guard<std::timed_mutex> lk(peersMutex);
+    std::shared_lock<std::shared_mutex> lk(peersMutex);
     for (const auto &kv : peerTransports) {
       auto tr = kv.second.tx;
       if (!tr || !tr->isOpen())
@@ -886,7 +909,7 @@ void Network::broadcastPeerList() {
   ScopedLockTracer tracer("broadcastPeerList");
   std::vector<std::string> peers;
   {
-    std::lock_guard<std::timed_mutex> lock(peersMutex);
+    std::shared_lock<std::shared_mutex> lock(peersMutex);
     if (peerTransports.empty())
       return;
     for (const auto &[peerAddr, _] : peerTransports) {
@@ -1028,7 +1051,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
 
     std::string prefix = ipPrefix(senderIP);
     if (!prefix.empty()) {
-      std::lock_guard<std::timed_mutex> g(peersMutex);
+      std::shared_lock<std::shared_mutex> g(peersMutex);
       int count = 0;
       for (const auto &kv : peerTransports) {
         std::string ip = kv.first.substr(0, kv.first.find(':'));
@@ -1056,7 +1079,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
   // ── 3. register / update transport entry ───────────────────────────────
   {
     ScopedLockTracer t("handlePeer/register");
-    std::lock_guard<std::timed_mutex> lk(peersMutex);
+    std::lock_guard<std::shared_mutex> lk(peersMutex);
 
     auto itExisting = peerTransports.find(claimedPeerId);
     if (itExisting != peerTransports.end() && itExisting->second.tx &&
@@ -1098,6 +1121,24 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     entry.state->frameRev = remoteRev;
     entry.state->version = claimedVersion;
     std::copy(shared.begin(), shared.end(), entry.state->linkKey.begin());
+
+    if (!entry.out->writer.joinable()) {
+      entry.out->stop = false;
+      entry.out->writer = std::thread([tr = entry.tx, out = entry.out] {
+        for (;;) {
+          std::unique_lock<std::mutex> lk(out->m);
+          out->cv.wait(lk, [&] { return out->stop || !out->queue.empty(); });
+          if (out->stop && out->queue.empty())
+            break;
+          std::string msg = std::move(out->queue.front());
+          out->queue.pop_front();
+          Metrics::broadcast_queue_len.fetch_sub(1, std::memory_order_relaxed);
+          lk.unlock();
+          if (tr && tr->isOpen())
+            tr->queueWrite(std::move(msg), true);
+        }
+      });
+    }
 
     if (peerManager) {
       if (peerManager->registerPeer(claimedPeerId)) {
@@ -1226,7 +1267,7 @@ void Network::run() {
       std::this_thread::sleep_for(std::chrono::minutes(1));
       std::vector<std::string> banList;
       {
-        std::lock_guard<std::timed_mutex> lk(peersMutex);
+        std::shared_lock<std::shared_mutex> lk(peersMutex);
         for (auto &kv : peerTransports) {
           auto st = kv.second.state;
           if (!st)
@@ -1269,7 +1310,7 @@ void Network::autoSyncIfBehind() {
   const size_t myHeight = bc.getHeight();
   const std::string myTip = bc.getLatestBlockHash();
 
-  std::lock_guard<std::timed_mutex> lock(peersMutex);
+  std::shared_lock<std::shared_mutex> lock(peersMutex);
   for (const auto &[peerAddr, entry] : peerTransports) {
     auto tr = entry.tx;
     if (!tr || !tr->isOpen())
@@ -1371,7 +1412,7 @@ void Network::connectToDiscoveredPeers() {
 //
 void Network::periodicSync() {
   ScopedLockTracer tracer("periodicSync");
-  std::lock_guard<std::timed_mutex> lock(peersMutex);
+  std::shared_lock<std::shared_mutex> lock(peersMutex);
 
   for (const auto &peerId : knownPeers) {
     auto it = peerTransports.find(peerId);
@@ -1465,11 +1506,7 @@ void Network::broadcastBlock(const Block &block, bool /*force*/) {
   std::unordered_map<std::string, PeerEntry> peersCopy;
   {
     ScopedLockTracer _t("broadcastBlock");
-    std::unique_lock<std::timed_mutex> lk(peersMutex, std::defer_lock);
-    if (!lk.try_lock_for(std::chrono::milliseconds(500))) {
-      std::cerr << "⚠️ [broadcastBlock] peersMutex lock timeout\n";
-      return;
-    }
+    std::shared_lock<std::shared_mutex> lk(peersMutex);
     peersCopy = peerTransports;
   }
 
@@ -1481,17 +1518,15 @@ void Network::broadcastBlock(const Block &block, bool /*force*/) {
     if (!seen.insert(transport).second)
       continue;
 
-    std::thread([this, transport, peerId, fr, blkIdx = block.getIndex()]() {
-      bool ok = sendFrameImmediate(transport, fr);
-      if (!ok) {
-        std::cerr << "❌ failed to send block " << blkIdx << " to " << peerId
-                  << " – marking peer offline" << '\n';
-        markPeerOffline(peerId);
-      } else {
-        std::cout << "✅ [broadcastBlock] Block " << blkIdx << " sent to "
-                  << peerId << '\n';
-      }
-    }).detach();
+    bool ok = sendFrame(transport, fr);
+    if (!ok) {
+      std::cerr << "❌ failed to send block " << block.getIndex() << " to "
+                << peerId << " – marking peer offline" << '\n';
+      markPeerOffline(peerId);
+    } else {
+      std::cout << "✅ [broadcastBlock] Block " << block.getIndex()
+                << " sent to " << peerId << '\n';
+    }
   }
 }
 
@@ -1508,7 +1543,7 @@ void Network::broadcastINV(const std::vector<std::string> &hashes) {
     return;
   std::unordered_map<std::string, PeerEntry> peersCopy;
   {
-    std::lock_guard<std::timed_mutex> lk(peersMutex);
+    std::shared_lock<std::shared_mutex> lk(peersMutex);
     peersCopy = peerTransports;
   }
   alyncoin::net::Frame fr;
@@ -1526,7 +1561,7 @@ void Network::broadcastINV(const std::vector<std::string> &hashes) {
 void Network::broadcastHeight(uint32_t height) {
   std::unordered_map<std::string, PeerEntry> peersCopy;
   {
-    std::lock_guard<std::timed_mutex> lk(peersMutex);
+    std::shared_lock<std::shared_mutex> lk(peersMutex);
     peersCopy = peerTransports;
   }
   alyncoin::net::Frame fr;
@@ -1549,7 +1584,7 @@ void Network::broadcastHeight(uint32_t height) {
 void Network::broadcastHandshake() {
   std::unordered_map<std::string, PeerEntry> peersCopy;
   {
-    std::lock_guard<std::timed_mutex> lk(peersMutex);
+    std::shared_lock<std::shared_mutex> lk(peersMutex);
     peersCopy = peerTransports;
   }
 
@@ -1646,6 +1681,7 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender,
     while (!verifyQueue.push(pb)) {
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
+    Metrics::pending_block_verifications.fetch_add(1, std::memory_order_relaxed);
     return;
   }
   auto punish = [&] {
@@ -1771,7 +1807,7 @@ void Network::blacklistPeer(const std::string &peer) {
   }
   int hours = 1;
   {
-    std::lock_guard<std::timed_mutex> lk(peersMutex);
+    std::lock_guard<std::shared_mutex> lk(peersMutex);
     auto it = peerTransports.find(peer);
     if (it != peerTransports.end()) {
       it->second.state->banCount++;
@@ -1829,7 +1865,7 @@ bool Network::sendData(std::shared_ptr<Transport> transport,
 // ✅ **Request Blockchain Sync from Peers**
 std::string Network::requestBlockchainSync(const std::string &peer) {
   {
-    std::lock_guard<std::timed_mutex> lk(peersMutex);
+    std::shared_lock<std::shared_mutex> lk(peersMutex);
     if (!peerTransports.count(peer)) {
       std::cerr << "❌ [ERROR] Peer not found: " << peer << "\n";
       return "";
@@ -1882,7 +1918,7 @@ std::string Network::receiveData(const std::string &peer) {
   try {
     std::shared_ptr<Transport> transport;
     {
-      std::lock_guard<std::timed_mutex> lk(peersMutex);
+      std::shared_lock<std::shared_mutex> lk(peersMutex);
       auto it = peerTransports.find(peer);
       if (it == peerTransports.end() || !it->second.tx) {
         std::cerr << "❌ [ERROR] Peer not found or transport null: " << peer
@@ -2348,7 +2384,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
                                 : publicPeerId;
   };
   {
-    std::lock_guard<std::timed_mutex> g(peersMutex);
+    std::lock_guard<std::shared_mutex> g(peersMutex);
     auto it = peerTransports.find(peerKey);
     if (it != peerTransports.end() && it->second.tx && it->second.tx->isOpen())
       return true;
@@ -2360,7 +2396,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     return false;
   }
   {
-    std::lock_guard<std::timed_mutex> g(peersMutex);
+    std::shared_lock<std::shared_mutex> g(peersMutex);
     auto it = peerTransports.find(peerKey);
     if (it != peerTransports.end() &&
         std::chrono::steady_clock::now() < it->second.state->banUntil) {
@@ -2372,7 +2408,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
 
   std::string prefix = ipPrefix(host);
   if (!prefix.empty()) {
-    std::lock_guard<std::timed_mutex> g(peersMutex);
+    std::shared_lock<std::shared_mutex> g(peersMutex);
     int count = 0;
     for (const auto &kv : peerTransports) {
       std::string ip = kv.first.substr(0, kv.first.find(':'));
@@ -2410,7 +2446,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
 
     {
       ScopedLockTracer _t("connectToNode");
-      std::lock_guard<std::timed_mutex> g(peersMutex);
+      std::lock_guard<std::shared_mutex> g(peersMutex);
       auto it = peerTransports.find(peerKey);
       if (it != peerTransports.end() && it->second.tx && it->second.tx->isOpen()) {
         bool keepNew = false;
@@ -2452,7 +2488,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
       if (!tcp->waitReadable(30)) {
         std::cerr << "⚠️ [connectToNode] handshake timeout for " << peerKey
                   << '\n';
-        std::lock_guard<std::timed_mutex> g(peersMutex);
+        std::lock_guard<std::shared_mutex> g(peersMutex);
         auto it = peerTransports.find(peerKey);
         if (it != peerTransports.end() && it->second.tx &&
             it->second.tx->isOpen()) {
@@ -2467,7 +2503,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
       if (!ssl->waitReadable(30)) {
         std::cerr << "⚠️ [connectToNode] handshake timeout for " << peerKey
                   << '\n';
-        std::lock_guard<std::timed_mutex> g(peersMutex);
+        std::lock_guard<std::shared_mutex> g(peersMutex);
         auto it = peerTransports.find(peerKey);
         if (it != peerTransports.end() && it->second.tx &&
             it->second.tx->isOpen()) {
@@ -2493,7 +2529,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     if (blob.empty() || !fr.ParseFromString(blob) || !fr.has_handshake()) {
       std::cerr << "⚠️ [connectToNode] invalid handshake from " << peerKey
                 << '\n';
-      std::lock_guard<std::timed_mutex> g(peersMutex);
+      std::lock_guard<std::shared_mutex> g(peersMutex);
       auto it = peerTransports.find(peerKey);
       if (it != peerTransports.end() && it->second.tx && it->second.tx->isOpen()) {
         if (auto tcp = std::dynamic_pointer_cast<TcpTransport>(tx))
@@ -2538,15 +2574,18 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
 
     {
       ScopedLockTracer t("connectToNode/register");
-      std::lock_guard<std::timed_mutex> lk(peersMutex);
+      std::lock_guard<std::shared_mutex> lk(peersMutex);
       if (peerTransports.count(peerKey)) {
         std::cout << "🔁 already connected to " << peerKey << '\n';
-        // ensure pending handshake is cleaned up before returning
         if (tx)
           tx->close();
         return false;
       }
-        peerTransports[peerKey] = {tx, std::make_shared<PeerState>(), true};
+      PeerEntry entry{};
+      entry.tx = tx;
+      entry.state = std::make_shared<PeerState>();
+      entry.initiatedByUs = true;
+      peerTransports.emplace(peerKey, std::move(entry));
       knownPeers.insert(peerKey);
       if (anchorPeers.size() < 2)
         anchorPeers.insert(peerKey);
@@ -2648,7 +2687,7 @@ void Network::loadPeers() {
       if (!keyB64.empty()) {
         std::string decoded = Crypto::base64Decode(keyB64, false);
         if (decoded.size() == 32) {
-          std::lock_guard<std::timed_mutex> lk(peersMutex);
+          std::lock_guard<std::shared_mutex> lk(peersMutex);
           auto it = peerTransports.find(peerKey);
           if (it != peerTransports.end() && it->second.state)
             std::copy(decoded.begin(), decoded.end(),
@@ -2663,7 +2702,7 @@ void Network::loadPeers() {
 
 //
 void Network::scanForPeers() {
-  std::lock_guard<std::timed_mutex> lock(peersMutex);
+  std::shared_lock<std::shared_mutex> lock(peersMutex);
   if (!peerTransports.empty()) {
     std::cout << "✅ [scanForPeers] Mesh established, skipping DNS scan.\n";
     return;
@@ -2761,7 +2800,7 @@ void Network::cleanupPeers() {
   }
   std::vector<std::string> inactivePeers;
   {
-    std::lock_guard<std::timed_mutex> lock(peersMutex);
+    std::lock_guard<std::shared_mutex> lock(peersMutex);
     for (const auto &peer : peerTransports) {
       try {
         if (!peer.second.tx || !peer.second.tx->isOpen()) {
@@ -2866,8 +2905,12 @@ bool Network::validateBlockSignatures(const Block &blk) {
 //
 void Network::broadcastRollupBlock(const RollupBlock &rollup) {
   ScopedLockTracer tracer("broadcastRollupBlock");
-  std::lock_guard<std::timed_mutex> lock(peersMutex);
-  for (const auto &[peerID, entry] : peerTransports) {
+  std::unordered_map<std::string, PeerEntry> peersCopy;
+  {
+    std::shared_lock<std::shared_mutex> lock(peersMutex);
+    peersCopy = peerTransports;
+  }
+  for (const auto &[peerID, entry] : peersCopy) {
     auto transport = entry.tx;
     if (transport && transport->isOpen()) {
       alyncoin::net::Frame fr;
@@ -2880,8 +2923,12 @@ void Network::broadcastRollupBlock(const RollupBlock &rollup) {
 void Network::broadcastEpochProof(int epochIdx, const std::string &rootHash,
                                   const std::vector<uint8_t> &proofBytes) {
   ScopedLockTracer tracer("broadcastEpochProof");
-  std::lock_guard<std::timed_mutex> lock(peersMutex);
-  for (const auto &[peerID, entry] : peerTransports) {
+  std::unordered_map<std::string, PeerEntry> peersCopy2;
+  {
+    std::shared_lock<std::shared_mutex> lock(peersMutex);
+    peersCopy2 = peerTransports;
+  }
+  for (const auto &[peerID, entry] : peersCopy2) {
     auto transport = entry.tx;
     if (transport && transport->isOpen()) {
       alyncoin::net::Frame fr;
