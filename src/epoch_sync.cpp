@@ -1,7 +1,7 @@
 #include "network.h"
 
 void Network::requestEpochHeaders(const std::string& peerId) {
-    std::lock_guard<std::timed_mutex> lk(peersMutex);
+    std::shared_lock<std::shared_mutex> lk(peersMutex);
     auto it = peerTransports.find(peerId);
     if (it == peerTransports.end() || !it->second.tx) return;
 

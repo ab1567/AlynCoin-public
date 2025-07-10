@@ -9,7 +9,7 @@ using boost::multiprecision::cpp_int;
 
 int getActiveMinerCount()
 {
-    std::lock_guard<std::timed_mutex> lk(peersMutex);
+    std::shared_lock<std::shared_mutex> lk(peersMutex);
     return std::max(1, static_cast<int>(peerTransports.size()));
 }
 
