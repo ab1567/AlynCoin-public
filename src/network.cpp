@@ -2074,6 +2074,10 @@ void Network::processFrame(const alyncoin::net::Frame &f, const std::string &pee
 }
 
 void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
+  if (!g_rateLimiter.allow(peer)) {
+    std::cerr << "⚠️  rate limit exceeded for " << peer << '\n';
+    return;
+  }
   WireFrame tag = WireFrame::OTHER;
   if (f.has_handshake())
     tag = WireFrame::HANDSHAKE;
@@ -2089,11 +2093,6 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
     tag = WireFrame::SNAP_CHUNK;
   else if (f.has_snapshot_end())
     tag = WireFrame::SNAP_END;
-  size_t payloadSize = f.ByteSizeLong();
-  if (!g_rateLimiter.consume(peer, static_cast<uint8_t>(tag), payloadSize)) {
-    std::cerr << "⚠️  rate limit exceeded for " << peer << '\n';
-    return;
-  }
   std::cerr << "[<<] Incoming Frame from " << peer << " Type=" << static_cast<int>(tag)
             << "\n";
   switch (f.kind_case()) {
