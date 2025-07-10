@@ -1030,7 +1030,7 @@ Block Blockchain::minePendingTransactions(
     clearPendingTransactions();
     lock.unlock();
     std::cout << "[DEBUG] About to serialize block with reward = " << newBlock.getReward() << "\n";
-    saveToDB();
+    flush();
 
     std::thread([](Block blockCopy) {
         std::this_thread::sleep_for(std::chrono::milliseconds(500));

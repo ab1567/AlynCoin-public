@@ -70,7 +70,7 @@ void Miner::startMiningProcess(const std::string &minerAddress) {
 
             // ✅ Only add and broadcast if block is valid
             if (blockchain.addBlock(minedBlock)) {
-                blockchain.saveToDB();
+                blockchain.flush();
 
                 if (!Network::isUninitialized()) {
                     Network::getInstance().broadcastBlock(minedBlock);
