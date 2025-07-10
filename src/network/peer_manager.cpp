@@ -56,6 +56,9 @@ bool PeerManager::registerPeer(const std::string &peer_id) {
             return false;
         }
     }
+    auto &b = backoff[peer_id];
+    b.misses = 0;
+    b.nextTry = std::chrono::steady_clock::now();
     return connectToPeer(peer_id);
 }
 
@@ -250,8 +253,13 @@ std::string PeerManager::getConsensusTipHash(int localHeight) const {
     return majority->first;
 }
 
-void PeerManager::scheduleReconnect(const std::string& peer, std::chrono::seconds delay) {
-    reconnectQueue.push_back({peer, std::chrono::steady_clock::now() + delay});
+void PeerManager::scheduleReconnect(const std::string& peer, std::chrono::seconds) {
+    auto now = std::chrono::steady_clock::now();
+    auto &b = backoff[peer];
+    b.misses++;
+    int secs = std::min(b.misses * 5, 60);
+    b.nextTry = now + std::chrono::seconds(secs);
+    reconnectQueue.push_back({peer, b.nextTry});
 }
 
 void PeerManager::reconnectLoop() {
@@ -265,12 +273,20 @@ void PeerManager::reconnectLoop() {
                 continue;
             if (!network)
                 continue;
+            auto itB = backoff.find(peer);
+            if (itB != backoff.end() && now < itB->second.nextTry) {
+                reconnectQueue.push_back({peer, itB->second.nextTry});
+                continue;
+            }
             size_t pos = peer.find(":");
             if (pos == std::string::npos)
                 continue;
             std::string ip = peer.substr(0, pos);
             int port = std::stoi(peer.substr(pos + 1));
-            network->connectToNode(ip, port);
+            if (network->connectToNode(ip, port)) {
+                backoff[peer].misses = 0;
+                backoff[peer].nextTry = std::chrono::steady_clock::now();
+            }
         }
     }
 }
