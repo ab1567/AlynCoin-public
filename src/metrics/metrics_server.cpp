@@ -1,6 +1,7 @@
 #include "metrics_server.h"
 #include "transport/peer_globals.h"
 #include "core/Metrics.hpp"
+#include "logging.h"
 #include <sstream>
 #include <crow.h>
 #include <mutex>
@@ -12,10 +13,12 @@ void MetricsServer::startServer() {
 
     CROW_ROUTE(app, "/metrics")([]() {
         std::ostringstream out;
-        out << "pending_block_verifications "
-            << Metrics::pending_block_verifications.load() << "\n";
-        out << "broadcast_queue_len "
-            << Metrics::broadcast_queue_len.load() << "\n";
+        auto pending = Metrics::pending_block_verifications.load();
+        auto qlen = Metrics::broadcast_queue_len.load();
+        out << "pending_block_verifications " << pending << "\n";
+        out << "broadcast_queue_len " << qlen << "\n";
+        LOG_I("[metrics]") << "pending_block_verifications=" << pending
+                           << " broadcast_queue_len=" << qlen;
         return crow::response(out.str());
     });
 
