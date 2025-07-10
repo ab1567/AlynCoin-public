@@ -1,0 +1,30 @@
+groups:
+- name: alyncoin
+  rules:
+  - alert: PendingBlockVerificationsHigh
+    expr: pending_block_verifications > 8000
+    for: 1m
+    labels:
+      severity: warning
+    annotations:
+      summary: Too many pending block verifications
+      description: Async verifier queue exceeded 8000 blocks.
+
+  - alert: PeerSendQueueHigh
+    expr: broadcast_queue_len > 1000
+    for: 1m
+    labels:
+      severity: warning
+    annotations:
+      summary: Peer send-queue backlog
+      description: Peer send-queue length exceeded 1000 messages.
+
+  - alert: OrphanPoolFull
+    expr: orphan_pool_size >= 5000
+    for: 1m
+    labels:
+      severity: warning
+    annotations:
+      summary: Orphan pool is full
+      description: The orphan block pool reached its capacity.
+
