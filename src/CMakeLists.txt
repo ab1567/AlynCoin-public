@@ -174,6 +174,7 @@ find_package(OpenSSL REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(JSONCPP jsoncpp)
 find_package(Protobuf REQUIRED)
+find_package(spdlog REQUIRED)
 find_library(SODIUM_LIB sodium REQUIRED)
 find_path(SODIUM_INCLUDE_DIR sodium.h)
 include_directories(${SODIUM_INCLUDE_DIR})
@@ -373,6 +374,7 @@ target_link_libraries(alyncoin_lib
     ${SODIUM_LIB}
     ${SOURCE_DIR}/rust/target/release/libzk_winterfell.a
     resolv
+    spdlog::spdlog
 )
 if(MINIUPNPC_LIBRARY)
     target_link_libraries(alyncoin_lib ${MINIUPNPC_LIBRARY})
