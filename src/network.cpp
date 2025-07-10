@@ -758,7 +758,7 @@ void Network::autoMineBlock() {
         if (blockchain.isValidNewBlock(minedBlock) && validSignatures) {
           {
             std::lock_guard<std::mutex> lock(blockchainMutex);
-            Blockchain::getInstance().saveToDB();
+            Blockchain::getInstance().flush();
           }
           broadcastBlock(minedBlock);
           blockchain.broadcastNewTip();
@@ -1481,15 +1481,17 @@ void Network::broadcastBlock(const Block &block, bool /*force*/) {
     if (!seen.insert(transport).second)
       continue;
 
-    bool ok = sendFrameImmediate(transport, fr);
-    if (!ok) {
-      std::cerr << "❌ failed to send block " << block.getIndex() << " to "
-                << peerId << " – marking peer offline" << '\n';
-      markPeerOffline(peerId);
-      continue;
-    }
-    std::cout << "✅ [broadcastBlock] Block " << block.getIndex() << " sent to "
-              << peerId << '\n';
+    std::thread([this, transport, peerId, fr, blkIdx = block.getIndex()]() {
+      bool ok = sendFrameImmediate(transport, fr);
+      if (!ok) {
+        std::cerr << "❌ failed to send block " << blkIdx << " to " << peerId
+                  << " – marking peer offline" << '\n';
+        markPeerOffline(peerId);
+      } else {
+        std::cout << "✅ [broadcastBlock] Block " << blkIdx << " sent to "
+                  << peerId << '\n';
+      }
+    }).detach();
   }
 }
 
@@ -1728,7 +1730,7 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender,
       return;
     }
 
-    blockchain.saveToDB();
+    blockchain.flush();
     broadcastBlock(newBlock);
     // Update cached height and tip hash for the sending peer if provided
     if (peerManager && !sender.empty()) {
