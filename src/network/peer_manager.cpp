@@ -174,7 +174,14 @@ bool PeerManager::fetchBlockAtHeight(int height, Block& outBlock) {
         const auto& table = network->getPeerTable();
         auto it = table.find(peer);
         if (it == table.end() || !it->second.tx) continue;
+
         network->sendFrame(it->second.tx, request, /*immediate=*/true);
+
+        // Avoid hanging indefinitely if the peer doesn't respond
+        if (!it->second.tx->waitReadable(5)) {
+            continue;
+        }
+
         std::string response = it->second.tx->readBinaryBlocking();
         if (response.empty()) continue;
         alyncoin::net::Frame fr;
