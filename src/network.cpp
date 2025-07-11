@@ -2992,8 +2992,8 @@ void Network::sendTailBlocks(std::shared_ptr<Transport> transport,
   auto ps = it->second.state;
   if (fromHeight < ps->lastTailHeight)
     fromHeight = ps->lastTailHeight;
-  if (fromHeight < bc.getHeight()) {
-    return;  // peer is behind
+  if (fromHeight >= bc.getHeight()) {
+    return;  // peer is already up-to-date
   }
   constexpr std::size_t MSG_LIMIT = MAX_TAIL_PAYLOAD;
   int start = fromHeight + 1;
