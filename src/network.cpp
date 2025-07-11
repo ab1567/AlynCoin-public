@@ -5,6 +5,7 @@
 #include "blockchain.h"
 #include "crypto_utils.h"
 #include "logging.h"
+#include "net/frame_logger.h"
 #include <zstd.h>
 #include <generated/block_protos.pb.h>
 #include <generated/sync_protos.pb.h>
@@ -204,7 +205,7 @@ bool Network::sendFrame(std::shared_ptr<Transport> tr,
       tag = WireFrame::SNAP_CHUNK;
     else if (fr->has_snapshot_end())
       tag = WireFrame::SNAP_END;
-    LOG_W("[net]") << "[>>] Outgoing Frame Type=" << static_cast<int>(tag) << "\n";
+    NET_TRACE("[>>] Outgoing Frame Type={}", static_cast<int>(tag));
   }
 size_t sz = m.ByteSizeLong();
 if (sz == 0) {
@@ -225,8 +226,7 @@ uint8_t var[10];
 size_t n = encodeVarInt(sz, var);
 std::string out(reinterpret_cast<char *>(var), n);
 out.append(reinterpret_cast<const char *>(buf.data()), sz);
-LOG_W("[net]") << "[sendFrame] Sending frame, payload size: " << sz
-          << " bytes" << '\n';
+NET_TRACE("[sendFrame] Sending frame, payload size: {} bytes", sz);
   if (immediate) {
     if (auto tcp = std::dynamic_pointer_cast<TcpTransport>(tr))
       return tcp->writeBinaryLocked(out);
@@ -1966,8 +1966,7 @@ void Network::startBinaryReadLoop(const std::string &peerId,
 
     alyncoin::net::Frame f;
     if (f.ParseFromString(blob)) {
-      LOG_W("[net]") << "[readLoop] ✅ Parsed frame successfully from peer: "
-                << peerId << '\n';
+      NET_TRACE("[readLoop] Parsed frame from {}", peerId);
       asio::post(workPool, [this, f, peer=peerId] { processFrame(f, peer); });
     } else {
       LOG_W("[net]") << "[readLoop] ❌ Failed to parse protobuf frame!" << '\n';
@@ -1997,8 +1996,7 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
     tag = WireFrame::SNAP_CHUNK;
   else if (f.has_snapshot_end())
     tag = WireFrame::SNAP_END;
-  LOG_W("[net]") << "[<<] Incoming Frame from " << peer << " Type=" << static_cast<int>(tag)
-            << "\n";
+  NET_TRACE("[<<] Incoming Frame from {} Type={}", peer, static_cast<int>(tag));
   switch (f.kind_case()) {
   case alyncoin::net::Frame::kHandshake: {
     const auto &hs = f.handshake();

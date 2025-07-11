@@ -5,6 +5,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_compile_definitions(CROW_USE_BOOST)
 
+option(ENABLE_NET_TRACE "Verbose frame-level logging" OFF)
+
 # --------------------------
 # Detect CPU Architecture
 include(CheckCCompilerFlag)
@@ -383,6 +385,10 @@ endif()
 
 if(NATPMP_LIBRARY)
     target_link_libraries(alyncoin_lib ${NATPMP_LIBRARY})
+endif()
+
+if(ENABLE_NET_TRACE)
+    target_compile_definitions(alyncoin_lib PUBLIC ENABLE_NET_TRACE)
 endif()
 
 # --------------------------
