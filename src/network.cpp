@@ -413,7 +413,9 @@ alyncoin::net::Handshake Network::buildHandshake() const {
   hs.set_frame_rev(kFrameRevision);
   auto work = bc.computeCumulativeDifficulty(bc.getChain());
   hs.set_total_work(safeUint64(work));
-  hs.set_want_snapshot(false);
+  // Enable snapshot synchronization by default so peers can
+  // request state if they fall behind.
+  hs.set_want_snapshot(true);
   hs.set_snapshot_size(static_cast<uint32_t>(getAppConfig().max_snapshot_chunk_size));
   return hs;
 }
