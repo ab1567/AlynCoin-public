@@ -2023,6 +2023,14 @@ void Network::startBinaryReadLoop(const std::string &peerId,
 }
 
 void Network::processFrame(const alyncoin::net::Frame &f, const std::string &peer) {
+  if (!f.IsInitialized()) {
+    std::cerr << "[net] Uninitialized frame from " << peer << '\n';
+    return;
+  }
+  if (f.ByteSizeLong() == 0 || f.ByteSizeLong() > MAX_WIRE_PAYLOAD) {
+    std::cerr << "[net] Invalid frame size from " << peer << '\n';
+    return;
+  }
   dispatch(f, peer);
 }
 
@@ -3044,6 +3052,10 @@ void Network::handleSnapshotChunk(const std::string &peer,
   if (it == peerTransports.end() || !it->second.state)
     return;
   auto ps = it->second.state;
+  if (chunk.empty()) {
+    std::cerr << "[SNAPSHOT] empty chunk from " << peer << '\n';
+    return;
+  }
   if (ps->snapState != PeerState::SnapState::WaitChunks) {
     std::cerr << "⚠️ [SNAPSHOT] Unexpected chunk from " << peer << '\n';
     return;

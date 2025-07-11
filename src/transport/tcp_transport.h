@@ -4,6 +4,7 @@
 #include <memory>
 #include <deque>
 #include <mutex>
+#include <array>
 
 /**
  * Concrete Boost-Asio TCP transport.
@@ -42,6 +43,8 @@ public:
 
 private:
     std::shared_ptr<boost::asio::ip::tcp::socket> socket;
+    boost::asio::strand<boost::asio::any_io_executor> strand_;
+    std::array<char, 8 * 1024>                      readBuf_{};
     std::deque<std::string> writeQueue;
     std::deque<bool>        writeQueueBinary;
     std::mutex              writeMutex;
