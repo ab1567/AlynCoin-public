@@ -320,7 +320,7 @@ void Network::sendHeight(const std::string &peer) {
   alyncoin::net::Frame fr;
   Blockchain &bc = Blockchain::getInstance();
   auto *hr = fr.mutable_height_res();
-  hr->set_height(bc.getHeight());
+  hr->set_height(bc.getTipHeight());
   auto work = bc.computeCumulativeDifficulty(bc.getChain());
   uint64_t w64 = safeUint64(work);
   if (peerManager)
@@ -335,7 +335,7 @@ void Network::sendHeightProbe(std::shared_ptr<Transport> tr) {
   Blockchain &bc = Blockchain::getInstance();
   alyncoin::net::Frame fr;
   auto *hp = fr.mutable_height_probe();
-  hp->set_height(bc.getHeight());
+  hp->set_height(bc.getTipHeight());
   hp->set_tip_hash(bc.getLatestBlockHash());
   auto work = bc.computeCumulativeDifficulty(bc.getChain());
   uint64_t w64 = safeUint64(work);
@@ -398,7 +398,7 @@ alyncoin::net::Handshake Network::buildHandshake() const {
   Blockchain &bc = Blockchain::getInstance();
   hs.set_version("1.0.0");
   hs.set_network_id("mainnet");
-  hs.set_height(bc.getHeight());
+  hs.set_height(bc.getTipHeight());
   hs.set_listen_port(this->port);
   if (!bc.getChain().empty())
     hs.set_genesis_hash(bc.getChain().front().getHash());
@@ -1892,6 +1892,7 @@ bool Network::finishOutboundHandshake(std::shared_ptr<Transport> tx,
   hs.set_snapshot_size(static_cast<uint32_t>(getAppConfig().max_snapshot_chunk_size));
   alyncoin::net::Frame fr;
   *fr.mutable_handshake() = hs;
+  LOG_I("[OutboundHello] sending height " << hs.height() << '\n');
   if (!sendFrameImmediate(tx, fr))
     return false;
   // Provide our current height immediately after the handshake

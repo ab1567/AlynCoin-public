@@ -2777,6 +2777,11 @@ int Blockchain::getHeight() const {
     return static_cast<int>(chain.size()) - 1;
 }
 
+// Alias for getHeight() to clarify network log statements
+int Blockchain::getTipHeight() const {
+    return getHeight();
+}
+
 // Get block hash at specific height
 std::string Blockchain::getBlockHashAtHeight(int height) const {
     if (height >= 0 && height < static_cast<int>(chain.size())) {
