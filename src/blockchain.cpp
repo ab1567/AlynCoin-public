@@ -379,8 +379,10 @@ Block Blockchain::createGenesisBlock(bool force)
 }
 
 // ✅ Adds block, applies smart burn, and broadcasts to peers
-bool Blockchain::addBlock(const Block &block) {
-    std::lock_guard<std::mutex> lk(chainMtx);
+bool Blockchain::addBlock(const Block &block, bool lockHeld) {
+    std::unique_lock<std::mutex> lk(chainMtx, std::defer_lock);
+    if (!lockHeld)
+        lk.lock();
     std::cerr << "[addBlock] Attempting: idx=" << block.getIndex()
               << ", hash=" << block.getHash()
               << ", prev=" << block.getPreviousHash()
@@ -597,12 +599,33 @@ bool Blockchain::addBlock(const Block &block) {
         std::cerr << "[addBlock] Applying buffered future block index: " << nextIndex << "\n";
         Block buffered = this->futureBlocks[nextIndex];
         this->futureBlocks.erase(nextIndex);
-        addBlock(buffered);
+        addBlock(buffered, true);
         nextIndex++;
     }
 
     // 12. Try to attach any orphans waiting on this block
-     tryAttachOrphans(block.getHash());
+    tryAttachOrphans(block.getHash());
+    return true;
+}
+
+bool Blockchain::tryAddBlock(const Block& block, ValidationResult& out) {
+    std::scoped_lock lk(chainMtx);
+
+    if (!chain.empty()) {
+        if (block.getIndex() <= chain.back().getIndex())
+            return false;
+        if (block.getPreviousHash() != chain.back().getHash()) {
+            out = ValidationResult::PrevHashMismatch;
+            return false;
+        }
+    }
+
+    bool ok = addBlock(block, true);
+    if (!ok) {
+        out = ValidationResult::Invalid;
+        return false;
+    }
+    out = ValidationResult::Ok;
     return true;
 }
 
@@ -3183,7 +3206,7 @@ void Blockchain::tryAttachOrphans(const std::string& parentHash)
         std::cerr << "[addBlock] Now adding previously orphaned block idx="
                   << child.getIndex() << "\n";
         orphanHashes.erase(child.getHash());
-        addBlock(child);
+        addBlock(child, true);
     }
 }
 

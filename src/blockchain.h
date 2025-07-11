@@ -163,7 +163,14 @@ public:
                                 const std::vector<unsigned char> &minerFalconPriv);
   void setPendingTransactions(const std::vector<Transaction> &transactions);
   double getAverageBlockTime(int recentCount) const;
-  bool addBlock(const Block &block);
+  enum class ValidationResult {
+    Ok = 0,
+    PrevHashMismatch,
+    Invalid
+  };
+
+  bool addBlock(const Block &block, bool lockHeld = false);
+  bool tryAddBlock(const Block &block, ValidationResult &out);
   void loadPendingTransactionsFromDB();
   bool isValidNewBlock(const Block &newBlock) const;
   double calculateBalance(const std::string &address, const std::map<std::string, double> &tempSnapshot) const;

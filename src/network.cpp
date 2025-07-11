@@ -1648,7 +1648,8 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
 
       blockchain.saveForkView({newBlock});
 
-      bool added = blockchain.addBlock(newBlock);
+      Blockchain::ValidationResult vr{};
+      bool added = blockchain.tryAddBlock(newBlock, vr);
       if (!added) {
         for (const auto &peer : peerTransports) {
           sendForkRecoveryRequest(peer.first, newBlock.getHash());
@@ -1730,7 +1731,8 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
 
   // 5) Add and save
   try {
-    if (!blockchain.addBlock(newBlock)) {
+    Blockchain::ValidationResult vr{};
+    if (!blockchain.tryAddBlock(newBlock, vr)) {
       std::cerr << "❌ [ERROR] Failed to add new block.\n";
       punish();
       return;
