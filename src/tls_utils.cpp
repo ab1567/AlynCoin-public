@@ -14,13 +14,19 @@ bool ensure_self_signed_cert(const std::string& dir, std::string& certPath, std:
     if (fs::exists(certPath) && fs::exists(keyPath))
         return true;
 
-    EVP_PKEY* pkey = EVP_PKEY_new();
-    RSA* rsa = RSA_new();
-    BIGNUM* e = BN_new();
-    BN_set_word(e, RSA_F4);
-    RSA_generate_key_ex(rsa, 2048, e, nullptr);
-    EVP_PKEY_assign_RSA(pkey, rsa);
-    BN_free(e);
+    EVP_PKEY* pkey = nullptr;
+    EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr);
+    if (!ctx)
+        return false;
+    if (EVP_PKEY_keygen_init(ctx) <= 0)
+        return false;
+    if (EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, 2048) <= 0)
+        return false;
+    if (EVP_PKEY_keygen(ctx, &pkey) <= 0) {
+        EVP_PKEY_CTX_free(ctx);
+        return false;
+    }
+    EVP_PKEY_CTX_free(ctx);
 
     X509* x509 = X509_new();
     ASN1_INTEGER_set(X509_get_serialNumber(x509), 1);
