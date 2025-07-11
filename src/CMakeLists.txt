@@ -3,6 +3,7 @@ project(alyncoin)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+add_compile_definitions(CROW_USE_BOOST)
 
 # --------------------------
 # Detect CPU Architecture
