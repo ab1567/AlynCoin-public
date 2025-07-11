@@ -63,6 +63,7 @@ Blockchain& getBlockchain() {
 // to prevent deadlocks across threads.
 std::mutex blockchainMutex;
 std::atomic<bool> Blockchain::isMining{false};
+std::atomic<bool> Blockchain::isRecovering{false};
 
 Blockchain::Blockchain()
     : difficulty(0), miningReward(100.0), db(nullptr), totalBurnedSupply(0.0),
@@ -869,6 +870,10 @@ Block Blockchain::minePendingTransactions(
     const std::vector<unsigned char> &minerDilithiumPriv,
     const std::vector<unsigned char> &minerFalconPriv)
 {
+    if (isRecoveringActive()) {
+        std::cout << "[DEBUG] Skipping mining while recovering..." << std::endl;
+        return Block();
+    }
     std::cout << "[DEBUG] Waiting on blockchainMutex in minePendingTransactions()...\n";
     std::unique_lock<std::mutex> lock(blockchainMutex);
     std::cout << "[DEBUG] Acquired blockchainMutex in minePendingTransactions()!\n";
@@ -1112,6 +1117,22 @@ void Blockchain::startMining(const std::string &minerAddress,
 void Blockchain::stopMining() {
   isMining.store(false);
   std::cout << "⛔ Mining stopped!\n";
+}
+
+// Begin recovery mode
+void Blockchain::startRecovery() {
+  isRecovering.store(true);
+  std::cout << "[DEBUG] Recovery mode started" << std::endl;
+}
+
+// End recovery mode
+void Blockchain::finishRecovery() {
+  isRecovering.store(false);
+  std::cout << "[DEBUG] Recovery mode finished" << std::endl;
+}
+
+bool Blockchain::isRecoveringActive() const {
+  return isRecovering.load();
 }
 
 // ✅ **Reload Blockchain State**
@@ -1859,6 +1880,11 @@ std::cout << "[DEBUG] Pending tx count: " << pendingTransactions.size() << std::
 // ✅ Unified wrapper to support CLI-based or address-based mining
 Block Blockchain::mineBlock(const std::string &minerAddress) {
     std::cout << "[DEBUG] Entered mineBlock() for: " << minerAddress << "\n";
+
+    if (isRecoveringActive()) {
+        std::cerr << "⚠️ Node is recovering. Mining paused." << std::endl;
+        return Block();
+    }
 
 	std::string dilithiumKeyPath = DBPaths::getKeyDir() + minerAddress + "_dilithium.key";
 	std::string falconKeyPath    = DBPaths::getKeyDir() + minerAddress + "_falcon.key";
