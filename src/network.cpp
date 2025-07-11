@@ -19,6 +19,7 @@
 #include "crypto/sphinx.h"
 #include "wire/varint.h"
 #include "zk/winterfell_stark.h"
+#include <stdexcept>
 #include <sodium.h>
 #include <algorithm>
 #include <random>
@@ -917,10 +918,13 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
 
     randombytes_buf(myPriv.data(), myPriv.size());
     crypto_scalarmult_curve25519_base(myPub.data(), myPriv.data());
-    if (hs.pub_key().size() == 32)
-      (void)crypto_scalarmult_curve25519(
+    if (hs.pub_key().size() == 32) {
+      int rc = crypto_scalarmult_curve25519(
           shared.data(), myPriv.data(),
           reinterpret_cast<const unsigned char *>(hs.pub_key().data()));
+      if (rc != 0)
+        throw std::runtime_error("crypto_scalarmult_curve25519 failed");
+    }
 
     const std::string senderIP = transport->getRemoteIP();
     // The Handshake proto uses proto3 semantics so there is no
@@ -2488,10 +2492,13 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     }
 
     std::array<uint8_t, 32> shared{};
-    if (rhs.pub_key().size() == 32)
-      (void)crypto_scalarmult_curve25519(
+    if (rhs.pub_key().size() == 32) {
+      int rc = crypto_scalarmult_curve25519(
           shared.data(), myPriv.data(),
           reinterpret_cast<const unsigned char *>(rhs.pub_key().data()));
+      if (rc != 0)
+        throw std::runtime_error("crypto_scalarmult_curve25519 failed");
+    }
 
     {
       ScopedLockTracer t("connectToNode/register");

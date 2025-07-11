@@ -2,6 +2,7 @@
 #include <openssl/evp.h>
 #include <openssl/pem.h>
 #include <openssl/x509.h>
+#include <openssl/rsa.h>
 #include <filesystem>
 #include <fstream>
 
@@ -14,13 +15,9 @@ bool ensure_self_signed_cert(const std::string& dir, std::string& certPath, std:
     if (fs::exists(certPath) && fs::exists(keyPath))
         return true;
 
-    EVP_PKEY* pkey = EVP_PKEY_new();
-    RSA* rsa = RSA_new();
-    BIGNUM* e = BN_new();
-    BN_set_word(e, RSA_F4);
-    RSA_generate_key_ex(rsa, 2048, e, nullptr);
-    EVP_PKEY_assign_RSA(pkey, rsa);
-    BN_free(e);
+    EVP_PKEY* pkey = EVP_RSA_gen(2048);
+    if (!pkey)
+        return false;
 
     X509* x509 = X509_new();
     ASN1_INTEGER_set(X509_get_serialNumber(x509), 1);
