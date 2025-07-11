@@ -93,6 +93,11 @@ configuring the build.
 Binaries such as `alyncoin` and `alyncoin-cli` will be placed in the `build`
 directory.
 
+### Configuration file
+
+Runtime limits and network parameters can be adjusted in `config.toml` at the repository root. Copy this file next to your binaries and modify values like `max_peers` or `ban_threshold` before launching the node.
+
+
 ## Networking updates
 
 Version 4 of the network frame protocol introduces temporary-ban decay
