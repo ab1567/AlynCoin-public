@@ -231,8 +231,6 @@ public:
   std::string getLastRollupProof() const;
 
   int getHeight() const;
-  // Convenience alias for getHeight() used by networking code
-  int getTipHeight() const { return getHeight(); }
   int getCheckpointHeight() const { return checkpointHeight; }
   uint64_t getTotalWork() const { return totalWork; }
   void broadcastNewTip();
