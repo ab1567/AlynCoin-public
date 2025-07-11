@@ -60,6 +60,7 @@ private:
   std::deque<int> recentTransactionCounts;
   std::vector<Transaction> pendingTransactions;
   static std::atomic<bool> isMining;
+  static std::atomic<bool> isRecovering;
   double blockReward = 10.0;
   int difficulty;
   double miningReward;
@@ -157,6 +158,9 @@ public:
                    const std::string &minerDilithiumKey,
                    const std::string &minerFalconKey);
   void stopMining();
+  void startRecovery();
+  void finishRecovery();
+  bool isRecoveringActive() const;
   bool hasPendingTransactions() const;
   Block minePendingTransactions(const std::string &minerAddress,
                                 const std::vector<unsigned char> &minerDilithiumPriv,

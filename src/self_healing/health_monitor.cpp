@@ -35,10 +35,13 @@ NodeHealthStatus HealthMonitor::checkHealth() {
     }
     status.farBehind = false;
 
-    if (remoteWork > localWork) {
+    if (remoteWork > localWork && status.networkHeight >= status.localHeight) {
         status.isHealthy = false;
         status.reason = "Out of sync";
         return status;
+    } else if (remoteWork > localWork) {
+        status.isHealthy = true;
+        status.reason = "Local height higher";
     }
 
     bool stronger = useHeightOnly
