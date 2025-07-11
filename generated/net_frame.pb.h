@@ -1905,11 +1905,36 @@ class SnapshotMeta final :
   // accessors -------------------------------------------------------
 
   enum : int {
+    kBlake3ChunkHashFieldNumber = 5,
     kRootHashFieldNumber = 2,
     kHeightFieldNumber = 1,
     kTotalBytesFieldNumber = 3,
     kChunkSizeFieldNumber = 4,
   };
+  // repeated bytes blake3_chunk_hash = 5;
+  int blake3_chunk_hash_size() const;
+  private:
+  int _internal_blake3_chunk_hash_size() const;
+  public:
+  void clear_blake3_chunk_hash();
+  const std::string& blake3_chunk_hash(int index) const;
+  std::string* mutable_blake3_chunk_hash(int index);
+  void set_blake3_chunk_hash(int index, const std::string& value);
+  void set_blake3_chunk_hash(int index, std::string&& value);
+  void set_blake3_chunk_hash(int index, const char* value);
+  void set_blake3_chunk_hash(int index, const void* value, size_t size);
+  std::string* add_blake3_chunk_hash();
+  void add_blake3_chunk_hash(const std::string& value);
+  void add_blake3_chunk_hash(std::string&& value);
+  void add_blake3_chunk_hash(const char* value);
+  void add_blake3_chunk_hash(const void* value, size_t size);
+  const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>& blake3_chunk_hash() const;
+  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>* mutable_blake3_chunk_hash();
+  private:
+  const std::string& _internal_blake3_chunk_hash(int index) const;
+  std::string* _internal_add_blake3_chunk_hash();
+  public:
+
   // string root_hash = 2;
   void clear_root_hash();
   const std::string& root_hash() const;
@@ -1924,22 +1949,22 @@ class SnapshotMeta final :
   std::string* _internal_mutable_root_hash();
   public:
 
-  // uint64 height = 1;
+  // uint32 height = 1;
   void clear_height();
-  uint64_t height() const;
-  void set_height(uint64_t value);
+  uint32_t height() const;
+  void set_height(uint32_t value);
   private:
-  uint64_t _internal_height() const;
-  void _internal_set_height(uint64_t value);
+  uint32_t _internal_height() const;
+  void _internal_set_height(uint32_t value);
   public:
 
-  // uint64 total_bytes = 3;
+  // uint32 total_bytes = 3;
   void clear_total_bytes();
-  uint64_t total_bytes() const;
-  void set_total_bytes(uint64_t value);
+  uint32_t total_bytes() const;
+  void set_total_bytes(uint32_t value);
   private:
-  uint64_t _internal_total_bytes() const;
-  void _internal_set_total_bytes(uint64_t value);
+  uint32_t _internal_total_bytes() const;
+  void _internal_set_total_bytes(uint32_t value);
   public:
 
   // uint32 chunk_size = 4;
@@ -1959,9 +1984,10 @@ class SnapshotMeta final :
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
   struct Impl_ {
+    ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string> blake3_chunk_hash_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr root_hash_;
-    uint64_t height_;
-    uint64_t total_bytes_;
+    uint32_t height_;
+    uint32_t total_bytes_;
     uint32_t chunk_size_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   };
@@ -6507,22 +6533,22 @@ inline void BlockResponse::set_allocated_block(::alyncoin::BlockProto* block) {
 
 // SnapshotMeta
 
-// uint64 height = 1;
+// uint32 height = 1;
 inline void SnapshotMeta::clear_height() {
-  _impl_.height_ = uint64_t{0u};
+  _impl_.height_ = 0u;
 }
-inline uint64_t SnapshotMeta::_internal_height() const {
+inline uint32_t SnapshotMeta::_internal_height() const {
   return _impl_.height_;
 }
-inline uint64_t SnapshotMeta::height() const {
+inline uint32_t SnapshotMeta::height() const {
   // @@protoc_insertion_point(field_get:alyncoin.net.SnapshotMeta.height)
   return _internal_height();
 }
-inline void SnapshotMeta::_internal_set_height(uint64_t value) {
+inline void SnapshotMeta::_internal_set_height(uint32_t value) {
   
   _impl_.height_ = value;
 }
-inline void SnapshotMeta::set_height(uint64_t value) {
+inline void SnapshotMeta::set_height(uint32_t value) {
   _internal_set_height(value);
   // @@protoc_insertion_point(field_set:alyncoin.net.SnapshotMeta.height)
 }
@@ -6577,22 +6603,22 @@ inline void SnapshotMeta::set_allocated_root_hash(std::string* root_hash) {
   // @@protoc_insertion_point(field_set_allocated:alyncoin.net.SnapshotMeta.root_hash)
 }
 
-// uint64 total_bytes = 3;
+// uint32 total_bytes = 3;
 inline void SnapshotMeta::clear_total_bytes() {
-  _impl_.total_bytes_ = uint64_t{0u};
+  _impl_.total_bytes_ = 0u;
 }
-inline uint64_t SnapshotMeta::_internal_total_bytes() const {
+inline uint32_t SnapshotMeta::_internal_total_bytes() const {
   return _impl_.total_bytes_;
 }
-inline uint64_t SnapshotMeta::total_bytes() const {
+inline uint32_t SnapshotMeta::total_bytes() const {
   // @@protoc_insertion_point(field_get:alyncoin.net.SnapshotMeta.total_bytes)
   return _internal_total_bytes();
 }
-inline void SnapshotMeta::_internal_set_total_bytes(uint64_t value) {
+inline void SnapshotMeta::_internal_set_total_bytes(uint32_t value) {
   
   _impl_.total_bytes_ = value;
 }
-inline void SnapshotMeta::set_total_bytes(uint64_t value) {
+inline void SnapshotMeta::set_total_bytes(uint32_t value) {
   _internal_set_total_bytes(value);
   // @@protoc_insertion_point(field_set:alyncoin.net.SnapshotMeta.total_bytes)
 }
@@ -6615,6 +6641,81 @@ inline void SnapshotMeta::_internal_set_chunk_size(uint32_t value) {
 inline void SnapshotMeta::set_chunk_size(uint32_t value) {
   _internal_set_chunk_size(value);
   // @@protoc_insertion_point(field_set:alyncoin.net.SnapshotMeta.chunk_size)
+}
+
+// repeated bytes blake3_chunk_hash = 5;
+inline int SnapshotMeta::_internal_blake3_chunk_hash_size() const {
+  return _impl_.blake3_chunk_hash_.size();
+}
+inline int SnapshotMeta::blake3_chunk_hash_size() const {
+  return _internal_blake3_chunk_hash_size();
+}
+inline void SnapshotMeta::clear_blake3_chunk_hash() {
+  _impl_.blake3_chunk_hash_.Clear();
+}
+inline std::string* SnapshotMeta::add_blake3_chunk_hash() {
+  std::string* _s = _internal_add_blake3_chunk_hash();
+  // @@protoc_insertion_point(field_add_mutable:alyncoin.net.SnapshotMeta.blake3_chunk_hash)
+  return _s;
+}
+inline const std::string& SnapshotMeta::_internal_blake3_chunk_hash(int index) const {
+  return _impl_.blake3_chunk_hash_.Get(index);
+}
+inline const std::string& SnapshotMeta::blake3_chunk_hash(int index) const {
+  // @@protoc_insertion_point(field_get:alyncoin.net.SnapshotMeta.blake3_chunk_hash)
+  return _internal_blake3_chunk_hash(index);
+}
+inline std::string* SnapshotMeta::mutable_blake3_chunk_hash(int index) {
+  // @@protoc_insertion_point(field_mutable:alyncoin.net.SnapshotMeta.blake3_chunk_hash)
+  return _impl_.blake3_chunk_hash_.Mutable(index);
+}
+inline void SnapshotMeta::set_blake3_chunk_hash(int index, const std::string& value) {
+  _impl_.blake3_chunk_hash_.Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set:alyncoin.net.SnapshotMeta.blake3_chunk_hash)
+}
+inline void SnapshotMeta::set_blake3_chunk_hash(int index, std::string&& value) {
+  _impl_.blake3_chunk_hash_.Mutable(index)->assign(std::move(value));
+  // @@protoc_insertion_point(field_set:alyncoin.net.SnapshotMeta.blake3_chunk_hash)
+}
+inline void SnapshotMeta::set_blake3_chunk_hash(int index, const char* value) {
+  GOOGLE_DCHECK(value != nullptr);
+  _impl_.blake3_chunk_hash_.Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set_char:alyncoin.net.SnapshotMeta.blake3_chunk_hash)
+}
+inline void SnapshotMeta::set_blake3_chunk_hash(int index, const void* value, size_t size) {
+  _impl_.blake3_chunk_hash_.Mutable(index)->assign(
+    reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_set_pointer:alyncoin.net.SnapshotMeta.blake3_chunk_hash)
+}
+inline std::string* SnapshotMeta::_internal_add_blake3_chunk_hash() {
+  return _impl_.blake3_chunk_hash_.Add();
+}
+inline void SnapshotMeta::add_blake3_chunk_hash(const std::string& value) {
+  _impl_.blake3_chunk_hash_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add:alyncoin.net.SnapshotMeta.blake3_chunk_hash)
+}
+inline void SnapshotMeta::add_blake3_chunk_hash(std::string&& value) {
+  _impl_.blake3_chunk_hash_.Add(std::move(value));
+  // @@protoc_insertion_point(field_add:alyncoin.net.SnapshotMeta.blake3_chunk_hash)
+}
+inline void SnapshotMeta::add_blake3_chunk_hash(const char* value) {
+  GOOGLE_DCHECK(value != nullptr);
+  _impl_.blake3_chunk_hash_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add_char:alyncoin.net.SnapshotMeta.blake3_chunk_hash)
+}
+inline void SnapshotMeta::add_blake3_chunk_hash(const void* value, size_t size) {
+  _impl_.blake3_chunk_hash_.Add()->assign(reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_add_pointer:alyncoin.net.SnapshotMeta.blake3_chunk_hash)
+}
+inline const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>&
+SnapshotMeta::blake3_chunk_hash() const {
+  // @@protoc_insertion_point(field_list:alyncoin.net.SnapshotMeta.blake3_chunk_hash)
+  return _impl_.blake3_chunk_hash_;
+}
+inline ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>*
+SnapshotMeta::mutable_blake3_chunk_hash() {
+  // @@protoc_insertion_point(field_mutable_list:alyncoin.net.SnapshotMeta.blake3_chunk_hash)
+  return &_impl_.blake3_chunk_hash_;
 }
 
 // -------------------------------------------------------------------

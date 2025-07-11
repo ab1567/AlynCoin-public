@@ -1,0 +1,4 @@
+max_peers = 50
+ban_threshold = 200
+frame_limit_min = 200
+max_snapshot_chunk_size = 131072

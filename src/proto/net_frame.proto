@@ -58,10 +58,11 @@ message BlockRequest { uint64 index = 1; }
 message BlockResponse { alyncoin.BlockProto block = 1; }
 
 message SnapshotMeta {
-  uint64 height = 1;
+  uint32 height = 1;
   string root_hash = 2;
-  uint64 total_bytes = 3;
+  uint32 total_bytes = 3;
   uint32 chunk_size = 4;
+  repeated bytes blake3_chunk_hash = 5;
 }
 
 message SnapshotChunk { bytes data = 1; }

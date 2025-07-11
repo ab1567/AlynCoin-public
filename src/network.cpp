@@ -104,10 +104,8 @@ static_assert(alyncoin::net::Frame::kBlockBroadcast == 6,
 static_assert(alyncoin::net::Frame::kBlockRequest == 29 &&
               alyncoin::net::Frame::kBlockResponse == 30,
               "Frame field-numbers changed \u2013 bump kFrameRevision !");
-static constexpr uint64_t FRAME_LIMIT_MIN = 200;
 static constexpr uint64_t BYTE_LIMIT_MIN = 1 << 20;
 static constexpr int MAX_REORG = 100;
-static constexpr int BAN_THRESHOLD = 200;
 
 static uint64_t safeUint64(const boost::multiprecision::cpp_int &bi) {
   using boost::multiprecision::cpp_int;
@@ -387,7 +385,7 @@ void Network::penalizePeer(const std::string &peer, int points) {
   auto it = peerTransports.find(peer);
   if (it != peerTransports.end()) {
     it->second.state->misScore += points;
-    if (it->second.state->misScore >= BAN_THRESHOLD)
+    if (it->second.state->misScore >= getAppConfig().ban_threshold)
       blacklistPeer(peer);
   }
 }
@@ -415,7 +413,7 @@ alyncoin::net::Handshake Network::buildHandshake() const {
   auto work = bc.computeCumulativeDifficulty(bc.getChain());
   hs.set_total_work(safeUint64(work));
   hs.set_want_snapshot(false);
-  hs.set_snapshot_size(static_cast<uint32_t>(MAX_SNAPSHOT_CHUNK_SIZE));
+  hs.set_snapshot_size(static_cast<uint32_t>(getAppConfig().max_snapshot_chunk_size));
   return hs;
 }
 // Fallback peer(s) in case DNS discovery fails
@@ -1079,7 +1077,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     alyncoin::net::Handshake hs_out = buildHandshake();
     hs_out.set_pub_key(std::string(reinterpret_cast<char *>(myPub.data()),
                                    myPub.size()));
-    hs_out.set_snapshot_size(static_cast<uint32_t>(MAX_SNAPSHOT_CHUNK_SIZE));
+    hs_out.set_snapshot_size(static_cast<uint32_t>(getAppConfig().max_snapshot_chunk_size));
     if (remoteWantSnap)
       hs_out.set_want_snapshot(true);
     alyncoin::net::Frame out;
@@ -1196,7 +1194,7 @@ void Network::run() {
           auto st = kv.second.state;
           if (!st)
             continue;
-          if (st->frameCountMin > FRAME_LIMIT_MIN ||
+          if (st->frameCountMin > getAppConfig().frame_limit_min ||
               st->byteCountMin > BYTE_LIMIT_MIN) {
             st->misScore += 5;
           } else if (st->misScore > 0) {
@@ -1613,7 +1611,7 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender,
       auto it = peerTransports.find(sender);
       if (it != peerTransports.end()) {
         it->second.state->misScore += 100;
-        if (it->second.state->misScore >= BAN_THRESHOLD)
+        if (it->second.state->misScore >= getAppConfig().ban_threshold)
           blacklistPeer(sender);
       }
     }
@@ -1885,7 +1883,7 @@ bool Network::finishOutboundHandshake(std::shared_ptr<Transport> tx,
   randombytes_buf(privOut.data(), privOut.size());
   crypto_scalarmult_curve25519_base(pub.data(), privOut.data());
   hs.set_pub_key(std::string(reinterpret_cast<char *>(pub.data()), pub.size()));
-  hs.set_snapshot_size(static_cast<uint32_t>(MAX_SNAPSHOT_CHUNK_SIZE));
+  hs.set_snapshot_size(static_cast<uint32_t>(getAppConfig().max_snapshot_chunk_size));
   alyncoin::net::Frame fr;
   *fr.mutable_handshake() = hs;
   if (!sendFrameImmediate(tx, fr))
@@ -1950,14 +1948,14 @@ void Network::startBinaryReadLoop(const std::string &peerId,
       st.frameCountMin++;
       st.byteCountMin += blob.size();
       if (!anchorPeers.count(peerId)) {
-        if (st.frameCountMin > FRAME_LIMIT_MIN ||
+        if (st.frameCountMin > getAppConfig().frame_limit_min ||
             st.byteCountMin > BYTE_LIMIT_MIN) {
           st.limitStrikes++;
           st.misScore += 5;
           if (st.limitStrikes >= 3)
             blacklistPeer(peerId);
         }
-        if (st.misScore >= BAN_THRESHOLD)
+        if (st.misScore >= getAppConfig().ban_threshold)
           blacklistPeer(peerId);
       }
     }
@@ -2174,7 +2172,7 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
         auto it = peerTransports.find(peer);
         if (it != peerTransports.end()) {
           it->second.state->misScore += 100;
-          if (it->second.state->misScore >= BAN_THRESHOLD)
+          if (it->second.state->misScore >= getAppConfig().ban_threshold)
             blacklistPeer(peer);
         }
       }
@@ -2294,7 +2292,7 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
 // Connect to Node
 
 bool Network::connectToNode(const std::string &host, int remotePort) {
-  if (peerTransports.size() >= MAX_PEERS) {
+  if (peerTransports.size() >= getAppConfig().max_peers) {
     LOG_W("[net]") << "⚠️ [connectToNode] peer cap reached, skip " << host << ':'
               << remotePort << '\n';
     return false;
@@ -2941,21 +2939,31 @@ void Network::sendSnapshot(std::shared_ptr<Transport> transport,
 
   std::string b64 = Crypto::base64Encode(blob, false);
 
-  const size_t CHUNK_SIZE = MAX_SNAPSHOT_CHUNK_SIZE;
-  // --- Send metadata first ---
+  const size_t CHUNK_SIZE = getAppConfig().max_snapshot_chunk_size;
+
+  // Pre-compute chunk hashes
+  std::vector<std::string> chunks;
+  for (size_t off = 0; off < b64.size(); off += CHUNK_SIZE) {
+    size_t len = std::min(CHUNK_SIZE, b64.size() - off);
+    std::string chunk = b64.substr(off, len);
+    chunks.push_back(std::move(chunk));
+  }
+
   alyncoin::net::Frame meta;
-  meta.mutable_snapshot_meta()->set_height(height);
-  meta.mutable_snapshot_meta()->set_root_hash(bc.getHeaderMerkleRoot());
-  meta.mutable_snapshot_meta()->set_total_bytes(b64.size());
-  meta.mutable_snapshot_meta()->set_chunk_size(CHUNK_SIZE);
+  auto *m = meta.mutable_snapshot_meta();
+  m->set_height(height);
+  m->set_root_hash(bc.getHeaderMerkleRoot());
+  m->set_total_bytes(static_cast<uint32_t>(b64.size()));
+  m->set_chunk_size(static_cast<uint32_t>(CHUNK_SIZE));
+  for (const auto &c : chunks)
+    m->add_blake3_chunk_hash(Crypto::blake3Hash(c));
   sendFrame(transport, meta);
 
   // --- Stream snapshot in bounded chunks ---
   uint32_t seq = 0;
-  for (size_t off = 0; off < b64.size(); off += CHUNK_SIZE) {
-    size_t len = std::min(CHUNK_SIZE, b64.size() - off);
+  for (const auto &c : chunks) {
     alyncoin::net::Frame fr;
-    fr.mutable_snapshot_chunk()->set_data(b64.substr(off, len));
+    fr.mutable_snapshot_chunk()->set_data(c);
     sendFrame(transport, fr);
     ++seq;
   }
@@ -3023,6 +3031,11 @@ void Network::handleSnapshotMeta(const std::string &peer,
   }
   ps->snapshotExpectBytes = meta.total_bytes();
   ps->snapshotRoot = meta.root_hash();
+  ps->snapshotChunkSize = meta.chunk_size();
+  ps->chunkSeq = 0;
+  ps->chunkHashes.clear();
+  for (const auto &h : meta.blake3_chunk_hash())
+    ps->chunkHashes.push_back(h);
   ps->snapshotReceived = 0;
   ps->snapshotB64.clear();
   ps->snapState = PeerState::SnapState::WaitChunks;
@@ -3048,7 +3061,7 @@ void Network::handleSnapshotChunk(const std::string &peer,
               << " - not streaming" << '\n';
     return;
   }
-  if (chunk.size() > MAX_SNAPSHOT_CHUNK_SIZE) {
+  if (chunk.size() > getAppConfig().max_snapshot_chunk_size) {
     LOG_W("[net]") << "⚠️ [SNAPSHOT] Oversized chunk, clearing buffer\n";
     ps->snapshotActive = false;
     ps->snapState = PeerState::SnapState::Idle;
@@ -3056,9 +3069,19 @@ void Network::handleSnapshotChunk(const std::string &peer,
     ps->snapshotB64.clear();
     return;
   }
+  if (ps->chunkSeq >= ps->chunkHashes.size()) {
+    requestSnapshotSync(peer);
+    return;
+  }
+  std::string hash = Crypto::blake3Hash(chunk);
+  if (hash != ps->chunkHashes[ps->chunkSeq]) {
+    requestSnapshotSync(peer);
+    return;
+  }
   ps->snapshotB64 += chunk;
   ps->snapshotReceived += chunk.size();
   ps->snapshotActive = true;
+  ++ps->chunkSeq;
   alyncoin::net::Frame ack;
   ack.mutable_snapshot_ack()->set_seq(ps->snapshotReceived);
   sendFrame(it->second.tx, ack);
@@ -3095,6 +3118,14 @@ void Network::handleSnapshotEnd(const std::string &peer) {
     LOG_W("[net]") << "⚠️ [SNAPSHOT] Size mismatch: expected "
               << ps->snapshotExpectBytes << " got " << ps->snapshotReceived
               << '\n';
+    ps->snapshotB64.clear();
+    ps->snapshotActive = false;
+    ps->snapState = PeerState::SnapState::Idle;
+    ps->sync = SyncState::Idle;
+    return;
+  }
+  if (ps->chunkSeq != ps->chunkHashes.size()) {
+    LOG_W("[net]") << "⚠️ [SNAPSHOT] Chunk count mismatch\n";
     ps->snapshotB64.clear();
     ps->snapshotActive = false;
     ps->snapState = PeerState::SnapState::Idle;

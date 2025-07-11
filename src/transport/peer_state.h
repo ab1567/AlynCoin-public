@@ -22,6 +22,9 @@ struct PeerState {
   std::string snapshotRoot;
   size_t snapshotExpectBytes{0};
   size_t snapshotReceived{0};
+  uint32_t snapshotChunkSize{0};
+  uint32_t chunkSeq{0};
+  std::vector<std::string> chunkHashes;
   bool snapshotActive{false};
   bool supportsAggProof{false};
   bool supportsSnapshot{false};
