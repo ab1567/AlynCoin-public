@@ -1,3 +1,7 @@
+#pragma once
+
+#include <cstdint>
+
 enum class WireFrame : uint8_t {
     HANDSHAKE   = 0x01,
     HEIGHT      = 0x02,
@@ -6,5 +10,6 @@ enum class WireFrame : uint8_t {
     SNAP_META   = 0x05,
     SNAP_CHUNK  = 0x06,
     SNAP_END    = 0x07,
+    TAIL_BLOCKS = 0x08,
     OTHER       = 0xFF
 };

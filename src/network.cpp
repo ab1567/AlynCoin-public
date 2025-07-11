@@ -390,6 +390,26 @@ void Network::penalizePeer(const std::string &peer, int points) {
   }
 }
 
+bool Network::isFrameAllowedForState(const std::string &peer, WireFrame tag) {
+  std::shared_lock<std::shared_mutex> lk(peersMutex);
+  auto it = peerTransports.find(peer);
+  if (it == peerTransports.end() || !it->second.state)
+    return true;
+  auto st = it->second.state->sync;
+  switch (st) {
+  case SyncState::WaitHandshake:
+    return tag == WireFrame::HANDSHAKE;
+  case SyncState::WaitMeta:
+    return tag == WireFrame::SNAP_META;
+  case SyncState::WaitChunks:
+    return tag == WireFrame::SNAP_CHUNK || tag == WireFrame::SNAP_END;
+  case SyncState::TailReq:
+    return tag == WireFrame::TAIL_BLOCKS;
+  default:
+    return true;
+  }
+}
+
 // Build a handshake using the most up-to-date blockchain metadata so
 // newly connected peers know our real tip height and capabilities.
 alyncoin::net::Handshake Network::buildHandshake() const {
@@ -1054,6 +1074,8 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     entry.state->supportsWhisper = remoteWhisper;
     entry.state->supportsTls = remoteTls;
     entry.state->supportsBanDecay = remoteBanDecay;
+    uint32_t adv = remoteSnapSize ? remoteSnapSize : getAppConfig().max_snapshot_chunk_size;
+    entry.state->snapshotChunkSize = std::min(adv, static_cast<uint32_t>(getAppConfig().max_snapshot_chunk_size));
     entry.state->frameRev = remoteRev;
     entry.state->version = claimedVersion;
     std::copy(shared.begin(), shared.end(), entry.state->linkKey.begin());
@@ -1993,6 +2015,12 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
     tag = WireFrame::SNAP_CHUNK;
   else if (f.has_snapshot_end())
     tag = WireFrame::SNAP_END;
+  else if (f.has_tail_blocks())
+    tag = WireFrame::TAIL_BLOCKS;
+  if (!isFrameAllowedForState(peer, tag)) {
+    penalizePeer(peer, 20);
+    return;
+  }
   LOG_W("[net]") << "[<<] Incoming Frame from " << peer << " Type=" << static_cast<int>(tag)
             << "\n";
   switch (f.kind_case()) {
@@ -2446,6 +2474,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     bool theirBanDecay = false;
     int theirHeight = 0;
     uint32_t remoteRev = 0;
+    uint32_t theirSnapSize = 0;
     alyncoin::net::Frame fr;
     if (blob.empty() || !fr.ParseFromString(blob) || !fr.has_handshake()) {
       LOG_W("[net]") << "⚠️ [connectToNode] invalid handshake from " << peerKey
@@ -2464,6 +2493,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     }
     const auto &rhs = fr.handshake();
     theirHeight = static_cast<int>(rhs.height());
+    theirSnapSize = rhs.snapshot_size();
 
     // ─── Compatibility gate ────────────────────────────
     remoteRev = rhs.frame_rev();
@@ -2517,6 +2547,8 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
         st->supportsWhisper = theirWhisper;
         st->supportsTls = theirTls;
         st->supportsBanDecay = theirBanDecay;
+        uint32_t adv = theirSnapSize ? theirSnapSize : getAppConfig().max_snapshot_chunk_size;
+        st->snapshotChunkSize = std::min(adv, static_cast<uint32_t>(getAppConfig().max_snapshot_chunk_size));
         st->frameRev = remoteRev;
         st->version = rhs.version();
         st->lastTailHeight = theirHeight;
@@ -2939,7 +2971,13 @@ void Network::sendSnapshot(std::shared_ptr<Transport> transport,
 
   std::string b64 = Crypto::base64Encode(blob, false);
 
-  const size_t CHUNK_SIZE = getAppConfig().max_snapshot_chunk_size;
+  uint32_t chunk = getAppConfig().max_snapshot_chunk_size;
+  if (!peerId.empty()) {
+    auto it = peerTransports.find(peerId);
+    if (it != peerTransports.end() && it->second.state)
+      chunk = std::min(chunk, it->second.state->snapshotChunkSize);
+  }
+  const size_t CHUNK_SIZE = chunk;
 
   // Pre-compute chunk hashes
   std::vector<std::string> chunks;
@@ -3280,6 +3318,14 @@ void Network::handleSnapshotEnd(const std::string &peer) {
 //
 void Network::handleTailBlocks(const std::string &peer,
                                const std::string &data) {
+  auto itState = peerTransports.find(peer);
+  if (itState == peerTransports.end() || !itState->second.state)
+    return;
+  auto ps = itState->second.state;
+  if (ps->sync != SyncState::TailReq) {
+    penalizePeer(peer, 20);
+    return;
+  }
   try {
     alyncoin::net::TailBlocks proto;
     if (!proto.ParseFromString(data))
@@ -3332,6 +3378,7 @@ void Network::handleTailBlocks(const std::string &peer,
       if (remoteH > static_cast<int>(chain.getHeight()))
         requestTailBlocks(peer, chain.getHeight(), chain.getLatestBlockHash());
     }
+    ps->sync = SyncState::Idle;
   } catch (const std::exception &ex) {
     LOG_W("[net]") << "❌ [TAIL_BLOCKS] Failed to apply tail blocks from peer "
               << peer << ": " << ex.what() << "\n";
@@ -3341,6 +3388,7 @@ void Network::handleTailBlocks(const std::string &peer,
         itBad->second.state->misScore += 100;
     }
     blacklistPeer(peer);
+    ps->sync = SyncState::Idle;
   } catch (...) {
     LOG_E("[net]") << "❌ [TAIL_BLOCKS] Unknown error applying tail blocks from peer "
         << peer << "\n";
@@ -3350,6 +3398,7 @@ void Network::handleTailBlocks(const std::string &peer,
         itBad->second.state->misScore += 100;
     }
     blacklistPeer(peer);
+    ps->sync = SyncState::Idle;
   }
 }
 
@@ -3380,8 +3429,10 @@ void Network::requestTailBlocks(const std::string &peer, int fromHeight,
   auto *req = fr.mutable_tail_req();
   req->set_from_height(fromHeight);
   req->set_anchor_hash(anchorHash);
-  if (it->second.state)
+  if (it->second.state) {
     it->second.state->lastTailAnchor = anchorHash;
+    it->second.state->sync = SyncState::TailReq;
+  }
   sendFrame(it->second.tx, fr);
 }
 //

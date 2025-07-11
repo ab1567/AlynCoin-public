@@ -19,6 +19,7 @@
 #include <stop_token>
 #include <fstream>
 #include <generated/net_frame.pb.h>
+#include "protocol_codes.h"
 #include <cstdint>
 #include <iostream>
 #include <mutex>
@@ -234,5 +235,6 @@ private:
   void handlePeer(std::shared_ptr<Transport> transport);
   bool validateBlockSignatures(const Block &blk);
   void penalizePeer(const std::string &peer, int points);
+  bool isFrameAllowedForState(const std::string &peer, WireFrame tag);
 };
 #endif // NETWORK_H

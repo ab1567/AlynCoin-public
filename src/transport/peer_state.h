@@ -6,7 +6,14 @@
 #include <chrono>
 #include <mutex>
 
-enum class SyncState { Idle, WaitHandshake, WaitMeta, WaitChunks, SnapshotStream };
+enum class SyncState {
+  Idle,
+  WaitHandshake,
+  WaitMeta,
+  WaitChunks,
+  TailReq,
+  SnapshotStream
+};
 
 struct PeerState {
   std::string jsonBuf;
