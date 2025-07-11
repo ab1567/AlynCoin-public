@@ -82,6 +82,9 @@ bool TcpTransport::writeBinaryLocked(const std::string& data)
     boost::asio::write(*socket, boost::asio::buffer(data), ec);
     if (ec) {
         std::cerr << "[TcpTransport] ❌ Write binary failed: " << ec.message() << '\n';
+        if (ec == boost::asio::error::broken_pipe ||
+            ec == boost::asio::error::operation_aborted)
+            return false;
         close();
         return false;
     }
