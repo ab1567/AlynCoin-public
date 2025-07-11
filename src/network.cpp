@@ -2277,11 +2277,16 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
     break;
   }
   case alyncoin::net::Frame::kSnapshotReq:
-    if (peerTransports[peer].state && peerTransports[peer].state->wantSnapshot)
-      sendSnapshot(peerTransports[peer].tx, -1, peer);
-    else
-      LOG_W("[net]") << "⚠️ [SNAPSHOT] Ignoring request from " << peer
-                << " (flag not set)" << '\n';
+    // Older nodes may not set the `want_snapshot` flag during handshake.
+    // Accept the request for compatibility but log a warning so operators can
+    // identify outdated peers.
+    if (peerTransports[peer].state &&
+        !peerTransports[peer].state->wantSnapshot) {
+      LOG_W("[net]") << "⚠️ [SNAPSHOT] Peer " << peer
+                << " requested snapshot without flag; accepting for"
+                   " compatibility" << '\n';
+    }
+    sendSnapshot(peerTransports[peer].tx, -1, peer);
     break;
   case alyncoin::net::Frame::kTailReq:
     handleTailRequest(peer, f.tail_req().from_height());
@@ -2911,8 +2916,8 @@ void Network::sendSnapshot(std::shared_ptr<Transport> transport,
     if (it != peerTransports.end() && it->second.state &&
         !it->second.state->wantSnapshot) {
       LOG_W("[net]") << "⚠️ [sendSnapshot] Peer " << peerId
-                << " did not request snapshots" << '\n';
-      return;
+                << " did not request snapshots; sending anyway for"
+                   " compatibility" << '\n';
     }
   }
   Blockchain &bc = Blockchain::getInstance();
