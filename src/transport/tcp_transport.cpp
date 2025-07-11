@@ -249,7 +249,12 @@ void TcpTransport::startReadBinaryLoop(std::function<void(const boost::system::e
 
             dataBuffer->erase(dataBuffer->begin(), dataBuffer->begin() + used + frameLen);
         }
+        // socket closed, stop read loop
 
+        if (!isOpen()) {
+            cb(boost::asio::error::operation_aborted, "");
+            return;
+        }
         socket->async_read_some(
             boost::asio::buffer(*readBuffer),
             [handler](const boost::system::error_code& ec, std::size_t n) {
@@ -257,11 +262,15 @@ void TcpTransport::startReadBinaryLoop(std::function<void(const boost::system::e
             });
     };
 
-    socket->async_read_some(
-        boost::asio::buffer(*readBuffer),
-        [handler](const boost::system::error_code& ec, std::size_t n) {
-            (*handler)(ec, n);
-        });
+    if (isOpen()) {
+        socket->async_read_some(
+            boost::asio::buffer(*readBuffer),
+            [handler](const boost::system::error_code& ec, std::size_t n) {
+                (*handler)(ec, n);
+            });
+    } else {
+        cb(boost::asio::error::operation_aborted, "");
+    }
 }
 
 // ---- Async queue write implementation ----
@@ -310,7 +319,13 @@ void TcpTransport::startReadLineLoop(std::function<void(const boost::system::err
         std::string line; std::getline(is, line);
         if (!line.empty() && line.back() == '\r') line.pop_back();
         cb(boost::system::error_code(), line);
-        boost::asio::async_read_until(*socket, *buf, '\n', *handler);
+        if (isOpen())
+            boost::asio::async_read_until(*socket, *buf, '\n', *handler);
+        else
+            cb(boost::asio::error::operation_aborted, "");
     };
-    boost::asio::async_read_until(*socket, *buf, '\n', *handler);
+    if (isOpen())
+        boost::asio::async_read_until(*socket, *buf, '\n', *handler);
+    else
+        cb(boost::asio::error::operation_aborted, "");
 }

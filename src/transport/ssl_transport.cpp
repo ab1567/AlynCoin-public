@@ -170,17 +170,26 @@ void SslTransport::startReadBinaryLoop(std::function<void(const boost::system::e
             cb(boost::system::error_code(), frame);
             dataBuffer->erase(dataBuffer->begin(), dataBuffer->begin() + used + frameLen);
         }
+        // socket closed, stop read loop
+        if (!isOpen()) {
+            cb(boost::asio::error::operation_aborted, "");
+            return;
+        }
         sslSocket->async_read_some(
             boost::asio::buffer(*readBuffer),
             [handler](const boost::system::error_code& ec, std::size_t n) {
                 (*handler)(ec, n);
             });
     };
-    sslSocket->async_read_some(
-        boost::asio::buffer(*readBuffer),
-        [handler](const boost::system::error_code& ec, std::size_t n) {
-            (*handler)(ec, n);
-        });
+    if (isOpen()) {
+        sslSocket->async_read_some(
+            boost::asio::buffer(*readBuffer),
+            [handler](const boost::system::error_code& ec, std::size_t n) {
+                (*handler)(ec, n);
+            });
+    } else {
+        cb(boost::asio::error::operation_aborted, "");
+    }
 }
 
 void SslTransport::startReadLineLoop(std::function<void(const boost::system::error_code&, const std::string&)> cb) {
@@ -193,9 +202,15 @@ void SslTransport::startReadLineLoop(std::function<void(const boost::system::err
         std::string line; std::getline(is, line);
         if (!line.empty() && line.back() == '\r') line.pop_back();
         cb(boost::system::error_code(), line);
-        boost::asio::async_read_until(*sslSocket, *buf, '\n', *handler);
+        if (isOpen())
+            boost::asio::async_read_until(*sslSocket, *buf, '\n', *handler);
+        else
+            cb(boost::asio::error::operation_aborted, "");
     };
-    boost::asio::async_read_until(*sslSocket, *buf, '\n', *handler);
+    if (isOpen())
+        boost::asio::async_read_until(*sslSocket, *buf, '\n', *handler);
+    else
+        cb(boost::asio::error::operation_aborted, "");
 }
 
 void SslTransport::queueWrite(std::string data, bool binary) {
