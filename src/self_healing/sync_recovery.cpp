@@ -6,6 +6,8 @@
 #include "zk/winterfell_stark.h"
 #include "zk/rust_bindings.h"
 #include "crypto_utils.h"
+#include <thread>
+#include <chrono>
 
 SyncRecovery::SyncRecovery(Blockchain* blockchain, PeerManager* peerManager)
     : blockchain_(blockchain), peerManager_(peerManager) {}
@@ -62,7 +64,19 @@ bool SyncRecovery::fetchAndApplyBlocksFromHeight(int startHeight) {
 
     for (int h = startHeight; h <= networkHeight; ++h) {
         Block block;
-        if (!peerManager_->fetchBlockAtHeight(h, block)) {
+        int attempts = 0;
+        const int maxAttempts = 3;
+        while (attempts < maxAttempts) {
+            if (peerManager_->fetchBlockAtHeight(h, block)) {
+                break;
+            }
+            ++attempts;
+            Logger::warn("[Fetch] Retry " + std::to_string(attempts) + "/" +
+                         std::to_string(maxAttempts) +
+                         " failed for height " + std::to_string(h));
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+        if (attempts == maxAttempts) {
             Logger::error("[❌ Fetch] Failed to retrieve block at height " + std::to_string(h));
             return false;
         }
