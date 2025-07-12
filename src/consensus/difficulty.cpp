@@ -4,12 +4,11 @@
 #include <mutex>
 #include <unordered_map>
 #include <boost/multiprecision/cpp_int.hpp>
+#include "transport/peer_globals.h"
+
+// clamp constants use long double to match 'factor' and avoid deduction issues
 
 using boost::multiprecision::cpp_int;
-
-// Global peer mutex and peer list should be declared elsewhere
-extern std::timed_mutex peersMutex;
-extern std::vector<int> peerTransports;
 
 // Returns number of active mining peers (minimum 1)
 int getActiveMinerCount() {
@@ -35,10 +34,10 @@ cpp_int difficultyToWork(int diff) {
 // - Block reward is handled elsewhere (default: 50 ALYN)
 uint64_t calculateSmartDifficulty(const Blockchain& chain)
 {
-    constexpr int    LWMA_N     = 90;        // Window size (90 blocks)
-    constexpr double TARGET     = 90.0;      // Target time per block (90 s)
-    constexpr double MAX_UP     = 3.0;       // Maximum difficulty increase per window (×3)
-    constexpr double MAX_DOWN   = 1.0/3.0;   // Maximum decrease per window (÷3)
+    constexpr int         LWMA_N   = 90;        // Window size (90 blocks)
+    constexpr long double TARGET   = 90.0L;    // Target time per block (90 s)
+    constexpr long double MAX_UP   = 3.0L;     // Maximum difficulty increase per window (×3)
+    constexpr long double MAX_DOWN = 1.0L/3.0L; // Maximum decrease per window (÷3)
     constexpr uint64_t GENESIS_DIFF = 1;
 
     size_t height = chain.getBlockCount();
@@ -74,7 +73,7 @@ uint64_t calculateSmartDifficulty(const Blockchain& chain)
     factor = std::clamp(factor, MAX_DOWN, MAX_UP);
 
     // --- Gentle miner count bonus: +0.5% per miner, capped at +50% ---
-    double minerFactor = std::min(1.5, 1.0 + 0.005 * getActiveMinerCount() * 100);
+    double minerFactor = std::min(1.5, 1.0 + 0.005 * getActiveMinerCount());
 
     // Previous block’s difficulty (should be stored in each block header)
     long double rawNext = chain.getLatestBlock().difficulty * factor;
