@@ -120,7 +120,7 @@ Json::Value ExplorerDB::getBlockchainStats() {
     delete it;
 
     // Total supply = Block count × block reward (simple logic, can adjust for actual reward schedule)
-    totalSupply = blockCount * 10;  // Base reward as per your code
+    totalSupply = blockCount * 50;  // Base reward aligned with protocol
 
     stats["blockHeight"] = blockCount;
     stats["transactionCount"] = txCount;

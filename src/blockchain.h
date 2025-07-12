@@ -61,7 +61,7 @@ private:
   std::vector<Transaction> pendingTransactions;
   static std::atomic<bool> isMining;
   static std::atomic<bool> isRecovering;
-  double blockReward = 10.0;
+  double blockReward = 50.0;
   int difficulty;
   double miningReward;
   mutable std::mutex mutex;

@@ -66,14 +66,14 @@ std::atomic<bool> Blockchain::isMining{false};
 std::atomic<bool> Blockchain::isRecovering{false};
 
 Blockchain::Blockchain()
-    : difficulty(0), miningReward(100.0), db(nullptr), totalBurnedSupply(0.0),
+    : difficulty(0), miningReward(50.0), db(nullptr), totalBurnedSupply(0.0),
       network(nullptr), totalWork(0) {
   std::cout << "[DEBUG] Default Blockchain constructor called.\n";
 }
 
 // ✅ Constructor: Open RocksDB
 Blockchain::Blockchain(unsigned short port, const std::string &dbPath, bool bindNetwork, bool isSyncMode)
-    : difficulty(0), miningReward(100.0), port(port), dbPath(dbPath), totalWork(0) {
+    : difficulty(0), miningReward(50.0), port(port), dbPath(dbPath), totalWork(0) {
 
     // Only set network pointer if asked AND it's already initialized, otherwise nullptr
     if (bindNetwork) {
@@ -2650,7 +2650,7 @@ void Blockchain::clear(bool force) {
     chain.clear();
     pendingTransactions.clear();
     difficulty = calculateSmartDifficulty(*this);
-    blockReward = 100.0;
+    blockReward = 50.0;
     devFundBalance = 0.0;
     rollupChain.clear();
     balances.clear();

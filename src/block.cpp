@@ -24,7 +24,7 @@ namespace fs = std::filesystem;
 
 #define EMPTY_TX_ROOT_HASH "0c11a17c8610d35fe17aed2a5a5c682a6cdfb8b6ecf56a95605ebb1475b345de"
 
-const double BASE_BLOCK_REWARD = 100.0; // Fixed block reward per mined block
+const double BASE_BLOCK_REWARD = 50.0; // Fixed block reward per mined block
 const double MAX_BURN_RATE = 0.05;     // Max 5% burn rate
 const double MIN_BURN_RATE = 0.01;     // Min 1% burn rate
 
