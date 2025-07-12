@@ -35,8 +35,9 @@ boost::multiprecision::cpp_int difficultyToWork(int diff);
 //     70 – 89.9 M         3.00
 //     ≥ 90 000 000        4.00  (ASIC/farm)
 //
-//  Retarget algorithm: LWMA-120 (≈3 h @ 90 s target) + Digishield
-//  dampening.  One-block retarget – no epoch waiting.
+//  Retarget algorithm: LWMA-360 (≈12 h @ 120 s target)
+//  with stronger dampening and mild miner-count bonus. One-block
+//  retarget – no epoch waiting.
 // ────────────────────────────────────────────────────────────────
 uint64_t calculateSmartDifficulty(const Blockchain& chain);
 

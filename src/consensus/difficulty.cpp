@@ -9,18 +9,18 @@
 
 using boost::multiprecision::cpp_int;
 
-// ────────────────────────────────────────────────────────────────
-//  Active-miner heuristic
-// ────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+//   Active-miner heuristic (greatly toned down)
+// ─────────────────────────────────────────────
 int getActiveMinerCount()
 {
     std::lock_guard<std::timed_mutex> g(peersMutex);
     return std::max(1, static_cast<int>(peerTransports.size()));
 }
 
-// ────────────────────────────────────────────────────────────────
-//  Cached 2 ^ diff  →  “work”
-// ────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+//   Memoised 2^diff → work
+// ─────────────────────────────────────────────
 static std::unordered_map<int, cpp_int> workCache;
 
 cpp_int difficultyToWork(int diff)
@@ -33,16 +33,23 @@ cpp_int difficultyToWork(int diff)
     return w;
 }
 
-// ────────────────────────────────────────────────────────────────
-//  Core retarget
-// ────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+//   Core retarget – LWMA-based
+// ─────────────────────────────────────────────
 uint64_t calculateSmartDifficulty(const Blockchain& chain)
 {
-    constexpr int         LWMA_N      = 120;          // 120-block window
-    constexpr long double TARGET      = 90.0L;        // 90 s / block
-    constexpr long double MAX_UP      = 4.0L;         // max ×4 per window
-    constexpr long double MAX_DOWN    = 0.5L;         // max ÷2 per window
-    constexpr long double DAMPING     = 0.33L;        // Digishield (⅓)
+    /*  Design targets ———————————————————————
+        • 120-second blocks
+        • 360-block LWMA window  ≈ 12 h
+        • Very soft ± limits (×2 / ÷ 3)
+        • Extra Digishield dampening 0.5
+        • Small peer-count bonus, capped +15 %
+    ------------------------------------------------*/
+    constexpr int         LWMA_N      = 360;
+    constexpr long double TARGET      = 120.0L;      // seconds / block
+    constexpr long double MAX_UP      = 2.0L;        // at most double
+    constexpr long double MAX_DOWN    = 1.0L/3.0L;   // at most one-third
+    constexpr long double DAMPING     = 0.50L;       // apply 50 % of delta
     constexpr uint64_t    GENESIS_DIFF = 1;
 
     const size_t height = chain.getBlockCount();
@@ -60,33 +67,31 @@ uint64_t calculateSmartDifficulty(const Blockchain& chain)
     else if (supply >= 20'000'000) floorMult = 1.5;
     else if (supply >= 15'000'000) floorMult = 1.25;
 
-    // ── LWMA-120 (weighted) ──────────────────────────────────────
-    const int  N = std::min<int>(LWMA_N, height - 1);
+    // ── LWMA-360 with linear weights ──────────────
+    const int N = std::min<int>(LWMA_N, height - 1);
     long double sumW = 0.0L, sumST = 0.0L;
 
     for (int i = 1; i <= N; ++i) {
         const auto& cur  = chain.getChain()[height - i];
         const auto& prev = chain.getChain()[height - i - 1];
 
-        long double st = static_cast<long double>(
+        const long double st = static_cast<long double>(
             std::clamp<int64_t>(cur.getTimestamp() - prev.getTimestamp(),
-                                1, 10 * TARGET));      // anti-timestamp-spam
+                                1, static_cast<int64_t>(6 * TARGET))); // tighter clamp
 
-        const long double w = i;                       // linear weight
+        const long double w  = i;              // linear weight
         sumW  += w;
         sumST += w * st;
     }
 
-    const long double lwma = sumST / sumW;
-    long double factor     = TARGET / lwma;            // >1  → speed-up
-    factor                  = std::clamp(factor, MAX_DOWN, MAX_UP);
+    long double lwma   = sumST / sumW;
+    long double factor = TARGET / lwma;        // >1 if we're too fast
+    factor             = std::clamp(factor, MAX_DOWN, MAX_UP);
+    factor             = 1.0L + (factor - 1.0L) * DAMPING;
 
-    // Digishield dampening (makes jumps smoother but still responsive)
-    factor = 1.0L + (factor - 1.0L) * DAMPING;
-
-    // ── Small bonus for extra miners (prevents gaming by a single whale) ──
-    const double minerBonus = std::min(1.30,               // cap +30 %
-                               1.0 + 0.003 * getActiveMinerCount());
+    // ── Peer-count bonus (much weaker) ────────────
+    const double minerBonus = std::min(1.15,          // +15 % cap
+                              1.0 + 0.001 * getActiveMinerCount());
 
     // ── Apply ────────────────────────────────────────────────────
     const long double nextRaw   = chain.getLatestBlock().difficulty * factor;
