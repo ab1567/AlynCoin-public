@@ -1234,6 +1234,8 @@ void Network::autoSyncIfBehind() {
   Blockchain &bc = Blockchain::getInstance();
   const size_t myHeight = bc.getHeight();
   const std::string myTip = bc.getLatestBlockHash();
+  auto work = bc.computeCumulativeDifficulty(bc.getChain());
+  uint64_t myWork = safeUint64(work);
 
   std::lock_guard<std::timed_mutex> lock(peersMutex);
   for (const auto &[peerAddr, entry] : peerTransports) {
@@ -1254,11 +1256,12 @@ void Network::autoSyncIfBehind() {
       continue;
     int peerHeight = peerManager->getPeerHeight(peerAddr);
     std::string peerTip = peerManager->getPeerTipHash(peerAddr);
+    uint64_t peerWork = peerManager->getPeerWork(peerAddr);
 
     std::cout << "[autoSync] peer=" << peerAddr << " height=" << peerHeight
               << " | local=" << myHeight << '\n';
 
-    if (peerHeight > static_cast<int>(myHeight)) {
+    if (peerWork > myWork) {
       if (peerSupportsSnapshot(peerAddr)) {
         std::cout << "  → requesting snapshot sync\n";
         requestSnapshotSync(peerAddr);
@@ -1267,7 +1270,7 @@ void Network::autoSyncIfBehind() {
         requestEpochHeaders(peerAddr);
       }
     } else if (peerHeight == static_cast<int>(myHeight) && !peerTip.empty() &&
-               peerTip != myTip) {
+               peerTip != myTip && peerWork >= myWork) {
       if (peerSupportsSnapshot(peerAddr)) {
         std::cout << "  → tip mismatch, requesting snapshot sync\n";
         requestSnapshotSync(peerAddr);
@@ -1275,7 +1278,7 @@ void Network::autoSyncIfBehind() {
         std::cout << "  → tip mismatch, requesting epoch headers\n";
         requestEpochHeaders(peerAddr);
       }
-    } else if (peerHeight < static_cast<int>(myHeight)) {
+    } else if (peerHeight < static_cast<int>(myHeight) && peerWork < myWork) {
       if (peerSupportsSnapshot(peerAddr)) {
         std::cout << "  → sending tail blocks\n";
         sendTailBlocks(tr, peerHeight, peerAddr);

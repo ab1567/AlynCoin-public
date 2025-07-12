@@ -67,6 +67,10 @@ uint64_t calculateSmartDifficulty(const Blockchain& chain)
     else if (supply >= 20'000'000) floorMult = 1.5;
     else if (supply >= 15'000'000) floorMult = 1.25;
 
+    // ── Bootstrap guard: raise floor in the early blocks ───────
+    if (height < 25)
+        floorMult = std::max<long double>(floorMult, 8.0L);
+
     // ── LWMA-360 with linear weights ──────────────
     const int N = std::min<int>(LWMA_N, height - 1);
     long double sumW = 0.0L, sumST = 0.0L;
@@ -75,9 +79,10 @@ uint64_t calculateSmartDifficulty(const Blockchain& chain)
         const auto& cur  = chain.getChain()[height - i];
         const auto& prev = chain.getChain()[height - i - 1];
 
-        const long double st = static_cast<long double>(
-            std::clamp<int64_t>(cur.getTimestamp() - prev.getTimestamp(),
-                                1, static_cast<int64_t>(6 * TARGET))); // tighter clamp
+        const long double st = std::clamp<long double>(
+            static_cast<long double>(cur.getTimestamp() - prev.getTimestamp()),
+            TARGET / 4.0L,
+            6 * TARGET);
 
         const long double w  = i;              // linear weight
         sumW  += w;
