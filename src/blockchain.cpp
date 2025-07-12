@@ -150,6 +150,7 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath, bool bind
                   << genesis.getZkProof().size() << " bytes\n";
         saveToDB();  // ✅ Persist genesis block with correct proof
         recalculateBalancesFromChain(); // Only needed if genesis was manually created
+        recomputeChainWork();   // <- initialise totalWork = 1 << GENESIS_DIFFICULTY
     } else if (!found) {
         std::cout << "⏳ [INFO] Skipping genesis block — awaiting peer sync...\n";
     }
@@ -1447,6 +1448,11 @@ bool Blockchain::loadFromDB() {
     }
 
     applyRollupDeltasToBalances();
+
+    // ───────────────────────────────────────
+    // (NEW) Re-derive cumulative work & tell PeerManager
+    // ───────────────────────────────────────
+    recomputeChainWork();          // updates totalWork
 
     if (db) {
         for (const auto &[addr, bal] : balances)
@@ -2868,6 +2874,7 @@ bool Blockchain::rollbackToIndex(int index) {
     saveToDB();
     recalculateBalancesFromChain();
     applyRollupDeltasToBalances();
+    recomputeChainWork();          // ← add this line
     std::cout << "✅ [Blockchain] Rolled back to index: " << index << "\n";
     return true;
 }
