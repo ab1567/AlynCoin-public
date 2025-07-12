@@ -1994,21 +1994,25 @@ void Network::startBinaryReadLoop(const std::string &peerId,
       return;
     }
 
-    auto it = peerTransports.find(peerId);
-    if (it != peerTransports.end()) {
-      auto &st = *it->second.state;
-      st.frameCountMin++;
-      st.byteCountMin += blob.size();
-      if (!anchorPeers.count(peerId)) {
-        if (st.frameCountMin > FRAME_LIMIT_MIN ||
-            st.byteCountMin > BYTE_LIMIT_MIN) {
-          st.limitStrikes++;
-          st.misScore += 5;
-          if (st.limitStrikes >= 3)
+    {
+      // Serialize access to peerTransports while updating per-peer counters
+      std::lock_guard<std::timed_mutex> lk(peersMutex);
+      auto it = peerTransports.find(peerId);
+      if (it != peerTransports.end() && it->second.state) {
+        auto &st = *it->second.state;
+        st.frameCountMin++;
+        st.byteCountMin += blob.size();
+        if (!anchorPeers.count(peerId)) {
+          if (st.frameCountMin > FRAME_LIMIT_MIN ||
+              st.byteCountMin > BYTE_LIMIT_MIN) {
+            st.limitStrikes++;
+            st.misScore += 5;
+            if (st.limitStrikes >= 3)
+              blacklistPeer(peerId);
+          }
+          if (st.misScore >= BAN_THRESHOLD)
             blacklistPeer(peerId);
         }
-        if (st.misScore >= BAN_THRESHOLD)
-          blacklistPeer(peerId);
       }
     }
 
