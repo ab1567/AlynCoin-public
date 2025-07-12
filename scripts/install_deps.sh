@@ -11,6 +11,7 @@ sudo apt install -y \
   librocksdb-dev zlib1g-dev libbz2-dev \
   libsnappy-dev liblz4-dev libzstd-dev libsodium-dev \
   libasio-dev nlohmann-json3-dev \
+  libspdlog-dev \
   zip unzip git curl python3 python3-pip
 
 # UPnP NAT traversal library

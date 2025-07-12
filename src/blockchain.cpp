@@ -1794,6 +1794,7 @@ bool Blockchain::replaceChainUpTo(const std::vector<Block>& blocks, int upToHeig
 
     recalculateBalancesFromChain();
     applyRollupDeltasToBalances();
+    recomputeChainWork();
     lock.unlock();
     saveToDB();
 
@@ -2798,6 +2799,7 @@ bool Blockchain::rollbackToHeight(int height) {
     // Recalculate everything post-trim
     recalculateBalancesFromChain();
     applyRollupDeltasToBalances();
+    recomputeChainWork();
     lock.unlock();
     saveToDB();
 
@@ -2913,6 +2915,24 @@ cpp_int Blockchain::computeCumulativeDifficulty(const std::vector<Block>& chainR
         return cpp_int(0);
     return chainRef.back().getAccumulatedWork();
 }
+
+// Recompute accumulated work for each block in the current chain and
+// refresh the cached totalWork value.
+void Blockchain::recomputeChainWork() {
+    cpp_int cumWork = 0;
+    totalWork = 0;
+    for (auto &b : chain) {
+        cpp_int thisWork = difficultyToWork(b.getDifficulty());
+        cumWork += thisWork;
+        b.setAccumulatedWork(cumWork);
+        if (b.getDifficulty() >= 0 && b.getDifficulty() < 64)
+            totalWork += (1ULL << b.getDifficulty());
+        else
+            totalWork += 1ULL;
+    }
+    if (network && network->getPeerManager())
+        network->getPeerManager()->setLocalWork(totalWork);
+}
 //
 std::vector<Block> Blockchain::getChainUpTo(size_t height) const
 {
@@ -2967,6 +2987,7 @@ void Blockchain::compareAndMergeChains(const std::vector<Block>& otherChain) {
         saveToDB();
         recalculateBalancesFromChain();
         applyRollupDeltasToBalances();
+        recomputeChainWork();
         return;
     }
 
@@ -3025,6 +3046,7 @@ void Blockchain::compareAndMergeChains(const std::vector<Block>& otherChain) {
             saveToDB();
             recalculateBalancesFromChain();
             applyRollupDeltasToBalances();
+            recomputeChainWork();
         } else {
             std::cout << "⚠️ [Fork] Same length chain not stronger. Keeping current.\n";
         }
@@ -3047,6 +3069,7 @@ void Blockchain::compareAndMergeChains(const std::vector<Block>& otherChain) {
         saveToDB();
         recalculateBalancesFromChain();
         applyRollupDeltasToBalances();
+        recomputeChainWork();
         return;
     }
 

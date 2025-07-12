@@ -242,6 +242,7 @@ public:
   bool verifyForkSafety(const std::vector<Block>& otherChain) const;
   int findForkCommonAncestor(const std::vector<Block>& otherChain) const;
   boost::multiprecision::cpp_int computeCumulativeDifficulty(const std::vector<Block>& chainRef) const;
+  void recomputeChainWork();
   void setPendingForkChain(const std::vector<Block>& fork);
   std::vector<Block> getPendingForkChain() const;
   void clearPendingForkChain();
