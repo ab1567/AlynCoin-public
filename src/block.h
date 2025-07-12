@@ -5,6 +5,7 @@
 #include <generated/blockchain_protos.pb.h>
 #include <generated/transaction_protos.pb.h>
 #include "crypto_utils.h"
+#include "block_reward.h"
 #include "crypto_protos.pb.h"
 #include "transaction.h"
 #include "zk/winterfell_stark.h"
@@ -46,8 +47,6 @@ public:
   std::string keccakHash;
   int difficulty;
 
-  static constexpr double INITIAL_REWARD = 50.0;
-  static constexpr double DECAY_RATE = 0.00005;
 
   // --- Constructors ---
   Block();

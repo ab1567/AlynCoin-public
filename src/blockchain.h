@@ -27,7 +27,6 @@
 #include <vector>
 #include "constants.h"
 
-#define DIFFICULTY 4
 #define DEFAULT_PORT 15671
 
 // Mutex protecting in-memory chain state. Functions interacting with RocksDB
