@@ -1669,18 +1669,10 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
   if (!blockchain.getChain().empty()) {
     std::string localTipHash = blockchain.getLatestBlockHash();
     if (newBlock.getPreviousHash() != localTipHash) {
-      Block parent;
-      if (blockchain.getBlockByHash(newBlock.getPreviousHash(), parent)) {
+      if (blockchain.hasBlockHash(newBlock.getPreviousHash())) {
         std::cout << "↪️ [Node] Side-chain block stored.\n";
         blockchain.addBlock(newBlock);
         blockchain.saveToDB();
-        broadcastBlock(newBlock);
-        if (peerManager && !sender.empty()) {
-          peerManager->setPeerHeight(sender, newBlock.getIndex());
-          peerManager->setPeerTipHash(sender, newBlock.getHash());
-        }
-        blockchain.broadcastNewTip();
-        autoSyncIfBehind();
         return;
       }
 
