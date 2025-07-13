@@ -2122,6 +2122,24 @@ double Blockchain::getTotalSupply() const {
   return total;
 }
 
+// Median time past using up to the last 11 blocks.
+std::time_t Blockchain::medianTimePast(size_t height) const {
+  const size_t window = 11;
+  if (chain.empty())
+    return std::time(nullptr);  // Fallback if chain is empty
+
+  size_t h = std::min(height, chain.size() - 1);
+  size_t count = std::min(window, h + 1);
+  std::vector<std::time_t> times;
+  times.reserve(count);
+
+  for (size_t i = 0; i < count; ++i) {
+    times.push_back(chain[h - i].getTimestamp());
+  }
+  std::sort(times.begin(), times.end());
+  return times[count / 2];
+}
+
 // castVote
 bool Blockchain::castVote(const std::string &voterAddress,
                           const std::string &candidateAddress) {

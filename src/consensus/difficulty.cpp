@@ -93,8 +93,13 @@ uint64_t calculateSmartDifficulty(const Blockchain& chain)
         const auto& cur  = chain.getChain()[height - i];
         const auto& prev = chain.getChain()[height - i - 1];
 
+        const long double mtpPrev = static_cast<long double>(chain.medianTimePast(height - i - 1));
+
+        long double curTS = static_cast<long double>(cur.getTimestamp());
+        curTS = std::clamp<long double>(curTS, mtpPrev - 7200.0L, mtpPrev + 7200.0L);
+
         const long double st = std::clamp<long double>(
-            static_cast<long double>(cur.getTimestamp() - prev.getTimestamp()),
+            curTS - mtpPrev,
             TARGET / 4.0L,
             6 * TARGET);
 
@@ -118,8 +123,20 @@ uint64_t calculateSmartDifficulty(const Blockchain& chain)
 
     const long double nextFloor = std::max<long double>(floor, nextRaw);
 
-    const long double nextDiff  =
+    long double nextDiff  =
         std::max<long double>(ABSOLUTE_FLOOR, nextFloor * minerBonus);
+
+    // ── Grace mode for severe hashrate collapse ───────────────
+    static int slowCounter = 0;
+    const auto& prevBlock = chain.getChain()[height - 2];
+    if (tip.getTimestamp() - prevBlock.getTimestamp() > TARGET * 30)
+        ++slowCounter;
+    else
+        slowCounter = std::max(0, slowCounter - 1);
+
+    if (slowCounter > 30)
+        nextDiff = std::max<long double>(ABSOLUTE_FLOOR,
+                                         (nextFloor / 2.0L) * minerBonus);
 
     return static_cast<uint64_t>(std::llround(nextDiff));
 }
