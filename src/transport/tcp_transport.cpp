@@ -103,6 +103,7 @@ bool TcpTransport::writeBinaryLocked(const std::string& data)
 std::string TcpTransport::readBinaryBlocking()
 {
     if (!isOpen()) return {};
+    std::lock_guard<std::mutex> lk(readMutex);
     try {
         uint64_t need = 0;
         if (!readVarIntBlocking(*socket, need))
@@ -226,33 +227,36 @@ void TcpTransport::startReadBinaryLoop(std::function<void(const boost::system::e
 
     auto handler = std::make_shared<std::function<void(const boost::system::error_code&, std::size_t)>>();
     *handler = [this, self, cb, dataBuffer, handler](const boost::system::error_code& ec, std::size_t bytes) mutable {
-        if (ec == boost::asio::error::operation_aborted) return;
-        if (ec) { cb(ec, ""); return; }
+        {
+            std::lock_guard<std::mutex> lk(readMutex);
+            if (ec == boost::asio::error::operation_aborted) return;
+            if (ec) { cb(ec, ""); return; }
 
-        dataBuffer->insert(dataBuffer->end(), readBuf_.begin(), readBuf_.begin() + bytes);
+            dataBuffer->insert(dataBuffer->end(), readBuf_.begin(), readBuf_.begin() + bytes);
 
-        while (true) {
-            if (dataBuffer->empty()) break;
-            uint64_t frameLen = 0; size_t used = 0;
-            if (!decodeVarInt(dataBuffer->data(), dataBuffer->size(), &frameLen, &used)) {
-                if (dataBuffer->size() < 10)
-                    break; // wait for more bytes
-                std::cerr << "[readHandler] ❌ Failed to decode varint header.\n";
-                cb(boost::asio::error::invalid_argument, "");
-                return;
+            while (true) {
+                if (dataBuffer->empty()) break;
+                uint64_t frameLen = 0; size_t used = 0;
+                if (!decodeVarInt(dataBuffer->data(), dataBuffer->size(), &frameLen, &used)) {
+                    if (dataBuffer->size() < 10)
+                        break; // wait for more bytes
+                    std::cerr << "[readHandler] ❌ Failed to decode varint header.\n";
+                    cb(boost::asio::error::invalid_argument, "");
+                    return;
+                }
+
+                if (frameLen == 0 || frameLen > MAX_WIRE_PAYLOAD) {
+                    cb(boost::asio::error::invalid_argument, "");
+                    return;
+                }
+
+                if (dataBuffer->size() < used + frameLen)
+                    break; // wait for rest
+
+                std::string frame(reinterpret_cast<char*>(dataBuffer->data() + used), frameLen);
+                cb(boost::system::error_code(), frame);
+                dataBuffer->erase(dataBuffer->begin(), dataBuffer->begin() + used + frameLen);
             }
-
-            if (frameLen == 0 || frameLen > MAX_WIRE_PAYLOAD) {
-                cb(boost::asio::error::invalid_argument, "");
-                return;
-            }
-
-            if (dataBuffer->size() < used + frameLen)
-                break; // wait for rest
-
-            std::string frame(reinterpret_cast<char*>(dataBuffer->data() + used), frameLen);
-            cb(boost::system::error_code(), frame);
-            dataBuffer->erase(dataBuffer->begin(), dataBuffer->begin() + used + frameLen);
         }
 
         if (!isOpen()) { cb(boost::asio::error::operation_aborted, ""); return; }

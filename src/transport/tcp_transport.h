@@ -50,4 +50,8 @@ private:
     std::mutex              writeMutex;
     bool                    writeInProgress{false};
     void doWrite();
+
+protected:
+    // Protects all blocking and async reads to avoid concurrent access
+    mutable std::mutex                              readMutex;
 };
