@@ -1660,10 +1660,30 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
     return;
   }
 
-  // 2) Fork detection
+  // 2) Duplicate and side-chain detection
+  if (blockchain.hasBlockHash(newBlock.getHash())) {
+    std::cout << "ℹ️ [Node] Duplicate block received.\n";
+    return;
+  }
+
   if (!blockchain.getChain().empty()) {
     std::string localTipHash = blockchain.getLatestBlockHash();
     if (newBlock.getPreviousHash() != localTipHash) {
+      Block parent;
+      if (blockchain.getBlockByHash(newBlock.getPreviousHash(), parent)) {
+        std::cout << "↪️ [Node] Side-chain block stored.\n";
+        blockchain.addBlock(newBlock);
+        blockchain.saveToDB();
+        broadcastBlock(newBlock);
+        if (peerManager && !sender.empty()) {
+          peerManager->setPeerHeight(sender, newBlock.getIndex());
+          peerManager->setPeerTipHash(sender, newBlock.getHash());
+        }
+        blockchain.broadcastNewTip();
+        autoSyncIfBehind();
+        return;
+      }
+
       std::cerr
           << "⚠️ [Fork Detected] Previous hash mismatch at incoming block.\n";
 
