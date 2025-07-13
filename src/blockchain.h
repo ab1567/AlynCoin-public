@@ -24,6 +24,7 @@
 #include <rocksdb/db.h>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include "constants.h"
 
@@ -166,6 +167,8 @@ public:
                                 const std::vector<unsigned char> &minerFalconPriv);
   void setPendingTransactions(const std::vector<Transaction> &transactions);
   double getAverageBlockTime(int recentCount) const;
+  double getAverageDifficulty(int recentCount) const;
+  int getUniqueMinerCount(int recentCount) const;
   enum class ValidationResult {
     Ok = 0,
     PrevHashMismatch,
