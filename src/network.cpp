@@ -106,6 +106,7 @@ static constexpr uint64_t FRAME_LIMIT_MIN = 200;
 static constexpr uint64_t BYTE_LIMIT_MIN = 1 << 20;
 static constexpr int MAX_REORG = 100;
 static constexpr int BAN_THRESHOLD = 200;
+static constexpr std::chrono::seconds BAN_GRACE_PERIOD{60};
 
 static uint64_t safeUint64(const boost::multiprecision::cpp_int &bi) {
   using boost::multiprecision::cpp_int;
@@ -1056,6 +1057,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     knownPeers.insert(claimedPeerId);
     if (!entry.state)
       entry.state = std::make_shared<PeerState>();
+    entry.state->connectedAt = std::chrono::steady_clock::now();
     entry.state->supportsAggProof = remoteAgg;
     entry.state->supportsSnapshot = remoteSnap;
     entry.state->supportsWhisper = remoteWhisper;
@@ -1792,10 +1794,17 @@ void Network::blacklistPeer(const std::string &peer) {
     std::lock_guard<std::timed_mutex> lk(peersMutex);
     auto it = peerTransports.find(peer);
     if (it != peerTransports.end()) {
+      auto now = std::chrono::steady_clock::now();
+      if (it->second.state &&
+          it->second.state->connectedAt != std::chrono::steady_clock::time_point{} &&
+          now - it->second.state->connectedAt < BAN_GRACE_PERIOD) {
+        std::cerr << "ℹ️  [ban] grace period active for " << peer << '\n';
+        return;
+      }
+
       it->second.state->banCount++;
       hours = std::min(24, 1 << (it->second.state->banCount - 1));
-      it->second.state->banUntil =
-          std::chrono::steady_clock::now() + std::chrono::hours(hours);
+      it->second.state->banUntil = now + std::chrono::hours(hours);
     }
     peerTransports.erase(peer);
   }
@@ -1926,6 +1935,8 @@ void Network::addPeer(const std::string &peer) {
 
   peerTransports.emplace(peer,
                          PeerEntry{transport, std::make_shared<PeerState>(), false});
+  if (auto it = peerTransports.find(peer); it != peerTransports.end())
+    it->second.state->connectedAt = std::chrono::steady_clock::now();
   std::cout << "📡 Peer added: " << peer << std::endl;
   savePeers(); // ✅ Save immediately
 }
@@ -2583,6 +2594,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
       if (anchorPeers.size() < 2)
         anchorPeers.insert(peerKey);
         auto st = peerTransports[peerKey].state;
+        st->connectedAt = std::chrono::steady_clock::now();
         st->supportsAggProof = theirAgg;
         st->supportsSnapshot = theirSnap;
         st->supportsWhisper = theirWhisper;
