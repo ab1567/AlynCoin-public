@@ -22,20 +22,10 @@ int  getActiveMinerCount();                 // how many peers are mining?
 boost::multiprecision::cpp_int difficultyToWork(int diff);
 
 // ────────────────────────────────────────────────────────────────
-//  Difficulty ladder  (floor-multiplier × current diff)
+//  Difficulty floor (logistic)
+//  rises smoothly from 5 → 40 as supply → 100 M.
 //
-//  Circulating supply     Floor
-//  ─────────────────────  ───────────────────────────────────────
-//     < 15 000 000        1.0   (very easy / CPU era)
-//     15 – 19.9 M         1.25
-//     20 – 29.9 M         1.50
-//     30 – 39.9 M         1.75
-//     40 – 49.9 M         2.00
-//     50 – 69.9 M         2.50
-//     70 – 89.9 M         3.00
-//     ≥ 90 000 000        4.00  (ASIC/farm)
-//
-//  Retarget algorithm: LWMA-360 (≈12 h @ 120 s target)
+//  Retarget algorithm: LWMA-720 (≈24 h @ 120 s target)
 //  with stronger dampening and mild miner-count bonus. One-block
 //  retarget – no epoch waiting.
 // ────────────────────────────────────────────────────────────────

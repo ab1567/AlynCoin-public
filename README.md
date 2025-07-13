@@ -33,6 +33,13 @@ transaction fees is burned while another portion funds ongoing development via
 the DAO treasury. The team allocation is locked for one year and vests
 linearly over the following three years.
 
+### Difficulty and Emission
+
+* Difficulty adjusts every block using a logistic floor that gradually rises
+  from 5 to 40 as total supply reaches 100&nbsp;M.
+* Block rewards start at 25 ALYN and decay by about 0.09&nbsp;% per block with
+  a permanent 0.25 ALYN tail emission to incentivize miners long term.
+
 ## Generate RSA Keys
 
 Generate RSA keys locally before building or running the software. The keys are

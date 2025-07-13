@@ -2455,37 +2455,18 @@ RollupBlock Blockchain::createRollupBlock(const std::vector<Transaction> &offCha
 // Block reward
 double Blockchain::calculateBlockReward() {
     const double maxSupply = 100000000.0;
-    double circulatingSupply = getTotalSupply();
 
-    if (circulatingSupply >= maxSupply) {
+    if (totalSupply >= maxSupply)
         return 0.0;
-    }
 
-    // Halving every 10 million ALYN
-    int halvings = static_cast<int>(circulatingSupply / 10000000.0);
-    double halvingFactor = std::pow(0.5, halvings);
+    blockReward *= 0.9991;       // exponential decay
+    if (blockReward < 0.25)
+        blockReward = 0.25;      // tail emission
 
-    double baseReward = INITIAL_REWARD * halvingFactor;
+    if (totalSupply + blockReward > maxSupply)
+        blockReward = maxSupply - totalSupply;
 
-    double usageFactor = std::min(1.0, getRecentTransactionCount() / 100.0);
-    double usageBoost = 0.9 + 0.2 * usageFactor;
-
-    double avgBlockTime = getAverageBlockTime(10);
-    double timeMultiplier = 1.0;
-    if (avgBlockTime > 120) {
-        timeMultiplier = 1.1;
-    } else if (avgBlockTime < 30) {
-        timeMultiplier = 0.85;
-    }
-
-    double adjustedReward = baseReward * usageBoost * timeMultiplier;
-    adjustedReward = std::clamp(adjustedReward, 0.1, baseReward);
-
-    if (circulatingSupply + adjustedReward > maxSupply) {
-        adjustedReward = maxSupply - circulatingSupply;
-    }
-
-    return adjustedReward;
+    return blockReward;
 }
 
 // adjustDifficulty
@@ -2656,7 +2637,7 @@ void Blockchain::clear(bool force) {
     chain.clear();
     pendingTransactions.clear();
     difficulty = calculateSmartDifficulty(*this);
-    blockReward = 50.0;
+    blockReward = 25.0;
     devFundBalance = 0.0;
     rollupChain.clear();
     balances.clear();
