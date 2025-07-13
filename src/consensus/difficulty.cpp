@@ -4,6 +4,7 @@
 #include <cmath>
 #include <mutex>
 #include <unordered_map>
+#include <ctime>
 #include <boost/multiprecision/cpp_int.hpp>
 #include "transport/peer_globals.h"
 
@@ -70,6 +71,12 @@ uint64_t calculateSmartDifficulty(const Blockchain& chain)
     if (height < 2)               // genesis or first mined block
         return GENESIS_DIFF;
 
+    // ── Wall-clock sanity check (±60 min) ─────────────
+    const auto& tip = chain.getLatestBlock();
+    const std::time_t now = std::time(nullptr);
+    if (tip.getTimestamp() > now + 3600 || tip.getTimestamp() < now - 3600)
+        return tip.getDifficulty();
+
     // ── Fixed bootstrap: keep first 60 blocks at diff-5 ────────
     if (height < LOCK_HEIGHT)
         return GENESIS_DIFF;
@@ -78,9 +85,9 @@ uint64_t calculateSmartDifficulty(const Blockchain& chain)
     const long double supply = static_cast<long double>(chain.getTotalSupply());
     const long double floor  = logisticFloor(supply);
 
-    // ── LWMA-720 with linear weights ──────────────
+    // ── LWMA-720 with harmonic weighting ──────────
     const int N = std::min<int>(LWMA_N, height - 1);
-    long double sumW = 0.0L, sumST = 0.0L;
+    long double sumW = 0.0L, denom = 0.0L;
 
     for (int i = 1; i <= N; ++i) {
         const auto& cur  = chain.getChain()[height - i];
@@ -93,10 +100,10 @@ uint64_t calculateSmartDifficulty(const Blockchain& chain)
 
         const long double w  = i;              // linear weight
         sumW  += w;
-        sumST += w * st;
+        denom += w / st;       // harmonic contribution
     }
 
-    long double lwma   = sumST / sumW;
+    long double lwma   = sumW / denom;     // harmonic mean
     long double factor = TARGET / lwma;        // >1 if we're too fast
     factor             = std::clamp(factor, MAX_DOWN, MAX_UP);
     factor             = 1.0L + (factor - 1.0L) * DAMPING;
