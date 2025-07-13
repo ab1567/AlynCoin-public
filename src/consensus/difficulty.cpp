@@ -4,6 +4,7 @@
 #include <cmath>
 #include <mutex>
 #include <unordered_map>
+#include <unordered_set>
 #include <ctime>
 #include <boost/multiprecision/cpp_int.hpp>
 #include "transport/peer_globals.h"
@@ -13,10 +14,20 @@ using boost::multiprecision::cpp_int;
 // ─────────────────────────────────────────────
 //   Active-miner heuristic (greatly toned down)
 // ─────────────────────────────────────────────
-int getActiveMinerCount()
+int getActiveMinerCount(const Blockchain& chain)
 {
-    std::lock_guard<std::timed_mutex> g(peersMutex);
-    return std::max(1, static_cast<int>(peerTransports.size()));
+    const int window = 100; // last 100 blocks
+    const auto& ch   = chain.getChain();
+    const int start  = std::max(0, static_cast<int>(ch.size()) - window);
+
+    std::unordered_set<std::string> miners;
+    for (int i = start; i < static_cast<int>(ch.size()); ++i) {
+        const std::string& addr = ch[i].getMinerAddress();
+        if (!addr.empty())
+            miners.insert(addr);
+    }
+
+    return std::max(1, static_cast<int>(miners.size()));
 }
 
 // ─────────────────────────────────────────────
@@ -81,9 +92,12 @@ uint64_t calculateSmartDifficulty(const Blockchain& chain)
     if (height < LOCK_HEIGHT)
         return GENESIS_DIFF;
 
-    // ── Difficulty floor by circulating supply ───────────────────
+    // ── Difficulty floor considering recent hash rate ────────────
     const long double supply = static_cast<long double>(chain.getTotalSupply());
-    const long double floor  = logisticFloor(supply);
+    const long double supplyFloor = logisticFloor(supply);
+    const long double avgDiff = static_cast<long double>(chain.getAverageDifficulty(100));
+    const long double hashFloor = std::max<long double>(ABSOLUTE_FLOOR, avgDiff * 0.5L);
+    const long double floor  = std::min<long double>(supplyFloor, hashFloor);
 
     // ── LWMA-720 with harmonic weighting ──────────
     const int N = std::min<int>(LWMA_N, height - 1);
@@ -115,7 +129,7 @@ uint64_t calculateSmartDifficulty(const Blockchain& chain)
 
     // ── Peer-count bonus (much weaker) ────────────
     const double minerBonus = std::min(1.15,          // +15 % cap
-                              1.0 + 0.001 * getActiveMinerCount());
+                              1.0 + 0.001 * getActiveMinerCount(chain));
 
     // ── Apply ────────────────────────────────────────────────────
     long double nextRaw   = chain.getLatestBlock().difficulty * factor;

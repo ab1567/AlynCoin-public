@@ -29,6 +29,7 @@
 #include <shared_mutex>
 #include <boost/multiprecision/cpp_int.hpp>
 #include <unordered_map>
+#include <unordered_set>
 
 using boost::multiprecision::cpp_int;
 
@@ -2507,6 +2508,32 @@ double Blockchain::getAverageBlockTime(int recentCount) const {
     }
 
     return totalTime / count;
+}
+
+double Blockchain::getAverageDifficulty(int recentCount) const {
+    if (chain.empty()) return difficulty;
+
+    int count = std::min(static_cast<int>(chain.size()), recentCount);
+    double totalDiff = 0.0;
+
+    for (int i = chain.size() - count; i < chain.size(); ++i)
+        totalDiff += chain[i].getDifficulty();
+
+    return (count > 0) ? totalDiff / count : difficulty;
+}
+
+int Blockchain::getUniqueMinerCount(int recentCount) const {
+    if (chain.empty()) return 1;
+
+    int start = std::max(0, static_cast<int>(chain.size()) - recentCount);
+    std::unordered_set<std::string> miners;
+
+    for (int i = start; i < static_cast<int>(chain.size()); ++i) {
+        const std::string& addr = chain[i].getMinerAddress();
+        if (!addr.empty()) miners.insert(addr);
+    }
+
+    return std::max(1, static_cast<int>(miners.size()));
 }
 
 // calculate balance

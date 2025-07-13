@@ -18,7 +18,7 @@ constexpr uint64_t PREMINE_SUPPLY = 10'000'000;   // for clarity in docs/tests
 // ────────────────────────────────────────────────────────────────
 //  Helpers
 // ────────────────────────────────────────────────────────────────
-int  getActiveMinerCount();                 // how many peers are mining?
+int  getActiveMinerCount(const Blockchain& chain);  // unique miners in last window
 boost::multiprecision::cpp_int difficultyToWork(int diff);
 
 // ────────────────────────────────────────────────────────────────
