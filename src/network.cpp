@@ -1609,14 +1609,21 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
             << newBlock.getIndex() << " hash=" << newBlock.getHash() << '\n';
   const int expectedIndex = blockchain.getLatestBlock().getIndex() + 1;
   auto punish = [&] {
-    if (!sender.empty()) {
+    if (sender.empty())
+      return;
+
+    bool ban = false;
+    {
+      std::lock_guard<std::timed_mutex> lk(peersMutex);
       auto it = peerTransports.find(sender);
-      if (it != peerTransports.end()) {
+      if (it != peerTransports.end() && it->second.state) {
         it->second.state->misScore += 100;
-        if (it->second.state->misScore >= BAN_THRESHOLD)
-          blacklistPeer(sender);
+        ban = it->second.state->misScore >= BAN_THRESHOLD;
       }
     }
+
+    if (ban)
+      blacklistPeer(sender);
   };
 
   // 1) PoW and zk-STARK check
