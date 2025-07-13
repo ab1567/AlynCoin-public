@@ -50,10 +50,17 @@ uint64_t calculateSmartDifficulty(const Blockchain& chain)
     constexpr long double MAX_UP      = 2.0L;        // at most double
     constexpr long double MAX_DOWN    = 1.0L/3.0L;   // at most one-third
     constexpr long double DAMPING     = 0.50L;       // apply 50 % of delta
-    constexpr uint64_t    GENESIS_DIFF = 2; // start genesis at diff 2
+    constexpr uint64_t    GENESIS_DIFF   = 5;      // block #0 and #1
+    constexpr long double ABSOLUTE_FLOOR = 5.0L;   // hard floor
+    constexpr size_t      LOCK_HEIGHT    = 60;     // first 60 blocks locked
 
     const size_t height = chain.getBlockCount();
-    if (height < 2) return GENESIS_DIFF;
+    if (height < 2)               // genesis or first mined block
+        return GENESIS_DIFF;
+
+    // ── Fixed bootstrap: keep first 60 blocks at diff-5 ────────
+    if (height < LOCK_HEIGHT)
+        return GENESIS_DIFF;
 
     // ── Difficulty floor by circulating supply ───────────────────
     const double supply = static_cast<double>(chain.getTotalSupply());
@@ -67,16 +74,7 @@ uint64_t calculateSmartDifficulty(const Blockchain& chain)
     else if (supply >= 20'000'000) floorMult = 1.5;
     else if (supply >= 15'000'000) floorMult = 1.25;
 
-    // ── Bootstrap ramp: keep first ~60 blocks around diff 2–4 ───
-    if (height < 60) {
-        long double progress =
-            (static_cast<long double>(height - 1) / 59.0L); // 0 → 1
-        long double ramp = 2.0L + progress * 2.0L;          // 2 → 4
-        /*  height = 1  → ramp = 2
-            height = 30 → ramp ≈ 3
-            height = 60 → ramp = 4 (then disappears) */
-        floorMult = std::max<long double>(floorMult, ramp);
-    }
+
 
     // ── LWMA-360 with linear weights ──────────────
     const int N = std::min<int>(LWMA_N, height - 1);
@@ -106,11 +104,13 @@ uint64_t calculateSmartDifficulty(const Blockchain& chain)
                               1.0 + 0.001 * getActiveMinerCount());
 
     // ── Apply ────────────────────────────────────────────────────
-    const long double nextRaw   = chain.getLatestBlock().difficulty * factor;
+    long double nextRaw   = chain.getLatestBlock().difficulty * factor;
+
+
     const long double nextFloor = std::max<long double>(floorMult, nextRaw);
 
-    const long double nextDiff  = std::max<long double>(1.0,
-                                nextFloor * minerBonus);
+    const long double nextDiff  =
+        std::max<long double>(ABSOLUTE_FLOOR, nextFloor * minerBonus);
 
     return static_cast<uint64_t>(std::llround(nextDiff));
 }
