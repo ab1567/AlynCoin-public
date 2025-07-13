@@ -34,20 +34,32 @@ cpp_int difficultyToWork(int diff)
 }
 
 // ─────────────────────────────────────────────
+//   Logistic difficulty floor 5 → 40
+// ─────────────────────────────────────────────
+static long double logisticFloor(long double s)
+{
+    constexpr long double base = 5.0L;
+    constexpr long double maxExtra = 35.0L;     // tops at 40
+    constexpr long double k  = 6.0L / 100'000'000.0L;
+    constexpr long double s0 = 50'000'000.0L;   // midpoint
+    return base + maxExtra / (1.0L + std::exp(-k * (s - s0)));
+}
+
+// ─────────────────────────────────────────────
 //   Core retarget – LWMA-based
 // ─────────────────────────────────────────────
 uint64_t calculateSmartDifficulty(const Blockchain& chain)
 {
     /*  Design targets ———————————————————————
         • 120-second blocks
-        • 360-block LWMA window  ≈ 12 h
-        • Very soft ± limits (×2 / ÷ 3)
+        • 720-block LWMA window  ≈ 24 h
+        • Very soft ± limits (×3 / ÷ 3)
         • Extra Digishield dampening 0.5
         • Small peer-count bonus, capped +15 %
     ------------------------------------------------*/
-    constexpr int         LWMA_N      = 360;
+    constexpr int         LWMA_N      = 720;
     constexpr long double TARGET      = 120.0L;      // seconds / block
-    constexpr long double MAX_UP      = 2.0L;        // at most double
+    constexpr long double MAX_UP      = 3.0L;        // at most triple
     constexpr long double MAX_DOWN    = 1.0L/3.0L;   // at most one-third
     constexpr long double DAMPING     = 0.50L;       // apply 50 % of delta
     constexpr uint64_t    GENESIS_DIFF   = 5;      // block #0 and #1
@@ -63,20 +75,10 @@ uint64_t calculateSmartDifficulty(const Blockchain& chain)
         return GENESIS_DIFF;
 
     // ── Difficulty floor by circulating supply ───────────────────
-    const double supply = static_cast<double>(chain.getTotalSupply());
-    long double floorMult = 1.0;
+    const long double supply = static_cast<long double>(chain.getTotalSupply());
+    const long double floor  = logisticFloor(supply);
 
-    if      (supply >= 90'000'000) floorMult = 4.0;
-    else if (supply >= 70'000'000) floorMult = 3.0;
-    else if (supply >= 50'000'000) floorMult = 2.5;
-    else if (supply >= 40'000'000) floorMult = 2.0;
-    else if (supply >= 30'000'000) floorMult = 1.75;
-    else if (supply >= 20'000'000) floorMult = 1.5;
-    else if (supply >= 15'000'000) floorMult = 1.25;
-
-
-
-    // ── LWMA-360 with linear weights ──────────────
+    // ── LWMA-720 with linear weights ──────────────
     const int N = std::min<int>(LWMA_N, height - 1);
     long double sumW = 0.0L, sumST = 0.0L;
 
@@ -107,7 +109,7 @@ uint64_t calculateSmartDifficulty(const Blockchain& chain)
     long double nextRaw   = chain.getLatestBlock().difficulty * factor;
 
 
-    const long double nextFloor = std::max<long double>(floorMult, nextRaw);
+    const long double nextFloor = std::max<long double>(floor, nextRaw);
 
     const long double nextDiff  =
         std::max<long double>(ABSOLUTE_FLOOR, nextFloor * minerBonus);
