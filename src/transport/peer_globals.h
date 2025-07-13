@@ -41,6 +41,8 @@ struct PeerState {
   int lastTailHeight{-1};
   std::string lastTailAnchor;
   uint32_t highestSeen{0};
+  std::chrono::steady_clock::time_point connectedAt{};
+  std::chrono::steady_clock::time_point graceUntil{};
   std::mutex m;
 };
 
