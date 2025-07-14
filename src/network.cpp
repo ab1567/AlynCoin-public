@@ -832,10 +832,15 @@ void Network::intelligentSync() {
     if (ph <= localHeight)
       continue;
 
-    if (peerSupportsSnapshot(peer))
+    int gap = ph - localHeight;
+    if (gap <= TAIL_SYNC_THRESHOLD) {
+      requestTailBlocks(peer, localHeight,
+                        blockchain->getLatestBlockHash());
+    } else if (peerSupportsSnapshot(peer)) {
       requestSnapshotSync(peer);
-    else if (peerSupportsAggProof(peer))
+    } else if (peerSupportsAggProof(peer)) {
       requestEpochHeaders(peer);
+    }
     break; // one good peer is enough
   }
 }
@@ -1108,12 +1113,18 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
   // ── 6. immediate sync decision ─────────────────────────────────────────
   const size_t myHeight = Blockchain::getInstance().getHeight();
   if (remoteHeight > static_cast<int>(myHeight)) {
-    if (remoteSnap)
+    int gap = remoteHeight - static_cast<int>(myHeight);
+    if (gap <= TAIL_SYNC_THRESHOLD) {
+      requestTailBlocks(claimedPeerId, myHeight,
+                        Blockchain::getInstance().getLatestBlockHash());
+    } else if (remoteSnap) {
       requestSnapshotSync(claimedPeerId);
-    else if (remoteAgg)
+    } else if (remoteAgg) {
       requestEpochHeaders(claimedPeerId);
-  } else if (remoteHeight < static_cast<int>(myHeight) && remoteSnap)
+    }
+  } else if (remoteHeight < static_cast<int>(myHeight) && remoteSnap) {
     sendTailBlocks(transport, remoteHeight, claimedPeerId);
+  }
 
   autoSyncIfBehind();
   intelligentSync();
@@ -1273,7 +1284,12 @@ void Network::autoSyncIfBehind() {
               << " | local=" << myHeight << '\n';
 
     if (peerWork > myWork) {
-      if (peerSupportsSnapshot(peerAddr)) {
+      int gap = peerHeight - static_cast<int>(myHeight);
+      if (gap <= TAIL_SYNC_THRESHOLD) {
+        std::cout << "  → requesting tail blocks\n";
+        requestTailBlocks(peerAddr, myHeight,
+                          Blockchain::getInstance().getLatestBlockHash());
+      } else if (peerSupportsSnapshot(peerAddr)) {
         std::cout << "  → requesting snapshot sync\n";
         requestSnapshotSync(peerAddr);
       } else if (peerSupportsAggProof(peerAddr)) {
@@ -1886,13 +1902,22 @@ std::string Network::requestBlockchainSync(const std::string &peer) {
 
   std::cout << "📡 Initiating catch-up sync with: " << peer << "\n";
 
-  if (peerSupportsSnapshot(peer))
-    requestSnapshotSync(peer);
-  else if (peerSupportsAggProof(peer))
-    requestEpochHeaders(peer);
-  else
-    std::cerr << "⚠️  Peer " << peer
-              << " offers no modern sync capability. Skipping.\n";
+  int peerHeight = peerManager ? peerManager->getPeerHeight(peer) : -1;
+  int localHeight = Blockchain::getInstance().getHeight();
+  if (peerHeight > localHeight) {
+    int gap = peerHeight - localHeight;
+    if (gap <= TAIL_SYNC_THRESHOLD) {
+      requestTailBlocks(peer, localHeight,
+                        Blockchain::getInstance().getLatestBlockHash());
+    } else if (peerSupportsSnapshot(peer)) {
+      requestSnapshotSync(peer);
+    } else if (peerSupportsAggProof(peer)) {
+      requestEpochHeaders(peer);
+    } else {
+      std::cerr << "⚠️  Peer " << peer
+                << " offers no modern sync capability. Skipping.\n";
+    }
+  }
 
   return "";
 }
@@ -2008,14 +2033,19 @@ void Network::sendInitialRequests(const std::string &peerId) {
   f3.mutable_peer_list_req();
   sendFrame(it->second.tx, f3);
 
-  // Only request a snapshot if the peer reports a higher height.
+  // Only request sync if the peer reports a higher height.
   int peerHeight = peerManager ? peerManager->getPeerHeight(peerId) : -1;
   int localHeight = Blockchain::getInstance().getHeight();
   if (peerHeight > localHeight) {
-    if (peerSupportsSnapshot(peerId))
+    int gap = peerHeight - localHeight;
+    if (gap <= TAIL_SYNC_THRESHOLD) {
+      requestTailBlocks(peerId, localHeight,
+                        Blockchain::getInstance().getLatestBlockHash());
+    } else if (peerSupportsSnapshot(peerId)) {
       requestSnapshotSync(peerId);
-    else if (peerSupportsAggProof(peerId))
+    } else if (peerSupportsAggProof(peerId)) {
       requestEpochHeaders(peerId);
+    }
   }
 
   sendInventory(peerId);
@@ -2640,10 +2670,15 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     /* pick correct sync action now */
     const int localHeight = Blockchain::getInstance().getHeight();
     if (theirHeight > localHeight) {
-      if (theirSnap)
+      int gap = theirHeight - localHeight;
+      if (gap <= TAIL_SYNC_THRESHOLD) {
+        requestTailBlocks(peerKey, localHeight,
+                          Blockchain::getInstance().getLatestBlockHash());
+      } else if (theirSnap) {
         requestSnapshotSync(peerKey);
-      else if (theirAgg)
+      } else if (theirAgg) {
         requestEpochHeaders(peerKey);
+      }
     } else if (theirHeight < localHeight && theirSnap)
       sendTailBlocks(tx, theirHeight, peerKey);
 
@@ -3332,6 +3367,17 @@ void Network::handleTailBlocks(const std::string &peer,
     std::cout << "✅ [TAIL_BLOCKS] Appended " << appended << " of "
               << proto.blocks_size() << " tail blocks from peer " << peer
               << "\n";
+
+    // Reset any snapshot sync state now that tail sync succeeded
+    auto itSnap = peerTransports.find(peer);
+    if (itSnap != peerTransports.end() && itSnap->second.state) {
+      auto st = itSnap->second.state;
+      st->snapshotActive = false;
+      st->snapState = PeerState::SnapState::Idle;
+      st->snapshotB64.clear();
+      st->snapshotReceived = 0;
+      st->snapshotExpectBytes = 0;
+    }
 
     if (peerManager)
       peerManager->setPeerHeight(peer, chain.getHeight());
