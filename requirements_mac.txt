@@ -1,28 +1,7 @@
-# Packages to build and run AlynCoin on macOS
-cmake
-pkg-config
-openssl@1.1
-protobuf
-jsoncpp
-boost
-rocksdb
-zlib
-bzip2
-snappy
-lz4
-zstd
-libsodium
-asio
-nlohmann-json
-bind
-zip
-unzip
-git
-curl
-python
-miniupnpc
-
-# Python packages
-PyQt5
-requests
-dnspython
+xcode-select --install 2>/dev/null || true && \
+brew update && \
+brew install cmake pkg-config git curl zip unzip \
+    openssl@3 libsodium rocksdb zlib bzip2 snappy lz4 zstd \
+    protobuf boost jsoncpp nlohmann-json spdlog asio \
+    miniupnpc libnatpmp python rust && \
+pip3 install --upgrade pip
