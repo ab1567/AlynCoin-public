@@ -841,6 +841,9 @@ void Network::intelligentSync() {
     if (gap <= TAIL_SYNC_THRESHOLD) {
       requestTailBlocks(peer, localHeight,
                         blockchain->getLatestBlockHash());
+    } else if (gap <= MAX_TAIL_BLOCKS) {
+      requestTailBlocks(peer, localHeight,
+                        blockchain->getLatestBlockHash());
     } else if (peerSupportsSnapshot(peer)) {
       requestSnapshotSync(peer);
     } else if (peerSupportsAggProof(peer)) {
@@ -1124,6 +1127,9 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     if (gap <= TAIL_SYNC_THRESHOLD) {
       requestTailBlocks(claimedPeerId, myHeight,
                         Blockchain::getInstance().getLatestBlockHash());
+    } else if (gap <= MAX_TAIL_BLOCKS) {
+      requestTailBlocks(claimedPeerId, myHeight,
+                        Blockchain::getInstance().getLatestBlockHash());
     } else if (remoteSnap) {
       requestSnapshotSync(claimedPeerId);
     } else if (remoteAgg) {
@@ -1296,6 +1302,10 @@ void Network::autoSyncIfBehind() {
         std::cout << "  → requesting tail blocks\n";
         requestTailBlocks(peerAddr, myHeight,
                           Blockchain::getInstance().getLatestBlockHash());
+      } else if (gap <= MAX_TAIL_BLOCKS) {
+        std::cout << "  → requesting tail blocks\n";
+        requestTailBlocks(peerAddr, myHeight,
+                          Blockchain::getInstance().getLatestBlockHash());
       } else if (peerSupportsSnapshot(peerAddr)) {
         std::cout << "  → requesting snapshot sync\n";
         requestSnapshotSync(peerAddr);
@@ -1305,13 +1315,8 @@ void Network::autoSyncIfBehind() {
       }
     } else if (peerHeight == static_cast<int>(myHeight) && !peerTip.empty() &&
                peerTip != myTip && peerWork >= myWork) {
-      if (peerSupportsSnapshot(peerAddr)) {
-        std::cout << "  → tip mismatch, requesting snapshot sync\n";
-        requestSnapshotSync(peerAddr);
-      } else if (peerSupportsAggProof(peerAddr)) {
-        std::cout << "  → tip mismatch, requesting epoch headers\n";
-        requestEpochHeaders(peerAddr);
-      }
+      std::cout << "  → tip mismatch, requesting missing block\n";
+      requestBlockByHash(peerAddr, peerTip);
     } else if (peerHeight < static_cast<int>(myHeight) && peerWork < myWork) {
       if (peerSupportsSnapshot(peerAddr)) {
         std::cout << "  → sending tail blocks\n";
@@ -1914,6 +1919,9 @@ std::string Network::requestBlockchainSync(const std::string &peer) {
     if (gap <= TAIL_SYNC_THRESHOLD) {
       requestTailBlocks(peer, localHeight,
                         Blockchain::getInstance().getLatestBlockHash());
+    } else if (gap <= MAX_TAIL_BLOCKS) {
+      requestTailBlocks(peer, localHeight,
+                        Blockchain::getInstance().getLatestBlockHash());
     } else if (peerSupportsSnapshot(peer)) {
       requestSnapshotSync(peer);
     } else if (peerSupportsAggProof(peer)) {
@@ -2044,6 +2052,9 @@ void Network::sendInitialRequests(const std::string &peerId) {
   if (peerHeight > localHeight) {
     int gap = peerHeight - localHeight;
     if (gap <= TAIL_SYNC_THRESHOLD) {
+      requestTailBlocks(peerId, localHeight,
+                        Blockchain::getInstance().getLatestBlockHash());
+    } else if (gap <= MAX_TAIL_BLOCKS) {
       requestTailBlocks(peerId, localHeight,
                         Blockchain::getInstance().getLatestBlockHash());
     } else if (peerSupportsSnapshot(peerId)) {
@@ -2673,6 +2684,9 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     if (theirHeight > localHeight) {
       int gap = theirHeight - localHeight;
       if (gap <= TAIL_SYNC_THRESHOLD) {
+        requestTailBlocks(finalKey, localHeight,
+                          Blockchain::getInstance().getLatestBlockHash());
+      } else if (gap <= MAX_TAIL_BLOCKS) {
         requestTailBlocks(finalKey, localHeight,
                           Blockchain::getInstance().getLatestBlockHash());
       } else if (theirSnap) {
@@ -3438,6 +3452,15 @@ void Network::requestTailBlocks(const std::string &peer, int fromHeight,
   req->set_anchor_hash(anchorHash);
   if (it->second.state)
     it->second.state->lastTailAnchor = anchorHash;
+  sendFrame(it->second.tx, fr);
+}
+
+void Network::requestBlockByHash(const std::string &peer, const std::string &hash) {
+  auto it = peerTransports.find(peer);
+  if (it == peerTransports.end() || !it->second.tx)
+    return;
+  alyncoin::net::Frame fr;
+  fr.mutable_get_data()->add_hashes(hash);
   sendFrame(it->second.tx, fr);
 }
 //
