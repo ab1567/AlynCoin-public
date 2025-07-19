@@ -31,6 +31,14 @@ message Handshake {
   // Preferred snapshot chunk size in bytes. Nodes should respect the smaller
   // of their own capability and the peer's preference.
   uint32 snapshot_size = 11;
+
+  // Unique stable identifier for this node.  Helps detect duplicate
+  // connections even when the IP or port changes.
+  string node_id = 12;
+
+  // 64-bit nonce used as a tie breaker when both sides initiate a
+  // connection at the same time.
+  uint64 nonce = 13;
 }
 
 message Ping {}

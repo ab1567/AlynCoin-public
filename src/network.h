@@ -202,6 +202,7 @@ private:
   std::unique_ptr<PeerManager> peerManager;
   std::unique_ptr<SelfHealingNode> selfHealer;
   std::string publicPeerId;
+  std::string nodeId; // stable identifier for this node
   struct BanEntry {
     uint64_t until{0};
     int strikes{0};

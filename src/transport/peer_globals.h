@@ -51,6 +51,7 @@ struct PeerEntry {
   std::shared_ptr<PeerState> state;
   bool initiatedByUs{false};
   int port{0};
+  std::string ip; // original IP address
 };
 
 // Canonical global peer table and mutex for the entire app:
