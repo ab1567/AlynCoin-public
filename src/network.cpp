@@ -424,6 +424,10 @@ alyncoin::net::Handshake Network::buildHandshake() const {
   hs.set_total_work(safeUint64(work));
   hs.set_want_snapshot(false);
   hs.set_snapshot_size(static_cast<uint32_t>(MAX_SNAPSHOT_CHUNK_SIZE));
+  hs.set_node_id(nodeId);
+  uint64_t nonce;
+  randombytes_buf(&nonce, sizeof(nonce));
+  hs.set_nonce(nonce);
   return hs;
 }
 // Fallback peer(s) in case DNS discovery fails
@@ -569,8 +573,9 @@ void tryNATPMPPortMapping(int port) {
 
 Network::Network(unsigned short port, Blockchain *blockchain,
                  PeerBlacklist *blacklistPtr)
-      : port(port), blockchain(blockchain), isRunning(false), syncing(true),
+    : port(port), blockchain(blockchain), isRunning(false), syncing(true),
       ioContext(), tlsContext(nullptr), acceptor(ioContext), blacklist(blacklistPtr) {
+  nodeId = Crypto::generateRandomHex(16);
   if (!blacklistPtr) {
     std::cerr
         << "❌ [FATAL] PeerBlacklist is null! Cannot initialize network.\n";
@@ -862,12 +867,13 @@ void Network::broadcastPeerList() {
     std::lock_guard<std::timed_mutex> lock(peersMutex);
     if (peerTransports.empty())
       return;
-    for (const auto &[peerAddr, entry] : peerTransports)
-      peers.emplace_back(peerAddr, entry.port);
+    for (const auto &[peerId, entry] : peerTransports)
+      peers.emplace_back(entry.ip, entry.port);
   }
 
   for (const auto &[ip, port] : peers) {
-    auto it = peerTransports.find(ip);
+    auto it = std::find_if(peerTransports.begin(), peerTransports.end(),
+                           [&](const auto &kv) { return kv.second.ip == ip; });
     if (it == peerTransports.end() || !it->second.tx)
       continue;
     alyncoin::net::Frame fr;
@@ -978,7 +984,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     }
     if (!gotBinary)
       throw std::runtime_error("legacy peer – no binary_v1");
-    claimedPeerId = realPeerId;
+    claimedPeerId = hs.node_id().empty() ? realPeerId : hs.node_id();
 
     std::string myGenesis;
     if (!Blockchain::getInstance().getChain().empty())
@@ -1003,7 +1009,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
       std::lock_guard<std::timed_mutex> g(peersMutex);
       int count = 0;
       for (const auto &kv : peerTransports) {
-        std::string ip = kv.first;
+        std::string ip = kv.second.ip;
         if (ipPrefix(ip) == prefix)
           ++count;
       }
@@ -1033,25 +1039,27 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     auto itExisting = peerTransports.find(claimedPeerId);
     if (itExisting != peerTransports.end() && itExisting->second.tx &&
         itExisting->second.tx->isOpen()) {
-      bool keepExisting = true;
-      bool newInitiated = false;
-      if (itExisting->second.initiatedByUs != newInitiated) {
-        // each side initiated one, choose lexicographically smaller id
-        if (selfAddr() > claimedPeerId)
-          keepExisting = false;
+      bool keepExisting = false;
+      bool inbound = true;
+      if (claimedPeerId == nodeId) {
+        keepExisting = false;
+      } else if (claimedPeerId < nodeId && inbound) {
+        keepExisting = true;
+      } else if (claimedPeerId > nodeId && !inbound) {
+        keepExisting = true;
       }
       if (keepExisting) {
+        std::cout << "🔁 replacing connection for " << claimedPeerId << "\n";
+        if (itExisting->second.tx)
+          itExisting->second.tx->closeGraceful();
+        itExisting->second.tx = transport;
+        itExisting->second.initiatedByUs = false;
+      } else {
         std::cout << "🔁 duplicate connection from " << claimedPeerId
                   << " closed\n";
         if (transport)
           transport->closeGraceful();
         return;
-      } else {
-        std::cout << "🔁 replacing connection for " << claimedPeerId << "\n";
-        if (itExisting->second.tx)
-          itExisting->second.tx->closeGraceful();
-        itExisting->second.tx = transport;
-        itExisting->second.initiatedByUs = newInitiated;
       }
     }
 
@@ -1059,6 +1067,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     entry.tx = transport;
     entry.initiatedByUs = false;
     entry.port = finalPort;
+    entry.ip = realPeerId;
     knownPeers.insert(claimedPeerId);
     if (!entry.state)
       entry.state = std::make_shared<PeerState>();
@@ -1575,6 +1584,8 @@ void Network::sendBlockToPeer(const std::string &peer, const Block &blk) {
 }
 //
 bool Network::isSelfPeer(const std::string &p) const {
+  if (p == nodeId)
+    return true;
   if (!publicPeerId.empty() && p == publicPeerId)
     return true;
   if (p == "127.0.0.1")
@@ -1974,7 +1985,7 @@ void Network::addPeer(const std::string &peer) {
   auto transport = std::make_shared<TcpTransport>(ioContext);
 
   peerTransports.emplace(peer,
-                         PeerEntry{transport, std::make_shared<PeerState>(), false});
+                         PeerEntry{transport, std::make_shared<PeerState>(), false, 0, peer});
   if (auto it = peerTransports.find(peer); it != peerTransports.end()) {
     it->second.state->connectedAt = std::chrono::steady_clock::now();
     it->second.state->graceUntil =
@@ -2459,7 +2470,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     std::lock_guard<std::timed_mutex> g(peersMutex);
     int count = 0;
     for (const auto &kv : peerTransports) {
-      std::string ip = kv.first;
+      std::string ip = kv.second.ip;
       if (ipPrefix(ip) == prefix)
         ++count;
     }
@@ -2494,33 +2505,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
 
     {
       ScopedLockTracer _t("connectToNode");
-      std::lock_guard<std::timed_mutex> g(peersMutex);
-      auto it = peerTransports.find(peerKey);
-      if (it != peerTransports.end() && it->second.tx && it->second.tx->isOpen()) {
-        bool keepNew = false;
-        bool newInitiated = true;
-        if (it->second.initiatedByUs == newInitiated) {
-          keepNew = false; // same initiator -> keep existing
-        } else {
-          if (selfAddr() < peerKey)
-            keepNew = newInitiated;
-          else
-            keepNew = !newInitiated;
-        }
-        if (!keepNew) {
-          std::cout << "🔁 already connected to " << peerKey << '\n';
-          if (tx)
-            tx->closeGraceful();
-          return false;
-        } else {
-          std::cout << "🔁 replacing connection to " << peerKey << '\n';
-          if (it->second.tx)
-            it->second.tx->closeGraceful();
-          it->second.tx = tx;
-          it->second.initiatedByUs = newInitiated;
-          it->second.port = remotePort;
-        }
-      }
+      // no pre-handshake duplicate check since peers are keyed by node_id
     }
 
     /* our handshake */
@@ -2592,6 +2577,9 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     }
     const auto &rhs = fr.handshake();
     theirHeight = static_cast<int>(rhs.height());
+    std::string theirNodeId = rhs.node_id();
+    if (theirNodeId.empty())
+      theirNodeId = peerKey;
 
     // ─── Compatibility gate ────────────────────────────
     remoteRev = rhs.frame_rev();
@@ -2627,21 +2615,40 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
       }
     }
 
+    std::string finalKey = theirNodeId;
     {
       ScopedLockTracer t("connectToNode/register");
       std::lock_guard<std::timed_mutex> lk(peersMutex);
-      if (peerTransports.count(peerKey)) {
-        std::cout << "🔁 already connected to " << peerKey << '\n';
-        // ensure pending handshake is cleaned up before returning
-        if (tx)
-          tx->close();
-        return false;
+      auto itExisting = peerTransports.find(finalKey);
+      if (itExisting != peerTransports.end() && itExisting->second.tx &&
+          itExisting->second.tx->isOpen()) {
+        bool keepNew = false;
+        bool outbound = true;
+        if (finalKey == nodeId) {
+          keepNew = false;
+        } else if (finalKey > nodeId && outbound) {
+          keepNew = true;
+        }
+        if (keepNew) {
+          std::cout << "🔁 replacing connection to " << finalKey << '\n';
+          itExisting->second.tx->closeGraceful();
+          itExisting->second.tx = tx;
+          itExisting->second.initiatedByUs = true;
+          itExisting->second.port = remotePort;
+          itExisting->second.ip = host;
+        } else {
+          std::cout << "🔁 already connected to " << finalKey << '\n';
+          if (tx)
+            tx->closeGraceful();
+          return false;
+        }
+      } else {
+        peerTransports[finalKey] = {tx, std::make_shared<PeerState>(), true, remotePort, host};
       }
-        peerTransports[peerKey] = {tx, std::make_shared<PeerState>(), true, remotePort};
-      knownPeers.insert(peerKey);
+      knownPeers.insert(finalKey);
       if (anchorPeers.size() < 2)
-        anchorPeers.insert(peerKey);
-        auto st = peerTransports[peerKey].state;
+        anchorPeers.insert(finalKey);
+        auto st = peerTransports[finalKey].state;
         st->connectedAt = std::chrono::steady_clock::now();
         st->graceUntil = st->connectedAt + BAN_GRACE_BASE;
         st->supportsAggProof = theirAgg;
@@ -2656,8 +2663,8 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
       if (rhs.pub_key().size() == 32)
         std::copy(shared.begin(), shared.end(), st->linkKey.begin());
       if (peerManager) {
-        if (peerManager->registerPeer(peerKey))
-          peerManager->setPeerHeight(peerKey, theirHeight);
+        if (peerManager->registerPeer(finalKey))
+          peerManager->setPeerHeight(finalKey, theirHeight);
       }
     }
 
@@ -2666,18 +2673,18 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     if (theirHeight > localHeight) {
       int gap = theirHeight - localHeight;
       if (gap <= TAIL_SYNC_THRESHOLD) {
-        requestTailBlocks(peerKey, localHeight,
+        requestTailBlocks(finalKey, localHeight,
                           Blockchain::getInstance().getLatestBlockHash());
       } else if (theirSnap) {
-        requestSnapshotSync(peerKey);
+        requestSnapshotSync(finalKey);
       } else if (theirAgg) {
-        requestEpochHeaders(peerKey);
+        requestEpochHeaders(finalKey);
       }
     } else if (theirHeight < localHeight && theirSnap)
-      sendTailBlocks(tx, theirHeight, peerKey);
+      sendTailBlocks(tx, theirHeight, finalKey);
 
-    startBinaryReadLoop(peerKey, tx);
-    sendInitialRequests(peerKey);
+    startBinaryReadLoop(finalKey, tx);
+    sendInitialRequests(finalKey);
 
     autoSyncIfBehind();
     intelligentSync();
@@ -2733,10 +2740,8 @@ void Network::loadPeers() {
       continue;
     std::string ip = addr.substr(0, addr.find(":"));
     int portVal = std::stoi(addr.substr(addr.find(":") + 1));
-    std::string peerKey = ip;
-
     // Exclude self and local-only
-    if (isSelfPeer(peerKey))
+    if (isSelfPeer(ip))
       continue;
     if (ip == "127.0.0.1" || ip == "localhost")
       continue;
@@ -2747,7 +2752,8 @@ void Network::loadPeers() {
         std::string decoded = Crypto::base64Decode(keyB64, false);
         if (decoded.size() == 32) {
           std::lock_guard<std::timed_mutex> lk(peersMutex);
-          auto it = peerTransports.find(peerKey);
+          auto it = std::find_if(peerTransports.begin(), peerTransports.end(),
+                                [&](const auto &kv){ return kv.second.ip == ip; });
           if (it != peerTransports.end() && it->second.state)
             std::copy(decoded.begin(), decoded.end(),
                       it->second.state->linkKey.begin());
@@ -2807,11 +2813,11 @@ void Network::savePeers() {
     return;
   }
 
-  for (const auto &[peer, entry] : peerTransports) {
-    if (!peer.empty()) {
+  for (const auto &[peerId, entry] : peerTransports) {
+    if (!entry.ip.empty()) {
       std::string keyStr = Crypto::base64Encode(std::string(
           entry.state->linkKey.begin(), entry.state->linkKey.end()), false);
-      file << peer << ':' << entry.port << ' ' << keyStr << std::endl;
+      file << entry.ip << ':' << entry.port << ' ' << keyStr << std::endl;
     }
   }
 

@@ -310,12 +310,14 @@ class Handshake final :
     kNetworkIdFieldNumber = 2,
     kGenesisHashFieldNumber = 5,
     kPubKeyFieldNumber = 7,
+    kNodeIdFieldNumber = 12,
     kHeightFieldNumber = 3,
     kListenPortFieldNumber = 4,
     kFrameRevFieldNumber = 8,
     kTotalWorkFieldNumber = 9,
     kWantSnapshotFieldNumber = 10,
     kSnapshotSizeFieldNumber = 11,
+    kNonceFieldNumber = 13,
   };
   // repeated string capabilities = 6;
   int capabilities_size() const;
@@ -397,6 +399,20 @@ class Handshake final :
   std::string* _internal_mutable_pub_key();
   public:
 
+  // string node_id = 12;
+  void clear_node_id();
+  const std::string& node_id() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_node_id(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_node_id();
+  PROTOBUF_NODISCARD std::string* release_node_id();
+  void set_allocated_node_id(std::string* node_id);
+  private:
+  const std::string& _internal_node_id() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_node_id(const std::string& value);
+  std::string* _internal_mutable_node_id();
+  public:
+
   // uint64 height = 3;
   void clear_height();
   uint64_t height() const;
@@ -451,6 +467,15 @@ class Handshake final :
   void _internal_set_snapshot_size(uint32_t value);
   public:
 
+  // uint64 nonce = 13;
+  void clear_nonce();
+  uint64_t nonce() const;
+  void set_nonce(uint64_t value);
+  private:
+  uint64_t _internal_nonce() const;
+  void _internal_set_nonce(uint64_t value);
+  public:
+
   // @@protoc_insertion_point(class_scope:alyncoin.net.Handshake)
  private:
   class _Internal;
@@ -464,12 +489,14 @@ class Handshake final :
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr network_id_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr genesis_hash_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr pub_key_;
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr node_id_;
     uint64_t height_;
     uint32_t listen_port_;
     uint32_t frame_rev_;
     uint64_t total_work_;
     bool want_snapshot_;
     uint32_t snapshot_size_;
+    uint64_t nonce_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   };
   union { Impl_ _impl_; };
@@ -6060,6 +6087,76 @@ inline void Handshake::_internal_set_snapshot_size(uint32_t value) {
 inline void Handshake::set_snapshot_size(uint32_t value) {
   _internal_set_snapshot_size(value);
   // @@protoc_insertion_point(field_set:alyncoin.net.Handshake.snapshot_size)
+}
+
+// string node_id = 12;
+inline void Handshake::clear_node_id() {
+  _impl_.node_id_.ClearToEmpty();
+}
+inline const std::string& Handshake::node_id() const {
+  // @@protoc_insertion_point(field_get:alyncoin.net.Handshake.node_id)
+  return _internal_node_id();
+}
+template <typename ArgT0, typename... ArgT>
+inline PROTOBUF_ALWAYS_INLINE
+void Handshake::set_node_id(ArgT0&& arg0, ArgT... args) {
+ 
+ _impl_.node_id_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:alyncoin.net.Handshake.node_id)
+}
+inline std::string* Handshake::mutable_node_id() {
+  std::string* _s = _internal_mutable_node_id();
+  // @@protoc_insertion_point(field_mutable:alyncoin.net.Handshake.node_id)
+  return _s;
+}
+inline const std::string& Handshake::_internal_node_id() const {
+  return _impl_.node_id_.Get();
+}
+inline void Handshake::_internal_set_node_id(const std::string& value) {
+  
+  _impl_.node_id_.Set(value, GetArenaForAllocation());
+}
+inline std::string* Handshake::_internal_mutable_node_id() {
+  
+  return _impl_.node_id_.Mutable(GetArenaForAllocation());
+}
+inline std::string* Handshake::release_node_id() {
+  // @@protoc_insertion_point(field_release:alyncoin.net.Handshake.node_id)
+  return _impl_.node_id_.Release();
+}
+inline void Handshake::set_allocated_node_id(std::string* node_id) {
+  if (node_id != nullptr) {
+    
+  } else {
+    
+  }
+  _impl_.node_id_.SetAllocated(node_id, GetArenaForAllocation());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (_impl_.node_id_.IsDefault()) {
+    _impl_.node_id_.Set("", GetArenaForAllocation());
+  }
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.net.Handshake.node_id)
+}
+
+// uint64 nonce = 13;
+inline void Handshake::clear_nonce() {
+  _impl_.nonce_ = uint64_t{0u};
+}
+inline uint64_t Handshake::_internal_nonce() const {
+  return _impl_.nonce_;
+}
+inline uint64_t Handshake::nonce() const {
+  // @@protoc_insertion_point(field_get:alyncoin.net.Handshake.nonce)
+  return _internal_nonce();
+}
+inline void Handshake::_internal_set_nonce(uint64_t value) {
+  
+  _impl_.nonce_ = value;
+}
+inline void Handshake::set_nonce(uint64_t value) {
+  _internal_set_nonce(value);
+  // @@protoc_insertion_point(field_set:alyncoin.net.Handshake.nonce)
 }
 
 // -------------------------------------------------------------------
