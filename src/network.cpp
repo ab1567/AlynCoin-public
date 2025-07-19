@@ -372,7 +372,7 @@ void Network::sendPeerList(const std::string &peer) {
   auto *pl = fr.mutable_peer_list();
   std::lock_guard<std::timed_mutex> lk(peersMutex);
   for (const auto &kv : peerTransports)
-    pl->add_peers(kv.first);
+    pl->add_peers(kv.first + ':' + std::to_string(kv.second.port));
   sendFrame(it->second.tx, fr);
 }
 
@@ -846,7 +846,7 @@ void Network::intelligentSync() {
 }
 //
 void Network::connectToPeer(const std::string &ip, short port) {
-  std::string peerKey = ip + ":" + std::to_string(port);
+  std::string peerKey = ip;
   if (isSelfPeer(peerKey)) {
     std::cerr << "⚠️ [connectToPeer] Skipping self connect: " << peerKey << "\n";
     return;
@@ -857,26 +857,23 @@ void Network::connectToPeer(const std::string &ip, short port) {
 // ✅ **Broadcast peer list to all connected nodes**
 void Network::broadcastPeerList() {
   ScopedLockTracer tracer("broadcastPeerList");
-  std::vector<std::string> peers;
+  std::vector<std::pair<std::string, int>> peers;
   {
     std::lock_guard<std::timed_mutex> lock(peersMutex);
     if (peerTransports.empty())
       return;
-    for (const auto &[peerAddr, _] : peerTransports) {
-      if (peerAddr.find(":") == std::string::npos)
-        continue;
-      peers.push_back(peerAddr);
-    }
+    for (const auto &[peerAddr, entry] : peerTransports)
+      peers.emplace_back(peerAddr, entry.port);
   }
 
-  for (const auto &peerAddr : peers) {
-    auto it = peerTransports.find(peerAddr);
+  for (const auto &[ip, port] : peers) {
+    auto it = peerTransports.find(ip);
     if (it == peerTransports.end() || !it->second.tx)
       continue;
     alyncoin::net::Frame fr;
     auto *pl = fr.mutable_peer_list();
-    for (const auto &p : peers)
-      pl->add_peers(p);
+    for (const auto &[pIp, pPort] : peers)
+      pl->add_peers(pIp + ':' + std::to_string(pPort));
     sendFrame(it->second.tx, fr);
   }
 }
@@ -909,13 +906,13 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
   bool remoteWhisper = false;
   bool remoteTls = false;
   bool remoteBanDecay = false;
+  int finalPort = 0;
 
   /* what *we* look like to the outside world */
   // Determine how peers see this node. We capture `this` so the lambda
   // always uses our own listening port rather than the remote port.
   const auto selfAddr = [this] {
-    return publicPeerId.empty() ? "127.0.0.1:" + std::to_string(this->port)
-                                : publicPeerId;
+    return publicPeerId.empty() ? "127.0.0.1" : publicPeerId;
   };
 
   // ── 1. read + verify handshake ──────────────────────────────────────────
@@ -943,10 +940,10 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     // The Handshake proto uses proto3 semantics so there is no
     // `has_listen_port()` accessor. Older nodes may omit this field, so
     // fall back to the remote port if zero.
-    int finalPort = hs.listen_port();
+    finalPort = hs.listen_port();
     if (finalPort == 0)
       finalPort = transport->getRemotePort();
-    realPeerId = senderIP + ':' + std::to_string(finalPort);
+    realPeerId = senderIP;
 
     claimedVersion = hs.version();
     claimedNetwork = hs.network_id();
@@ -1006,7 +1003,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
       std::lock_guard<std::timed_mutex> g(peersMutex);
       int count = 0;
       for (const auto &kv : peerTransports) {
-        std::string ip = kv.first.substr(0, kv.first.find(':'));
+        std::string ip = kv.first;
         if (ipPrefix(ip) == prefix)
           ++count;
       }
@@ -1061,6 +1058,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     auto &entry = peerTransports[claimedPeerId];
     entry.tx = transport;
     entry.initiatedByUs = false;
+    entry.port = finalPort;
     knownPeers.insert(claimedPeerId);
     if (!entry.state)
       entry.state = std::make_shared<PeerState>();
@@ -1155,7 +1153,7 @@ void Network::run() {
       continue;
     if (ip == "127.0.0.1" || ip == "localhost")
       continue;
-    if (isSelfPeer(ip + ":" + std::to_string(p)))
+    if (isSelfPeer(ip))
       continue;
     connectToNode(ip, p);
   }
@@ -1353,7 +1351,7 @@ void Network::connectToDiscoveredPeers() {
       continue;
     std::string ip = peer.substr(0, pos);
     int port = std::stoi(peer.substr(pos + 1));
-    std::string peerKey = ip + ":" + std::to_string(port);
+    std::string peerKey = ip;
     if (isSelfPeer(peerKey)) {
       std::cout << "⚠️ Skipping self in discovered peers: " << peerKey << "\n";
       continue;
@@ -1373,17 +1371,13 @@ void Network::periodicSync() {
     auto it = peerTransports.find(peerId);
     if (it == peerTransports.end() || !it->second.tx ||
         !it->second.tx->isOpen()) {
-      size_t pos = peerId.find(':');
-      if (pos != std::string::npos) {
-        std::string ip = peerId.substr(0, pos);
-        int port = std::stoi(peerId.substr(pos + 1));
-        connectToNode(ip, port);
-        auto it2 = peerTransports.find(peerId);
-        if (it2 != peerTransports.end() && it2->second.tx &&
-            it2->second.tx->isOpen()) {
-          int ph = peerManager ? peerManager->getPeerHeight(peerId) : 0;
-          sendTailBlocks(it2->second.tx, ph, peerId);
-        }
+      int port = it != peerTransports.end() ? it->second.port : 0;
+      connectToNode(peerId, port);
+      auto it2 = peerTransports.find(peerId);
+      if (it2 != peerTransports.end() && it2->second.tx &&
+          it2->second.tx->isOpen()) {
+        int ph = peerManager ? peerManager->getPeerHeight(peerId) : 0;
+        sendTailBlocks(it2->second.tx, ph, peerId);
       }
       continue;
     }
@@ -1583,7 +1577,7 @@ void Network::sendBlockToPeer(const std::string &peer, const Block &blk) {
 bool Network::isSelfPeer(const std::string &p) const {
   if (!publicPeerId.empty() && p == publicPeerId)
     return true;
-  if (p == "127.0.0.1:" + std::to_string(port))
+  if (p == "127.0.0.1")
     return true;
   return false;
 }
@@ -1592,8 +1586,8 @@ std::string Network::getSelfAddressAndPort() const {
   // Prefer explicit publicPeerId if set
   if (!publicPeerId.empty())
     return publicPeerId;
-  // Fallback: localhost + port
-  return "127.0.0.1:" + std::to_string(this->port);
+  // Fallback: localhost
+  return "127.0.0.1";
 }
 
 void Network::setPublicPeerId(const std::string &peerId) {
@@ -2008,7 +2002,7 @@ bool Network::finishOutboundHandshake(std::shared_ptr<Transport> tx,
   if (!sendFrameImmediate(tx, fr))
     return false;
   // Provide our current height immediately after the handshake
-  std::string peer = tx->getRemoteIP() + ':' + std::to_string(tx->getRemotePort());
+  std::string peer = tx->getRemoteIP();
   sendHeight(peer);
   return true;
 }
@@ -2331,7 +2325,7 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
       int port = std::stoi(p.substr(pos + 1));
       if ((ip == "127.0.0.1" || ip == "localhost") && port == this->port)
         continue;
-      if (peerTransports.count(p))
+      if (peerTransports.count(ip))
         continue;
       connectToNode(ip, port);
     }
@@ -2432,11 +2426,10 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     return false;
   }
 
-  const std::string peerKey = host + ':' + std::to_string(remotePort);
-  // Use our own listening port to recognize self-connections.
+  const std::string peerKey = host;
+  // Use our own listening IP to recognize self-connections.
   const auto selfAddr = [this] {
-    return publicPeerId.empty() ? "127.0.0.1:" + std::to_string(this->port)
-                                : publicPeerId;
+    return publicPeerId.empty() ? "127.0.0.1" : publicPeerId;
   };
   {
     std::lock_guard<std::timed_mutex> g(peersMutex);
@@ -2466,7 +2459,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     std::lock_guard<std::timed_mutex> g(peersMutex);
     int count = 0;
     for (const auto &kv : peerTransports) {
-      std::string ip = kv.first.substr(0, kv.first.find(':'));
+      std::string ip = kv.first;
       if (ipPrefix(ip) == prefix)
         ++count;
     }
@@ -2525,6 +2518,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
             it->second.tx->closeGraceful();
           it->second.tx = tx;
           it->second.initiatedByUs = newInitiated;
+          it->second.port = remotePort;
         }
       }
     }
@@ -2643,7 +2637,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
           tx->close();
         return false;
       }
-        peerTransports[peerKey] = {tx, std::make_shared<PeerState>(), true};
+        peerTransports[peerKey] = {tx, std::make_shared<PeerState>(), true, remotePort};
       knownPeers.insert(peerKey);
       if (anchorPeers.size() < 2)
         anchorPeers.insert(peerKey);
@@ -2739,7 +2733,7 @@ void Network::loadPeers() {
       continue;
     std::string ip = addr.substr(0, addr.find(":"));
     int portVal = std::stoi(addr.substr(addr.find(":") + 1));
-    std::string peerKey = ip + ":" + std::to_string(portVal);
+    std::string peerKey = ip;
 
     // Exclude self and local-only
     if (isSelfPeer(peerKey))
@@ -2779,7 +2773,7 @@ void Network::scanForPeers() {
   for (const auto &peer : potentialPeers) {
     std::string ip = peer.substr(0, peer.find(":"));
     int peerPort = std::stoi(peer.substr(peer.find(":") + 1));
-    std::string peerKey = ip + ":" + std::to_string(peerPort);
+    std::string peerKey = ip;
     if (isSelfPeer(peerKey))
       continue;
     if (ip == "127.0.0.1" || ip == "localhost")
@@ -2814,10 +2808,10 @@ void Network::savePeers() {
   }
 
   for (const auto &[peer, entry] : peerTransports) {
-    if (!peer.empty() && peer.find(":") != std::string::npos) {
+    if (!peer.empty()) {
       std::string keyStr = Crypto::base64Encode(std::string(
           entry.state->linkKey.begin(), entry.state->linkKey.end()), false);
-      file << peer << ' ' << keyStr << std::endl;
+      file << peer << ':' << entry.port << ' ' << keyStr << std::endl;
     }
   }
 
