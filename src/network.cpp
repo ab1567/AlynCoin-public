@@ -1762,7 +1762,10 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
         sendForkRecoveryRequest(peer.first, newBlock.getHash());
       }
     }
-    punish();
+    // Stale blocks are valid but belong to a shorter chain. We initiate
+    // fork recovery without penalizing the sender so honest peers are not
+    // punished for being slightly behind. Fork recovery will determine
+    // the heavier chain without raising the misbehavior score.
     return;
   }
   if (newBlock.getIndex() > expectedIndex) {
