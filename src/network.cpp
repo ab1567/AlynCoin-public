@@ -1917,6 +1917,10 @@ std::string Network::requestBlockchainSync(const std::string &peer) {
 
   int peerHeight = peerManager ? peerManager->getPeerHeight(peer) : -1;
   int localHeight = Blockchain::getInstance().getHeight();
+  std::string peerTip = peerManager ? peerManager->getPeerTipHash(peer) : "";
+  std::string localTip = Blockchain::getInstance().getLatestBlockHash();
+  uint64_t peerWork = peerManager ? peerManager->getPeerWork(peer) : 0;
+  uint64_t localWork = peerManager ? peerManager->getLocalWork() : 0;
   if (peerHeight > localHeight) {
     int gap = peerHeight - localHeight;
     if (gap <= TAIL_SYNC_THRESHOLD) {
@@ -1932,6 +1936,20 @@ std::string Network::requestBlockchainSync(const std::string &peer) {
     } else {
       std::cerr << "⚠️  Peer " << peer
                 << " offers no modern sync capability. Skipping.\n";
+    }
+  } else if (peerHeight == localHeight && !peerTip.empty() &&
+             peerTip != localTip) {
+    if (peerWork >= localWork) {
+      std::cout << "📡 [SYNC] Tip mismatch with peer " << peer
+                << ", requesting block " << peerTip.substr(0, 8) << "...\n";
+      requestBlockByHash(peer, peerTip);
+    } else {
+      Block blk;
+      if (Blockchain::getInstance().getBlockByHash(localTip, blk)) {
+        std::cout << "📡 [SYNC] Sending block " << localTip.substr(0, 8)
+                  << " to peer " << peer << "\n";
+        sendBlockToPeer(peer, blk);
+      }
     }
   }
 
