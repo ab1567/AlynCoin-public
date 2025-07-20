@@ -106,6 +106,7 @@ static constexpr uint64_t FRAME_LIMIT_MIN = 200;
 static constexpr uint64_t BYTE_LIMIT_MIN = 1 << 20;
 static constexpr int MAX_REORG = 100;
 static constexpr int BAN_THRESHOLD = 200;
+static constexpr int PARSE_FAIL_LIMIT = 2;
 static constexpr std::chrono::seconds BAN_GRACE_BASE{60};
 static constexpr std::chrono::milliseconds BAN_GRACE_PER_BLOCK{100};
 static constexpr std::chrono::seconds BAN_GRACE_MAX{3600};
@@ -2151,11 +2152,41 @@ void Network::startBinaryReadLoop(const std::string &peerId,
     if (f.ParseFromString(blob)) {
       std::cerr << "[readLoop] ✅ Parsed frame successfully from peer: "
                 << peerId << '\n';
+      {
+        std::lock_guard<std::timed_mutex> lk(peersMutex);
+        auto it = peerTransports.find(peerId);
+        if (it != peerTransports.end() && it->second.state) {
+          it->second.state->parseFailCount = 0;
+        }
+      }
       auto *item = new RxItem{f, peerId};
       while (!rxQ.push(item))
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     } else {
       std::cerr << "[readLoop] ❌ Failed to parse protobuf frame!" << '\n';
+      bool disconnect = false;
+      int failCount = 0;
+      {
+        std::lock_guard<std::timed_mutex> lk(peersMutex);
+        auto it = peerTransports.find(peerId);
+        if (it != peerTransports.end() && it->second.state) {
+          auto &st = *it->second.state;
+          failCount = ++st.parseFailCount;
+          st.misScore += 10;
+          disconnect = failCount >= PARSE_FAIL_LIMIT ||
+                       st.misScore >= BAN_THRESHOLD;
+        }
+      }
+      if (disconnect) {
+        std::cerr << "[readLoop] Too many parse failures from peer: " << peerId
+                  << " (" << failCount << ")\n";
+        markPeerOffline(peerId);
+        return;
+      } else {
+        std::cerr << "[readLoop] Parse error count for " << peerId << " = "
+                  << failCount << '\n';
+        sendHeight(peerId);
+      }
     }
   };
   transport->startReadBinaryLoop(cb);
