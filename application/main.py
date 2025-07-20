@@ -4,6 +4,7 @@ import socket
 import subprocess
 import time
 import platform
+import requests
 try:
     import dns.resolver
 except Exception as e:
@@ -17,7 +18,7 @@ from PyQt5.QtWidgets import (
     QWidget, QLabel, QMessageBox, QFileDialog
 )
 from PyQt5.QtGui import QIcon, QFont, QPixmap
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QTimer
 
 from wallet_tab import WalletTab
 from send_tab import SendTab
@@ -72,6 +73,31 @@ def is_alyncoin_dns_accessible():
         return any(answers)
     except Exception:
         return bool(DEFAULT_DNS_PEERS)
+
+def get_peer_count():
+    """Return the current number of connected peers via the metrics endpoint."""
+    url = f"http://{RPC_HOST}:{RPC_PORT}/metrics"
+    try:
+        resp = requests.get(url, timeout=2)
+        if resp.status_code == 200:
+            for line in resp.text.splitlines():
+                if line.startswith("peer_count"):
+                    parts = line.split()
+                    if len(parts) == 2:
+                        return int(float(parts[1]))
+    except Exception as e:
+        print(f"[WARN] Unable to fetch peer count: {e}")
+    return 0
+
+def rpc_peer_count():
+    """Return peer count using the RPC interface or ``None`` if unavailable."""
+    result = alyncoin_rpc("peercount")
+    if isinstance(result, dict) and "error" in result:
+        return None
+    try:
+        return int(result)
+    except Exception:
+        return None
 
 # ---- Data Directory Helpers ----
 def ensure_blockchain_db_dir():
@@ -261,17 +287,24 @@ class AlynCoinApp(QMainWindow):
         logoLabel.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
         layout.addWidget(logoLabel)
 
-        # No DNS/peer addresses are shown for security
-        if is_alyncoin_dns_accessible():
-            peer_status = "🌐 AlynCoin Network: Online"
+        # Display network status based on actual peer connections
+        peer_count = rpc_peer_count()
+        if peer_count is None:
+            peer_count = get_peer_count()
+        if peer_count > 0:
+            peer_status = f"🌐 AlynCoin Network: Online ({peer_count} peers)"
             color = "#44e"
         else:
-            peer_status = "🌐 AlynCoin Network: Offline"
+            peer_status = "🌐 AlynCoin Network: Offline (Solo)"
             color = "#f44"
         self.peerBanner = QLabel(peer_status)
         self.peerBanner.setAlignment(Qt.AlignCenter)
         self.peerBanner.setStyleSheet(f"background-color: #191919; color: {color}; padding: 4px; font-weight: bold;")
         layout.addWidget(self.peerBanner)
+
+        self.peerTimer = QTimer(self)
+        self.peerTimer.timeout.connect(self.refreshPeerBanner)
+        self.peerTimer.start(10000)
 
         self.statusBanner = QLabel("⚠️ Only one blockchain action can run at a time. Mining locks access.")
         self.statusBanner.setAlignment(Qt.AlignCenter)
@@ -421,6 +454,21 @@ class AlynCoinApp(QMainWindow):
 
     def showError(self, msg):
         self.updateStatusBanner(msg, "#ff4444")
+
+    def refreshPeerBanner(self):
+        count = rpc_peer_count()
+        if count is None:
+            count = get_peer_count()
+        if count > 0:
+            status = f"🌐 AlynCoin Network: Online ({count} peers)"
+            color = "#44e"
+        else:
+            status = "🌐 AlynCoin Network: Offline (Solo)"
+            color = "#f44"
+        self.peerBanner.setText(status)
+        self.peerBanner.setStyleSheet(
+            f"background-color: #191919; color: {color}; padding: 4px; font-weight: bold;"
+        )
 
     def lockUI(self):
         self.tabs.setEnabled(False)

@@ -193,6 +193,12 @@ svr.Post("/rpc", [blockchain, network, healer](const httplib::Request& req, http
             };
             output = {{"result", status}};
         }
+        else if (method == "peercount") {
+            int pc = 0;
+            if (network && network->getPeerManager())
+                pc = network->getPeerManager()->getPeerCount();
+            output = {{"result", pc}};
+        }
         else if (method == "selfheal") {
             if (healer) {
                 healer->monitorAndHeal();
