@@ -3289,8 +3289,7 @@ void Network::handleSnapshotEnd(const std::string &peer) {
                 << snap.height() << ", work " << remoteW64
                 << ") localHeight=" << localHeight << " localWork=" << localW64
                 << " reorgDepth=" << reorgDepth << "\n";
-      if (remoteW64 > localW64)
-        penalizePeer(peer, 5);
+      // No penalty for an honest peer whose chain simply has less work
       ps->snapshotActive = false;
       ps->snapshotB64.clear();
       return;
@@ -3317,24 +3316,16 @@ void Network::handleSnapshotEnd(const std::string &peer) {
   } catch (const std::exception &ex) {
     std::cerr << "❌ [SNAPSHOT] Failed to apply snapshot from peer " << peer
               << ": " << ex.what() << "\n";
-    {
-      auto itBad = peerTransports.find(peer);
-      if (itBad != peerTransports.end())
-        itBad->second.state->misScore += 100;
-    }
-    blacklistPeer(peer);
+    penalizePeer(peer, 20);
+    // Do not immediately ban the peer; allow for resync attempts
     ps->snapshotActive = false;
     ps->snapshotB64.clear();
     ps->snapState = PeerState::SnapState::Idle;
   } catch (...) {
     std::cerr << "❌ [SNAPSHOT] Unknown error applying snapshot from peer "
               << peer << "\n";
-    {
-      auto itBad = peerTransports.find(peer);
-      if (itBad != peerTransports.end())
-        itBad->second.state->misScore += 100;
-    }
-    blacklistPeer(peer);
+    penalizePeer(peer, 20);
+    // Allow the peer another chance before any ban action
     ps->snapshotActive = false;
     ps->snapshotB64.clear();
     ps->snapState = PeerState::SnapState::Idle;
@@ -3409,7 +3400,7 @@ void Network::handleTailBlocks(const std::string &peer,
   } catch (const std::exception &ex) {
     std::cerr << "❌ [TAIL_BLOCKS] Failed to apply tail blocks from peer "
               << peer << ": " << ex.what() << "\n";
-    penalizePeer(peer, 10);
+    penalizePeer(peer, 2); // small strike, peer may simply be out of sync
     {
       Blockchain &chain = Blockchain::getInstance();
       requestTailBlocks(peer, chain.getHeight(), chain.getLatestBlockHash());
@@ -3418,7 +3409,7 @@ void Network::handleTailBlocks(const std::string &peer,
     std::cerr
         << "❌ [TAIL_BLOCKS] Unknown error applying tail blocks from peer "
         << peer << "\n";
-    penalizePeer(peer, 10);
+    penalizePeer(peer, 2); // allow retry before escalating
     {
       Blockchain &chain = Blockchain::getInstance();
       requestTailBlocks(peer, chain.getHeight(), chain.getLatestBlockHash());
