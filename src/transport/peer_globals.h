@@ -33,6 +33,7 @@ struct PeerState {
   uint64_t byteCountMin{0};
   int limitStrikes{0};
   int misScore{0};
+  int parseFailCount{0};
   uint32_t frameRev{0};
   std::string version;
   std::chrono::steady_clock::time_point banUntil{};
