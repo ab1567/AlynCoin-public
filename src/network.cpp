@@ -1224,7 +1224,7 @@ void Network::run() {
 
   std::thread([this]() {
     while (true) {
-      std::this_thread::sleep_for(std::chrono::minutes(1));
+      std::this_thread::sleep_for(std::chrono::seconds(30));
       std::vector<std::string> banList;
       {
         std::lock_guard<std::timed_mutex> lk(peersMutex);
@@ -1236,7 +1236,9 @@ void Network::run() {
               st->byteCountMin > BYTE_LIMIT_MIN) {
             st->misScore += 5;
           } else if (st->misScore > 0) {
-            st->misScore--;
+            st->misScore -= 2;
+            if (st->misScore < 0)
+              st->misScore = 0;
           }
           st->frameCountMin = 0;
           st->byteCountMin = 0;
@@ -1836,7 +1838,7 @@ void Network::blacklistPeer(const std::string &peer) {
     std::cerr << "ℹ️  [ban] skipping anchor/selfheal peer " << peer << '\n';
     return;
   }
-  int hours = 1;
+  int minutes = getAppConfig().ban_minutes;
   {
     std::lock_guard<std::timed_mutex> lk(peersMutex);
     auto it = peerTransports.find(peer);
@@ -1850,15 +1852,16 @@ void Network::blacklistPeer(const std::string &peer) {
       }
 
       it->second.state->banCount++;
-      hours = std::min(24, 1 << (it->second.state->banCount - 1));
-      it->second.state->banUntil = now + std::chrono::hours(hours);
+      minutes = std::min(60 * 24, minutes << (it->second.state->banCount - 1));
+      it->second.state->banUntil =
+          now + std::chrono::minutes(minutes);
     }
     peerTransports.erase(peer);
   }
   auto &be = bannedPeers[peer];
   be.strikes++;
-  int bh = std::min(24, 1 << (be.strikes - 1));
-  be.until = std::time(nullptr) + bh * 60 * 60;
+  int bh = std::min(60 * 24, minutes << (be.strikes - 1));
+  be.until = std::time(nullptr) + bh * 60;
 }
 
 bool Network::isBlacklisted(const std::string &peer) {
@@ -3286,7 +3289,8 @@ void Network::handleSnapshotEnd(const std::string &peer) {
                 << snap.height() << ", work " << remoteW64
                 << ") localHeight=" << localHeight << " localWork=" << localW64
                 << " reorgDepth=" << reorgDepth << "\n";
-      penalizePeer(peer, 50);
+      if (remoteW64 > localW64)
+        penalizePeer(peer, 5);
       ps->snapshotActive = false;
       ps->snapshotB64.clear();
       return;
@@ -3405,22 +3409,20 @@ void Network::handleTailBlocks(const std::string &peer,
   } catch (const std::exception &ex) {
     std::cerr << "❌ [TAIL_BLOCKS] Failed to apply tail blocks from peer "
               << peer << ": " << ex.what() << "\n";
+    penalizePeer(peer, 10);
     {
-      auto itBad = peerTransports.find(peer);
-      if (itBad != peerTransports.end())
-        itBad->second.state->misScore += 100;
+      Blockchain &chain = Blockchain::getInstance();
+      requestTailBlocks(peer, chain.getHeight(), chain.getLatestBlockHash());
     }
-    blacklistPeer(peer);
   } catch (...) {
     std::cerr
         << "❌ [TAIL_BLOCKS] Unknown error applying tail blocks from peer "
         << peer << "\n";
+    penalizePeer(peer, 10);
     {
-      auto itBad = peerTransports.find(peer);
-      if (itBad != peerTransports.end())
-        itBad->second.state->misScore += 100;
+      Blockchain &chain = Blockchain::getInstance();
+      requestTailBlocks(peer, chain.getHeight(), chain.getLatestBlockHash());
     }
-    blacklistPeer(peer);
   }
 }
 
