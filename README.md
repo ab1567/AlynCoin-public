@@ -149,6 +149,10 @@ snapshots without needing a restart. If a snapshot message contains exactly one
 block at the next height, the node treats it as a live tail push and appends the
 block immediately. Periodic health checks also probe peers to ensure connections
 stay alive and synchronize in the background.
+Nodes will now request up to 100 missing blocks directly (see the
+`TAIL_SYNC_THRESHOLD` constant) before falling back to snapshot or
+epoch-based syncing. This speeds up recovery from short forks and reduces
+network load.
 
 ### Permission denied when starting the node
 
