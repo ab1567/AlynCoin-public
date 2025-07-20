@@ -109,6 +109,13 @@ static constexpr int BAN_THRESHOLD = 200;
 static constexpr std::chrono::seconds BAN_GRACE_BASE{60};
 static constexpr std::chrono::milliseconds BAN_GRACE_PER_BLOCK{100};
 static constexpr std::chrono::seconds BAN_GRACE_MAX{3600};
+static constexpr size_t MIN_CONNECTED_PEERS = 4;
+static constexpr std::chrono::minutes PEERLIST_INTERVAL{5};
+#ifdef ENABLE_PEERLIST_LOGS
+#define PEERLIST_LOG(x) std::cout << x << std::endl
+#else
+#define PEERLIST_LOG(x)
+#endif
 
 static uint64_t safeUint64(const boost::multiprecision::cpp_int &bi) {
   using boost::multiprecision::cpp_int;
@@ -899,7 +906,7 @@ void Network::requestPeerList() {
       sendFrame(entry.tx, fr);
     }
   }
-  std::cout << "📡 Requesting peer list from all known peers..." << std::endl;
+  PEERLIST_LOG("📡 Requesting peer list from all known peers...");
 }
 // Handle Peer (Transport version)
 void Network::handlePeer(std::shared_ptr<Transport> transport) {
@@ -1209,8 +1216,17 @@ void Network::run() {
 
   std::thread([this]() {
     while (true) {
-      std::this_thread::sleep_for(std::chrono::seconds(30));
-      this->requestPeerList();
+      std::this_thread::sleep_for(PEERLIST_INTERVAL);
+      size_t active = 0;
+      {
+        std::lock_guard<std::timed_mutex> lk(peersMutex);
+        for (const auto &kv : peerTransports) {
+          if (kv.second.tx && kv.second.tx->isOpen())
+            ++active;
+        }
+      }
+      if (active < MIN_CONNECTED_PEERS)
+        this->requestPeerList();
     }
   }).detach();
 
