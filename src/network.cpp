@@ -1404,7 +1404,10 @@ void Network::periodicSync() {
     if (it == peerTransports.end() || !it->second.tx ||
         !it->second.tx->isOpen()) {
       int port = it != peerTransports.end() ? it->second.port : 0;
-      connectToNode(peerId, port);
+      const std::string &host = (it != peerTransports.end() && !it->second.ip.empty())
+                                    ? it->second.ip
+                                    : peerId;
+      connectToNode(host, port);
       auto it2 = peerTransports.find(peerId);
       if (it2 != peerTransports.end() && it2->second.tx &&
           it2->second.tx->isOpen()) {
