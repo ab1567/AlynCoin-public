@@ -174,6 +174,7 @@ find_package(OpenSSL REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(JSONCPP jsoncpp)
 find_package(Protobuf REQUIRED)
+find_package(absl REQUIRED)
 find_library(SODIUM_LIB sodium REQUIRED)
 find_path(SODIUM_INCLUDE_DIR sodium.h)
 include_directories(${SODIUM_INCLUDE_DIR})
@@ -366,6 +367,13 @@ target_link_libraries(alyncoin_lib
     dl
     ${ROCKSDB_LIB}
     ${Protobuf_LIBRARIES}
+    absl::strings
+    absl::synchronization
+    absl::time
+    absl::base
+    absl::raw_logging_internal
+    absl::log_severity
+    absl::core_headers
     falcon
     dilithium
     ${SODIUM_LIB}
