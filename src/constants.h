@@ -22,6 +22,7 @@ inline constexpr std::size_t MAX_PEERS = 32;                       // hard cap
 inline constexpr int MAX_TAIL_BLOCKS = 256;      // limit tail block batches
 // Peers will exchange up to 100 blocks directly before snapshotting.
 inline constexpr int TAIL_SYNC_THRESHOLD = 100;   // height gap for tail sync
-inline constexpr std::size_t MAX_WIRE_PAYLOAD = 256 * 1024; // 256 KiB frame cap
+// Increased to support larger batch frames
+inline constexpr std::size_t MAX_WIRE_PAYLOAD = 1024 * 1024; // 1 MiB frame cap
 inline constexpr std::size_t MAX_TAIL_PAYLOAD = 200 * 1024; // safe tail chunk
 inline constexpr std::size_t MAX_INV_PER_MSG = 500;         // inventory batch cap
