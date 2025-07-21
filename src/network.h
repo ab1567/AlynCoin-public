@@ -152,10 +152,6 @@ public:
   void handleSnapshotEnd(const std::string &peer);
   void handleTailRequest(const std::string &peer, int fromHeight);
   void handleTailBlocks(const std::string &peer, const std::string &b64);
-  void handleHeaderBatch(const std::string &peer,
-                         const alyncoin::net::Headers &headers);
-  void handleBlockBatch(const std::string &peer,
-                        const alyncoin::net::BlockBatch &batch);
   void handleBlockchainSyncRequest(const std::string &peer,
                                    const alyncoin::BlockchainSyncProto &req);
   static unsigned short findAvailablePort(unsigned short startPort,
