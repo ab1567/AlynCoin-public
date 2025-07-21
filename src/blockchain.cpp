@@ -29,6 +29,7 @@
 #include <shared_mutex>
 #include <boost/multiprecision/cpp_int.hpp>
 #include <unordered_map>
+#include <unordered_set>
 
 using boost::multiprecision::cpp_int;
 
@@ -63,16 +64,17 @@ Blockchain& getBlockchain() {
 // to prevent deadlocks across threads.
 std::mutex blockchainMutex;
 std::atomic<bool> Blockchain::isMining{false};
+std::atomic<bool> Blockchain::isRecovering{false};
 
 Blockchain::Blockchain()
-    : difficulty(0), miningReward(100.0), db(nullptr), totalBurnedSupply(0.0),
+    : difficulty(0), miningReward(50.0), db(nullptr), totalBurnedSupply(0.0),
       network(nullptr), totalWork(0) {
   std::cout << "[DEBUG] Default Blockchain constructor called.\n";
 }
 
 // ✅ Constructor: Open RocksDB
 Blockchain::Blockchain(unsigned short port, const std::string &dbPath, bool bindNetwork, bool isSyncMode)
-    : difficulty(0), miningReward(100.0), port(port), dbPath(dbPath), totalWork(0) {
+    : difficulty(0), miningReward(50.0), port(port), dbPath(dbPath), totalWork(0) {
 
     // Only set network pointer if asked AND it's already initialized, otherwise nullptr
     if (bindNetwork) {
@@ -149,6 +151,7 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath, bool bind
                   << genesis.getZkProof().size() << " bytes\n";
         saveToDB();  // ✅ Persist genesis block with correct proof
         recalculateBalancesFromChain(); // Only needed if genesis was manually created
+        recomputeChainWork();   // <- initialise totalWork = 1 << GENESIS_DIFFICULTY
     } else if (!found) {
         std::cout << "⏳ [INFO] Skipping genesis block — awaiting peer sync...\n";
     }
@@ -379,8 +382,10 @@ Block Blockchain::createGenesisBlock(bool force)
 }
 
 // ✅ Adds block, applies smart burn, and broadcasts to peers
-bool Blockchain::addBlock(const Block &block) {
-    std::lock_guard<std::mutex> lk(chainMtx);
+bool Blockchain::addBlock(const Block &block, bool lockHeld) {
+    std::unique_lock<std::mutex> lk(chainMtx, std::defer_lock);
+    if (!lockHeld)
+        lk.lock();
     std::cerr << "[addBlock] Attempting: idx=" << block.getIndex()
               << ", hash=" << block.getHash()
               << ", prev=" << block.getPreviousHash()
@@ -597,12 +602,33 @@ bool Blockchain::addBlock(const Block &block) {
         std::cerr << "[addBlock] Applying buffered future block index: " << nextIndex << "\n";
         Block buffered = this->futureBlocks[nextIndex];
         this->futureBlocks.erase(nextIndex);
-        addBlock(buffered);
+        addBlock(buffered, true);
         nextIndex++;
     }
 
     // 12. Try to attach any orphans waiting on this block
-     tryAttachOrphans(block.getHash());
+    tryAttachOrphans(block.getHash());
+    return true;
+}
+
+bool Blockchain::tryAddBlock(const Block& block, ValidationResult& out) {
+    std::scoped_lock lk(chainMtx);
+
+    if (!chain.empty()) {
+        if (block.getIndex() <= chain.back().getIndex())
+            return false;
+        if (block.getPreviousHash() != chain.back().getHash()) {
+            out = ValidationResult::PrevHashMismatch;
+            return false;
+        }
+    }
+
+    bool ok = addBlock(block, true);
+    if (!ok) {
+        out = ValidationResult::Invalid;
+        return false;
+    }
+    out = ValidationResult::Ok;
     return true;
 }
 
@@ -846,6 +872,10 @@ Block Blockchain::minePendingTransactions(
     const std::vector<unsigned char> &minerDilithiumPriv,
     const std::vector<unsigned char> &minerFalconPriv)
 {
+    if (isRecoveringActive()) {
+        std::cout << "[DEBUG] Skipping mining while recovering..." << std::endl;
+        return Block();
+    }
     std::cout << "[DEBUG] Waiting on blockchainMutex in minePendingTransactions()...\n";
     std::unique_lock<std::mutex> lock(blockchainMutex);
     std::cout << "[DEBUG] Acquired blockchainMutex in minePendingTransactions()!\n";
@@ -1089,6 +1119,22 @@ void Blockchain::startMining(const std::string &minerAddress,
 void Blockchain::stopMining() {
   isMining.store(false);
   std::cout << "⛔ Mining stopped!\n";
+}
+
+// Begin recovery mode
+void Blockchain::startRecovery() {
+  isRecovering.store(true);
+  std::cout << "[DEBUG] Recovery mode started" << std::endl;
+}
+
+// End recovery mode
+void Blockchain::finishRecovery() {
+  isRecovering.store(false);
+  std::cout << "[DEBUG] Recovery mode finished" << std::endl;
+}
+
+bool Blockchain::isRecoveringActive() const {
+  return isRecovering.load();
 }
 
 // ✅ **Reload Blockchain State**
@@ -1403,6 +1449,11 @@ bool Blockchain::loadFromDB() {
     }
 
     applyRollupDeltasToBalances();
+
+    // ───────────────────────────────────────
+    // (NEW) Re-derive cumulative work & tell PeerManager
+    // ───────────────────────────────────────
+    recomputeChainWork();          // updates totalWork
 
     if (db) {
         for (const auto &[addr, bal] : balances)
@@ -1750,6 +1801,7 @@ bool Blockchain::replaceChainUpTo(const std::vector<Block>& blocks, int upToHeig
 
     recalculateBalancesFromChain();
     applyRollupDeltasToBalances();
+    recomputeChainWork();
     lock.unlock();
     saveToDB();
 
@@ -1836,6 +1888,11 @@ std::cout << "[DEBUG] Pending tx count: " << pendingTransactions.size() << std::
 // ✅ Unified wrapper to support CLI-based or address-based mining
 Block Blockchain::mineBlock(const std::string &minerAddress) {
     std::cout << "[DEBUG] Entered mineBlock() for: " << minerAddress << "\n";
+
+    if (isRecoveringActive()) {
+        std::cerr << "⚠️ Node is recovering. Mining paused." << std::endl;
+        return Block();
+    }
 
 	std::string dilithiumKeyPath = DBPaths::getKeyDir() + minerAddress + "_dilithium.key";
 	std::string falconKeyPath    = DBPaths::getKeyDir() + minerAddress + "_falcon.key";
@@ -2064,6 +2121,24 @@ double Blockchain::getTotalSupply() const {
     total += balance;
   }
   return total;
+}
+
+// Median time past using up to the last 11 blocks.
+std::time_t Blockchain::medianTimePast(size_t height) const {
+  const size_t window = 11;
+  if (chain.empty())
+    return std::time(nullptr);  // Fallback if chain is empty
+
+  size_t h = std::min(height, chain.size() - 1);
+  size_t count = std::min(window, h + 1);
+  std::vector<std::time_t> times;
+  times.reserve(count);
+
+  for (size_t i = 0; i < count; ++i) {
+    times.push_back(chain[h - i].getTimestamp());
+  }
+  std::sort(times.begin(), times.end());
+  return times[count / 2];
 }
 
 // castVote
@@ -2399,37 +2474,18 @@ RollupBlock Blockchain::createRollupBlock(const std::vector<Transaction> &offCha
 // Block reward
 double Blockchain::calculateBlockReward() {
     const double maxSupply = 100000000.0;
-    double circulatingSupply = getTotalSupply();
 
-    if (circulatingSupply >= maxSupply) {
+    if (totalSupply >= maxSupply)
         return 0.0;
-    }
 
-    // Halving every 10 million ALYN
-    int halvings = static_cast<int>(circulatingSupply / 10000000.0);
-    double halvingFactor = std::pow(0.5, halvings);
+    blockReward *= 0.9991;       // exponential decay
+    if (blockReward < 0.25)
+        blockReward = 0.25;      // tail emission
 
-    double baseReward = INITIAL_REWARD * halvingFactor;
+    if (totalSupply + blockReward > maxSupply)
+        blockReward = maxSupply - totalSupply;
 
-    double usageFactor = std::min(1.0, getRecentTransactionCount() / 100.0);
-    double usageBoost = 0.9 + 0.2 * usageFactor;
-
-    double avgBlockTime = getAverageBlockTime(10);
-    double timeMultiplier = 1.0;
-    if (avgBlockTime > 120) {
-        timeMultiplier = 1.1;
-    } else if (avgBlockTime < 30) {
-        timeMultiplier = 0.85;
-    }
-
-    double adjustedReward = baseReward * usageBoost * timeMultiplier;
-    adjustedReward = std::clamp(adjustedReward, 0.1, baseReward);
-
-    if (circulatingSupply + adjustedReward > maxSupply) {
-        adjustedReward = maxSupply - circulatingSupply;
-    }
-
-    return adjustedReward;
+    return blockReward;
 }
 
 // adjustDifficulty
@@ -2452,6 +2508,32 @@ double Blockchain::getAverageBlockTime(int recentCount) const {
     }
 
     return totalTime / count;
+}
+
+double Blockchain::getAverageDifficulty(int recentCount) const {
+    if (chain.empty()) return difficulty;
+
+    int count = std::min(static_cast<int>(chain.size()), recentCount);
+    double totalDiff = 0.0;
+
+    for (int i = chain.size() - count; i < chain.size(); ++i)
+        totalDiff += chain[i].getDifficulty();
+
+    return (count > 0) ? totalDiff / count : difficulty;
+}
+
+int Blockchain::getUniqueMinerCount(int recentCount) const {
+    if (chain.empty()) return 1;
+
+    int start = std::max(0, static_cast<int>(chain.size()) - recentCount);
+    std::unordered_set<std::string> miners;
+
+    for (int i = start; i < static_cast<int>(chain.size()); ++i) {
+        const std::string& addr = chain[i].getMinerAddress();
+        if (!addr.empty()) miners.insert(addr);
+    }
+
+    return std::max(1, static_cast<int>(miners.size()));
 }
 
 // calculate balance
@@ -2600,7 +2682,7 @@ void Blockchain::clear(bool force) {
     chain.clear();
     pendingTransactions.clear();
     difficulty = calculateSmartDifficulty(*this);
-    blockReward = 100.0;
+    blockReward = 25.0;
     devFundBalance = 0.0;
     rollupChain.clear();
     balances.clear();
@@ -2749,6 +2831,7 @@ bool Blockchain::rollbackToHeight(int height) {
     // Recalculate everything post-trim
     recalculateBalancesFromChain();
     applyRollupDeltasToBalances();
+    recomputeChainWork();
     lock.unlock();
     saveToDB();
 
@@ -2817,6 +2900,7 @@ bool Blockchain::rollbackToIndex(int index) {
     saveToDB();
     recalculateBalancesFromChain();
     applyRollupDeltasToBalances();
+    recomputeChainWork();          // ← add this line
     std::cout << "✅ [Blockchain] Rolled back to index: " << index << "\n";
     return true;
 }
@@ -2863,6 +2947,24 @@ cpp_int Blockchain::computeCumulativeDifficulty(const std::vector<Block>& chainR
     if (chainRef.empty())
         return cpp_int(0);
     return chainRef.back().getAccumulatedWork();
+}
+
+// Recompute accumulated work for each block in the current chain and
+// refresh the cached totalWork value.
+void Blockchain::recomputeChainWork() {
+    cpp_int cumWork = 0;
+    totalWork = 0;
+    for (auto &b : chain) {
+        cpp_int thisWork = difficultyToWork(b.getDifficulty());
+        cumWork += thisWork;
+        b.setAccumulatedWork(cumWork);
+        if (b.getDifficulty() >= 0 && b.getDifficulty() < 64)
+            totalWork += (1ULL << b.getDifficulty());
+        else
+            totalWork += 1ULL;
+    }
+    if (network && network->getPeerManager())
+        network->getPeerManager()->setLocalWork(totalWork);
 }
 //
 std::vector<Block> Blockchain::getChainUpTo(size_t height) const
@@ -2918,6 +3020,7 @@ void Blockchain::compareAndMergeChains(const std::vector<Block>& otherChain) {
         saveToDB();
         recalculateBalancesFromChain();
         applyRollupDeltasToBalances();
+        recomputeChainWork();
         return;
     }
 
@@ -2976,6 +3079,7 @@ void Blockchain::compareAndMergeChains(const std::vector<Block>& otherChain) {
             saveToDB();
             recalculateBalancesFromChain();
             applyRollupDeltasToBalances();
+            recomputeChainWork();
         } else {
             std::cout << "⚠️ [Fork] Same length chain not stronger. Keeping current.\n";
         }
@@ -2998,6 +3102,7 @@ void Blockchain::compareAndMergeChains(const std::vector<Block>& otherChain) {
         saveToDB();
         recalculateBalancesFromChain();
         applyRollupDeltasToBalances();
+        recomputeChainWork();
         return;
     }
 
@@ -3183,7 +3288,7 @@ void Blockchain::tryAttachOrphans(const std::string& parentHash)
         std::cerr << "[addBlock] Now adding previously orphaned block idx="
                   << child.getIndex() << "\n";
         orphanHashes.erase(child.getHash());
-        addBlock(child);
+        addBlock(child, true);
     }
 }
 

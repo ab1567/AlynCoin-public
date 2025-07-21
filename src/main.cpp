@@ -24,6 +24,7 @@
 #include "difficulty.h"
 #include "miner.h"
 #include "self_healing/self_healing_node.h"
+#include "config.h"
 #include <unordered_set>
 #include "httplib.h"
 #include "json.hpp"
@@ -191,6 +192,12 @@ svr.Post("/rpc", [blockchain, network, healer](const httplib::Request& req, http
                 {"synced", synced}
             };
             output = {{"result", status}};
+        }
+        else if (method == "peercount") {
+            int pc = 0;
+            if (network && network->getPeerManager())
+                pc = network->getPeerManager()->getPeerCount();
+            output = {{"result", pc}};
         }
         else if (method == "selfheal") {
             if (healer) {
@@ -637,6 +644,7 @@ void clearInputBuffer() {
 
 int main(int argc, char *argv[]) {
     std::srand(std::time(nullptr));
+    loadConfigFile("config.ini");
     unsigned short port = DEFAULT_PORT;
     bool portSpecified = false;
     unsigned short rpcPort = 1567;
@@ -667,6 +675,8 @@ int main(int argc, char *argv[]) {
             if (keyDir.back() != '/') keyDir += '/';
         } else if (arg == "--no-auto-mine") {
             autoMine = false;
+        } else if (arg == "--banminutes" && i + 1 < argc) {
+            getAppConfig().ban_minutes = std::stoi(argv[++i]);
         }
     }
     if (!portSpecified) {

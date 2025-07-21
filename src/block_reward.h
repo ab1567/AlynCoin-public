@@ -2,6 +2,6 @@
 #define BLOCK_REWARD_H
 
 // This is the *initial* base reward used in dynamic formulas.
-const double INITIAL_REWARD = 100.0;
+const double INITIAL_REWARD = 25.0;
 
 #endif

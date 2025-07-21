@@ -140,6 +140,7 @@ public:
   void requestSnapshotSync(const std::string &peer);
   void requestTailBlocks(const std::string &peer, int fromHeight,
                          const std::string &anchorHash);
+  void requestBlockByHash(const std::string &peer, const std::string &hash);
   void sendForkRecoveryRequest(const std::string &peer, const std::string &tip);
   void sendSnapshot(std::shared_ptr<Transport> tr, int upToHeight = -1);
   void sendTailBlocks(std::shared_ptr<Transport> tr, int fromHeight,
@@ -151,6 +152,10 @@ public:
   void handleSnapshotEnd(const std::string &peer);
   void handleTailRequest(const std::string &peer, int fromHeight);
   void handleTailBlocks(const std::string &peer, const std::string &b64);
+  void handleHeaderBatch(const std::string &peer,
+                         const alyncoin::net::Headers &headers);
+  void handleBlockBatch(const std::string &peer,
+                        const alyncoin::net::BlockBatch &batch);
   void handleBlockchainSyncRequest(const std::string &peer,
                                    const alyncoin::BlockchainSyncProto &req);
   static unsigned short findAvailablePort(unsigned short startPort,
@@ -202,6 +207,7 @@ private:
   std::unique_ptr<PeerManager> peerManager;
   std::unique_ptr<SelfHealingNode> selfHealer;
   std::string publicPeerId;
+  std::string nodeId; // stable identifier for this node
   struct BanEntry {
     uint64_t until{0};
     int strikes{0};

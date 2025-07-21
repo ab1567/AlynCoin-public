@@ -4,6 +4,7 @@
 #include <chrono>
 #include <iostream>
 #include <sstream>
+#include <cstdio>
 #include <json/json.h>
 #include "db/db_paths.h"
 
@@ -14,11 +15,20 @@ PeerBlacklist::PeerBlacklist(const std::string& path, int threshold)
     options.create_if_missing = true;
     rocksdb::Status status = rocksdb::DB::Open(options, db_path, &db);
     if (!status.ok()) {
-        std::cerr << "⚠️ [PeerBlacklist] Could not open blacklist DB (" << db_path << "): "
-                  << status.ToString() << "\n";
-        std::cerr << "⚠️ [PeerBlacklist] Peer banning is DISABLED for this session.\n";
-        db = nullptr;
-        blacklistEnabled = false;
+        if (status.IsIOError()) {
+            // Possible stale lock, attempt to remove and reopen
+            std::string lockFile = db_path + "/LOCK";
+            if (std::remove(lockFile.c_str()) == 0) {
+                status = rocksdb::DB::Open(options, db_path, &db);
+            }
+        }
+        if (!status.ok()) {
+            std::cerr << "⚠️ [PeerBlacklist] Could not open blacklist DB (" << db_path << "): "
+                      << status.ToString() << "\n";
+            std::cerr << "⚠️ [PeerBlacklist] Peer banning is DISABLED for this session.\n";
+            db = nullptr;
+            blacklistEnabled = false;
+        }
     }
 }
 

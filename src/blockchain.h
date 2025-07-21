@@ -24,10 +24,10 @@
 #include <rocksdb/db.h>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include "constants.h"
 
-#define DIFFICULTY 4
 #define DEFAULT_PORT 15671
 
 // Mutex protecting in-memory chain state. Functions interacting with RocksDB
@@ -60,7 +60,8 @@ private:
   std::deque<int> recentTransactionCounts;
   std::vector<Transaction> pendingTransactions;
   static std::atomic<bool> isMining;
-  double blockReward = 10.0;
+  static std::atomic<bool> isRecovering;
+  double blockReward = 25.0;
   int difficulty;
   double miningReward;
   mutable std::mutex mutex;
@@ -157,13 +158,25 @@ public:
                    const std::string &minerDilithiumKey,
                    const std::string &minerFalconKey);
   void stopMining();
+  void startRecovery();
+  void finishRecovery();
+  bool isRecoveringActive() const;
   bool hasPendingTransactions() const;
   Block minePendingTransactions(const std::string &minerAddress,
                                 const std::vector<unsigned char> &minerDilithiumPriv,
                                 const std::vector<unsigned char> &minerFalconPriv);
   void setPendingTransactions(const std::vector<Transaction> &transactions);
   double getAverageBlockTime(int recentCount) const;
-  bool addBlock(const Block &block);
+  double getAverageDifficulty(int recentCount) const;
+  int getUniqueMinerCount(int recentCount) const;
+  enum class ValidationResult {
+    Ok = 0,
+    PrevHashMismatch,
+    Invalid
+  };
+
+  bool addBlock(const Block &block, bool lockHeld = false);
+  bool tryAddBlock(const Block &block, ValidationResult &out);
   void loadPendingTransactionsFromDB();
   bool isValidNewBlock(const Block &newBlock) const;
   double calculateBalance(const std::string &address, const std::map<std::string, double> &tempSnapshot) const;
@@ -181,6 +194,8 @@ public:
   void mergeRollupChain(const std::vector<RollupBlock> &otherChain);
   double getTotalBurnedSupply() const { return totalBurnedSupply; }
   double getTotalSupply() const;
+  // Median timestamp of the last 11 blocks up to `height`.
+  std::time_t medianTimePast(size_t height) const;
   Block createBlock(const std::string &minerDilithiumKey,
                     const std::string &minerFalconKey);
   int getRecentTransactionCount();
@@ -231,6 +246,7 @@ public:
   bool verifyForkSafety(const std::vector<Block>& otherChain) const;
   int findForkCommonAncestor(const std::vector<Block>& otherChain) const;
   boost::multiprecision::cpp_int computeCumulativeDifficulty(const std::vector<Block>& chainRef) const;
+  void recomputeChainWork();
   void setPendingForkChain(const std::vector<Block>& fork);
   std::vector<Block> getPendingForkChain() const;
   void clearPendingForkChain();

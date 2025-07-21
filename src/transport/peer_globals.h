@@ -33,6 +33,7 @@ struct PeerState {
   uint64_t byteCountMin{0};
   int limitStrikes{0};
   int misScore{0};
+  int parseFailCount{0};
   uint32_t frameRev{0};
   std::string version;
   std::chrono::steady_clock::time_point banUntil{};
@@ -41,6 +42,8 @@ struct PeerState {
   int lastTailHeight{-1};
   std::string lastTailAnchor;
   uint32_t highestSeen{0};
+  std::chrono::steady_clock::time_point connectedAt{};
+  std::chrono::steady_clock::time_point graceUntil{};
   std::mutex m;
 };
 
@@ -48,6 +51,8 @@ struct PeerEntry {
   std::shared_ptr<Transport> tx;
   std::shared_ptr<PeerState> state;
   bool initiatedByUs{false};
+  int port{0};
+  std::string ip; // original IP address
 };
 
 // Canonical global peer table and mutex for the entire app:

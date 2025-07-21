@@ -104,6 +104,7 @@ bool SslTransport::writeBinaryLocked(const std::string& data) {
 
 std::string SslTransport::readBinaryBlocking() {
     if (!isOpen()) return {};
+    std::lock_guard<std::mutex> lk(readMutex);
     try {
         uint64_t need = 0;
         if (!readVarIntBlocking(*sslSocket, need))
@@ -147,28 +148,36 @@ void SslTransport::startReadBinaryLoop(std::function<void(const boost::system::e
     auto dataBuffer = std::make_shared<std::vector<uint8_t>>();
     auto self       = TcpTransport::shared_from_this();
     auto handler = std::make_shared<std::function<void(const boost::system::error_code&, std::size_t)>>();
-    *handler = [=, self, this](const boost::system::error_code& ec, std::size_t bytes) mutable {
-        if (ec) { cb(ec, ""); return; }
-        dataBuffer->insert(dataBuffer->end(), readBuffer->begin(), readBuffer->begin() + bytes);
-        while (true) {
-            if (dataBuffer->empty()) break;
-            uint64_t frameLen = 0; size_t used = 0;
-            if (!decodeVarInt(dataBuffer->data(), dataBuffer->size(), &frameLen, &used)) {
-                if (dataBuffer->size() < 10)
-                    break; // wait for more bytes
-                std::cerr << "[SslTransport/readHandler] failed to decode varint header\n";
-                cb(boost::asio::error::invalid_argument, "");
-                return;
+    *handler = [=, this](const boost::system::error_code& ec, std::size_t bytes) mutable {
+        {
+            std::lock_guard<std::mutex> lk(readMutex);
+            if (ec) { cb(ec, ""); return; }
+            dataBuffer->insert(dataBuffer->end(), readBuffer->begin(), readBuffer->begin() + bytes);
+            while (true) {
+                if (dataBuffer->empty()) break;
+                uint64_t frameLen = 0; size_t used = 0;
+                if (!decodeVarInt(dataBuffer->data(), dataBuffer->size(), &frameLen, &used)) {
+                    if (dataBuffer->size() < 10)
+                        break; // wait for more bytes
+                    std::cerr << "[SslTransport/readHandler] failed to decode varint header\n";
+                    cb(boost::asio::error::invalid_argument, "");
+                    return;
+                }
+                if (frameLen == 0 || frameLen > 32 * 1024 * 1024) {
+                    cb(boost::asio::error::invalid_argument, "");
+                    return;
+                }
+                if (dataBuffer->size() < used + frameLen)
+                    break; // wait for rest
+                std::string frame(reinterpret_cast<char*>(dataBuffer->data() + used), frameLen);
+                cb(boost::system::error_code(), frame);
+                dataBuffer->erase(dataBuffer->begin(), dataBuffer->begin() + used + frameLen);
             }
-            if (frameLen == 0 || frameLen > 32 * 1024 * 1024) {
-                cb(boost::asio::error::invalid_argument, "");
-                return;
-            }
-            if (dataBuffer->size() < used + frameLen)
-                break; // wait for rest
-            std::string frame(reinterpret_cast<char*>(dataBuffer->data() + used), frameLen);
-            cb(boost::system::error_code(), frame);
-            dataBuffer->erase(dataBuffer->begin(), dataBuffer->begin() + used + frameLen);
+        }
+        // socket closed, stop read loop
+        if (!isOpen()) {
+            cb(boost::asio::error::operation_aborted, "");
+            return;
         }
         sslSocket->async_read_some(
             boost::asio::buffer(*readBuffer),
@@ -176,26 +185,36 @@ void SslTransport::startReadBinaryLoop(std::function<void(const boost::system::e
                 (*handler)(ec, n);
             });
     };
-    sslSocket->async_read_some(
-        boost::asio::buffer(*readBuffer),
-        [handler](const boost::system::error_code& ec, std::size_t n) {
-            (*handler)(ec, n);
-        });
+    if (isOpen()) {
+        sslSocket->async_read_some(
+            boost::asio::buffer(*readBuffer),
+            [handler](const boost::system::error_code& ec, std::size_t n) {
+                (*handler)(ec, n);
+            });
+    } else {
+        cb(boost::asio::error::operation_aborted, "");
+    }
 }
 
 void SslTransport::startReadLineLoop(std::function<void(const boost::system::error_code&, const std::string&)> cb) {
     auto buf  = std::make_shared<boost::asio::streambuf>();
     auto self = TcpTransport::shared_from_this();
     auto handler = std::make_shared<std::function<void(const boost::system::error_code&, std::size_t)>>();
-    *handler = [=, self, this](const boost::system::error_code& ec, std::size_t) mutable {
+    *handler = [=, this](const boost::system::error_code& ec, std::size_t) mutable {
         if (ec) { cb(ec, ""); return; }
         std::istream is(buf.get());
         std::string line; std::getline(is, line);
         if (!line.empty() && line.back() == '\r') line.pop_back();
         cb(boost::system::error_code(), line);
-        boost::asio::async_read_until(*sslSocket, *buf, '\n', *handler);
+        if (isOpen())
+            boost::asio::async_read_until(*sslSocket, *buf, '\n', *handler);
+        else
+            cb(boost::asio::error::operation_aborted, "");
     };
-    boost::asio::async_read_until(*sslSocket, *buf, '\n', *handler);
+    if (isOpen())
+        boost::asio::async_read_until(*sslSocket, *buf, '\n', *handler);
+    else
+        cb(boost::asio::error::operation_aborted, "");
 }
 
 void SslTransport::queueWrite(std::string data, bool binary) {
