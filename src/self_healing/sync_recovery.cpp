@@ -65,7 +65,10 @@ bool SyncRecovery::fetchAndApplyBlocksFromHeight(int startHeight) {
     for (int h = startHeight; h <= networkHeight; ++h) {
         Block block;
         int attempts = 0;
-        const int maxAttempts = 3;
+        // Transient network issues may temporarily prevent block downloads.
+        // Increase the retry count so recovery is more resilient on
+        // unstable links.
+        const int maxAttempts = 5;
         while (attempts < maxAttempts) {
             if (peerManager_->fetchBlockAtHeight(h, block)) {
                 break;

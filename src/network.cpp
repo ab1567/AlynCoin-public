@@ -106,7 +106,11 @@ static constexpr uint64_t FRAME_LIMIT_MIN = 200;
 static constexpr uint64_t BYTE_LIMIT_MIN = 1 << 20;
 static constexpr int MAX_REORG = 100;
 static constexpr int BAN_THRESHOLD = 200;
-static constexpr int PARSE_FAIL_LIMIT = 2;
+// Allow more leniency before dropping a peer for corrupted frames. Temporary
+// network hiccups can truncate protobuf messages. Such glitches should not
+// immediately disconnect healthy peers, so PARSE_FAIL_LIMIT is set higher to
+// allow retries while still disconnecting persistent offenders.
+static constexpr int PARSE_FAIL_LIMIT = 5;
 static constexpr std::chrono::seconds BAN_GRACE_BASE{60};
 static constexpr std::chrono::milliseconds BAN_GRACE_PER_BLOCK{100};
 static constexpr std::chrono::seconds BAN_GRACE_MAX{3600};
