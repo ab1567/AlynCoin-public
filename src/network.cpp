@@ -96,7 +96,8 @@ static std::string ipPrefix(const std::string &ip) {
 // snapshot or header sync progress directly via peerTransports.
 // Protocol frame revision. Bumped whenever the on-wire format or required
 // capabilities change.
-static constexpr uint32_t kFrameRevision = 4;
+// Revision 5 adds header and block batch mini-protocols
+static constexpr uint32_t kFrameRevision = 5;
 static_assert(alyncoin::net::Frame::kBlockBroadcast == 6,
               "Frame field-numbers changed \u2013 bump kFrameRevision !");
 static_assert(alyncoin::net::Frame::kBlockRequest == 29 &&
@@ -2160,7 +2161,8 @@ void Network::startBinaryReadLoop(const std::string &peerId,
         std::lock_guard<std::timed_mutex> lk(peersMutex);
         auto it = peerTransports.find(peerId);
         if (it != peerTransports.end() && it->second.state) {
-          it->second.state->parseFailCount = 0;
+          auto &pf = it->second.state->parseFailCount;
+          pf = static_cast<int>(pf * 0.9);
         }
       }
       auto *item = new RxItem{f, peerId};
@@ -2249,9 +2251,8 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
     break;
   }
   case alyncoin::net::Frame::kBlockBatch: {
-    penalizePeer(peer, 20);
-    std::cerr << "[WARN] obsolete block_batch frame from " << peer << '\n';
-    return;
+    handleBlockBatch(peer, f.block_batch());
+    break;
   }
   case alyncoin::net::Frame::kBlockRequest: {
     uint64_t idx = f.block_request().index();
@@ -3490,6 +3491,29 @@ void Network::handleTailBlocks(const std::string &peer,
       requestTailBlocks(peer, chain.getHeight(), chain.getLatestBlockHash());
     }
   }
+}
+
+//
+void Network::handleHeaderBatch(const std::string &peer,
+                                const alyncoin::net::Headers &hdrs) {
+  HeadersSync::handleHeaders(peer, hdrs);
+}
+
+//
+void Network::handleBlockBatch(const std::string &peer,
+                               const alyncoin::net::BlockBatch &batch) {
+  Blockchain &chain = Blockchain::getInstance();
+  const auto &protoChain = batch.chain();
+  for (const auto &pb : protoChain.blocks()) {
+    try {
+      Block blk = Block::fromProto(pb, false);
+      chain.addBlock(blk);
+    } catch (const std::exception &ex) {
+      std::cerr << "⚠️  [BlockBatch] Failed to add block from peer " << peer
+                << ": " << ex.what() << "\n";
+    }
+  }
+  chain.broadcastNewTip();
 }
 
 //
