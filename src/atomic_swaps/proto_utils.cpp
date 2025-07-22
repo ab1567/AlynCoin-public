@@ -1,5 +1,5 @@
 #include "proto_utils.h"
-#include "../src/generated/atomic_swap.pb.h"
+#include <generated/atomic_swap.pb.h>
 #include "../crypto_utils.h"
 using namespace atomic;
 

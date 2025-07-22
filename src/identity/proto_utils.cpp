@@ -1,7 +1,7 @@
 #include "proto_utils.h"
 #include "identity.h"
 #include "../crypto_utils.h"
-#include "../src/generated/identity.pb.h"
+#include <generated/identity.pb.h>
 
 bool serializeIdentity(const ZkIdentity& identity, std::string& out) {
     identity::ZkIdentityProto proto;

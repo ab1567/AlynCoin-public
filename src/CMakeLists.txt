@@ -151,6 +151,7 @@ endif()
 # Include Directories
 include_directories(
     ${CMAKE_BINARY_DIR}
+    ${GENERATED_DIR}
     ${SOURCE_DIR}
     ${SOURCE_DIR}/zk
     ${SOURCE_DIR}/rollup
@@ -178,7 +179,7 @@ include_directories(
 find_package(OpenSSL REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(JSONCPP jsoncpp)
-find_package(Protobuf REQUIRED)
+find_package(Protobuf 29.3 REQUIRED)
 find_package(absl REQUIRED)
 find_library(SODIUM_LIB sodium REQUIRED)
 find_path(SODIUM_INCLUDE_DIR sodium.h)
