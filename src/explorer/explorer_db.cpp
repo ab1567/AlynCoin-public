@@ -1,7 +1,7 @@
 #include "explorer_db.h"
 #include "explorer_utils.h"
-#include "../generated/block_protos.pb.h"
-#include "../generated/transaction_protos.pb.h"
+#include <generated/block_protos.pb.h>
+#include <generated/transaction_protos.pb.h>
 #include "../block.h"
 #include "../transaction.h"
 #include <iostream>

@@ -2,7 +2,7 @@
 #define HEADERS_SYNC_H
 
 #include <string>
-#include "generated/net_frame.pb.h"
+#include <generated/net_frame.pb.h>
 
 class HeadersSync {
 public:

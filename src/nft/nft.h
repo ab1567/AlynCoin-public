@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 #include <cstdint>
-#include "generated/nft.pb.h"
+#include <generated/nft.pb.h>
 
 class NFT {
 public:

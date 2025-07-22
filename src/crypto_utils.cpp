@@ -1,4 +1,4 @@
-#include "generated/crypto_protos.pb.h"
+#include <generated/crypto_protos.pb.h>
 #include "crypto_utils.h"
 #include "blake3.h"
 #include <algorithm>
