@@ -4,6 +4,11 @@ project(alyncoin)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# -----------------------------------------
+# Protobuf: Ensure static linking and use pkg-config for dependencies
+set(Protobuf_USE_STATIC_LIBS ON)
+set(Protobuf_USE_STATIC_LIBS_INIT ON)
+
 # --------------------------
 # Detect CPU Architecture
 include(CheckCCompilerFlag)
@@ -174,6 +179,7 @@ find_package(OpenSSL REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(JSONCPP jsoncpp)
 find_package(Protobuf REQUIRED)
+find_package(absl REQUIRED)
 find_library(SODIUM_LIB sodium REQUIRED)
 find_path(SODIUM_INCLUDE_DIR sodium.h)
 include_directories(${SODIUM_INCLUDE_DIR})
@@ -182,7 +188,6 @@ find_path(ROCKSDB_INCLUDE_DIR rocksdb/db.h)
 
 include_directories(${ROCKSDB_INCLUDE_DIR})
 
-#-------------------------
 find_path(MINIUPNPC_INCLUDE_DIR miniupnpc/miniupnpc.h)
 find_library(MINIUPNPC_LIBRARY NAMES miniupnpc libminiupnpc)
 
@@ -193,7 +198,7 @@ if(MINIUPNPC_INCLUDE_DIR AND MINIUPNPC_LIBRARY)
 else()
     message(WARNING "miniupnpc not found, UPnP will be disabled!")
 endif()
-#-------------------------
+
 find_path(NATPMP_INCLUDE_DIR natpmp.h)
 find_library(NATPMP_LIBRARY NAMES natpmp libnatpmp)
 
@@ -219,7 +224,7 @@ if(NOT SKIP_PROTOBUF_GEN)
         ${GENERATED_DIR}/nft.pb.cc
         ${GENERATED_DIR}/atomic_swap.pb.cc
         ${GENERATED_DIR}/identity.pb.cc
- 	${GENERATED_DIR}/net_frame.pb.cc
+        ${GENERATED_DIR}/net_frame.pb.cc
     )
 
     set(PROTO_HEADERS
@@ -239,7 +244,7 @@ if(NOT SKIP_PROTOBUF_GEN)
         OUTPUT ${PROTO_HEADERS} ${PROTO_SRCS}
         COMMAND ${Protobuf_PROTOC_EXECUTABLE} --proto_path=${SOURCE_DIR}/proto
                 --cpp_out=${GENERATED_DIR}
-		--experimental_allow_proto3_optional
+                --experimental_allow_proto3_optional
                 ${SOURCE_DIR}/proto/sync_protos.proto
                 ${SOURCE_DIR}/proto/block_protos.proto
                 ${SOURCE_DIR}/proto/blockchain_protos.proto
@@ -271,7 +276,6 @@ file(GLOB FALCON_CLEAN_SOURCES
     ${SOURCE_DIR}/crypto/falcon/PQClean/Falcon-1024/clean/*.c
 )
 
-# Add manually maintained list of essential common sources
 set(FALCON_COMMON_SOURCES
     ${SOURCE_DIR}/crypto/falcon/PQClean/common/aes.c
     ${SOURCE_DIR}/crypto/falcon/PQClean/common/fips202.c
@@ -285,7 +289,6 @@ file(GLOB FALCON_KECCAK4X_SOURCES
     ${SOURCE_DIR}/crypto/falcon/PQClean/common/keccak4x/*.c
 )
 
-# Combine all
 set(FALCON_SOURCES
     ${FALCON_CLEAN_SOURCES}
     ${FALCON_COMMON_SOURCES}
@@ -302,19 +305,16 @@ target_include_directories(falcon PUBLIC
     ${SOURCE_DIR}/crypto/falcon/PQClean/common/keccak4x
 )
 
-# Compile SIMD file with correct flags
 set_source_files_properties(
     ${SOURCE_DIR}/crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.c
     PROPERTIES COMPILE_FLAGS "-mavx2 -msse4.1"
 )
 
-# Correct symbol namespacing for Falcon and SHAKE256 linkage
 target_compile_options(falcon PUBLIC
     -DPQCLEAN_FALCON1024_CLEAN_NAMESPACE=PQCLEAN_FALCON1024_CLEAN_
     -DSHAKE256_NAMESPACE=PQCLEAN_FALCON1024_CLEAN_
 )
 
-# --------------------------
 # === Dilithium Static Library ===
 file(GLOB DILITHIUM_SOURCES
     ${SOURCE_DIR}/crypto/dilithium/*.c
@@ -330,6 +330,15 @@ target_compile_options(dilithium PUBLIC
 
 # --------------------------
 # Build AlynCoin Core Library
+
+# -- Dynamic link flags for protobuf, abseil, utf8_range and all static deps
+execute_process(
+    COMMAND pkg-config --static --libs protobuf
+    OUTPUT_VARIABLE PROTOBUF_STATIC_LIBS_RAW
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+string(REPLACE "\n" " " PROTOBUF_STATIC_LIBS "${PROTOBUF_STATIC_LIBS_RAW}")
+
 if(NOT SKIP_PROTOBUF_GEN)
     add_library(alyncoin_lib STATIC
         ${SOURCES}
@@ -346,7 +355,6 @@ endif()
 if(NOT SKIP_PROTOBUF_GEN)
     add_dependencies(alyncoin_lib protobuf_gen)
 endif()
-
 add_dependencies(alyncoin_lib winterfell_ffi)
 
 set_source_files_properties(
@@ -365,7 +373,7 @@ target_link_libraries(alyncoin_lib
     m
     dl
     ${ROCKSDB_LIB}
-    ${Protobuf_LIBRARIES}
+    ${PROTOBUF_STATIC_LIBS} # <-- FULL protobuf + absl + utf8_range + etc.
     falcon
     dilithium
     ${SODIUM_LIB}
@@ -375,7 +383,6 @@ target_link_libraries(alyncoin_lib
 if(MINIUPNPC_LIBRARY)
     target_link_libraries(alyncoin_lib ${MINIUPNPC_LIBRARY})
 endif()
-
 if(NATPMP_LIBRARY)
     target_link_libraries(alyncoin_lib ${NATPMP_LIBRARY})
 endif()
@@ -383,7 +390,6 @@ endif()
 # --------------------------
 # Main Executables
 add_executable(alyncoin ${MAIN_SOURCE})
-
 add_executable(alyncoin-cli
     ${SOURCE_DIR}/cli.cpp
     ${SOURCE_DIR}/cli/peer_blacklist_ui.cpp
@@ -415,9 +421,7 @@ add_executable(swapcli
     ${SOURCE_DIR}/atomic_swaps/rocksdb_swap_store.cpp
     ${SOURCE_DIR}/atomic_swaps/proto_utils.cpp
 )
-
 add_dependencies(swapcli winterfell_ffi)
-
 target_link_libraries(swapcli
     alyncoin_lib
     ${JSONCPP_LIBRARIES}
@@ -428,20 +432,17 @@ target_link_libraries(swapcli
     dl
     falcon
     dilithium
-    ${Protobuf_LIBRARIES}
+    ${PROTOBUF_STATIC_LIBS}
     ${SOURCE_DIR}/rust/target/release/libzk_winterfell.a
 )
 
-#---------------------------
 add_executable(identitycli
     ${SOURCE_DIR}/identity/identitycli.cpp
     ${SOURCE_DIR}/identity/identity.cpp
     ${SOURCE_DIR}/identity/identity_store.cpp
     ${SOURCE_DIR}/identity/proto_utils.cpp
 )
-
 add_dependencies(identitycli winterfell_ffi)
-
 target_link_libraries(identitycli
     alyncoin_lib
     ${JSONCPP_LIBRARIES}
@@ -452,10 +453,9 @@ target_link_libraries(identitycli
     dl
     falcon
     dilithium
-    ${Protobuf_LIBRARIES}
+    ${PROTOBUF_STATIC_LIBS}
 )
 
-#---------------------------
 add_executable(nftcli
     ${SOURCE_DIR}/nft/main.cpp
     ${SOURCE_DIR}/nft/nft_cli.cpp
@@ -463,9 +463,7 @@ add_executable(nftcli
     ${SOURCE_DIR}/nft/nft_storage.cpp
     ${SOURCE_DIR}/nft/crypto/aes_utils.cpp
 )
-
 add_dependencies(nftcli winterfell_ffi)
-
 target_link_libraries(nftcli
     alyncoin_lib
     ${JSONCPP_LIBRARIES}
@@ -477,15 +475,13 @@ target_link_libraries(nftcli
     OpenSSL::Crypto
     falcon
     dilithium
-    ${Protobuf_LIBRARIES}
+    ${PROTOBUF_STATIC_LIBS}
 )
 
 # --------------------------
 # Optional Test Executable
 add_executable(blacklist_test ${SOURCE_DIR}/node/main_blacklist_test.cpp)
-
 add_dependencies(blacklist_test winterfell_ffi)
-
 target_link_libraries(blacklist_test
     alyncoin_lib
     ${JSONCPP_LIBRARIES}
@@ -498,16 +494,14 @@ target_link_libraries(blacklist_test
 # --------------------------
 # Blockchain Explorer Executable
 add_executable(explorer_server ${EXPLORER_SOURCES})
-
 add_dependencies(explorer_server winterfell_ffi)
 target_include_directories(explorer_server PRIVATE ${SOURCE_DIR}/explorer ${SOURCE_DIR}/deps/CrowInclude)
-
 target_link_libraries(explorer_server
     alyncoin_lib
     ${JSONCPP_LIBRARIES}
     ${ROCKSDB_LIB}
     pthread
-    ${Protobuf_LIBRARIES}
+    ${PROTOBUF_STATIC_LIBS}
     m
     dl
 )
