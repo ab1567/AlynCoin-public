@@ -65,15 +65,15 @@ uint64_t calculateSmartDifficulty(const Blockchain& chain)
     /*  Design targets ———————————————————————
         • 120-second blocks
         • 720-block LWMA window  ≈ 24 h
-        • Very soft ± limits (×3 / ÷ 3)
-        • Extra Digishield dampening 0.5
+        • Very soft ± limits (×1.5 / ÷ 3)
+        • Extra Digishield dampening 0.25
         • Small peer-count bonus, capped +15 %
     ------------------------------------------------*/
     constexpr int         LWMA_N      = 720;
     constexpr long double TARGET      = 120.0L;      // seconds / block
-    constexpr long double MAX_UP      = 3.0L;        // at most triple
+    constexpr long double MAX_UP      = 1.5L;        // at most +50 %
     constexpr long double MAX_DOWN    = 1.0L/3.0L;   // at most one-third
-    constexpr long double DAMPING     = 0.50L;       // apply 50 % of delta
+    constexpr long double DAMPING     = 0.25L;       // apply 25 % of delta
     constexpr uint64_t    GENESIS_DIFF   = 5;      // block #0 and #1
     constexpr long double ABSOLUTE_FLOOR = 5.0L;   // hard floor
     constexpr size_t      LOCK_HEIGHT    = 60;     // first 60 blocks locked
