@@ -141,6 +141,10 @@ public test network, run:
 
 The default RPC port is `1567` and the peer port is `15671`.
 
+Nodes now relay any peers discovered via DNS to all connected nodes shortly
+after startup. This helps the mesh stay connected even if the DNS seed becomes
+unreachable.
+
 ### Automatic network sync
 
 The node shares its current block height with peers whenever a new block is
