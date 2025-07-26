@@ -384,8 +384,12 @@ void Network::sendPeerList(const std::string &peer) {
   alyncoin::net::Frame fr;
   auto *pl = fr.mutable_peer_list();
   std::lock_guard<std::timed_mutex> lk(peersMutex);
-  for (const auto &kv : peerTransports)
-    pl->add_peers(kv.first + ':' + std::to_string(kv.second.port));
+  for (const auto &kv : peerTransports) {
+    const std::string &ip = kv.second.ip;
+    if (ip.empty() || ip == "127.0.0.1" || ip == "localhost")
+      continue;
+    pl->add_peers(ip + ':' + std::to_string(kv.second.port));
+  }
   sendFrame(it->second.tx, fr);
 }
 
