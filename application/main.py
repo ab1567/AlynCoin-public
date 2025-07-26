@@ -13,6 +13,14 @@ except Exception as e:
 
 from rpc_client import alyncoin_rpc, RPC_HOST, RPC_PORT
 
+def resource_path(filename):
+    """Return path to resource bundled by PyInstaller or next to the script."""
+    try:
+        base = sys._MEIPASS
+    except AttributeError:
+        base = os.path.abspath(os.path.dirname(__file__))
+    return os.path.join(base, filename)
+
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QTabWidget, QTextEdit, QVBoxLayout,
     QWidget, QLabel, QMessageBox, QFileDialog
@@ -140,7 +148,9 @@ def ensure_alyncoin_node(block=True):
         return False
 
     exe_dir = os.path.dirname(sys.executable if hasattr(sys, 'frozen') else os.path.abspath(__file__))
+    alyncoin_bin = resource_path("alyncoin" + (".exe" if platform.system() == "Windows" else ""))
     candidates = [
+        alyncoin_bin,
         os.path.join(exe_dir, "alyncoin"),
         os.path.join(exe_dir, "alyncoin", "alyncoin"),
         os.path.join(exe_dir, "build", "alyncoin")
@@ -237,14 +247,7 @@ def terminate_alyncoin_node():
             subprocess.run(["wsl", "-d", "Ubuntu", "pkill", "-f", "alyncoin"],
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-# ---- PyInstaller Resource Path Helper ----
-def resource_path(relative_path):
-    try:
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.abspath(".")
-    return os.path.join(base_path, relative_path)
-
+# ---- Resource helpers ----
 def get_logo_path():
     candidates = [
         os.path.join(os.getcwd(), "logo.png"),
