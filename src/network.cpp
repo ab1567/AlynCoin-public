@@ -521,8 +521,17 @@ void tryUPnPPortMapping(int port) {
     return;
   }
 
-  int igdStatus = UPNP_GetValidIGD(ctx.devlist, &ctx.urls, &ctx.data, lanAddr,
-                                   sizeof(lanAddr));
+  int igdStatus;
+#ifdef __APPLE__
+  int upnp_err = 0;
+  // Homebrew's miniupnpc uses a 7-arg version of UPNP_GetValidIGD where the
+  // last two parameters are plain integers.
+  igdStatus = UPNP_GetValidIGD(ctx.devlist, &ctx.urls, &ctx.data, lanAddr,
+                               sizeof(lanAddr), 0, upnp_err);
+#else
+  igdStatus = UPNP_GetValidIGD(ctx.devlist, &ctx.urls, &ctx.data, lanAddr,
+                               sizeof(lanAddr));
+#endif
   if (igdStatus != 1) {
     std::cerr << "⚠️ [UPnP] No valid IGD found\n";
     return;
@@ -887,9 +896,11 @@ void Network::broadcastPeerList() {
       peers.emplace_back(entry.ip, entry.port);
   }
 
-  for (const auto &[ip, port] : peers) {
-    auto it = std::find_if(peerTransports.begin(), peerTransports.end(),
-                           [&](const auto &kv) { return kv.second.ip == ip; });
+  for (const auto &peer : peers) {
+    const std::string &ip = peer.first;
+    auto it = std::find_if(
+        peerTransports.begin(), peerTransports.end(),
+        [ip](const auto &kv) { return kv.second.ip == ip; });
     if (it == peerTransports.end() || !it->second.tx)
       continue;
     alyncoin::net::Frame fr;
@@ -1185,6 +1196,12 @@ void Network::run() {
       continue;
     connectToNode(ip, p);
   }
+  // After dialing DNS peers, share them with connected nodes so the mesh can
+  // survive even if DNS is unreachable later.
+  std::thread([this]() {
+    std::this_thread::sleep_for(std::chrono::seconds(5));
+    this->broadcastPeerList();
+  }).detach();
 
   // Initial sync/gossip setup
   requestPeerList();
