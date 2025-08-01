@@ -721,6 +721,10 @@ void Network::autoMineBlock() {
 
       Blockchain &blockchain = *this->blockchain;
       if (!blockchain.getPendingTransactions().empty()) {
+        if (!this->peerManager || this->peerManager->getPeerCount() == 0) {
+          std::cerr << "⚠️ Cannot auto-mine without peers connected. If error persists visit alyncoin.com" << std::endl;
+          continue;
+        }
         std::cout << "⛏️ New transactions detected. Starting mining..."
                   << std::endl;
 
@@ -3150,7 +3154,10 @@ void Network::sendSnapshot(std::shared_ptr<Transport> transport,
                            int upToHeight) {
   Blockchain &bc = Blockchain::getInstance();
   int height = upToHeight < 0 ? bc.getHeight() : upToHeight;
-  std::vector<Block> blocks = bc.getChainUpTo(height); // Implement as needed
+  if (height > bc.getHeight())
+    height = bc.getHeight();
+  int start = height >= MAX_SNAPSHOT_BLOCKS ? height - MAX_SNAPSHOT_BLOCKS + 1 : 0;
+  std::vector<Block> blocks = bc.getChainSlice(start, height);
   SnapshotProto snap;
   snap.set_height(height);
   snap.set_merkle_root(bc.getHeaderMerkleRoot());

@@ -105,6 +105,22 @@ class MinerTab(QWidget):
         self.btn_rollup.clicked.connect(self._rollup_clicked)
         self.btn_rec_rollup.clicked.connect(self._rec_rollup_clicked)
 
+    def _peer_count(self) -> int:
+        """Query backend for current peer count."""
+        res = alyncoin_rpc("peercount")
+        if isinstance(res, int):
+            return res
+        return 0
+
+    def _ensure_peer_connected(self) -> bool:
+        if self._peer_count() == 0:
+            msg = "⚠️ Not mining: no peer connected. If error persists visit alyncoin.com"
+            self.banner.setText(msg)
+            self.status.setText("🔴 <b>No peers connected</b>")
+            self._append(msg)
+            return False
+        return True
+
     def _append(self, txt: str):
         self.out.append(txt)
         self.out.verticalScrollBar().setValue(self.out.verticalScrollBar().maximum())
@@ -175,6 +191,8 @@ class MinerTab(QWidget):
         if self.pending:
             self._append("⚠️ Another request is still running, please wait.")
             return
+        if method == "mineonce" and not self._ensure_peer_connected():
+            return
         wallet = self.getWallet()
         if not wallet:
             self._append("❌ Please load a wallet first.")
@@ -223,6 +241,10 @@ class MinerTab(QWidget):
             self.loop_active = False
             self._set_idle()
             return
+        if not self._ensure_peer_connected():
+            self.loop_active = False
+            self._set_idle()
+            return
         if self.pending:                  # shouldn't happen, but double-check
             self._schedule_next_loop_rpc(1000)
             return
@@ -256,7 +278,14 @@ class MinerTab(QWidget):
             if "Read timed out" in result["error"]:
                 self._append("⚠️  RPC timed-out, retrying…")
                 return
-            self._append(f"❌ {result['error']}")
+            err = result["error"]
+            if "peer" in err.lower() and "mine" in err.lower():
+                msg = "⚠️ Not mining: no peer connected. If error persists visit alyncoin.com"
+                self.banner.setText(msg)
+                self.status.setText("🔴 <b>No peers connected</b>")
+                self._append(msg)
+            else:
+                self._append(f"❌ {err}")
             return
 
         # special case: mine/rollup returning a hash

@@ -226,10 +226,23 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
         std::cout << "Dev Fund Balance: " << b.getBalance("DevFundWallet") << " AlynCoin\n";
         return 0;
     }
+    if (cmd == "listpeers" && argc >= 2) {
+        PeerManager *pm = network ? network->getPeerManager() : nullptr;
+        if (!pm) {
+            std::cout << "No peers connected.\n";
+        } else {
+            auto peers = pm->getConnectedPeers();
+            std::cout << "Connected peers (" << peers.size() << "):\n";
+            for (const auto &p : peers)
+                std::cout << " - " << p << "\n";
+        }
+        return 0;
+    }
     // Wallet create/load
-    if (cmd == "createwallet" && argc == 3) {
+    if (cmd == "createwallet" && argc == 2) {
+        std::string name = Crypto::generateRandomHex(40);
         try {
-            Wallet w(argv[2], keyDir);
+            Wallet w(name, keyDir);
             std::cout << "✅ Wallet created: " << w.getAddress() << "\n";
         } catch (const std::exception &e) {
             std::cerr << "❌ Wallet creation failed: " << e.what() << "\n";

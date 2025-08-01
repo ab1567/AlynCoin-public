@@ -876,6 +876,11 @@ Block Blockchain::minePendingTransactions(
         std::cout << "[DEBUG] Skipping mining while recovering..." << std::endl;
         return Block();
     }
+    if (Network::isUninitialized() || !Network::getInstance().getPeerManager() ||
+        Network::getInstance().getPeerManager()->getPeerCount() == 0) {
+        std::cerr << "⚠️ Cannot mine without at least one connected peer. If error persists visit alyncoin.com" << std::endl;
+        return Block();
+    }
     std::cout << "[DEBUG] Waiting on blockchainMutex in minePendingTransactions()...\n";
     std::unique_lock<std::mutex> lock(blockchainMutex);
     std::cout << "[DEBUG] Acquired blockchainMutex in minePendingTransactions()!\n";
@@ -2977,6 +2982,21 @@ std::vector<Block> Blockchain::getChainUpTo(size_t height) const
         height = chain.size() - 1;
 
     return std::vector<Block>(chain.begin(), chain.begin() + height + 1);
+}
+
+std::vector<Block> Blockchain::getChainSlice(size_t startHeight, size_t endHeight) const
+{
+    std::lock_guard<std::mutex> lk(mutex);
+    if (chain.empty())
+        return {};
+
+    if (endHeight >= chain.size())
+        endHeight = chain.size() - 1;
+    if (startHeight > endHeight)
+        startHeight = endHeight;
+
+    return std::vector<Block>(chain.begin() + startHeight,
+                              chain.begin() + endHeight + 1);
 }
 
 //
