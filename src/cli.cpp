@@ -227,10 +227,11 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
         return 0;
     }
     if (cmd == "listpeers" && argc >= 2) {
-        if (!peerManager) {
+        PeerManager *pm = network ? network->getPeerManager() : nullptr;
+        if (!pm) {
             std::cout << "No peers connected.\n";
         } else {
-            auto peers = peerManager->getConnectedPeers();
+            auto peers = pm->getConnectedPeers();
             std::cout << "Connected peers (" << peers.size() << "):\n";
             for (const auto &p : peers)
                 std::cout << " - " << p << "\n";
