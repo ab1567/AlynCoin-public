@@ -11,6 +11,7 @@
 #include <json/json.h>
 #include <limits>
 #include <string>
+#include <vector>
 #include <filesystem>
 #include "db/db_paths.h"
 #include "governance/dao.h"
@@ -80,19 +81,15 @@ svr.Post("/rpc", [blockchain, network, healer](const httplib::Request& req, http
             double bal = blockchain->getBalance(addr);
             output = {{"result", bal}};
         }
-	else if (method == "createwallet") {
-	    if (params.size() < 1) {
-	        output = {{"error", "Missing wallet name parameter"}};
-	    } else {
-	        std::string name = params.at(0);
-	        try {
-	            Wallet w(name, DBPaths::getKeyDir());
-	            output = {{"result", w.getAddress()}};
-	        } catch (const std::exception &e) {
-	            output = {{"error", std::string("Wallet creation failed: ") + e.what()}};
-	        }
-	    }
-	}
+        else if (method == "createwallet") {
+            std::string name = Crypto::generateRandomHex(40);
+            try {
+                Wallet w(name, DBPaths::getKeyDir());
+                output = {{"result", w.getAddress()}};
+            } catch (const std::exception &e) {
+                output = {{"error", std::string("Wallet creation failed: ") + e.what()}};
+            }
+        }
 	else if (method == "loadwallet") {
 	    if (params.size() < 1) {
 	        output = {{"error", "Missing wallet name parameter"}};
@@ -198,6 +195,12 @@ svr.Post("/rpc", [blockchain, network, healer](const httplib::Request& req, http
             if (network && network->getPeerManager())
                 pc = network->getPeerManager()->getPeerCount();
             output = {{"result", pc}};
+        }
+        else if (method == "peerlist") {
+            std::vector<std::string> peers;
+            if (network && network->getPeerManager())
+                peers = network->getPeerManager()->getConnectedPeers();
+            output = {{"result", peers}};
         }
         else if (method == "selfheal") {
             if (healer) {
@@ -856,9 +859,10 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
         return 0;
     }
     // Wallet create/load
-    if (cmd == "createwallet" && argc == 3) {
+    if (cmd == "createwallet" && argc == 2) {
+        std::string name = Crypto::generateRandomHex(40);
         try {
-            Wallet w(argv[2], keyDir);
+            Wallet w(name, keyDir);
             std::cout << "✅ Wallet created: " << w.getAddress() << "\n";
         } catch (const std::exception &e) {
             std::cerr << "❌ Wallet creation failed: " << e.what() << "\n";

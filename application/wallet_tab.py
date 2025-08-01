@@ -27,7 +27,7 @@ class WalletTab(QWidget):
         layout = QVBoxLayout()
 
         self.addressInput = QLineEdit()
-        self.addressInput.setPlaceholderText("Enter 20+ char alphanumeric or leave blank for auto")
+        self.addressInput.setPlaceholderText("Enter wallet name to load. 'Create Wallet' will auto-generate")
         layout.addWidget(self.addressInput)
 
         self.walletSwitcher = QComboBox()
@@ -75,17 +75,10 @@ class WalletTab(QWidget):
             self.addressInput.setText(name)
 
     def createWallet(self):
-        user_input = self.addressInput.text().strip()
-        if user_input and (len(user_input) < 20 or not re.match(r'^[a-zA-Z0-9]+$', user_input)):
-            self.appendOutput("⚠️ Wallet name must be alphanumeric & ≥ 20 chars.")
-            return
+        user_input = secrets.token_hex(20)
+        self.appendOutput(f"⚙️ Auto-generating wallet name: {user_input}")
 
-        if not user_input:
-            user_input = secrets.token_hex(20)
-            self.appendOutput(f"⚙️ Auto-generating wallet name: {user_input}")
-
-        # RPC: createwallet returns new wallet address
-        result = alyncoin_rpc("createwallet", [user_input])
+        result = alyncoin_rpc("createwallet", [])
         if isinstance(result, dict) and "error" in result:
             self.appendOutput(f"❌ {result['error']}")
             return

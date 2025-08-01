@@ -274,6 +274,7 @@ public:
 
   // --- Snapshot/fast sync helpers ---
   std::vector<Block> getChainUpTo(size_t height) const;
+  std::vector<Block> getChainSlice(size_t startHeight, size_t endHeight) const;
   bool tryAppendBlock(const Block &blk);
 
 };

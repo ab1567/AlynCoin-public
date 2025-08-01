@@ -26,3 +26,5 @@ inline constexpr int TAIL_SYNC_THRESHOLD = 100;   // height gap for tail sync
 inline constexpr std::size_t MAX_WIRE_PAYLOAD = 1024 * 1024; // 1 MiB frame cap
 inline constexpr std::size_t MAX_TAIL_PAYLOAD = 200 * 1024; // safe tail chunk
 inline constexpr std::size_t MAX_INV_PER_MSG = 500;         // inventory batch cap
+// Limit blocks included in a snapshot to avoid sending the full chain
+inline constexpr int MAX_SNAPSHOT_BLOCKS = 1000;

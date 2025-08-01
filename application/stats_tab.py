@@ -28,6 +28,11 @@ class StatsTab(QWidget):
         self.showStatsBtn.clicked.connect(self.fetchStats)
         layout.addWidget(self.showStatsBtn)
 
+        self.peerBtn = QPushButton("👥 Show Peers")
+        self.peerBtn.setStyleSheet("padding: 10px; font-weight: bold;")
+        self.peerBtn.clicked.connect(self.fetchPeers)
+        layout.addWidget(self.peerBtn)
+
         self.syncBtn = QPushButton("🔄 Hard Sync")
         self.syncBtn.setStyleSheet("padding: 10px; font-weight: bold;")
         self.syncBtn.clicked.connect(self.triggerSync)
@@ -74,6 +79,20 @@ class StatsTab(QWidget):
             self.appendText(f"❌ {result['error']}", color="red")
         else:
             self.appendText("✅ Sync triggered. Check node output for progress.", color="green")
+
+    def fetchPeers(self):
+        self.outputBox.clear()
+        self.appendText("⏳ Fetching peer list...", color="orange")
+        result = alyncoin_rpc("peerlist")
+        if isinstance(result, dict) and "error" in result:
+            self.appendText(f"❌ {result['error']}", color="red")
+            return
+        if isinstance(result, list):
+            self.appendText(f"Connected peers ({len(result)}):", color="cyan")
+            for p in result:
+                self.appendText(f"- {p}")
+        else:
+            self.appendText("⚠️ Could not fetch peers from RPC server.", color="red")
 
     def appendText(self, text, color="white"):
         color_map = {
