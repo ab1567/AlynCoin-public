@@ -195,15 +195,11 @@ find_library(MINIUPNPC_LIBRARY NAMES miniupnpc libminiupnpc)
 
 if(MINIUPNPC_INCLUDE_DIR AND MINIUPNPC_LIBRARY)
     message(STATUS "miniupnpc found: ${MINIUPNPC_LIBRARY}")
-    add_library(miniupnpc INTERFACE)
-    target_include_directories(miniupnpc INTERFACE ${MINIUPNPC_INCLUDE_DIR})
-    target_link_libraries(miniupnpc INTERFACE ${MINIUPNPC_LIBRARY})
-    target_compile_definitions(miniupnpc INTERFACE
-        HAVE_MINIUPNPC
-        MINIUPNPC_API_VERSION=17
-    )
+    set(HAVE_MINIUPNPC TRUE)
+    set(UPNP_LIB ${MINIUPNPC_LIBRARY})
 else()
     message(WARNING "miniupnpc not found, UPnP will be disabled!")
+    set(HAVE_MINIUPNPC FALSE)
     set(UPNP_LIB "")
 endif()
 
@@ -360,10 +356,10 @@ else()
     )
 endif()
 
-# Ensure miniupnpc headers target the API version shipped with Ubuntu 24.04
-target_compile_definitions(alyncoin_lib
-    PUBLIC MINIUPNPC_API_VERSION=17
-)
+if(HAVE_MINIUPNPC)
+    target_include_directories(alyncoin_lib PUBLIC ${MINIUPNPC_INCLUDE_DIR})
+    target_compile_definitions(alyncoin_lib PUBLIC HAVE_MINIUPNPC MINIUPNPC_API_VERSION=17)
+endif()
 
 if(NOT SKIP_PROTOBUF_GEN)
     add_dependencies(alyncoin_lib protobuf_gen)
@@ -394,8 +390,8 @@ target_link_libraries(alyncoin_lib
         ${SOURCE_DIR}/rust/target/release/libzk_winterfell.a
         resolv
 )
-if(MINIUPNPC_INCLUDE_DIR AND MINIUPNPC_LIBRARY)
-    target_link_libraries(alyncoin_lib PUBLIC miniupnpc)
+if(HAVE_MINIUPNPC)
+    target_link_libraries(alyncoin_lib PUBLIC ${UPNP_LIB})
 endif()
 if(NATPMP_LIBRARY)
     # expose natpmp to any target linking alyncoin_lib
@@ -417,11 +413,10 @@ add_dependencies(alyncoin-cli winterfell_ffi)
 add_dependencies(peer_blacklist_cli winterfell_ffi)
 
 target_compile_definitions(alyncoin PRIVATE ALYNCOIN_MAIN_PROCESS)
-target_link_libraries(alyncoin alyncoin_lib ${UPNP_LIB} pthread m dl)
-target_link_libraries(alyncoin-cli alyncoin_lib ${UPNP_LIB} pthread m dl)
+target_link_libraries(alyncoin alyncoin_lib pthread m dl)
+target_link_libraries(alyncoin-cli alyncoin_lib pthread m dl)
 target_link_libraries(peer_blacklist_cli
     alyncoin_lib
-    ${UPNP_LIB}
     ${JSONCPP_LIBRARIES}
     ${ROCKSDB_LIB}
     pthread
@@ -440,7 +435,6 @@ add_executable(swapcli
 add_dependencies(swapcli winterfell_ffi)
 target_link_libraries(swapcli
     alyncoin_lib
-    ${UPNP_LIB}
     ${JSONCPP_LIBRARIES}
     ${ROCKSDB_LIB}
     pthread
@@ -462,7 +456,6 @@ add_executable(identitycli
 add_dependencies(identitycli winterfell_ffi)
 target_link_libraries(identitycli
     alyncoin_lib
-    ${UPNP_LIB}
     ${JSONCPP_LIBRARIES}
     ${ROCKSDB_LIB}
     pthread
@@ -484,7 +477,6 @@ add_executable(nftcli
 add_dependencies(nftcli winterfell_ffi)
 target_link_libraries(nftcli
     alyncoin_lib
-    ${UPNP_LIB}
     ${JSONCPP_LIBRARIES}
     ${ROCKSDB_LIB}
     pthread
@@ -503,7 +495,6 @@ add_executable(blacklist_test ${SOURCE_DIR}/node/main_blacklist_test.cpp)
 add_dependencies(blacklist_test winterfell_ffi)
 target_link_libraries(blacklist_test
     alyncoin_lib
-    ${UPNP_LIB}
     ${JSONCPP_LIBRARIES}
     ${ROCKSDB_LIB}
     pthread
@@ -518,7 +509,6 @@ add_dependencies(explorer_server winterfell_ffi)
 target_include_directories(explorer_server PRIVATE ${SOURCE_DIR}/explorer ${SOURCE_DIR}/deps/CrowInclude)
 target_link_libraries(explorer_server
     alyncoin_lib
-    ${UPNP_LIB}
     ${JSONCPP_LIBRARIES}
     ${ROCKSDB_LIB}
     pthread
@@ -534,7 +524,6 @@ add_dependencies(metrics_server winterfell_ffi)
 target_include_directories(metrics_server PRIVATE ${SOURCE_DIR}/metrics ${SOURCE_DIR}/deps/CrowInclude)
 target_link_libraries(metrics_server
     alyncoin_lib
-    ${UPNP_LIB}
     ${JSONCPP_LIBRARIES}
     pthread
     m
