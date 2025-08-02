@@ -387,7 +387,8 @@ if(MINIUPNPC_LIBRARY)
     target_link_libraries(alyncoin_lib PUBLIC ${MINIUPNPC_LIBRARY})
 endif()
 if(NATPMP_LIBRARY)
-    target_link_libraries(alyncoin_lib PRIVATE ${NATPMP_LIBRARY})
+    # expose natpmp to any target linking alyncoin_lib
+    target_link_libraries(alyncoin_lib PUBLIC ${NATPMP_LIBRARY})
 endif()
 
 # --------------------------
