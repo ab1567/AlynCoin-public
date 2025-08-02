@@ -366,26 +366,28 @@ set_source_files_properties(
 )
 
 target_link_libraries(alyncoin_lib
-    OpenSSL::Crypto
-    OpenSSL::SSL
-    ${JSONCPP_LIBRARIES}
-    pthread
-    crypto
-    m
-    dl
-    ${ROCKSDB_LIB}
-    ${PROTOBUF_STATIC_LIBS} # <-- FULL protobuf + absl + utf8_range + etc.
-    falcon
-    dilithium
-    ${SODIUM_LIB}
-    ${SOURCE_DIR}/rust/target/release/libzk_winterfell.a
-    resolv
+    PRIVATE
+        OpenSSL::Crypto
+        OpenSSL::SSL
+        ${JSONCPP_LIBRARIES}
+        pthread
+        crypto
+        m
+        dl
+        ${ROCKSDB_LIB}
+        ${PROTOBUF_STATIC_LIBS} # <-- FULL protobuf + absl + utf8_range + etc.
+        falcon
+        dilithium
+        ${SODIUM_LIB}
+        ${SOURCE_DIR}/rust/target/release/libzk_winterfell.a
+        resolv
 )
 if(MINIUPNPC_LIBRARY)
-    target_link_libraries(alyncoin_lib ${MINIUPNPC_LIBRARY})
+    # make libminiupnpc propagate downstream
+    target_link_libraries(alyncoin_lib PUBLIC ${MINIUPNPC_LIBRARY})
 endif()
 if(NATPMP_LIBRARY)
-    target_link_libraries(alyncoin_lib ${NATPMP_LIBRARY})
+    target_link_libraries(alyncoin_lib PRIVATE ${NATPMP_LIBRARY})
 endif()
 
 # --------------------------
