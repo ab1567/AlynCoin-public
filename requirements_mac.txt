@@ -2,6 +2,6 @@ xcode-select --install 2>/dev/null || true && \
 brew update && \
 brew install cmake pkg-config git curl zip unzip \
     openssl@3 libsodium rocksdb zlib bzip2 snappy lz4 zstd \
-    protobuf boost jsoncpp nlohmann-json spdlog asio \
+    protobuf@29 abseil boost jsoncpp nlohmann-json spdlog asio \
     miniupnpc libnatpmp python rust && \
 pip3 install --upgrade pip
