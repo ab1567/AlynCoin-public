@@ -189,6 +189,9 @@ find_path(ROCKSDB_INCLUDE_DIR rocksdb/db.h)
 
 include_directories(${ROCKSDB_INCLUDE_DIR})
 
+# Ensure miniupnpc headers target the API version shipped with Ubuntu 24.04
+add_definitions(-DMINIUPNPC_API_VERSION=17)
+
 # ---- miniupnpc (UPnP) ----
 find_path(MINIUPNPC_INCLUDE_DIR miniupnpc/miniupnpc.h)
 find_library(MINIUPNPC_LIBRARY NAMES miniupnpc libminiupnpc)
