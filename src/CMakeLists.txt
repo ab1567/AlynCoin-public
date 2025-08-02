@@ -195,11 +195,15 @@ find_library(MINIUPNPC_LIBRARY NAMES miniupnpc libminiupnpc)
 
 if(MINIUPNPC_INCLUDE_DIR AND MINIUPNPC_LIBRARY)
     message(STATUS "miniupnpc found: ${MINIUPNPC_LIBRARY}")
-    set(HAVE_MINIUPNPC TRUE)
-    set(UPNP_LIB ${MINIUPNPC_LIBRARY})
+    add_library(miniupnpc INTERFACE)
+    target_include_directories(miniupnpc INTERFACE ${MINIUPNPC_INCLUDE_DIR})
+    target_link_libraries(miniupnpc INTERFACE ${MINIUPNPC_LIBRARY})
+    target_compile_definitions(miniupnpc INTERFACE
+        HAVE_MINIUPNPC
+        MINIUPNPC_API_VERSION=17
+    )
 else()
     message(WARNING "miniupnpc not found, UPnP will be disabled!")
-    set(HAVE_MINIUPNPC FALSE)
     set(UPNP_LIB "")
 endif()
 
@@ -356,10 +360,10 @@ else()
     )
 endif()
 
-if(HAVE_MINIUPNPC)
-    target_include_directories(alyncoin_lib PUBLIC ${MINIUPNPC_INCLUDE_DIR})
-    target_compile_definitions(alyncoin_lib PUBLIC HAVE_MINIUPNPC MINIUPNPC_API_VERSION=17)
-endif()
+# Ensure miniupnpc headers target the API version shipped with Ubuntu 24.04
+target_compile_definitions(alyncoin_lib
+    PUBLIC MINIUPNPC_API_VERSION=17
+)
 
 if(NOT SKIP_PROTOBUF_GEN)
     add_dependencies(alyncoin_lib protobuf_gen)
@@ -389,8 +393,10 @@ target_link_libraries(alyncoin_lib
         ${SODIUM_LIB}
         ${SOURCE_DIR}/rust/target/release/libzk_winterfell.a
         resolv
-        ${UPNP_LIB}
 )
+if(MINIUPNPC_INCLUDE_DIR AND MINIUPNPC_LIBRARY)
+    target_link_libraries(alyncoin_lib PUBLIC miniupnpc)
+endif()
 if(NATPMP_LIBRARY)
     # expose natpmp to any target linking alyncoin_lib
     target_link_libraries(alyncoin_lib PUBLIC ${NATPMP_LIBRARY})
