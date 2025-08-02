@@ -198,7 +198,10 @@ if(MINIUPNPC_INCLUDE_DIR AND MINIUPNPC_LIBRARY)
     add_library(miniupnpc INTERFACE)
     target_include_directories(miniupnpc INTERFACE ${MINIUPNPC_INCLUDE_DIR})
     target_link_libraries(miniupnpc INTERFACE ${MINIUPNPC_LIBRARY})
-    target_compile_definitions(miniupnpc INTERFACE HAVE_MINIUPNPC)
+    target_compile_definitions(miniupnpc INTERFACE
+        HAVE_MINIUPNPC
+        MINIUPNPC_API_VERSION=17
+    )
 else()
     message(WARNING "miniupnpc not found, UPnP will be disabled!")
     set(UPNP_LIB "")
