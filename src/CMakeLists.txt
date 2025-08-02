@@ -365,7 +365,7 @@ set_source_files_properties(
     PROPERTIES COMPILE_FLAGS "${SIMD_FLAGS}"
 )
 
-target_link_libraries(alyncoin_lib PRIVATE
+target_link_libraries(alyncoin_lib
     OpenSSL::Crypto
     OpenSSL::SSL
     ${JSONCPP_LIBRARIES}
@@ -381,13 +381,11 @@ target_link_libraries(alyncoin_lib PRIVATE
     ${SOURCE_DIR}/rust/target/release/libzk_winterfell.a
     resolv
 )
-
-# Propagate optional networking libraries so executables link them
 if(MINIUPNPC_LIBRARY)
-    target_link_libraries(alyncoin_lib PUBLIC ${MINIUPNPC_LIBRARY})
+    target_link_libraries(alyncoin_lib ${MINIUPNPC_LIBRARY})
 endif()
 if(NATPMP_LIBRARY)
-    target_link_libraries(alyncoin_lib PUBLIC ${NATPMP_LIBRARY})
+    target_link_libraries(alyncoin_lib ${NATPMP_LIBRARY})
 endif()
 
 # --------------------------
