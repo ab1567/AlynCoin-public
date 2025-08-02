@@ -202,8 +202,6 @@ if(MINIUPNPC_INCLUDE_DIR AND MINIUPNPC_LIBRARY)
         HAVE_MINIUPNPC
         MINIUPNPC_API_VERSION=17
     )
-    # expose miniupnpc to targets consuming UPNP_LIB
-    set(UPNP_LIB miniupnpc)
 else()
     message(WARNING "miniupnpc not found, UPnP will be disabled!")
     set(UPNP_LIB "")
