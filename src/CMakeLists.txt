@@ -189,14 +189,16 @@ find_path(ROCKSDB_INCLUDE_DIR rocksdb/db.h)
 
 include_directories(${ROCKSDB_INCLUDE_DIR})
 
+# ---- miniupnpc (UPnP) ----
 find_path(MINIUPNPC_INCLUDE_DIR miniupnpc/miniupnpc.h)
 find_library(MINIUPNPC_LIBRARY NAMES miniupnpc libminiupnpc)
 
 if(MINIUPNPC_INCLUDE_DIR AND MINIUPNPC_LIBRARY)
     message(STATUS "miniupnpc found: ${MINIUPNPC_LIBRARY}")
-    add_definitions(-DHAVE_MINIUPNPC)
-    include_directories(${MINIUPNPC_INCLUDE_DIR})
-    set(UPNP_LIB ${MINIUPNPC_LIBRARY})
+    add_library(miniupnpc INTERFACE)
+    target_include_directories(miniupnpc INTERFACE ${MINIUPNPC_INCLUDE_DIR})
+    target_link_libraries(miniupnpc INTERFACE ${MINIUPNPC_LIBRARY})
+    target_compile_definitions(miniupnpc INTERFACE HAVE_MINIUPNPC)
 else()
     message(WARNING "miniupnpc not found, UPnP will be disabled!")
     set(UPNP_LIB "")
@@ -384,9 +386,8 @@ target_link_libraries(alyncoin_lib
         ${SOURCE_DIR}/rust/target/release/libzk_winterfell.a
         resolv
 )
-if(MINIUPNPC_LIBRARY)
-    # make libminiupnpc propagate downstream
-    target_link_libraries(alyncoin_lib PUBLIC ${UPNP_LIB})
+if(MINIUPNPC_INCLUDE_DIR AND MINIUPNPC_LIBRARY)
+    target_link_libraries(alyncoin_lib PUBLIC miniupnpc)
 endif()
 if(NATPMP_LIBRARY)
     # expose natpmp to any target linking alyncoin_lib
