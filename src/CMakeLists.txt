@@ -530,6 +530,15 @@ target_link_libraries(metrics_server
     dl
 )
 
+# Propagate UPnP library to all executables when available
+if(HAVE_MINIUPNPC)
+    foreach(tgt alyncoin alyncoin-cli peer_blacklist_cli swapcli identitycli nftcli blacklist_test explorer_server metrics_server)
+        if(TARGET ${tgt})
+            target_link_libraries(${tgt} ${UPNP_LIB})
+        endif()
+    endforeach()
+endif()
+
 # --------------------------
 # Output Binaries Location
 set_target_properties(alyncoin alyncoin-cli explorer_server metrics_server peer_blacklist_cli blacklist_test swapcli identitycli PROPERTIES
