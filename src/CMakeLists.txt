@@ -195,6 +195,8 @@ find_library(MINIUPNPC_LIBRARY NAMES miniupnpc libminiupnpc)
 
 if(MINIUPNPC_INCLUDE_DIR AND MINIUPNPC_LIBRARY)
     message(STATUS "miniupnpc found: ${MINIUPNPC_LIBRARY}")
+    # Ensure the system miniupnpc headers take precedence over any vendored copy
+    include_directories(BEFORE SYSTEM ${MINIUPNPC_INCLUDE_DIR})
     set(HAVE_MINIUPNPC TRUE)
     set(UPNP_LIB ${MINIUPNPC_LIBRARY})
 else()
