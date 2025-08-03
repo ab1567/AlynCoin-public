@@ -3,7 +3,9 @@
 
 // Request legacy function names from miniupnpc so our existing
 // code continues to link against Ubuntu's 2.x library.
+#ifndef MINIUPNPC_SET_OLDNAMES
 #define MINIUPNPC_SET_OLDNAMES
+#endif
 #include <miniupnpc/miniupnpc.h>
 #include <miniupnpc/upnpcommands.h>
 #include <miniupnpc/upnperrors.h>

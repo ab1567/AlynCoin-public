@@ -360,7 +360,10 @@ endif()
 
 if(HAVE_MINIUPNPC)
     target_include_directories(alyncoin_lib PUBLIC ${MINIUPNPC_INCLUDE_DIR})
-    target_compile_definitions(alyncoin_lib PUBLIC HAVE_MINIUPNPC MINIUPNPC_API_VERSION=17)
+    target_compile_definitions(alyncoin_lib PUBLIC
+        HAVE_MINIUPNPC
+        MINIUPNPC_API_VERSION=17
+        MINIUPNPC_SET_OLDNAMES)
 endif()
 
 if(NOT SKIP_PROTOBUF_GEN)
