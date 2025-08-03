@@ -50,6 +50,7 @@
 #include <boost/lockfree/queue.hpp>
 #include "httplib.h"
 #ifdef HAVE_MINIUPNPC
+#define MINIUPNPC_SET_OLDNAMES 1
 #include <miniupnpc/miniupnpc.h>
 #include <miniupnpc/upnpcommands.h>
 #include <miniupnpc/upnperrors.h>
