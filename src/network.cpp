@@ -50,9 +50,7 @@
 #include <boost/lockfree/queue.hpp>
 #include "httplib.h"
 #ifdef HAVE_MINIUPNPC
-#include <miniupnpc/miniupnpc.h>
-#include <miniupnpc/upnpcommands.h>
-#include <miniupnpc/upnperrors.h>
+#include "upnp_compat.h"
 #endif
 #ifdef HAVE_LIBNATPMP
 #include <arpa/inet.h>
