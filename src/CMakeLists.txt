@@ -189,21 +189,10 @@ find_path(ROCKSDB_INCLUDE_DIR rocksdb/db.h)
 
 include_directories(${ROCKSDB_INCLUDE_DIR})
 
-# ---- miniupnpc (UPnP) ----
-find_path(MINIUPNPC_INCLUDE_DIR miniupnpc/miniupnpc.h)
-find_library(MINIUPNPC_LIBRARY NAMES miniupnpc libminiupnpc)
-
-if(MINIUPNPC_INCLUDE_DIR AND MINIUPNPC_LIBRARY)
-    message(STATUS "miniupnpc found: ${MINIUPNPC_LIBRARY}")
-    # Ensure the system miniupnpc headers take precedence over any vendored copy
-    include_directories(BEFORE SYSTEM ${MINIUPNPC_INCLUDE_DIR})
-    set(HAVE_MINIUPNPC TRUE)
-    set(UPNP_LIB ${MINIUPNPC_LIBRARY})
-else()
-    message(WARNING "miniupnpc not found, UPnP will be disabled!")
-    set(HAVE_MINIUPNPC FALSE)
-    set(UPNP_LIB "")
-endif()
+# --- miniupnpc (use bundled 1.x) -------------------------------------------
+set(HAVE_MINIUPNPC TRUE)
+add_subdirectory(${SOURCE_DIR}/deps/miniupnpc EXCLUDE_FROM_ALL)
+set(UPNP_LIB miniupnpc)
 
 find_path(NATPMP_INCLUDE_DIR natpmp.h)
 find_library(NATPMP_LIBRARY NAMES natpmp libnatpmp)
@@ -359,11 +348,9 @@ else()
 endif()
 
 if(HAVE_MINIUPNPC)
-    target_include_directories(alyncoin_lib PUBLIC ${MINIUPNPC_INCLUDE_DIR})
     target_compile_definitions(alyncoin_lib PUBLIC
         HAVE_MINIUPNPC
-        MINIUPNPC_API_VERSION=17
-        MINIUPNPC_SET_OLDNAMES)
+        MINIUPNPC_API_VERSION=17)
 endif()
 
 if(NOT SKIP_PROTOBUF_GEN)

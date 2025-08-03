@@ -1,56 +1,58 @@
 #include "network.h"
-#include "transport/ssl_transport.h"
-#include "tls_utils.h"
-#include "config.h"
 #include "blockchain.h"
+#include "config.h"
+#include "constants.h"
+#include "crypto/sphinx.h"
 #include "crypto_utils.h"
-#include <generated/block_protos.pb.h>
-#include <generated/sync_protos.pb.h>
-#include <generated/transaction_protos.pb.h>
+#include "httplib.h"
 #include "proto_utils.h"
+#include "protocol_codes.h"
 #include "rollup/proofs/proof_verifier.h"
 #include "rollup/rollup_block.h"
 #include "self_healing/self_healing_node.h"
 #include "syncing/headers_sync.h"
+#include "tls_utils.h"
 #include "transaction.h"
-#include "constants.h"
-#include "crypto/sphinx.h"
+#include "transport/ssl_transport.h"
 #include "wire/varint.h"
 #include "zk/winterfell_stark.h"
-#include <sodium.h>
 #include <algorithm>
-#include <random>
 #include <arpa/nameser.h>
 #include <array>
 #include <boost/asio.hpp>
-#include <boost/multiprecision/cpp_int.hpp>
 #include <boost/asio/connect.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/lockfree/queue.hpp>
+#include <boost/multiprecision/cpp_int.hpp>
 #include <cctype>
 #include <chrono>
-#include <limits>
-#include <ctime>
 #include <cstring>
+#include <ctime>
 #include <filesystem>
+#include <generated/block_protos.pb.h>
 #include <generated/net_frame.pb.h>
-#include "protocol_codes.h"
+#include <generated/sync_protos.pb.h>
+#include <generated/transaction_protos.pb.h>
 #include <google/protobuf/message.h>
 #include <google/protobuf/util/json_util.h>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <memory>
+#include <random>
 #include <resolv.h>
 #include <set>
+#include <sodium.h>
 #include <sstream>
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include <boost/lockfree/queue.hpp>
-#include "httplib.h"
 #ifdef HAVE_MINIUPNPC
-#include "upnp_compat.h"
+#include <miniupnpc/miniupnpc.h>
+#include <miniupnpc/upnpcommands.h>
+#include <miniupnpc/upnperrors.h>
 #endif
 #ifdef HAVE_LIBNATPMP
 #include <arpa/inet.h>
@@ -99,7 +101,7 @@ static constexpr uint32_t kFrameRevision = 5;
 static_assert(alyncoin::net::Frame::kBlockBroadcast == 6,
               "Frame field-numbers changed \u2013 bump kFrameRevision !");
 static_assert(alyncoin::net::Frame::kBlockRequest == 29 &&
-              alyncoin::net::Frame::kBlockResponse == 30,
+                  alyncoin::net::Frame::kBlockResponse == 30,
               "Frame field-numbers changed \u2013 bump kFrameRevision !");
 static constexpr uint64_t FRAME_LIMIT_MIN = 200;
 static constexpr uint64_t BYTE_LIMIT_MIN = 1 << 20;
@@ -169,7 +171,8 @@ struct RxItem {
 // Lock-free bounded queue for decoupling network I/O from processing
 static boost::lockfree::queue<RxItem *, boost::lockfree::capacity<128>> rxQ;
 // Thread pool used to process frames popped from the queue
-static httplib::ThreadPool pool(std::max(1u, std::thread::hardware_concurrency()));
+static httplib::ThreadPool pool(std::max(1u,
+                                         std::thread::hardware_concurrency()));
 static bool workersStarted = [] {
   unsigned n = std::max(1u, std::thread::hardware_concurrency());
   for (unsigned i = 0; i < n; ++i) {
@@ -216,8 +219,7 @@ unsigned short Network::findAvailablePort(unsigned short startPort,
 //
 
 bool Network::sendFrame(std::shared_ptr<Transport> tr,
-                        const google::protobuf::Message &m,
-                        bool immediate) {
+                        const google::protobuf::Message &m, bool immediate) {
   if (!tr || !tr->isOpen())
     return false;
   const alyncoin::net::Frame *fr =
@@ -241,27 +243,28 @@ bool Network::sendFrame(std::shared_ptr<Transport> tr,
       tag = WireFrame::SNAP_END;
     std::cerr << "[>>] Outgoing Frame Type=" << static_cast<int>(tag) << "\n";
   }
-size_t sz = m.ByteSizeLong();
-if (sz == 0) {
-    std::cerr << "[sendFrame] ❌ Attempting to send empty protobuf message!" << '\n';
+  size_t sz = m.ByteSizeLong();
+  if (sz == 0) {
+    std::cerr << "[sendFrame] ❌ Attempting to send empty protobuf message!"
+              << '\n';
     return false;
-}
-if (sz > MAX_WIRE_PAYLOAD) {
-    std::cerr << "[sendFrame] ❌ Payload too large: " << sz
-              << " bytes (limit " << MAX_WIRE_PAYLOAD << ")" << '\n';
+  }
+  if (sz > MAX_WIRE_PAYLOAD) {
+    std::cerr << "[sendFrame] ❌ Payload too large: " << sz << " bytes (limit "
+              << MAX_WIRE_PAYLOAD << ")" << '\n';
     return false;
-}
-std::vector<uint8_t> buf(sz);
-if (!m.SerializeToArray(buf.data(), static_cast<int>(sz))) {
+  }
+  std::vector<uint8_t> buf(sz);
+  if (!m.SerializeToArray(buf.data(), static_cast<int>(sz))) {
     std::cerr << "[sendFrame] ❌ SerializeToArray failed" << '\n';
     return false;
-}
-uint8_t var[10];
-size_t n = encodeVarInt(sz, var);
-std::string out(reinterpret_cast<char *>(var), n);
-out.append(reinterpret_cast<const char *>(buf.data()), sz);
-std::cerr << "[sendFrame] Sending frame, payload size: " << sz
-          << " bytes" << '\n';
+  }
+  uint8_t var[10];
+  size_t n = encodeVarInt(sz, var);
+  std::string out(reinterpret_cast<char *>(var), n);
+  out.append(reinterpret_cast<const char *>(buf.data()), sz);
+  std::cerr << "[sendFrame] Sending frame, payload size: " << sz << " bytes"
+            << '\n';
   if (immediate) {
     if (auto tcp = std::dynamic_pointer_cast<TcpTransport>(tr))
       return tcp->writeBinaryLocked(out);
@@ -303,7 +306,8 @@ void Network::sendPrivate(const std::string &peer,
     broadcastFrame(m);
     return;
   }
-  std::shuffle(peers.begin(), peers.end(), std::mt19937{std::random_device{}()});
+  std::shuffle(peers.begin(), peers.end(),
+               std::mt19937{std::random_device{}()});
   size_t hops = std::min<size_t>(3, peers.size() + 1);
   std::vector<std::string> route;
   for (size_t i = 0; i + 1 < hops; ++i)
@@ -319,16 +323,18 @@ void Network::sendPrivate(const std::string &peer,
     auto it = peerTransports.find(hop);
     if (it == peerTransports.end())
       return;
-    keys.emplace_back(it->second.state->linkKey.begin(), it->second.state->linkKey.end());
+    keys.emplace_back(it->second.state->linkKey.begin(),
+                      it->second.state->linkKey.end());
   }
 
   auto firstHop = route.front();
   std::string payload = m.SerializeAsString();
-  auto pkt = crypto::createPacket(std::vector<uint8_t>(payload.begin(), payload.end()),
-                                  route, keys);
+  auto pkt = crypto::createPacket(
+      std::vector<uint8_t>(payload.begin(), payload.end()), route, keys);
   alyncoin::net::Frame fr;
-  fr.mutable_whisper()->set_data(std::string(pkt.header.begin(), pkt.header.end()) +
-                                 std::string(pkt.payload.begin(), pkt.payload.end()));
+  fr.mutable_whisper()->set_data(
+      std::string(pkt.header.begin(), pkt.header.end()) +
+      std::string(pkt.payload.begin(), pkt.payload.end()));
   std::this_thread::sleep_for(std::chrono::milliseconds(50 + rand() % 101));
   sendFrame(peerTransports[firstHop].tx, fr);
 }
@@ -517,7 +523,7 @@ void tryUPnPPortMapping(int port) {
   } ctx;
 
   char lanAddr[64] = {0};
-  ctx.devlist = upnpDiscover(2000, nullptr, nullptr, 0, 0, 2, nullptr);
+  ctx.devlist = upnpDiscover(2000, nullptr, nullptr, 0, 0, nullptr, 2);
   if (!ctx.devlist) {
     std::cerr << "⚠️ [UPnP] upnpDiscover() failed or no devices found\n";
     return;
@@ -598,7 +604,8 @@ void tryNATPMPPortMapping(int port) {
 Network::Network(unsigned short port, Blockchain *blockchain,
                  PeerBlacklist *blacklistPtr)
     : port(port), blockchain(blockchain), isRunning(false), syncing(true),
-      ioContext(), tlsContext(nullptr), acceptor(ioContext), blacklist(blacklistPtr) {
+      ioContext(), tlsContext(nullptr), acceptor(ioContext),
+      blacklist(blacklistPtr) {
   nodeId = Crypto::generateRandomHex(16);
   if (!blacklistPtr) {
     std::cerr
@@ -607,7 +614,8 @@ Network::Network(unsigned short port, Blockchain *blockchain,
   }
 
   if (getAppConfig().enable_tls) {
-    tlsContext = std::make_unique<boost::asio::ssl::context>(boost::asio::ssl::context::tlsv12);
+    tlsContext = std::make_unique<boost::asio::ssl::context>(
+        boost::asio::ssl::context::tlsv12);
     std::string cert, key;
     tls::ensure_self_signed_cert(getAppConfig().data_dir, cert, key);
     tlsContext->use_certificate_chain_file(cert);
@@ -646,7 +654,8 @@ Network::Network(unsigned short port, Blockchain *blockchain,
     std::cout << "🌐 Network listener started on port: " << std::dec << port
               << "\n";
     peerManager = std::make_unique<PeerManager>(blacklistPtr, this);
-    selfHealer = std::make_unique<SelfHealingNode>(blockchain, peerManager.get());
+    selfHealer =
+        std::make_unique<SelfHealingNode>(blockchain, peerManager.get());
     isRunning = true;
     listenerThread = std::thread(&Network::listenForConnections, this);
     threads_.push_back(std::move(listenerThread));
@@ -676,33 +685,34 @@ void Network::listenForConnections() {
   std::cout << "🌐 Listening for connections on port: " << std::dec << port
             << std::endl;
 
-  acceptor.async_accept(
-      [this](boost::system::error_code ec, tcp::socket socket) {
-        if (!ec) {
-          std::cout << "🌐 [ACCEPTED] Incoming connection accepted.\n";
-          std::shared_ptr<Transport> transport;
-          if (getAppConfig().enable_tls && tlsContext) {
-            auto stream = std::make_shared<boost::asio::ssl::stream<tcp::socket>>(std::move(socket), *tlsContext);
-            transport = std::make_shared<SslTransport>(stream);
-            boost::system::error_code ec2;
-            stream->handshake(boost::asio::ssl::stream_base::server, ec2);
-            if (ec2) {
-              std::cerr << "❌ [TLS handshake] " << ec2.message() << "\n";
-              return;
-            }
-          } else {
-            auto sockPtr = std::make_shared<tcp::socket>(std::move(socket));
-            transport = std::make_shared<TcpTransport>(sockPtr);
-          }
-          if (transport)
-            std::thread(&Network::handlePeer, this, transport).detach();
-        } else {
-          std::cerr << "❌ [Network] Accept error: " << ec.message() << "\n";
+  acceptor.async_accept([this](boost::system::error_code ec,
+                               tcp::socket socket) {
+    if (!ec) {
+      std::cout << "🌐 [ACCEPTED] Incoming connection accepted.\n";
+      std::shared_ptr<Transport> transport;
+      if (getAppConfig().enable_tls && tlsContext) {
+        auto stream = std::make_shared<boost::asio::ssl::stream<tcp::socket>>(
+            std::move(socket), *tlsContext);
+        transport = std::make_shared<SslTransport>(stream);
+        boost::system::error_code ec2;
+        stream->handshake(boost::asio::ssl::stream_base::server, ec2);
+        if (ec2) {
+          std::cerr << "❌ [TLS handshake] " << ec2.message() << "\n";
+          return;
         }
+      } else {
+        auto sockPtr = std::make_shared<tcp::socket>(std::move(socket));
+        transport = std::make_shared<TcpTransport>(sockPtr);
+      }
+      if (transport)
+        std::thread(&Network::handlePeer, this, transport).detach();
+    } else {
+      std::cerr << "❌ [Network] Accept error: " << ec.message() << "\n";
+    }
 
-        // 🔁 Recursive call to keep the acceptor alive
-        listenForConnections();
-      });
+    // 🔁 Recursive call to keep the acceptor alive
+    listenForConnections();
+  });
 }
 //
 
@@ -720,7 +730,9 @@ void Network::autoMineBlock() {
       Blockchain &blockchain = *this->blockchain;
       if (!blockchain.getPendingTransactions().empty()) {
         if (!this->peerManager || this->peerManager->getPeerCount() == 0) {
-          std::cerr << "⚠️ Cannot auto-mine without peers connected. If error persists visit alyncoin.com" << std::endl;
+          std::cerr << "⚠️ Cannot auto-mine without peers connected. If error "
+                       "persists visit alyncoin.com"
+                    << std::endl;
           continue;
         }
         std::cout << "⛏️ New transactions detected. Starting mining..."
@@ -788,7 +800,8 @@ void Network::broadcastTransaction(const Transaction &tx) {
   if (peerTransports.size() <= 1) {
     for (const auto &kv : peerTransports) {
       if (kv.second.tx && kv.second.tx->isOpen()) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(50 + rand() % 101));
+        std::this_thread::sleep_for(
+            std::chrono::milliseconds(50 + rand() % 101));
         sendFrame(kv.second.tx, fr);
       }
     }
@@ -867,11 +880,9 @@ void Network::intelligentSync() {
 
     int gap = ph - localHeight;
     if (gap <= TAIL_SYNC_THRESHOLD) {
-      requestTailBlocks(peer, localHeight,
-                        blockchain->getLatestBlockHash());
+      requestTailBlocks(peer, localHeight, blockchain->getLatestBlockHash());
     } else if (gap <= MAX_TAIL_BLOCKS) {
-      requestTailBlocks(peer, localHeight,
-                        blockchain->getLatestBlockHash());
+      requestTailBlocks(peer, localHeight, blockchain->getLatestBlockHash());
     } else if (peerSupportsSnapshot(peer)) {
       requestSnapshotSync(peer);
     } else if (peerSupportsAggProof(peer)) {
@@ -904,9 +915,8 @@ void Network::broadcastPeerList() {
 
   for (const auto &peer : peers) {
     const std::string &ip = peer.first;
-    auto it = std::find_if(
-        peerTransports.begin(), peerTransports.end(),
-        [ip](const auto &kv) { return kv.second.ip == ip; });
+    auto it = std::find_if(peerTransports.begin(), peerTransports.end(),
+                           [ip](const auto &kv) { return kv.second.ip == ip; });
     if (it == peerTransports.end() || !it->second.tx)
       continue;
     alyncoin::net::Frame fr;
@@ -969,9 +979,9 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     randombytes_buf(myPriv.data(), myPriv.size());
     crypto_scalarmult_curve25519_base(myPub.data(), myPriv.data());
     if (hs.pub_key().size() == 32) {
-      if (crypto_scalarmult_curve25519(
-              shared.data(), myPriv.data(),
-              reinterpret_cast<const unsigned char *>(hs.pub_key().data())) != 0)
+      if (crypto_scalarmult_curve25519(shared.data(), myPriv.data(),
+                                       reinterpret_cast<const unsigned char *>(
+                                           hs.pub_key().data())) != 0)
         throw std::runtime_error("invalid peer public key");
     }
 
@@ -1108,7 +1118,8 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     int localHeight = static_cast<int>(Blockchain::getInstance().getHeight());
     int heightDiff = std::max(0, remoteHeight - localHeight);
     auto extra = BAN_GRACE_PER_BLOCK * heightDiff;
-    auto grace = BAN_GRACE_BASE + std::chrono::duration_cast<std::chrono::seconds>(extra);
+    auto grace = BAN_GRACE_BASE +
+                 std::chrono::duration_cast<std::chrono::seconds>(extra);
     if (grace > BAN_GRACE_MAX)
       grace = BAN_GRACE_MAX;
     entry.state->graceUntil = entry.state->connectedAt + grace;
@@ -1134,8 +1145,8 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
   // ── 4. push our handshake back ──────────────────────────────────────────
   {
     alyncoin::net::Handshake hs_out = buildHandshake();
-    hs_out.set_pub_key(std::string(reinterpret_cast<char *>(myPub.data()),
-                                   myPub.size()));
+    hs_out.set_pub_key(
+        std::string(reinterpret_cast<char *>(myPub.data()), myPub.size()));
     hs_out.set_snapshot_size(static_cast<uint32_t>(MAX_SNAPSHOT_CHUNK_SIZE));
     if (remoteWantSnap)
       hs_out.set_want_snapshot(true);
@@ -1433,9 +1444,9 @@ void Network::periodicSync() {
     if (it == peerTransports.end() || !it->second.tx ||
         !it->second.tx->isOpen()) {
       int port = it != peerTransports.end() ? it->second.port : 0;
-      const std::string &host = (it != peerTransports.end() && !it->second.ip.empty())
-                                    ? it->second.ip
-                                    : peerId;
+      const std::string &host =
+          (it != peerTransports.end() && !it->second.ip.empty()) ? it->second.ip
+                                                                 : peerId;
       connectToNode(host, port);
       auto it2 = peerTransports.find(peerId);
       if (it2 != peerTransports.end() && it2->second.tx &&
@@ -1896,7 +1907,8 @@ void Network::blacklistPeer(const std::string &peer) {
     if (it != peerTransports.end()) {
       auto now = std::chrono::steady_clock::now();
       if (it->second.state &&
-          it->second.state->graceUntil != std::chrono::steady_clock::time_point{} &&
+          it->second.state->graceUntil !=
+              std::chrono::steady_clock::time_point{} &&
           now < it->second.state->graceUntil) {
         std::cerr << "ℹ️  [ban] grace period active for " << peer << '\n';
         return;
@@ -1904,8 +1916,7 @@ void Network::blacklistPeer(const std::string &peer) {
 
       it->second.state->banCount++;
       minutes = std::min(60 * 24, minutes << (it->second.state->banCount - 1));
-      it->second.state->banUntil =
-          now + std::chrono::minutes(minutes);
+      it->second.state->banUntil = now + std::chrono::minutes(minutes);
     }
     peerTransports.erase(peer);
   }
@@ -2064,8 +2075,9 @@ void Network::addPeer(const std::string &peer) {
   }
   auto transport = std::make_shared<TcpTransport>(ioContext);
 
-  peerTransports.emplace(peer,
-                         PeerEntry{transport, std::make_shared<PeerState>(), false, 0, peer});
+  peerTransports.emplace(
+      peer,
+      PeerEntry{transport, std::make_shared<PeerState>(), false, 0, peer});
   if (auto it = peerTransports.find(peer); it != peerTransports.end()) {
     it->second.state->connectedAt = std::chrono::steady_clock::now();
     it->second.state->graceUntil =
@@ -2202,8 +2214,8 @@ void Network::startBinaryReadLoop(const std::string &peerId,
           auto &st = *it->second.state;
           failCount = ++st.parseFailCount;
           st.misScore += 10;
-          disconnect = failCount >= PARSE_FAIL_LIMIT ||
-                       st.misScore >= BAN_THRESHOLD;
+          disconnect =
+              failCount >= PARSE_FAIL_LIMIT || st.misScore >= BAN_THRESHOLD;
         }
       }
       if (disconnect) {
@@ -2222,7 +2234,8 @@ void Network::startBinaryReadLoop(const std::string &peerId,
   std::cout << "🔄 Binary read-loop armed for " << peerId << '\n';
 }
 
-void Network::processFrame(const alyncoin::net::Frame &f, const std::string &peer) {
+void Network::processFrame(const alyncoin::net::Frame &f,
+                           const std::string &peer) {
   if (!f.IsInitialized()) {
     std::cerr << "[net] Uninitialized frame from " << peer << '\n';
     return;
@@ -2250,8 +2263,8 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
     tag = WireFrame::SNAP_CHUNK;
   else if (f.has_snapshot_end())
     tag = WireFrame::SNAP_END;
-  std::cerr << "[<<] Incoming Frame from " << peer << " Type=" << static_cast<int>(tag)
-            << "\n";
+  std::cerr << "[<<] Incoming Frame from " << peer
+            << " Type=" << static_cast<int>(tag) << "\n";
   switch (f.kind_case()) {
   case alyncoin::net::Frame::kHandshake: {
     const auto &hs = f.handshake();
@@ -2505,18 +2518,22 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
       break;
     crypto::SphinxPacket inner;
     std::string nextHop;
-    if (!crypto::peelPacket(pkt,
-                            std::vector<uint8_t>(it->second.state->linkKey.begin(),
-                                                 it->second.state->linkKey.end()),
-                            &nextHop, &inner))
+    if (!crypto::peelPacket(
+            pkt,
+            std::vector<uint8_t>(it->second.state->linkKey.begin(),
+                                 it->second.state->linkKey.end()),
+            &nextHop, &inner))
       break;
     if (!nextHop.empty()) {
       auto itF = peerTransports.find(nextHop);
-      if (itF != peerTransports.end() && itF->second.tx && itF->second.tx->isOpen()) {
+      if (itF != peerTransports.end() && itF->second.tx &&
+          itF->second.tx->isOpen()) {
         alyncoin::net::Frame fr;
-        fr.mutable_whisper()->set_data(std::string(inner.header.begin(), inner.header.end()) +
-                                       std::string(inner.payload.begin(), inner.payload.end()));
-        std::this_thread::sleep_for(std::chrono::milliseconds(50 + rand() % 101));
+        fr.mutable_whisper()->set_data(
+            std::string(inner.header.begin(), inner.header.end()) +
+            std::string(inner.payload.begin(), inner.payload.end()));
+        std::this_thread::sleep_for(
+            std::chrono::milliseconds(50 + rand() % 101));
         sendFrame(itF->second.tx, fr);
       }
     } else {
@@ -2572,8 +2589,8 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     auto it = peerTransports.find(peerKey);
     if (it != peerTransports.end() &&
         std::chrono::steady_clock::now() < it->second.state->banUntil) {
-      std::cerr << "⚠️ [connectToNode] " << peerKey
-                << " is temporarily banned." << '\n';
+      std::cerr << "⚠️ [connectToNode] " << peerKey << " is temporarily banned."
+                << '\n';
       return false;
     }
   }
@@ -2588,8 +2605,8 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
         ++count;
     }
     if (count >= 2) {
-      std::cerr << "⚠️ [connectToNode] prefix limit reached for " << host
-                << " (" << prefix << " count=" << count << ")" << '\n';
+      std::cerr << "⚠️ [connectToNode] prefix limit reached for " << host << " ("
+                << prefix << " count=" << count << ")" << '\n';
       return false;
     }
   }
@@ -2601,17 +2618,17 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     if (getAppConfig().enable_tls && tlsContext) {
       auto sslTx = std::make_shared<SslTransport>(ioContext, *tlsContext);
       if (!sslTx->connect(host, remotePort)) {
-        std::cerr << "❌ [connectToNode] Connection to " << host << ':' << remotePort
-                  << " failed." << '\n';
+        std::cerr << "❌ [connectToNode] Connection to " << host << ':'
+                  << remotePort << " failed." << '\n';
         return false;
       }
       tx = sslTx;
     } else {
       auto plain = std::make_shared<TcpTransport>(ioContext);
       if (!plain->connect(host, remotePort)) {
-      std::cerr << "❌ [connectToNode] Connection to " << host << ':' << remotePort
-                << " failed." << '\n';
-      return false;
+        std::cerr << "❌ [connectToNode] Connection to " << host << ':'
+                  << remotePort << " failed." << '\n';
+        return false;
       }
       tx = plain;
     }
@@ -2678,7 +2695,8 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
                 << '\n';
       std::lock_guard<std::timed_mutex> g(peersMutex);
       auto it = peerTransports.find(peerKey);
-      if (it != peerTransports.end() && it->second.tx && it->second.tx->isOpen()) {
+      if (it != peerTransports.end() && it->second.tx &&
+          it->second.tx->isOpen()) {
         if (auto tcp = std::dynamic_pointer_cast<TcpTransport>(tx))
           tcp->close();
         else if (auto ssl = std::dynamic_pointer_cast<SslTransport>(tx))
@@ -2718,12 +2736,12 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
 
     std::array<uint8_t, 32> shared{};
     if (rhs.pub_key().size() == 32) {
-      if (crypto_scalarmult_curve25519(
-              shared.data(), myPriv.data(),
-              reinterpret_cast<const unsigned char *>(rhs.pub_key().data())) != 0) {
+      if (crypto_scalarmult_curve25519(shared.data(), myPriv.data(),
+                                       reinterpret_cast<const unsigned char *>(
+                                           rhs.pub_key().data())) != 0) {
         tx->close();
-        std::cerr << "⚠️ [connectToNode] invalid peer public key from " << peerKey
-                  << '\n';
+        std::cerr << "⚠️ [connectToNode] invalid peer public key from "
+                  << peerKey << '\n';
         return false;
       }
     }
@@ -2756,23 +2774,24 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
           return false;
         }
       } else {
-        peerTransports[finalKey] = {tx, std::make_shared<PeerState>(), true, remotePort, host};
+        peerTransports[finalKey] = {tx, std::make_shared<PeerState>(), true,
+                                    remotePort, host};
       }
       knownPeers.insert(finalKey);
       if (anchorPeers.size() < 2)
         anchorPeers.insert(finalKey);
-        auto st = peerTransports[finalKey].state;
-        st->connectedAt = std::chrono::steady_clock::now();
-        st->graceUntil = st->connectedAt + BAN_GRACE_BASE;
-        st->supportsAggProof = theirAgg;
-        st->supportsSnapshot = theirSnap;
-        st->supportsWhisper = theirWhisper;
-        st->supportsTls = theirTls;
-        st->supportsBanDecay = theirBanDecay;
-        st->frameRev = remoteRev;
-        st->version = rhs.version();
-        st->lastTailHeight = theirHeight;
-        st->highestSeen = static_cast<uint32_t>(theirHeight);
+      auto st = peerTransports[finalKey].state;
+      st->connectedAt = std::chrono::steady_clock::now();
+      st->graceUntil = st->connectedAt + BAN_GRACE_BASE;
+      st->supportsAggProof = theirAgg;
+      st->supportsSnapshot = theirSnap;
+      st->supportsWhisper = theirWhisper;
+      st->supportsTls = theirTls;
+      st->supportsBanDecay = theirBanDecay;
+      st->frameRev = remoteRev;
+      st->version = rhs.version();
+      st->lastTailHeight = theirHeight;
+      st->highestSeen = static_cast<uint32_t>(theirHeight);
       if (rhs.pub_key().size() == 32)
         std::copy(shared.begin(), shared.end(), st->linkKey.begin());
       if (peerManager) {
@@ -2868,8 +2887,9 @@ void Network::loadPeers() {
         std::string decoded = Crypto::base64Decode(keyB64, false);
         if (decoded.size() == 32) {
           std::lock_guard<std::timed_mutex> lk(peersMutex);
-          auto it = std::find_if(peerTransports.begin(), peerTransports.end(),
-                                [&](const auto &kv){ return kv.second.ip == ip; });
+          auto it =
+              std::find_if(peerTransports.begin(), peerTransports.end(),
+                           [&](const auto &kv) { return kv.second.ip == ip; });
           if (it != peerTransports.end() && it->second.state)
             std::copy(decoded.begin(), decoded.end(),
                       it->second.state->linkKey.begin());
@@ -2931,8 +2951,9 @@ void Network::savePeers() {
 
   for (const auto &[peerId, entry] : peerTransports) {
     if (!entry.ip.empty()) {
-      std::string keyStr = Crypto::base64Encode(std::string(
-          entry.state->linkKey.begin(), entry.state->linkKey.end()), false);
+      std::string keyStr = Crypto::base64Encode(
+          std::string(entry.state->linkKey.begin(), entry.state->linkKey.end()),
+          false);
       file << entry.ip << ':' << entry.port << ' ' << keyStr << std::endl;
     }
   }
@@ -3154,7 +3175,8 @@ void Network::sendSnapshot(std::shared_ptr<Transport> transport,
   int height = upToHeight < 0 ? bc.getHeight() : upToHeight;
   if (height > bc.getHeight())
     height = bc.getHeight();
-  int start = height >= MAX_SNAPSHOT_BLOCKS ? height - MAX_SNAPSHOT_BLOCKS + 1 : 0;
+  int start =
+      height >= MAX_SNAPSHOT_BLOCKS ? height - MAX_SNAPSHOT_BLOCKS + 1 : 0;
   std::vector<Block> blocks = bc.getChainSlice(start, height);
   SnapshotProto snap;
   snap.set_height(height);
@@ -3376,15 +3398,15 @@ void Network::handleSnapshotEnd(const std::string &peer) {
     uint64_t localW64 = safeUint64(localWork);
     uint64_t remoteW64 = safeUint64(remoteWork);
     std::string localTipHash = chain.getLatestBlockHash();
-    std::string remoteTipHash = snapBlocks.empty() ? "" : snapBlocks.back().getHash();
+    std::string remoteTipHash =
+        snapBlocks.empty() ? "" : snapBlocks.back().getHash();
     int reorgDepth = std::max(0, localHeight - snap.height());
     int chk = chain.getCheckpointHeight();
     int maxReorg = MAX_REORG;
     if (chk > 0)
-        maxReorg = std::min(maxReorg, localHeight - (chk - 2));
+      maxReorg = std::min(maxReorg, localHeight - (chk - 2));
     bool accept = remoteTipHash != localTipHash &&
-                  remoteW64 > localW64 * 1.01 &&
-                  reorgDepth <= maxReorg;
+                  remoteW64 > localW64 * 1.01 && reorgDepth <= maxReorg;
 
     if (!accept) {
       std::cerr << "⚠️ [SNAPSHOT] Rejected snapshot from " << peer << " (height "
@@ -3459,8 +3481,7 @@ void Network::handleTailBlocks(const std::string &peer,
 
     size_t pos = 0;
     const std::string localTip = chain.getLatestBlockHash();
-    while (pos < blocks.size() &&
-           blocks[pos].getPreviousHash() != localTip) {
+    while (pos < blocks.size() && blocks[pos].getPreviousHash() != localTip) {
       ++pos;
     }
     if (pos == blocks.size())
@@ -3560,7 +3581,7 @@ void Network::requestSnapshotSync(const std::string &peer) {
 }
 
 void Network::requestTailBlocks(const std::string &peer, int fromHeight,
-                               const std::string &anchorHash) {
+                                const std::string &anchorHash) {
   auto it = peerTransports.find(peer);
   if (it == peerTransports.end() || !it->second.tx)
     return;
@@ -3573,7 +3594,8 @@ void Network::requestTailBlocks(const std::string &peer, int fromHeight,
   sendFrame(it->second.tx, fr);
 }
 
-void Network::requestBlockByHash(const std::string &peer, const std::string &hash) {
+void Network::requestBlockByHash(const std::string &peer,
+                                 const std::string &hash) {
   auto it = peerTransports.find(peer);
   if (it == peerTransports.end() || !it->second.tx)
     return;
