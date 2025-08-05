@@ -53,6 +53,9 @@
 #include <miniupnpc/miniupnpc.h>
 #include <miniupnpc/upnpcommands.h>
 #include <miniupnpc/upnperrors.h>
+#ifndef MINIUPNPC_API_VERSION
+#define MINIUPNPC_API_VERSION 0
+#endif
 #endif
 #ifdef HAVE_LIBNATPMP
 #include <arpa/inet.h>
@@ -529,16 +532,19 @@ void tryUPnPPortMapping(int port) {
     return;
   }
 
-  int igdStatus;
-#ifdef __APPLE__
-  int upnp_err = 0;
-  // Homebrew's miniupnpc uses a 7-arg version of UPNP_GetValidIGD where the
-  // last two parameters are plain integers.
-  igdStatus = UPNP_GetValidIGD(ctx.devlist, &ctx.urls, &ctx.data, lanAddr,
-                               sizeof(lanAddr), 0, upnp_err);
+  int igdStatus = 0;
+#if defined(ALYN_DISABLE_UPNP)
+  // UPnP disabled; nothing to do.
+#elif defined(MINIUPNPC_API_VERSION) && (MINIUPNPC_API_VERSION >= 18)
+  // Newer miniupnpc uses a 7-arg version of UPNP_GetValidIGD.
+  igdStatus =
+      UPNP_GetValidIGD(ctx.devlist, &ctx.urls, &ctx.data, lanAddr,
+                       sizeof(lanAddr), nullptr, 0);
 #else
-  igdStatus = UPNP_GetValidIGD(ctx.devlist, &ctx.urls, &ctx.data, lanAddr,
-                               sizeof(lanAddr));
+  // Older miniupnpc uses the 5-arg form.
+  igdStatus =
+      UPNP_GetValidIGD(ctx.devlist, &ctx.urls, &ctx.data, lanAddr,
+                       sizeof(lanAddr));
 #endif
   if (igdStatus != 1) {
     std::cerr << "⚠️ [UPnP] No valid IGD found\n";
