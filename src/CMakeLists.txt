@@ -4,6 +4,12 @@ project(alyncoin)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+if (WIN32)
+  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded")
+  add_definitions(-DWIN32_LEAN_AND_MEAN -DNOMINMAX -DMINIUPNP_STATICLIB)
+  set(OPENSSL_USE_STATIC_LIBS ON)
+endif()
+
 # -----------------------------------------
 # Protobuf: Ensure static linking and use pkg-config for dependencies
 set(Protobuf_USE_STATIC_LIBS ON)
@@ -266,6 +272,18 @@ add_custom_target(winterfell_ffi ALL
     COMMENT "Building Winterfell zk-STARK Rust FFI..."
 )
 
+if (WIN32)
+  set(WINTERFELL_LIB "${SOURCE_DIR}/rust/target/x86_64-pc-windows-msvc/release/zk_winterfell.lib")
+else()
+  set(WINTERFELL_LIB "${SOURCE_DIR}/rust/target/release/libzk_winterfell.a")
+endif()
+
+if (WIN32)
+  set(PLAT_LIBS ws2_32)
+else()
+  set(PLAT_LIBS pthread m dl resolv)
+endif()
+
 # === Falcon Static Library ===
 file(GLOB FALCON_CLEAN_SOURCES
     ${SOURCE_DIR}/crypto/falcon/PQClean/Falcon-1024/clean/*.c
@@ -370,17 +388,14 @@ target_link_libraries(alyncoin_lib
         OpenSSL::Crypto
         OpenSSL::SSL
         ${JSONCPP_LIBRARIES}
-        pthread
         crypto
-        m
-        dl
         ${ROCKSDB_LIB}
         ${PROTOBUF_STATIC_LIBS} # <-- FULL protobuf + absl + utf8_range + etc.
         falcon
         dilithium
         ${SODIUM_LIB}
-        ${SOURCE_DIR}/rust/target/release/libzk_winterfell.a
-        resolv
+        ${WINTERFELL_LIB}
+        ${PLAT_LIBS}
 )
 if(HAVE_MINIUPNPC)
     target_link_libraries(alyncoin_lib PUBLIC ${UPNP_LIB})
@@ -405,15 +420,13 @@ add_dependencies(alyncoin-cli winterfell_ffi)
 add_dependencies(peer_blacklist_cli winterfell_ffi)
 
 target_compile_definitions(alyncoin PRIVATE ALYNCOIN_MAIN_PROCESS)
-target_link_libraries(alyncoin alyncoin_lib pthread m dl)
-target_link_libraries(alyncoin-cli alyncoin_lib pthread m dl)
+target_link_libraries(alyncoin alyncoin_lib ${PLAT_LIBS})
+target_link_libraries(alyncoin-cli alyncoin_lib ${PLAT_LIBS})
 target_link_libraries(peer_blacklist_cli
     alyncoin_lib
     ${JSONCPP_LIBRARIES}
     ${ROCKSDB_LIB}
-    pthread
-    m
-    dl
+    ${PLAT_LIBS}
 )
 
 # --------------------------
@@ -429,14 +442,12 @@ target_link_libraries(swapcli
     alyncoin_lib
     ${JSONCPP_LIBRARIES}
     ${ROCKSDB_LIB}
-    pthread
     crypto
-    m
-    dl
     falcon
     dilithium
     ${PROTOBUF_STATIC_LIBS}
-    ${SOURCE_DIR}/rust/target/release/libzk_winterfell.a
+    ${WINTERFELL_LIB}
+    ${PLAT_LIBS}
 )
 
 add_executable(identitycli
@@ -450,13 +461,11 @@ target_link_libraries(identitycli
     alyncoin_lib
     ${JSONCPP_LIBRARIES}
     ${ROCKSDB_LIB}
-    pthread
     crypto
-    m
-    dl
     falcon
     dilithium
     ${PROTOBUF_STATIC_LIBS}
+    ${PLAT_LIBS}
 )
 
 add_executable(nftcli
@@ -471,14 +480,12 @@ target_link_libraries(nftcli
     alyncoin_lib
     ${JSONCPP_LIBRARIES}
     ${ROCKSDB_LIB}
-    pthread
     crypto
-    m
-    dl
     OpenSSL::Crypto
     falcon
     dilithium
     ${PROTOBUF_STATIC_LIBS}
+    ${PLAT_LIBS}
 )
 
 # --------------------------
@@ -489,9 +496,7 @@ target_link_libraries(blacklist_test
     alyncoin_lib
     ${JSONCPP_LIBRARIES}
     ${ROCKSDB_LIB}
-    pthread
-    m
-    dl
+    ${PLAT_LIBS}
 )
 
 # --------------------------
@@ -503,10 +508,8 @@ target_link_libraries(explorer_server
     alyncoin_lib
     ${JSONCPP_LIBRARIES}
     ${ROCKSDB_LIB}
-    pthread
     ${PROTOBUF_STATIC_LIBS}
-    m
-    dl
+    ${PLAT_LIBS}
 )
 
 # --------------------------
@@ -517,9 +520,7 @@ target_include_directories(metrics_server PRIVATE ${SOURCE_DIR}/metrics ${SOURCE
 target_link_libraries(metrics_server
     alyncoin_lib
     ${JSONCPP_LIBRARIES}
-    pthread
-    m
-    dl
+    ${PLAT_LIBS}
 )
 
 # Propagate UPnP library to all executables when available

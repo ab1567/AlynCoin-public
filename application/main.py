@@ -46,15 +46,6 @@ DEFAULT_DNS_PEERS = [
 # Keep track of the launched node process so we can terminate it on exit
 node_process = None
 
-
-def windows_to_wsl_path(path: str) -> str:
-    """Convert a Windows path like C:\\Foo\\Bar to /mnt/c/Foo/Bar"""
-    drive, rest = os.path.splitdrive(path)
-    drive = drive.rstrip(":").lower()
-    rest = rest.replace("\\", "/")
-    return f"/mnt/{drive}{rest}"
-
-
 # ---- DNS Peer Resolver (returns ALL peers) ----
 def get_peers_from_dns():
     peers = []
@@ -187,37 +178,24 @@ def ensure_alyncoin_node(block=True):
             print(f"⚠️ Could not verify shared libraries: {e}")
     log_file = open(os.devnull, "w")
 
-    if platform.system() == "Windows":
-        # Run the node directly through wsl so we retain a process handle
-        wsl_dir = windows_to_wsl_path(os.path.dirname(bin_path))
-        cmd = ["wsl", "-d", "Ubuntu", "--cd", wsl_dir, "--", "./alyncoin"]
-        try:
-            node_process = subprocess.Popen(
-                cmd,
-                stdout=log_file,
-                stderr=log_file,
-                stdin=subprocess.DEVNULL,
-                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
-            )
-            print(f"🚀 Launched WSL node via wsl.exe (PID={node_process.pid})")
-        except Exception as e:
-            print(f"❌ Failed to launch node via wsl: {e}")
-            log_file.close()
-            return False
-
-    else:
-        # Linux/macOS launch
-        try:
-            node_process = subprocess.Popen(
-                [bin_path],
-                stdout=log_file, stderr=log_file, stdin=subprocess.DEVNULL,
-                close_fds=True, start_new_session=True
-            )
-            print(f"🚀 Launched node: {bin_path} (PID={node_process.pid})")
-        except Exception as e:
-            print(f"❌ Failed to launch node: {e}")
-            log_file.close()
-            return False
+    try:
+        creationflags = 0
+        if platform.system() == "Windows":
+            creationflags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
+        node_process = subprocess.Popen(
+            [bin_path],
+            stdout=log_file,
+            stderr=log_file,
+            stdin=subprocess.DEVNULL,
+            close_fds=(platform.system() != "Windows"),
+            start_new_session=(platform.system() != "Windows"),
+            creationflags=creationflags,
+        )
+        print(f"🚀 Launched node: {bin_path} (PID={node_process.pid})")
+    except Exception as e:
+        print(f"❌ Failed to launch node: {e}")
+        log_file.close()
+        return False
 
     if block:
         for _ in range(40):  # up to 20 seconds
@@ -242,10 +220,6 @@ def terminate_alyncoin_node():
             node_process.kill()
         finally:
             node_process = None
-        # Ensure the WSL process isn't lingering
-        if platform.system() == "Windows":
-            subprocess.run(["wsl", "-d", "Ubuntu", "pkill", "-f", "alyncoin"],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 # ---- Resource helpers ----
 def get_logo_path():
