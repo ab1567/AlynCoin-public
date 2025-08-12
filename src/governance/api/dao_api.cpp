@@ -2,7 +2,7 @@
 #include "../../governance/devfund.h"
 #include "../../governance/dao_storage.h"
 #include "crow_all.h"
-#include <nlohmann/json.hpp>
+#include "../../json.hpp"
 #include <rocksdb/db.h>
 #include "db/db_paths.h"
 

@@ -2,7 +2,7 @@
 #include "../src/crypto_utils.h"
 #include "../zk/winterfell_stark.h"
 #include "../src/blockchain.h"
-#include <nlohmann/json.hpp>
+#include "../json.hpp"
 #include <iostream>
 #include <sstream>
 #include <cstdlib>
