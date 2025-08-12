@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(alyncoin)
+project(alyncoin LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -153,7 +153,9 @@ endif()
 
 # ---------- Dependencies ----------
 find_package(OpenSSL REQUIRED)
-find_package(Protobuf REQUIRED)
+find_package(protobuf CONFIG REQUIRED)
+# Make protoc path available to the codegen rule
+set(Protobuf_PROTOC_EXECUTABLE $<TARGET_FILE:protobuf::protoc>)
 
 if (WIN32)
   # vcpkg config packages on Windows
@@ -303,16 +305,17 @@ target_include_directories(falcon PUBLIC
   ${SOURCE_DIR}/crypto/falcon/PQClean/common/keccak2x
   ${SOURCE_DIR}/crypto/falcon/PQClean/common/keccak4x
 )
+# Use definitions (portable across MSVC/GCC) instead of -D flags
+target_compile_definitions(falcon PUBLIC
+  PQCLEAN_FALCON1024_CLEAN_NAMESPACE=PQCLEAN_FALCON1024_CLEAN_
+  SHAKE256_NAMESPACE=PQCLEAN_FALCON1024_CLEAN_
+)
 if (NOT MSVC)
   set_source_files_properties(
     ${SOURCE_DIR}/crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.c
     PROPERTIES COMPILE_FLAGS "-mavx2 -msse4.1"
   )
 endif()
-target_compile_options(falcon PUBLIC
-  -DPQCLEAN_FALCON1024_CLEAN_NAMESPACE=PQCLEAN_FALCON1024_CLEAN_
-  -DSHAKE256_NAMESPACE=PQCLEAN_FALCON1024_CLEAN_
-)
 
 # ---------- Dilithium (C) ----------
 file(GLOB DILITHIUM_SOURCES
@@ -321,8 +324,8 @@ file(GLOB DILITHIUM_SOURCES
 )
 add_library(dilithium STATIC ${DILITHIUM_SOURCES})
 target_include_directories(dilithium PUBLIC ${SOURCE_DIR}/crypto/dilithium/ref)
-target_compile_options(dilithium PUBLIC
-  -DPQCLEAN_DILITHIUM2_CLEAN_NAMESPACE=PQCLEAN_DILITHIUM2_CLEAN_
+target_compile_definitions(dilithium PUBLIC
+  PQCLEAN_DILITHIUM2_CLEAN_NAMESPACE=PQCLEAN_DILITHIUM2_CLEAN_
 )
 
 # ---------- Core static lib ----------
