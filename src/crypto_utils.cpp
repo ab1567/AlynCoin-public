@@ -23,7 +23,12 @@
 #include <random>
 #include <sstream>
 #include <thread>
+#ifdef _WIN32
+#include <io.h>
+#include <Windows.h>
+#else
 #include <unistd.h>
+#endif
 #include <vector>
 #include "db/db_paths.h"
 extern "C" {
