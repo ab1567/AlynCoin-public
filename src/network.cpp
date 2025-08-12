@@ -553,7 +553,14 @@ void tryUPnPPortMapping(int port) {
   } ctx;
 
   char lanAddr[64] = {0};
-  ctx.devlist = upnpDiscover(2000, nullptr, nullptr, 0, 0, nullptr, 2);
+  int upnpErr = 0;
+#if defined(MINIUPNPC_API_VERSION) && (MINIUPNPC_API_VERSION >= 18)
+  // Newer miniupnpc (API >= 18) takes the TTL parameter before the error ptr
+  ctx.devlist = upnpDiscover(2000, nullptr, nullptr, 0, 0, 2, &upnpErr);
+#else
+  // Older miniupnpc releases expect the error pointer before the TTL
+  ctx.devlist = upnpDiscover(2000, nullptr, nullptr, 0, 0, &upnpErr, 2);
+#endif
   if (!ctx.devlist) {
     std::cerr << "⚠️ [UPnP] upnpDiscover() failed or no devices found\n";
     return;

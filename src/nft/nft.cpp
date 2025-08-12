@@ -7,7 +7,6 @@
 #include <sstream>
 #include <cstdlib>
 #include <fstream>
-#include <unistd.h>
 #include <csignal>
 #include "db/db_paths.h"
 #include <chrono>
