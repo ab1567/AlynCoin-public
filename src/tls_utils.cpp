@@ -9,9 +9,11 @@ namespace tls {
 
 bool ensure_self_signed_cert(const std::string& dir, std::string& certPath, std::string& keyPath) {
     namespace fs = std::filesystem;
-    certPath = fs::path(dir) / "cert.pem";
-    keyPath  = fs::path(dir) / "key.pem";
-    if (fs::exists(certPath) && fs::exists(keyPath))
+    fs::path certP = fs::path(dir) / "cert.pem";
+    fs::path keyP  = fs::path(dir) / "key.pem";
+    certPath = certP.string();
+    keyPath  = keyP.string();
+    if (fs::exists(certP) && fs::exists(keyP))
         return true;
 
     EVP_PKEY* pkey = nullptr;

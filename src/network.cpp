@@ -17,7 +17,6 @@
 #include "wire/varint.h"
 #include "zk/winterfell_stark.h"
 #include <algorithm>
-#include <arpa/nameser.h>
 #include <array>
 #include <boost/asio.hpp>
 #include <boost/asio/connect.hpp>
@@ -41,7 +40,10 @@
 #include <limits>
 #include <memory>
 #include <random>
+#ifndef _WIN32
+#include <arpa/nameser.h>
 #include <resolv.h>
+#endif
 #include <set>
 #include <sodium.h>
 #include <sstream>
@@ -58,9 +60,13 @@
 #endif
 #endif
 #ifdef HAVE_LIBNATPMP
+#ifdef _WIN32
+#include <winsock2.h>
+#else
 #include <arpa/inet.h>
-#include <natpmp.h>
 #include <sys/select.h>
+#endif
+#include <natpmp.h>
 #endif
 #include "transport/pubsub_router.h"
 #include "transport/tcp_transport.h"
@@ -460,6 +466,7 @@ static const std::vector<std::string> DEFAULT_DNS_PEERS = {
     "35.208.110.26:15671"};
 
 // ==== [DNS Peer Discovery] ====
+#ifndef _WIN32
 std::vector<std::string> fetchPeersFromDNS(const std::string &domain) {
   std::vector<std::string> peers;
 
@@ -510,6 +517,13 @@ std::vector<std::string> fetchPeersFromDNS(const std::string &domain) {
   }
   return peers;
 }
+#else
+std::vector<std::string> fetchPeersFromDNS(const std::string &domain) {
+  std::cerr << "⚠️ [DNS] Peer discovery via TXT records not supported on Windows" << "\n";
+  (void)domain;
+  return DEFAULT_DNS_PEERS;
+}
+#endif
 
 // ==== [Network Ctor/Dtor] ====
 #ifdef HAVE_MINIUPNPC

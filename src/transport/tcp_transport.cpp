@@ -10,7 +10,14 @@
 #include <cstring>
 #include <thread>
 #include <chrono>
+#ifdef _WIN32
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0601
+#endif
+#include <winsock2.h>
+#else
 #include <sys/select.h>
+#endif
 #include "wire/varint.h"
 #include "config.h"
 #include "constants.h"
