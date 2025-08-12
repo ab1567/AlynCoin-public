@@ -1,3 +1,5 @@
+#ifndef ALYNCOIN_SRC_CONSTANTS_H
+#define ALYNCOIN_SRC_CONSTANTS_H
 #pragma once
 #include <cstddef>
 #include <cstdint>
@@ -28,3 +30,4 @@ inline constexpr std::size_t MAX_TAIL_PAYLOAD = 200 * 1024; // safe tail chunk
 inline constexpr std::size_t MAX_INV_PER_MSG = 500;         // inventory batch cap
 // Limit blocks included in a snapshot to avoid sending the full chain
 inline constexpr int MAX_SNAPSHOT_BLOCKS = 1000;
+#endif // ALYNCOIN_SRC_CONSTANTS_H
