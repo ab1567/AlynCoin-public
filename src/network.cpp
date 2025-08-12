@@ -22,8 +22,9 @@
 #include <boost/asio/connect.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
-#include <boost/lockfree/queue.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
+#include <condition_variable>
+#include <queue>
 #include <cctype>
 #include <chrono>
 #include <cstring>
@@ -177,19 +178,31 @@ struct RxItem {
   alyncoin::net::Frame frame;
   std::string peer;
 };
-// Lock-free bounded queue for decoupling network I/O from processing
-static boost::lockfree::queue<RxItem *, boost::lockfree::capacity<128>> rxQ;
+// Bounded queue for decoupling network I/O from processing. The original
+// implementation relied on boost::lockfree::queue which is unavailable in
+// some build environments (e.g. Windows). We now use a small wrapper around
+// std::queue guarded by a mutex and condition variable. While not lock-free,
+// it keeps the dependency footprint minimal and still provides the same
+// bounded semantics as before.
+static std::queue<RxItem *> rxQ;
+static std::mutex rxQMutex;
+static std::condition_variable rxQCv;
+static constexpr std::size_t RXQ_CAPACITY = 128;
 // Thread pool used to process frames popped from the queue
-static httplib::ThreadPool pool(std::max(1u,
-                                         std::thread::hardware_concurrency()));
+static httplib::ThreadPool pool(
+    std::max(1u, std::thread::hardware_concurrency()));
 static bool workersStarted = [] {
   unsigned n = std::max(1u, std::thread::hardware_concurrency());
   for (unsigned i = 0; i < n; ++i) {
     pool.enqueue([] {
       for (;;) {
         RxItem *item = nullptr;
-        while (!rxQ.pop(item)) {
-          std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        {
+          std::unique_lock<std::mutex> lk(rxQMutex);
+          rxQCv.wait(lk, [] { return !rxQ.empty(); });
+          item = rxQ.front();
+          rxQ.pop();
+          rxQCv.notify_one(); // wake potential producers waiting on capacity
         }
         if (item) {
           if (!Network::isUninitialized())
@@ -2221,8 +2234,12 @@ void Network::startBinaryReadLoop(const std::string &peerId,
         }
       }
       auto *item = new RxItem{f, peerId};
-      while (!rxQ.push(item))
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      {
+        std::unique_lock<std::mutex> lk(rxQMutex);
+        rxQCv.wait(lk, [] { return rxQ.size() < RXQ_CAPACITY; });
+        rxQ.push(item);
+      }
+      rxQCv.notify_one();
     } else {
       std::cerr << "[readLoop] ❌ Failed to parse protobuf frame!" << '\n';
       bool disconnect = false;

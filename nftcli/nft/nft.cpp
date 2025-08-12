@@ -1,7 +1,7 @@
 #include "nft.h"
 #include "nft_zk.h"  // ✅ Hook in actual zk-STARK proof logic
 #include "../src/crypto_utils.h"
-#include <nlohmann/json.hpp>
+#include "../../src/json.hpp"
 #include <iostream>
 
 using json = nlohmann::json;
