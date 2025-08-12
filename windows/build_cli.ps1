@@ -29,10 +29,6 @@ if (Test-Path $BuildDir) { Remove-Item -Recurse -Force $BuildDir }
 # --- Generator ---
 $genArgs = @("-G", "Visual Studio 17 2022", "-A", "x64")
 
-# Ensure protoc on PATH (helps custom protoc step if used)
-$ProtocDir = Join-Path $Installed "tools\protobuf"
-if (Test-Path $ProtocDir) { $env:PATH = "$ProtocDir;$env:PATH" }
-
 # --- Configure (repo root) ---
 cmake -S "$Root" -B "$BuildDir" @genArgs `
   -DCMAKE_BUILD_TYPE=Release `
@@ -48,8 +44,7 @@ cmake -S "$Root" -B "$BuildDir" @genArgs `
   -DOPENSSL_CRYPTO_LIBRARY="$Installed\lib\libcrypto.lib" `
   -DOPENSSL_SSL_LIBRARY="$Installed\lib\libssl.lib" `
   -Dprotobuf_DIR="$Installed\share\protobuf" `
-  -Djsoncpp_DIR="$Installed\share\jsoncpp" `
-  -DProtobuf_PROTOC_EXECUTABLE="$ProtocDir\protoc.exe"
+  -Djsoncpp_DIR="$Installed\share\jsoncpp"
 
 # --- Build ---
 cmake --build "$BuildDir" --config Release --parallel
