@@ -155,8 +155,12 @@ if (WIN32 AND DEFINED ENV{VCPKG_ROOT})
 endif()
 
 # ---- Dependencies ------------------------------------------------------------
-find_package(Boost REQUIRED)
-find_package(OpenSSL REQUIRED)
+# Use vcpkg-provided config packages
+find_package(OpenSSL REQUIRED COMPONENTS Crypto SSL)
+message(STATUS "OpenSSL found: ${OPENSSL_VERSION} (targets OpenSSL::Crypto / OpenSSL::SSL)")
+
+# Header-only multiprecision is exposed via imported targets in modern Boost
+find_package(Boost REQUIRED COMPONENTS headers)
 if (WIN32)
   find_package(protobuf CONFIG REQUIRED)
   # Make protoc path available to the codegen rule
@@ -377,6 +381,11 @@ target_link_libraries(alyncoin_lib
     ${WINTERFELL_LIB}
     ${PLAT_LIBS}
 )
+if (TARGET Boost::headers)
+  target_link_libraries(alyncoin_lib PRIVATE Boost::headers)
+else()
+  include_directories(${Boost_INCLUDE_DIRS})
+endif()
 if (WIN32)
   target_link_libraries(alyncoin_lib PRIVATE lz4::lz4 zstd::libzstd)
 endif()
