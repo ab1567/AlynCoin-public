@@ -155,7 +155,7 @@ void SslTransport::startReadBinaryLoop(std::function<void(const boost::system::e
     auto dataBuffer = std::make_shared<std::vector<uint8_t>>();
     auto self       = TcpTransport::shared_from_this();
     auto handler = std::make_shared<std::function<void(const boost::system::error_code&, std::size_t)>>();
-    *handler = [=, this](const boost::system::error_code& ec, std::size_t bytes) mutable {
+    *handler = [=](const boost::system::error_code& ec, std::size_t bytes) mutable {
         {
             std::lock_guard<std::mutex> lk(readMutex);
             if (ec) { cb(ec, ""); return; }
@@ -207,7 +207,7 @@ void SslTransport::startReadLineLoop(std::function<void(const boost::system::err
     auto buf  = std::make_shared<boost::asio::streambuf>();
     auto self = TcpTransport::shared_from_this();
     auto handler = std::make_shared<std::function<void(const boost::system::error_code&, std::size_t)>>();
-    *handler = [=, this](const boost::system::error_code& ec, std::size_t) mutable {
+    *handler = [=](const boost::system::error_code& ec, std::size_t) mutable {
         if (ec) { cb(ec, ""); return; }
         std::istream is(buf.get());
         std::string line; std::getline(is, line);

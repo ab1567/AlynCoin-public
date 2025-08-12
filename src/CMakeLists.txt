@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # ---- Windows toolchain / CRT -------------------------------------------------
 if (WIN32)
   set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded")
-  add_definitions(-DWIN32_LEAN_AND_MEAN -DNOMINMAX -DMINIUPNP_STATICLIB)
+  add_definitions(-DWIN32_LEAN_AND_MEAN -DNOMINMAX -DMINIUPNP_STATICLIB -D_WIN32_WINNT=0x0A00 -D_CRT_SECURE_NO_WARNINGS)
   set(OPENSSL_USE_STATIC_LIBS ON)
   set(Protobuf_USE_STATIC_LIBS ON)
 endif()
@@ -150,8 +150,12 @@ include_directories(
 if (NOT WIN32)
   include_directories(/usr/include/jsoncpp /usr/include/rocksdb)
 endif()
+if (WIN32 AND DEFINED ENV{VCPKG_ROOT})
+  include_directories("$ENV{VCPKG_ROOT}/installed/x64-windows-static/include")
+endif()
 
 # ---- Dependencies ------------------------------------------------------------
+find_package(Boost REQUIRED)
 find_package(OpenSSL REQUIRED)
 if (WIN32)
   find_package(protobuf CONFIG REQUIRED)
