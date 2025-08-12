@@ -47,22 +47,14 @@ cmake -S "$Root" -B "$BuildDir" @genArgs `
   -Djsoncpp_DIR="$Installed\share\jsoncpp"
 
 # --- Build ---
-cmake --build "$BuildDir" --config Release --parallel
+cmake --build "$BuildDir" --config Release --parallel --target alyncoin
 
 # --- Stage exe(s) ---
 New-Item -ItemType Directory -Force -Path "$OutDir" | Out-Null
 
 # Prefer copying all our CLIs if present
 $targets = @(
-  "alyncoin-cli.exe",
-  "alyncoin.exe",
-  "peer_blacklist_cli.exe",
-  "swapcli.exe",
-  "identitycli.exe",
-  "nftcli.exe",
-  "explorer_server.exe",
-  "metrics_server.exe",
-  "blacklist_test.exe"
+  "alyncoin.exe"
 )
 
 $found = $false
