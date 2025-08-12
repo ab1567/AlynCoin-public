@@ -1,0 +1,22 @@
+{
+  "name": "alyncoin-cli",
+  "version": "0.9.0",
+  "dependencies": [
+    "openssl",
+    "protobuf",
+    "jsoncpp",
+    "rocksdb",
+    "boost-asio",
+    "boost-filesystem",
+    "boost-program-options",
+    "boost-multiprecision",
+    "zlib",
+    "bzip2",
+    "lz4",
+    "zstd",
+    "spdlog",
+    "libsodium",
+    "blake3",
+    "miniupnpc"
+  ]
+}
