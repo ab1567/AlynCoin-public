@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.20)
 project(alyncoin LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -6,15 +6,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ---- Windows toolchain / CRT -------------------------------------------------
 if (WIN32)
-  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded")
+  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
   add_definitions(-DWIN32_LEAN_AND_MEAN -DNOMINMAX -DMINIUPNP_STATICLIB -D_WIN32_WINNT=0x0A00 -D_CRT_SECURE_NO_WARNINGS)
-  set(OPENSSL_USE_STATIC_LIBS ON)
-  set(Protobuf_USE_STATIC_LIBS ON)
 endif()
-
-# ---- Protobuf static by default ----------------------------------------------
-set(Protobuf_USE_STATIC_LIBS ON)
-set(Protobuf_USE_STATIC_LIBS_INIT ON)
 
 # ---- CPU / SIMD flags --------------------------------------------------------
 include(CheckCCompilerFlag)
@@ -328,10 +322,12 @@ file(GLOB DILITHIUM_SOURCES
 )
 list(FILTER DILITHIUM_SOURCES EXCLUDE REGEX "randombytes\.c$")
 add_library(dilithium STATIC ${DILITHIUM_SOURCES})
+target_sources(dilithium PRIVATE ${CMAKE_SOURCE_DIR}/third_party/dilithium/randombytes_sodium.c)
 target_include_directories(dilithium PUBLIC ${SOURCE_DIR}/crypto/dilithium/ref)
 target_compile_definitions(dilithium PUBLIC
   PQCLEAN_DILITHIUM2_CLEAN_NAMESPACE=PQCLEAN_DILITHIUM2_CLEAN_
 )
+target_link_libraries(dilithium PUBLIC ${SODIUM_LIB})
 
 # ---- Core static lib ---------------------------------------------------------
 if(NOT SKIP_PROTOBUF_GEN)
