@@ -326,6 +326,7 @@ file(GLOB DILITHIUM_SOURCES
   ${SOURCE_DIR}/crypto/dilithium/*.c
   ${SOURCE_DIR}/crypto/dilithium/ref/*.c
 )
+list(FILTER DILITHIUM_SOURCES EXCLUDE REGEX "randombytes\.c$")
 add_library(dilithium STATIC ${DILITHIUM_SOURCES})
 target_include_directories(dilithium PUBLIC ${SOURCE_DIR}/crypto/dilithium/ref)
 target_compile_definitions(dilithium PUBLIC
@@ -470,6 +471,9 @@ target_link_libraries(nftcli
   ${PROTOBUF_LINK}
   ${PLAT_LIBS}
 )
+if (MSVC)
+  target_link_libraries(nftcli PRIVATE ntdll)
+endif()
 
 # Optional test
 add_executable(blacklist_test ${SOURCE_DIR}/node/main_blacklist_test.cpp)
