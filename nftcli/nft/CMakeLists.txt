@@ -1,5 +1,9 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.20)
 project(nftcli)
+
+# Force /MD(d)
+set(CMAKE_POLICY_DEFAULT_CMP0091 NEW)
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -33,6 +37,8 @@ find_package(OpenSSL REQUIRED)
 find_package(Protobuf REQUIRED)
 find_library(ROCKSDB_LIB rocksdb REQUIRED)
 find_library(JSONCPP_LIB jsoncpp REQUIRED)
+find_library(SODIUM_LIB sodium REQUIRED)
+find_path(SODIUM_INCLUDE_DIR sodium.h)
 
 # --------------------------
 # Falcon + Dilithium Static Libraries
@@ -47,8 +53,12 @@ file(GLOB DILITHIUM_SOURCES
     ${SOURCE_DIR}/crypto/dilithium/ref/*.c
 )
 
+list(FILTER DILITHIUM_SOURCES EXCLUDE REGEX "randombytes\.c$")
+
 add_library(falcon STATIC ${FALCON_SOURCES})
-add_library(dilithium STATIC ${DILITHIUM_SOURCES})
+add_library(dilithium STATIC ${DILITHIUM_SOURCES} ${CMAKE_SOURCE_DIR}/../../third_party/dilithium/randombytes_sodium.c)
+target_link_libraries(dilithium PUBLIC ${SODIUM_LIB})
+target_include_directories(dilithium PUBLIC ${SODIUM_INCLUDE_DIR})
 
 # --------------------------
 # NFT CLI Source Files
@@ -76,11 +86,12 @@ target_link_libraries(nftcli
     OpenSSL::Crypto
     falcon
     dilithium
-    pthread
-    crypto
-    m
-    dl
 )
+if (WIN32)
+    target_link_libraries(nftcli PRIVATE ntdll)
+else()
+    target_link_libraries(nftcli PRIVATE pthread crypto m dl)
+endif()
 
 # --------------------------
 # Output Message
