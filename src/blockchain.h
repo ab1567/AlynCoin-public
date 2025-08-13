@@ -127,7 +127,7 @@ public:
   void updateFromJSON(const std::string &jsonData);
   void clearPendingTransactions();
   void printPendingTransactions();
-  int getIndex() const { return chain.size() - 1; }
+  int getIndex() const { return static_cast<int>(chain.size()) - 1; }
   void savePendingTransactionsToDB();
   void loadTransactionsFromDB();
   Block createGenesisBlock(bool force = false);
@@ -207,7 +207,7 @@ public:
   void addRollupBlock(const RollupBlock &newRollupBlock);
   bool isRollupBlockValid(const RollupBlock &newRollupBlock, bool skipProofVerification = false) const;
   double getBalance(const std::string &publicKey) const;
-  int getBlockCount() const { return chain.size(); }
+  int getBlockCount() const { return static_cast<int>(chain.size()); }
   void addVestingForEarlySupporter(const std::string &address, double initialAmount);
   bool castVote(const std::string &voterAddress, const std::string &candidateAddress);
   std::vector<Transaction> getAllTransactionsForAddress(const std::string& address);

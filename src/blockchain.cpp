@@ -1937,7 +1937,7 @@ int Blockchain::getRecentTransactionCount() {
   for (int count : recentTransactionCounts)
     sum += count;
 
-  return sum / recentTransactionCounts.size();
+  return sum / static_cast<int>(recentTransactionCounts.size());
 }
 
 // ✅ **Update Transaction History for Dynamic Burn Rate**
@@ -2722,7 +2722,7 @@ std::unordered_map<std::string, double> Blockchain::simulateL2StateUpdate(
 
 // getRollupChainSize
 int Blockchain::getRollupChainSize() const {
-    return rollupChain.size();
+    return static_cast<int>(rollupChain.size());
 }
 
 // getLastRollupHash
