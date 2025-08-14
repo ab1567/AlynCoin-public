@@ -408,9 +408,9 @@ add_dependencies(alyncoin-cli winterfell_ffi)
 add_dependencies(peer_blacklist_cli winterfell_ffi)
 
 target_compile_definitions(alyncoin PRIVATE ALYNCOIN_MAIN_PROCESS)
-target_link_libraries(alyncoin alyncoin_lib ${PLAT_LIBS})
-target_link_libraries(alyncoin-cli alyncoin_lib ${PLAT_LIBS})
-target_link_libraries(peer_blacklist_cli alyncoin_lib ${PLAT_LIBS})
+target_link_libraries(alyncoin        PRIVATE alyncoin_lib ${PLAT_LIBS})
+target_link_libraries(alyncoin-cli    PRIVATE alyncoin_lib ${PLAT_LIBS})
+target_link_libraries(peer_blacklist_cli PRIVATE alyncoin_lib ${PLAT_LIBS})
 
 # Atomic Swap CLI
 add_executable(swapcli
@@ -421,13 +421,14 @@ add_executable(swapcli
 )
 add_dependencies(swapcli winterfell_ffi)
 target_link_libraries(swapcli
-  alyncoin_lib
-  ${JSONCPP_LIBRARIES}
-  ${ROCKSDB_LIB}
-  falcon
-  dilithium
-  ${PROTOBUF_LINK}
-  ${PLAT_LIBS}
+  PRIVATE
+    alyncoin_lib
+    ${JSONCPP_LIBRARIES}
+    ${ROCKSDB_LIB}
+    falcon
+    dilithium
+    ${PROTOBUF_LINK}
+    ${PLAT_LIBS}
 )
 
 # Identity CLI
@@ -439,13 +440,14 @@ add_executable(identitycli
 )
 add_dependencies(identitycli winterfell_ffi)
 target_link_libraries(identitycli
-  alyncoin_lib
-  ${JSONCPP_LIBRARIES}
-  ${ROCKSDB_LIB}
-  falcon
-  dilithium
-  ${PROTOBUF_LINK}
-  ${PLAT_LIBS}
+  PRIVATE
+    alyncoin_lib
+    ${JSONCPP_LIBRARIES}
+    ${ROCKSDB_LIB}
+    falcon
+    dilithium
+    ${PROTOBUF_LINK}
+    ${PLAT_LIBS}
 )
 
 # NFT CLI
@@ -458,14 +460,15 @@ add_executable(nftcli
 )
 add_dependencies(nftcli winterfell_ffi)
 target_link_libraries(nftcli
-  alyncoin_lib
-  ${JSONCPP_LIBRARIES}
-  ${ROCKSDB_LIB}
-  OpenSSL::Crypto
-  falcon
-  dilithium
-  ${PROTOBUF_LINK}
-  ${PLAT_LIBS}
+  PRIVATE
+    alyncoin_lib
+    ${JSONCPP_LIBRARIES}
+    ${ROCKSDB_LIB}
+    OpenSSL::Crypto
+    falcon
+    dilithium
+    ${PROTOBUF_LINK}
+    ${PLAT_LIBS}
 )
 if (MSVC)
   target_link_libraries(nftcli PRIVATE ntdll)
@@ -474,25 +477,25 @@ endif()
 # Optional test
 add_executable(blacklist_test ${SOURCE_DIR}/node/main_blacklist_test.cpp)
 add_dependencies(blacklist_test winterfell_ffi)
-target_link_libraries(blacklist_test alyncoin_lib ${JSONCPP_LIBRARIES} ${ROCKSDB_LIB} ${PLAT_LIBS})
+target_link_libraries(blacklist_test  PRIVATE alyncoin_lib ${JSONCPP_LIBRARIES} ${ROCKSDB_LIB} ${PLAT_LIBS})
 
 # Explorer
 add_executable(explorer_server ${EXPLORER_SOURCES})
 add_dependencies(explorer_server winterfell_ffi)
 target_include_directories(explorer_server PRIVATE ${SOURCE_DIR}/explorer ${SOURCE_DIR}/deps/CrowInclude)
-target_link_libraries(explorer_server alyncoin_lib ${JSONCPP_LIBRARIES} ${ROCKSDB_LIB} ${PROTOBUF_LINK} ${PLAT_LIBS})
+target_link_libraries(explorer_server PRIVATE alyncoin_lib ${JSONCPP_LIBRARIES} ${ROCKSDB_LIB} ${PROTOBUF_LINK} ${PLAT_LIBS})
 
 # Metrics
 add_executable(metrics_server ${METRICS_SOURCES})
 add_dependencies(metrics_server winterfell_ffi)
 target_include_directories(metrics_server PRIVATE ${SOURCE_DIR}/metrics ${SOURCE_DIR}/deps/CrowInclude)
-target_link_libraries(metrics_server alyncoin_lib ${JSONCPP_LIBRARIES} ${PLAT_LIBS})
+target_link_libraries(metrics_server  PRIVATE alyncoin_lib ${JSONCPP_LIBRARIES} ${PLAT_LIBS})
 
 # ---- UPnP propagation --------------------------------------------------------
 if(HAVE_MINIUPNPC)
   foreach(tgt alyncoin alyncoin-cli peer_blacklist_cli swapcli identitycli nftcli blacklist_test explorer_server metrics_server)
     if(TARGET ${tgt})
-      target_link_libraries(${tgt} ${UPNP_LIB})
+      target_link_libraries(${tgt} PRIVATE ${UPNP_LIB})
     endif()
   endforeach()
 endif()
