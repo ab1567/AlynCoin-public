@@ -322,7 +322,6 @@ file(GLOB DILITHIUM_SOURCES
 )
 list(FILTER DILITHIUM_SOURCES EXCLUDE REGEX "randombytes\.c$")
 add_library(dilithium STATIC ${DILITHIUM_SOURCES})
-target_sources(dilithium PRIVATE ${CMAKE_SOURCE_DIR}/third_party/dilithium/randombytes_sodium.c)
 target_include_directories(dilithium PUBLIC ${SOURCE_DIR}/crypto/dilithium/ref)
 target_compile_definitions(dilithium PUBLIC
   PQCLEAN_DILITHIUM2_CLEAN_NAMESPACE=PQCLEAN_DILITHIUM2_CLEAN_

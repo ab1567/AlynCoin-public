@@ -56,7 +56,7 @@ file(GLOB DILITHIUM_SOURCES
 list(FILTER DILITHIUM_SOURCES EXCLUDE REGEX "randombytes\.c$")
 
 add_library(falcon STATIC ${FALCON_SOURCES})
-add_library(dilithium STATIC ${DILITHIUM_SOURCES} ${CMAKE_SOURCE_DIR}/../../third_party/dilithium/randombytes_sodium.c)
+add_library(dilithium STATIC ${DILITHIUM_SOURCES})
 target_link_libraries(dilithium PUBLIC ${SODIUM_LIB})
 target_include_directories(dilithium PUBLIC ${SODIUM_INCLUDE_DIR})
 
