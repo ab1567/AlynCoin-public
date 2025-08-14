@@ -469,9 +469,6 @@ target_link_libraries(nftcli
     ${PROTOBUF_LINK}
     ${PLAT_LIBS}
 )
-if (MSVC)
-  target_link_libraries(nftcli PRIVATE ntdll)
-endif()
 
 # Optional test
 add_executable(blacklist_test ${SOURCE_DIR}/node/main_blacklist_test.cpp)
@@ -495,6 +492,15 @@ if(HAVE_MINIUPNPC)
   foreach(tgt alyncoin alyncoin-cli peer_blacklist_cli swapcli identitycli nftcli blacklist_test explorer_server metrics_server)
     if(TARGET ${tgt})
       target_link_libraries(${tgt} PRIVATE ${UPNP_LIB})
+    endif()
+  endforeach()
+endif()
+
+# Link Windows executables against ntdll for native system calls
+if(MSVC)
+  foreach(tgt alyncoin alyncoin-cli peer_blacklist_cli swapcli identitycli nftcli blacklist_test explorer_server metrics_server)
+    if(TARGET ${tgt})
+      target_link_libraries(${tgt} PRIVATE ntdll)
     endif()
   endforeach()
 endif()
