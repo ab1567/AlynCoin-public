@@ -28,6 +28,8 @@ includes a premine of **10 million ALYN** distributed as follows:
 | Exchange Listings    | 1,000,000     |
 | Team/Founder         | 2,000,000     |
 
+These allocations are minted to dedicated addresses at genesis and count toward the 100 million coin cap.
+
 Block rewards decline as circulating supply approaches the cap. A portion of
 transaction fees is burned while another portion funds ongoing development via
 the DAO treasury. The team allocation is locked for one year and vests

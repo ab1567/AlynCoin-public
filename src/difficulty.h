@@ -15,6 +15,14 @@
 // ────────────────────────────────────────────────────────────────
 constexpr uint64_t PREMINE_SUPPLY = 10'000'000;   // for clarity in docs/tests
 
+// Premine recipient addresses
+inline constexpr const char* AIRDROP_ADDRESS     = "AirdropWallet";
+inline constexpr const char* LIQUIDITY_ADDRESS   = "LiquidityWallet";
+inline constexpr const char* INVESTOR_ADDRESS    = "InvestorWallet";
+inline constexpr const char* DEVELOPMENT_ADDRESS = "DevelopmentWallet";
+inline constexpr const char* EXCHANGE_ADDRESS    = "ExchangeWallet";
+inline constexpr const char* TEAM_FOUNDER_ADDRESS = "TeamFounderWallet";
+
 // ────────────────────────────────────────────────────────────────
 //  Helpers
 // ────────────────────────────────────────────────────────────────
