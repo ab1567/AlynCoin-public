@@ -42,6 +42,20 @@ std::vector<RollupBlock> rollupBlocks;
 double totalSupply = 0.0;
 static Blockchain* g_blockchain_singleton = nullptr;
 
+struct PremineEntry {
+    std::string address;
+    double amount;
+};
+
+static const std::vector<PremineEntry> PREMINE_ALLOCATIONS = {
+    {AIRDROP_ADDRESS,      1'000'000.0},
+    {LIQUIDITY_ADDRESS,    1'000'000.0},
+    {INVESTOR_ADDRESS,     3'000'000.0},
+    {DEVELOPMENT_ADDRESS,  2'000'000.0},
+    {EXCHANGE_ADDRESS,     1'000'000.0},
+    {TEAM_FOUNDER_ADDRESS, 2'000'000.0}
+};
+
 // --- helper ---------------------------------------------------------------
 // Compute BLAKE3 hash of concatenated block hashes for the epoch ending at
 // endIndex (inclusive). Returns empty string if insufficient history.
@@ -67,14 +81,14 @@ std::atomic<bool> Blockchain::isMining{false};
 std::atomic<bool> Blockchain::isRecovering{false};
 
 Blockchain::Blockchain()
-    : difficulty(0), miningReward(50.0), db(nullptr), totalBurnedSupply(0.0),
+    : difficulty(0), miningReward(25.0), db(nullptr), totalBurnedSupply(0.0),
       network(nullptr), totalWork(0) {
   std::cout << "[DEBUG] Default Blockchain constructor called.\n";
 }
 
 // ✅ Constructor: Open RocksDB
 Blockchain::Blockchain(unsigned short port, const std::string &dbPath, bool bindNetwork, bool isSyncMode)
-    : difficulty(0), miningReward(50.0), port(port), dbPath(dbPath), totalWork(0) {
+    : difficulty(0), miningReward(25.0), port(port), dbPath(dbPath), totalWork(0) {
 
     // Only set network pointer if asked AND it's already initialized, otherwise nullptr
     if (bindNetwork) {
@@ -378,6 +392,16 @@ Block Blockchain::createGenesisBlock(bool force)
         std::cerr << "❌ Failed to insert Genesis block!\n";
         exit(1);
     }
+
+    // Distribute premine allocations
+    for (const auto& entry : PREMINE_ALLOCATIONS) {
+        balances[entry.address] += entry.amount;
+        totalSupply += entry.amount;
+    }
+    // Lock team/founder allocation for one year
+    vestingMap[TEAM_FOUNDER_ADDRESS] = {2'000'000.0,
+                                        static_cast<uint64_t>(std::time(nullptr)) + 31536000};
+
     return chain.front();
 }
 
@@ -2558,6 +2582,12 @@ void Blockchain::recalculateBalancesFromChain() {
     totalBurnedSupply = 0.0;
 
     std::unordered_set<std::string> seenBlocks;
+
+    // Reapply premine allocations
+    for (const auto& entry : PREMINE_ALLOCATIONS) {
+        balances[entry.address] += entry.amount;
+        totalSupply += entry.amount;
+    }
 
     for (size_t i = 0; i < chain.size(); ++i) {
         const Block& block = chain[i];
