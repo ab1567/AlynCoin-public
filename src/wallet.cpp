@@ -9,7 +9,9 @@
 namespace fs = std::filesystem;
 
 // Default wallet constructor
-Wallet::Wallet() : Wallet("defaultWallet", KEY_DIR, "") {}
+// Use the main constructor with default passphrase to avoid ambiguity with the
+// overload that accepts a private key path.
+Wallet::Wallet() : Wallet("defaultWallet", KEY_DIR) {}
 
 // Main constructor: create or load keys for an address
 Wallet::Wallet(const std::string& address, const std::string& keyDirectoryPath, const std::string& passphrase)
