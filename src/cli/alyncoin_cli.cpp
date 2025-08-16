@@ -1,5 +1,5 @@
 #include "blockchain.h"
-#include "cli/peer_blacklist_cli.h"
+#include "peer_blacklist_cli.h"
 #include "crypto_utils.h"
 #include "network.h"
 #include "network/peer_blacklist.h"

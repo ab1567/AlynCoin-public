@@ -198,6 +198,7 @@ svr.Post("/rpc", [blockchain, network, healer](const httplib::Request& req, http
                 {"blocks", blockchain->getBlockCount()},
                 {"difficulty", calculateSmartDifficulty(*blockchain)},
                 {"supply", blockchain->getTotalSupply()},
+                {"block_reward", blockchain->getBlockReward()},
                 {"burned", blockchain->getTotalBurnedSupply()},
                 {"devfund", blockchain->getBalance("DevFundWallet")}
             };

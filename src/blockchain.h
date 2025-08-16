@@ -192,10 +192,11 @@ public:
   void saveRollupChain() const;
   void loadRollupChain();
   void mergeRollupChain(const std::vector<RollupBlock> &otherChain);
-  double getTotalBurnedSupply() const { return totalBurnedSupply; }
-  double getTotalSupply() const;
-  // Median timestamp of the last 11 blocks up to `height`.
-  std::time_t medianTimePast(size_t height) const;
+    double getTotalBurnedSupply() const { return totalBurnedSupply; }
+    double getTotalSupply() const;
+    double getBlockReward() const { return blockReward; }
+    // Median timestamp of the last 11 blocks up to `height`.
+    std::time_t medianTimePast(size_t height) const;
   Block createBlock(const std::string &minerDilithiumKey,
                     const std::string &minerFalconKey);
   int getRecentTransactionCount();
