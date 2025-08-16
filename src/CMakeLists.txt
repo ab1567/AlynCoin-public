@@ -396,7 +396,7 @@ endif()
 # ---- Executables -------------------------------------------------------------
 add_executable(alyncoin ${MAIN_SOURCE})
 add_executable(alyncoin-cli
-  ${SOURCE_DIR}/cli.cpp
+  ${SOURCE_DIR}/cli/alyncoin_cli.cpp
   ${SOURCE_DIR}/cli/peer_blacklist_ui.cpp
   ${SOURCE_DIR}/zk/recursive_proof_helper.cpp
 )

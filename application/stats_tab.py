@@ -63,6 +63,8 @@ class StatsTab(QWidget):
                 self.appendText(f"🧩 Difficulty: {result['difficulty']}", color="orange")
             if "supply" in result:
                 self.appendText(f"💰 Total Supply: {result['supply']} AlynCoin", color="green")
+            if "block_reward" in result:
+                self.appendText(f"⛏️ Block Reward: {result['block_reward']} AlynCoin", color="green")
             if "burned" in result:
                 self.appendText(f"🔥 Total Burned: {result['burned']} AlynCoin", color="red")
             if "devfund" in result:
