@@ -82,38 +82,64 @@ svr.Post("/rpc", [blockchain, network, healer](const httplib::Request& req, http
             output = {{"result", bal}};
         }
         else if (method == "createwallet") {
-            std::string name = Crypto::generateRandomHex(40);
+            std::string pass = "";
+            if (!params.empty() && params.at(0).is_string())
+                pass = params.at(0);
+            std::string name;
+            do {
+                name = Crypto::generateRandomHex(40);
+            } while (std::filesystem::exists(DBPaths::getKeyDir() + name + "_private.pem"));
             try {
                 Wallet w(name, DBPaths::getKeyDir());
+                if (!pass.empty()) {
+                    std::ofstream(DBPaths::getKeyDir() + name + "_pass.txt")
+                        << Crypto::sha256(pass);
+                }
                 output = {{"result", w.getAddress()}};
             } catch (const std::exception &e) {
                 output = {{"error", std::string("Wallet creation failed: ") + e.what()}};
             }
         }
-	else if (method == "loadwallet") {
-	    if (params.size() < 1) {
-	        output = {{"error", "Missing wallet name parameter"}};
-	    } else {
-	        std::string name = params.at(0);
-	        std::string priv = DBPaths::getKeyDir() + name + "_private.pem";
-	        std::string dil = DBPaths::getKeyDir() + name + "_dilithium.key";
-	        std::string fal = DBPaths::getKeyDir() + name + "_falcon.key";
-	        if (!std::filesystem::exists(priv) ||
-	            !std::filesystem::exists(dil) ||
-	            !std::filesystem::exists(fal)) {
-	            output = {{"error", "Wallet key files not found for: " + name}};
-	        } else {
-	            try {
-	                Wallet w(priv, DBPaths::getKeyDir(), name);
-	                // Save as current wallet for convenience
-	                std::ofstream(DBPaths::getHomePath() + "/.alyncoin/current_wallet.txt") << w.getAddress();
-	                output = {{"result", w.getAddress()}};
-	            } catch (const std::exception &e) {
-	                output = {{"error", std::string("Wallet load failed: ") + e.what()}};
-	            }
-	        }
-	    }
-	}
+        else if (method == "loadwallet") {
+            if (params.size() < 1) {
+                output = {{"error", "Missing wallet name parameter"}};
+            } else {
+                std::string name = params.at(0);
+                std::string pass = params.size() > 1 && params.at(1).is_string() ? params.at(1).get<std::string>() : "";
+                std::string priv = DBPaths::getKeyDir() + name + "_private.pem";
+                std::string dil = DBPaths::getKeyDir() + name + "_dilithium.key";
+                std::string fal = DBPaths::getKeyDir() + name + "_falcon.key";
+                std::string passPath = DBPaths::getKeyDir() + name + "_pass.txt";
+                if (!std::filesystem::exists(priv) ||
+                    !std::filesystem::exists(dil) ||
+                    !std::filesystem::exists(fal)) {
+                    output = {{"error", "Wallet key files not found for: " + name}};
+                } else if (std::filesystem::exists(passPath)) {
+                    std::ifstream pin(passPath);
+                    std::string stored;
+                    std::getline(pin, stored);
+                    if (Crypto::sha256(pass) != stored) {
+                        output = {{"error", "Incorrect passphrase"}};
+                    } else {
+                        try {
+                            Wallet w(priv, DBPaths::getKeyDir(), name);
+                            std::ofstream(DBPaths::getHomePath() + "/.alyncoin/current_wallet.txt") << w.getAddress();
+                            output = {{"result", w.getAddress()}};
+                        } catch (const std::exception &e) {
+                            output = {{"error", std::string("Wallet load failed: ") + e.what()}};
+                        }
+                    }
+                } else {
+                    try {
+                        Wallet w(priv, DBPaths::getKeyDir(), name);
+                        std::ofstream(DBPaths::getHomePath() + "/.alyncoin/current_wallet.txt") << w.getAddress();
+                        output = {{"result", w.getAddress()}};
+                    } catch (const std::exception &e) {
+                        output = {{"error", std::string("Wallet load failed: ") + e.what()}};
+                    }
+                }
+            }
+        }
         // Mine One Block
         else if (method == "mineonce") {
             if (params.empty() || !params.at(0).is_string()) {
@@ -860,9 +886,19 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
     }
     // Wallet create/load
     if (cmd == "createwallet" && argc == 2) {
-        std::string name = Crypto::generateRandomHex(40);
+        std::string name;
+        do {
+            name = Crypto::generateRandomHex(40);
+        } while (std::filesystem::exists(keyDir + name + "_private.pem"));
         try {
             Wallet w(name, keyDir);
+            std::string pass;
+            std::cout << "Set passphrase (leave blank for none): ";
+            std::getline(std::cin >> std::ws, pass);
+            if (!pass.empty()) {
+                std::ofstream(keyDir + name + "_pass.txt")
+                    << Crypto::sha256(pass);
+            }
             std::cout << "✅ Wallet created: " << w.getAddress() << "\n";
         } catch (const std::exception &e) {
             std::cerr << "❌ Wallet creation failed: " << e.what() << "\n";
@@ -875,9 +911,22 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
         std::string priv = keyDir + name + "_private.pem";
         std::string dil = keyDir + name + "_dilithium.key";
         std::string fal = keyDir + name + "_falcon.key";
+        std::string passPath = keyDir + name + "_pass.txt";
         if (!std::filesystem::exists(priv) || !std::filesystem::exists(dil) || !std::filesystem::exists(fal)) {
             std::cerr << "❌ Wallet key files not found for: " << name << std::endl;
             return 1;
+        }
+        if (std::filesystem::exists(passPath)) {
+            std::cout << "Enter passphrase: ";
+            std::string pass;
+            std::getline(std::cin >> std::ws, pass);
+            std::ifstream pin(passPath);
+            std::string stored;
+            std::getline(pin, stored);
+            if (Crypto::sha256(pass) != stored) {
+                std::cerr << "❌ Incorrect passphrase\n";
+                return 1;
+            }
         }
         try {
             Wallet w(priv, keyDir, name);
