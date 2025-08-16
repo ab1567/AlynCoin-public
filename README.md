@@ -186,12 +186,17 @@ pip install -r application/requirements.txt
 python3 application/main.py
 ```
 
-The wallet stores keys in `~/.alyncoin`. Ensure this directory is writable
+The wallet stores keys in `~/.alyncoin/keys`. Ensure this directory is writable
 by your user. If the GUI fails to create it automatically, create it manually:
 
 ```bash
-mkdir -p ~/.alyncoin
+mkdir -p ~/.alyncoin/keys
 ```
+
+Each wallet consists of three key files suffixed with `_private.pem`,
+`_dilithium.key`, and `_falcon.key`. If a passphrase is used, a hashed
+passphrase is stored alongside them as `<name>_pass.txt` in the same
+directory.
 
 The miner will now automatically retry if a block fails to mine during the loop,
 so the GUI keeps hashing without manual restarts.

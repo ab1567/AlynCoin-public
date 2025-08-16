@@ -13,7 +13,9 @@ class WalletTab(QWidget):
     def __init__(self, parent):
         super().__init__(parent=parent)
         self.parent = parent
-        self.walletDir = os.path.expanduser("~/.alyncoin")  # Match CLI's getKeyDir()
+        # Wallet keys and optional passphrase hashes live in ~/.alyncoin/keys
+        # to match the node's DBPaths::getKeyDir().
+        self.walletDir = os.path.expanduser("~/.alyncoin/keys")
         if not os.path.exists(self.walletDir):
             try:
                 os.makedirs(self.walletDir, exist_ok=True)
@@ -80,19 +82,22 @@ class WalletTab(QWidget):
 
         passphrase, _ = QInputDialog.getText(self, "Passphrase", "Enter passphrase (optional):", QLineEdit.Password)
 
-        result = alyncoin_rpc("createwallet", [passphrase])
+        # RPC createwallet accepts [name, passphrase]
+        result = alyncoin_rpc("createwallet", [user_input, passphrase])
         if isinstance(result, dict) and "error" in result:
             self.appendOutput(f"❌ {result['error']}")
             return
 
-        final_addr = user_input
+        final_addr = ""
         if isinstance(result, str) and re.match(r"^[a-f0-9]{40,64}$", result):
             final_addr = result
 
-        self.addressInput.setText(final_addr)
-        self.parent.set_wallet_address(final_addr)
+        # Show wallet name in the input box for future loads
+        self.addressInput.setText(user_input)
+        if final_addr:
+            self.parent.set_wallet_address(final_addr)
+            self.appendOutput(f"📬 Wallet Address: {final_addr}")
         self.refreshWalletList()
-        self.appendOutput(f"📬 Wallet Address: {final_addr}")
 
     def loadWallet(self):
         name = self.addressInput.text().strip()
@@ -113,14 +118,16 @@ class WalletTab(QWidget):
             self.appendOutput(f"❌ {result['error']}")
             return
 
-        final_addr = name
+        final_addr = ""
         if isinstance(result, str) and re.match(r"^[a-f0-9]{40,64}$", result):
             final_addr = result
 
-        self.addressInput.setText(final_addr)
-        self.parent.set_wallet_address(final_addr)
+        # Keep wallet name in the input box
+        self.addressInput.setText(name)
+        if final_addr:
+            self.parent.set_wallet_address(final_addr)
+            self.appendOutput(f"📬 Loaded Wallet: {final_addr}")
         self.refreshWalletList()
-        self.appendOutput(f"📬 Loaded Wallet: {final_addr}")
 
     def exportWallet(self):
         wallet = self.addressInput.text().strip()
@@ -156,7 +163,7 @@ class WalletTab(QWidget):
             self.appendOutput(f"❌ Error saving backup: {ex}")
 
     def checkBalance(self):
-        addr = self.addressInput.text().strip()
+        addr = self.parent.get_wallet_address()
         if not addr:
             self.appendOutput("❌ Please load a wallet first.")
             return

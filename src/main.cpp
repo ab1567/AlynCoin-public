@@ -82,22 +82,34 @@ svr.Post("/rpc", [blockchain, network, healer](const httplib::Request& req, http
             output = {{"result", bal}};
         }
         else if (method == "createwallet") {
+            std::string name = "";
             std::string pass = "";
-            if (!params.empty() && params.at(0).is_string())
-                pass = params.at(0);
-            std::string name;
-            do {
-                name = Crypto::generateRandomHex(40);
-            } while (std::filesystem::exists(DBPaths::getKeyDir() + name + "_private.pem"));
-            try {
-                Wallet w(name, DBPaths::getKeyDir());
-                if (!pass.empty()) {
-                    std::ofstream(DBPaths::getKeyDir() + name + "_pass.txt")
-                        << Crypto::sha256(pass);
+            if (!params.empty()) {
+                if (params.size() == 1 && params.at(0).is_string()) {
+                    pass = params.at(0);
+                } else if (params.size() >= 2 && params.at(0).is_string() && params.at(1).is_string()) {
+                    name = params.at(0);
+                    pass = params.at(1);
                 }
-                output = {{"result", w.getAddress()}};
-            } catch (const std::exception &e) {
-                output = {{"error", std::string("Wallet creation failed: ") + e.what()}};
+            }
+            if (name.empty()) {
+                do {
+                    name = Crypto::generateRandomHex(40);
+                } while (std::filesystem::exists(DBPaths::getKeyDir() + name + "_private.pem"));
+            } else if (std::filesystem::exists(DBPaths::getKeyDir() + name + "_private.pem")) {
+                output = {{"error", "Wallet already exists: " + name}};
+            }
+            if (!output.contains("error")) {
+                try {
+                    Wallet w(name, DBPaths::getKeyDir());
+                    if (!pass.empty()) {
+                        std::ofstream(DBPaths::getKeyDir() + name + "_pass.txt")
+                            << Crypto::sha256(pass);
+                    }
+                    output = {{"result", w.getAddress()}};
+                } catch (const std::exception &e) {
+                    output = {{"error", std::string("Wallet creation failed: ") + e.what()}};
+                }
             }
         }
         else if (method == "loadwallet") {
