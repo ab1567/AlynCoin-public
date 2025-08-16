@@ -101,7 +101,8 @@ svr.Post("/rpc", [blockchain, network, healer](const httplib::Request& req, http
             }
             if (!output.contains("error")) {
                 try {
-                    Wallet w(name, DBPaths::getKeyDir());
+                    // Generate keys, encrypting the private key when a passphrase is provided
+                    Wallet w(name, DBPaths::getKeyDir(), pass);
                     if (!pass.empty()) {
                         std::ofstream(DBPaths::getKeyDir() + name + "_pass.txt")
                             << Crypto::sha256(pass);
@@ -134,7 +135,7 @@ svr.Post("/rpc", [blockchain, network, healer](const httplib::Request& req, http
                         output = {{"error", "Incorrect passphrase"}};
                     } else {
                         try {
-                            Wallet w(priv, DBPaths::getKeyDir(), name);
+                            Wallet w(priv, DBPaths::getKeyDir(), name, pass);
                             std::ofstream(DBPaths::getHomePath() + "/.alyncoin/current_wallet.txt") << w.getAddress();
                             output = {{"result", w.getAddress()}};
                         } catch (const std::exception &e) {
@@ -143,7 +144,7 @@ svr.Post("/rpc", [blockchain, network, healer](const httplib::Request& req, http
                     }
                 } else {
                     try {
-                        Wallet w(priv, DBPaths::getKeyDir(), name);
+                        Wallet w(priv, DBPaths::getKeyDir(), name, pass);
                         std::ofstream(DBPaths::getHomePath() + "/.alyncoin/current_wallet.txt") << w.getAddress();
                         output = {{"result", w.getAddress()}};
                     } catch (const std::exception &e) {

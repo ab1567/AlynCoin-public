@@ -26,8 +26,8 @@ private:
 public:
   // Constructors
   Wallet(); // Default
-  Wallet(const std::string &address, const std::string &keyDirectoryPath); // New wallet
-  Wallet(const std::string &privateKeyPath, const std::string &keyDirectoryPath, const std::string &address); // Load from private key
+  Wallet(const std::string &address, const std::string &keyDirectoryPath, const std::string &passphrase = ""); // New or existing wallet
+  Wallet(const std::string &privateKeyPath, const std::string &keyDirectoryPath, const std::string &address, const std::string &passphrase = ""); // Load from private key
 
   // Key management
   void generateKeyPair(); // RSA

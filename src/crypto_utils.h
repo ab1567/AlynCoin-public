@@ -56,6 +56,8 @@ std::string generatePrivateKey(const std::string &user, const std::string &passp
 std::vector<unsigned char> getPublicKeyBytes(const std::string &walletAddress);
 std::string getPublicKey(const std::string &user);
 void generateKeysForUser(const std::string &username);
+void generateKeysForUser(const std::string &username, const std::string &passphrase);
+std::string loadPrivateKeyDecrypted(const std::string &path, const std::string &passphrase);
 void ensureUserKeys(const std::string &username);
 bool keysExist(const std::string &username);
 void ensureMinerKeys();

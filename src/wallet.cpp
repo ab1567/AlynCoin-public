@@ -9,10 +9,10 @@
 namespace fs = std::filesystem;
 
 // Default wallet constructor
-Wallet::Wallet() : Wallet("defaultWallet", KEY_DIR) {}
+Wallet::Wallet() : Wallet("defaultWallet", KEY_DIR, "") {}
 
 // Main constructor: create or load keys for an address
-Wallet::Wallet(const std::string& address, const std::string& keyDirectoryPath)
+Wallet::Wallet(const std::string& address, const std::string& keyDirectoryPath, const std::string& passphrase)
     : keyDirectory(keyDirectoryPath), walletName(address), address(address) {
     Crypto::ensureKeysDirectory();
 
@@ -22,10 +22,16 @@ Wallet::Wallet(const std::string& address, const std::string& keyDirectoryPath)
     // Generate keys if missing
     if (!fs::exists(privPath) || !fs::exists(pubPath)) {
         std::cout << "🔐 Generating RSA key pair for address: " << address << std::endl;
-        Crypto::generateKeysForUser(address);
+        if (!passphrase.empty())
+            Crypto::generateKeysForUser(address, passphrase);
+        else
+            Crypto::generateKeysForUser(address);
     }
 
-    privateKey = loadKeyFile(privPath);
+    if (!passphrase.empty())
+        privateKey = Crypto::loadPrivateKeyDecrypted(privPath, passphrase);
+    else
+        privateKey = loadKeyFile(privPath);
     publicKey  = loadKeyFile(pubPath);
 
     // --- Dilithium ---
@@ -48,13 +54,16 @@ Wallet::Wallet(const std::string& address, const std::string& keyDirectoryPath)
 }
 
 // Alternate constructor: load wallet from explicit private key path
-Wallet::Wallet(const std::string& privateKeyPath, const std::string& keyDirectoryPath, const std::string& walletName)
+Wallet::Wallet(const std::string& privateKeyPath, const std::string& keyDirectoryPath, const std::string& walletName, const std::string& passphrase)
     : keyDirectory(keyDirectoryPath), walletName(walletName), address(walletName) {
     // Load RSA private key
     if (!fs::exists(privateKeyPath)) {
         throw std::runtime_error("❌ Private key file not found: " + privateKeyPath);
     }
-    privateKey = loadKeyFile(privateKeyPath);
+    if (!passphrase.empty())
+        privateKey = Crypto::loadPrivateKeyDecrypted(privateKeyPath, passphrase);
+    else
+        privateKey = loadKeyFile(privateKeyPath);
 
     // Load RSA public key
     std::string publicKeyPath = privateKeyPath;

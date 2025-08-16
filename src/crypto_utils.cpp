@@ -689,6 +689,91 @@ void generateKeysForUser(const std::string &username) {
   }
 }
 
+// 🔐 Generate RSA key pair protected with a passphrase
+void generateKeysForUser(const std::string &username,
+                         const std::string &passphrase) {
+  std::cout << "[DEBUG] Ensuring keys directory exists..." << std::endl;
+  ensureKeysDirectory();
+
+  std::string cleanUsername = username;
+  std::replace(cleanUsername.begin(), cleanUsername.end(), ' ', '_');
+
+  std::string privateKeyPath = KEY_DIR + cleanUsername + "_private.pem";
+  std::string publicKeyPath = KEY_DIR + cleanUsername + "_public.pem";
+
+  if (fs::exists(privateKeyPath) && fs::exists(publicKeyPath)) {
+    std::cout << "🔑 Keys for user " << cleanUsername
+              << " already exist. Skipping generation.\n";
+    return;
+  }
+
+  std::cout << "🔑 Generating new keys for user: " << cleanUsername << "\n";
+
+  std::string privCmd =
+      "openssl genpkey -algorithm RSA -aes-256-cbc -pass pass:" + passphrase +
+      " -out \"" + privateKeyPath + "\" -pkeyopt rsa_keygen_bits:2048";
+  std::string pubCmd = "openssl rsa -in \"" + privateKeyPath +
+                       "\" -passin pass:" + passphrase +
+                       " -pubout -out \"" + publicKeyPath + "\"";
+
+  std::cout << "[DEBUG] Running private key generation command: " << privCmd
+            << std::endl;
+  int privStatus = system(privCmd.c_str());
+  if (privStatus != 0) {
+    std::cerr << "❌ [ERROR] Private key generation failed for user: "
+              << cleanUsername << std::endl;
+    return;
+  }
+  std::cout << "[DEBUG] Private key generated successfully." << std::endl;
+
+  std::cout << "[DEBUG] Running public key extraction command: " << pubCmd
+            << std::endl;
+  int pubStatus = system(pubCmd.c_str());
+  if (pubStatus != 0) {
+    std::cerr << "❌ [ERROR] Public key extraction failed for user: "
+              << cleanUsername << std::endl;
+    return;
+  }
+  std::cout << "[DEBUG] Public key generated successfully." << std::endl;
+
+  if (fs::exists(privateKeyPath) && fs::exists(publicKeyPath)) {
+    std::cout << "✅ [INFO] Successfully generated keys for user: "
+              << cleanUsername << std::endl;
+  } else {
+    std::cerr << "❌ [ERROR] Key files missing after generation attempt!"
+              << std::endl;
+  }
+}
+
+// 🔓 Load an encrypted private key and return PEM string
+std::string loadPrivateKeyDecrypted(const std::string &path,
+                                    const std::string &passphrase) {
+  FILE *fp = fopen(path.c_str(), "rb");
+  if (!fp)
+    throw std::runtime_error("❌ Failed to open private key: " + path);
+
+  EVP_PKEY *pkey =
+      PEM_read_PrivateKey(fp, nullptr, nullptr, (void *)passphrase.c_str());
+  fclose(fp);
+  if (!pkey)
+    throw std::runtime_error("❌ Failed to read private key with passphrase");
+
+  BIO *mem = BIO_new(BIO_s_mem());
+  if (!PEM_write_bio_PrivateKey(mem, pkey, nullptr, nullptr, 0, nullptr,
+                                nullptr)) {
+    BIO_free(mem);
+    EVP_PKEY_free(pkey);
+    throw std::runtime_error("❌ Failed to write key to memory");
+  }
+
+  BUF_MEM *ptr;
+  BIO_get_mem_ptr(mem, &ptr);
+  std::string out(ptr->data, ptr->length);
+  BIO_free(mem);
+  EVP_PKEY_free(pkey);
+  return out;
+}
+
 // ✅ Generate Private Key (Auto-Creation)
 std::string generatePrivateKey(const std::string &user,
                                const std::string &passphrase) {
