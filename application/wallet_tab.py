@@ -15,7 +15,8 @@ class WalletTab(QWidget):
         self.parent = parent
         # Wallet keys and optional passphrase hashes live in ~/.alyncoin/keys
         # to match the node's DBPaths::getKeyDir().
-        self.walletDir = os.environ.get("ALYNCOIN_KEY_DIR", os.path.expanduser("~/.alyncoin/keys"))
+        # Allow overriding the key directory via environment variable, expanding '~'
+        self.walletDir = os.path.expanduser(os.environ.get("ALYNCOIN_KEY_DIR", "~/.alyncoin/keys"))
         if not os.path.exists(self.walletDir):
             try:
                 os.makedirs(self.walletDir, exist_ok=True)
