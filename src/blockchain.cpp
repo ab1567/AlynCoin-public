@@ -313,11 +313,20 @@ Block Blockchain::createGenesisBlock(bool force)
     }
 
     /* ----------------------------------------------------------------- */
+    uint64_t fixedTime = 1713120000; // 2024-Apr-14 00:00 UTC
     std::vector<Transaction> transactions;
-    std::string prevHash      = std::string{GENESIS_PARENT_HASH};
-    std::string creator       = "System";
-    uint64_t    fixedTime     = 1713120000;            // 2024-Apr-14 00:00 UTC
-    difficulty  = GENESIS_DIFFICULTY;
+    double teamAmount = 0.0; // track founder allocation for vesting
+    for (const auto& entry : PREMINE_ALLOCATIONS) {
+        transactions.push_back(
+            Transaction::createSystemRewardTransaction(entry.address,
+                                                        entry.amount,
+                                                        fixedTime));
+        if (entry.address == TEAM_FOUNDER_ADDRESS)
+            teamAmount = entry.amount;
+    }
+    std::string prevHash = std::string{GENESIS_PARENT_HASH};
+    std::string creator  = "System";
+    difficulty           = GENESIS_DIFFICULTY;
     /* ----------------------------------------------------------------- */
 
     Block genesis(0, prevHash, transactions,
@@ -393,13 +402,8 @@ Block Blockchain::createGenesisBlock(bool force)
         exit(1);
     }
 
-    // Distribute premine allocations
-    for (const auto& entry : PREMINE_ALLOCATIONS) {
-        balances[entry.address] += entry.amount;
-        totalSupply += entry.amount;
-    }
     // Lock team/founder allocation for one year
-    vestingMap[TEAM_FOUNDER_ADDRESS] = {2'000'000.0,
+    vestingMap[TEAM_FOUNDER_ADDRESS] = {teamAmount,
                                         static_cast<uint64_t>(std::time(nullptr)) + 31536000};
 
     return chain.front();
@@ -2582,12 +2586,6 @@ void Blockchain::recalculateBalancesFromChain() {
     totalBurnedSupply = 0.0;
 
     std::unordered_set<std::string> seenBlocks;
-
-    // Reapply premine allocations
-    for (const auto& entry : PREMINE_ALLOCATIONS) {
-        balances[entry.address] += entry.amount;
-        totalSupply += entry.amount;
-    }
 
     for (size_t i = 0; i < chain.size(); ++i) {
         const Block& block = chain[i];
