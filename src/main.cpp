@@ -1678,7 +1678,7 @@ if (cmd == "nft-verifyhash" && argc >= 3) {
 
     while (running) {
         std::cout << "\n=== AlynCoin Node CLI ===\n";
-        std::cout << "1. Add Transaction\n";
+        std::cout << "1. View Blockchain Stats\n";
         std::cout << "2. Mine Block\n";
         std::cout << "3. Print Blockchain\n";
         std::cout << "4. Start Mining Loop\n";
@@ -1700,45 +1700,12 @@ if (cmd == "nft-verifyhash" && argc >= 3) {
 
         switch (choice) {
         case 1: {
-            std::string sender, recipient;
-            double amount;
-            std::cout << "Enter sender: ";
-            std::cin >> sender;
-            std::cout << "Enter recipient: ";
-            std::cin >> recipient;
-            std::cout << "Enter amount: ";
-            std::cin >> amount;
-
-            Crypto::ensureUserKeys(sender);
-            DilithiumKeyPair dilKeys = Crypto::loadDilithiumKeys(sender);
-            FalconKeyPair falKeys = Crypto::loadFalconKeys(sender);
-
-            Transaction tx(sender, recipient, amount, "", "", time(nullptr));
-            tx.signTransaction(dilKeys.privateKey, falKeys.privateKey);
-
-            // 🚫 Prevent duplicate in pending transactions
-            bool duplicate = false;
-            for (const auto& existing : blockchain.getPendingTransactions()) {
-                if (existing.getSender() == tx.getSender() &&
-                    existing.getRecipient() == tx.getRecipient() &&
-                    existing.getAmount() == tx.getAmount() &&
-                    existing.getMetadata() == tx.getMetadata()) {
-                    std::cout << "⚠️ Duplicate transaction already exists in mempool.\n";
-                    duplicate = true;
-                    break;
-                }
-            }
-            if (duplicate) break;
-
-            if (!tx.isValid(std::string(dilKeys.publicKey.begin(), dilKeys.publicKey.end()),
-                           std::string(falKeys.publicKey.begin(), falKeys.publicKey.end()))) {
-                std::cout << "❌ Invalid transaction (signature check failed).\n";
-                break;
-            }
-
-            blockchain.addTransaction(tx);
-            if (network) network->broadcastTransaction(tx);
-            std::cout << "✅ Transaction added and broadcasted.\n";
+            std::cout << "\n=== Blockchain Stats ===\n";
+            std::cout << "Total Blocks: " << blockchain.getBlockCount() << "\n";
+            std::cout << "Difficulty: " << calculateSmartDifficulty(blockchain) << "\n";
+            std::cout << "Total Supply: " << blockchain.getTotalSupply() << " AlynCoin\n";
+            std::cout << "Total Burned Supply: " << blockchain.getTotalBurnedSupply() << " AlynCoin\n";
+            std::cout << "Dev Fund Balance: " << blockchain.getBalance("DevFundWallet") << " AlynCoin\n";
             break;
         }
 
