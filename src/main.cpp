@@ -909,6 +909,13 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
             std::cout << "Set passphrase (leave blank for none): ";
             std::getline(std::cin >> std::ws, pass);
             if (!pass.empty()) {
+                std::string confirm;
+                std::cout << "Confirm passphrase: ";
+                std::getline(std::cin, confirm);
+                if (pass != confirm) {
+                    std::cerr << "❌ Passphrases do not match.\n";
+                    return 1;
+                }
                 std::ofstream(keyDir + name + "_pass.txt")
                     << Crypto::sha256(pass);
             }
