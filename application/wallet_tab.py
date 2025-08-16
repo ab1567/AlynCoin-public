@@ -4,7 +4,7 @@ import secrets
 from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QLineEdit, QPushButton,
-    QLabel, QComboBox, QFileDialog, QHBoxLayout
+    QLabel, QComboBox, QFileDialog, QHBoxLayout, QInputDialog
 )
 
 from rpc_client import alyncoin_rpc
@@ -78,7 +78,9 @@ class WalletTab(QWidget):
         user_input = secrets.token_hex(20)
         self.appendOutput(f"⚙️ Auto-generating wallet name: {user_input}")
 
-        result = alyncoin_rpc("createwallet", [])
+        passphrase, _ = QInputDialog.getText(self, "Passphrase", "Enter passphrase (optional):", QLineEdit.Password)
+
+        result = alyncoin_rpc("createwallet", [passphrase])
         if isinstance(result, dict) and "error" in result:
             self.appendOutput(f"❌ {result['error']}")
             return
@@ -98,8 +100,15 @@ class WalletTab(QWidget):
             self.appendOutput("❌ Please enter a wallet name or address first.")
             return
 
+        passphrase = ""
+        pass_path = os.path.join(self.walletDir, name + "_pass.txt")
+        if os.path.exists(pass_path):
+            passphrase, ok = QInputDialog.getText(self, "Passphrase", "Enter passphrase:", QLineEdit.Password)
+            if not ok:
+                return
+
         # RPC: loadwallet returns loaded address (or error)
-        result = alyncoin_rpc("loadwallet", [name])
+        result = alyncoin_rpc("loadwallet", [name, passphrase])
         if isinstance(result, dict) and "error" in result:
             self.appendOutput(f"❌ {result['error']}")
             return
@@ -123,6 +132,7 @@ class WalletTab(QWidget):
         priv_path = os.path.join(self.walletDir, wallet + "_private.pem")
         dil_path = os.path.join(self.walletDir, wallet + "_dilithium.key")
         fal_path = os.path.join(self.walletDir, wallet + "_falcon.key")
+        pass_path = os.path.join(self.walletDir, wallet + "_pass.txt")
 
         if not all(os.path.exists(p) for p in [priv_path, dil_path, fal_path]):
             self.appendOutput("❌ Key files not found for selected wallet.")
@@ -134,7 +144,10 @@ class WalletTab(QWidget):
 
         try:
             with open(file_path, "w") as out:
-                for p in [priv_path, dil_path, fal_path]:
+                files = [priv_path, dil_path, fal_path]
+                if os.path.exists(pass_path):
+                    files.append(pass_path)
+                for p in files:
                     with open(p, "r") as f:
                         out.write(f"----- {os.path.basename(p)} -----\n")
                         out.write(f.read() + "\n")

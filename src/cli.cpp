@@ -240,9 +240,21 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
     }
     // Wallet create/load
     if (cmd == "createwallet" && argc == 2) {
-        std::string name = Crypto::generateRandomHex(40);
+        std::string name;
+        do {
+            name = Crypto::generateRandomHex(40);
+        } while (std::filesystem::exists(keyDir + name + "_private.pem"));
         try {
             Wallet w(name, keyDir);
+
+            std::string pass;
+            std::cout << "Set passphrase (leave blank for none): ";
+            std::getline(std::cin >> std::ws, pass);
+            if (!pass.empty()) {
+                std::ofstream(keyDir + name + "_pass.txt")
+                    << Crypto::sha256(pass);
+            }
+
             std::cout << "✅ Wallet created: " << w.getAddress() << "\n";
         } catch (const std::exception &e) {
             std::cerr << "❌ Wallet creation failed: " << e.what() << "\n";
@@ -255,9 +267,22 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
         std::string priv = keyDir + name + "_private.pem";
         std::string dil = keyDir + name + "_dilithium.key";
         std::string fal = keyDir + name + "_falcon.key";
+        std::string passPath = keyDir + name + "_pass.txt";
         if (!std::filesystem::exists(priv) || !std::filesystem::exists(dil) || !std::filesystem::exists(fal)) {
             std::cerr << "❌ Wallet key files not found for: " << name << std::endl;
             return 1;
+        }
+        if (std::filesystem::exists(passPath)) {
+            std::cout << "Enter passphrase: ";
+            std::string pass;
+            std::getline(std::cin >> std::ws, pass);
+            std::ifstream pin(passPath);
+            std::string stored;
+            std::getline(pin, stored);
+            if (Crypto::sha256(pass) != stored) {
+                std::cerr << "❌ Incorrect passphrase\n";
+                return 1;
+            }
         }
         try {
             Wallet w(priv, keyDir, name);
@@ -773,48 +798,30 @@ int cliMain(int argc, char *argv[]) {
 
     switch (choice) {
     case 1: {
-      std::string newAddress;
-      std::cout << "Enter a new wallet address (leave blank for auto-generated): ";
-      std::cin.ignore();
-      std::getline(std::cin, newAddress);
-
-      if (!newAddress.empty()) {
-        if (newAddress.length() > 40 || !std::all_of(newAddress.begin(), newAddress.end(), ::isalnum)) {
-          std::cout << "❌ Invalid address. Must be alphanumeric and <= 40 characters.\n";
-          break;
-        }
-        std::string privPath = keyDir + newAddress + "_private.pem";
-        if (std::filesystem::exists(privPath)) {
-          std::cout << "⚠️ Wallet already exists. Use option 2 to load.\n";
-          break;
-        }
-
-        if (wallet) delete wallet;
-        try {
-          wallet = new Wallet(newAddress, keyDir);
-          std::cout << "✅ New wallet created!\nAddress: " << wallet->getAddress() << std::endl;
-        } catch (const std::exception &e) {
-          std::cerr << "❌ Wallet creation failed: " << e.what() << std::endl;
-          wallet = nullptr;
-        }
-
-      } else {
+      // Always generate a new wallet with a random, unique address
+      std::cout << "🔐 Generating new wallet...\n";
+      std::string derivedAddress;
+      while (true) {
         std::string tempID = Crypto::generateRandomHex(12);
         std::string privPem = Crypto::generatePrivateKey(tempID, "unused");
         std::string pubPem = Crypto::getPublicKey(tempID);
-        std::string derivedAddress = Crypto::generateAddress(pubPem);
+        derivedAddress = Crypto::generateAddress(pubPem);
 
-        std::ofstream(keyDir + derivedAddress + "_private.pem") << privPem;
-        std::ofstream(keyDir + derivedAddress + "_public.pem") << pubPem;
-
-        if (wallet) delete wallet;
-        try {
-          wallet = new Wallet(derivedAddress, keyDir);
-          std::cout << "✅ New wallet created!\nAddress: " << wallet->getAddress() << std::endl;
-        } catch (const std::exception &e) {
-          std::cerr << "❌ Wallet creation failed: " << e.what() << std::endl;
-          wallet = nullptr;
+        std::string privPath = keyDir + derivedAddress + "_private.pem";
+        if (!std::filesystem::exists(privPath)) {
+          std::ofstream(privPath) << privPem;
+          std::ofstream(keyDir + derivedAddress + "_public.pem") << pubPem;
+          break;
         }
+      }
+
+      if (wallet) delete wallet;
+      try {
+        wallet = new Wallet(derivedAddress, keyDir);
+        std::cout << "✅ New wallet created!\nAddress: " << wallet->getAddress() << std::endl;
+      } catch (const std::exception &e) {
+        std::cerr << "❌ Wallet creation failed: " << e.what() << std::endl;
+        wallet = nullptr;
       }
       break;
     }
