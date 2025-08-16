@@ -76,3 +76,35 @@ void checkProposalStatusCLI() {
         case ProposalStatus::EXPIRED: std::cout << "Expired\n"; break;
     }
 }
+
+// Simple interactive menu for DAO operations
+int main() {
+    while (true) {
+        std::cout << "\nDAO CLI Options:\n";
+        std::cout << "1. Create Proposal\n";
+        std::cout << "2. Vote on Proposal\n";
+        std::cout << "3. Check Proposal Status\n";
+        std::cout << "4. Exit\n";
+        std::cout << "Choice: ";
+
+        int choice;
+        std::cin >> choice;
+
+        switch (choice) {
+        case 1:
+            createProposalCLI();
+            break;
+        case 2:
+            voteCLI();
+            break;
+        case 3:
+            checkProposalStatusCLI();
+            break;
+        case 4:
+            return 0;
+        default:
+            std::cout << "Invalid option.\n";
+        }
+    }
+    return 0;
+}

@@ -402,14 +402,24 @@ add_executable(alyncoin-cli
 )
 add_executable(peer_blacklist_cli ${SOURCE_DIR}/cli/peer_blacklist_cli.cpp)
 
+add_executable(wallet_cli ${SOURCE_DIR}/wallet_cli.cpp)
+add_executable(dao_cli    ${SOURCE_DIR}/governance/cli/dao_cli.cpp)
+add_executable(devfund_cli ${SOURCE_DIR}/governance/cli/devfund_cli.cpp)
+
 add_dependencies(alyncoin winterfell_ffi)
 add_dependencies(alyncoin-cli winterfell_ffi)
 add_dependencies(peer_blacklist_cli winterfell_ffi)
+add_dependencies(wallet_cli winterfell_ffi)
+add_dependencies(dao_cli winterfell_ffi)
+add_dependencies(devfund_cli winterfell_ffi)
 
 target_compile_definitions(alyncoin PRIVATE ALYNCOIN_MAIN_PROCESS)
 target_link_libraries(alyncoin        PRIVATE alyncoin_lib ${PLAT_LIBS})
 target_link_libraries(alyncoin-cli    PRIVATE alyncoin_lib ${PLAT_LIBS})
 target_link_libraries(peer_blacklist_cli PRIVATE alyncoin_lib ${PLAT_LIBS})
+target_link_libraries(wallet_cli PRIVATE alyncoin_lib ${PLAT_LIBS})
+target_link_libraries(dao_cli    PRIVATE alyncoin_lib ${PLAT_LIBS})
+target_link_libraries(devfund_cli PRIVATE alyncoin_lib ${PLAT_LIBS})
 
 # Atomic Swap CLI
 add_executable(swapcli
@@ -489,7 +499,7 @@ target_link_libraries(metrics_server  PRIVATE alyncoin_lib ${JSONCPP_LIBRARIES} 
 
 # ---- UPnP propagation --------------------------------------------------------
 if(HAVE_MINIUPNPC)
-  foreach(tgt alyncoin alyncoin-cli peer_blacklist_cli swapcli identitycli nftcli blacklist_test explorer_server metrics_server)
+  foreach(tgt alyncoin alyncoin-cli peer_blacklist_cli swapcli identitycli nftcli blacklist_test explorer_server metrics_server wallet_cli dao_cli devfund_cli)
     if(TARGET ${tgt})
       target_link_libraries(${tgt} PRIVATE ${UPNP_LIB})
     endif()
@@ -498,7 +508,7 @@ endif()
 
 # Link Windows executables against ntdll for native system calls
 if(MSVC)
-  foreach(tgt alyncoin alyncoin-cli peer_blacklist_cli swapcli identitycli nftcli blacklist_test explorer_server metrics_server)
+  foreach(tgt alyncoin alyncoin-cli peer_blacklist_cli swapcli identitycli nftcli blacklist_test explorer_server metrics_server wallet_cli dao_cli devfund_cli)
     if(TARGET ${tgt})
       target_link_libraries(${tgt} PRIVATE ntdll)
     endif()
@@ -506,7 +516,7 @@ if(MSVC)
 endif()
 
 # ---- Output dirs -------------------------------------------------------------
-set_target_properties(alyncoin alyncoin-cli explorer_server metrics_server peer_blacklist_cli blacklist_test swapcli identitycli
+set_target_properties(alyncoin alyncoin-cli explorer_server metrics_server peer_blacklist_cli blacklist_test swapcli identitycli nftcli wallet_cli dao_cli devfund_cli
   PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
 )

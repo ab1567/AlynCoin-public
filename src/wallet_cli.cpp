@@ -125,3 +125,9 @@ void WalletCLI::sendCoins() {
 double Wallet::getBalance() const {
   return Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), false).getBalance(address);
 }
+
+int main() {
+  WalletCLI cli;
+  cli.start();
+  return 0;
+}
