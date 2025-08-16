@@ -2,6 +2,7 @@
 #include "blockchain.h"
 #include <fstream>
 #include <sstream>
+#include <limits>
 
 void WalletCLI::start() {
   std::cout << "=== Welcome to AlynCoin Wallet CLI ===" << std::endl;
@@ -50,16 +51,25 @@ void WalletCLI::start() {
 
 // 🔑 **Create a new wallet**
 void WalletCLI::createWallet() {
-  wallet = Wallet();
-  wallet.saveToFile("wallet.json");
+  std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+  std::string passphrase;
+  std::cout << "Enter a passphrase to secure your wallet: ";
+  std::getline(std::cin, passphrase);
+  wallet = Wallet("defaultWallet", WALLET_KEY_DIR, passphrase);
   std::cout << "✅ Wallet created! Address: " << wallet.getAddress()
             << std::endl;
 }
 
 // 🔄 **Load an existing wallet**
 void WalletCLI::loadWallet() {
+  std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+  std::string address, passphrase;
+  std::cout << "Enter wallet address: ";
+  std::getline(std::cin, address);
+  std::cout << "Enter passphrase: ";
+  std::getline(std::cin, passphrase);
   try {
-    wallet = Wallet::loadFromFile("wallet.json");
+    wallet = Wallet(address, WALLET_KEY_DIR, passphrase);
     std::cout << "✅ Wallet loaded! Address: " << wallet.getAddress()
               << std::endl;
   } catch (const std::exception &e) {
