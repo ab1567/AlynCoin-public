@@ -36,6 +36,12 @@ void WalletCLI::start() {
     case 5:
       std::cout << "Exiting...\n";
       return;
+    case 6:
+      showKeys();
+      break;
+    case 7:
+      generateNewPQKeys();
+      break;
     default:
       std::cout << "❌ Invalid choice! Try again.\n";
     }
@@ -64,9 +70,9 @@ void WalletCLI::loadWallet() {
 void WalletCLI::showKeys() {
   std::cout << "\n=== Wallet Keys ===\n";
   std::cout << "RSA Public Key:\n" << wallet.getPublicKey() << "\n";
-  std::cout << "Dilithium Public Key:\n"
-            << wallet.dilithiumKeys.publicKey << "\n";
-  std::cout << "Falcon Public Key:\n" << wallet.falconKeys.publicKey << "\n";
+  std::cout << "Dilithium Public Key:\n" << wallet.getDilithiumPublicKey()
+            << "\n";
+  std::cout << "Falcon Public Key:\n" << wallet.getFalconPublicKey() << "\n";
 }
 
 // 🟢 Generate Fresh PQ Keys
@@ -113,17 +119,14 @@ void WalletCLI::sendCoins() {
       std::cout << "📝 Using Hybrid (Dilithium + Falcon) signature.\n";
     }
 
-    Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), false).addTransaction(tx);
-    tx.saveToDB(Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), false).getTransactionCount());
+    auto &blockchain =
+        Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), false);
+    blockchain.addTransaction(tx);
+    Transaction::saveToDB(tx, blockchain.getRecentTransactionCount());
     std::cout << "✅ Transaction sent! TxID: " << tx.getHash() << std::endl;
   } catch (const std::exception &e) {
     std::cerr << e.what() << "\n";
   }
-}
-
-//
-double Wallet::getBalance() const {
-  return Blockchain::getInstance(8333, DBPaths::getBlockchainDB(), false).getBalance(address);
 }
 
 int main() {

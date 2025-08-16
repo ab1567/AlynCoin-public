@@ -37,6 +37,8 @@ public:
   // Info
   std::string getAddress() const;
   std::string getPublicKey() const;
+  std::string getDilithiumPublicKey() const;
+  std::string getFalconPublicKey() const;
   std::string getPrivateKey() const;
   std::string getPrivateKeyPath() const;
   bool privateKeyExists() const;
