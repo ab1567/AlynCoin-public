@@ -106,6 +106,22 @@ std::string Wallet::getPrivateKeyPath() const {
 
 std::string Wallet::getAddress() const { return address; }
 std::string Wallet::getPublicKey() const { return publicKey; }
+void Wallet::generateDilithiumKeyPair() {
+    dilithiumKeys = Crypto::generateDilithiumKeys(walletName);
+}
+void Wallet::generateFalconKeyPair() {
+    falconKeys = Crypto::generateFalconKeys(walletName);
+}
+std::string Wallet::getDilithiumPublicKey() const {
+    if (!dilithiumKeys.publicKeyHex.empty())
+        return dilithiumKeys.publicKeyHex;
+    return Crypto::toHex(dilithiumKeys.publicKey);
+}
+std::string Wallet::getFalconPublicKey() const {
+    if (!falconKeys.publicKeyHex.empty())
+        return falconKeys.publicKeyHex;
+    return Crypto::toHex(falconKeys.publicKey);
+}
 std::string Wallet::getPrivateKey() const { return privateKey; }
 
 double Wallet::getBalance() const {
