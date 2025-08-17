@@ -937,9 +937,9 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
             std::cerr << "❌ Wallet key files not found for: " << name << std::endl;
             return 1;
         }
+        std::string pass;
         if (std::filesystem::exists(passPath)) {
             std::cout << "Enter passphrase: ";
-            std::string pass;
             std::getline(std::cin >> std::ws, pass);
             std::ifstream pin(passPath);
             std::string stored;
@@ -950,7 +950,7 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
             }
         }
         try {
-            Wallet w(priv, keyDir, name);
+            Wallet w(priv, keyDir, name, pass);
             std::ofstream(DBPaths::getHomePath() + "/.alyncoin/current_wallet.txt") << w.getAddress();
             std::cout << "✅ Wallet loaded: " << w.getAddress() << std::endl;
         } catch (const std::exception &e) {
