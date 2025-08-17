@@ -152,8 +152,13 @@ def ensure_alyncoin_node(block=True):
             os.path.join(exe_dir, "alyncoin", "alyncoin.exe"),
             os.path.join(exe_dir, "build", "alyncoin.exe"),
         ])
+
     bin_path = None
     for c in candidates:
+        # On Windows, skip files without the .exe extension to avoid
+        # accidentally picking up a non-Windows binary (e.g. a Linux ELF)
+        if platform.system() == "Windows" and not c.lower().endswith(".exe"):
+            continue
         if os.path.isfile(c) and os.access(c, os.X_OK):
             bin_path = c
             break
@@ -193,7 +198,10 @@ def ensure_alyncoin_node(block=True):
         )
         print(f"🚀 Launched node: {bin_path} (PID={node_process.pid})")
     except Exception as e:
-        print(f"❌ Failed to launch node: {e}")
+        if getattr(e, "winerror", None) == 193:
+            print("❌ Failed to launch node: %1 is not a valid Win32 application. Ensure 'alyncoin.exe' is a Windows 64-bit binary and matches your Python architecture.")
+        else:
+            print(f"❌ Failed to launch node: {e}")
         log_file.close()
         return False
 
