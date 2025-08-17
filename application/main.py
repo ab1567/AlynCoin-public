@@ -5,6 +5,7 @@ import subprocess
 import time
 import platform
 import requests
+import shutil
 try:
     import dns.resolver
 except Exception as e:
@@ -139,19 +140,22 @@ def ensure_alyncoin_node(block=True):
         return False
 
     exe_dir = os.path.dirname(sys.executable if hasattr(sys, 'frozen') else os.path.abspath(__file__))
-    alyncoin_bin = resource_path("alyncoin" + (".exe" if platform.system() == "Windows" else ""))
+    exe_name = "alyncoin.exe" if platform.system() == "Windows" else "alyncoin"
+    alyncoin_bin = resource_path(exe_name)
     candidates = [
         alyncoin_bin,
-        os.path.join(exe_dir, "alyncoin"),
-        os.path.join(exe_dir, "alyncoin", "alyncoin"),
-        os.path.join(exe_dir, "build", "alyncoin")
+        os.path.join(exe_dir, exe_name),
+        os.path.join(exe_dir, "alyncoin", exe_name),
+        os.path.join(exe_dir, "build", exe_name),
     ]
-    if platform.system() == "Windows":
-        candidates.extend([
-            os.path.join(exe_dir, "alyncoin.exe"),
-            os.path.join(exe_dir, "alyncoin", "alyncoin.exe"),
-            os.path.join(exe_dir, "build", "alyncoin.exe"),
-        ])
+
+    env_bin = os.environ.get("ALYNCOIN_NODE")
+    if env_bin:
+        candidates.insert(0, env_bin)
+
+    which_bin = shutil.which(exe_name)
+    if which_bin:
+        candidates.append(which_bin)
 
     bin_path = None
     for c in candidates:
@@ -163,7 +167,7 @@ def ensure_alyncoin_node(block=True):
             bin_path = c
             break
     if not bin_path:
-        print("❌ Could not find 'alyncoin' node binary. Please ensure it's in the same folder or in 'build'.")
+        print("❌ Could not find 'alyncoin' node binary. Ensure it is in this folder, a 'build' subfolder, on your PATH, or set ALYNCOIN_NODE.")
         return False
 
     # Check for missing shared library dependencies on Linux where ldd is available

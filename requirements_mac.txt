@@ -4,4 +4,5 @@ brew install cmake pkg-config git curl zip unzip \
     openssl@3 libsodium rocksdb zlib bzip2 snappy lz4 zstd \
     protobuf boost jsoncpp nlohmann-json spdlog asio \
     miniupnpc libnatpmp python rust && \
-pip3 install --upgrade pip
+pip3 install --upgrade pip && \
+pip3 install PyQt5 requests dnspython
