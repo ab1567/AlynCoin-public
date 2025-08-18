@@ -124,93 +124,167 @@ def is_rpc_up(host=RPC_HOST, port=RPC_PORT):
     except Exception:
         return False
 
-def ensure_alyncoin_node(block=True):
+
+def _read_magic(path: str) -> bytes:
+    try:
+        with open(path, "rb") as f:
+            return f.read(4)
+    except Exception:
+        return b""
+
+
+def _bin_flavor(path: str) -> str:
+    """Return 'win' if PE (MZ..), 'elf' if ELF, else 'unknown'."""
+    m = _read_magic(path)
+    if m.startswith(b"MZ"):
+        return "win"
+    if m.startswith(b"\x7fELF"):
+        return "elf"
+    return "unknown"
+
+
+def _resource_dir() -> str:
+    return os.path.dirname(sys.executable if hasattr(sys, "frozen") else os.path.abspath(__file__))
+
+
+def _discover_node_binary() -> str | None:
+    """
+    Find the node in common places. Accept both Windows and Linux binaries
+    because Windows users may run the Linux binary via WSL.
+    """
+    cand = []
+
+    # 1) explicit env
+    env_bin = os.environ.get("ALYNCOIN_NODE")
+    if env_bin:
+        cand.append(env_bin)
+
+    base = _resource_dir()
+
+    # 2) next to app / packaged resource
+    cand += [
+        os.path.join(base, "alyncoin"),
+        os.path.join(base, "alyncoin.exe"),
+        resource_path("alyncoin"),
+        resource_path("alyncoin.exe"),
+    ]
+
+    # 3) common subfolders
+    cand += [
+        os.path.join(base, "build", "alyncoin"),
+        os.path.join(base, "build", "alyncoin.exe"),
+        os.path.join(base, "alyncoin", "alyncoin"),
+        os.path.join(base, "alyncoin", "alyncoin.exe"),
+    ]
+
+    # 4) PATH
+    for name in ("alyncoin.exe" if platform.system() == "Windows" else "alyncoin", "alyncoin"):
+        p = shutil.which(name)
+        if p:
+            cand.append(p)
+
+    seen = set()
+    for c in cand:
+        if not c or c in seen:
+            continue
+        seen.add(c)
+        try:
+            if os.path.isfile(c):
+                return c
+        except Exception:
+            pass
+    return None
+
+
+def windows_to_wsl_path(path: str) -> str:
+    drive, rest = os.path.splitdrive(path)
+    drive = drive.rstrip(":").lower()
+    rest = rest.replace("\\", "/")
+    return f"/mnt/{drive}{rest}"
+
+
+def ensure_alyncoin_node(block: bool = True) -> bool:
+    """
+    Start the node if needed and wait for RPC. Supports:
+    - Native Windows .exe
+    - Linux ELF via WSL on Windows (explicit or auto-detected)
+    - Native Linux / macOS
+    """
     global node_process
+
     if is_rpc_up():
-        return True  # Node already running
+        return True
     if node_process and node_process.poll() is None:
-        return True  # process running but RPC not ready yet
+        return True
 
     if not ensure_blockchain_db_dir():
         return False
 
-    # If RPC host is remote, don't attempt to launch local node
     if RPC_HOST not in ("127.0.0.1", "localhost"):
         print(f"🔌 Remote RPC {RPC_HOST}:{RPC_PORT} unreachable.")
         return False
 
-    exe_dir = os.path.dirname(sys.executable if hasattr(sys, 'frozen') else os.path.abspath(__file__))
-    exe_name = "alyncoin.exe" if platform.system() == "Windows" else "alyncoin"
-    alyncoin_bin = resource_path(exe_name)
-    candidates = [
-        alyncoin_bin,
-        os.path.join(exe_dir, exe_name),
-        os.path.join(exe_dir, "alyncoin", exe_name),
-        os.path.join(exe_dir, "build", exe_name),
-    ]
-
-    env_bin = os.environ.get("ALYNCOIN_NODE")
-    if env_bin:
-        candidates.insert(0, env_bin)
-
-    which_bin = shutil.which(exe_name)
-    if which_bin:
-        candidates.append(which_bin)
-
-    bin_path = None
-    for c in candidates:
-        # On Windows, skip files without the .exe extension to avoid
-        # accidentally picking up a non-Windows binary (e.g. a Linux ELF)
-        if platform.system() == "Windows" and not c.lower().endswith(".exe"):
-            continue
-        if os.path.isfile(c) and os.access(c, os.X_OK):
-            bin_path = c
-            break
+    bin_path = _discover_node_binary()
     if not bin_path:
-        print("❌ Could not find 'alyncoin' node binary. Ensure it is in this folder, a 'build' subfolder, on your PATH, or set ALYNCOIN_NODE.")
+        print("❌ Could not find 'alyncoin' node binary.\n"
+              "   Put 'alyncoin(.exe)' next to the app or in 'build', set ALYNCOIN_NODE, or place it on PATH.")
         return False
 
-    # Check for missing shared library dependencies on Linux where ldd is available
-    if platform.system() == "Linux":
-        try:
-            ldd_output = subprocess.check_output(["ldd", bin_path], text=True)
-            missing = [line.strip() for line in ldd_output.splitlines() if "not found" in line]
-            if missing:
-                print("❌ Missing shared libraries for 'alyncoin':")
-                for m in missing:
-                    print("   ", m)
-                print("Please install the required libraries (e.g. RocksDB) and try again.")
-                return False
-        except FileNotFoundError:
-            print("⚠️ 'ldd' not found; skipping shared library check")
-        except Exception as e:
-            print(f"⚠️ Could not verify shared libraries: {e}")
+    flavor = _bin_flavor(bin_path)  # 'win', 'elf', or 'unknown'
+    use_wsl = os.environ.get("ALYNCOIN_USE_WSL", "0") == "1"
     log_file = open(os.devnull, "w")
 
     try:
-        creationflags = 0
         if platform.system() == "Windows":
-            creationflags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
-        node_process = subprocess.Popen(
-            [bin_path],
-            stdout=log_file,
-            stderr=log_file,
-            stdin=subprocess.DEVNULL,
-            close_fds=(platform.system() != "Windows"),
-            start_new_session=(platform.system() != "Windows"),
-            creationflags=creationflags,
-        )
-        print(f"🚀 Launched node: {bin_path} (PID={node_process.pid})")
+            if flavor == "win" and bin_path.lower().endswith(".exe") and not use_wsl:
+                # Native Windows exe
+                flags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
+                node_process = subprocess.Popen(
+                    [bin_path],
+                    stdout=log_file, stderr=log_file, stdin=subprocess.DEVNULL,
+                    creationflags=flags
+                )
+                print(f"🚀 Launched node: {bin_path} (PID={node_process.pid})")
+            else:
+                # Linux ELF or forced WSL
+                distro = os.environ.get("ALYNCOIN_WSL_DISTRO", "Ubuntu")
+                workdir = windows_to_wsl_path(os.path.dirname(bin_path))
+                cmd = ["wsl", "-d", distro, "--cd", workdir, "--", "bash", "-lc", "chmod +x ./alyncoin || true && ./alyncoin"]
+                node_process = subprocess.Popen(
+                    cmd,
+                    stdout=log_file, stderr=log_file, stdin=subprocess.DEVNULL,
+                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
+                )
+                print(f"🚀 Launched WSL node ({distro}) from {workdir} (PID={node_process.pid})")
+        else:
+            # Linux/macOS
+            if platform.system() == "Linux":
+                try:
+                    ldd_out = subprocess.check_output(["ldd", bin_path], text=True)
+                    if any("not found" in ln for ln in ldd_out.splitlines()):
+                        print("❌ Missing shared libraries for 'alyncoin'. Install RocksDB/libsodium etc. and try again.")
+                        log_file.close()
+                        return False
+                except Exception:
+                    pass
+            node_process = subprocess.Popen(
+                [bin_path],
+                stdout=log_file, stderr=log_file, stdin=subprocess.DEVNULL,
+                close_fds=True, start_new_session=True
+            )
+            print(f"🚀 Launched node: {bin_path} (PID={node_process.pid})")
+
     except Exception as e:
         if getattr(e, "winerror", None) == 193:
-            print("❌ Failed to launch node: %1 is not a valid Win32 application. Ensure 'alyncoin.exe' is a Windows 64-bit binary and matches your Python architecture.")
+            print("❌ Tried to run a Linux binary natively on Windows.\n"
+                  "   Provide alyncoin.exe or set ALYNCOIN_USE_WSL=1 to launch via WSL.")
         else:
             print(f"❌ Failed to launch node: {e}")
         log_file.close()
         return False
 
     if block:
-        for _ in range(40):  # up to 20 seconds
+        for _ in range(40):  # ~20s
             if is_rpc_up():
                 log_file.close()
                 return True
@@ -218,11 +292,13 @@ def ensure_alyncoin_node(block=True):
         print("❌ Node RPC did not become available after launch.")
         log_file.close()
         return False
+
     log_file.close()
     return True
 
-# Gracefully stop the background node process (if launched)
+
 def terminate_alyncoin_node():
+    """Gracefully stop the background node process (if launched)."""
     global node_process
     if node_process and node_process.poll() is None:
         try:
@@ -232,6 +308,15 @@ def terminate_alyncoin_node():
             node_process.kill()
         finally:
             node_process = None
+
+    # Extra cleanup for WSL launches
+    if platform.system() == "Windows":
+        try:
+            distro = os.environ.get("ALYNCOIN_WSL_DISTRO", "Ubuntu")
+            subprocess.run(["wsl", "-d", distro, "pkill", "-f", "alyncoin"],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
 
 # ---- Resource helpers ----
 def get_logo_path():
