@@ -168,7 +168,9 @@ missing.  Should directory creation fail, the startup log will report the
 problem so you can adjust permissions.
 
 `alyncoin-cli` can be used for command line transactions without running the
-interactive node.
+interactive node. Run `./alyncoin-cli --help` to see available commands and
+usage examples. When creating a wallet, the CLI now prompts for a passphrase
+(minimum 8 characters) to encrypt your keys.
 
 ## GUI Wallet
 

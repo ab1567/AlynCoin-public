@@ -37,6 +37,26 @@
 #include <regex>
 #include "nft/nft_utils.h"
 
+// Print usage information for CLI commands
+void print_usage() {
+    std::cout << "Usage: alyncoin-cli <command> [args]\n"
+              << "Commands:\n"
+              << "  createwallet                         Create a new wallet (prompts for passphrase)\n"
+              << "  loadwallet <name>                    Load an existing wallet\n"
+              << "  balance <address>                    Show wallet balance\n"
+              << "  balance-force <address>             Reload chain and show balance\n"
+              << "  sendl1 <from> <to> <amount> <metadata>  Send L1 transaction\n"
+              << "  sendl2 <from> <to> <amount> <metadata>  Send L2 transaction\n"
+              << "  dao-submit <from> <desc> [type] [amount] [target]  Submit DAO proposal\n"
+              << "  dao-vote <from> <id> <yes|no>        Vote on DAO proposal\n"
+              << "  history <address>                    Show transaction history\n"
+              << "  mychain <address>                    Show mined block stats\n"
+              << "  mine <miner_address>                Mine pending transactions\n"
+              << "  rollup <address>                     Generate rollup block\n"
+              << "  recursive-rollup <address>          Generate recursive rollup block\n"
+              << "  --help                              Show this message\n";
+}
+
 // --- AlynCoin RPC Server (port 1567) ---
 void start_rpc_server(Blockchain* blockchain, Network* network, SelfHealingNode* healer, int rpc_port = 1567) {
     httplib::Server svr;
@@ -699,7 +719,10 @@ int main(int argc, char *argv[]) {
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
-        if (arg == "--port" && i + 1 < argc) {
+        if (arg == "--help" || arg == "-h" || arg == "help") {
+            print_usage();
+            return 0;
+        } else if (arg == "--port" && i + 1 < argc) {
             port = static_cast<unsigned short>(std::stoi(argv[++i]));
             portSpecified = true;
             std::cout << "🌐 Using custom port: " << port << std::endl;
@@ -904,21 +927,28 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
         do {
             name = Crypto::generateRandomHex(40);
         } while (std::filesystem::exists(keyDir + name + "_private.pem"));
+
+        std::string pass;
+        std::cout << "Set passphrase (leave blank for none): ";
+        std::getline(std::cin >> std::ws, pass);
+        if (!pass.empty() && pass.size() < 8) {
+            std::cerr << "⚠️ Passphrase must be at least 8 characters.\n";
+            return 1;
+        }
+        if (!pass.empty()) {
+            std::string confirm;
+            std::cout << "Confirm passphrase: ";
+            std::getline(std::cin, confirm);
+            if (pass != confirm) {
+                std::cerr << "❌ Passphrases do not match.\n";
+                return 1;
+            }
+        }
+
         try {
-            Wallet w(name, keyDir);
-            std::string pass;
-            std::cout << "Set passphrase (leave blank for none): ";
-            std::getline(std::cin >> std::ws, pass);
+            Wallet w(name, keyDir, pass);
             if (!pass.empty()) {
-                std::string confirm;
-                std::cout << "Confirm passphrase: ";
-                std::getline(std::cin, confirm);
-                if (pass != confirm) {
-                    std::cerr << "❌ Passphrases do not match.\n";
-                    return 1;
-                }
-                std::ofstream(keyDir + name + "_pass.txt")
-                    << Crypto::sha256(pass);
+                std::ofstream(keyDir + name + "_pass.txt") << Crypto::sha256(pass);
             }
             std::cout << "✅ Wallet created: " << w.getAddress() << "\n";
         } catch (const std::exception &e) {
@@ -1633,6 +1663,17 @@ if (cmd == "nft-verifyhash" && argc >= 3) {
 
 
      // ================= CLI COMMAND HANDLERS END ===================
+    if (!cmd.empty() && cmd[0] != '-') {
+        static const std::unordered_set<std::string> known = {
+            "mineonce", "mineloop", "createwallet", "loadwallet", "balance",
+            "balance-force", "sendl1", "sendl2", "dao-submit", "dao-vote",
+            "history", "mychain", "mine", "rollup", "recursive-rollup" };
+        if (!known.count(cmd)) {
+            std::cerr << "Unknown command: " << cmd << "\n";
+            print_usage();
+            return 1;
+        }
+    }
     if (network) {
         network->run();
     }
