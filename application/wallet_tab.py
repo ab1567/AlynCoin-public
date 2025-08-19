@@ -1,6 +1,7 @@
 import os
 import re
 import secrets
+import json
 from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QLineEdit, QPushButton,
@@ -48,7 +49,7 @@ class WalletTab(QWidget):
         loadBtn.clicked.connect(self.loadWallet)
         buttonRow.addWidget(loadBtn)
 
-        exportBtn = QPushButton("Backup Wallet")
+        exportBtn = QPushButton("Export Wallet")
         exportBtn.clicked.connect(self.exportWallet)
         buttonRow.addWidget(exportBtn)
 
@@ -132,33 +133,21 @@ class WalletTab(QWidget):
         if not wallet:
             self.appendOutput("❌ No wallet selected to export.")
             return
-
-        # Find all key files
-        priv_path = os.path.join(self.walletDir, wallet + "_private.pem")
-        dil_path = os.path.join(self.walletDir, wallet + "_dilithium.key")
-        fal_path = os.path.join(self.walletDir, wallet + "_falcon.key")
-        pass_path = os.path.join(self.walletDir, wallet + "_pass.txt")
-
-        if not all(os.path.exists(p) for p in [priv_path, dil_path, fal_path]):
-            self.appendOutput("❌ Key files not found for selected wallet.")
+        result = alyncoin_rpc("exportwallet", [wallet])
+        if isinstance(result, dict) and "error" in result:
+            self.appendOutput(f"❌ {result['error']}")
             return
 
-        file_path, _ = QFileDialog.getSaveFileName(self, "Save Wallet Backup", f"{wallet}.bak")
+        file_path, _ = QFileDialog.getSaveFileName(self, "Save Wallet Backup", f"{wallet}.json")
         if not file_path:
             return
 
         try:
             with open(file_path, "w") as out:
-                files = [priv_path, dil_path, fal_path]
-                if os.path.exists(pass_path):
-                    files.append(pass_path)
-                for p in files:
-                    with open(p, "r") as f:
-                        out.write(f"----- {os.path.basename(p)} -----\n")
-                        out.write(f.read() + "\n")
-            self.appendOutput(f"💾 Backup created: {file_path}")
+                json.dump(result, out, indent=2)
+            self.appendOutput(f"💾 Wallet exported: {file_path}")
         except Exception as ex:
-            self.appendOutput(f"❌ Error saving backup: {ex}")
+            self.appendOutput(f"❌ Failed to save wallet backup: {ex}")
 
     def checkBalance(self):
         addr = self.parent.get_wallet_address()

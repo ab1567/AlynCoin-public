@@ -7,6 +7,7 @@
 #include "network/peer_blacklist.h"
 #include "wallet.h"
 #include <fstream>
+#include <sstream>
 #include <iostream>
 #include <json/json.h>
 #include <limits>
@@ -43,6 +44,7 @@ void print_usage() {
               << "Commands:\n"
               << "  createwallet                         Create a new wallet (prompts for passphrase)\n"
               << "  loadwallet <name>                    Load an existing wallet\n"
+              << "  exportwallet <name> <file>           Export wallet keys and balance to file\n"
               << "  balance <address>                    Show wallet balance\n"
               << "  balance-force <address>             Reload chain and show balance\n"
               << "  sendl1 <from> <to> <amount> <metadata>  Send L1 transaction\n"
@@ -170,6 +172,39 @@ svr.Post("/rpc", [blockchain, network, healer](const httplib::Request& req, http
                     } catch (const std::exception &e) {
                         output = {{"error", std::string("Wallet load failed: ") + e.what()}};
                     }
+                }
+            }
+        }
+        else if (method == "exportwallet") {
+            if (params.size() < 1) {
+                output = {{"error", "Missing wallet name parameter"}};
+            } else {
+                std::string name = params.at(0);
+                std::string priv = DBPaths::getKeyDir() + name + "_private.pem";
+                std::string dil  = DBPaths::getKeyDir() + name + "_dilithium.key";
+                std::string fal  = DBPaths::getKeyDir() + name + "_falcon.key";
+                if (!std::filesystem::exists(priv) ||
+                    !std::filesystem::exists(dil) ||
+                    !std::filesystem::exists(fal)) {
+                    output = {{"error", "Wallet key files not found for: " + name}};
+                } else {
+                    auto readFile = [](const std::string &path) {
+                        std::ifstream in(path, std::ios::binary);
+                        std::ostringstream ss;
+                        ss << in.rdbuf();
+                        return ss.str();
+                    };
+                    nlohmann::json j;
+                    j["address"] = name;
+                    j["private_key"] = readFile(priv);
+                    j["dilithium_key"] = readFile(dil);
+                    j["falcon_key"] = readFile(fal);
+                    std::string passPath = DBPaths::getKeyDir() + name + "_pass.txt";
+                    if (std::filesystem::exists(passPath)) {
+                        j["pass_hash"] = readFile(passPath);
+                    }
+                    j["balance"] = blockchain->getBalance(name);
+                    output = {{"result", j}};
                 }
             }
         }
@@ -989,6 +1024,49 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
         }
         return 0;
     }
+    if (cmd == "exportwallet" && argc >= 4) {
+        std::string name = argv[2];
+        std::string outPath = argv[3];
+        std::string priv = keyDir + name + "_private.pem";
+        std::string dil  = keyDir + name + "_dilithium.key";
+        std::string fal  = keyDir + name + "_falcon.key";
+        if (!std::filesystem::exists(priv) ||
+            !std::filesystem::exists(dil) ||
+            !std::filesystem::exists(fal)) {
+            std::cerr << "❌ Wallet key files not found for: " << name << "\n";
+            return 1;
+        }
+        try {
+            auto readFile = [](const std::string &path) {
+                std::ifstream in(path, std::ios::binary);
+                std::ostringstream ss;
+                ss << in.rdbuf();
+                return ss.str();
+            };
+            nlohmann::json j;
+            j["address"] = name;
+            j["private_key"] = readFile(priv);
+            j["dilithium_key"] = readFile(dil);
+            j["falcon_key"] = readFile(fal);
+            std::string passPath = keyDir + name + "_pass.txt";
+            if (std::filesystem::exists(passPath)) {
+                j["pass_hash"] = readFile(passPath);
+            }
+            Blockchain &bb = Blockchain::getInstance();
+            j["balance"] = bb.getBalance(name);
+            std::ofstream out(outPath);
+            if (!out) {
+                std::cerr << "❌ Unable to open file for writing: " << outPath << "\n";
+                return 1;
+            }
+            out << j.dump(2);
+            std::cout << "✅ Wallet exported to " << outPath << "\n";
+        } catch (const std::exception &e) {
+            std::cerr << "❌ Wallet export failed: " << e.what() << "\n";
+            return 1;
+        }
+        return 0;
+    }
 // === Balance check (normal or forced) ===
     if ((cmd == "balance" || cmd == "balance-force") && argc >= 3) {
         std::string addr = argv[2];
@@ -1665,7 +1743,7 @@ if (cmd == "nft-verifyhash" && argc >= 3) {
      // ================= CLI COMMAND HANDLERS END ===================
     if (!cmd.empty() && cmd[0] != '-') {
         static const std::unordered_set<std::string> known = {
-            "mineonce", "mineloop", "createwallet", "loadwallet", "balance",
+            "mineonce", "mineloop", "createwallet", "loadwallet", "exportwallet", "balance",
             "balance-force", "sendl1", "sendl2", "dao-submit", "dao-vote",
             "history", "mychain", "mine", "rollup", "recursive-rollup" };
         if (!known.count(cmd)) {
