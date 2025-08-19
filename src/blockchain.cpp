@@ -1182,6 +1182,7 @@ void Blockchain::printBlockchain() const {
     std::unordered_set<std::string> seenHashes;
 
     std::cout << "=== AlynCoin Blockchain ===\n";
+    std::cout << "Each block lists: index, hashes, miner, reward, nonce, timestamp and transactions.\n";
     for (const Block &block : chain) {
         if (seenHashes.find(block.getHash()) != seenHashes.end()) {
             continue;
@@ -1197,6 +1198,10 @@ void Blockchain::printBlockchain() const {
         std::cout << "Timestamp: " << block.getTimestamp() << "\n";
         if (!block.getTransactions().empty()) {
             std::cout << "Transactions: " << block.getTransactions().size() << "\n";
+            for (const auto &tx : block.getTransactions()) {
+                std::cout << "  - " << tx.getSender() << " → " << tx.getRecipient()
+                          << " (" << tx.getAmount() << " AlynCoin)\n";
+            }
         } else {
             std::cout << "Transactions: 0\n";
         }
