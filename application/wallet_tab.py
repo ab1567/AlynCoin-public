@@ -106,12 +106,9 @@ class WalletTab(QWidget):
             self.appendOutput("❌ Please enter a wallet name or address first.")
             return
 
-        passphrase = ""
-        pass_path = os.path.join(self.walletDir, name + "_pass.txt")
-        if os.path.exists(pass_path):
-            passphrase, ok = QInputDialog.getText(self, "Passphrase", "Enter passphrase:", QLineEdit.Password)
-            if not ok:
-                return
+        passphrase, ok = QInputDialog.getText(self, "Passphrase", "Enter passphrase (leave blank if none):", QLineEdit.Password)
+        if not ok:
+            return
 
         # RPC: loadwallet returns loaded address (or error)
         result = alyncoin_rpc("loadwallet", [name, passphrase])
