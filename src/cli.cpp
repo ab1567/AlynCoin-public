@@ -828,9 +828,30 @@ int cliMain(int argc, char *argv[]) {
         }
       }
 
+      std::string pass;
+      std::cout << "Set passphrase (leave blank for none): ";
+      std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+      std::getline(std::cin, pass);
+      if (!pass.empty() && pass.size() < 8) {
+        std::cerr << "⚠️ Passphrase must be at least 8 characters.\n";
+        break;
+      }
+      if (!pass.empty()) {
+        std::string confirm;
+        std::cout << "Confirm passphrase: ";
+        std::getline(std::cin, confirm);
+        if (pass != confirm) {
+          std::cerr << "❌ Passphrases do not match.\n";
+          break;
+        }
+      }
+
       if (wallet) delete wallet;
       try {
-        wallet = new Wallet(derivedAddress, keyDir);
+        wallet = new Wallet(derivedAddress, keyDir, pass);
+        if (!pass.empty()) {
+          std::ofstream(keyDir + derivedAddress + "_pass.txt") << Crypto::sha256(pass);
+        }
         std::cout << "✅ New wallet created!\nAddress: " << wallet->getAddress() << std::endl;
       } catch (const std::exception &e) {
         std::cerr << "❌ Wallet creation failed: " << e.what() << std::endl;
@@ -847,15 +868,32 @@ int cliMain(int argc, char *argv[]) {
       std::string privPath = keyDir + walletAddress + "_private.pem";
       std::string dilPath = keyDir + walletAddress + "_dilithium.key";
       std::string falPath = keyDir + walletAddress + "_falcon.key";
+      std::string passPath = keyDir + walletAddress + "_pass.txt";
 
       if (!std::filesystem::exists(privPath) || !std::filesystem::exists(dilPath) || !std::filesystem::exists(falPath)) {
         std::cerr << "❌ Missing required key files for wallet: " << walletAddress << "\n";
         break;
       }
 
+      std::string pass;
+      if (std::filesystem::exists(passPath)) {
+        std::cout << "Enter passphrase: ";
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        std::getline(std::cin, pass);
+        std::ifstream pin(passPath);
+        std::string stored;
+        std::getline(pin, stored);
+        if (Crypto::sha256(pass) != stored) {
+          std::cerr << "❌ Incorrect passphrase\n";
+          break;
+        }
+      } else {
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+      }
+
       if (wallet) delete wallet;
       try {
-        wallet = new Wallet(privPath, keyDir, walletAddress);
+        wallet = new Wallet(privPath, keyDir, walletAddress, pass);
         std::cout << "✅ Wallet loaded successfully!\nAddress: " << wallet->getAddress() << std::endl;
       } catch (const std::exception &e) {
         std::cerr << "❌ Wallet loading failed: " << e.what() << std::endl;
