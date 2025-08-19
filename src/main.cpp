@@ -968,9 +968,9 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
             return 1;
         }
         std::string pass;
+        std::cout << "Enter passphrase (leave blank if none): ";
+        std::getline(std::cin >> std::ws, pass);
         if (std::filesystem::exists(passPath)) {
-            std::cout << "Enter passphrase: ";
-            std::getline(std::cin >> std::ws, pass);
             std::ifstream pin(passPath);
             std::string stored;
             std::getline(pin, stored);

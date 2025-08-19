@@ -286,9 +286,9 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
             return 1;
         }
         std::string pass;
+        std::cout << "Enter passphrase (leave blank if none): ";
+        std::getline(std::cin >> std::ws, pass);
         if (std::filesystem::exists(passPath)) {
-            std::cout << "Enter passphrase: ";
-            std::getline(std::cin >> std::ws, pass);
             std::ifstream pin(passPath);
             std::string stored;
             std::getline(pin, stored);
@@ -876,10 +876,10 @@ int cliMain(int argc, char *argv[]) {
       }
 
       std::string pass;
+      std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+      std::cout << "Enter passphrase (leave blank if none): ";
+      std::getline(std::cin, pass);
       if (std::filesystem::exists(passPath)) {
-        std::cout << "Enter passphrase: ";
-        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-        std::getline(std::cin, pass);
         std::ifstream pin(passPath);
         std::string stored;
         std::getline(pin, stored);
@@ -887,8 +887,6 @@ int cliMain(int argc, char *argv[]) {
           std::cerr << "❌ Incorrect passphrase\n";
           break;
         }
-      } else {
-        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
       }
 
       if (wallet) delete wallet;
