@@ -53,6 +53,10 @@ class WalletTab(QWidget):
         exportBtn.clicked.connect(self.exportWallet)
         buttonRow.addWidget(exportBtn)
 
+        importBtn = QPushButton("Import Wallet")
+        importBtn.clicked.connect(self.importWallet)
+        buttonRow.addWidget(importBtn)
+
         layout.addLayout(buttonRow)
 
         self.balanceBtn = QPushButton("Check Balance")
@@ -148,6 +152,33 @@ class WalletTab(QWidget):
             self.appendOutput(f"💾 Wallet exported: {file_path}")
         except Exception as ex:
             self.appendOutput(f"❌ Failed to save wallet backup: {ex}")
+
+    def importWallet(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Open Wallet Backup", "", "JSON Files (*.json)")
+        if not file_path:
+            return
+        try:
+            with open(file_path, "r") as f:
+                data = json.load(f)
+        except Exception as ex:
+            self.appendOutput(f"❌ Failed to read wallet backup: {ex}")
+            return
+
+        result = alyncoin_rpc("importwallet", [data])
+        if isinstance(result, dict) and "error" in result:
+            self.appendOutput(f"❌ {result['error']}")
+            return
+
+        wallet_name = data.get("address") or ""
+        if isinstance(result, str):
+            wallet_name = result
+        if wallet_name:
+            self.addressInput.setText(wallet_name)
+            self.parent.set_wallet_address(wallet_name)
+            self.appendOutput(f"📬 Imported Wallet: {wallet_name}")
+        else:
+            self.appendOutput("⚠️ Wallet imported but no address returned.")
+        self.refreshWalletList()
 
     def checkBalance(self):
         addr = self.parent.get_wallet_address()
