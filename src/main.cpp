@@ -44,7 +44,8 @@ void print_usage() {
               << "Commands:\n"
               << "  createwallet                         Create a new wallet (prompts for passphrase)\n"
               << "  loadwallet <name>                    Load an existing wallet\n"
-              << "  exportwallet <name> <file>           Export wallet keys and balance to file\n"
+              << "  exportwallet [name] <file>           Export wallet keys and balance to file\n"
+              << "  importwallet <file>                 Import wallet keys from backup file\n"
               << "  balance <address>                    Show wallet balance\n"
               << "  balance-force <address>             Reload chain and show balance\n"
               << "  sendl1 <from> <to> <amount> <metadata>  Send L1 transaction\n"
@@ -57,6 +58,89 @@ void print_usage() {
               << "  rollup <address>                     Generate rollup block\n"
               << "  recursive-rollup <address>          Generate recursive rollup block\n"
               << "  --help                              Show this message\n";
+}
+
+static bool exportWalletToFile(const std::string& keyDir, Blockchain& blockchain,
+                               const std::string& name, const std::string& outPath) {
+    std::string priv = keyDir + name + "_private.pem";
+    std::string dil  = keyDir + name + "_dilithium.key";
+    std::string fal  = keyDir + name + "_falcon.key";
+    if (!std::filesystem::exists(priv) ||
+        !std::filesystem::exists(dil) ||
+        !std::filesystem::exists(fal)) {
+        std::cerr << "❌ Wallet key files not found for: " << name << "\n";
+        return false;
+    }
+    auto readFile = [](const std::string& path) {
+        std::ifstream in(path, std::ios::binary);
+        std::ostringstream ss;
+        ss << in.rdbuf();
+        return ss.str();
+    };
+    nlohmann::json j;
+    j["address"] = name;
+    j["private_key"] = readFile(priv);
+    j["dilithium_key"] = readFile(dil);
+    j["falcon_key"] = readFile(fal);
+    std::string passPath = keyDir + name + "_pass.txt";
+    if (std::filesystem::exists(passPath)) {
+        j["pass_hash"] = readFile(passPath);
+    }
+    j["balance"] = blockchain.getBalance(name);
+    std::ofstream out(outPath);
+    if (!out) {
+        std::cerr << "❌ Unable to open file for writing: " << outPath << "\n";
+        return false;
+    }
+    out << j.dump(2);
+    std::cout << "✅ Wallet exported to " << outPath << "\n";
+    return true;
+}
+
+static bool importWalletFromFile(const std::string& keyDir, const std::string& inPath) {
+    std::ifstream in(inPath);
+    if (!in) {
+        std::cerr << "❌ Unable to open file: " << inPath << "\n";
+        return false;
+    }
+    nlohmann::json j;
+    try {
+        in >> j;
+    } catch (const std::exception& e) {
+        std::cerr << "❌ Invalid wallet backup JSON: " << e.what() << "\n";
+        return false;
+    }
+    std::string name = j.value("address", "");
+    std::string priv = j.value("private_key", "");
+    std::string dil  = j.value("dilithium_key", "");
+    std::string fal  = j.value("falcon_key", "");
+    std::string passHash = j.value("pass_hash", "");
+    if (name.empty() || priv.empty() || dil.empty() || fal.empty()) {
+        std::cerr << "❌ Invalid wallet backup data\n";
+        return false;
+    }
+    if (std::filesystem::exists(keyDir + name + "_private.pem")) {
+        std::cerr << "❌ Wallet already exists: " << name << "\n";
+        return false;
+    }
+    auto writeFile = [](const std::string& path, const std::string& contents) {
+        std::ofstream out(path, std::ios::binary);
+        out << contents;
+    };
+    try {
+        writeFile(keyDir + name + "_private.pem", priv);
+        writeFile(keyDir + name + "_dilithium.key", dil);
+        writeFile(keyDir + name + "_falcon.key", fal);
+        if (!passHash.empty()) {
+            writeFile(keyDir + name + "_pass.txt", passHash);
+        }
+        std::ofstream(DBPaths::getHomePath() + "/.alyncoin/current_wallet.txt") << name;
+        std::cout << "✅ Wallet imported: " << name << "\n";
+    } catch (const std::exception& e) {
+        std::cerr << "❌ Wallet import failed: " << e.what() << "\n";
+        return false;
+    }
+    return true;
 }
 
 // --- AlynCoin RPC Server (port 1567) ---
@@ -205,6 +289,40 @@ svr.Post("/rpc", [blockchain, network, healer](const httplib::Request& req, http
                     }
                     j["balance"] = blockchain->getBalance(name);
                     output = {{"result", j}};
+                }
+            }
+        }
+        else if (method == "importwallet") {
+            if (params.empty() || !params.at(0).is_object()) {
+                output = {{"error", "Missing wallet data"}};
+            } else {
+                auto data = params.at(0);
+                std::string name = data.value("address", "");
+                std::string priv = data.value("private_key", "");
+                std::string dil  = data.value("dilithium_key", "");
+                std::string fal  = data.value("falcon_key", "");
+                std::string passHash = data.value("pass_hash", "");
+                if (name.empty() || priv.empty() || dil.empty() || fal.empty()) {
+                    output = {{"error", "Invalid wallet backup data"}};
+                } else if (std::filesystem::exists(DBPaths::getKeyDir() + name + "_private.pem")) {
+                    output = {{"error", "Wallet already exists: " + name}};
+                } else {
+                    auto writeFile = [](const std::string& path, const std::string& contents) {
+                        std::ofstream out(path, std::ios::binary);
+                        out << contents;
+                    };
+                    try {
+                        writeFile(DBPaths::getKeyDir() + name + "_private.pem", priv);
+                        writeFile(DBPaths::getKeyDir() + name + "_dilithium.key", dil);
+                        writeFile(DBPaths::getKeyDir() + name + "_falcon.key", fal);
+                        if (!passHash.empty()) {
+                            writeFile(DBPaths::getKeyDir() + name + "_pass.txt", passHash);
+                        }
+                        std::ofstream(DBPaths::getHomePath() + "/.alyncoin/current_wallet.txt") << name;
+                        output = {{"result", name}};
+                    } catch (const std::exception &e) {
+                        output = {{"error", std::string("Wallet import failed: ") + e.what()}};
+                    }
                 }
             }
         }
@@ -1024,47 +1142,28 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
         }
         return 0;
     }
-    if (cmd == "exportwallet" && argc >= 4) {
-        std::string name = argv[2];
-        std::string outPath = argv[3];
-        std::string priv = keyDir + name + "_private.pem";
-        std::string dil  = keyDir + name + "_dilithium.key";
-        std::string fal  = keyDir + name + "_falcon.key";
-        if (!std::filesystem::exists(priv) ||
-            !std::filesystem::exists(dil) ||
-            !std::filesystem::exists(fal)) {
-            std::cerr << "❌ Wallet key files not found for: " << name << "\n";
-            return 1;
-        }
-        try {
-            auto readFile = [](const std::string &path) {
-                std::ifstream in(path, std::ios::binary);
-                std::ostringstream ss;
-                ss << in.rdbuf();
-                return ss.str();
-            };
-            nlohmann::json j;
-            j["address"] = name;
-            j["private_key"] = readFile(priv);
-            j["dilithium_key"] = readFile(dil);
-            j["falcon_key"] = readFile(fal);
-            std::string passPath = keyDir + name + "_pass.txt";
-            if (std::filesystem::exists(passPath)) {
-                j["pass_hash"] = readFile(passPath);
-            }
-            Blockchain &bb = Blockchain::getInstance();
-            j["balance"] = bb.getBalance(name);
-            std::ofstream out(outPath);
-            if (!out) {
-                std::cerr << "❌ Unable to open file for writing: " << outPath << "\n";
+    if (cmd == "exportwallet" && argc >= 3) {
+        std::string name;
+        std::string outPath;
+        if (argc >= 4) {
+            name = argv[2];
+            outPath = argv[3];
+        } else {
+            outPath = argv[2];
+            std::ifstream cur(DBPaths::getHomePath() + "/.alyncoin/current_wallet.txt");
+            std::getline(cur, name);
+            if (name.empty()) {
+                std::cerr << "❌ No wallet name provided and no current wallet set\n";
                 return 1;
             }
-            out << j.dump(2);
-            std::cout << "✅ Wallet exported to " << outPath << "\n";
-        } catch (const std::exception &e) {
-            std::cerr << "❌ Wallet export failed: " << e.what() << "\n";
-            return 1;
         }
+        Blockchain &bb = Blockchain::getInstance();
+        if (!exportWalletToFile(keyDir, bb, name, outPath)) return 1;
+        return 0;
+    }
+    if (cmd == "importwallet" && argc >= 3) {
+        std::string inPath = argv[2];
+        if (!importWalletFromFile(keyDir, inPath)) return 1;
         return 0;
     }
 // === Balance check (normal or forced) ===
@@ -1743,7 +1842,7 @@ if (cmd == "nft-verifyhash" && argc >= 3) {
      // ================= CLI COMMAND HANDLERS END ===================
     if (!cmd.empty() && cmd[0] != '-') {
         static const std::unordered_set<std::string> known = {
-            "mineonce", "mineloop", "createwallet", "loadwallet", "exportwallet", "balance",
+            "mineonce", "mineloop", "createwallet", "loadwallet", "exportwallet", "importwallet", "balance",
             "balance-force", "sendl1", "sendl2", "dao-submit", "dao-vote",
             "history", "mychain", "mine", "rollup", "recursive-rollup" };
         if (!known.count(cmd)) {
@@ -1808,6 +1907,8 @@ if (cmd == "nft-verifyhash" && argc >= 3) {
         std::cout << "8. Generate Rollup Block\n";
         std::cout << "9. Exit\n";
         std::cout << "10. Run Self-Heal Now 🩺\n";
+        std::cout << "12. Export Wallet\n";
+        std::cout << "13. Import Wallet\n";
         std::cout << "Choose an option: ";
 
         int choice;
@@ -1909,6 +2010,31 @@ if (cmd == "nft-verifyhash" && argc >= 3) {
             std::cout << "🩺 Manually triggering self-healing check...\n";
             healer.monitorAndHeal();
             break;
+
+        case 12: {
+            std::string name, outPath;
+            std::cout << "Enter wallet name (leave blank for current): ";
+            std::getline(std::cin >> std::ws, name);
+            if (name.empty()) {
+                std::ifstream cur(DBPaths::getHomePath() + "/.alyncoin/current_wallet.txt");
+                std::getline(cur, name);
+                if (name.empty()) {
+                    std::cout << "❌ No wallet name provided and no current wallet set\n";
+                    break;
+                }
+            }
+            std::cout << "Enter output file path: ";
+            std::getline(std::cin, outPath);
+            exportWalletToFile(keyDir, blockchain, name, outPath);
+            break;
+        }
+        case 13: {
+            std::string inPath;
+            std::cout << "Enter backup file path: ";
+            std::getline(std::cin >> std::ws, inPath);
+            importWalletFromFile(keyDir, inPath);
+            break;
+        }
 
         default:
             std::cout << "Invalid choice!\n";
