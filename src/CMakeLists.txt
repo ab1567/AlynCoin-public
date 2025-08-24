@@ -105,14 +105,32 @@ list(APPEND SOURCES ${RPC_SOURCES})
 set(MAIN_SOURCE ${SOURCE_DIR}/main.cpp)
 
 # ---- BLAKE3 ------------------------------------------------------------------
-set(BLAKE3_SOURCES
+set(BLAKE3_COMMON_SOURCES
   ${SOURCE_DIR}/blake3.c
   ${SOURCE_DIR}/blake3_dispatch.c
   ${SOURCE_DIR}/blake3_portable.c
-  ${SOURCE_DIR}/blake3_sse2.c
-  ${SOURCE_DIR}/blake3_sse41.c
-  ${SOURCE_DIR}/blake3_avx2.c
 )
+
+if(ARCHITECTURE STREQUAL "x86_64")
+  message(STATUS "Including BLAKE3 SSE2/SSE41/AVX2 sources")
+  list(APPEND BLAKE3_COMMON_SOURCES
+    ${SOURCE_DIR}/blake3_sse2.c
+    ${SOURCE_DIR}/blake3_sse41.c
+    ${SOURCE_DIR}/blake3_avx2.c
+  )
+elseif(ARCHITECTURE STREQUAL "ARM64" OR ARCHITECTURE STREQUAL "ARM")
+  message(STATUS "Including BLAKE3 NEON sources")
+  list(APPEND BLAKE3_COMMON_SOURCES
+    ${SOURCE_DIR}/blake3_neon.c
+  )
+  add_compile_definitions(BLAKE3_USE_NEON=1 BLAKE3_NO_SSE2 BLAKE3_NO_SSE41 BLAKE3_NO_AVX2)
+else()
+  message(WARNING "Unknown architecture detected - using portable BLAKE3")
+  add_compile_definitions(BLAKE3_NO_SSE2 BLAKE3_NO_SSE41 BLAKE3_NO_AVX2)
+endif()
+
+set(BLAKE3_SOURCES ${BLAKE3_COMMON_SOURCES})
+
 if(AVX512_DISABLED)
   add_compile_definitions(BLAKE3_NO_AVX512)
   set_source_files_properties(${SOURCE_DIR}/blake3_dispatch.c PROPERTIES COMPILE_DEFINITIONS "BLAKE3_NO_AVX512")
