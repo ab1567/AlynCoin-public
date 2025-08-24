@@ -288,9 +288,14 @@ set(FALCON_COMMON_SOURCES
   ${SOURCE_DIR}/crypto/falcon/PQClean/common/randombytes.c
   ${SOURCE_DIR}/crypto/falcon/PQClean/common/sha2.c
 )
-file(GLOB FALCON_KECCAK4X_SOURCES
-  ${SOURCE_DIR}/crypto/falcon/PQClean/common/keccak4x/*.c
-)
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)$" OR CMAKE_OSX_ARCHITECTURES MATCHES "arm64")
+  message(STATUS "ARM64 architecture detected – disabling AVX2/SSE for Falcon")
+  add_definitions(-DPQCLEAN_NO_SIMD)
+else()
+  file(GLOB FALCON_KECCAK4X_SOURCES
+    ${SOURCE_DIR}/crypto/falcon/PQClean/common/keccak4x/*.c
+  )
+endif()
 set(FALCON_SOURCES
   ${FALCON_CLEAN_SOURCES}
   ${FALCON_COMMON_SOURCES}
@@ -302,13 +307,17 @@ target_include_directories(falcon PUBLIC
   ${SOURCE_DIR}/crypto/falcon/PQClean/Falcon-1024/clean
   ${SOURCE_DIR}/crypto/falcon/PQClean/common
   ${SOURCE_DIR}/crypto/falcon/PQClean/common/keccak2x
-  ${SOURCE_DIR}/crypto/falcon/PQClean/common/keccak4x
 )
+if(FALCON_KECCAK4X_SOURCES)
+  target_include_directories(falcon PUBLIC
+    ${SOURCE_DIR}/crypto/falcon/PQClean/common/keccak4x
+  )
+endif()
 target_compile_definitions(falcon PUBLIC
   PQCLEAN_FALCON1024_CLEAN_NAMESPACE=PQCLEAN_FALCON1024_CLEAN_
   SHAKE256_NAMESPACE=PQCLEAN_FALCON1024_CLEAN_
 )
-if (NOT MSVC)
+if (NOT MSVC AND FALCON_KECCAK4X_SOURCES)
   set_source_files_properties(
     ${SOURCE_DIR}/crypto/falcon/PQClean/common/keccak4x/KeccakP-1600-times4-SIMD256.c
     PROPERTIES COMPILE_FLAGS "-mavx2 -msse4.1"

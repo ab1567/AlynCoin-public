@@ -23,13 +23,15 @@ include_directories(
     ${GENERATED_DIR}
     ${SOURCE_DIR}/crypto/falcon/PQClean/Falcon-1024/clean
     ${SOURCE_DIR}/crypto/falcon/PQClean/common
-    ${SOURCE_DIR}/crypto/falcon/PQClean/common/keccak4x
     ${SOURCE_DIR}/crypto/dilithium
     ${SOURCE_DIR}/crypto/dilithium/ref
     /usr/include/jsoncpp
     /usr/include/rocksdb
     /usr/include/nlohmann
 )
+if(NOT (CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)$" OR CMAKE_OSX_ARCHITECTURES MATCHES "arm64"))
+    include_directories(${SOURCE_DIR}/crypto/falcon/PQClean/common/keccak4x)
+endif()
 
 # --------------------------
 # Dependencies
@@ -42,11 +44,20 @@ find_path(SODIUM_INCLUDE_DIR sodium.h)
 
 # --------------------------
 # Falcon + Dilithium Static Libraries
-file(GLOB FALCON_SOURCES
-    ${SOURCE_DIR}/crypto/falcon/PQClean/Falcon-1024/clean/*.c
-    ${SOURCE_DIR}/crypto/falcon/PQClean/common/*.c
-    ${SOURCE_DIR}/crypto/falcon/PQClean/common/keccak4x/*.c
-)
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)$" OR CMAKE_OSX_ARCHITECTURES MATCHES "arm64")
+    message(STATUS "ARM64 architecture detected – disabling AVX2/SSE for Falcon")
+    add_definitions(-DPQCLEAN_NO_SIMD)
+    file(GLOB FALCON_SOURCES
+        ${SOURCE_DIR}/crypto/falcon/PQClean/Falcon-1024/clean/*.c
+        ${SOURCE_DIR}/crypto/falcon/PQClean/common/*.c
+    )
+else()
+    file(GLOB FALCON_SOURCES
+        ${SOURCE_DIR}/crypto/falcon/PQClean/Falcon-1024/clean/*.c
+        ${SOURCE_DIR}/crypto/falcon/PQClean/common/*.c
+        ${SOURCE_DIR}/crypto/falcon/PQClean/common/keccak4x/*.c
+    )
+endif()
 
 file(GLOB DILITHIUM_SOURCES
     ${SOURCE_DIR}/crypto/dilithium/*.c
