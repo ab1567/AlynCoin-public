@@ -38,6 +38,10 @@ else()
   message(WARNING "Unknown architecture detected - using portable BLAKE3.")
 endif()
 
+if(AVX512_DISABLED)
+  add_compile_definitions(BLAKE3_NO_AVX512)
+endif()
+
 # ---- Paths -------------------------------------------------------------------
 set(SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
 set(GENERATED_DIR ${CMAKE_BINARY_DIR}/generated)
@@ -105,10 +109,23 @@ list(APPEND SOURCES ${RPC_SOURCES})
 set(MAIN_SOURCE ${SOURCE_DIR}/main.cpp)
 
 # ---- BLAKE3 ------------------------------------------------------------------
-# The BLAKE3 implementation is provided by the Rust Winterfell library.
-# Avoid building the duplicate C sources here to prevent linker conflicts and
-# ensure consistent builds across all platforms (Linux, macOS, Windows).
-# Only the header is needed for external consumers.
+# Use the bundled C implementation for hashing. The Rust crates depend on the
+# pure Rust backend to avoid duplicate symbols, while C++ code links against
+# these sources via the C API.
+set(BLAKE3_SRC
+  ${SOURCE_DIR}/blake3.c
+  ${SOURCE_DIR}/blake3_dispatch.c
+  ${SOURCE_DIR}/blake3_portable.c
+)
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
+  list(APPEND BLAKE3_SRC ${SOURCE_DIR}/blake3_neon.c)
+else()
+  list(APPEND BLAKE3_SRC
+    ${SOURCE_DIR}/blake3_sse2.c
+    ${SOURCE_DIR}/blake3_sse41.c
+    ${SOURCE_DIR}/blake3_avx2.c
+  )
+endif()
 
 # ---- Includes ----------------------------------------------------------------
 include_directories(
@@ -353,6 +370,8 @@ if(NOT SKIP_PROTOBUF_GEN)
   add_dependencies(alyncoin_lib protobuf_gen)
 endif()
 add_dependencies(alyncoin_lib winterfell_ffi)
+
+target_sources(alyncoin_lib PRIVATE ${BLAKE3_SRC})
 
 if (NOT MSVC)
   set_source_files_properties(
