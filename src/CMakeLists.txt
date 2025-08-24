@@ -105,36 +105,10 @@ list(APPEND SOURCES ${RPC_SOURCES})
 set(MAIN_SOURCE ${SOURCE_DIR}/main.cpp)
 
 # ---- BLAKE3 ------------------------------------------------------------------
-set(BLAKE3_COMMON_SOURCES
-  ${SOURCE_DIR}/blake3.c
-  ${SOURCE_DIR}/blake3_dispatch.c
-  ${SOURCE_DIR}/blake3_portable.c
-)
-
-if(ARCHITECTURE STREQUAL "x86_64")
-  message(STATUS "Including BLAKE3 SSE2/SSE41/AVX2 sources")
-  list(APPEND BLAKE3_COMMON_SOURCES
-    ${SOURCE_DIR}/blake3_sse2.c
-    ${SOURCE_DIR}/blake3_sse41.c
-    ${SOURCE_DIR}/blake3_avx2.c
-  )
-elseif(ARCHITECTURE STREQUAL "ARM64" OR ARCHITECTURE STREQUAL "ARM")
-  message(STATUS "Including BLAKE3 NEON sources")
-  list(APPEND BLAKE3_COMMON_SOURCES
-    ${SOURCE_DIR}/blake3_neon.c
-  )
-  add_compile_definitions(BLAKE3_USE_NEON=1 BLAKE3_NO_SSE2 BLAKE3_NO_SSE41 BLAKE3_NO_AVX2)
-else()
-  message(WARNING "Unknown architecture detected - using portable BLAKE3")
-  add_compile_definitions(BLAKE3_NO_SSE2 BLAKE3_NO_SSE41 BLAKE3_NO_AVX2)
-endif()
-
-set(BLAKE3_SOURCES ${BLAKE3_COMMON_SOURCES})
-
-if(AVX512_DISABLED)
-  add_compile_definitions(BLAKE3_NO_AVX512)
-  set_source_files_properties(${SOURCE_DIR}/blake3_dispatch.c PROPERTIES COMPILE_DEFINITIONS "BLAKE3_NO_AVX512")
-endif()
+# The BLAKE3 implementation is provided by the Rust Winterfell library.
+# Avoid building the duplicate C sources here to prevent linker conflicts and
+# ensure consistent builds across all platforms (Linux, macOS, Windows).
+# Only the header is needed for external consumers.
 
 # ---- Includes ----------------------------------------------------------------
 include_directories(
@@ -366,11 +340,11 @@ target_compile_definitions(dilithium PUBLIC
 target_link_libraries(dilithium PUBLIC ${SODIUM_LIB})
 
 # ---- Core static lib ---------------------------------------------------------
-if(NOT SKIP_PROTOBUF_GEN)
-  add_library(alyncoin_lib STATIC ${SOURCES} ${BLAKE3_SOURCES} ${PROTO_SRCS})
-else()
-  add_library(alyncoin_lib STATIC ${SOURCES} ${BLAKE3_SOURCES})
-endif()
+  if(NOT SKIP_PROTOBUF_GEN)
+    add_library(alyncoin_lib STATIC ${SOURCES} ${PROTO_SRCS})
+  else()
+    add_library(alyncoin_lib STATIC ${SOURCES})
+  endif()
 
 if(HAVE_MINIUPNPC)
   target_compile_definitions(alyncoin_lib PUBLIC HAVE_MINIUPNPC MINIUPNPC_API_VERSION=17)
