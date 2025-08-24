@@ -16,7 +16,6 @@
     "zstd",
     "spdlog",
     "libsodium",
-    "blake3",
     "miniupnpc"
   ]
 }
