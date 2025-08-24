@@ -190,6 +190,13 @@ if (WIN32)
 else()
   find_package(PkgConfig REQUIRED)
   pkg_check_modules(JSONCPP jsoncpp)
+  if(JSONCPP_FOUND)
+    message(STATUS "Found JsonCpp: ${JSONCPP_VERSION}")
+    include_directories(${JSONCPP_INCLUDE_DIRS})
+    link_directories(${JSONCPP_LIBRARY_DIRS})
+  else()
+    message(FATAL_ERROR "JsonCpp not found, please install it (e.g. via brew install jsoncpp)")
+  endif()
   find_package(Protobuf REQUIRED)
   find_package(absl REQUIRED)
   find_library(SODIUM_LIB sodium REQUIRED)
@@ -293,6 +300,9 @@ if (WIN32)
 else()
   set(PLAT_LIBS pthread m dl resolv)
 endif()
+
+# Ensure JsonCpp is linked on all platforms
+list(APPEND PLAT_LIBS ${JSONCPP_LIBRARIES})
 
 # ---- Falcon (C) --------------------------------------------------------------
 file(GLOB FALCON_CLEAN_SOURCES
