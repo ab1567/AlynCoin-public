@@ -54,6 +54,7 @@ file(GLOB SOURCES
   ${SOURCE_DIR}/transaction.cpp
   ${SOURCE_DIR}/network.cpp
   ${SOURCE_DIR}/crypto_utils.cpp
+  ${SOURCE_DIR}/wallet_crypto.cpp
   ${SOURCE_DIR}/crypto/sphinx.cpp
   ${SOURCE_DIR}/miner.cpp
   ${SOURCE_DIR}/wallet.cpp
@@ -295,6 +296,10 @@ endif()
 
 # Ensure JsonCpp is linked on all platforms
 list(APPEND PLAT_LIBS ${JSONCPP_LIBRARIES})
+find_library(SODIUM_LIB sodium)
+if(SODIUM_LIB)
+  list(APPEND PLAT_LIBS ${SODIUM_LIB})
+endif()
 
 # ---- Falcon (C) --------------------------------------------------------------
 file(GLOB FALCON_CLEAN_SOURCES
