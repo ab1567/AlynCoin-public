@@ -4,6 +4,7 @@
 #include "network.h"
 #include "network/peer_blacklist.h"
 #include "wallet.h"
+#include "wallet_recovery.h"
 #include <fstream>
 #include <iostream>
 #include <json/json.h>
@@ -101,13 +102,116 @@ void printSendUsage() {
 }
 
 void printWalletUsage() {
-  std::cout << "Usage: alyncoin-cli wallet <new|load> [name]\n";
+  std::cout << "Usage: alyncoin-cli wallet <new|load|guardian|recover> ...\n";
   std::cout << "Examples:\n";
   std::cout << "  alyncoin-cli wallet new\n";
   std::cout << "  alyncoin-cli wallet load Alice\n";
+  std::cout << "  alyncoin-cli wallet guardian list\n";
+  std::cout << "  alyncoin-cli wallet recover status <id>\n";
 }
 
 int cliMain(int argc, char *argv[]);
+
+static int handleWalletGuardian(int argc, char** argv) {
+    if (argc < 2) {
+        std::cout << "Usage: alyncoin-cli wallet guardian <add|remove|list> [address]\n";
+        return 1;
+    }
+    std::string current = getCurrentWallet();
+    if (current.empty()) {
+        std::cerr << "❌ No wallet loaded.\n";
+        return 1;
+    }
+    std::string action = argv[1];
+    if (action == "list" && argc == 2) {
+        auto gs = WalletRecovery::listGuardians(current);
+        for (const auto& g : gs) std::cout << g.address << "\n";
+        return 0;
+    } else if ((action == "add" || action == "remove") && argc == 3) {
+        std::string addr = argv[2];
+        if (action == "add") {
+            GuardianInfo gi{addr, Crypto::sha256(addr)};
+            WalletRecovery::addGuardian(current, gi);
+        } else {
+            WalletRecovery::removeGuardian(current, addr);
+        }
+        return 0;
+    } else {
+        std::cout << "Usage: alyncoin-cli wallet guardian <add|remove|list> [address]\n";
+        return 1;
+    }
+}
+
+static int handleWalletRecover(int argc, char** argv) {
+    if (argc < 2) {
+        std::cout << "Usage: alyncoin-cli wallet recover <init|approve|status|finalize> ...\n";
+        return 1;
+    }
+    std::string current = getCurrentWallet();
+    if (current.empty()) {
+        std::cerr << "❌ No wallet loaded.\n";
+        return 1;
+    }
+    std::string action = argv[1];
+    if (action == "init" && argc >= 3) {
+        std::string newPass = argv[2];
+        int m = 0, n = 0, lock = 0;
+        for (int i = 3; i < argc; ++i) {
+            std::string a = argv[i];
+            if (a == "--m" && i + 1 < argc) m = std::stoi(argv[++i]);
+            else if (a == "--n" && i + 1 < argc) n = std::stoi(argv[++i]);
+            else if (a == "--lock" && i + 1 < argc) lock = std::stoi(argv[++i]);
+        }
+        auto intent = WalletRecovery::initRecovery(current, newPass, m, n, lock, current);
+        Json::Value msg;
+        msg["id"] = intent.id;
+        msg["new_pass"] = intent.newPassHash;
+        msg["m"] = intent.m;
+        msg["n"] = intent.n;
+        msg["lock_deadline"] = (Json::Int64)intent.lockDeadline;
+        msg["initiator"] = intent.initiator;
+        msg["timestamp"] = (Json::Int64)intent.timestamp;
+        std::cout << Json::writeString(Json::StreamWriterBuilder(), msg) << std::endl;
+        return 0;
+    } else if (action == "approve" && argc >= 6) {
+        std::string id = argv[2];
+        std::string guardian; std::string sig;
+        for (int i = 3; i < argc; ++i) {
+            std::string a = argv[i];
+            if (a == "--by" && i + 1 < argc) guardian = argv[++i];
+            else if (a == "--sig" && i + 1 < argc) sig = argv[++i];
+        }
+        if (guardian.empty() || sig.empty()) {
+            std::cerr << "Missing guardian or signature.\n";
+            return 1;
+        }
+        WalletRecovery::approveRecovery(current, id, guardian, sig);
+        return 0;
+    } else if (action == "status" && argc == 3) {
+        std::string id = argv[2];
+        auto ri = WalletRecovery::getRecovery(current, id);
+        if (!ri) { std::cerr << "Not found\n"; return 1; }
+        Json::Value msg;
+        msg["id"] = ri->id;
+        msg["m"] = ri->m;
+        msg["n"] = ri->n;
+        msg["approvals"] = (int)ri->approvals.size();
+        msg["lock_deadline"] = (Json::Int64)ri->lockDeadline;
+        msg["finalized"] = ri->finalized;
+        std::cout << Json::writeString(Json::StreamWriterBuilder(), msg) << std::endl;
+        return 0;
+    } else if (action == "finalize" && argc == 3) {
+        std::string id = argv[2];
+        if (WalletRecovery::finalizeRecovery(current, id)) {
+            std::cout << "Finalized\n";
+            return 0;
+        }
+        std::cerr << "Unable to finalize\n";
+        return 1;
+    }
+    std::cout << "Usage: alyncoin-cli wallet recover <init|approve|status|finalize> ...\n";
+    return 1;
+}
 
 
 int main(int argc, char **argv) {
@@ -135,7 +239,11 @@ int main(int argc, char **argv) {
             std::_Exit(1);
         }
         std::string action = argv[2];
-        if (action == "new" && argc == 3) {
+        if (action == "guardian") {
+            std::_Exit(handleWalletGuardian(argc - 2, argv + 2));
+        } else if (action == "recover") {
+            std::_Exit(handleWalletRecover(argc - 2, argv + 2));
+        } else if (action == "new" && argc == 3) {
             argv[1] = (char*)"createwallet";
             argc = 2;
         } else if (action == "load" && argc == 4) {
