@@ -23,6 +23,7 @@
 
 #include <unordered_set>
 static std::unordered_set<std::string> cliSeenTxHashes;
+#include "utils/format.h"
 
 std::string getCurrentWallet() {
     std::ifstream in(DBPaths::getHomePath() + "/.alyncoin/current_wallet.txt");
@@ -87,7 +88,7 @@ void printHelp() {
   std::cout << "  blacklist add <peer>           Add peer to blacklist\n";
   std::cout << "  blacklist remove <peer>        Remove peer from blacklist\n";
   std::cout << "  stats                          View blockchain stats\n";
-  std::cout << "  chain print                    Print blockchain\n\n";
+  std::cout << "  chain print [--json]           Print blockchain\n\n";
   std::cout << "Options:\n";
   std::cout << "  --help                         Show this help message\n";
   std::cout << "  --version                      Show CLI version\n";
@@ -389,6 +390,66 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
         std::cout << "Total Supply: " << b.getTotalSupply() << " AlynCoin\n";
         std::cout << "Total Burned Supply: " << b.getTotalBurnedSupply() << " AlynCoin\n";
         std::cout << "Dev Fund Balance: " << b.getBalance("DevFundWallet") << " AlynCoin\n";
+        return 0;
+    }
+    if (cmd == "chainprint") {
+        Blockchain &bc = getBlockchain();
+        bool skipDB = hasFlag(argc, argv, "--nodb");
+        if (!skipDB) {
+            bc.reloadBlockchainState();
+        } else if (bc.getChain().empty()) {
+            bc.createGenesisBlock(true);
+        }
+        bool jsonOut = hasFlag(argc, argv, "--json");
+        const auto &chain = bc.getChain();
+        if (jsonOut) {
+            Json::Value arr(Json::arrayValue);
+            for (const auto &blk : chain) {
+                pretty::BlockInfo bi{blk.getIndex(), static_cast<uint64_t>(blk.getTimestamp()), blk.getMinerAddress(), blk.getPreviousHash(), blk.getHash(), blk.getTransactions().size(), 0};
+                Json::StreamWriterBuilder bld; bld["indentation"] = "";
+                bi.sizeEstimate = Json::writeString(bld, blk.toJSON()).size();
+                Json::Value bj;
+                bj["height"] = bi.height;
+                bj["timestamp"] = pretty::formatTimestampISO(bi.timestamp);
+                bj["miner"] = bi.miner;
+                bj["prev_hash"] = pretty::shortenHash(bi.prevHash);
+                bj["hash"] = pretty::shortenHash(bi.hash);
+                bj["tx_count"] = static_cast<Json::UInt64>(bi.txCount);
+                bj["size_estimate"] = static_cast<Json::UInt64>(bi.sizeEstimate);
+                Json::Value txs(Json::arrayValue);
+                const auto &blockTxs = blk.getTransactions();
+                for (size_t i = 0; i < blockTxs.size(); ++i) {
+                    const auto &tx = blockTxs[i];
+                    Json::Value tj;
+                    tj["index"] = static_cast<Json::UInt64>(i);
+                    tj["from"] = tx.getSender();
+                    tj["to"] = tx.getRecipient();
+                    tj["amount"] = tx.getAmount();
+                    tj["fee"] = pretty::estimateFee(tx.getAmount());
+                    tj["nonce"] = static_cast<Json::UInt64>(tx.getTimestamp());
+                    tj["type"] = tx.isL2() ? "L2" : "L1";
+                    tj["status"] = "confirmed";
+                    txs.append(tj);
+                }
+                bj["transactions"] = txs;
+                arr.append(bj);
+            }
+            Json::StreamWriterBuilder w; w["indentation"] = "";
+            std::cout << Json::writeString(w, arr) << "\n";
+        } else {
+            for (const auto &blk : chain) {
+                pretty::BlockInfo bi{blk.getIndex(), static_cast<uint64_t>(blk.getTimestamp()), blk.getMinerAddress(), blk.getPreviousHash(), blk.getHash(), blk.getTransactions().size(), 0};
+                Json::StreamWriterBuilder bld; bld["indentation"] = "";
+                bi.sizeEstimate = Json::writeString(bld, blk.toJSON()).size();
+                std::cout << pretty::formatBlock(bi) << "\n";
+                const auto &blockTxs = blk.getTransactions();
+                for (size_t i = 0; i < blockTxs.size(); ++i) {
+                    const auto &tx = blockTxs[i];
+                    pretty::TxInfo ti{i, tx.getSender(), tx.getRecipient(), tx.getAmount(), pretty::estimateFee(tx.getAmount()), static_cast<uint64_t>(tx.getTimestamp()), tx.isL2() ? "L2" : "L1", "confirmed"};
+                    std::cout << "  " << pretty::formatTx(ti) << "\n";
+                }
+            }
+        }
         return 0;
     }
     if (cmd == "listpeers" && argc >= 2) {
