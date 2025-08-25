@@ -8,9 +8,12 @@
 #include <fstream>
 #include <iostream>
 #include <json/json.h>
+#include "policy.h"
 #include <limits>
 #include <string>
 #include <filesystem>
+#include <sstream>
+#include <vector>
 #include <cstdlib>
 #include "db/db_paths.h"
 #include "governance/dao.h"
@@ -308,6 +311,28 @@ int main(int argc, char **argv) {
             printHelp();
             std::_Exit(1);
         }
+    } else if (first == "policy") {
+        if (argc < 3) {
+            std::cout << "Usage: alyncoin-cli policy <set|show|clear|export|import> ...\n";
+            std::_Exit(1);
+        }
+        std::string action = argv[2];
+        if (action == "set") {
+            argv[1] = (char*)"policy-set";
+            for (int i = 3; i < argc; ++i) argv[i - 1] = argv[i];
+            argc -= 1;
+        } else if (action == "show" && argc == 3) {
+            argv[1] = (char*)"policy-show"; argc = 2;
+        } else if (action == "clear" && argc == 3) {
+            argv[1] = (char*)"policy-clear"; argc = 2;
+        } else if (action == "export" && argc == 4) {
+            argv[1] = (char*)"policy-export"; argv[2] = argv[3]; argc = 3;
+        } else if (action == "import" && argc == 4) {
+            argv[1] = (char*)"policy-import"; argv[2] = argv[3]; argc = 3;
+        } else {
+            std::cout << "Usage: alyncoin-cli policy <set|show|clear|export|import> ...\n";
+            std::_Exit(1);
+        }
     } else if (first == "blacklist") {
         if (argc < 3) {
             std::cout << "Usage: alyncoin-cli blacklist <add|remove> <peer>\n";
@@ -338,7 +363,9 @@ int main(int argc, char **argv) {
         cmd == "history" || cmd == "stats" ||
         cmd == "dao-view" || cmd == "mychain" ||
         cmd == "recursiveproof" ||
-        cmd == "createwallet" || cmd == "loadwallet";
+        cmd == "createwallet" || cmd == "loadwallet" ||
+        cmd == "policy-set" || cmd == "policy-show" || cmd == "policy-clear" ||
+        cmd == "policy-export" || cmd == "policy-import";
 
     // Helper: mining/send/rollup always need full DB+network
     auto isFullNet =
@@ -356,7 +383,8 @@ int main(int argc, char **argv) {
             "sendl2", "mine", "mineonce", "mineloop", "rollup",
             "dao-submit", "dao-vote", "dao-view", "dao-finalize",
             "blacklist-add", "blacklist-remove", "stats", "chainprint", "history",
-            "mychain", "recursiveproof", "recursive-rollup"};
+            "mychain", "recursiveproof", "recursive-rollup",
+            "policy-set", "policy-show", "policy-clear", "policy-export", "policy-import"};
         if (!cmd.empty() && known.find(cmd) == known.end()) {
             std::cerr << "Unknown command: " << cmd << "\n";
             printHelp();
@@ -651,12 +679,78 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
         std::cout << "Balance: " << bb.getBalance(addr) << " AlynCoin" << std::endl;
         return 0;
     }
+    // === Policy commands ===
+    if (cmd == "policy-show" && argc == 2) {
+        std::string addr = getCurrentWallet();
+        Policy p = PolicyManager::load(addr);
+        std::cout << Json::writeString(Json::StreamWriterBuilder(), p.toJson()) << std::endl;
+        return 0;
+    }
+    if (cmd == "policy-clear" && argc == 2) {
+        std::string addr = getCurrentWallet();
+        PolicyManager::clear(addr);
+        std::cout << "Policy cleared\n";
+        return 0;
+    }
+    if (cmd == "policy-export" && argc == 3) {
+        std::string addr = getCurrentWallet();
+        PolicyManager::exportPolicy(addr, argv[2]);
+        std::cout << "Policy exported\n";
+        return 0;
+    }
+    if (cmd == "policy-import" && argc == 3) {
+        std::string addr = getCurrentWallet();
+        PolicyManager::importPolicy(addr, argv[2]);
+        std::cout << "Policy imported\n";
+        return 0;
+    }
+    if (cmd == "policy-set" && argc >= 2) {
+        std::string addr = getCurrentWallet();
+        Policy p = PolicyManager::load(addr);
+        for (int i = 2; i < argc; ++i) {
+            std::string arg = argv[i];
+            if (arg == "--multisig" && i + 1 < argc) {
+                std::string val = argv[++i];
+                size_t pos = val.find("-of-");
+                if (pos != std::string::npos) {
+                    p.m = std::stoi(val.substr(0, pos));
+                    p.n = std::stoi(val.substr(pos + 4));
+                }
+            } else if (arg == "--daily" && i + 1 < argc) {
+                p.daily_limit = std::stod(argv[++i]);
+            } else if (arg == "--allow" && i + 1 < argc) {
+                p.allowlist.clear();
+                std::string list = argv[++i];
+                std::stringstream ss(list); std::string item;
+                while (std::getline(ss, item, ',')) if(!item.empty()) p.allowlist.push_back(item);
+            } else if (arg == "--lock-large" && i + 1 < argc) {
+                std::string v = argv[++i];
+                size_t colon = v.find(':');
+                if (colon != std::string::npos) {
+                    p.lock_threshold = std::stod(v.substr(0, colon));
+                    p.lock_minutes = std::stoi(v.substr(colon + 1));
+                }
+            }
+        }
+        PolicyManager::save(addr, p);
+        std::cout << "Policy saved\n";
+        return 0;
+    }
 // === sendl1 / sendl2 with duplicate filter ===
 if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == "sendl2")) {
     std::string from = argv[2];
     std::string to = argv[3];
     std::string rawAmount = argv[4];
     std::string metadata = argv[5];
+    std::vector<std::string> cosigners;
+    for (int i = 6; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--cosign" && i + 1 < argc) {
+            std::string list = argv[++i];
+            std::stringstream ss(list); std::string item;
+            while (std::getline(ss, item, ',')) if(!item.empty()) cosigners.push_back(item);
+        }
+    }
 
     double amount = -1;
     try {
@@ -674,6 +768,11 @@ if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == 
 
     Blockchain &b = getBlockchain();
 
+    std::string policyErr;
+    if (!PolicyManager::checkSend(from, to, amount, cosigners, policyErr)) {
+        std::cerr << "❌ " << policyErr << "\n";
+        return 1;
+    }
     // ✅ Skip balance check if it's metadata-only (to metadataSink with 0.0)
     if (!(amount == 0.0 && to == "metadataSink")) {
         double currentBalance = b.getBalance(from);
@@ -714,10 +813,11 @@ if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == 
     if (!tx.getSignatureDilithium().empty() && !tx.getSignatureFalcon().empty()) {
         b.addTransaction(tx);
         b.savePendingTransactionsToDB();
-	if (!Network::isUninitialized()) {
-	    Network::getInstance().broadcastTransaction(tx);
-	}
-	std::cout << "✅ Transaction broadcasted: " << from << " → " << to
+        if (!Network::isUninitialized()) {
+            Network::getInstance().broadcastTransaction(tx);
+        }
+        PolicyManager::recordSpend(from, amount);
+        std::cout << "✅ Transaction broadcasted: " << from << " → " << to
 
                   << " (" << amount << " AlynCoin, metadata: " << metadata << ")\n";
     } else {
@@ -736,6 +836,12 @@ if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == 
         std::string target = (argc >= 7) ? argv[6] : "";
         if (argc >= 5) type = static_cast<ProposalType>(std::stoi(argv[4]));
 
+        std::string policyErr;
+        if (!PolicyManager::checkSend(from, target, amt, {}, policyErr)) {
+            std::cerr << "❌ " << policyErr << "\n";
+            return 1;
+        }
+
         Proposal prop;
         prop.proposal_id = Crypto::sha256(Crypto::generateRandomHex(16));
         prop.proposer_address = from;
@@ -749,6 +855,7 @@ if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == 
 
         if (DAO::createProposal(prop)) {
             std::cout << "✅ Proposal submitted. ID: " << prop.proposal_id << "\n";
+            if (amt > 0) PolicyManager::recordSpend(from, amt);
         } else {
             std::cerr << "❌ Failed to submit proposal.\n";
         }

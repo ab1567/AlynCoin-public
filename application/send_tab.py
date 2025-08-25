@@ -1,10 +1,14 @@
 import re
 import traceback
+import json
+import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLineEdit, QComboBox, QPushButton
 
 from rpc_client import alyncoin_rpc
+
+CLI_PATH = "/root/AlynCoin/build/alyncoin-cli"
 
 class SendTab(QWidget):
     def __init__(self, parent):
@@ -77,6 +81,10 @@ class SendTab(QWidget):
             self.resetState()
             return
 
+        if not self._checkPolicy(recipient, amount):
+            self.resetState()
+            return
+
         self.parent.appendOutput("📤 Sending transaction...")
 
         isL2 = (self.layerSelector.currentIndex() == 1)
@@ -122,4 +130,25 @@ class SendTab(QWidget):
             self.executor.shutdown(wait=False, cancel_futures=True)
         finally:
             super().closeEvent(ev)
+
+    def _loadPolicy(self):
+        try:
+            out = subprocess.check_output([CLI_PATH, "policy", "show"], stderr=subprocess.STDOUT, text=True)
+            return json.loads(out)
+        except Exception:
+            return {}
+
+    def _checkPolicy(self, recipient, amount):
+        p = self._loadPolicy()
+        allow = p.get("allowlist", [])
+        if allow and recipient not in allow:
+            self.parent.appendOutput("❌ Recipient not in allowlist.")
+            return False
+        lock = p.get("lock_large", {})
+        threshold = lock.get("threshold", 0)
+        minutes = lock.get("minutes", 0)
+        if threshold and amount >= threshold:
+            self.parent.appendOutput(
+                f"⚠️ Amount exceeds lock threshold; transfer held for {minutes} minutes.")
+        return True
 

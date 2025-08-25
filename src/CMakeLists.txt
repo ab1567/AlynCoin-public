@@ -61,6 +61,7 @@ file(GLOB SOURCES
   ${SOURCE_DIR}/mnemonic.cpp
   ${SOURCE_DIR}/keccak.cpp
   ${SOURCE_DIR}/key_paths.cpp
+  ${SOURCE_DIR}/policy.cpp
   ${SOURCE_DIR}/consensus/difficulty.cpp
   ${SOURCE_DIR}/consensus/fork_choice.cpp
   ${SOURCE_DIR}/zk/*.cpp
