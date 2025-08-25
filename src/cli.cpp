@@ -5,6 +5,7 @@
 #include "network/peer_blacklist.h"
 #include "wallet.h"
 #include "wallet_recovery.h"
+#include "layer2/wasm_engine.h"
 #include <fstream>
 #include <iostream>
 #include <json/json.h>
@@ -93,6 +94,7 @@ void printHelp() {
   std::cout << "  blacklist remove <peer>        Remove peer from blacklist\n";
   std::cout << "  stats                          View blockchain stats\n";
   std::cout << "  chain print [--json]           Print blockchain\n\n";
+  std::cout << "  l2 vm selftest           Run L2 VM self-test\n";
   std::cout << "Options:\n";
   std::cout << "  --help                         Show this help message\n";
   std::cout << "  --version                      Show CLI version\n";
@@ -352,7 +354,10 @@ int main(int argc, char **argv) {
         argv[1] = (char*)"chainprint"; // placeholder; handled later if implemented
         for (int i = 3; i < argc; ++i) argv[i - 1] = argv[i];
         argc -= 1;
-    }
+    } else if (first == "l2" && argc >= 4 && std::string(argv[2]) == "vm" && std::string(argv[3]) == "selftest") {
+        argv[1] = (char*)"l2-vm-selftest";
+        argc = 2;
+    }    }
 
     std::string keyDir = DBPaths::getKeyDir();
 
@@ -384,7 +389,7 @@ int main(int argc, char **argv) {
             "dao-submit", "dao-vote", "dao-view", "dao-finalize",
             "blacklist-add", "blacklist-remove", "stats", "chainprint", "history",
             "mychain", "recursiveproof", "recursive-rollup",
-            "policy-set", "policy-show", "policy-clear", "policy-export", "policy-import"};
+            "policy-set", "policy-show", "policy-clear", "policy-export", "policy-import", "l2-vm-selftest"};
         if (!cmd.empty() && known.find(cmd) == known.end()) {
             std::cerr << "Unknown command: " << cmd << "\n";
             printHelp();
@@ -519,6 +524,15 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
         return 0;
     }
     // === Blockchain stats ===
+    if (cmd == "l2-vm-selftest") {
+        static const uint8_t wasm[]={0,97,115,109,1,0,0,0,1,5,1,96,0,1,127,3,2,1,0,7,9,1,5,101,110,116,114,121,0,0,10,6,1,4,0,65,0,11};
+        WasmEngine eng;
+        auto mod = eng.load(std::vector<uint8_t>(wasm, wasm + sizeof(wasm)));
+        auto inst = eng.instantiate(mod, 1000000, 64*1024);
+        auto res = eng.call(inst, "entry", {});
+        std::cout << (res.retcode == 0 ? "OK" : "FAIL") << "\n";
+        return res.retcode;
+    }
     if (cmd == "stats" && argc >= 2) {
         std::cout << "\n=== Blockchain Stats ===\n";
         std::cout << "Total Blocks: " << b.getBlockCount() << "\n";

@@ -39,6 +39,7 @@
 #include "nft/nft_utils.h"
 #include <sodium.h>
 #include "policy.h"
+#include "layer2/wasm_engine.h"
 
 // Version string for RPC/CLI interface
 static const char *CLI_VERSION = "0.1";
@@ -62,6 +63,7 @@ void print_usage() {
               << "  mine <miner_address>                Mine pending transactions\n"
               << "  rollup <address>                     Generate rollup block\n"
               << "  recursive-rollup <address>          Generate recursive rollup block\n"
+              << "  l2 vm selftest                Run L2 VM self-test\n"
               << "  --help                              Show this message\n"
               << "  --version                           Show CLI version\n";
 }
@@ -843,6 +845,14 @@ svr.Post("/rpc", [blockchain, network, healer](const httplib::Request& req, http
                 if (!found) output = {{"error", "No NFT found matching the file hash"}};
             }
         }
+        else if (method == "l2-vm-selftest") {
+            static const uint8_t wasm[]={0,97,115,109,1,0,0,0,1,5,1,96,0,1,127,3,2,1,0,7,9,1,5,101,110,116,114,121,0,0,10,6,1,4,0,65,0,11};
+            WasmEngine eng;
+            auto mod = eng.load(std::vector<uint8_t>(wasm, wasm + sizeof(wasm)));
+            auto inst = eng.instantiate(mod, 1000000, 64*1024);
+            auto res = eng.call(inst, "entry", {});
+            output = {{"result", res.retcode == 0 ? "OK" : "FAIL"}};
+        }
         // ================== END NFT SPACE ==================
 
         // Unknown method fallback
@@ -988,6 +998,16 @@ int main(int argc, char *argv[]) {
     auto getBlockchain = []() -> Blockchain& { return Blockchain::getInstance(); };
     Blockchain* chainPtr = &Blockchain::getInstance();
     std::string cmd = (argc >= 2) ? std::string(argv[1]) : "";
+
+    if (argc >= 4 && std::string(argv[1]) == "l2" && std::string(argv[2]) == "vm" && std::string(argv[3]) == "selftest") {
+        static const uint8_t wasm[]={0,97,115,109,1,0,0,0,1,5,1,96,0,1,127,3,2,1,0,7,9,1,5,101,110,116,114,121,0,0,10,6,1,4,0,65,0,11};
+        WasmEngine eng;
+        auto mod = eng.load(std::vector<uint8_t>(wasm, wasm + sizeof(wasm)));
+        auto inst = eng.instantiate(mod, 1000000, 64*1024);
+        auto res = eng.call(inst, "entry", {});
+        std::cout << (res.retcode == 0 ? "OK" : "FAIL") << "\n";
+        return res.retcode;
+    }
 
     // ================= CLI COMMAND HANDLERS START =================
 std::string currentBinPath = argv[0];
