@@ -76,6 +76,7 @@ file(GLOB SOURCES
   ${SOURCE_DIR}/self_healing/sync_recovery.cpp
   ${SOURCE_DIR}/self_healing/self_healing_node.cpp
   ${SOURCE_DIR}/utils/logger.cpp
+  ${SOURCE_DIR}/utils/format.cpp
   ${SOURCE_DIR}/identity/identity.cpp
   ${SOURCE_DIR}/identity/identity_store.cpp
   ${SOURCE_DIR}/identity/proto_utils.cpp
