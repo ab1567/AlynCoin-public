@@ -10,6 +10,7 @@
 #include <limits>
 #include <string>
 #include <filesystem>
+#include <cstdlib>
 #include "db/db_paths.h"
 #include "governance/dao.h"
 #include "governance/devfund.h"
@@ -64,12 +65,161 @@ void printBlacklistMenu() {
   std::cout << "Choose an option: ";
 }
 
+// Version string for the CLI
+static const char *CLI_VERSION = "0.1";
+
+// Print top level help/command matrix
+void printHelp() {
+  std::cout << "AlynCoin CLI\n\n";
+  std::cout << "Usage: alyncoin-cli <command> [args]\n\n";
+  std::cout << "Commands:\n";
+  std::cout << "  wallet new                     Create a new wallet\n";
+  std::cout << "  wallet load <name>             Load an existing wallet\n";
+  std::cout << "  balance <address>              Show wallet balance\n";
+  std::cout << "  send l1 <from> <to> <amount> <metadata>  Send L1 transaction\n";
+  std::cout << "  send l2 <from> <to> <amount> <metadata>  Send L2 transaction\n";
+  std::cout << "  mine <miner_address>           Mine pending transactions\n";
+  std::cout << "  rollup <address>               Generate rollup block\n";
+  std::cout << "  dao submit <from> <desc> [type] [amount] [target]\n";
+  std::cout << "  dao vote <from> <id> <yes|no>\n";
+  std::cout << "  dao list                       List DAO proposals\n";
+  std::cout << "  dao finalize <id>              Finalize DAO proposal\n";
+  std::cout << "  blacklist add <peer>           Add peer to blacklist\n";
+  std::cout << "  blacklist remove <peer>        Remove peer from blacklist\n";
+  std::cout << "  stats                          View blockchain stats\n";
+  std::cout << "  chain print                    Print blockchain\n\n";
+  std::cout << "Options:\n";
+  std::cout << "  --help                         Show this help message\n";
+  std::cout << "  --version                      Show CLI version\n";
+}
+
+// Specific usage helpers
+void printSendUsage() {
+  std::cout << "Usage: alyncoin-cli send <l1|l2> <from> <to> <amount> <metadata>\n";
+  std::cout << "Example: alyncoin-cli send l1 Alice Bob 10 note\n";
+}
+
+void printWalletUsage() {
+  std::cout << "Usage: alyncoin-cli wallet <new|load> [name]\n";
+  std::cout << "Examples:\n";
+  std::cout << "  alyncoin-cli wallet new\n";
+  std::cout << "  alyncoin-cli wallet load Alice\n";
+}
+
 int cliMain(int argc, char *argv[]);
 
 
 int main(int argc, char **argv) {
     std::ios::sync_with_stdio(true);
     std::cout.setf(std::ios::unitbuf);
+    if (argc == 1) {
+        printHelp();
+        std::_Exit(0);
+    }
+
+    std::string first = argv[1];
+    if (first == "--help" || first == "-h") {
+        printHelp();
+        std::_Exit(0);
+    }
+    if (first == "--version") {
+        std::cout << "alyncoin-cli " << CLI_VERSION << "\n";
+        std::_Exit(0);
+    }
+
+    // Map friendly subcommands to legacy ones
+    if (first == "wallet") {
+        if (argc < 3) {
+            printWalletUsage();
+            std::_Exit(1);
+        }
+        std::string action = argv[2];
+        if (action == "new" && argc == 3) {
+            argv[1] = (char*)"createwallet";
+            argc = 2;
+        } else if (action == "load" && argc == 4) {
+            argv[1] = (char*)"loadwallet";
+            argv[2] = argv[3];
+            argc = 3;
+        } else {
+            printWalletUsage();
+            std::_Exit(1);
+        }
+    } else if (first == "send") {
+        if (argc < 3) {
+            printSendUsage();
+            std::_Exit(1);
+        }
+        std::string layer = argv[2];
+        if (layer != "l1" && layer != "l2") {
+            printSendUsage();
+            std::_Exit(1);
+        }
+        if (argc < 7) {
+            printSendUsage();
+            std::_Exit(1);
+        }
+        argv[1] = (char*)(layer == "l1" ? "sendl1" : "sendl2");
+        for (int i = 3; i < argc; ++i) {
+            argv[i - 1] = argv[i];
+        }
+        argc -= 1; // remove layer arg
+    } else if (first == "dao") {
+        if (argc < 3) {
+            printHelp();
+            std::_Exit(1);
+        }
+        std::string action = argv[2];
+        if (action == "submit") {
+            if (argc < 5) {
+                std::cout << "Usage: alyncoin-cli dao submit <from> <desc> [type] [amount] [target]\n";
+                std::cout << "Example: alyncoin-cli dao submit Alice 'upgrade network'\n";
+                std::_Exit(1);
+            }
+            argv[1] = (char*)"dao-submit";
+            for (int i = 3; i < argc; ++i) argv[i - 1] = argv[i];
+            argc -= 1;
+        } else if (action == "vote") {
+            if (argc < 5) {
+                std::cout << "Usage: alyncoin-cli dao vote <from> <id> <yes|no>\n";
+                std::cout << "Example: alyncoin-cli dao vote Alice 1 yes\n";
+                std::_Exit(1);
+            }
+            argv[1] = (char*)"dao-vote";
+            for (int i = 3; i < argc; ++i) argv[i - 1] = argv[i];
+            argc -= 1;
+        } else if (action == "list" && argc == 3) {
+            argv[1] = (char*)"dao-view";
+            argc = 2;
+        } else if (action == "finalize" && argc == 4) {
+            argv[1] = (char*)"dao-finalize";
+            argv[2] = argv[3];
+            argc = 3;
+        } else {
+            printHelp();
+            std::_Exit(1);
+        }
+    } else if (first == "blacklist") {
+        if (argc < 3) {
+            std::cout << "Usage: alyncoin-cli blacklist <add|remove> <peer>\n";
+            std::cout << "Example: alyncoin-cli blacklist add 1.2.3.4:15671\n";
+            std::_Exit(1);
+        }
+        std::string action = argv[2];
+        if ((action == "add" || action == "remove") && argc == 4) {
+            argv[1] = (char*)(action == "add" ? "blacklist-add" : "blacklist-remove");
+            argv[2] = argv[3];
+            argc = 3;
+        } else {
+            std::cout << "Usage: alyncoin-cli blacklist <add|remove> <peer>\n";
+            std::_Exit(1);
+        }
+    } else if (first == "chain" && argc >= 3 && std::string(argv[2]) == "print") {
+        argv[1] = (char*)"chainprint"; // placeholder; handled later if implemented
+        for (int i = 3; i < argc; ++i) argv[i - 1] = argv[i];
+        argc -= 1;
+    }
+
     std::string keyDir = DBPaths::getKeyDir();
 
     // Helper to check command
@@ -89,6 +239,21 @@ int main(int argc, char **argv) {
         cmd == "rollup" || cmd == "recursive-rollup" ||
         // Peer connect if host:port in arg
         (cmd.find(':') != std::string::npos && cmd.find('.') != std::string::npos);
+
+    // Unknown command guard
+    {
+        static const std::unordered_set<std::string> known = {
+            "createwallet", "loadwallet", "balance", "balance-force", "sendl1",
+            "sendl2", "mine", "mineonce", "mineloop", "rollup",
+            "dao-submit", "dao-vote", "dao-view", "dao-finalize",
+            "blacklist-add", "blacklist-remove", "stats", "chainprint", "history",
+            "mychain", "recursiveproof", "recursive-rollup"};
+        if (!cmd.empty() && known.find(cmd) == known.end()) {
+            std::cerr << "Unknown command: " << cmd << "\n";
+            printHelp();
+            std::_Exit(1);
+        }
+    }
 
 // ==== Robust CLI initialization block ====
 

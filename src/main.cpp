@@ -38,6 +38,9 @@
 #include <regex>
 #include "nft/nft_utils.h"
 
+// Version string for RPC/CLI interface
+static const char *CLI_VERSION = "0.1";
+
 // Print usage information for CLI commands
 void print_usage() {
     std::cout << "Usage: alyncoin-cli <command> [args]\n"
@@ -57,7 +60,8 @@ void print_usage() {
               << "  mine <miner_address>                Mine pending transactions\n"
               << "  rollup <address>                     Generate rollup block\n"
               << "  recursive-rollup <address>          Generate recursive rollup block\n"
-              << "  --help                              Show this message\n";
+              << "  --help                              Show this message\n"
+              << "  --version                           Show CLI version\n";
 }
 
 static bool exportWalletToFile(const std::string& keyDir, Blockchain& blockchain,
@@ -874,6 +878,9 @@ int main(int argc, char *argv[]) {
         std::string arg = argv[i];
         if (arg == "--help" || arg == "-h" || arg == "help") {
             print_usage();
+            return 0;
+        } else if (arg == "--version") {
+            std::cout << "alyncoin " << CLI_VERSION << "\n";
             return 0;
         } else if (arg == "--port" && i + 1 < argc) {
             port = static_cast<unsigned short>(std::stoi(argv[++i]));
