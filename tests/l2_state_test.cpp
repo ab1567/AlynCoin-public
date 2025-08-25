@@ -1,6 +1,7 @@
 #include "layer2/l2_state.h"
 #include "layer2/l2_executor.h"
 #include "layer2/wasm_engine.h"
+#include "rollup/rollup_utils.h"
 #include <cassert>
 #include <iostream>
 
@@ -29,6 +30,20 @@ int main(){
     L2Tx tx2{"caller", addr, 1,0,{},1,0,0};
     auto res3 = exec.execute({tx2});
     assert(res3.second[0].status==2);
+
+    // Deterministic root across batches
+    L2StateManager s2;
+    s2.deploy(code);
+    s2.ensureAccount("caller");
+    L2Executor exec2(s2);
+    auto resA = exec2.execute({tx});
+    assert(res.first == resA.first);
+
+    // Receipts commitment matches receipts
+    std::string commit = RollupUtils::commitReceipts(res.second);
+    std::string commitCheck = RollupUtils::commitReceipts(res.second);
+    assert(commit == commitCheck);
+
     std::cout<<"l2_state_test OK\n";
     return 0;
 }

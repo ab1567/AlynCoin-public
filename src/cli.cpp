@@ -666,6 +666,16 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
                 }
             }
         }
+        auto rollups = bc.getAllRollupBlocks();
+        if (!rollups.empty()) {
+            std::cout << "\n=== Rollup Blocks ===\n";
+            for (const auto& rb : rollups) {
+                std::cout << "#" << rb.getIndex()
+                          << " prev_l2_root=" << rb.getPrevL2Root()
+                          << " post_l2_root=" << rb.getPostL2Root()
+                          << "\n";
+            }
+        }
         return 0;
     }
     if (cmd == "listpeers" && argc >= 2) {
@@ -1145,7 +1155,72 @@ if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == 
      std::exit(0);
  }
 
-// === ROLLUP ===
+// === ROLLUP L2 BATCH ===
+if (argc >= 3 && std::string(argv[1]) == "rollup" && std::string(argv[2]) == "l2-batch") {
+    int maxTx = -1;
+    for (int i = 3; i < argc; ++i) {
+        if (std::string(argv[i]) == "--max" && i + 1 < argc) {
+            maxTx = std::stoi(argv[i + 1]);
+        }
+    }
+    bool noProof = hasFlag(argc, argv, "--no-proof");
+
+    Blockchain& blockchain = getBlockchain();
+    if (!blockchain.loadFromDB()) {
+        std::cerr << "❌ Could not load blockchain from DB.\n";
+        return 1;
+    }
+
+    blockchain.loadPendingTransactionsFromDB();
+    std::vector<Transaction> allTxs = blockchain.getPendingTransactions();
+    blockchain.setPendingL2TransactionsIfNotInRollups(allTxs);
+
+    auto pending = blockchain.getPendingL2Transactions();
+    if (pending.empty()) {
+        std::cout << "⚠️ No pending L2 transactions to roll up.\n";
+        return 0;
+    }
+
+    if (maxTx >= 0 && static_cast<size_t>(maxTx) < pending.size()) {
+        pending.resize(maxTx);
+    }
+
+    std::vector<L2Tx> batch;
+    for (const auto& t : pending) {
+        L2Tx lt{t.getSender(), t.getRecipient(), 0, 0, {}, 100000, 0, 0};
+        batch.push_back(lt);
+    }
+
+    auto prevRootBytes = g_l2state.stateRoot();
+    std::string prevRoot = Crypto::toHex(prevRootBytes);
+
+    L2Executor exec(g_l2state);
+    auto execRes = exec.execute(batch);
+    std::string postRoot = Crypto::toHex(execRes.first);
+    std::string rcCommit = RollupUtils::commitReceipts(execRes.second);
+
+    RollupBlock rollup(blockchain.getRollupChainSize(), blockchain.getLastRollupHash(), {});
+    rollup.setPrevL2Root(prevRoot);
+    rollup.setPostL2Root(postRoot);
+    rollup.setL2Batch(batch);
+    rollup.setL2ReceiptsCommitment(rcCommit);
+    if (!noProof) {
+        rollup.rollupProof = "stubbed"; // placeholder for future proof
+    }
+
+    blockchain.addRollupBlock(rollup);
+    if (!Network::isUninitialized()) {
+        Network::getInstance().broadcastRollupBlock(rollup);
+    }
+
+    std::cout << "✅ Rollup Block created!\n";
+    std::cout << " prev_l2_root: " << prevRoot << "\n";
+    std::cout << " post_l2_root: " << postRoot << "\n";
+    std::cout << " receipts_commitment: " << rcCommit << "\n";
+    return 0;
+}
+
+// === LEGACY ROLLUP ===
 if (argc >= 3 && std::string(argv[1]) == "rollup") {
     std::string walletAddr = argv[2];
     Blockchain& blockchain = getBlockchain();
@@ -1182,9 +1257,9 @@ if (argc >= 3 && std::string(argv[1]) == "rollup") {
 
     if (blockchain.isRollupBlockValid(rollup)) {
         blockchain.addRollupBlock(rollup);
-	if (!Network::isUninitialized()) {
-    	Network::getInstance().broadcastRollupBlock(rollup);
-	}
+        if (!Network::isUninitialized()) {
+        Network::getInstance().broadcastRollupBlock(rollup);
+        }
         std::cout << "✅ Rollup Block created successfully!\n";
         std::cout << "📦 Rollup Hash: " << rollup.getHash() << "\n";
     } else {

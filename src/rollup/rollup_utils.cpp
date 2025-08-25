@@ -65,6 +65,21 @@ std::string RollupUtils::calculateStateRoot(const std::unordered_map<std::string
     return calculateMerkleRoot(accountHashes);
 }
 
+// --- Receipt Commitment ---
+std::string RollupUtils::commitReceipts(const std::vector<L2Receipt>& receipts) {
+    std::vector<std::string> leafHashes;
+    for (const auto& rc : receipts) {
+        std::ostringstream ss;
+        ss << rc.status << ':' << rc.gas_used << ':';
+        for (const auto& ev : rc.events) {
+            ss << Crypto::toHex(ev) << ':';
+        }
+        ss << Crypto::toHex(rc.return_data);
+        leafHashes.push_back(Crypto::hybridHash(ss.str()));
+    }
+    return calculateMerkleRoot(leafHashes);
+}
+
 // --- Persistent Rollup Metadata ---
 // If you have getHomePath() define it in db_paths.h/.cpp, or switch to getDataDir() for consistency.
 static std::string getRollupMetaPath() {
