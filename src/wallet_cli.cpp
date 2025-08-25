@@ -1,8 +1,12 @@
 #include "wallet_cli.h"
 #include "blockchain.h"
+#include "mnemonic.h"
 #include <fstream>
 #include <sstream>
 #include <limits>
+#include <random>
+#include <openssl/crypto.h>
+#include <cstdio>
 
 void WalletCLI::start() {
   std::cout << "=== Welcome to AlynCoin Wallet CLI ===" << std::endl;
@@ -16,6 +20,8 @@ void WalletCLI::start() {
     std::cout << "5. Exit\n";
     std::cout << "6. Show Wallet Public Keys\n";
     std::cout << "7. Generate New PQ Keys (Dilithium + Falcon)\n";
+    std::cout << "8. Export Mnemonic Seed\n";
+    std::cout << "9. Import Mnemonic Seed\n";
     std::cout << "Enter choice: ";
 
     int choice;
@@ -42,6 +48,12 @@ void WalletCLI::start() {
       break;
     case 7:
       generateNewPQKeys();
+      break;
+    case 8:
+      exportSeed();
+      break;
+    case 9:
+      importSeed();
       break;
     default:
       std::cout << "❌ Invalid choice! Try again.\n";
@@ -90,6 +102,60 @@ void WalletCLI::generateNewPQKeys() {
   wallet.generateDilithiumKeyPair();
   wallet.generateFalconKeyPair();
   std::cout << "✅ Dilithium & Falcon keys regenerated.\n";
+}
+
+void WalletCLI::exportSeed() {
+  auto words = Mnemonic::generate();
+  std::cout << "⚠️ Write down your seed phrase:\n";
+  for (const auto &w : words) std::cout << w << ' ';
+  std::cout << "\n";
+
+  // Randomly pick two words for verification
+  std::random_device rd; std::mt19937 gen(rd());
+  std::uniform_int_distribution<> dist(0, static_cast<int>(words.size()) - 1);
+  int i1 = dist(gen), i2; do { i2 = dist(gen); } while (i2 == i1);
+
+  std::string ans1, ans2;
+  std::cout << "Re-enter word #" << i1 + 1 << ": "; std::cin >> ans1;
+  std::cout << "Re-enter word #" << i2 + 1 << ": "; std::cin >> ans2;
+  if (ans1 != words[i1] || ans2 != words[i2]) {
+    std::cout << "❌ Verification failed.\n";
+    for (auto &w : words) OPENSSL_cleanse(w.data(), w.size());
+    return;
+  }
+
+  // Build URI and show ASCII QR
+  std::string uri = "alynseed:";
+  for (size_t i = 0; i < words.size(); ++i) {
+    if (i) uri += '-';
+    uri += words[i];
+  }
+  std::string cmd = "qrencode -t ASCII \"" + uri + "\"";
+  FILE *pipe = popen(cmd.c_str(), "r");
+  if (pipe) {
+    char buf[256];
+    while (fgets(buf, sizeof(buf), pipe)) std::cout << buf;
+    pclose(pipe);
+  }
+  std::cout << uri << "\n";
+
+  for (auto &w : words) OPENSSL_cleanse(w.data(), w.size());
+}
+
+void WalletCLI::importSeed() {
+  std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+  std::cout << "Enter seed words separated by space:\n";
+  std::string line; std::getline(std::cin, line);
+  std::istringstream iss(line);
+  std::vector<std::string> words; std::string w; while (iss>>w) words.push_back(w);
+  if(!Mnemonic::validate(words)){
+    std::cout << "❌ Invalid mnemonic\n";
+    return;
+  }
+  auto seed = Mnemonic::mnemonicToSeed(words);
+  std::cout << "✅ Seed imported (" << seed.size() << " bytes).\n";
+  std::fill(seed.begin(), seed.end(), 0);
+  for (auto &s : words) OPENSSL_cleanse(s.data(), s.size());
 }
 
 // 💰 **Check balance**
