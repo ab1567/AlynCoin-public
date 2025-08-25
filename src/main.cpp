@@ -38,6 +38,7 @@
 #include <regex>
 #include "nft/nft_utils.h"
 #include <sodium.h>
+#include "policy.h"
 
 // Version string for RPC/CLI interface
 static const char *CLI_VERSION = "0.1";
@@ -1191,6 +1192,15 @@ if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == 
     std::string to = argv[3];
     std::string rawAmount = argv[4];
     std::string metadata = argv[5];
+    std::vector<std::string> cosigners;
+    for (int i = 6; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--cosign" && i + 1 < argc) {
+            std::string list = argv[++i];
+            std::stringstream ss(list); std::string item;
+            while (std::getline(ss, item, ',')) if (!item.empty()) cosigners.push_back(item);
+        }
+    }
 
     double amount = -1;
     try {
@@ -1203,6 +1213,12 @@ if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == 
     // ✅ Allow zero amount only for metadataSink transactions
     if (amount <= 0.0 && to != "metadataSink") {
         std::cerr << "❌ Invalid amount. Zero allowed only when sending to metadataSink.\n";
+        return 1;
+    }
+
+    std::string policyErr;
+    if (!PolicyManager::checkSend(from, to, amount, cosigners, policyErr)) {
+        std::cerr << "❌ " << policyErr << "\n";
         return 1;
     }
 
@@ -1248,10 +1264,11 @@ if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == 
     if (!tx.getSignatureDilithium().empty() && !tx.getSignatureFalcon().empty()) {
         b.addTransaction(tx);
         b.savePendingTransactionsToDB();
-	if (!Network::isUninitialized()) {
-	    Network::getInstance().broadcastTransaction(tx);
-	}
-	std::cout << "✅ Transaction broadcasted: " << from << " → " << to
+        if (!Network::isUninitialized()) {
+            Network::getInstance().broadcastTransaction(tx);
+        }
+        PolicyManager::recordSpend(from, amount);
+        std::cout << "✅ Transaction broadcasted: " << from << " → " << to
 
                   << " (" << amount << " AlynCoin, metadata: " << metadata << ")\n";
     } else {
@@ -1270,6 +1287,12 @@ if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == 
         std::string target = (argc >= 7) ? argv[6] : "";
         if (argc >= 5) type = static_cast<ProposalType>(std::stoi(argv[4]));
 
+        std::string policyErr;
+        if (!PolicyManager::checkSend(from, target, amt, {}, policyErr)) {
+            std::cerr << "❌ " << policyErr << "\n";
+            return 1;
+        }
+
         Proposal prop;
         prop.proposal_id = Crypto::sha256(Crypto::generateRandomHex(16));
         prop.proposer_address = from;
@@ -1282,6 +1305,7 @@ if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == 
         prop.status = ProposalStatus::PENDING;
 
         if (DAO::createProposal(prop)) {
+            if (amt > 0) PolicyManager::recordSpend(from, amt);
             std::cout << "✅ Proposal submitted. ID: " << prop.proposal_id << "\n";
         } else {
             std::cerr << "❌ Failed to submit proposal.\n";
