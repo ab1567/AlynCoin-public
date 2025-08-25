@@ -37,6 +37,7 @@
 #include <map>
 #include <regex>
 #include "nft/nft_utils.h"
+#include <sodium.h>
 
 // Version string for RPC/CLI interface
 static const char *CLI_VERSION = "0.1";
@@ -1091,8 +1092,8 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
         std::string pass;
         std::cout << "Set passphrase (leave blank for none): ";
         std::getline(std::cin >> std::ws, pass);
-        if (!pass.empty() && pass.size() < 8) {
-            std::cerr << "⚠️ Passphrase must be at least 8 characters.\n";
+        if (!pass.empty() && pass.size() < 12) {
+            std::cerr << "⚠️ Passphrase must be at least 12 characters.\n";
             return 1;
         }
         if (!pass.empty()) {
@@ -1134,8 +1135,10 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
             std::ifstream pin(passPath);
             std::string stored;
             std::getline(pin, stored);
-            if (Crypto::sha256(pass) != stored) {
-                std::cerr << "❌ Incorrect passphrase\n";
+            std::string hash = Crypto::sha256(pass);
+            if (stored.size() != hash.size() ||
+                sodium_memcmp(stored.data(), hash.data(), hash.size()) != 0) {
+                std::cerr << "❌ Wallet load failed\n";
                 return 1;
             }
         }

@@ -67,6 +67,10 @@ void WalletCLI::createWallet() {
   std::string passphrase;
   std::cout << "Enter a passphrase to secure your wallet: ";
   std::getline(std::cin, passphrase);
+  if (passphrase.size() < 12) {
+    std::cout << "❌ Passphrase must be at least 12 characters.\n";
+    return;
+  }
   wallet = Wallet("defaultWallet", WALLET_KEY_DIR, passphrase);
   std::cout << "✅ Wallet created! Address: " << wallet.getAddress()
             << std::endl;

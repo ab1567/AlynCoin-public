@@ -474,8 +474,8 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
         std::string pass;
         std::cout << "Set passphrase (leave blank for none): ";
         std::getline(std::cin >> std::ws, pass);
-        if (!pass.empty() && pass.size() < 8) {
-            std::cerr << "⚠️ Passphrase must be at least 8 characters.\n";
+        if (!pass.empty() && pass.size() < 12) {
+            std::cerr << "⚠️ Passphrase must be at least 12 characters.\n";
             return 1;
         }
         if (!pass.empty()) {
