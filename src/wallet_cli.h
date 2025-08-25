@@ -18,6 +18,8 @@ private:
   void sendCoins();
   void generateNewPQKeys();
   void showKeys();
+  void exportSeed();
+  void importSeed();
 };
 
 #endif // WALLET_CLI_H
