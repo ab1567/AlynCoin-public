@@ -3,6 +3,7 @@ project(alyncoin LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+add_compile_definitions(d_m3HasFloat=0 d_m3MaxLinearMemoryPages=512)
 
 # ---- Windows toolchain / CRT -------------------------------------------------
 if (WIN32)
@@ -112,6 +113,10 @@ list(APPEND SOURCES ${RPC_SOURCES})
 
 set(MAIN_SOURCE ${SOURCE_DIR}/main.cpp)
 
+# ---- WASM3 runtime ------------------------------
+file(GLOB WASM3_SRC ${SOURCE_DIR}/wasm3/*.c)
+list(APPEND SOURCES ${SOURCE_DIR}/layer2/wasm_engine.cpp ${WASM3_SRC})
+
 # ---- BLAKE3 ------------------------------------------------------------------
 # Use the bundled C implementation for hashing. The Rust crates depend on the
 # pure Rust backend to avoid duplicate symbols, while C++ code links against
@@ -134,6 +139,7 @@ endif()
 # ---- Includes ----------------------------------------------------------------
 include_directories(
   ${CMAKE_BINARY_DIR}
+  ${SOURCE_DIR}/wasm3
   ${GENERATED_DIR}
   ${SOURCE_DIR}
   ${SOURCE_DIR}/zk

@@ -66,3 +66,7 @@ def alyncoin_rpc(method, params=None):
     except Exception as e:
         print(f"❌ RPC error: {e}")
         return {"error": str(e)}
+
+
+def l2_vm_selftest():
+    return alyncoin_rpc("l2-vm-selftest")
