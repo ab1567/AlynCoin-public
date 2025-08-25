@@ -6,6 +6,8 @@
 #include "wallet.h"
 #include "wallet_recovery.h"
 #include "layer2/wasm_engine.h"
+#include "layer2/l2_state.h"
+#include "layer2/l2_executor.h"
 #include <fstream>
 #include <iostream>
 #include <json/json.h>
@@ -29,6 +31,8 @@
 #include <unordered_set>
 static std::unordered_set<std::string> cliSeenTxHashes;
 #include "utils/format.h"
+
+static L2StateManager g_l2state;
 
 std::string getCurrentWallet() {
     std::ifstream in(DBPaths::getHomePath() + "/.alyncoin/current_wallet.txt");
@@ -95,6 +99,9 @@ void printHelp() {
   std::cout << "  stats                          View blockchain stats\n";
   std::cout << "  chain print [--json]           Print blockchain\n\n";
   std::cout << "  l2 vm selftest           Run L2 VM self-test\n";
+  std::cout << "  l2 deploy <wasm>         Deploy Wasm smart-account\n";
+  std::cout << "  l2 call <addr> <data> --gas <N>  Call contract\n";
+  std::cout << "  l2 query <addr> <key>    Query storage\n";
   std::cout << "Options:\n";
   std::cout << "  --help                         Show this help message\n";
   std::cout << "  --version                      Show CLI version\n";
@@ -354,9 +361,30 @@ int main(int argc, char **argv) {
         argv[1] = (char*)"chainprint"; // placeholder; handled later if implemented
         for (int i = 3; i < argc; ++i) argv[i - 1] = argv[i];
         argc -= 1;
-    } else if (first == "l2" && argc >= 4 && std::string(argv[2]) == "vm" && std::string(argv[3]) == "selftest") {
-        argv[1] = (char*)"l2-vm-selftest";
-        argc = 2;
+    } else if (first == "l2" && argc >= 3) {
+        std::string action = argv[2];
+        if (action == "vm" && argc >= 4 && std::string(argv[3]) == "selftest") {
+            argv[1] = (char*)"l2-vm-selftest";
+            argc = 2;
+        } else if (action == "deploy" && argc == 4) {
+            argv[1] = (char*)"l2-deploy";
+            argv[2] = argv[3];
+            argc = 3;
+        } else if (action == "call" && argc >= 5) {
+            argv[1] = (char*)"l2-call";
+            argv[2] = argv[3];
+            argv[3] = argv[4];
+            for (int i = 5; i < argc; ++i) argv[i-2] = argv[i];
+            argc -= 2;
+        } else if (action == "query" && argc == 5) {
+            argv[1] = (char*)"l2-query";
+            argv[2] = argv[3];
+            argv[3] = argv[4];
+            argc = 4;
+        } else {
+            std::cout << "Usage: alyncoin-cli l2 <deploy|call|query> ...\n";
+            std::_Exit(1);
+        }
     }    }
 
     std::string keyDir = DBPaths::getKeyDir();
@@ -370,7 +398,8 @@ int main(int argc, char **argv) {
         cmd == "recursiveproof" ||
         cmd == "createwallet" || cmd == "loadwallet" ||
         cmd == "policy-set" || cmd == "policy-show" || cmd == "policy-clear" ||
-        cmd == "policy-export" || cmd == "policy-import";
+        cmd == "policy-export" || cmd == "policy-import" ||
+        cmd == "l2-query" || cmd == "l2-deploy" || cmd == "l2-call";
 
     // Helper: mining/send/rollup always need full DB+network
     auto isFullNet =
@@ -389,7 +418,8 @@ int main(int argc, char **argv) {
             "dao-submit", "dao-vote", "dao-view", "dao-finalize",
             "blacklist-add", "blacklist-remove", "stats", "chainprint", "history",
             "mychain", "recursiveproof", "recursive-rollup",
-            "policy-set", "policy-show", "policy-clear", "policy-export", "policy-import", "l2-vm-selftest"};
+            "policy-set", "policy-show", "policy-clear", "policy-export", "policy-import", "l2-vm-selftest",
+            "l2-deploy", "l2-call", "l2-query"};
         if (!cmd.empty() && known.find(cmd) == known.end()) {
             std::cerr << "Unknown command: " << cmd << "\n";
             printHelp();
@@ -528,10 +558,46 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
         static const uint8_t wasm[]={0,97,115,109,1,0,0,0,1,5,1,96,0,1,127,3,2,1,0,7,9,1,5,101,110,116,114,121,0,0,10,6,1,4,0,65,0,11};
         WasmEngine eng;
         auto mod = eng.load(std::vector<uint8_t>(wasm, wasm + sizeof(wasm)));
-        auto inst = eng.instantiate(mod, 1000000, 64*1024);
+        auto inst = eng.instantiate(mod, 1000000, 64*1024,
+            [](const std::vector<uint8_t>&){return std::vector<uint8_t>{};},
+            [](const std::vector<uint8_t>&, const std::vector<uint8_t>&){});
         auto res = eng.call(inst, "entry", {});
         std::cout << (res.retcode == 0 ? "OK" : "FAIL") << "\n";
         return res.retcode;
+    }
+
+    if (cmd == "l2-deploy" && argc == 3) {
+        std::ifstream in(argv[2], std::ios::binary);
+        if (!in) { std::cerr << "cannot open wasm file\n"; return 1; }
+        std::vector<uint8_t> code((std::istreambuf_iterator<char>(in)), {});
+        std::string addr = g_l2state.deploy(code);
+        std::cout << addr << "\n";
+        return 0;
+    }
+
+    if (cmd == "l2-call" && argc >= 4) {
+        std::string addr = argv[2];
+        std::string dataHex = argv[3];
+        uint64_t gas = 0;
+        for (int i = 4; i < argc; ++i) {
+            std::string a = argv[i];
+            if (a == "--gas" && i + 1 < argc) gas = std::stoull(argv[++i]);
+        }
+        L2Executor exec(g_l2state);
+        auto& callerAcc = g_l2state.ensureAccount("caller");
+        L2Tx tx{"caller", addr, callerAcc.nonce, 0, Crypto::fromHex(dataHex), gas, 0, 0};
+        auto res = exec.execute({tx});
+        auto rc = res.second[0];
+        std::cout << "status=" << rc.status << " gas=" << rc.gas_used << "\n";
+        return 0;
+    }
+
+    if (cmd == "l2-query" && argc == 4) {
+        std::string addr = argv[2];
+        std::string keyHex = argv[3];
+        auto val = g_l2state.readStorage(addr, Crypto::fromHex(keyHex));
+        std::cout << Crypto::toHex(val) << "\n";
+        return 0;
     }
     if (cmd == "stats" && argc >= 2) {
         std::cout << "\n=== Blockchain Stats ===\n";

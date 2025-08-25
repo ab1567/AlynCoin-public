@@ -68,6 +68,29 @@ m3ApiRawFunction(host_emit_event) {
     m3ApiSuccess();
 }
 
+m3ApiRawFunction(host_storage_read) {
+    m3ApiGetArgMem(const uint8_t*, key);
+    m3ApiGetArg(uint32_t, len);
+    m3ApiGetArgMem(uint8_t*, out);
+    auto inst = get_instance(runtime);
+    std::vector<uint8_t> k(key, key + len);
+    auto val = inst->storage_read ? inst->storage_read(k) : std::vector<uint8_t>{};
+    memcpy(out, val.data(), val.size());
+    m3ApiSuccess();
+}
+
+m3ApiRawFunction(host_storage_write) {
+    m3ApiGetArgMem(const uint8_t*, key);
+    m3ApiGetArg(uint32_t, klen);
+    m3ApiGetArgMem(const uint8_t*, val);
+    m3ApiGetArg(uint32_t, vlen);
+    auto inst = get_instance(runtime);
+    std::vector<uint8_t> k(key, key + klen);
+    std::vector<uint8_t> v(val, val + vlen);
+    if (inst->storage_write) inst->storage_write(k, v);
+    m3ApiSuccess();
+}
+
 WasmEngine::ModuleHandle WasmEngine::load(const std::vector<uint8_t>& code) {
 #if ENABLE_L2_VM
     IM3Module module;
@@ -79,7 +102,9 @@ WasmEngine::ModuleHandle WasmEngine::load(const std::vector<uint8_t>& code) {
 #endif
 }
 
-WasmEngine::Instance* WasmEngine::instantiate(const ModuleHandle& mh, uint64_t gas_limit, uint32_t stack_size) {
+WasmEngine::Instance* WasmEngine::instantiate(const ModuleHandle& mh, uint64_t gas_limit, uint32_t stack_size,
+                                              std::function<std::vector<uint8_t>(const std::vector<uint8_t>&)> read,
+                                              std::function<void(const std::vector<uint8_t>&, const std::vector<uint8_t>&)> write) {
 #if ENABLE_L2_VM
     Instance* inst = new Instance();
     inst->gas_limit = gas_limit;
@@ -87,6 +112,8 @@ WasmEngine::Instance* WasmEngine::instantiate(const ModuleHandle& mh, uint64_t g
     inst->module = mh.module;
     inst->runtime = m3_NewRuntime(env, stack_size, NULL);
     inst->runtime->userdata = inst;
+    inst->storage_read = read;
+    inst->storage_write = write;
     m3_LoadModule(inst->runtime, inst->module);
     m3_LinkRawFunction(inst->module, "env", "get_caller", "v(*)", &host_get_caller);
     m3_LinkRawFunction(inst->module, "env", "block_height", "I()", &host_block_height);
@@ -96,9 +123,11 @@ WasmEngine::Instance* WasmEngine::instantiate(const ModuleHandle& mh, uint64_t g
     m3_LinkRawFunction(inst->module, "env", "verify_dilithium", "i(***)", &host_verify_dilithium);
     m3_LinkRawFunction(inst->module, "env", "verify_falcon", "i(***)", &host_verify_falcon);
     m3_LinkRawFunction(inst->module, "env", "emit_event", "v(*i)", &host_emit_event);
+    m3_LinkRawFunction(inst->module, "env", "storage_read", "v(*i*)", &host_storage_read);
+    m3_LinkRawFunction(inst->module, "env", "storage_write", "v(*i*i)", &host_storage_write);
     return inst;
 #else
-    (void)mh; (void)gas_limit; (void)stack_size;
+    (void)mh; (void)gas_limit; (void)stack_size; (void)read; (void)write;
     return nullptr;
 #endif
 }

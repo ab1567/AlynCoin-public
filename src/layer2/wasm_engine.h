@@ -6,6 +6,7 @@
 #ifndef ENABLE_L2_VM
 #define ENABLE_L2_VM 1
 #endif
+#include <functional>
 
 
 struct WasmCallResult {
@@ -27,10 +28,14 @@ public:
         uint64_t gas_limit;
         uint64_t gas_used;
         std::vector<std::vector<uint8_t>> events;
+        std::function<std::vector<uint8_t>(const std::vector<uint8_t>&)> storage_read;
+        std::function<void(const std::vector<uint8_t>&, const std::vector<uint8_t>&)> storage_write;
     };
 
     ModuleHandle load(const std::vector<uint8_t>& code);
-    Instance* instantiate(const ModuleHandle& module, uint64_t gas_limit, uint32_t memory_limit);
+    Instance* instantiate(const ModuleHandle& module, uint64_t gas_limit, uint32_t memory_limit,
+                          std::function<std::vector<uint8_t>(const std::vector<uint8_t>&)> read,
+                          std::function<void(const std::vector<uint8_t>&, const std::vector<uint8_t>&)> write);
     WasmCallResult call(Instance* inst, const std::string& entry, const std::vector<uint8_t>& calldata);
 
 private:

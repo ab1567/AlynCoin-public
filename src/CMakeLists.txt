@@ -115,7 +115,7 @@ set(MAIN_SOURCE ${SOURCE_DIR}/main.cpp)
 
 # ---- WASM3 runtime ------------------------------
 file(GLOB WASM3_SRC ${SOURCE_DIR}/wasm3/*.c)
-list(APPEND SOURCES ${SOURCE_DIR}/layer2/wasm_engine.cpp ${WASM3_SRC})
+list(APPEND SOURCES ${SOURCE_DIR}/layer2/wasm_engine.cpp ${SOURCE_DIR}/layer2/l2_state.cpp ${SOURCE_DIR}/layer2/l2_executor.cpp ${WASM3_SRC})
 
 # ---- BLAKE3 ------------------------------------------------------------------
 # Use the bundled C implementation for hashing. The Rust crates depend on the
