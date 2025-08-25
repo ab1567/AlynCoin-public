@@ -435,6 +435,7 @@ add_executable(alyncoin ${MAIN_SOURCE})
 add_executable(alyncoin-cli
   ${SOURCE_DIR}/cli.cpp
   ${SOURCE_DIR}/cli/peer_blacklist_ui.cpp
+  ${SOURCE_DIR}/wallet_recovery.cpp
   ${SOURCE_DIR}/zk/recursive_proof_helper.cpp
 )
 add_executable(peer_blacklist_cli ${SOURCE_DIR}/cli/peer_blacklist_cli.cpp)
