@@ -90,7 +90,7 @@ class DAOTab(QWidget):
             else:
                 params = [addr, desc_val, ptype_val]
 
-            result = alyncoin_rpc("dao_submit", params)
+            result = alyncoin_rpc("dao-submit", params)
             if isinstance(result, dict) and "error" in result:
                 self.parent.appendOutput(f"❌ {result['error']}")
             else:
@@ -126,7 +126,7 @@ class DAOTab(QWidget):
                 self.parent.appendOutput("❌ Proposal ID is required.")
                 return
             params = [addr, pid, vote]
-            result = alyncoin_rpc("dao_vote", params)
+            result = alyncoin_rpc("dao-vote", params)
             if isinstance(result, dict) and "error" in result:
                 self.parent.appendOutput(f"❌ {result['error']}")
             else:
@@ -136,7 +136,7 @@ class DAOTab(QWidget):
     def viewProposals(self):
         self.parent.clearOutput()
         self.parent.appendOutput("📜 Fetching all DAO proposals...")
-        result = alyncoin_rpc("dao_view")
+        result = alyncoin_rpc("dao-view")
         if isinstance(result, dict) and "error" in result:
             self.parent.appendOutput(f"❌ {result['error']}")
             return

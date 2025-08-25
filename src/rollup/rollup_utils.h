@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include "../layer2/l2_executor.h"
 
 class RollupUtils {
 public:
@@ -21,6 +22,9 @@ public:
 
     // 🌐 Deterministic state root for rollups
     static std::string calculateStateRoot(const std::unordered_map<std::string, double>& state);
+
+    // 🧾 Commitment over L2 execution receipts
+    static std::string commitReceipts(const std::vector<L2Receipt>& receipts);
 
     // ✅ Persistent metadata helpers
     static void storeRollupMetadata(const std::string& txRoot, const std::string& blockHash);
