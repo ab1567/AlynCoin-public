@@ -12,6 +12,7 @@
 #include "json.hpp"
 #include "layer2/l2_executor.h"
 #include "layer2/l2_state.h"
+#include "layer2/l2_tx.h"
 #include "layer2/wasm_engine.h"
 #include "miner.h"
 #include "network.h"
@@ -966,6 +967,33 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
           if (!found)
             output = {{"error", "No NFT found matching the file hash"}};
         }
+      } else if (method == "l2_deploy") {
+        auto arr = params.at(0).get<std::vector<int>>();
+        std::vector<uint8_t> bytes(arr.begin(), arr.end());
+        nlohmann::json j = nlohmann::json::parse(bytes.begin(), bytes.end());
+        std::vector<uint8_t> wasm = Crypto::fromHex(j.value("data", ""));
+        std::string addr = g_l2state.deploy(wasm);
+        output = {{"result", addr}};
+      } else if (method == "l2_call") {
+        auto arr = params.at(0).get<std::vector<int>>();
+        std::vector<uint8_t> bytes(arr.begin(), arr.end());
+        nlohmann::json j = nlohmann::json::parse(bytes.begin(), bytes.end());
+        std::string addr = j.value("to", "");
+        std::vector<uint8_t> data = Crypto::fromHex(j.value("data", ""));
+        L2Executor exec(g_l2state);
+        auto &callerAcc = g_l2state.ensureAccount("caller");
+        L2Tx tx{"caller", addr, callerAcc.nonce, 0, data, 0, 0, 0};
+        auto res = exec.execute({tx});
+        auto rc = res.second[0];
+        output = {{"result", {{"status", rc.status}, {"gas", rc.gas_used}}}};
+      } else if (method == "l2_query") {
+        auto arr = params.at(0).get<std::vector<int>>();
+        std::vector<uint8_t> bytes(arr.begin(), arr.end());
+        nlohmann::json j = nlohmann::json::parse(bytes.begin(), bytes.end());
+        std::string addr = j.value("to", "");
+        std::vector<uint8_t> key = Crypto::fromHex(j.value("data", ""));
+        auto val = g_l2state.readStorage(addr, key);
+        output = {{"result", Crypto::toHex(val)}};
       } else if (method == "l2-vm-selftest") {
         static const uint8_t wasm[] = {
             0,   97,  115, 109, 1,  0, 0, 0, 1, 5,  1,   96,  0,

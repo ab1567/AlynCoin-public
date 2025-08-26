@@ -1,17 +1,8 @@
-import subprocess
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QLineEdit, QPushButton, QFileDialog
 )
 
-CLI_PATH = "/root/AlynCoin/build/alyncoin-cli"
-
-
-def _run_cli(args):
-    try:
-        out = subprocess.check_output([CLI_PATH] + args, stderr=subprocess.STDOUT, text=True)
-    except subprocess.CalledProcessError as e:
-        out = e.output
-    return out.strip()
+from rpc_client import l2_deploy, l2_call, l2_query
 
 
 class L2Tab(QWidget):
@@ -65,19 +56,20 @@ class L2Tab(QWidget):
             if not path:
                 return
             self.wasmInput.setText(path)
-        self.parent.appendOutput(_run_cli(["l2", "deploy", path]))
+        with open(path, "rb") as f:
+            wasm = f.read()
+        addr = l2_deploy({"to": "", "data": wasm})
+        self.parent.appendOutput(str(addr))
 
     def call(self):
         addr = self.callAddrInput.text().strip()
         data = self.callDataInput.text().strip()
-        gas = self.gasInput.text().strip() or "0"
         if not addr or not data:
             self.parent.appendOutput("❌ Missing address or calldata")
             return
-        args = ["l2", "call", addr, data]
-        if gas:
-            args += ["--gas", gas]
-        self.parent.appendOutput(_run_cli(args))
+        data_bytes = bytes.fromhex(data[2:] if data.startswith("0x") else data)
+        res = l2_call({"to": addr, "data": data_bytes})
+        self.parent.appendOutput(str(res))
 
     def query(self):
         addr = self.queryAddrInput.text().strip()
@@ -85,4 +77,6 @@ class L2Tab(QWidget):
         if not addr or not key:
             self.parent.appendOutput("❌ Missing address or key")
             return
-        self.parent.appendOutput(_run_cli(["l2", "query", addr, key]))
+        key_bytes = bytes.fromhex(key[2:] if key.startswith("0x") else key)
+        res = l2_query({"to": addr, "data": key_bytes})
+        self.parent.appendOutput(str(res))
