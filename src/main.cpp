@@ -27,6 +27,9 @@
 #include "self_healing/self_healing_node.h"
 #include "wallet.h"
 #include "zk/recursive_proof_helper.h"
+#include "atomic_swaps/atomic_swap.h"
+#include "atomic_swaps/rocksdb_swap_store.h"
+#include "atomic_swaps/swap_manager.h"
 #include <chrono>
 #include <cstdlib>
 #include <ctime>
@@ -48,6 +51,42 @@ static L2StateManager g_l2state;
 
 // Version string for RPC/CLI interface
 static const char *CLI_VERSION = "0.1";
+
+// -------------------- Atomic Swap Helpers --------------------
+static std::string swapStateToString(SwapState s) {
+  switch (s) {
+  case SwapState::INITIATED:
+    return "INITIATED";
+  case SwapState::REDEEMED:
+    return "REDEEMED";
+  case SwapState::REFUNDED:
+    return "REFUNDED";
+  case SwapState::EXPIRED:
+    return "EXPIRED";
+  default:
+    return "INVALID";
+  }
+}
+
+static nlohmann::json swapToJson(const AtomicSwap &swap) {
+  nlohmann::json j{{"uuid", swap.uuid},
+                   {"sender", swap.senderAddress},
+                   {"receiver", swap.receiverAddress},
+                   {"amount", swap.amount},
+                   {"secret_hash", swap.secretHash},
+                   {"created_at", swap.createdAt},
+                   {"expires_at", swap.expiresAt},
+                   {"state", swapStateToString(swap.state)}};
+  if (swap.secret)
+    j["secret"] = *swap.secret;
+  if (swap.zkProof)
+    j["zk_proof"] = *swap.zkProof;
+  if (swap.falconSignature)
+    j["falcon_signature"] = Crypto::toHex(*swap.falconSignature);
+  if (swap.dilithiumSignature)
+    j["dilithium_signature"] = Crypto::toHex(*swap.dilithiumSignature);
+  return j;
+}
 
 // Print usage information for CLI commands
 void print_usage() {
@@ -168,6 +207,8 @@ static bool importWalletFromFile(const std::string &keyDir,
 void start_rpc_server(Blockchain *blockchain, Network *network,
                       SelfHealingNode *healer, int rpc_port = 1567) {
   httplib::Server svr;
+  auto swapStore = std::make_shared<RocksDBAtomicSwapStore>("swapdb");
+  AtomicSwapManager swapManager(swapStore.get());
 
   std::thread updater([blockchain, network]() {
     while (true) {
@@ -188,8 +229,9 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
     res.set_content(metrics::toPrometheus(), "text/plain");
   });
 
-  svr.Post("/rpc", [blockchain, network, healer](const httplib::Request &req,
-                                                 httplib::Response &res) {
+  svr.Post("/rpc", [blockchain, network, healer, &swapManager, swapStore](
+                         const httplib::Request &req,
+                         httplib::Response &res) {
     nlohmann::json input;
     try {
       input = nlohmann::json::parse(req.body);
@@ -359,6 +401,68 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
                   {"error", std::string("Wallet import failed: ") + e.what()}};
             }
           }
+        }
+      }
+      // -------------------- Atomic Swap RPCs --------------------
+      else if (method == "swap-initiate") {
+        if (params.size() < 5) {
+          output = {{"error", "swap-initiate requires sender, receiver, amount, secret, duration"}};
+        } else {
+          std::string sender = params.at(0).get<std::string>();
+          std::string receiver = params.at(1).get<std::string>();
+          uint64_t amount = params.at(2).get<uint64_t>();
+          std::string secret = params.at(3).get<std::string>();
+          time_t duration = static_cast<time_t>(params.at(4).get<long long>());
+          std::string hash = Crypto::hybridHash(secret);
+          auto uuid = swapManager.initiateSwap(sender, receiver, amount, hash, duration);
+          if (uuid)
+            output = {{"result", *uuid}};
+          else
+            output = {{"error", "failed to create swap"}};
+        }
+      } else if (method == "swap-redeem") {
+        if (params.size() < 2) {
+          output = {{"error", "swap-redeem requires id and secret"}};
+        } else {
+          bool ok = swapManager.redeemSwap(params.at(0).get<std::string>(),
+                                           params.at(1).get<std::string>());
+          output = ok ? nlohmann::json{{"result", "redeemed"}}
+                      : nlohmann::json{{"error", "redeem failed"}};
+        }
+      } else if (method == "swap-refund") {
+        if (params.empty()) {
+          output = {{"error", "swap-refund requires id"}};
+        } else {
+          bool ok = swapManager.refundSwap(params.at(0).get<std::string>());
+          output = ok ? nlohmann::json{{"result", "refunded"}}
+                      : nlohmann::json{{"error", "refund failed"}};
+        }
+      } else if (method == "swap-get") {
+        if (params.empty()) {
+          output = {{"error", "swap-get requires id"}};
+        } else {
+          auto swap = swapManager.getSwap(params.at(0).get<std::string>());
+          if (swap)
+            output = {{"result", swapToJson(*swap)}};
+          else
+            output = {{"error", "swap not found"}};
+        }
+      } else if (method == "swap-state") {
+        if (params.empty()) {
+          output = {{"error", "swap-state requires id"}};
+        } else {
+          auto state = swapManager.getSwapState(params.at(0).get<std::string>());
+          output = {{"result", swapStateToString(state)}};
+        }
+      } else if (method == "swap-verify") {
+        if (params.empty()) {
+          output = {{"error", "swap-verify requires id"}};
+        } else {
+          auto swap = swapManager.getSwap(params.at(0).get<std::string>());
+          if (!swap)
+            output = {{"error", "swap not found"}};
+          else
+            output = {{"result", verifySwapSignature(*swap)}};
         }
       }
       // Mine One Block

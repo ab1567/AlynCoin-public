@@ -37,6 +37,7 @@ from dao_tab import DAOTab
 from stats_tab import StatsTab
 from nft_tab import NFTTab
 from policy_tab import PolicyTab
+from swap_tab import SwapTab
 from l2_tab import L2Tab
 
 # Fallback peer(s) if DNS resolution fails
@@ -400,6 +401,7 @@ class AlynCoinApp(QMainWindow):
         self.statsTab = StatsTab(self)
         self.nftTab = NFTTab(self)
         self.policyTab = PolicyTab(self)
+        self.swapTab = SwapTab(self)
         self.l2Tab = L2Tab(self)
 
         self.tabs.addTab(self.walletTab, "Wallet")
@@ -410,6 +412,7 @@ class AlynCoinApp(QMainWindow):
         self.tabs.addTab(self.statsTab, "Stats")
         self.tabs.addTab(self.nftTab, "NFT")
         self.tabs.addTab(self.policyTab, "Policy")
+        self.tabs.addTab(self.swapTab, "Swap")
         self.tabs.addTab(self.l2Tab, "L2")
 
         layout.addWidget(self.tabs)
