@@ -1,6 +1,5 @@
 import os
 import requests
-import json
 from requests.adapters import HTTPAdapter, Retry
 
 # Allow overriding the RPC endpoint via environment variables. When only
@@ -67,26 +66,3 @@ def alyncoin_rpc(method, params=None):
     except Exception as e:
         print(f"❌ RPC error: {e}")
         return {"error": str(e)}
-
-
-def l2_vm_selftest():
-    return alyncoin_rpc("l2-vm-selftest")
-
-
-def _encode_l2_tx(tx: dict) -> list[int]:
-    obj = {"to": tx.get("to", ""), "data": tx.get("data", b"").hex()}
-    if tx.get("value") is not None:
-        obj["value"] = str(tx["value"])
-    return list(json.dumps(obj).encode())
-
-
-def l2_deploy(tx: dict):
-    return alyncoin_rpc("l2_deploy", [_encode_l2_tx(tx)])
-
-
-def l2_call(tx: dict):
-    return alyncoin_rpc("l2_call", [_encode_l2_tx(tx)])
-
-
-def l2_query(tx: dict):
-    return alyncoin_rpc("l2_query", [_encode_l2_tx(tx)])

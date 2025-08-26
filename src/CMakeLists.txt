@@ -3,7 +3,6 @@ project(alyncoin LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-add_compile_definitions(d_m3HasFloat=0 d_m3MaxLinearMemoryPages=512)
 
 # ---- Windows toolchain / CRT -------------------------------------------------
 if (WIN32)
@@ -55,14 +54,11 @@ file(GLOB SOURCES
   ${SOURCE_DIR}/transaction.cpp
   ${SOURCE_DIR}/network.cpp
   ${SOURCE_DIR}/crypto_utils.cpp
-  ${SOURCE_DIR}/wallet_crypto.cpp
   ${SOURCE_DIR}/crypto/sphinx.cpp
   ${SOURCE_DIR}/miner.cpp
   ${SOURCE_DIR}/wallet.cpp
-  ${SOURCE_DIR}/mnemonic.cpp
   ${SOURCE_DIR}/keccak.cpp
   ${SOURCE_DIR}/key_paths.cpp
-  ${SOURCE_DIR}/policy.cpp
   ${SOURCE_DIR}/consensus/difficulty.cpp
   ${SOURCE_DIR}/consensus/fork_choice.cpp
   ${SOURCE_DIR}/zk/*.cpp
@@ -80,7 +76,6 @@ file(GLOB SOURCES
   ${SOURCE_DIR}/self_healing/sync_recovery.cpp
   ${SOURCE_DIR}/self_healing/self_healing_node.cpp
   ${SOURCE_DIR}/utils/logger.cpp
-  ${SOURCE_DIR}/utils/format.cpp
   ${SOURCE_DIR}/identity/identity.cpp
   ${SOURCE_DIR}/identity/identity_store.cpp
   ${SOURCE_DIR}/identity/proto_utils.cpp
@@ -113,10 +108,6 @@ list(APPEND SOURCES ${RPC_SOURCES})
 
 set(MAIN_SOURCE ${SOURCE_DIR}/main.cpp)
 
-# ---- WASM3 runtime ------------------------------
-file(GLOB WASM3_SRC ${SOURCE_DIR}/wasm3/*.c)
-list(APPEND SOURCES ${SOURCE_DIR}/layer2/wasm_engine.cpp ${SOURCE_DIR}/layer2/l2_state.cpp ${SOURCE_DIR}/layer2/l2_executor.cpp ${WASM3_SRC})
-
 # ---- BLAKE3 ------------------------------------------------------------------
 # Use the bundled C implementation for hashing. The Rust crates depend on the
 # pure Rust backend to avoid duplicate symbols, while C++ code links against
@@ -139,7 +130,6 @@ endif()
 # ---- Includes ----------------------------------------------------------------
 include_directories(
   ${CMAKE_BINARY_DIR}
-  ${SOURCE_DIR}/wasm3
   ${GENERATED_DIR}
   ${SOURCE_DIR}
   ${SOURCE_DIR}/zk
@@ -304,10 +294,6 @@ endif()
 
 # Ensure JsonCpp is linked on all platforms
 list(APPEND PLAT_LIBS ${JSONCPP_LIBRARIES})
-find_library(SODIUM_LIB sodium)
-if(SODIUM_LIB)
-  list(APPEND PLAT_LIBS ${SODIUM_LIB})
-endif()
 
 # ---- Falcon (C) --------------------------------------------------------------
 file(GLOB FALCON_CLEAN_SOURCES
@@ -442,7 +428,6 @@ add_executable(alyncoin ${MAIN_SOURCE})
 add_executable(alyncoin-cli
   ${SOURCE_DIR}/cli.cpp
   ${SOURCE_DIR}/cli/peer_blacklist_ui.cpp
-  ${SOURCE_DIR}/wallet_recovery.cpp
   ${SOURCE_DIR}/zk/recursive_proof_helper.cpp
 )
 add_executable(peer_blacklist_cli ${SOURCE_DIR}/cli/peer_blacklist_cli.cpp)

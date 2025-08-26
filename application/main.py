@@ -36,9 +36,6 @@ from miner_tab import MinerTab
 from dao_tab import DAOTab
 from stats_tab import StatsTab
 from nft_tab import NFTTab
-from policy_tab import PolicyTab
-from swap_tab import SwapTab
-from l2_tab import L2Tab
 
 # Fallback peer(s) if DNS resolution fails
 # Must mirror the list in src/network.cpp
@@ -400,9 +397,6 @@ class AlynCoinApp(QMainWindow):
         self.daoTab = DAOTab(self)
         self.statsTab = StatsTab(self)
         self.nftTab = NFTTab(self)
-        self.policyTab = PolicyTab(self)
-        self.swapTab = SwapTab(self)
-        self.l2Tab = L2Tab(self)
 
         self.tabs.addTab(self.walletTab, "Wallet")
         self.tabs.addTab(self.sendTab, "Send")
@@ -411,9 +405,6 @@ class AlynCoinApp(QMainWindow):
         self.tabs.addTab(self.daoTab, "DAO")
         self.tabs.addTab(self.statsTab, "Stats")
         self.tabs.addTab(self.nftTab, "NFT")
-        self.tabs.addTab(self.policyTab, "Policy")
-        self.tabs.addTab(self.swapTab, "Swap")
-        self.tabs.addTab(self.l2Tab, "L2")
 
         layout.addWidget(self.tabs)
         layout.addWidget(self.outputBox)

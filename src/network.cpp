@@ -24,7 +24,6 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 #include <condition_variable>
-#include <atomic>
 #include <queue>
 #include <cctype>
 #include <chrono>
@@ -189,7 +188,6 @@ static std::queue<RxItem *> rxQ;
 static std::mutex rxQMutex;
 static std::condition_variable rxQCv;
 static constexpr std::size_t RXQ_CAPACITY = 128;
-static std::atomic<bool> rxShutdown{false};
 // Thread pool used to process frames popped from the queue
 static httplib::ThreadPool pool(
     std::max(1u, std::thread::hardware_concurrency()));
@@ -201,9 +199,7 @@ static bool workersStarted = [] {
         RxItem *item = nullptr;
         {
           std::unique_lock<std::mutex> lk(rxQMutex);
-          rxQCv.wait(lk, [] { return !rxQ.empty() || rxShutdown.load(); });
-          if (rxShutdown && rxQ.empty())
-            break;
+          rxQCv.wait(lk, [] { return !rxQ.empty(); });
           item = rxQ.front();
           rxQ.pop();
           rxQCv.notify_one(); // wake potential producers waiting on capacity
@@ -718,9 +714,6 @@ Network::~Network() {
     for (auto &t : threads_)
       if (t.joinable())
         t.join();
-    rxShutdown = true;
-    rxQCv.notify_all();
-    pool.shutdown();
     std::cout << "✅ Network instance cleaned up safely." << std::endl;
   } catch (const std::exception &e) {
     std::cerr << "❌ Error during Network destruction: " << e.what()

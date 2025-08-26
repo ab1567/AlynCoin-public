@@ -9,12 +9,10 @@
 #include <ctime>
 
 RollupBlock::RollupBlock()
-    : index(0), previousHash(""), merkleRoot(""), timestamp(""), rollupHash(""), nonce(""),
-      prevL2Root(""), postL2Root(""), l2Batch({}), l2ReceiptsCommitment("") {}
+    : index(0), previousHash(""), merkleRoot(""), timestamp(""), rollupHash(""), nonce("") {}
 
 RollupBlock::RollupBlock(int idx, const std::string& prevHash, const std::vector<Transaction>& txs)
-    : index(idx), previousHash(prevHash), transactions(txs), timestamp(std::to_string(std::time(nullptr))),
-      prevL2Root(""), postL2Root(""), l2Batch({}), l2ReceiptsCommitment("") {
+    : index(idx), previousHash(prevHash), transactions(txs), timestamp(std::to_string(std::time(nullptr))) {
 
     merkleRoot = calculateMerkleRoot();
     nonce = Crypto::generateRandomHex(16);
@@ -41,8 +39,8 @@ void RollupBlock::generateRollupProof(const std::unordered_map<std::string, doub
                                       const std::string& prevProof) {
     rollupProof = ProofGenerator::generateAggregatedProof(transactions, stateBefore, stateAfter, previousHash);
 
-    prevL2Root = RollupUtils::calculateStateRoot(stateBefore);
-    postL2Root = RollupUtils::calculateStateRoot(stateAfter);
+    stateRootBefore = RollupUtils::calculateStateRoot(stateBefore);
+    stateRootAfter = RollupUtils::calculateStateRoot(stateAfter);
 
     compressedDelta = RollupUtils::compressStateDelta(stateBefore, stateAfter);
     recursiveProof = ProofGenerator::generateRecursiveProof(prevProof, rollupProof);
@@ -57,16 +55,16 @@ bool RollupBlock::verifyRollupProof() const {
     std::cout << "\n🔎 [DEBUG] Verifying RollupBlock Locally:\n";
     std::cout << " ↪️ Proof Length: " << rollupProof.length() << "\n";
     std::cout << " 🌳 Merkle Root: " << merkleRoot << "\n";
-    std::cout << " 🔐 State Root Before: " << prevL2Root << "\n";
-    std::cout << " 🔐 State Root After:  " << postL2Root << "\n";
+    std::cout << " 🔐 State Root Before: " << stateRootBefore << "\n";
+    std::cout << " 🔐 State Root After:  " << stateRootAfter << "\n";
     std::cout << " 🧾 TX Count: " << txHashes.size() << "\n";
 
 	bool mainProofValid = ProofVerifier::verifyRollupProof(
 	    rollupProof,
 	    txHashes,
 	    merkleRoot,
-            prevL2Root,
-            postL2Root,
+	    stateRootBefore,
+	    stateRootAfter,
 	    previousHash
 	);
 
@@ -116,15 +114,8 @@ std::string RollupBlock::serialize() const {
     root["rollupProof"] = rollupProof;
     root["recursiveProof"] = recursiveProof;
     root["nonce"] = nonce;
-    root["prev_l2_root"] = prevL2Root;
-    root["post_l2_root"] = postL2Root;
-    root["l2_receipts_commitment"] = l2ReceiptsCommitment;
-
-    Json::Value batchArray;
-    for (const auto& tx : l2Batch) {
-        batchArray.append(tx.toJSON());
-    }
-    root["l2_batch"] = batchArray;
+    root["stateRootBefore"] = stateRootBefore;
+    root["stateRootAfter"] = stateRootAfter;
 
     Json::Value txArray;
     for (const auto& tx : transactions) {
@@ -163,12 +154,8 @@ RollupBlock RollupBlock::deserialize(const std::string& data) {
     block.recursiveProof = root["recursiveProof"].asString();
     block.rollupHash = root["rollupHash"].asString();
     block.nonce = root["nonce"].asString();
-    block.prevL2Root = root.get("prev_l2_root", "").asString();
-    block.postL2Root = root.get("post_l2_root", "").asString();
-    block.l2ReceiptsCommitment = root.get("l2_receipts_commitment", "").asString();
-    for (const auto& b : root["l2_batch"]) {
-        block.l2Batch.push_back(L2Tx::fromJSON(b));
-    }
+    block.stateRootBefore = root["stateRootBefore"].asString();
+    block.stateRootAfter = root["stateRootAfter"].asString();
 
     for (const auto& d : root["compressedDelta"]) {
         std::string addr = d["address"].asString();

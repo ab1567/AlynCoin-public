@@ -151,7 +151,6 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath, bool bind
     }
     for (size_t i=0;i<cfDesc.size();++i) {
         if (cfDesc[i].name == "cfCheck") cfCheck = handles[i];
-        if (cfDesc[i].name == rocksdb::kDefaultColumnFamilyName) cfDefault = handles[i];
     }
     if (!g_dbWriter)
         g_dbWriter = new DBWriter(db);
@@ -193,10 +192,6 @@ Blockchain::~Blockchain() {
     if (cfCheck) {
         db->DestroyColumnFamilyHandle(cfCheck);
         cfCheck = nullptr;
-    }
-    if (cfDefault) {
-        db->DestroyColumnFamilyHandle(cfDefault);
-        cfDefault = nullptr;
     }
     delete db;
     db = nullptr; // ✅ Prevent potential use-after-free issues

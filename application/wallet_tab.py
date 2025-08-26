@@ -5,68 +5,10 @@ import json
 from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QLineEdit, QPushButton,
-    QLabel, QComboBox, QFileDialog, QHBoxLayout,
-    QDialog, QFormLayout, QMessageBox, QCheckBox, QProgressBar
+    QLabel, QComboBox, QFileDialog, QHBoxLayout, QInputDialog
 )
 
 from rpc_client import alyncoin_rpc
-
-
-class PassphraseDialog(QDialog):
-    def __init__(self, parent=None, confirm=False):
-        super().__init__(parent)
-        self.setWindowTitle("Passphrase")
-        layout = QVBoxLayout(self)
-        form = QFormLayout()
-        self.passEdit = QLineEdit()
-        self.passEdit.setEchoMode(QLineEdit.Password)
-        self.passEdit.textChanged.connect(self.updateStrength)
-        form.addRow("Passphrase:", self.passEdit)
-        self.confirmEdit = None
-        if confirm:
-            self.confirmEdit = QLineEdit()
-            self.confirmEdit.setEchoMode(QLineEdit.Password)
-            form.addRow("Confirm:", self.confirmEdit)
-        layout.addLayout(form)
-        self.revealBox = QCheckBox("Show passphrase")
-        self.revealBox.toggled.connect(self.toggleEcho)
-        layout.addWidget(self.revealBox)
-        self.strengthBar = QProgressBar()
-        self.strengthBar.setRange(0, 5)
-        layout.addWidget(self.strengthBar)
-        btnRow = QHBoxLayout()
-        okBtn = QPushButton("OK")
-        okBtn.clicked.connect(self.accept)
-        cancelBtn = QPushButton("Cancel")
-        cancelBtn.clicked.connect(self.reject)
-        btnRow.addWidget(okBtn)
-        btnRow.addWidget(cancelBtn)
-        layout.addLayout(btnRow)
-
-    def toggleEcho(self, checked):
-        mode = QLineEdit.Normal if checked else QLineEdit.Password
-        self.passEdit.setEchoMode(mode)
-        if self.confirmEdit:
-            self.confirmEdit.setEchoMode(mode)
-
-    def updateStrength(self):
-        p = self.passEdit.text()
-        score = 0
-        if len(p) >= 12:
-            score += 1
-        if re.search(r"[a-z]", p):
-            score += 1
-        if re.search(r"[A-Z]", p):
-            score += 1
-        if re.search(r"\d", p):
-            score += 1
-        if re.search(r"[^\w\s]", p):
-            score += 1
-        self.strengthBar.setValue(score)
-
-    def getPassphrase(self):
-        return self.passEdit.text(), (self.confirmEdit.text() if self.confirmEdit else None)
-
 
 class WalletTab(QWidget):
     def __init__(self, parent):
@@ -140,33 +82,14 @@ class WalletTab(QWidget):
         if name:
             self.addressInput.setText(name)
 
-    def isLegacyWallet(self, name: str) -> bool:
-        path = os.path.join(self.walletDir, f"{name}_private.pem")
-        try:
-            with open(path, "rb") as f:
-                return f.read(4) != b"ACWK"
-        except Exception:
-            return False
-
     def createWallet(self):
         user_input = secrets.token_hex(20)
         self.appendOutput(f"⚙️ Auto-generating wallet name: {user_input}")
 
-        dlg = PassphraseDialog(self, confirm=True)
-        if dlg.exec_() != QDialog.Accepted:
-            return
-        passphrase, confirm = dlg.getPassphrase()
-        if confirm is not None and passphrase != confirm:
-            QMessageBox.warning(self, "Passphrase", "Passphrases do not match")
-            return
-        if passphrase and len(passphrase) < 12:
-            QMessageBox.warning(self, "Passphrase", "Passphrase must be at least 12 characters")
-            return
+        passphrase, _ = QInputDialog.getText(self, "Passphrase", "Enter passphrase (optional):", QLineEdit.Password)
 
+        # RPC createwallet accepts [name, passphrase]
         result = alyncoin_rpc("createwallet", [user_input, passphrase])
-        passphrase = ""
-        if confirm:
-            confirm = ""
         if isinstance(result, dict) and "error" in result:
             self.appendOutput(f"❌ {result['error']}")
             return
@@ -187,30 +110,13 @@ class WalletTab(QWidget):
         if not name:
             self.appendOutput("❌ Please enter a wallet name or address first.")
             return
-        passphrase = ""
-        if self.isLegacyWallet(name):
-            resp = QMessageBox.question(self, "Encrypt Wallet?", "Legacy unencrypted wallet detected. Encrypt now?", QMessageBox.Yes | QMessageBox.No)
-            if resp != QMessageBox.Yes:
-                return
-            dlg = PassphraseDialog(self, confirm=True)
-            if dlg.exec_() != QDialog.Accepted:
-                return
-            passphrase, confirm = dlg.getPassphrase()
-            if passphrase != confirm:
-                QMessageBox.warning(self, "Passphrase", "Passphrases do not match")
-                return
-            if len(passphrase) < 12:
-                QMessageBox.warning(self, "Passphrase", "Passphrase must be at least 12 characters")
-                return
-        else:
-            dlg = PassphraseDialog(self)
-            if dlg.exec_() == QDialog.Accepted:
-                passphrase, _ = dlg.getPassphrase()
-            else:
-                return
 
+        passphrase, ok = QInputDialog.getText(self, "Passphrase", "Enter passphrase (leave blank if none):", QLineEdit.Password)
+        if not ok:
+            return
+
+        # RPC: loadwallet returns loaded address (or error)
         result = alyncoin_rpc("loadwallet", [name, passphrase])
-        passphrase = ""
         if isinstance(result, dict) and "error" in result:
             self.appendOutput(f"❌ {result['error']}")
             return

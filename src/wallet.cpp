@@ -2,12 +2,9 @@
 #include "blockchain.h"
 #include "crypto_utils.h"
 #include "proof_generator.h"
-#include "wallet_crypto.h"
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <vector>
-#include <sodium.h>
 
 namespace fs = std::filesystem;
 
@@ -27,110 +24,31 @@ Wallet::Wallet(const std::string& address, const std::string& keyDirectoryPath, 
     // Generate keys if missing
     if (!fs::exists(privPath) || !fs::exists(pubPath)) {
         std::cout << "🔐 Generating RSA key pair for address: " << address << std::endl;
-        Crypto::generateKeysForUser(address); // generate without encryption
-        if (!passphrase.empty()) {
-            std::string plain = loadKeyFile(privPath);
-            std::vector<unsigned char> buf(plain.begin(), plain.end());
-            WalletCrypto::encryptToFile(privPath, buf, passphrase, "interactive", 1);
-            sodium_memzero(buf.data(), buf.size());
-        }
+        if (!passphrase.empty())
+            Crypto::generateKeysForUser(address, passphrase);
+        else
+            Crypto::generateKeysForUser(address);
     }
 
-    // Load RSA private key (with migration)
-    if (!passphrase.empty()) {
-        bool legacy = true;
-        {
-            std::ifstream in(privPath, std::ios::binary);
-            WalletCrypto::FileHeader hdr;
-            if (in.read(reinterpret_cast<char*>(&hdr), sizeof(hdr)))
-                legacy = std::memcmp(hdr.magic, "ACWK", 4) != 0;
-        }
-        if (legacy) {
-            fs::copy_file(privPath, privPath + ".bak", fs::copy_options::overwrite_existing);
-            std::string plain = loadKeyFile(privPath);
-            std::vector<unsigned char> buf(plain.begin(), plain.end());
-            WalletCrypto::encryptToFile(privPath, buf, passphrase, "interactive", 1);
-            sodium_memzero(buf.data(), buf.size());
-            privateKey = plain;
-        } else {
-            std::vector<unsigned char> dec;
-            if (!WalletCrypto::decryptFromFile(privPath, dec, passphrase))
-                throw std::runtime_error("❌ Failed to decrypt private key");
-            privateKey.assign(dec.begin(), dec.end());
-            sodium_memzero(dec.data(), dec.size());
-        }
-    } else {
+    if (!passphrase.empty())
+        privateKey = Crypto::loadPrivateKeyDecrypted(privPath, passphrase);
+    else
         privateKey = loadKeyFile(privPath);
-    }
     publicKey  = loadKeyFile(pubPath);
 
     // --- Dilithium ---
-    std::string dilPriv = keyDirectory + address + "_dilithium.key";
-    std::string dilPub  = keyDirectory + address + "_dilithium.pub";
-    if (!fs::exists(dilPriv) || !fs::exists(dilPub)) {
+    dilithiumKeys = Crypto::loadDilithiumKeys(address);
+    if (dilithiumKeys.privateKey.empty() || dilithiumKeys.publicKey.empty()) {
         std::cout << "⚠️ Missing Dilithium keys. Generating...\n";
         Crypto::generateDilithiumKeys(address);
-    }
-    if (!passphrase.empty()) {
-        bool legacy = true;
-        {
-            std::ifstream in(dilPriv, std::ios::binary);
-            WalletCrypto::FileHeader hdr;
-            if (in.read(reinterpret_cast<char*>(&hdr), sizeof(hdr)))
-                legacy = std::memcmp(hdr.magic, "ACWK", 4) != 0;
-        }
-        if (legacy) {
-            fs::copy_file(dilPriv, dilPriv + ".bak", fs::copy_options::overwrite_existing);
-            std::ifstream raw(dilPriv, std::ios::binary);
-            std::vector<unsigned char> plain((std::istreambuf_iterator<char>(raw)), {});
-            WalletCrypto::encryptToFile(dilPriv, plain, passphrase, "interactive", 2);
-            sodium_memzero(plain.data(), plain.size());
-        }
-        std::vector<unsigned char> dec;
-        if (!WalletCrypto::decryptFromFile(dilPriv, dec, passphrase))
-            throw std::runtime_error("❌ Failed to decrypt Dilithium key");
-        dilithiumKeys.privateKey = dec;
-        dilithiumKeys.privateKeyHex = Crypto::toHex(dec);
-        sodium_memzero(dec.data(), dec.size());
-        std::ifstream pub(dilPub, std::ios::binary);
-        dilithiumKeys.publicKey.assign((std::istreambuf_iterator<char>(pub)), {});
-        dilithiumKeys.publicKeyHex = Crypto::toHex(dilithiumKeys.publicKey);
-    } else {
         dilithiumKeys = Crypto::loadDilithiumKeys(address);
     }
 
     // --- Falcon ---
-    std::string falPriv = keyDirectory + address + "_falcon.key";
-    std::string falPub  = keyDirectory + address + "_falcon.pub";
-    if (!fs::exists(falPriv) || !fs::exists(falPub)) {
+    falconKeys = Crypto::loadFalconKeys(address);
+    if (falconKeys.privateKey.empty() || falconKeys.publicKey.empty()) {
         std::cout << "⚠️ Missing Falcon keys. Generating...\n";
         Crypto::generateFalconKeys(address);
-    }
-    if (!passphrase.empty()) {
-        bool legacy = true;
-        {
-            std::ifstream in(falPriv, std::ios::binary);
-            WalletCrypto::FileHeader hdr;
-            if (in.read(reinterpret_cast<char*>(&hdr), sizeof(hdr)))
-                legacy = std::memcmp(hdr.magic, "ACWK", 4) != 0;
-        }
-        if (legacy) {
-            fs::copy_file(falPriv, falPriv + ".bak", fs::copy_options::overwrite_existing);
-            std::ifstream raw(falPriv, std::ios::binary);
-            std::vector<unsigned char> plain((std::istreambuf_iterator<char>(raw)), {});
-            WalletCrypto::encryptToFile(falPriv, plain, passphrase, "interactive", 3);
-            sodium_memzero(plain.data(), plain.size());
-        }
-        std::vector<unsigned char> dec;
-        if (!WalletCrypto::decryptFromFile(falPriv, dec, passphrase))
-            throw std::runtime_error("❌ Failed to decrypt Falcon key");
-        falconKeys.privateKey = dec;
-        falconKeys.privateKeyHex = Crypto::toHex(dec);
-        sodium_memzero(dec.data(), dec.size());
-        std::ifstream pub(falPub, std::ios::binary);
-        falconKeys.publicKey.assign((std::istreambuf_iterator<char>(pub)), {});
-        falconKeys.publicKeyHex = Crypto::toHex(falconKeys.publicKey);
-    } else {
         falconKeys = Crypto::loadFalconKeys(address);
     }
 
@@ -144,31 +62,10 @@ Wallet::Wallet(const std::string& privateKeyPath, const std::string& keyDirector
     if (!fs::exists(privateKeyPath)) {
         throw std::runtime_error("❌ Private key file not found: " + privateKeyPath);
     }
-    if (!passphrase.empty()) {
-        bool legacy = true;
-        {
-            std::ifstream in(privateKeyPath, std::ios::binary);
-            WalletCrypto::FileHeader hdr;
-            if (in.read(reinterpret_cast<char*>(&hdr), sizeof(hdr)))
-                legacy = std::memcmp(hdr.magic, "ACWK", 4) != 0;
-        }
-        if (legacy) {
-            fs::copy_file(privateKeyPath, privateKeyPath + ".bak", fs::copy_options::overwrite_existing);
-            std::string plain = loadKeyFile(privateKeyPath);
-            std::vector<unsigned char> buf(plain.begin(), plain.end());
-            WalletCrypto::encryptToFile(privateKeyPath, buf, passphrase, "interactive", 1);
-            sodium_memzero(buf.data(), buf.size());
-            privateKey = plain;
-        } else {
-            std::vector<unsigned char> dec;
-            if (!WalletCrypto::decryptFromFile(privateKeyPath, dec, passphrase))
-                throw std::runtime_error("❌ Failed to decrypt private key");
-            privateKey.assign(dec.begin(), dec.end());
-            sodium_memzero(dec.data(), dec.size());
-        }
-    } else {
+    if (!passphrase.empty())
+        privateKey = Crypto::loadPrivateKeyDecrypted(privateKeyPath, passphrase);
+    else
         privateKey = loadKeyFile(privateKeyPath);
-    }
 
     // Load RSA public key
     std::string publicKeyPath = privateKeyPath;
@@ -182,41 +79,15 @@ Wallet::Wallet(const std::string& privateKeyPath, const std::string& keyDirector
     publicKey = loadKeyFile(publicKeyPath);
 
     // --- Dilithium ---
-    std::string dilPriv = keyDirectory + walletName + "_dilithium.key";
-    std::string dilPub  = keyDirectory + walletName + "_dilithium.pub";
-    if (!fs::exists(dilPriv) || !fs::exists(dilPub))
+    dilithiumKeys = Crypto::loadDilithiumKeys(walletName);
+    if (dilithiumKeys.privateKey.empty() || dilithiumKeys.publicKey.empty()) {
         throw std::runtime_error("❌ Dilithium keys missing for wallet: " + walletName);
-    if (!passphrase.empty()) {
-        std::vector<unsigned char> dec;
-        if (!WalletCrypto::decryptFromFile(dilPriv, dec, passphrase))
-            throw std::runtime_error("❌ Failed to decrypt Dilithium key");
-        dilithiumKeys.privateKey = dec;
-        dilithiumKeys.privateKeyHex = Crypto::toHex(dec);
-        sodium_memzero(dec.data(), dec.size());
-        std::ifstream pub(dilPub, std::ios::binary);
-        dilithiumKeys.publicKey.assign((std::istreambuf_iterator<char>(pub)), {});
-        dilithiumKeys.publicKeyHex = Crypto::toHex(dilithiumKeys.publicKey);
-    } else {
-        dilithiumKeys = Crypto::loadDilithiumKeys(walletName);
     }
 
     // --- Falcon ---
-    std::string falPriv = keyDirectory + walletName + "_falcon.key";
-    std::string falPub  = keyDirectory + walletName + "_falcon.pub";
-    if (!fs::exists(falPriv) || !fs::exists(falPub))
+    falconKeys = Crypto::loadFalconKeys(walletName);
+    if (falconKeys.privateKey.empty() || falconKeys.publicKey.empty()) {
         throw std::runtime_error("❌ Falcon keys missing for wallet: " + walletName);
-    if (!passphrase.empty()) {
-        std::vector<unsigned char> dec;
-        if (!WalletCrypto::decryptFromFile(falPriv, dec, passphrase))
-            throw std::runtime_error("❌ Failed to decrypt Falcon key");
-        falconKeys.privateKey = dec;
-        falconKeys.privateKeyHex = Crypto::toHex(dec);
-        sodium_memzero(dec.data(), dec.size());
-        std::ifstream pub(falPub, std::ios::binary);
-        falconKeys.publicKey.assign((std::istreambuf_iterator<char>(pub)), {});
-        falconKeys.publicKeyHex = Crypto::toHex(falconKeys.publicKey);
-    } else {
-        falconKeys = Crypto::loadFalconKeys(walletName);
     }
 
     // Optional: verify address matches public key
