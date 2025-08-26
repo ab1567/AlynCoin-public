@@ -223,3 +223,7 @@ Additional details on rolling out the Whisper/TLS update can be found in
 [docs/deployment_migration.md](docs/deployment_migration.md).
 
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+
+## JS/TS SDK and Wasm Samples
+
+A minimal TypeScript SDK is provided in [`alyn-sdk`](./alyn-sdk) with helpers to encode Layer-2 transactions and interact with node RPC endpoints. Sample smart-account contracts compiled to `wasm32-unknown-unknown` live under [`contracts`](./contracts). See [`docs/hello-wasm-smart-account.md`](./docs/hello-wasm-smart-account.md) for a walkthrough on building, deploying and calling a Wasm smart account.
