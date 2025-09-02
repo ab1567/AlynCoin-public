@@ -26,7 +26,6 @@
 #include <sys/stat.h>
 #include <thread>
 #include "rpc/metrics.h"
-#include "config.h"
 #include <shared_mutex>
 #include <boost/multiprecision/cpp_int.hpp>
 #include <unordered_map>
@@ -286,38 +285,17 @@ bool Blockchain::isTransactionValid(const Transaction &tx) const {
             return false;
         }
 
-        // ── Address binding rule: always-on for premine, else gated ─────────
+        // ── Address binding rule: always enforce ─────────
         {
-            const auto &cfg = getAppConfig();
             auto lower = [](std::string s){ std::transform(s.begin(), s.end(), s.begin(), ::tolower); return s; };
             const std::string sL = lower(sender);
-            const bool isPremine = (sL == AIRDROP_ADDRESS) || (sL == LIQUIDITY_ADDRESS) ||
-                                   (sL == INVESTOR_ADDRESS) || (sL == DEVELOPMENT_ADDRESS) ||
-                                   (sL == EXCHANGE_ADDRESS) || (sL == TEAM_FOUNDER_ADDRESS);
-
             std::string expectedDil = Crypto::deriveAddressFromPub(pubKeyDilithium);
             std::string expectedFal = Crypto::deriveAddressFromPub(pubKeyFalcon);
             bool matches = (sL == expectedDil) || (sL == expectedFal);
-
-            if (isPremine) {
-                if (!matches) {
-                    std::cerr << "❌ ERR_ADDR_MISMATCH (premine-protected): sender=" << sender
-                              << " expected(any)=[" << expectedDil << "," << expectedFal << "]\n";
-                    return false;
-                }
-            } else if (cfg.rule_addr_binding) {
-                const int curHeight = getHeight();
-                if (!matches) {
-                    if (curHeight >= cfg.addr_binding_activation_height) {
-                        std::cerr << "❌ ERR_ADDR_MISMATCH: sender=" << sender
-                                  << " expected(any)=[" << expectedDil << "," << expectedFal << "]\n";
-                        return false;
-                    } else {
-                        std::cerr << "⚠️ [WARN] Address/key mismatch pre-activation (height="
-                                  << curHeight << ") sender=" << sender
-                                  << ", expected(any)=[" << expectedDil << "," << expectedFal << "]\n";
-                    }
-                }
+            if (!matches) {
+                std::cerr << "❌ ERR_ADDR_MISMATCH: sender=" << sender
+                          << " expected(any)=[" << expectedDil << "," << expectedFal << "]\n";
+                return false;
             }
         }
 
@@ -1274,12 +1252,8 @@ void Blockchain::addTransaction(const Transaction &tx) {
 
     // Enforce address binding in mempool
     {
-        const auto &cfg = getAppConfig();
         auto lower = [](std::string s){ std::transform(s.begin(), s.end(), s.begin(), ::tolower); return s; };
         const std::string sL = lower(tx.getSender());
-        const bool isPremine = (sL == AIRDROP_ADDRESS) || (sL == LIQUIDITY_ADDRESS) ||
-                               (sL == INVESTOR_ADDRESS) || (sL == DEVELOPMENT_ADDRESS) ||
-                               (sL == EXCHANGE_ADDRESS) || (sL == TEAM_FOUNDER_ADDRESS);
 
         // derive expected from either pubkey
         std::vector<unsigned char> pubDil(tx.getSenderPublicKeyDilithium().begin(), tx.getSenderPublicKeyDilithium().end());
@@ -1288,19 +1262,10 @@ void Blockchain::addTransaction(const Transaction &tx) {
         std::string expectedFal = Crypto::deriveAddressFromPub(pubFal);
         bool matches = (sL == expectedDil) || (sL == expectedFal);
 
-        if (isPremine) {
-            if (!matches) {
-                std::cerr << "❌ ERR_ADDR_MISMATCH (premine-protected mempool): sender=" << tx.getSender()
-                          << " expected(any)=[" << expectedDil << "," << expectedFal << "]\n";
-                return;
-            }
-        } else if (cfg.rule_addr_binding) {
-            const int curHeight = getHeight();
-            if (curHeight >= cfg.addr_binding_activation_height && !matches) {
-                std::cerr << "❌ ERR_ADDR_MISMATCH (mempool): sender=" << tx.getSender()
-                          << " expected(any)=[" << expectedDil << "," << expectedFal << "]\n";
-                return;
-            }
+        if (!matches) {
+            std::cerr << "❌ ERR_ADDR_MISMATCH (mempool): sender=" << tx.getSender()
+                      << " expected(any)=[" << expectedDil << "," << expectedFal << "]\n";
+            return;
         }
     }
 
