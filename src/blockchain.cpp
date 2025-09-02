@@ -26,6 +26,7 @@
 #include <sys/stat.h>
 #include <thread>
 #include "rpc/metrics.h"
+#include "config.h"
 #include <shared_mutex>
 #include <boost/multiprecision/cpp_int.hpp>
 #include <unordered_map>
@@ -283,6 +284,41 @@ bool Blockchain::isTransactionValid(const Transaction &tx) const {
         if (!Crypto::verifyWithFalcon(hashBytes, sigFalcon, pubKeyFalcon)) {
             std::cerr << "[ERROR] Falcon signature verification failed!\n";
             return false;
+        }
+
+        // ── Address binding rule: always-on for premine, else gated ─────────
+        {
+            const auto &cfg = getAppConfig();
+            auto lower = [](std::string s){ std::transform(s.begin(), s.end(), s.begin(), ::tolower); return s; };
+            const std::string sL = lower(sender);
+            const bool isPremine = (sL == AIRDROP_ADDRESS) || (sL == LIQUIDITY_ADDRESS) ||
+                                   (sL == INVESTOR_ADDRESS) || (sL == DEVELOPMENT_ADDRESS) ||
+                                   (sL == EXCHANGE_ADDRESS) || (sL == TEAM_FOUNDER_ADDRESS);
+
+            std::string expectedDil = Crypto::deriveAddressFromPub(pubKeyDilithium);
+            std::string expectedFal = Crypto::deriveAddressFromPub(pubKeyFalcon);
+            bool matches = (sL == expectedDil) || (sL == expectedFal);
+
+            if (isPremine) {
+                if (!matches) {
+                    std::cerr << "❌ ERR_ADDR_MISMATCH (premine-protected): sender=" << sender
+                              << " expected(any)=[" << expectedDil << "," << expectedFal << "]\n";
+                    return false;
+                }
+            } else if (cfg.rule_addr_binding) {
+                const int curHeight = getHeight();
+                if (!matches) {
+                    if (curHeight >= cfg.addr_binding_activation_height) {
+                        std::cerr << "❌ ERR_ADDR_MISMATCH: sender=" << sender
+                                  << " expected(any)=[" << expectedDil << "," << expectedFal << "]\n";
+                        return false;
+                    } else {
+                        std::cerr << "⚠️ [WARN] Address/key mismatch pre-activation (height="
+                                  << curHeight << ") sender=" << sender
+                                  << ", expected(any)=[" << expectedDil << "," << expectedFal << "]\n";
+                    }
+                }
+            }
         }
 
         if (tx.getZkProof().empty()) {
@@ -1228,15 +1264,47 @@ void Blockchain::addTransaction(const Transaction &tx) {
     std::string senderLower = tx.getSender();
     std::transform(senderLower.begin(), senderLower.end(), senderLower.begin(), ::tolower);
 
-    // If we don\'t have the sender\'s PQ keys cached, reject the transaction
-    if (!tx.getSenderPublicKeyDilithium().empty() &&
-        !tx.getSenderPublicKeyFalcon().empty()) {
-        pendingTransactions.push_back(tx);
-    } else {
+    // If we don't have the sender's PQ keys in the tx, reject immediately
+    if (tx.getSenderPublicKeyDilithium().empty() ||
+        tx.getSenderPublicKeyFalcon().empty()) {
         std::cerr << "⛔  [addTransaction] No PQ public keys for "
                   << senderLower << ".  Transaction rejected.\n";
         return;
     }
+
+    // Enforce address binding in mempool
+    {
+        const auto &cfg = getAppConfig();
+        auto lower = [](std::string s){ std::transform(s.begin(), s.end(), s.begin(), ::tolower); return s; };
+        const std::string sL = lower(tx.getSender());
+        const bool isPremine = (sL == AIRDROP_ADDRESS) || (sL == LIQUIDITY_ADDRESS) ||
+                               (sL == INVESTOR_ADDRESS) || (sL == DEVELOPMENT_ADDRESS) ||
+                               (sL == EXCHANGE_ADDRESS) || (sL == TEAM_FOUNDER_ADDRESS);
+
+        // derive expected from either pubkey
+        std::vector<unsigned char> pubDil(tx.getSenderPublicKeyDilithium().begin(), tx.getSenderPublicKeyDilithium().end());
+        std::vector<unsigned char> pubFal(tx.getSenderPublicKeyFalcon().begin(), tx.getSenderPublicKeyFalcon().end());
+        std::string expectedDil = Crypto::deriveAddressFromPub(pubDil);
+        std::string expectedFal = Crypto::deriveAddressFromPub(pubFal);
+        bool matches = (sL == expectedDil) || (sL == expectedFal);
+
+        if (isPremine) {
+            if (!matches) {
+                std::cerr << "❌ ERR_ADDR_MISMATCH (premine-protected mempool): sender=" << tx.getSender()
+                          << " expected(any)=[" << expectedDil << "," << expectedFal << "]\n";
+                return;
+            }
+        } else if (cfg.rule_addr_binding) {
+            const int curHeight = getHeight();
+            if (curHeight >= cfg.addr_binding_activation_height && !matches) {
+                std::cerr << "❌ ERR_ADDR_MISMATCH (mempool): sender=" << tx.getSender()
+                          << " expected(any)=[" << expectedDil << "," << expectedFal << "]\n";
+                return;
+            }
+        }
+    }
+
+    pendingTransactions.push_back(tx);
 
     // Monitor Dev Fund activity
     if (tx.getSender() == DEV_FUND_ADDRESS || tx.getRecipient() == DEV_FUND_ADDRESS) {

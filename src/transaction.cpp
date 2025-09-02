@@ -6,6 +6,9 @@
 #include "crypto_utils.h"
 #include "hash.h"
 #include "proof_verifier.h"
+#include "blockchain.h"
+#include "config.h"
+#include "difficulty.h"
 #include "rollup/rollup_utils.h"
 #include "winterfell_stark.h"
 #include <algorithm>
@@ -536,6 +539,41 @@ bool Transaction::isValid(const std::string &senderPublicKeyDilithium,
         return false;
     }
 
+    // Address binding rule – always-on for premine wallets, otherwise gated
+    {
+        const auto &cfg = getAppConfig();
+        auto lower = [](std::string s){ std::transform(s.begin(), s.end(), s.begin(), ::tolower); return s; };
+        const std::string sL = lower(sender);
+        const bool isPremine = (sL == AIRDROP_ADDRESS) || (sL == LIQUIDITY_ADDRESS) ||
+                               (sL == INVESTOR_ADDRESS) || (sL == DEVELOPMENT_ADDRESS) ||
+                               (sL == EXCHANGE_ADDRESS) || (sL == TEAM_FOUNDER_ADDRESS);
+
+        int curHeight = Blockchain::getActiveInstance().getHeight();
+        std::string expectedDil = Crypto::deriveAddressFromPub(pubKeyDil);
+        std::string expectedFal = Crypto::deriveAddressFromPub(pubKeyFal);
+        bool matches = (sL == expectedDil) || (sL == expectedFal);
+
+        if (isPremine) {
+            if (!matches) {
+                std::cerr << "❌ ERR_ADDR_MISMATCH (premine-protected): sender=" << sender
+                          << " expected(any)=[" << expectedDil << "," << expectedFal << "]\n";
+                return false;
+            }
+        } else if (cfg.rule_addr_binding) {
+            if (!matches) {
+                if (curHeight >= cfg.addr_binding_activation_height) {
+                    std::cerr << "❌ ERR_ADDR_MISMATCH: sender=" << sender
+                              << " expected(any)=[" << expectedDil << "," << expectedFal << "]\n";
+                    return false;
+                } else {
+                    std::cerr << "⚠️ [WARN] Address/key mismatch pre-activation (height="
+                              << curHeight << ") sender=" << sender
+                              << ", expected(any)=[" << expectedDil << "," << expectedFal << "]\n";
+                }
+            }
+        }
+    }
+
     // 💡 zk-STARK safety check
     if (zkProof.empty()) {
         std::cerr << "[ERROR] Transaction missing zk-STARK proof!\n";
@@ -688,4 +726,3 @@ Transaction Transaction::createSystemRewardTransaction(
 bool Transaction::isMiningRewardFor(const std::string& addr) const {
     return sender == "System" && recipient == addr && metadata == "MiningReward";
 }
-

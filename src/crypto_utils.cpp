@@ -113,6 +113,15 @@ std::string generateAddress(const std::string &publicKey) {
   return hybridHash(publicKey).substr(0, 40);
 }
 
+// ✅ Derive address from raw public key bytes (BLAKE3 -> Keccak256 -> first20)
+std::string deriveAddressFromPub(const std::vector<unsigned char>& pubkeyBytes) {
+  // Interpret raw bytes as a string for the existing hybridHash pipeline.
+  // Note: blake3() returns hex; keccak256() is applied on that hex string.
+  // This matches the chain's current address generation semantics.
+  std::string raw(reinterpret_cast<const char*>(pubkeyBytes.data()), pubkeyBytes.size());
+  return hybridHash(raw).substr(0, 40);
+}
+
 // --- Dilithium Key Generation ---
 DilithiumKeyPair generateDilithiumKeys(const std::string &username) {
   std::cout << "[DEBUG] Attempting to generate Dilithium keys for user: " << username << std::endl;

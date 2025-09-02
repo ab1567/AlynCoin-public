@@ -47,6 +47,8 @@ void ensureKeysDirectory();
 
 // Address generation
 std::string generateAddress(const std::string &publicKey);
+// Derive address from raw pubkey bytes via BLAKE3 -> Keccak256 -> first20 hex
+std::string deriveAddressFromPub(const std::vector<unsigned char>& pubkeyBytes);
 
 // Random util
 std::string generateRandomHex(size_t length);
