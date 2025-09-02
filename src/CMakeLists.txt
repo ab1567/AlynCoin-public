@@ -510,6 +510,9 @@ target_link_libraries(nftcli
     ${PLAT_LIBS}
 )
 
+# Avoid name clash with repository directory "nftcli" at project root
+set_target_properties(nftcli PROPERTIES OUTPUT_NAME nftcli_app)
+
 # Optional test
 add_executable(blacklist_test ${SOURCE_DIR}/node/main_blacklist_test.cpp)
 add_dependencies(blacklist_test winterfell_ffi)
