@@ -83,7 +83,12 @@ class WalletTab(QWidget):
             self.addressInput.setText(name)
 
     def createWallet(self):
-        user_input = secrets.token_hex(20)
+        # Generate a unique wallet name using cryptographically secure randomness
+        while True:
+            user_input = secrets.token_hex(20)
+            priv_path = os.path.join(self.walletDir, f"{user_input}_private.pem")
+            if not os.path.exists(priv_path):
+                break
         self.appendOutput(f"⚙️ Auto-generating wallet name: {user_input}")
 
         passphrase, _ = QInputDialog.getText(self, "Passphrase", "Enter passphrase (optional):", QLineEdit.Password)
