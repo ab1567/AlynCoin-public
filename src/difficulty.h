@@ -16,12 +16,12 @@
 constexpr uint64_t PREMINE_SUPPLY = 10'000'000;   // for clarity in docs/tests
 
 // Premine recipient addresses
-inline constexpr const char* AIRDROP_ADDRESS     = "b23852aaeda989786fbd1502b6bf322ac034aea8";
-inline constexpr const char* LIQUIDITY_ADDRESS   = "458d57f5a7086d73cbe31129302df818b55a3266";
-inline constexpr const char* INVESTOR_ADDRESS    = "ab704d12a9d80aef036bc22f86823421f555704d";
-inline constexpr const char* DEVELOPMENT_ADDRESS = "10b551b5557a00ba5d47a87b09409b42c6213759";
-inline constexpr const char* EXCHANGE_ADDRESS    = "9bb9b458a2c3fb38242966d499f122836c31b4e0";
-inline constexpr const char* TEAM_FOUNDER_ADDRESS = "36b385a9da7243d0c96ce507fe825b4c3206d175";
+inline constexpr const char* AIRDROP_ADDRESS     = "ae87f81b5f039b9714f3e3b9fbe89cd871f49d7e";
+inline constexpr const char* LIQUIDITY_ADDRESS   = "39d849e2bc8aee655e72ee45c798f2a28ff75d59";
+inline constexpr const char* INVESTOR_ADDRESS    = "a04fc0ff008c03a22c6d34a5c231a185f09cf65a";
+inline constexpr const char* DEVELOPMENT_ADDRESS = "60227c9836de4d5f94ce812464082507d8304d3f";
+inline constexpr const char* EXCHANGE_ADDRESS    = "256ab743e22e11b42654d5e4bb355d858797005c";
+inline constexpr const char* TEAM_FOUNDER_ADDRESS = "ae5809b3ec42c4021bcc4846e556b8353922de97";
 
 // ────────────────────────────────────────────────────────────────
 //  Helpers
