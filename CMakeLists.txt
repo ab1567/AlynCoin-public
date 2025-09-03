@@ -23,3 +23,20 @@ file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/generated)
 
 # ✅ Add source directories
 add_subdirectory(src)
+
+# --- Install all binaries into a staging prefix ---
+install(TARGETS
+  alyncoin alyncoin-cli wallet_cli identitycli swapcli nftcli dao_cli
+  explorer_server metrics_server peer_blacklist_cli
+  RUNTIME DESTINATION bin
+)
+
+# --- CPack for packaging (macOS .dmg; Windows uses InnoSetup below) ---
+set(CPACK_PACKAGE_NAME "AlynCoin")
+set(CPACK_PACKAGE_VENDOR "AlynCoin")
+set(CPACK_PACKAGE_VERSION "0.1.0")
+set(CPACK_MONOLITHIC_INSTALL ON)
+if(APPLE)
+  set(CPACK_GENERATOR "DragNDrop")
+endif()
+include(CPack)
