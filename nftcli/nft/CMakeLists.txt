@@ -76,7 +76,7 @@ file(GLOB DILITHIUM_SOURCES
     ${SOURCE_DIR}/crypto/dilithium/ref/*.c
 )
 
-list(FILTER DILITHIUM_SOURCES EXCLUDE REGEX "randombytes\.c$")
+list(FILTER DILITHIUM_SOURCES EXCLUDE REGEX "randombytes(_sodium)?\.c$")
 
 add_library(falcon STATIC ${FALCON_SOURCES})
 add_library(dilithium STATIC ${DILITHIUM_SOURCES})
