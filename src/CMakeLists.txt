@@ -3,10 +3,23 @@ project(alyncoin LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
 # ---- Windows toolchain / CRT -------------------------------------------------
-if (WIN32)
-  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+if(MSVC)
+  set(CMAKE_POLICY_DEFAULT_CMP0091 NEW)
+  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+  foreach(flag_var
+    CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
+    CMAKE_C_FLAGS_RELWITHDEBINFO CMAKE_C_FLAGS_MINSIZEREL
+    CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
+    CMAKE_CXX_FLAGS_RELWITHDEBINFO CMAKE_CXX_FLAGS_MINSIZEREL)
+    if(DEFINED ${flag_var})
+      string(REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
+      set(${flag_var} "${${flag_var}}" CACHE STRING "" FORCE)
+    endif()
+  endforeach()
+endif()
+
+if(WIN32)
   add_definitions(-DWIN32_LEAN_AND_MEAN -DNOMINMAX -DMINIUPNP_STATICLIB -D_WIN32_WINNT=0x0A00 -D_CRT_SECURE_NO_WARNINGS)
 endif()
 
