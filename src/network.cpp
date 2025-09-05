@@ -475,8 +475,8 @@ alyncoin::net::Handshake Network::buildHandshake() const {
 }
 // Fallback peer(s) in case DNS discovery fails
 static const std::vector<std::string> DEFAULT_DNS_PEERS = {
-    "49.206.56.213:15672", // Known bootstrap peer
-    "35.208.110.26:15671"};
+    "peers.alyncoin.com:15671",
+    "35.202.230.184:15671"};
 
 // ==== [DNS Peer Discovery] ====
 #ifndef _WIN32
