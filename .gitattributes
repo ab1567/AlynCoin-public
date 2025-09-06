@@ -1,0 +1,6 @@
+# Treat genesis as binary (no CRLF translation)
+assets/genesis_block.bin binary
+
+# Keep PEM files with LF line endings across platforms
+*.pem text eol=lf
+
