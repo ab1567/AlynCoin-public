@@ -1,9 +1,21 @@
 cmake_minimum_required(VERSION 3.20)
 project(nftcli)
 
-# Force /MD(d)
-set(CMAKE_POLICY_DEFAULT_CMP0091 NEW)
-set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+if(MSVC)
+  set(CMAKE_POLICY_DEFAULT_CMP0091 NEW)
+  # Use static CRT for all configurations (/MT, /MTd)
+  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+  foreach(flag_var
+    CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
+    CMAKE_C_FLAGS_RELWITHDEBINFO CMAKE_C_FLAGS_MINSIZEREL
+    CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
+    CMAKE_CXX_FLAGS_RELWITHDEBINFO CMAKE_CXX_FLAGS_MINSIZEREL)
+    if(DEFINED ${flag_var})
+      string(REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
+      set(${flag_var} "${${flag_var}}" CACHE STRING "" FORCE)
+    endif()
+  endforeach()
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -64,7 +76,7 @@ file(GLOB DILITHIUM_SOURCES
     ${SOURCE_DIR}/crypto/dilithium/ref/*.c
 )
 
-list(FILTER DILITHIUM_SOURCES EXCLUDE REGEX "randombytes\.c$")
+list(FILTER DILITHIUM_SOURCES EXCLUDE REGEX "randombytes(_sodium)?\.c$")
 
 add_library(falcon STATIC ${FALCON_SOURCES})
 add_library(dilithium STATIC ${DILITHIUM_SOURCES})
