@@ -101,6 +101,20 @@ static std::string ipPrefix(const std::string &ip) {
   return count == 3 ? out : std::string();
 }
 
+namespace {
+std::string dumpHex(const void *data, size_t len) {
+  const uint8_t *b = static_cast<const uint8_t *>(data);
+  std::ostringstream oss;
+  for (size_t i = 0; i < len && i < 32; ++i) {
+    if (i)
+      oss << ' ';
+    oss << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
+        << static_cast<int>(b[i]);
+  }
+  return oss.str();
+}
+} // namespace
+
 // ==== [Globals, Statics] ====
 // Incoming FULL_CHAIN buffers were removed; per-peer state now tracks
 // snapshot or header sync progress directly via peerTransports.
@@ -475,8 +489,8 @@ alyncoin::net::Handshake Network::buildHandshake() const {
 }
 // Fallback peer(s) in case DNS discovery fails
 static const std::vector<std::string> DEFAULT_DNS_PEERS = {
-    "49.206.56.213:15672", // Known bootstrap peer
-    "35.208.110.26:15671"};
+    "peers.alyncoin.com:15671",
+    "35.202.230.184:15671"};
 
 // ==== [DNS Peer Discovery] ====
 #ifndef _WIN32
@@ -1010,6 +1024,8 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
   std::array<uint8_t, 32> shared{};
   try {
     std::string blob = transport->readBinaryBlocking();
+    std::cerr << "[handlePeer] raw handshake bytes size=" << blob.size()
+              << " first32=" << dumpHex(blob.data(), blob.size()) << '\n';
     alyncoin::net::Frame fr;
     if (blob.empty() || !fr.ParseFromString(blob) || !fr.has_handshake())
       throw std::runtime_error("invalid handshake");
@@ -2142,6 +2158,10 @@ bool Network::finishOutboundHandshake(std::shared_ptr<Transport> tx,
   hs.set_snapshot_size(static_cast<uint32_t>(MAX_SNAPSHOT_CHUNK_SIZE));
   alyncoin::net::Frame fr;
   *fr.mutable_handshake() = hs;
+  std::string out;
+  fr.SerializeToString(&out);
+  std::cerr << "[finishOutboundHandshake] handshake bytes size=" << out.size()
+            << " first32=" << dumpHex(out.data(), out.size()) << '\n';
   if (!sendFrameImmediate(tx, fr))
     return false;
   // Provide our current height immediately after the handshake
@@ -2725,6 +2745,8 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     } else {
       blob = tx->readBinaryBlocking();
     }
+    std::cerr << "[connectToNode] raw handshake bytes size=" << blob.size()
+              << " first32=" << dumpHex(blob.data(), blob.size()) << '\n';
 
     bool theirAgg = false;
     bool theirSnap = false;

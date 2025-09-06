@@ -3,10 +3,23 @@ project(alyncoin LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
 # ---- Windows toolchain / CRT -------------------------------------------------
-if (WIN32)
-  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+if(MSVC)
+  set(CMAKE_POLICY_DEFAULT_CMP0091 NEW)
+  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+  foreach(flag_var
+    CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
+    CMAKE_C_FLAGS_RELWITHDEBINFO CMAKE_C_FLAGS_MINSIZEREL
+    CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
+    CMAKE_CXX_FLAGS_RELWITHDEBINFO CMAKE_CXX_FLAGS_MINSIZEREL)
+    if(DEFINED ${flag_var})
+      string(REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
+      set(${flag_var} "${${flag_var}}" CACHE STRING "" FORCE)
+    endif()
+  endforeach()
+endif()
+
+if(WIN32)
   add_definitions(-DWIN32_LEAN_AND_MEAN -DNOMINMAX -DMINIUPNP_STATICLIB -D_WIN32_WINNT=0x0A00 -D_CRT_SECURE_NO_WARNINGS)
 endif()
 
@@ -348,7 +361,7 @@ file(GLOB DILITHIUM_SOURCES
   ${SOURCE_DIR}/crypto/dilithium/*.c
   ${SOURCE_DIR}/crypto/dilithium/ref/*.c
 )
-list(FILTER DILITHIUM_SOURCES EXCLUDE REGEX "randombytes\.c$")
+list(FILTER DILITHIUM_SOURCES EXCLUDE REGEX "randombytes(_sodium)?\.c$")
 add_library(dilithium STATIC ${DILITHIUM_SOURCES})
 target_include_directories(dilithium PUBLIC ${SOURCE_DIR}/crypto/dilithium/ref)
 target_compile_definitions(dilithium PUBLIC
@@ -524,11 +537,20 @@ add_dependencies(explorer_server winterfell_ffi)
 target_include_directories(explorer_server PRIVATE ${SOURCE_DIR}/explorer ${SOURCE_DIR}/deps/CrowInclude)
 target_link_libraries(explorer_server PRIVATE alyncoin_lib ${JSONCPP_LIBRARIES} ${ROCKSDB_LIB} ${PROTOBUF_LINK} ${PLAT_LIBS})
 
+# Silence benign Crow size-conversion warnings on MSVC
+if(MSVC)
+  target_compile_options(explorer_server PRIVATE /wd4244 /wd4267)
+endif()
+
 # Metrics
 add_executable(metrics_server ${METRICS_SOURCES})
 add_dependencies(metrics_server winterfell_ffi)
 target_include_directories(metrics_server PRIVATE ${SOURCE_DIR}/metrics ${SOURCE_DIR}/deps/CrowInclude)
 target_link_libraries(metrics_server  PRIVATE alyncoin_lib ${JSONCPP_LIBRARIES} ${PLAT_LIBS})
+
+if(MSVC)
+  target_compile_options(metrics_server PRIVATE /wd4244 /wd4267)
+endif()
 
 # ---- UPnP propagation --------------------------------------------------------
 if(HAVE_MINIUPNPC)

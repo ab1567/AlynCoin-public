@@ -23,10 +23,10 @@
 #include "db/db_paths.h"
 #include <locale>
 #include <mutex>
+#include <iterator>
 #include <sys/stat.h>
 #include <thread>
 #include "rpc/metrics.h"
-#include "config.h"
 #include <shared_mutex>
 #include <boost/multiprecision/cpp_int.hpp>
 #include <unordered_map>
@@ -286,38 +286,17 @@ bool Blockchain::isTransactionValid(const Transaction &tx) const {
             return false;
         }
 
-        // ── Address binding rule: always-on for premine, else gated ─────────
+        // ── Address binding rule: always enforce ─────────
         {
-            const auto &cfg = getAppConfig();
             auto lower = [](std::string s){ std::transform(s.begin(), s.end(), s.begin(), ::tolower); return s; };
             const std::string sL = lower(sender);
-            const bool isPremine = (sL == AIRDROP_ADDRESS) || (sL == LIQUIDITY_ADDRESS) ||
-                                   (sL == INVESTOR_ADDRESS) || (sL == DEVELOPMENT_ADDRESS) ||
-                                   (sL == EXCHANGE_ADDRESS) || (sL == TEAM_FOUNDER_ADDRESS);
-
             std::string expectedDil = Crypto::deriveAddressFromPub(pubKeyDilithium);
             std::string expectedFal = Crypto::deriveAddressFromPub(pubKeyFalcon);
             bool matches = (sL == expectedDil) || (sL == expectedFal);
-
-            if (isPremine) {
-                if (!matches) {
-                    std::cerr << "❌ ERR_ADDR_MISMATCH (premine-protected): sender=" << sender
-                              << " expected(any)=[" << expectedDil << "," << expectedFal << "]\n";
-                    return false;
-                }
-            } else if (cfg.rule_addr_binding) {
-                const int curHeight = getHeight();
-                if (!matches) {
-                    if (curHeight >= cfg.addr_binding_activation_height) {
-                        std::cerr << "❌ ERR_ADDR_MISMATCH: sender=" << sender
-                                  << " expected(any)=[" << expectedDil << "," << expectedFal << "]\n";
-                        return false;
-                    } else {
-                        std::cerr << "⚠️ [WARN] Address/key mismatch pre-activation (height="
-                                  << curHeight << ") sender=" << sender
-                                  << ", expected(any)=[" << expectedDil << "," << expectedFal << "]\n";
-                    }
-                }
+            if (!matches) {
+                std::cerr << "❌ ERR_ADDR_MISMATCH: sender=" << sender
+                          << " expected(any)=[" << expectedDil << "," << expectedFal << "]\n";
+                return false;
             }
         }
 
@@ -443,6 +422,53 @@ Block Blockchain::createGenesisBlock(bool force)
                                         static_cast<uint64_t>(std::time(nullptr)) + 31536000};
 
     return chain.front();
+}
+
+bool Blockchain::exportGenesisBlock(const std::string &path) const {
+    if (chain.empty()) {
+        std::cerr << "⚠️ [exportGenesisBlock] chain is empty.\n";
+        return false;
+    }
+    alyncoin::BlockProto proto = chain.front().toProtobuf();
+    std::ofstream out(path, std::ios::binary);
+    if (!out) {
+        std::cerr << "⚠️ [exportGenesisBlock] Failed to open file: " << path << "\n";
+        return false;
+    }
+    if (!proto.SerializeToOstream(&out)) {
+        std::cerr << "⚠️ [exportGenesisBlock] Serialize failed\n";
+        return false;
+    }
+    return true;
+}
+
+bool Blockchain::importGenesisBlock(const std::string &path) {
+    std::ifstream in(path, std::ios::binary);
+    if (!in) {
+        std::cerr << "⚠️ [importGenesisBlock] Failed to open file: " << path << "\n";
+        return false;
+    }
+    std::string data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    alyncoin::BlockProto proto;
+    if (!proto.ParseFromString(data)) {
+        std::cerr << "⚠️ [importGenesisBlock] Parse failed\n";
+        return false;
+    }
+    try {
+        Block blk = Block::fromProto(proto, false);
+        if (!blk.isGenesisBlock()) {
+            std::cerr << "⚠️ [importGenesisBlock] Provided block is not genesis\n";
+            return false;
+        }
+        if (!chain.empty()) {
+            std::cerr << "⚠️ [importGenesisBlock] chain already has blocks\n";
+            return false;
+        }
+        return addBlock(blk);
+    } catch (const std::exception &e) {
+        std::cerr << "⚠️ [importGenesisBlock] " << e.what() << "\n";
+        return false;
+    }
 }
 
 // ✅ Adds block, applies smart burn, and broadcasts to peers
@@ -1274,12 +1300,8 @@ void Blockchain::addTransaction(const Transaction &tx) {
 
     // Enforce address binding in mempool
     {
-        const auto &cfg = getAppConfig();
         auto lower = [](std::string s){ std::transform(s.begin(), s.end(), s.begin(), ::tolower); return s; };
         const std::string sL = lower(tx.getSender());
-        const bool isPremine = (sL == AIRDROP_ADDRESS) || (sL == LIQUIDITY_ADDRESS) ||
-                               (sL == INVESTOR_ADDRESS) || (sL == DEVELOPMENT_ADDRESS) ||
-                               (sL == EXCHANGE_ADDRESS) || (sL == TEAM_FOUNDER_ADDRESS);
 
         // derive expected from either pubkey
         std::vector<unsigned char> pubDil(tx.getSenderPublicKeyDilithium().begin(), tx.getSenderPublicKeyDilithium().end());
@@ -1288,19 +1310,10 @@ void Blockchain::addTransaction(const Transaction &tx) {
         std::string expectedFal = Crypto::deriveAddressFromPub(pubFal);
         bool matches = (sL == expectedDil) || (sL == expectedFal);
 
-        if (isPremine) {
-            if (!matches) {
-                std::cerr << "❌ ERR_ADDR_MISMATCH (premine-protected mempool): sender=" << tx.getSender()
-                          << " expected(any)=[" << expectedDil << "," << expectedFal << "]\n";
-                return;
-            }
-        } else if (cfg.rule_addr_binding) {
-            const int curHeight = getHeight();
-            if (curHeight >= cfg.addr_binding_activation_height && !matches) {
-                std::cerr << "❌ ERR_ADDR_MISMATCH (mempool): sender=" << tx.getSender()
-                          << " expected(any)=[" << expectedDil << "," << expectedFal << "]\n";
-                return;
-            }
+        if (!matches) {
+            std::cerr << "❌ ERR_ADDR_MISMATCH (mempool): sender=" << tx.getSender()
+                      << " expected(any)=[" << expectedDil << "," << expectedFal << "]\n";
+            return;
         }
     }
 
@@ -1508,8 +1521,19 @@ bool Blockchain::loadFromDB() {
     } else if (!loadedBlocks.empty()) {
         chain = loadedBlocks;
     } else {
-        std::cerr << "🪐 Creating Genesis Block...\n";
-        createGenesisBlock(true);
+        std::string genesisPath = DBPaths::getGenesisFile();
+        if (fs::exists(genesisPath)) {
+            std::cout << "📥 [loadFromDB] Importing genesis block from " << genesisPath << "\n";
+            if (!importGenesisBlock(genesisPath)) {
+                std::cerr << "⚠️ [loadFromDB] Import failed, creating new genesis.\n";
+                createGenesisBlock(true);
+            }
+        } else {
+            std::cerr << "🪐 Creating Genesis Block...\n";
+            createGenesisBlock(true);
+            std::cout << "📤 [loadFromDB] Exporting genesis block to " << genesisPath << "\n";
+            exportGenesisBlock(genesisPath);
+        }
         std::cout << "⏳ Applying vesting schedule for early supporters...\n";
         applyVestingSchedule();
         db->Put(rocksdb::WriteOptions(), "vesting_initialized", "true");
