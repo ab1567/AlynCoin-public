@@ -135,6 +135,35 @@ auto getBlockchain = [&]() -> Blockchain& {
 Blockchain& b = *chainPtr; // Optional alias (used only in current scope, not elsewhere)
 
 
+   // export-genesis <file>
+if (argc >= 3 && std::string(argv[1]) == "export-genesis") {
+    std::string path = argv[2];
+    Blockchain &b = getBlockchain();
+    if (!b.loadFromDB()) {
+        std::cerr << "❌ Could not load blockchain from DB.\n";
+        return 1;
+    }
+    if (b.exportGenesisBlock(path)) {
+        std::cout << "✅ Genesis block exported to " << path << "\n";
+        return 0;
+    }
+    std::cerr << "❌ Failed to export genesis block.\n";
+    return 1;
+}
+
+   // import-genesis <file>
+if (argc >= 3 && std::string(argv[1]) == "import-genesis") {
+    std::string path = argv[2];
+    Blockchain &b = getBlockchain();
+    if (b.importGenesisBlock(path)) {
+        b.saveToDB();
+        std::cout << "✅ Genesis block imported from " << path << "\n";
+        return 0;
+    }
+    std::cerr << "❌ Failed to import genesis block.\n";
+    return 1;
+}
+
    // mineonce <minerAddress>
 if (argc >= 3 && std::string(argv[1]) == "mineonce") {
     std::string minerAddress = argv[2];
