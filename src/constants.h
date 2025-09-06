@@ -13,9 +13,6 @@ inline constexpr std::string_view GENESIS_PARENT_HASH =
 // massive allocations when computing the initial accumulated work.
 inline constexpr uint32_t GENESIS_DIFFICULTY = 1;
 
-inline constexpr std::string_view GENESIS_BLOCK_HASH =
-    "048d862090b48c81ef6d33580df428d979c3f01b7b282d1c55d9e481b9e1bb69";
-
 inline constexpr int DESYNC_THRESHOLD = 5000;
 
 // allow larger snapshot transfers for cold sync
