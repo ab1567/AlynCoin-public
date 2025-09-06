@@ -277,28 +277,6 @@ if(NOT SKIP_PROTOBUF_GEN)
   add_custom_target(protobuf_gen DEPENDS ${PROTO_SRCS})
 endif()
 
-# ---- Embed genesis (optional) ------------------------------------------------
-set(GENESIS_BIN ${CMAKE_SOURCE_DIR}/assets/genesis_block.bin)
-set(GENESIS_EMBED_H ${GENERATED_DIR}/genesis_embed.h)
-if(EXISTS ${GENESIS_BIN})
-  add_custom_command(
-    OUTPUT ${GENESIS_EMBED_H}
-    COMMAND ${CMAKE_COMMAND} -DINPUT=${GENESIS_BIN} -DOUTPUT=${GENESIS_EMBED_H}
-            -P ${SOURCE_DIR}/cmake/embed_genesis.cmake
-    DEPENDS ${GENESIS_BIN} ${SOURCE_DIR}/cmake/embed_genesis.cmake
-    COMMENT "Embedding genesis_block.bin into header"
-  )
-else()
-  add_custom_command(
-    OUTPUT ${GENESIS_EMBED_H}
-    COMMAND ${CMAKE_COMMAND} -DOUTPUT=${GENESIS_EMBED_H}
-            -P ${SOURCE_DIR}/cmake/embed_genesis.cmake
-    DEPENDS ${SOURCE_DIR}/cmake/embed_genesis.cmake
-    COMMENT "Embedding empty genesis (no assets/genesis_block.bin present)"
-  )
-endif()
-add_custom_target(genesis_embed DEPENDS ${GENESIS_EMBED_H})
-
 # ---- Rust FFI ----------------------------------------------------------------
 if (WIN32)
   add_custom_target(winterfell_ffi ALL
@@ -477,13 +455,6 @@ add_dependencies(peer_blacklist_cli winterfell_ffi)
 add_dependencies(wallet_cli winterfell_ffi)
 add_dependencies(dao_cli winterfell_ffi)
 add_dependencies(devfund_cli winterfell_ffi)
-
-add_dependencies(alyncoin genesis_embed)
-add_dependencies(alyncoin-cli genesis_embed)
-add_dependencies(peer_blacklist_cli genesis_embed)
-add_dependencies(wallet_cli genesis_embed)
-add_dependencies(dao_cli genesis_embed)
-add_dependencies(devfund_cli genesis_embed)
 
 target_compile_definitions(alyncoin PRIVATE ALYNCOIN_MAIN_PROCESS)
 target_link_libraries(alyncoin        PRIVATE alyncoin_lib ${PLAT_LIBS})
