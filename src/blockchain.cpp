@@ -23,6 +23,7 @@
 #include "db/db_paths.h"
 #include <locale>
 #include <mutex>
+#include <iterator>
 #include <sys/stat.h>
 #include <thread>
 #include "rpc/metrics.h"
@@ -421,6 +422,53 @@ Block Blockchain::createGenesisBlock(bool force)
                                         static_cast<uint64_t>(std::time(nullptr)) + 31536000};
 
     return chain.front();
+}
+
+bool Blockchain::exportGenesisBlock(const std::string &path) const {
+    if (chain.empty()) {
+        std::cerr << "⚠️ [exportGenesisBlock] chain is empty.\n";
+        return false;
+    }
+    alyncoin::BlockProto proto = chain.front().toProtobuf();
+    std::ofstream out(path, std::ios::binary);
+    if (!out) {
+        std::cerr << "⚠️ [exportGenesisBlock] Failed to open file: " << path << "\n";
+        return false;
+    }
+    if (!proto.SerializeToOstream(&out)) {
+        std::cerr << "⚠️ [exportGenesisBlock] Serialize failed\n";
+        return false;
+    }
+    return true;
+}
+
+bool Blockchain::importGenesisBlock(const std::string &path) {
+    std::ifstream in(path, std::ios::binary);
+    if (!in) {
+        std::cerr << "⚠️ [importGenesisBlock] Failed to open file: " << path << "\n";
+        return false;
+    }
+    std::string data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    alyncoin::BlockProto proto;
+    if (!proto.ParseFromString(data)) {
+        std::cerr << "⚠️ [importGenesisBlock] Parse failed\n";
+        return false;
+    }
+    try {
+        Block blk = Block::fromProto(proto, false);
+        if (!blk.isGenesisBlock()) {
+            std::cerr << "⚠️ [importGenesisBlock] Provided block is not genesis\n";
+            return false;
+        }
+        if (!chain.empty()) {
+            std::cerr << "⚠️ [importGenesisBlock] chain already has blocks\n";
+            return false;
+        }
+        return addBlock(blk);
+    } catch (const std::exception &e) {
+        std::cerr << "⚠️ [importGenesisBlock] " << e.what() << "\n";
+        return false;
+    }
 }
 
 // ✅ Adds block, applies smart burn, and broadcasts to peers
@@ -1473,8 +1521,19 @@ bool Blockchain::loadFromDB() {
     } else if (!loadedBlocks.empty()) {
         chain = loadedBlocks;
     } else {
-        std::cerr << "🪐 Creating Genesis Block...\n";
-        createGenesisBlock(true);
+        std::string genesisPath = DBPaths::getGenesisFile();
+        if (fs::exists(genesisPath)) {
+            std::cout << "📥 [loadFromDB] Importing genesis block from " << genesisPath << "\n";
+            if (!importGenesisBlock(genesisPath)) {
+                std::cerr << "⚠️ [loadFromDB] Import failed, creating new genesis.\n";
+                createGenesisBlock(true);
+            }
+        } else {
+            std::cerr << "🪐 Creating Genesis Block...\n";
+            createGenesisBlock(true);
+            std::cout << "📤 [loadFromDB] Exporting genesis block to " << genesisPath << "\n";
+            exportGenesisBlock(genesisPath);
+        }
         std::cout << "⏳ Applying vesting schedule for early supporters...\n";
         applyVestingSchedule();
         db->Put(rocksdb::WriteOptions(), "vesting_initialized", "true");

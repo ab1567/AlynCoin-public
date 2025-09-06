@@ -46,6 +46,8 @@ void print_usage() {
               << "  loadwallet <name>                    Load an existing wallet\n"
               << "  exportwallet [name] <file>           Export wallet keys and balance to file\n"
               << "  importwallet <file>                 Import wallet keys from backup file\n"
+              << "  export-genesis <file>               Export genesis block to file\n"
+              << "  import-genesis <file>               Import genesis block from file\n"
               << "  balance <address>                    Show wallet balance\n"
               << "  balance-force <address>             Reload chain and show balance\n"
               << "  sendl1 <from> <to> <amount> <metadata>  Send L1 transaction\n"
@@ -982,6 +984,36 @@ int main(int argc, char *argv[]) {
 
     // ================= CLI COMMAND HANDLERS START =================
 std::string currentBinPath = argv[0];
+
+       // export-genesis <file>
+if (argc >= 3 && std::string(argv[1]) == "export-genesis") {
+    std::string path = argv[2];
+    Blockchain &b = Blockchain::getInstance();
+    if (!b.loadFromDB()) {
+        std::cerr << "❌ Could not load blockchain from DB.\n";
+        return 1;
+    }
+    if (b.exportGenesisBlock(path)) {
+        std::cout << "✅ Genesis block exported to " << path << "\n";
+        return 0;
+    }
+    std::cerr << "❌ Failed to export genesis block.\n";
+    return 1;
+}
+
+       // import-genesis <file>
+if (argc >= 3 && std::string(argv[1]) == "import-genesis") {
+    std::string path = argv[2];
+    Blockchain &b = Blockchain::getInstance();
+    if (b.importGenesisBlock(path)) {
+        b.saveToDB();
+        std::cout << "✅ Genesis block imported from " << path << "\n";
+        return 0;
+    }
+    std::cerr << "❌ Failed to import genesis block.\n";
+    return 1;
+}
+
        // mineonce <minerAddress>
 if (argc >= 3 && std::string(argv[1]) == "mineonce") {
     std::string minerAddress = argv[2];

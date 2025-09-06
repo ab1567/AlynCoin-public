@@ -38,4 +38,9 @@ namespace DBPaths {
         const char* env = std::getenv("ALYNCOIN_IDENTITY_DB");
         return env ? std::string(env) : getHomePath() + "/.alyncoin/identity_db";
     }
+
+    inline std::string getGenesisFile() {
+        const char* env = std::getenv("ALYNCOIN_GENESIS_FILE");
+        return env ? std::string(env) : getHomePath() + "/.alyncoin/genesis_block.bin";
+    }
 }

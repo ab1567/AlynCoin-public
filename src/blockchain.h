@@ -131,6 +131,8 @@ public:
   void savePendingTransactionsToDB();
   void loadTransactionsFromDB();
   Block createGenesisBlock(bool force = false);
+  bool exportGenesisBlock(const std::string &path) const;
+  bool importGenesisBlock(const std::string &path);
   bool deserializeBlockchain(const std::string &data);
   bool serializeBlockchain(std::string &outData) const;
   void fromJSON(const Json::Value &root);
