@@ -350,14 +350,7 @@ Block Blockchain::createGenesisBlock(bool force)
     std::string txRoot = genesis.computeTransactionsHash();
     genesis.setTransactionsHash(txRoot);   // mirrors into merkleRoot
     genesis.setMerkleRoot(txRoot);         // invariant keeper
-
-    std::string computed = genesis.calculateHash();
-    if (computed != GENESIS_BLOCK_HASH) {
-        std::cerr << "❌ Genesis hash mismatch! expected "
-                  << GENESIS_BLOCK_HASH << " but computed "
-                  << computed << "\n";
-    }
-    genesis.setHash(std::string{GENESIS_BLOCK_HASH});
+    genesis.setHash( genesis.calculateHash() );
 
     std::cout << "[DEBUG] Genesis block hash: "
               << genesis.getHash() << '\n';
