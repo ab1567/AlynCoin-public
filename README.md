@@ -19,14 +19,14 @@ quantum threats while retaining the familiarity of a traditional PoW chain.
 AlynCoin has a fixed cap of **100 million ALYN** tokens. The genesis block
 includes a premine of **10 million ALYN** distributed as follows:
 
-| Allocation           | Amount (ALYN) |
-|----------------------|---------------|
-| Airdrops             | 1,000,000     |
-| Liquidity            | 1,000,000     |
-| Investors            | 3,000,000     |
-| Development          | 2,000,000     |
-| Exchange Listings    | 1,000,000     |
-| Team/Founder         | 2,000,000     |
+| Allocation        | Amount (ALYN) | Address                                      |
+|-------------------|---------------|----------------------------------------------|
+| Airdrops          | 1,000,000     | 4917e92b2dba79df9a794ff2be5c88da6d3fdd91     |
+| Liquidity         | 1,000,000     | b383cbbf840266cf7594d3985320dffae1a077bc     |
+| Investors         | 3,000,000     | c209eee640aa2386c27ae9fbe111f8c498f4973c     |
+| Development       | 2,000,000     | 23916872580a6dd4a088dd718cbb20b61ec2d56e     |
+| Exchange Listings | 1,000,000     | c2ab555dbc5aa2ed188aaf630b95b3cfa97239af     |
+| Team/Founder      | 2,000,000     | f01522a535f4e22319fa78c6532d4e081d41c6b6     |
 
 These allocations are minted to dedicated addresses at genesis and count toward the 100 million coin cap.
 
