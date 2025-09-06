@@ -68,6 +68,13 @@ set(GENESIS_EMBED_SCRIPT ${SOURCE_DIR}/cmake/embed_genesis.cmake)
 
 # Allow specifying a genesis file via environment variable ALYNCOIN_GENESIS_FILE
 set(GENESIS_INPUT "$ENV{ALYNCOIN_GENESIS_FILE}")
+# Fallback to repo copy if present
+if(NOT GENESIS_INPUT)
+  set(REPO_GENESIS "${CMAKE_SOURCE_DIR}/genesis/genesis_block.bin")
+  if(EXISTS "${REPO_GENESIS}")
+    set(GENESIS_INPUT "${REPO_GENESIS}")
+  endif()
+endif()
 
 if(GENESIS_INPUT)
   add_custom_command(
