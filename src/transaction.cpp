@@ -14,6 +14,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <locale>
 #include <openssl/sha.h>
 #include <rocksdb/db.h>
 #include <sstream>
@@ -50,6 +51,7 @@ void Transaction::setZkProof(const std::string &proof) { zkProof = proof; }
 // Transaction Hash:
 inline std::string canonicalAmount(double amount) {
     std::ostringstream oss;
+    oss.imbue(std::locale::classic());
     oss << std::fixed << std::setprecision(8) << amount;
     return oss.str();
 }
