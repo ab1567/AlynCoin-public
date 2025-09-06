@@ -21,6 +21,7 @@
 #include <iomanip>
 #include <iostream>
 #include "db/db_paths.h"
+#include "assets/alyn_assets.h"
 #include <locale>
 #include <mutex>
 #include <iterator>
@@ -1521,18 +1522,47 @@ bool Blockchain::loadFromDB() {
     } else if (!loadedBlocks.empty()) {
         chain = loadedBlocks;
     } else {
-        std::string genesisPath = DBPaths::getGenesisFile();
-        if (fs::exists(genesisPath)) {
-            std::cout << "📥 [loadFromDB] Importing genesis block from " << genesisPath << "\n";
-            if (!importGenesisBlock(genesisPath)) {
-                std::cerr << "⚠️ [loadFromDB] Import failed, creating new genesis.\n";
-                createGenesisBlock(true);
+        bool imported = false;
+        // 1) Try embedded genesis bytes first (built into the binary)
+        if (alyn_assets::kEmbeddedGenesisSize > 0) {
+            alyncoin::BlockProto proto;
+            if (proto.ParseFromArray(alyn_assets::kEmbeddedGenesis,
+                                     static_cast<int>(alyn_assets::kEmbeddedGenesisSize))) {
+                try {
+                    Block blk = Block::fromProto(proto, false);
+                    if (blk.isGenesisBlock()) {
+                        std::cout << "📥 [loadFromDB] Importing embedded genesis (" << alyn_assets::kEmbeddedGenesisSize
+                                  << " bytes)\n";
+                        if (addBlock(blk)) {
+                            imported = true;
+                            // Persist a copy so tools and users can reference it
+                            std::string genesisPath = DBPaths::getGenesisFile();
+                            exportGenesisBlock(genesisPath);
+                        }
+                    }
+                } catch (const std::exception &e) {
+                    std::cerr << "⚠️ [loadFromDB] Embedded genesis invalid: " << e.what() << "\n";
+                }
+            } else {
+                std::cerr << "⚠️ [loadFromDB] Failed to parse embedded genesis bytes\n";
             }
-        } else {
-            std::cerr << "🪐 Creating Genesis Block...\n";
-            createGenesisBlock(true);
-            std::cout << "📤 [loadFromDB] Exporting genesis block to " << genesisPath << "\n";
-            exportGenesisBlock(genesisPath);
+        }
+
+        // 2) Fall back to file-based genesis
+        if (!imported) {
+            std::string genesisPath = DBPaths::getGenesisFile();
+            if (fs::exists(genesisPath)) {
+                std::cout << "📥 [loadFromDB] Importing genesis block from " << genesisPath << "\n";
+                if (!importGenesisBlock(genesisPath)) {
+                    std::cerr << "⚠️ [loadFromDB] Import failed, creating new genesis.\n";
+                    createGenesisBlock(true);
+                }
+            } else {
+                std::cerr << "🪐 Creating Genesis Block...\n";
+                createGenesisBlock(true);
+                std::cout << "📤 [loadFromDB] Exporting genesis block to " << genesisPath << "\n";
+                exportGenesisBlock(genesisPath);
+            }
         }
         std::cout << "⏳ Applying vesting schedule for early supporters...\n";
         applyVestingSchedule();
