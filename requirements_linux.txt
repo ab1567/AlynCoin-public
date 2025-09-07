@@ -30,3 +30,4 @@ libminiupnpc-dev
 PyQt5
 requests
 dnspython
+blake3

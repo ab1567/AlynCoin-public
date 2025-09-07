@@ -1,4 +1,5 @@
 import hashlib
+from blake3 import blake3
 
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QDialog, QLineEdit,
@@ -87,7 +88,8 @@ class SwapTab(QWidget):
                 self.parent.appendOutput("❌ Amount and duration must be numeric.")
                 return
 
-            hashed = hashlib.sha256(sec.encode()).hexdigest()
+            b3 = blake3(sec.encode()).hexdigest()
+            hashed = hashlib.sha3_256(b3.encode()).hexdigest()
             self.parent.appendOutput(f"🧮 Local Secret Hash (preview): {hashed}")
             params = [addr, recv, amt, hashed, dur]
             result = alyncoin_rpc("swap-initiate", params)
