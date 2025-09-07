@@ -24,8 +24,6 @@
 #include <fstream>
 #include <generated/block_protos.pb.h>
 #include <generated/blockchain_protos.pb.h>
-#include <google/protobuf/io/coded_stream.h>
-#include <google/protobuf/io/zero_copy_stream_impl_lite.h>
 #include <google/protobuf/message.h>
 #include <iomanip>
 #include <iostream>
@@ -40,17 +38,6 @@
 #include <unordered_set>
 
 using boost::multiprecision::cpp_int;
-
-static std::string hashDeterministic(const google::protobuf::Message &msg) {
-  std::string out;
-  google::protobuf::io::StringOutputStream sos(&out);
-  google::protobuf::io::CodedOutputStream cos(&sos);
-  cos.SetSerializationDeterministic(true);
-  if (!msg.SerializeToCodedStream(&cos)) {
-    throw std::runtime_error("Deterministic serialization failed");
-  }
-  return Crypto::blake3(out);
-}
 
 #define ROLLUP_CHAIN_FILE "rollup_chain.dat"
 namespace fs = std::filesystem;
@@ -1607,11 +1594,11 @@ bool Blockchain::loadFromDB() {
     compareAndMergeChains(pendingFork);
     clearPendingForkChain();
   } else if (!loadedBlocks.empty()) {
-    std::string dbHash = hashDeterministic(loadedBlocks[0].toProtobuf());
-    if (dbHash != kExpectedGenesisHash) {
-      std::cerr << "❌ [loadFromDB] DB genesis hash mismatch.\n";
+    const std::string dbGenesisHash = loadedBlocks[0].getHash();
+    if (dbGenesisHash != kExpectedGenesisHash) {
+      std::cerr << "❌ [loadFromDB] DB genesis block hash mismatch.\n";
       std::cerr << "Expected: " << kExpectedGenesisHash << "\n";
-      std::cerr << "Got     : " << dbHash << "\n";
+      std::cerr << "Got     : " << dbGenesisHash << "\n";
       return false;
     }
     chain = loadedBlocks;
@@ -1625,11 +1612,10 @@ bool Blockchain::loadFromDB() {
         try {
           Block blk = Block::fromProto(proto, false);
           if (blk.isGenesisBlock()) {
-            std::string protoHash = hashDeterministic(proto);
-            if (protoHash != kExpectedGenesisHash) {
-              std::cerr << "❌ [loadFromDB] Embedded genesis HASH MISMATCH.\n";
+            if (blk.getHash() != kExpectedGenesisHash) {
+              std::cerr << "❌ [loadFromDB] Embedded genesis block hash mismatch.\n";
               std::cerr << "Expected: " << kExpectedGenesisHash << "\n";
-              std::cerr << "Got     : " << protoHash << "\n";
+              std::cerr << "Got     : " << blk.getHash() << "\n";
               return false;
             }
             std::cout << "📥 [loadFromDB] Importing embedded genesis ("
