@@ -60,45 +60,6 @@ set(SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
 set(GENERATED_DIR ${CMAKE_BINARY_DIR}/generated)
 file(MAKE_DIRECTORY ${GENERATED_DIR})
 
-# ---- Genesis embed header (generated) ---------------------------------------
-# Generates ${GENERATED_DIR}/genesis_embed.h from an optional binary genesis file.
-# If no input is provided, an empty embed is produced so builds still succeed.
-set(GENESIS_HEADER ${GENERATED_DIR}/genesis_embed.h)
-set(GENESIS_EMBED_SCRIPT ${SOURCE_DIR}/cmake/embed_genesis.cmake)
-
-# Allow specifying a genesis file via environment variable ALYNCOIN_GENESIS_FILE
-set(GENESIS_INPUT "$ENV{ALYNCOIN_GENESIS_FILE}")
-# Fallback to repo copy if present
-if(NOT GENESIS_INPUT)
-  set(REPO_GENESIS "${CMAKE_SOURCE_DIR}/genesis/genesis_block.bin")
-  if(EXISTS "${REPO_GENESIS}")
-    set(GENESIS_INPUT "${REPO_GENESIS}")
-  endif()
-endif()
-
-if(GENESIS_INPUT)
-  add_custom_command(
-    OUTPUT ${GENESIS_HEADER}
-    COMMAND ${CMAKE_COMMAND}
-            -DINPUT=${GENESIS_INPUT}
-            -DOUTPUT=${GENESIS_HEADER}
-            -P ${GENESIS_EMBED_SCRIPT}
-    DEPENDS ${GENESIS_EMBED_SCRIPT}
-    COMMENT "Embedding genesis from ${GENESIS_INPUT}"
-  )
-else()
-  add_custom_command(
-    OUTPUT ${GENESIS_HEADER}
-    COMMAND ${CMAKE_COMMAND}
-            -DOUTPUT=${GENESIS_HEADER}
-            -P ${GENESIS_EMBED_SCRIPT}
-    DEPENDS ${GENESIS_EMBED_SCRIPT}
-    COMMENT "Generating empty embedded genesis header"
-  )
-endif()
-
-add_custom_target(genesis_embed DEPENDS ${GENESIS_HEADER})
-
 # ---- Sources -----------------------------------------------------------------
 file(GLOB SOURCES
   ${SOURCE_DIR}/block.cpp
@@ -421,7 +382,6 @@ endif()
 if(NOT SKIP_PROTOBUF_GEN)
   add_dependencies(alyncoin_lib protobuf_gen)
 endif()
-add_dependencies(alyncoin_lib genesis_embed)
 add_dependencies(alyncoin_lib winterfell_ffi)
 
 target_sources(alyncoin_lib PRIVATE ${BLAKE3_SRC})
