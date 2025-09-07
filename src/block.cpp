@@ -424,14 +424,14 @@ std::string Block::getTransactionsHash() const {
   }
   std::cerr << "❌ [getTransactionsHash] Neither transactionsHash nor "
                "merkleRoot is set! BLOCK CORRUPT.\n";
-  return EMPTY_TX_ROOT_HASH;
+  return std::string(EMPTY_TX_ROOT_HASH);
 }
 
 //
-void Block::setMerkleRoot(const std::string &root) {
-  merkleRoot = root;
-  transactionsHash = root; // Always mirror!
-  cachedRoot = root;
+void Block::setMerkleRoot(std::string_view root) {
+  merkleRoot.assign(root);
+  transactionsHash.assign(root); // Always mirror!
+  cachedRoot.assign(root);
   ensureRootConsistency(*this, index);
 }
 
