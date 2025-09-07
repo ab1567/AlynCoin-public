@@ -1,39 +1,27 @@
 import hashlib
+
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QDialog, QLineEdit,
-    QFormLayout, QDialogButtonBox, QCheckBox
+    QFormLayout, QDialogButtonBox
 )
-from PyQt5.QtCore import QProcess
 
-SWAP_CLI = "/root/AlynCoin/build/swapcli"
+from rpc_client import alyncoin_rpc
+
 
 class SwapTab(QWidget):
     def __init__(self, parent):
-        super().__init__()
+        super().__init__(parent)
         self.parent = parent
-        self.debugMode = False  # default: debug off
-        self.process = QProcess(self)
-        self.process.readyReadStandardOutput.connect(self.handle_stdout)
-        self.process.readyReadStandardError.connect(self.handle_stderr)
-        self.process.finished.connect(self.process_finished)
         self.initUI()
 
     def initUI(self):
         layout = QVBoxLayout()
-
-        # 🔧 Toggle for Debug Logs
-        self.debugToggle = QCheckBox("Show Debug Logs")
-        self.debugToggle.stateChanged.connect(self.toggleDebug)
-        layout.addWidget(self.debugToggle)
-
-        # 🔘 Buttons
         self.addButton("🔄 Initiate Swap", self.initiateSwap, layout)
         self.addButton("🧩 Redeem Swap", self.redeemSwap, layout)
         self.addButton("⏱ Refund Swap", self.refundSwap, layout)
         self.addButton("🔍 Get Swap Info", self.getSwap, layout)
         self.addButton("📊 Swap State", self.getState, layout)
         self.addButton("🛡 Verify Swap Signature", self.verifySwap, layout)
-
         self.setLayout(layout)
 
     def addButton(self, label, callback, layout):
@@ -41,68 +29,21 @@ class SwapTab(QWidget):
         btn.clicked.connect(callback)
         layout.addWidget(btn)
 
-    def toggleDebug(self, state):
-        self.debugMode = bool(state)
-
-    def runCLI(self, cmd):
-        if self.process.state() != QProcess.NotRunning:
-            self.parent.appendOutput("⚠️ Previous swap CLI still running.")
-            return
-        self.parent.appendOutput(f"🔄 Running Swap CLI command: {cmd}")
-        self.process.start("wsl", ["bash", "-c", cmd])
-
-    def handle_stdout(self):
-        output = self.filterOutput(bytes(self.process.readAllStandardOutput()).decode("utf-8"))
-        if output.strip():
-            self.parent.appendOutput(output.strip())
-
-    def handle_stderr(self):
-        error = self.filterOutput(bytes(self.process.readAllStandardError()).decode("utf-8"))
-        if error.strip():
-            self.parent.appendOutput(f"⚠️ {error.strip()}")
-
-    def filterOutput(self, text):
-        lines = text.splitlines()
-        clean = []
-        for line in lines:
-            if "libprotobuf ERROR" in line:
-                continue
-            if not self.debugMode:
-                if any(sub in line for sub in [
-                    "[DEBUG]",
-                    "toHex()",
-                    "fromHex()",
-                    "Falcon Signing Initiated",
-                    "crypto_sign_signature",
-                    "Dilithium signing",
-                    "Message size:",
-                    "Private key size:",
-                    "Converted",
-                    "Calling Falcon",
-                    "Starting Dilithium",
-                    "Seed:",
-                    "Seed len:",
-                    "First 32 proof bytes",
-                    "prevHash:",
-                    "txRoot:",
-                    "blockHash:",
-                ]):
-                    continue
-            clean.append(line)
-        return "\n".join(clean)
-
-    def process_finished(self):
-        self.parent.appendOutput("✅ Swap CLI task finished.\n")
-
     def getAddress(self):
-        addr = self.parent.loadedAddress
+        addr = getattr(self.parent, "loadedAddress", "")
         if not addr:
             self.parent.appendOutput("❌ Wallet not loaded.")
         return addr
 
+    def showResult(self, result):
+        if isinstance(result, dict) and "error" in result:
+            self.parent.appendOutput(f"❌ {result['error']}")
+        else:
+            self.parent.appendOutput(str(result))
+
     def initiateSwap(self):
-        sender = self.getAddress()
-        if not sender:
+        addr = self.getAddress()
+        if not addr:
             return
 
         dialog = QDialog(self)
@@ -148,30 +89,46 @@ class SwapTab(QWidget):
 
             hashed = hashlib.sha256(sec.encode()).hexdigest()
             self.parent.appendOutput(f"🧮 Local Secret Hash (preview): {hashed}")
-            cmd = f'{SWAP_CLI} initiate --sender "{sender}" --receiver "{recv}" --amount {amt} --hash "{sec}" --duration {dur}'
-            self.runCLI(cmd)
+            params = [addr, recv, amt, hashed, dur]
+            result = alyncoin_rpc("swap-initiate", params)
+            self.showResult(result)
 
     def redeemSwap(self):
-        self._multiFieldDialog("🧩 Redeem Swap", [
-            ("🆔 Swap ID", "id"),
-            ("🧩 Secret Preimage", "secret")
-        ], lambda d: self.runCLI(f'{SWAP_CLI} redeem --id "{d["id"]}" --secret "{d["secret"]}"'))
+        self._multiFieldDialog(
+            "🧩 Redeem Swap",
+            [("🆔 Swap ID", "id"), ("🧩 Secret Preimage", "secret")],
+            lambda d: self.showResult(
+                alyncoin_rpc("swap-redeem", [d["id"], d["secret"]])
+            ),
+        )
 
     def refundSwap(self):
-        self._singleFieldDialog("⏱ Refund Swap", "Swap ID",
-            lambda sid: self.runCLI(f'{SWAP_CLI} refund --id "{sid}"'))
+        self._singleFieldDialog(
+            "⏱ Refund Swap",
+            "Swap ID",
+            lambda sid: self.showResult(alyncoin_rpc("swap-refund", [sid])),
+        )
 
     def getSwap(self):
-        self._singleFieldDialog("🔍 Get Swap Info", "Swap ID",
-            lambda sid: self.runCLI(f'{SWAP_CLI} get --id "{sid}"'))
+        self._singleFieldDialog(
+            "🔍 Get Swap Info",
+            "Swap ID",
+            lambda sid: self.showResult(alyncoin_rpc("swap-get", [sid])),
+        )
 
     def getState(self):
-        self._singleFieldDialog("📊 Swap State", "Swap ID",
-            lambda sid: self.runCLI(f'{SWAP_CLI} state --id "{sid}"'))
+        self._singleFieldDialog(
+            "📊 Swap State",
+            "Swap ID",
+            lambda sid: self.showResult(alyncoin_rpc("swap-state", [sid])),
+        )
 
     def verifySwap(self):
-        self._singleFieldDialog("🛡 Verify Swap Signature", "Swap ID",
-            lambda sid: self.runCLI(f'{SWAP_CLI} verify --id "{sid}"'))
+        self._singleFieldDialog(
+            "🛡 Verify Swap Signature",
+            "Swap ID",
+            lambda sid: self.showResult(alyncoin_rpc("swap-verify", [sid])),
+        )
 
     def _singleFieldDialog(self, title, label, callback):
         dialog = QDialog(self)
@@ -220,3 +177,4 @@ class SwapTab(QWidget):
                     return
                 result[key] = val
             callback(result)
+
