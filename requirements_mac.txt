@@ -5,4 +5,4 @@ brew install cmake pkg-config git curl zip unzip \
     protobuf boost jsoncpp nlohmann-json spdlog asio \
     miniupnpc libnatpmp python rust && \
 pip3 install --upgrade pip && \
-pip3 install PyQt5 requests dnspython
+pip3 install PyQt5 requests dnspython blake3
