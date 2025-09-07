@@ -6,6 +6,7 @@
 #include "../zk/winterfell_stark.h"
 #include <iostream>
 #include <chrono>
+#include <ctime>
 
 AtomicSwapManager::AtomicSwapManager(AtomicSwapStore* store) : store_(store) {}
 
@@ -60,6 +61,17 @@ bool AtomicSwapManager::redeemSwap(const std::string& uuid, const std::string& s
 
     if (swap.state != SwapState::INITIATED) {
         std::cerr << "[AtomicSwapManager] Swap not in redeemable state.\n";
+        return false;
+    }
+
+    if (secret.empty()) {
+        std::cerr << "[AtomicSwapManager] Secret is required.\n";
+        return false;
+    }
+
+    time_t now = std::time(nullptr);
+    if (now >= swap.expiresAt) {
+        std::cerr << "[AtomicSwapManager] Swap expired.\n";
         return false;
     }
 

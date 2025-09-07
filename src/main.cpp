@@ -649,9 +649,27 @@ svr.Post("/rpc", [blockchain, network, healer, &swapMgr](const httplib::Request&
             else         output = {{"error", "Failed to create swap"}};
         }
         else if (method == "swap-redeem") {
-            bool ok = swapMgr.redeemSwap(params.at(0).get<std::string>(), params.at(1).get<std::string>());
-            output = ok ? nlohmann::json{{"result", "Swap redeemed"}}
-                        : nlohmann::json{{"error", "Redeem failed"}};
+            std::string uuid = params.at(0).get<std::string>();
+            std::string secret = params.at(1).get<std::string>();
+            auto s = swapMgr.getSwap(uuid);
+            if (!s) {
+                output = {{"error", "Swap not found"}};
+            } else {
+                std::ifstream cur(DBPaths::getHomePath() + "/.alyncoin/current_wallet.txt");
+                std::string current;
+                std::getline(cur, current);
+                if (current.empty()) {
+                    output = {{"error", "No wallet loaded"}};
+                } else if (current != s->receiverAddress) {
+                    output = {{"error", "Redeem must be called by the receiver wallet"}};
+                } else if (secret.empty()) {
+                    output = {{"error", "secret is required"}};
+                } else {
+                    bool ok = swapMgr.redeemSwap(uuid, secret);
+                    output = ok ? nlohmann::json{{"result", "Swap redeemed"}}
+                                : nlohmann::json{{"error", "Redeem failed"}};
+                }
+            }
         }
         else if (method == "swap-refund") {
             bool ok = swapMgr.refundSwap(params.at(0).get<std::string>());
