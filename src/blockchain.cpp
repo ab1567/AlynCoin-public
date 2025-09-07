@@ -1613,17 +1613,19 @@ bool Blockchain::loadFromDB() {
           Block blk = Block::fromProto(proto, false);
           if (blk.isGenesisBlock()) {
             if (blk.getHash() != kExpectedGenesisHash) {
-              std::cerr << "❌ [loadFromDB] Embedded genesis block hash mismatch.\n";
+              std::cerr
+                  << "⚠️ [loadFromDB] Embedded genesis block hash mismatch.\n";
               std::cerr << "Expected: " << kExpectedGenesisHash << "\n";
               std::cerr << "Got     : " << blk.getHash() << "\n";
-              return false;
-            }
-            std::cout << "📥 [loadFromDB] Importing embedded genesis ("
-                      << alyn_assets::kEmbeddedGenesisSize << " bytes)\n";
-            if (addBlock(blk)) {
-              imported = true;
-              std::string genesisPath = DBPaths::getGenesisFile();
-              exportGenesisBlock(genesisPath);
+              std::cerr << "Falling back to programmatic genesis...\n";
+            } else {
+              std::cout << "📥 [loadFromDB] Importing embedded genesis ("
+                        << alyn_assets::kEmbeddedGenesisSize << " bytes)\n";
+              if (addBlock(blk)) {
+                imported = true;
+                std::string genesisPath = DBPaths::getGenesisFile();
+                exportGenesisBlock(genesisPath);
+              }
             }
           }
         } catch (const std::exception &e) {
@@ -1653,8 +1655,8 @@ bool Blockchain::loadFromDB() {
     }
 
     if (!imported) {
-      std::cerr <<
-          "❌ [loadFromDB] No genesis block available (embedded disabled/invalid).\n";
+      std::cerr << "⚠️ [loadFromDB] No usable genesis block found."
+                << " Falling back to programmatic genesis...\n";
       return false;
     }
     std::cout << "⏳ Applying vesting schedule for early supporters...\n";
