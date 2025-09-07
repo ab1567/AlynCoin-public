@@ -14,6 +14,7 @@
 #include <json/json.h>
 #include <string>
 #include <vector>
+#include <string_view>
 #include "constants.h"
 #include <boost/multiprecision/cpp_int.hpp>
 
@@ -104,7 +105,7 @@ public:
   //void setMerkleRoot(const std::string &merkle) { merkleRoot = merkle; }
   void setReward(double r);
 
-  void setMerkleRoot(const std::string &root);
+  void setMerkleRoot(std::string_view root);
   void setTransactionsHash(const std::string &hash);
   // --- Other Functions ---
   bool isGenesisBlock() const {
