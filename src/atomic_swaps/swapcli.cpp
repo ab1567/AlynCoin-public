@@ -195,7 +195,7 @@ int main(int argc, char* argv[]) {
             std::string seed = Crypto::blake3(canonicalData);
             std::string expected = std::to_string(swap->amount);  // Can customize if needed
 
-            bool valid = WinterfellStark::verifyProof(*swap->zkProof, seed, expected, "AtomicSwapProof");
+            bool valid = WinterfellStark::verifyProof(*swap->zkProof, seed, "AtomicSwapProof", expected);
             std::cout << (valid ? "✅ zk-STARK Proof Verified\n" : "❌ zk-STARK Proof Invalid\n");
 
         } else {

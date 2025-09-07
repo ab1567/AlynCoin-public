@@ -75,6 +75,7 @@ file(GLOB SOURCES
   ${SOURCE_DIR}/consensus/difficulty.cpp
   ${SOURCE_DIR}/consensus/fork_choice.cpp
   ${SOURCE_DIR}/zk/*.cpp
+  ${SOURCE_DIR}/atomic_swaps/*.cpp
   ${SOURCE_DIR}/rollup/rollup_block.cpp
   ${SOURCE_DIR}/rollup/rollup_utils.cpp
   ${SOURCE_DIR}/rollup/proofs/*.cpp
