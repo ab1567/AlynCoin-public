@@ -417,6 +417,7 @@ class AlynCoinApp(QMainWindow):
         self.walletChanged.connect(self.minerTab.onWalletChanged)
         self.walletChanged.connect(self.statsTab.onWalletChanged)
         self.walletChanged.connect(self.nftTab.onWalletChanged)
+        self.walletChanged.connect(self.swapTab.onWalletChanged)
 
     @pyqtSlot(str)
     def appendOutput(self, text):

@@ -24,6 +24,9 @@ class SwapTab(QWidget):
         self.addButton("🛡 Verify Swap Signature", self.verifySwap, layout)
         self.setLayout(layout)
 
+    def onWalletChanged(self, addr: str):
+        self.parent.appendOutput(f"📬 Active Wallet for Swaps: {addr}")
+
     def addButton(self, label, callback, layout):
         btn = QPushButton(label)
         btn.clicked.connect(callback)
@@ -98,7 +101,7 @@ class SwapTab(QWidget):
             "🧩 Redeem Swap",
             [("🆔 Swap ID", "id"), ("🧩 Secret Preimage", "secret")],
             lambda d: self.showResult(
-                alyncoin_rpc("swap-redeem", [d["id"], d["secret"]])
+                alyncoin_rpc("swap-redeem", [d["id"], d["secret"]]) if d["secret"].strip() else {"error": "Secret cannot be empty"}
             ),
         )
 
