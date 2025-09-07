@@ -3,6 +3,7 @@
 #include "proto_utils.h"
 #include "../crypto_utils.h"
 #include "../zk/winterfell_stark.h"
+#include "../db/db_paths.h"
 #include "atomic_swap.h"
 #include <iostream>
 #include <map>
@@ -123,7 +124,7 @@ int main(int argc, char* argv[]) {
     auto args = parseArgs(argc, argv);
 
     try {
-        std::shared_ptr<AtomicSwapStore> store = std::make_shared<RocksDBAtomicSwapStore>("swapdb");
+        std::shared_ptr<AtomicSwapStore> store = std::make_shared<RocksDBAtomicSwapStore>(DBPaths::getHomePath() + "/swapdb");
         AtomicSwapManager manager(store.get());
 
         if (cmd == "initiate") {
@@ -195,7 +196,7 @@ int main(int argc, char* argv[]) {
             std::string seed = Crypto::blake3(canonicalData);
             std::string expected = std::to_string(swap->amount);  // Can customize if needed
 
-            bool valid = WinterfellStark::verifyProof(*swap->zkProof, seed, expected, "AtomicSwapProof");
+            bool valid = WinterfellStark::verifyProof(*swap->zkProof, seed, "AtomicSwapProof", expected);
             std::cout << (valid ? "✅ zk-STARK Proof Verified\n" : "❌ zk-STARK Proof Invalid\n");
 
         } else {

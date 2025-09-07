@@ -37,6 +37,9 @@
 #include <map>
 #include <regex>
 #include "nft/nft_utils.h"
+#include "atomic_swaps/rocksdb_swap_store.h"
+#include "atomic_swaps/swap_manager.h"
+#include "zk/winterfell_stark.h"
 
 // Print usage information for CLI commands
 void print_usage() {
@@ -147,6 +150,8 @@ static bool importWalletFromFile(const std::string& keyDir, const std::string& i
 
 // --- AlynCoin RPC Server (port 1567) ---
 void start_rpc_server(Blockchain* blockchain, Network* network, SelfHealingNode* healer, int rpc_port = 1567) {
+    RocksDBAtomicSwapStore swapStore(DBPaths::getHomePath() + "/swapdb");
+    AtomicSwapManager swapMgr(&swapStore);
     httplib::Server svr;
 
     std::thread updater([blockchain, network]() {
@@ -168,7 +173,7 @@ void start_rpc_server(Blockchain* blockchain, Network* network, SelfHealingNode*
         res.set_content(metrics::toPrometheus(), "text/plain");
     });
 
-svr.Post("/rpc", [blockchain, network, healer](const httplib::Request& req, httplib::Response& res) {
+svr.Post("/rpc", [blockchain, network, healer, &swapMgr](const httplib::Request& req, httplib::Response& res) {
     nlohmann::json input;
     try {
         input = nlohmann::json::parse(req.body);
@@ -630,6 +635,67 @@ svr.Post("/rpc", [blockchain, network, healer](const httplib::Request& req, http
                 }
             }
             output = {{"result", {{"blocks_mined", count}, {"total_rewards", reward}}}};
+        }
+
+        // ===================== SWAP SPACE =====================
+        else if (method == "swap-initiate") {
+            std::string sender   = params.at(0).get<std::string>();
+            std::string receiver = params.at(1).get<std::string>();
+            uint64_t amount      = std::stoull(params.at(2).get<std::string>());
+            std::string secretHash = params.at(3).get<std::string>();
+            time_t duration      = static_cast<time_t>(std::stoll(params.at(4).get<std::string>()));
+            auto uuidOpt = swapMgr.initiateSwap(sender, receiver, amount, secretHash, duration);
+            if (uuidOpt) output = {{"result", *uuidOpt}};
+            else         output = {{"error", "Failed to create swap"}};
+        }
+        else if (method == "swap-redeem") {
+            bool ok = swapMgr.redeemSwap(params.at(0).get<std::string>(), params.at(1).get<std::string>());
+            output = ok ? nlohmann::json{{"result", "Swap redeemed"}}
+                        : nlohmann::json{{"error", "Redeem failed"}};
+        }
+        else if (method == "swap-refund") {
+            bool ok = swapMgr.refundSwap(params.at(0).get<std::string>());
+            output = ok ? nlohmann::json{{"result", "Swap refunded"}}
+                        : nlohmann::json{{"error", "Refund failed"}};
+        }
+        else if (method == "swap-get") {
+            auto s = swapMgr.getSwap(params.at(0).get<std::string>());
+            if (s) {
+                nlohmann::json j{{"uuid", s->uuid}, {"sender", s->senderAddress}, {"receiver", s->receiverAddress},
+                                  {"amount", s->amount}, {"secretHash", s->secretHash},
+                                  {"secret", s->secret.value_or("")}, {"createdAt", s->createdAt},
+                                  {"expiresAt", s->expiresAt}, {"state", static_cast<int>(s->state)}};
+                output = {{"result", j}};
+            } else {
+                output = {{"error", "Swap not found"}};
+            }
+        }
+        else if (method == "swap-state") {
+            SwapState st = swapMgr.getSwapState(params.at(0).get<std::string>());
+            output = {{"result", static_cast<int>(st)}};
+        }
+        else if (method == "swap-verify") {
+            auto s = swapMgr.getSwap(params.at(0).get<std::string>());
+            if (s && verifySwapSignature(*s)) {
+                output = {{"result", "Signature valid"}};
+            } else {
+                output = {{"error", "Invalid signature or swap not found"}};
+            }
+        }
+        else if (method == "swap-verifyproof") {
+            auto s = swapMgr.getSwap(params.at(0).get<std::string>());
+            if (!s || !s->zkProof) {
+                output = {{"error", "No proof"}};
+            } else {
+                std::string canonical = s->uuid + s->senderAddress + s->receiverAddress +
+                                        std::to_string(s->amount) + s->secretHash +
+                                        std::to_string(s->createdAt) + std::to_string(s->expiresAt);
+                std::string seed = Crypto::blake3(canonical);
+                std::string expected = std::to_string(s->amount);
+                bool ok = WinterfellStark::verifyProof(*s->zkProof, seed, "AtomicSwapProof", expected);
+                output = ok ? nlohmann::json{{"result", "Proof valid"}}
+                            : nlohmann::json{{"error", "Proof invalid"}};
+            }
         }
 
         // ===================== NFT SPACE =====================
