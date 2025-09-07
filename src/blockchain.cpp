@@ -1655,23 +1655,20 @@ bool Blockchain::loadFromDB() {
         (std::getenv("ALYNCOIN_ALLOW_FILE_GENESIS") != nullptr);
     if (!imported && allowFileGenesis) {
       const std::string genesisPath = DBPaths::getGenesisFile();
-      if (!fs::exists(genesisPath)) {
-        std::cerr << "❌ [loadFromDB] ALLOW_FILE_GENESIS is set, but "
-                  << genesisPath << " does not exist. Aborting.\n";
-        return false;
+      if (fs::exists(genesisPath)) {
+        std::cout << "📥 [loadFromDB] Importing genesis block from "
+                  << genesisPath << "\n";
+        if (!importGenesisBlock(genesisPath)) {
+          std::cerr << "❌ [loadFromDB] Genesis import failed. Aborting.\n";
+          return false;
+        }
+        imported = true;
       }
-      std::cout << "📥 [loadFromDB] Importing genesis block from "
-                << genesisPath << "\n";
-      if (!importGenesisBlock(genesisPath)) {
-        std::cerr << "❌ [loadFromDB] Genesis import failed. Aborting.\n";
-        return false;
-      }
-      imported = true;
     }
 
     if (!imported) {
-      std::cerr << "❌ [loadFromDB] No genesis block available (embedded "
-                   "disabled/invalid and file import not allowed).\n";
+      std::cerr <<
+          "❌ [loadFromDB] No genesis block available (embedded disabled/invalid).\n";
       return false;
     }
     std::cout << "⏳ Applying vesting schedule for early supporters...\n";

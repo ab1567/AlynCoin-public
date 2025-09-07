@@ -23,9 +23,6 @@
 
 namespace fs = std::filesystem;
 
-const double BASE_BLOCK_REWARD = 50.0; // Fixed block reward per mined block
-const double MAX_BURN_RATE = 0.05;     // Max 5% burn rate
-const double MIN_BURN_RATE = 0.01;     // Min 1% burn rate
 
 void ensureRootConsistency(const Block &b, int idx) {
   if (b.merkleRoot != b.transactionsHash) {

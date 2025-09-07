@@ -17,6 +17,11 @@ inline constexpr std::string_view EMPTY_TX_ROOT_HASH =
 // massive allocations when computing the initial accumulated work.
 inline constexpr uint32_t GENESIS_DIFFICULTY = 1;
 
+// Base block reward and burn-rate bounds
+inline constexpr double BASE_BLOCK_REWARD = 25.0; // Fixed block reward
+inline constexpr double MAX_BURN_RATE = 0.05;     // Max 5% burn rate
+inline constexpr double MIN_BURN_RATE = 0.01;     // Min 1% burn rate
+
 inline constexpr int DESYNC_THRESHOLD = 5000;
 
 // allow larger snapshot transfers for cold sync
