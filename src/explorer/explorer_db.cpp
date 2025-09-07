@@ -4,6 +4,7 @@
 #include <generated/transaction_protos.pb.h>
 #include "../block.h"
 #include "../transaction.h"
+#include "../constants.h"
 #include <iostream>
 #include <sstream>
 
@@ -119,8 +120,8 @@ Json::Value ExplorerDB::getBlockchainStats() {
     }
     delete it;
 
-    // Total supply = Block count × block reward (simple logic, can adjust for actual reward schedule)
-    totalSupply = blockCount * 50;  // Base reward aligned with protocol
+    // Total supply = Block count × base block reward (simple logic, adjust as needed)
+    totalSupply = blockCount * BASE_BLOCK_REWARD;
 
     stats["blockHeight"] = blockCount;
     stats["transactionCount"] = txCount;
