@@ -32,7 +32,8 @@
 
 // Mutex protecting in-memory chain state. Functions interacting with RocksDB
 // should release this lock before performing disk writes to avoid deadlocks.
-extern std::mutex blockchainMutex;
+// This mutex is a member of the Blockchain class and guards access to the
+// in-memory chain data structures.
 extern double totalSupply;
 
 using boost::asio::ip::tcp;
@@ -64,7 +65,7 @@ private:
   double blockReward = BASE_BLOCK_REWARD;
   int difficulty;
   double miningReward;
-  mutable std::mutex chainMtx;  // protects in-memory chain vector
+  mutable std::mutex blockchainMutex;  // protects in-memory chain vector
   std::string minerAddress;
   Network *network;
   rocksdb::DB *db;

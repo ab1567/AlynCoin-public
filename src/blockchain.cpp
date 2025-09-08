@@ -74,9 +74,8 @@ std::string Blockchain::computeEpochRoot(size_t endIndex) const {
 }
 Blockchain &getBlockchain() { return Blockchain::getActiveInstance(); }
 
-// Global mutex for blockchain safety. Avoid holding this during RocksDB writes
-// to prevent deadlocks across threads.
-std::mutex blockchainMutex;
+// Mutex protecting in-memory blockchain state. Avoid holding this during
+// RocksDB writes to prevent deadlocks across threads.
 std::atomic<bool> Blockchain::isMining{false};
 std::atomic<bool> Blockchain::isRecovering{false};
 
@@ -491,7 +490,7 @@ bool Blockchain::importGenesisBlock(const std::string &path) {
 
 // ✅ Adds block, applies smart burn, and broadcasts to peers
 bool Blockchain::addBlock(const Block &block, bool lockHeld) {
-  std::unique_lock<std::mutex> lk(chainMtx, std::defer_lock);
+  std::unique_lock<std::mutex> lk(blockchainMutex, std::defer_lock);
   if (!lockHeld)
     lk.lock();
   std::cerr << "[addBlock] Attempting: idx=" << block.getIndex()
@@ -748,7 +747,7 @@ bool Blockchain::addBlock(const Block &block, bool lockHeld) {
 }
 
 bool Blockchain::tryAddBlock(const Block &block, ValidationResult &out) {
-  std::scoped_lock lk(chainMtx);
+  std::scoped_lock lk(blockchainMutex);
 
   if (!chain.empty()) {
     if (block.getIndex() <= chain.back().getIndex())
@@ -884,7 +883,7 @@ rocksdb::DB *Blockchain::getRawDB() { return this->db; }
 const std::vector<Block> &Blockchain::getChain() const { return chain; }
 
 std::vector<Block> Blockchain::snapshot() const {
-  std::lock_guard<std::mutex> lk(chainMtx);
+  std::lock_guard<std::mutex> lk(blockchainMutex);
   return chain;
 }
 //
