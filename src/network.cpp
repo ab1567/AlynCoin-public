@@ -3296,7 +3296,7 @@ void Network::sendTailBlocks(std::shared_ptr<Transport> transport,
   }
   constexpr std::size_t MSG_LIMIT = MAX_TAIL_PAYLOAD;
   int start = fromHeight + 1;
-  int end = std::min(bc.getHeight(), start + MAX_TAIL_BLOCKS - 1);
+  int end = std::min(static_cast<int>(bc.getHeight()), start + MAX_TAIL_BLOCKS - 1);
   std::vector<Block> chainCopy = bc.snapshot();
   auto flushTail = [&](alyncoin::net::TailBlocks &tb) {
     if (tb.blocks_size() == 0)

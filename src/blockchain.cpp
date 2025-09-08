@@ -36,6 +36,7 @@
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
+#include <ctime>
 
 using boost::multiprecision::cpp_int;
 
@@ -3136,11 +3137,55 @@ std::vector<RollupBlock> Blockchain::getAllRollupBlocks() const {
   return rollupChain;
 }
 
-// Get current blockchain height
-int Blockchain::getHeight() const { return static_cast<int>(chain.size()) - 1; }
+// ---------------------------------------------------------------------
+// Read-only helpers
+
+Blockchain::SupplyInfo Blockchain::getSupplyInfo() const {
+  std::lock_guard<std::mutex> lock(blockchainMutex);
+  SupplyInfo info;
+  info.total = static_cast<uint64_t>(totalSupply);
+  info.burned = static_cast<uint64_t>(totalBurnedSupply);
+  uint64_t locked = 0;
+  std::time_t now = std::time(nullptr);
+  for (const auto &kv : vestingMap) {
+    if (kv.second.unlockTimestamp > now) {
+      locked += static_cast<uint64_t>(kv.second.lockedAmount);
+    }
+  }
+  info.locked = locked;
+  if (info.total >= info.burned + info.locked)
+    info.circulating = info.total - info.burned - info.locked;
+  return info;
+}
+
+uint64_t Blockchain::getBalanceOf(const std::string &address) const {
+  std::lock_guard<std::mutex> lock(blockchainMutex);
+  auto it = balances.find(address);
+  if (it != balances.end())
+    return static_cast<uint64_t>(it->second);
+  return 0;
+}
+
+int Blockchain::getHeight() const {
+  std::lock_guard<std::mutex> lock(blockchainMutex);
+  return static_cast<int>(chain.size()) - 1;
+}
+
+std::string Blockchain::getTipHashHex() const {
+  std::lock_guard<std::mutex> lock(blockchainMutex);
+  if (chain.empty()) return "";
+  return chain.back().getHash();
+}
+
+uint32_t Blockchain::getPeerCount() const {
+  if (network && network->getPeerManager())
+    return static_cast<uint32_t>(network->getPeerManager()->getPeerCount());
+  return 0;
+}
 
 // Get block hash at specific height
 std::string Blockchain::getBlockHashAtHeight(int height) const {
+  std::lock_guard<std::mutex> lock(blockchainMutex);
   if (height >= 0 && height < static_cast<int>(chain.size())) {
     return chain[height].getHash();
   }
@@ -3149,23 +3194,24 @@ std::string Blockchain::getBlockHashAtHeight(int height) const {
 
 // Rollback to a specific block height (inclusive)
 bool Blockchain::rollbackToHeight(int height) {
-  std::unique_lock<std::mutex> lock(blockchainMutex);
+  {
+    std::lock_guard<std::mutex> lock(blockchainMutex);
 
-  if (height < 0 || height >= static_cast<int>(chain.size())) {
-    std::cerr << "❌ Invalid rollback height: " << height << "\n";
-    return false;
+    if (height < 0 || height >= static_cast<int>(chain.size())) {
+      std::cerr << "❌ Invalid rollback height: " << height << "\n";
+      return false;
+    }
+
+    chain.resize(height + 1);
+    std::cout << "⏪ Chain rolled back to height: " << height << "\n";
+
+    // Recalculate everything post-trim
+    recalculateBalancesFromChain();
+    applyRollupDeltasToBalances();
+    recomputeChainWork();
   }
 
-  chain.resize(height + 1);
-  std::cout << "⏪ Chain rolled back to height: " << height << "\n";
-
-  // Recalculate everything post-trim
-  recalculateBalancesFromChain();
-  applyRollupDeltasToBalances();
-  recomputeChainWork();
-  lock.unlock();
   saveToDB();
-
   return true;
 }
 

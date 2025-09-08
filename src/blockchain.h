@@ -210,6 +210,19 @@ public:
   void addRollupBlock(const RollupBlock &newRollupBlock);
   bool isRollupBlockValid(const RollupBlock &newRollupBlock, bool skipProofVerification = false) const;
   double getBalance(const std::string &publicKey) const;
+  // --- New supply/balance helpers ---
+  struct SupplyInfo {
+    uint64_t total = 0;
+    uint64_t burned = 0;
+    uint64_t circulating = 0;
+    uint64_t locked = 0;
+  };
+  SupplyInfo getSupplyInfo() const;
+  uint64_t getBalanceOf(const std::string& address) const;
+  int getHeight() const;               // chain height (last index)
+  std::string getTipHashHex() const;   // hex string of tip hash
+  uint64_t getTotalWork() const { return totalWork; } // cumulative work
+  uint32_t getPeerCount() const;       // connected peers
   int getBlockCount() const { return static_cast<int>(chain.size()); }
   void addVestingForEarlySupporter(const std::string &address, double initialAmount);
   bool castVote(const std::string &voterAddress, const std::string &candidateAddress);
@@ -228,9 +241,7 @@ public:
   std::string getLastRollupHash() const;
   std::string getLastRollupProof() const;
 
-  int getHeight() const;
   int getCheckpointHeight() const { return checkpointHeight; }
-  uint64_t getTotalWork() const { return totalWork; }
   void broadcastNewTip();
   std::string getBlockHashAtHeight(int height) const;
   bool rollbackToHeight(int height);
