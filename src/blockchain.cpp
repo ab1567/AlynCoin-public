@@ -36,6 +36,7 @@
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
+#include <ctime>
 
 using boost::multiprecision::cpp_int;
 
@@ -73,9 +74,8 @@ std::string Blockchain::computeEpochRoot(size_t endIndex) const {
 }
 Blockchain &getBlockchain() { return Blockchain::getActiveInstance(); }
 
-// Global mutex for blockchain safety. Avoid holding this during RocksDB writes
-// to prevent deadlocks across threads.
-std::mutex blockchainMutex;
+// Mutex protecting in-memory blockchain state. Avoid holding this during
+// RocksDB writes to prevent deadlocks across threads.
 std::atomic<bool> Blockchain::isMining{false};
 std::atomic<bool> Blockchain::isRecovering{false};
 
@@ -490,7 +490,7 @@ bool Blockchain::importGenesisBlock(const std::string &path) {
 
 // ✅ Adds block, applies smart burn, and broadcasts to peers
 bool Blockchain::addBlock(const Block &block, bool lockHeld) {
-  std::unique_lock<std::mutex> lk(chainMtx, std::defer_lock);
+  std::unique_lock<std::mutex> lk(blockchainMutex, std::defer_lock);
   if (!lockHeld)
     lk.lock();
   std::cerr << "[addBlock] Attempting: idx=" << block.getIndex()
@@ -747,7 +747,7 @@ bool Blockchain::addBlock(const Block &block, bool lockHeld) {
 }
 
 bool Blockchain::tryAddBlock(const Block &block, ValidationResult &out) {
-  std::scoped_lock lk(chainMtx);
+  std::scoped_lock lk(blockchainMutex);
 
   if (!chain.empty()) {
     if (block.getIndex() <= chain.back().getIndex())
@@ -883,7 +883,7 @@ rocksdb::DB *Blockchain::getRawDB() { return this->db; }
 const std::vector<Block> &Blockchain::getChain() const { return chain; }
 
 std::vector<Block> Blockchain::snapshot() const {
-  std::lock_guard<std::mutex> lk(chainMtx);
+  std::lock_guard<std::mutex> lk(blockchainMutex);
   return chain;
 }
 //
@@ -2995,7 +2995,7 @@ std::unordered_map<std::string, double> Blockchain::getCurrentState() const {
 }
 //
 void Blockchain::clear(bool force) {
-  std::lock_guard<std::mutex> lock(mutex);
+  std::lock_guard<std::mutex> lock(blockchainMutex);
 
   if (!force && !chain.empty()) {
     std::cerr << "⚠️ Blockchain::clear() skipped — chain already initialized. "
@@ -3136,11 +3136,55 @@ std::vector<RollupBlock> Blockchain::getAllRollupBlocks() const {
   return rollupChain;
 }
 
-// Get current blockchain height
-int Blockchain::getHeight() const { return static_cast<int>(chain.size()) - 1; }
+// ---------------------------------------------------------------------
+// Read-only helpers
+
+Blockchain::SupplyInfo Blockchain::getSupplyInfo() const {
+  std::lock_guard<std::mutex> lock(blockchainMutex);
+  SupplyInfo info;
+  info.total = static_cast<uint64_t>(totalSupply);
+  info.burned = static_cast<uint64_t>(totalBurnedSupply);
+  uint64_t locked = 0;
+  std::time_t now = std::time(nullptr);
+  for (const auto &kv : vestingMap) {
+    if (kv.second.unlockTimestamp > now) {
+      locked += static_cast<uint64_t>(kv.second.lockedAmount);
+    }
+  }
+  info.locked = locked;
+  if (info.total >= info.burned + info.locked)
+    info.circulating = info.total - info.burned - info.locked;
+  return info;
+}
+
+uint64_t Blockchain::getBalanceOf(const std::string &address) const {
+  std::lock_guard<std::mutex> lock(blockchainMutex);
+  auto it = balances.find(address);
+  if (it != balances.end())
+    return static_cast<uint64_t>(it->second);
+  return 0;
+}
+
+int Blockchain::getHeight() const {
+  std::lock_guard<std::mutex> lock(blockchainMutex);
+  return static_cast<int>(chain.size()) - 1;
+}
+
+std::string Blockchain::getTipHashHex() const {
+  std::lock_guard<std::mutex> lock(blockchainMutex);
+  if (chain.empty()) return "";
+  return chain.back().getHash();
+}
+
+uint32_t Blockchain::getPeerCount() const {
+  if (network && network->getPeerManager())
+    return static_cast<uint32_t>(network->getPeerManager()->getPeerCount());
+  return 0;
+}
 
 // Get block hash at specific height
 std::string Blockchain::getBlockHashAtHeight(int height) const {
+  std::lock_guard<std::mutex> lock(blockchainMutex);
   if (height >= 0 && height < static_cast<int>(chain.size())) {
     return chain[height].getHash();
   }
@@ -3149,7 +3193,7 @@ std::string Blockchain::getBlockHashAtHeight(int height) const {
 
 // Rollback to a specific block height (inclusive)
 bool Blockchain::rollbackToHeight(int height) {
-  std::unique_lock<std::mutex> lock(blockchainMutex);
+  std::unique_lock<std::mutex> lk(blockchainMutex);
 
   if (height < 0 || height >= static_cast<int>(chain.size())) {
     std::cerr << "❌ Invalid rollback height: " << height << "\n";
@@ -3159,22 +3203,15 @@ bool Blockchain::rollbackToHeight(int height) {
   chain.resize(height + 1);
   std::cout << "⏪ Chain rolled back to height: " << height << "\n";
 
-  // Recalculate everything post-trim
   recalculateBalancesFromChain();
   applyRollupDeltasToBalances();
   recomputeChainWork();
-  lock.unlock();
-  saveToDB();
 
+  lk.unlock();
+  saveToDB();
   return true;
 }
 
-//
-std::string DBPaths::getKeyPath(const std::string &address) {
-  return DBPaths::getKeyDir() + address + "_combined.key";
-}
-
-//
 time_t Blockchain::getLastRollupTimestamp() const {
   if (rollupBlocks.empty())
     return 0;
@@ -3303,7 +3340,7 @@ void Blockchain::recomputeChainWork() {
 }
 //
 std::vector<Block> Blockchain::getChainUpTo(size_t height) const {
-  std::lock_guard<std::mutex> lk(mutex);
+  std::lock_guard<std::mutex> lk(blockchainMutex);
   if (chain.empty())
     return {};
 
@@ -3315,7 +3352,7 @@ std::vector<Block> Blockchain::getChainUpTo(size_t height) const {
 
 std::vector<Block> Blockchain::getChainSlice(size_t startHeight,
                                              size_t endHeight) const {
-  std::lock_guard<std::mutex> lk(mutex);
+  std::lock_guard<std::mutex> lk(blockchainMutex);
   if (chain.empty())
     return {};
 
@@ -3330,7 +3367,7 @@ std::vector<Block> Blockchain::getChainSlice(size_t startHeight,
 
 //
 bool Blockchain::tryAppendBlock(const Block &blk) {
-  std::unique_lock<std::mutex> lk(mutex);
+  std::unique_lock<std::mutex> lk(blockchainMutex);
 
   if (blk.getIndex() != static_cast<int>(chain.size()))
     return false;

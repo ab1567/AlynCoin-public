@@ -823,10 +823,7 @@ void Network::autoMineBlock() {
             Crypto::verifyWithFalcon(msgHash, sigFal, pubFal);
 
         if (blockchain.isValidNewBlock(minedBlock) && validSignatures) {
-          {
-            std::lock_guard<std::mutex> lock(blockchainMutex);
-            Blockchain::getInstance().saveToDB();
-          }
+          Blockchain::getInstance().saveToDB();
           broadcastBlock(minedBlock);
           blockchain.broadcastNewTip();
           autoSyncIfBehind();
@@ -3135,7 +3132,6 @@ void Network::receiveRollupBlock(const std::string &data) {
 void Network::handleNewRollupBlock(const RollupBlock &newRollupBlock) {
   if (Blockchain::getInstance().isRollupBlockValid(newRollupBlock)) {
     Blockchain::getInstance().addRollupBlock(newRollupBlock);
-    std::lock_guard<std::mutex> lock(blockchainMutex);
     Blockchain::getInstance().saveRollupChain();
     std::cout << "[INFO] New rollup block added. Index: "
               << newRollupBlock.getIndex() << "\n";
@@ -3296,7 +3292,7 @@ void Network::sendTailBlocks(std::shared_ptr<Transport> transport,
   }
   constexpr std::size_t MSG_LIMIT = MAX_TAIL_PAYLOAD;
   int start = fromHeight + 1;
-  int end = std::min(bc.getHeight(), start + MAX_TAIL_BLOCKS - 1);
+  int end = std::min(static_cast<int>(bc.getHeight()), start + MAX_TAIL_BLOCKS - 1);
   std::vector<Block> chainCopy = bc.snapshot();
   auto flushTail = [&](alyncoin::net::TailBlocks &tb) {
     if (tb.blocks_size() == 0)

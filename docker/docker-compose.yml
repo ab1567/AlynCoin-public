@@ -1,0 +1,12 @@
+version: '3'
+services:
+  seed:
+    build: ..
+    container_name: alyn-seed
+    restart: unless-stopped
+    volumes:
+      - ~/.alyncoin:/root/.alyncoin
+    ports:
+      - "15671:15671"
+      - "1567:1567"
+    command: ["alyncoin", "--port", "15671", "--rpc-bind", "0.0.0.0:1567", "--rpc-cors", "*"]

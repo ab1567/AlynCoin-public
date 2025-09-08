@@ -36,6 +36,8 @@
 #include "nft/crypto/aes_utils.h"
 #include <map>
 #include <regex>
+#include <algorithm>
+#include <cctype>
 #include "nft/nft_utils.h"
 #include "atomic_swaps/rocksdb_swap_store.h"
 #include "atomic_swaps/swap_manager.h"
@@ -148,11 +150,25 @@ static bool importWalletFromFile(const std::string& keyDir, const std::string& i
     return true;
 }
 
-// --- AlynCoin RPC Server (port 1567) ---
-void start_rpc_server(Blockchain* blockchain, Network* network, SelfHealingNode* healer, int rpc_port = 1567) {
+// --- AlynCoin RPC/HTTP Server ---
+void start_rpc_server(Blockchain* blockchain, Network* network, SelfHealingNode* healer,
+                      const std::string& rpc_host, int rpc_port) {
     RocksDBAtomicSwapStore swapStore(DBPaths::getHomePath() + "/swapdb");
     AtomicSwapManager swapMgr(&swapStore);
     httplib::Server svr;
+    const auto cors = getAppConfig().rpc_cors;
+    auto set_cors = [cors](httplib::Response& res) {
+        if (!cors.empty()) {
+            res.set_header("Access-Control-Allow-Origin", cors.c_str());
+            res.set_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+            res.set_header("Access-Control-Allow-Headers", "Content-Type");
+        }
+    };
+
+    svr.Options(R"(/.*)", [set_cors](const httplib::Request&, httplib::Response& res) {
+        set_cors(res);
+        res.status = 204;
+    });
 
     std::thread updater([blockchain, network]() {
         while (true) {
@@ -173,7 +189,55 @@ void start_rpc_server(Blockchain* blockchain, Network* network, SelfHealingNode*
         res.set_content(metrics::toPrometheus(), "text/plain");
     });
 
-svr.Post("/rpc", [blockchain, network, healer, &swapMgr](const httplib::Request& req, httplib::Response& res) {
+    svr.Get("/healthz", [blockchain, set_cors](const httplib::Request&, httplib::Response& res) {
+        nlohmann::json out{{"ok", true},
+                           {"height", blockchain->getHeight()},
+                           {"tip", blockchain->getTipHashHex()},
+                           {"peers", blockchain->getPeerCount()}};
+        res.set_content(out.dump(), "application/json");
+        set_cors(res);
+    });
+
+    svr.Get("/status", [blockchain, network, set_cors](const httplib::Request&, httplib::Response& res) {
+        nlohmann::json info{{"network", "mainnet"},
+                             {"version", "0.1.0"},
+                             {"height", blockchain->getHeight()},
+                             {"tipHash", blockchain->getTipHashHex()},
+                             {"totalWork", blockchain->getTotalWork()},
+                             {"peers", blockchain->getPeerCount()},
+                             {"timestamp", (uint64_t)std::time(nullptr)}};
+        res.set_content(info.dump(), "application/json");
+        set_cors(res);
+    });
+
+    svr.Get("/supply", [blockchain, set_cors](const httplib::Request&, httplib::Response& res) {
+        auto s = blockchain->getSupplyInfo();
+        nlohmann::json out{{"total", s.total}, {"burned", s.burned},
+                           {"locked", s.locked}, {"circulating", s.circulating}};
+        res.set_content(out.dump(), "application/json");
+        set_cors(res);
+    });
+
+    svr.Get(R"(/balance/(.+))", [blockchain, set_cors](const httplib::Request& req, httplib::Response& res) {
+        std::string addr = req.matches[1];
+        auto is_valid = [](const std::string& a) {
+            if (a.rfind("ALYN", 0) == 0)
+                return a.size() >= 10 && a.size() <= 64;
+            if (a.size() < 34 || a.size() > 64) return false;
+            return std::all_of(a.begin(), a.end(), [](unsigned char c){ return std::isxdigit(c); });
+        };
+        if (!is_valid(addr)) {
+            res.status = 400;
+            res.set_content("{\"error\":\"invalid address\"}", "application/json");
+        } else {
+            uint64_t bal = blockchain->getBalanceOf(addr);
+            nlohmann::json out{{"address", addr}, {"balance", bal}};
+            res.set_content(out.dump(), "application/json");
+        }
+        set_cors(res);
+    });
+
+    svr.Post("/rpc", [blockchain, network, healer, &swapMgr, set_cors](const httplib::Request& req, httplib::Response& res) {
     nlohmann::json input;
     try {
         input = nlohmann::json::parse(req.body);
@@ -188,8 +252,56 @@ svr.Post("/rpc", [blockchain, network, healer, &swapMgr](const httplib::Request&
     auto params = input.value("params", nlohmann::json::array());
 
     try {
+        // --- Chain helpers ---
+        if (method == "chain.getInfo") {
+            nlohmann::json info{{"network", "mainnet"},
+                                {"version", "0.1.0"},
+                                {"height", blockchain->getHeight()},
+                                {"tipHash", blockchain->getTipHashHex()},
+                                {"totalWork", blockchain->getTotalWork()},
+                                {"peers", blockchain->getPeerCount()},
+                                {"timestamp", (uint64_t)std::time(nullptr)}};
+            output = {{"result", info}};
+        }
+        else if (method == "chain.getSupply") {
+            auto s = blockchain->getSupplyInfo();
+            nlohmann::json info{{"total", s.total}, {"burned", s.burned},
+                                {"locked", s.locked}, {"circulating", s.circulating}};
+            output = {{"result", info}};
+        }
+        else if (method == "address.getBalance") {
+            std::string addr;
+            if (input.contains("params") && input["params"].is_object())
+                addr = input["params"].value("address", "");
+            auto is_valid = [](const std::string& a) {
+                if (a.rfind("ALYN", 0) == 0)
+                    return a.size() >= 10 && a.size() <= 64;
+                if (a.size() < 34 || a.size() > 64) return false;
+                return std::all_of(a.begin(), a.end(), [](unsigned char c){ return std::isxdigit(c); });
+            };
+            if (!is_valid(addr)) {
+                output = {{"error", nlohmann::json{{"code", -32602}, {"message", "Invalid address"}}}};
+            } else {
+                uint64_t bal = blockchain->getBalanceOf(addr);
+                output = {{"result", nlohmann::json{{"address", addr}, {"balance", bal}}}};
+            }
+        }
+        else if (method == "system.selfHealNow") {
+            std::thread([healer]() { healer->monitorAndHeal(); }).detach();
+            output = {{"result", nlohmann::json{{"ok", true}}}};
+        }
+        else if (method == "bridge.getPoR") {
+            auto &cfg = getAppConfig();
+            nlohmann::json r{{"reserveAlyn", blockchain->getBalanceOf(cfg.reserve_address)}};
+            if (cfg.por_expected_walyn > 0) {
+                r["expectedWalyn"] = cfg.por_expected_walyn;
+                r["delta"] = r["reserveAlyn"].get<uint64_t>() - static_cast<uint64_t>(cfg.por_expected_walyn);
+            }
+            output = {{"result", r}};
+        }
+
         // Wallet
-        if (method == "balance") {
+        else if (method == "balance") {
             std::string addr = params.at(0);
             double bal = blockchain->getBalance(addr);
             output = {{"result", bal}};
@@ -933,10 +1045,11 @@ svr.Post("/rpc", [blockchain, network, healer, &swapMgr](const httplib::Request&
         output = {{"error", e.what()}};
     }
     res.set_content(output.dump(), "application/json");
+    set_cors(res);
 });
 
-    printf("🚀 [AlynCoin RPC] Listening on http://0.0.0.0:%d/rpc\n", rpc_port);
-    svr.listen("0.0.0.0", rpc_port);
+    printf("🚀 [AlynCoin RPC] Listening on http://%s:%d/rpc\n", rpc_host.c_str(), rpc_port);
+    svr.listen(rpc_host.c_str(), rpc_port);
 }
 
 void clearInputBuffer() {
@@ -951,6 +1064,7 @@ int main(int argc, char *argv[]) {
     bool portSpecified = false;
     unsigned short rpcPort = 1567;
     bool rpcPortSpecified = false;
+    std::string rpcBindHost = "0.0.0.0";
     std::string dbPath = DBPaths::getBlockchainDB();
     std::string connectIP = "";
     std::string keyDir = DBPaths::getKeyDir();
@@ -969,6 +1083,25 @@ int main(int argc, char *argv[]) {
             rpcPort = static_cast<unsigned short>(std::stoi(argv[++i]));
             rpcPortSpecified = true;
             std::cout << "🔌 Using RPC port: " << rpcPort << std::endl;
+        } else if (arg.rfind("--rpc-bind", 0) == 0) {
+            std::string val;
+            if (arg == "--rpc-bind" && i + 1 < argc) val = argv[++i];
+            else if (arg.find("--rpc-bind=") == 0) val = arg.substr(11);
+            auto pos = val.find(':');
+            if (pos != std::string::npos) {
+                rpcBindHost = val.substr(0, pos);
+                rpcPort = static_cast<unsigned short>(std::stoi(val.substr(pos + 1)));
+                rpcPortSpecified = true;
+                std::cout << "🔌 RPC bind: " << rpcBindHost << ':' << rpcPort << std::endl;
+            }
+        } else if (arg == "--rpc-cors" && i + 1 < argc) {
+            getAppConfig().rpc_cors = argv[++i];
+        } else if (arg == "--self-heal-interval" && i + 1 < argc) {
+            getAppConfig().self_heal_interval = std::stoi(argv[++i]);
+        } else if (arg == "--reserve-address" && i + 1 < argc) {
+            getAppConfig().reserve_address = argv[++i];
+        } else if (arg == "--por-expected-walyn" && i + 1 < argc) {
+            getAppConfig().por_expected_walyn = std::stod(argv[++i]);
         } else if (arg == "--dbpath" && i + 1 < argc) {
             dbPath = argv[++i];
             std::cout << "📁 Using custom DB path: " << dbPath << std::endl;
@@ -1006,6 +1139,16 @@ int main(int argc, char *argv[]) {
             return 1;
         }
     }
+    getAppConfig().rpc_bind = rpcBindHost + ":" + std::to_string(rpcPort);
+    std::cout << "🔌 RPC bind: " << rpcBindHost << ':' << rpcPort << std::endl;
+    if (!getAppConfig().rpc_cors.empty())
+        std::cout << "🌐 RPC CORS: " << getAppConfig().rpc_cors << std::endl;
+    if (getAppConfig().self_heal_interval > 0)
+        std::cout << "🩺 Self-heal interval: " << getAppConfig().self_heal_interval << " sec\n";
+    if (!getAppConfig().reserve_address.empty())
+        std::cout << "🏦 Reserve address: " << getAppConfig().reserve_address << std::endl;
+    if (getAppConfig().por_expected_walyn > 0)
+        std::cout << "💱 Expected wALYN: " << getAppConfig().por_expected_walyn << std::endl;
     std::string blacklistPath = dbPath + "/blacklist";
     {
         std::error_code ec;
@@ -1047,17 +1190,20 @@ int main(int argc, char *argv[]) {
     PeerManager *peerManager = network ? network->getPeerManager() : nullptr;
     SelfHealingNode healer(&blockchain, peerManager);
 
-    std::thread autoHealThread([&]() {
-        while (true) {
-            std::this_thread::sleep_for(std::chrono::seconds(30));
-            std::cout << "\n🩺 [Auto-Heal] Running periodic health monitor...\n";
-            healer.monitorAndHeal();
-        }
-    });
-    autoHealThread.detach();
+    if (getAppConfig().self_heal_interval > 0) {
+        int interval = getAppConfig().self_heal_interval;
+        std::thread autoHealThread([&, interval]() {
+            while (true) {
+                std::this_thread::sleep_for(std::chrono::seconds(interval));
+                std::cout << "\n🩺 [Auto-Heal] Running periodic health monitor...\n";
+                healer.monitorAndHeal();
+            }
+        });
+        autoHealThread.detach();
+    }
 
     // ---- Start RPC server in background thread ----
-    std::thread rpc_thread(start_rpc_server, &blockchain, network, &healer, rpcPort);
+    std::thread rpc_thread(start_rpc_server, &blockchain, network, &healer, rpcBindHost, rpcPort);
     rpc_thread.detach();
 
     // ---- Helpers for CLI block ----

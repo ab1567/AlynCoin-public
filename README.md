@@ -35,6 +35,14 @@ transaction fees is burned while another portion funds ongoing development via
 the DAO treasury. The team allocation is locked for one year and vests
 linearly over the following three years.
 
+### Wrapped WALYN
+
+To support cross-chain liquidity and exchange listings, a wrapped ERC-20
+version of AlynCoin called **WALYN** will be issued. Each WALYN token is backed
+1:1 by ALYN held in reserve addresses. An initial allocation of **300,000
+WALYN** is reserved for the Tokpie exchange to seed liquidity for wrapped
+trading pairs.
+
 ### Difficulty and Emission
 
 * Difficulty adjusts every block using a logistic floor that gradually rises

@@ -1,0 +1,7 @@
+# Sample configuration for AlynCoin node
+ban_minutes=5
+rpc_bind=0.0.0.0:1567
+rpc_cors=*
+self_heal_interval=600
+reserve_address=
+por_expected_walyn=0
