@@ -2996,7 +2996,7 @@ std::unordered_map<std::string, double> Blockchain::getCurrentState() const {
 }
 //
 void Blockchain::clear(bool force) {
-  std::lock_guard<std::mutex> lock(mutex);
+  std::lock_guard<std::mutex> lock(blockchainMutex);
 
   if (!force && !chain.empty()) {
     std::cerr << "⚠️ Blockchain::clear() skipped — chain already initialized. "
@@ -3341,7 +3341,7 @@ void Blockchain::recomputeChainWork() {
 }
 //
 std::vector<Block> Blockchain::getChainUpTo(size_t height) const {
-  std::lock_guard<std::mutex> lk(mutex);
+  std::lock_guard<std::mutex> lk(blockchainMutex);
   if (chain.empty())
     return {};
 
@@ -3353,7 +3353,7 @@ std::vector<Block> Blockchain::getChainUpTo(size_t height) const {
 
 std::vector<Block> Blockchain::getChainSlice(size_t startHeight,
                                              size_t endHeight) const {
-  std::lock_guard<std::mutex> lk(mutex);
+  std::lock_guard<std::mutex> lk(blockchainMutex);
   if (chain.empty())
     return {};
 
@@ -3368,7 +3368,7 @@ std::vector<Block> Blockchain::getChainSlice(size_t startHeight,
 
 //
 bool Blockchain::tryAppendBlock(const Block &blk) {
-  std::unique_lock<std::mutex> lk(mutex);
+  std::unique_lock<std::mutex> lk(blockchainMutex);
 
   if (blk.getIndex() != static_cast<int>(chain.size()))
     return false;

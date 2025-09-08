@@ -64,7 +64,6 @@ private:
   double blockReward = BASE_BLOCK_REWARD;
   int difficulty;
   double miningReward;
-  mutable std::mutex mutex;
   mutable std::mutex chainMtx;  // protects in-memory chain vector
   std::string minerAddress;
   Network *network;
