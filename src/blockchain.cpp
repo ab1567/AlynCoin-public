@@ -3194,33 +3194,25 @@ std::string Blockchain::getBlockHashAtHeight(int height) const {
 
 // Rollback to a specific block height (inclusive)
 bool Blockchain::rollbackToHeight(int height) {
-  {
-    std::lock_guard<std::mutex> lock(blockchainMutex);
+  std::unique_lock<std::mutex> lk(blockchainMutex);
 
-    if (height < 0 || height >= static_cast<int>(chain.size())) {
-      std::cerr << "❌ Invalid rollback height: " << height << "\n";
-      return false;
-    }
-
-    chain.resize(height + 1);
-    std::cout << "⏪ Chain rolled back to height: " << height << "\n";
-
-    // Recalculate everything post-trim
-    recalculateBalancesFromChain();
-    applyRollupDeltasToBalances();
-    recomputeChainWork();
+  if (height < 0 || height >= static_cast<int>(chain.size())) {
+    std::cerr << "❌ Invalid rollback height: " << height << "\n";
+    return false;
   }
 
+  chain.resize(height + 1);
+  std::cout << "⏪ Chain rolled back to height: " << height << "\n";
+
+  recalculateBalancesFromChain();
+  applyRollupDeltasToBalances();
+  recomputeChainWork();
+
+  lk.unlock();
   saveToDB();
   return true;
 }
 
-//
-std::string DBPaths::getKeyPath(const std::string &address) {
-  return DBPaths::getKeyDir() + address + "_combined.key";
-}
-
-//
 time_t Blockchain::getLastRollupTimestamp() const {
   if (rollupBlocks.empty())
     return 0;

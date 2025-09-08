@@ -293,8 +293,5 @@ public:
 
 };
 
-namespace DBPaths {
-    std::string getKeyPath(const std::string &address);
-}
 Blockchain& getBlockchain();
 #endif // BLOCKCHAIN_H

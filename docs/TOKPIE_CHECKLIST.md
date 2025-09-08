@@ -9,7 +9,7 @@ program.
 - **Chain:** BNB Smart Chain (BEP-20)
 - **Decimals:** 18
 - **Contract Address:** `0x...`
-- **Total Supply:** 100,000,000 wALYN
+- **Max Supply:** mirrors native ALYN reserves; wALYN is minted/burned 1:1 by the custodian
 - **Bounty Allocation:** 300,000 wALYN (0.3%)
 
 ## Required Links

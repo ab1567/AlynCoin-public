@@ -2,7 +2,8 @@
 
 Wrapped AlynCoin (wALYN) is a BEP-20 token on BNB Smart Chain representing native
 AlynCoin (ALYN) at a 1:1 ratio. A multisig custodian holds the ALYN reserves and
-controls minting and burning of wALYN.
+controls minting and burning of wALYN. The Solidity contract uses OpenZeppelin
+Contracts v4.9.
 
 ## Addresses
 - **wALYN contract:** `0x...` (BscScan link)

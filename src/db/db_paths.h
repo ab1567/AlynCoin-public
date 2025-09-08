@@ -47,6 +47,10 @@ inline std::string getKeyDir() {
   return env ? std::string(env) : getHomePath() + "/.alyncoin/keys/";
 }
 
+inline std::string getKeyPath(const std::string &address) {
+  return getKeyDir() + address + "_combined.key";
+}
+
 inline std::string getIdentityDB() {
   const char *env = std::getenv("ALYNCOIN_IDENTITY_DB");
   return env ? std::string(env) : getHomePath() + "/.alyncoin/identity_db";

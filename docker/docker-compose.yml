@@ -9,4 +9,4 @@ services:
     ports:
       - "15671:15671"
       - "1567:1567"
-    command: ["alyncoin", "--rpc", "0.0.0.0:1567", "--p2p", "0.0.0.0:15671"]
+    command: ["alyncoin", "--port", "15671", "--rpc-bind", "0.0.0.0:1567", "--rpc-cors", "*"]
