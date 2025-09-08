@@ -1,0 +1,11 @@
+{
+  "name": "alyn-bridge-scripts",
+  "version": "0.1.0",
+  "type": "module",
+  "dependencies": {
+    "ethers": "^6.8.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

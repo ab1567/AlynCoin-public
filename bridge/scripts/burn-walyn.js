@@ -15,7 +15,7 @@ const wallet = new Wallet(process.env.OWNER_PRIVKEY, provider);
 const walyn = new Contract(process.env.WALYN_CONTRACT, abi, wallet);
 
 const amt = parseUnits(amountStr, 18);
-const tx = await walyn.burn(from, amt);
+const tx = await walyn.burnFrom(from, amt);
 console.log('burn tx:', tx.hash);
 await tx.wait();
 console.log('✅ burned', amountStr, 'wALYN from', from);

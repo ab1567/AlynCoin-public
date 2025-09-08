@@ -221,6 +221,8 @@ void start_rpc_server(Blockchain* blockchain, Network* network, SelfHealingNode*
     svr.Get(R"(/balance/(.+))", [blockchain, set_cors](const httplib::Request& req, httplib::Response& res) {
         std::string addr = req.matches[1];
         auto is_valid = [](const std::string& a) {
+            if (a.rfind("ALYN", 0) == 0)
+                return a.size() >= 10 && a.size() <= 64;
             if (a.size() < 34 || a.size() > 64) return false;
             return std::all_of(a.begin(), a.end(), [](unsigned char c){ return std::isxdigit(c); });
         };
@@ -272,6 +274,8 @@ void start_rpc_server(Blockchain* blockchain, Network* network, SelfHealingNode*
             if (input.contains("params") && input["params"].is_object())
                 addr = input["params"].value("address", "");
             auto is_valid = [](const std::string& a) {
+                if (a.rfind("ALYN", 0) == 0)
+                    return a.size() >= 10 && a.size() <= 64;
                 if (a.size() < 34 || a.size() > 64) return false;
                 return std::all_of(a.begin(), a.end(), [](unsigned char c){ return std::isxdigit(c); });
             };
