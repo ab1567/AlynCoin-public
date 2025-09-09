@@ -1,10 +1,13 @@
 import os
+import time
+from urllib.parse import urlparse, urlunparse
+
 import requests
 from requests.adapters import HTTPAdapter, Retry
 
-# Allow overriding the RPC endpoint via environment variables. When only
-# ``ALYNCOIN_RPC_URL`` is provided, also derive the host and port so that other
-# parts of the application (e.g. node auto-launch checks) behave consistently.
+
+# Allow overriding the RPC endpoint via env. When only ALYNCOIN_RPC_URL is set,
+# derive host/port so other parts of the app behave consistently.
 RPC_URL_ENV = os.environ.get("ALYNCOIN_RPC_URL")
 RPC_HOST = os.environ.get("ALYNCOIN_RPC_HOST", "127.0.0.1")
 RPC_PORT = os.environ.get("ALYNCOIN_RPC_PORT", "1567")
@@ -12,13 +15,12 @@ RPC_PATH = "/rpc"
 
 if RPC_URL_ENV:
     try:
-        from urllib.parse import urlparse, urlunparse
         parsed = urlparse(RPC_URL_ENV)
         if parsed.hostname:
             RPC_HOST = parsed.hostname
         if parsed.port:
             RPC_PORT = str(parsed.port)
-        # Ensure we hit the correct RPC path regardless of user supplied path
+        # Force correct RPC path regardless of user-supplied path
         path = parsed.path.rstrip("/") or RPC_PATH
         if path != RPC_PATH:
             parsed = parsed._replace(path=RPC_PATH)
@@ -32,37 +34,54 @@ RPC_PORT = int(RPC_PORT)
 
 # Shared session with retries for robustness
 SESSION = requests.Session()
-SESSION.mount(
-    "http://",
-    HTTPAdapter(
-        max_retries=Retry(
-            total=3,
-            backoff_factor=0.5,
-            status_forcelist=[500, 502, 503, 504]
-        )
-    ),
+adapter = HTTPAdapter(
+    max_retries=Retry(
+        total=3,
+        backoff_factor=0.5,
+        status_forcelist=[500, 502, 503, 504],
+        allowed_methods=frozenset(["POST"]),
+    )
 )
+SESSION.mount("http://", adapter)
+SESSION.mount("https://", adapter)
 
-# Timeout for RPC calls (seconds)
-# Mining a single block can take several minutes at high
-# difficulty, so allow a generous timeout.
+# Mining a block can be slow at high difficulty — allow generous timeout.
 TIMEOUT_S = 300
 
-def alyncoin_rpc(method, params=None):
+
+def alyncoin_rpc(method: str, params=None, id_: int | None = None):
+    """Call the AlynCoin JSON-RPC server and return the 'result'.
+
+    Raises RuntimeError on RPC/HTTP errors.
+    """
+
     headers = {"Content-Type": "application/json"}
-    body = {"method": method, "params": params or []}
+    body = {
+        "jsonrpc": "2.0",
+        "id": id_ if id_ is not None else (int(time.time() * 1000) & 0x7FFFFFFF),
+        "method": method,
+        "params": params or [],
+    }
+
     try:
-        resp = SESSION.post(
-            RPC_URL,
-            headers=headers,
-            json=body,
-            timeout=TIMEOUT_S
-        )
+        resp = SESSION.post(RPC_URL, headers=headers, json=body, timeout=TIMEOUT_S)
         resp.raise_for_status()
         data = resp.json()
-        if "error" in data:
-            raise Exception(data["error"])
-        return data.get("result", None)
     except Exception as e:
-        print(f"❌ RPC error: {e}")
-        return {"error": str(e)}
+        # Surface a predictable exception to callers
+        raise RuntimeError(f"RPC request failed: {e}") from e
+
+    if "error" in data and data["error"] is not None:
+        err = data["error"]
+        # JSON-RPC 2.0 error object: { code, message, data? }
+        if isinstance(err, dict):
+            code = err.get("code", -32000)
+            msg = err.get("message", "Unknown RPC error")
+            raise RuntimeError(f"RPC error {code}: {msg}")
+        raise RuntimeError(str(err))
+
+    return data.get("result")
+
+
+__all__ = ["alyncoin_rpc", "RPC_URL", "RPC_HOST", "RPC_PORT"]
+
