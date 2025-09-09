@@ -1,24 +1,26 @@
 #!/usr/bin/env node
 import 'dotenv/config';
-import { JsonRpcProvider, Contract, formatUnits } from 'ethers';
+import { JsonRpcProvider, Contract, formatUnits, parseUnits } from 'ethers';
 import abi from './walyn_abi.json' assert { type: 'json' };
 
+// Provider + contract
 const provider = new JsonRpcProvider(process.env.BSC_RPC);
 const walyn = new Contract(process.env.WALYN_CONTRACT, abi, provider);
 
-// In absence of native chain API, expected reserve is supplied via env
+// On-chain supply (BigInt) and expected reserve (BigInt)
 const supply = await walyn.totalSupply();
-const total = parseFloat(formatUnits(supply, 18));
-const reserve = parseFloat(process.env.ALYN_RESERVE_EXPECTED || '0');
-const delta = reserve - total;
-const ok = Math.abs(delta) < 1e-9;
+const expected = parseUnits(process.env.ALYN_RESERVE_EXPECTED || '0', 18);
 
-console.log(JSON.stringify({
+const delta = expected - supply;
+const ok = delta === 0n;
+
+const out = {
   timestamp: new Date().toISOString(),
-  walyn_supply: total,
-  alyn_reserve: reserve,
-  delta,
+  walyn_supply: formatUnits(supply, 18),
+  alyn_reserve: formatUnits(expected, 18),
+  delta: formatUnits(delta, 18),
   status: ok ? 'MATCH' : 'MISMATCH'
-}, null, 2));
+};
 
+console.log(JSON.stringify(out, null, 2));
 process.exit(ok ? 0 : 1);

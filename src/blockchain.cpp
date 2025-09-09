@@ -20,6 +20,7 @@
 #include <boost/multiprecision/cpp_int.hpp>
 #include <chrono>
 #include <cstdlib>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <generated/block_protos.pb.h>
@@ -36,7 +37,6 @@
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
-#include <ctime>
 
 using boost::multiprecision::cpp_int;
 
@@ -73,9 +73,6 @@ std::string Blockchain::computeEpochRoot(size_t endIndex) const {
   return Crypto::blake3(combined);
 }
 Blockchain &getBlockchain() { return Blockchain::getActiveInstance(); }
-
-// Mutex protecting in-memory blockchain state. Avoid holding this during
-// RocksDB writes to prevent deadlocks across threads.
 std::atomic<bool> Blockchain::isMining{false};
 std::atomic<bool> Blockchain::isRecovering{false};
 
@@ -3172,7 +3169,8 @@ int Blockchain::getHeight() const {
 
 std::string Blockchain::getTipHashHex() const {
   std::lock_guard<std::mutex> lock(blockchainMutex);
-  if (chain.empty()) return "";
+  if (chain.empty())
+    return "";
   return chain.back().getHash();
 }
 
