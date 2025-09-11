@@ -1,25 +1,25 @@
-import sys
 import os
+import sys
 import socket
 import subprocess
+import signal
 import time
 import platform
 import requests
 import shutil
+from typing import Optional
+
 try:
-    import dns.resolver
+    import dns.resolver  # optional (for TXT peer discovery)
 except Exception as e:
     dns = None
     print(f"[WARN] dnspython unavailable: {e}; using fallback peers only")
 
 from rpc_client import alyncoin_rpc, RPC_HOST, RPC_PORT
 
-def resource_path(filename):
+def resource_path(filename: str) -> str:
     """Return path to resource bundled by PyInstaller or next to the script."""
-    try:
-        base = sys._MEIPASS
-    except AttributeError:
-        base = os.path.abspath(os.path.dirname(__file__))
+    base = getattr(sys, "_MEIPASS", os.path.abspath(os.path.dirname(__file__)))
     return os.path.join(base, filename)
 
 from PyQt5.QtWidgets import (
@@ -38,8 +38,7 @@ from stats_tab import StatsTab
 from nft_tab import NFTTab
 from swap_tab import SwapTab
 
-# Fallback peer(s) if DNS resolution fails
-# Must mirror the list in src/network.cpp
+# ---- Fallback peers (must mirror src/network.cpp) ----
 DEFAULT_DNS_PEERS = [
     "peers.alyncoin.com:15671",
     "35.202.230.184:15671",
@@ -48,7 +47,97 @@ DEFAULT_DNS_PEERS = [
 # Keep track of the launched node process so we can terminate it on exit
 node_process = None
 
-# ---- DNS Peer Resolver (returns ALL peers) ----
+# ---------------- Resource/Path helpers ----------------
+def _resource_dir() -> str:
+    """Folder where our executable/resources live (handles PyInstaller)."""
+    return os.path.abspath(getattr(sys, "_MEIPASS", os.path.dirname(__file__)))
+
+def _read_magic(path: str) -> bytes:
+    try:
+        with open(path, "rb") as f:
+            return f.read(4)
+    except Exception:
+        return b""
+
+def _bin_flavor(path: str) -> str:
+    """Return 'win' if PE (MZ..), 'elf' if ELF, else 'unknown'."""
+    m = _read_magic(path)
+    if m.startswith(b"MZ"):
+        return "win"
+    if m.startswith(b"\x7fELF"):
+        return "elf"
+    return "unknown"
+
+def _discover_node_binary() -> Optional[str]:
+    """
+    Find the node in common places (packaged and dev):
+    - env var ALYNCOIN_NODE
+    - next to app (PyInstaller), including resource_path
+    - bundled under bin/ (our PyInstaller layout)
+    - dev subfolders
+    - macOS .app Resources
+    - PATH
+    """
+    cand = []
+    env_bin = os.environ.get("ALYNCOIN_NODE")
+    if env_bin:
+        cand.append(env_bin)
+
+    base = _resource_dir()
+
+    # next to app / packaged resource
+    cand += [
+        os.path.join(base, "alyncoin"),
+        os.path.join(base, "alyncoin.exe"),
+        resource_path("alyncoin"),
+        resource_path("alyncoin.exe"),
+    ]
+
+    # PyInstaller bin/ (Windows/Linux/macOS bundle)
+    cand += [
+        os.path.join(base, "bin", "alyncoin"),
+        os.path.join(base, "bin", "alyncoin.exe"),
+    ]
+
+    # macOS .app layout (if running inside a bundle)
+    cand += [
+        os.path.join(base, "Contents", "Resources", "bin", "alyncoin"),
+        os.path.join(base, "Contents", "MacOS", "alyncoin"),  # sometimes dropped here
+    ]
+
+    # common dev subfolders
+    cand += [
+        os.path.join(base, "build", "alyncoin"),
+        os.path.join(base, "build", "alyncoin.exe"),
+        os.path.join(base, "alyncoin", "alyncoin"),
+        os.path.join(base, "alyncoin", "alyncoin.exe"),
+    ]
+
+    # PATH search
+    for name in ("alyncoin.exe" if platform.system() == "Windows" else "alyncoin", "alyncoin"):
+        p = shutil.which(name)
+        if p:
+            cand.append(p)
+
+    seen = set()
+    for c in cand:
+        if not c or c in seen:
+            continue
+        seen.add(c)
+        try:
+            if os.path.isfile(c):
+                return c
+        except Exception:
+            pass
+    return None
+
+def windows_to_wsl_path(path: str) -> str:
+    drive, rest = os.path.splitdrive(path)
+    drive = drive.rstrip(":").lower()
+    rest = rest.replace("\\", "/")
+    return f"/mnt/{drive}{rest}"
+
+# ---------------- DNS Peer Resolver ----------------
 def get_peers_from_dns():
     peers = []
     if dns is not None:
@@ -75,6 +164,14 @@ def is_alyncoin_dns_accessible():
     except Exception:
         return bool(DEFAULT_DNS_PEERS)
 
+# ---------------- RPC/metrics helpers ----------------
+def is_rpc_up(host=RPC_HOST, port=RPC_PORT):
+    try:
+        with socket.create_connection((host, port), timeout=1):
+            return True
+    except Exception:
+        return False
+
 def get_peer_count():
     """Return the current number of connected peers via the metrics endpoint."""
     url = f"http://{RPC_HOST}:{RPC_PORT}/metrics"
@@ -100,9 +197,9 @@ def rpc_peer_count():
     except Exception:
         return None
 
-# ---- Data Directory Helpers ----
-def ensure_blockchain_db_dir():
-    """Create the RocksDB directory if it doesn't exist."""
+# ---------------- Data Directory ----------------
+def ensure_blockchain_db_dir() -> bool:
+    """Create the RocksDB directory if it doesn't exist (used by the node)."""
     db_path = os.environ.get(
         "ALYNCOIN_BLOCKCHAIN_DB",
         os.path.expanduser("~/.alyncoin/blockchain_db")
@@ -117,93 +214,7 @@ def ensure_blockchain_db_dir():
         return False
     return True
 
-# ---- Node Launch/Detect Helpers ----
-def is_rpc_up(host=RPC_HOST, port=RPC_PORT):
-    try:
-        with socket.create_connection((host, port), timeout=1):
-            return True
-    except Exception:
-        return False
-
-
-def _read_magic(path: str) -> bytes:
-    try:
-        with open(path, "rb") as f:
-            return f.read(4)
-    except Exception:
-        return b""
-
-
-def _bin_flavor(path: str) -> str:
-    """Return 'win' if PE (MZ..), 'elf' if ELF, else 'unknown'."""
-    m = _read_magic(path)
-    if m.startswith(b"MZ"):
-        return "win"
-    if m.startswith(b"\x7fELF"):
-        return "elf"
-    return "unknown"
-
-
-def _resource_dir() -> str:
-    return os.path.dirname(sys.executable if hasattr(sys, "frozen") else os.path.abspath(__file__))
-
-
-def _discover_node_binary() -> str | None:
-    """
-    Find the node in common places. Accept both Windows and Linux binaries
-    because Windows users may run the Linux binary via WSL.
-    """
-    cand = []
-
-    # 1) explicit env
-    env_bin = os.environ.get("ALYNCOIN_NODE")
-    if env_bin:
-        cand.append(env_bin)
-
-    base = _resource_dir()
-
-    # 2) next to app / packaged resource
-    cand += [
-        os.path.join(base, "alyncoin"),
-        os.path.join(base, "alyncoin.exe"),
-        resource_path("alyncoin"),
-        resource_path("alyncoin.exe"),
-    ]
-
-    # 3) common subfolders
-    cand += [
-        os.path.join(base, "build", "alyncoin"),
-        os.path.join(base, "build", "alyncoin.exe"),
-        os.path.join(base, "alyncoin", "alyncoin"),
-        os.path.join(base, "alyncoin", "alyncoin.exe"),
-    ]
-
-    # 4) PATH
-    for name in ("alyncoin.exe" if platform.system() == "Windows" else "alyncoin", "alyncoin"):
-        p = shutil.which(name)
-        if p:
-            cand.append(p)
-
-    seen = set()
-    for c in cand:
-        if not c or c in seen:
-            continue
-        seen.add(c)
-        try:
-            if os.path.isfile(c):
-                return c
-        except Exception:
-            pass
-    return None
-
-
-def windows_to_wsl_path(path: str) -> str:
-    drive, rest = os.path.splitdrive(path)
-    drive = drive.rstrip(":").lower()
-    rest = rest.replace("\\", "/")
-    return f"/mnt/{drive}{rest}"
-
-
+# ---------------- Node Launch/Detect ----------------
 def ensure_alyncoin_node(block: bool = True) -> bool:
     """
     Start the node if needed and wait for RPC. Supports:
@@ -228,7 +239,7 @@ def ensure_alyncoin_node(block: bool = True) -> bool:
     bin_path = _discover_node_binary()
     if not bin_path:
         print("❌ Could not find 'alyncoin' node binary.\n"
-              "   Put 'alyncoin(.exe)' next to the app or in 'build', set ALYNCOIN_NODE, or place it on PATH.")
+              "   Put 'alyncoin(.exe)' next to the app or in 'bin', set ALYNCOIN_NODE, or place it on PATH.")
         return False
 
     flavor = _bin_flavor(bin_path)  # 'win', 'elf', or 'unknown'
@@ -250,7 +261,8 @@ def ensure_alyncoin_node(block: bool = True) -> bool:
                 # Linux ELF or forced WSL
                 distro = os.environ.get("ALYNCOIN_WSL_DISTRO", "Ubuntu")
                 workdir = windows_to_wsl_path(os.path.dirname(bin_path))
-                cmd = ["wsl", "-d", distro, "--cd", workdir, "--", "bash", "-lc", "chmod +x ./alyncoin || true && ./alyncoin"]
+                cmd = ["wsl", "-d", distro, "--cd", workdir, "--", "bash", "-lc",
+                       "chmod +x ./alyncoin || true && ./alyncoin"]
                 node_process = subprocess.Popen(
                     cmd,
                     stdout=log_file, stderr=log_file, stdin=subprocess.DEVNULL,
@@ -297,16 +309,25 @@ def ensure_alyncoin_node(block: bool = True) -> bool:
     log_file.close()
     return True
 
-
 def terminate_alyncoin_node():
     """Gracefully stop the background node process (if launched)."""
     global node_process
     if node_process and node_process.poll() is None:
         try:
+            if platform.system() == "Windows":
+                # Give console apps a soft break if possible
+                try:
+                    node_process.send_signal(signal.CTRL_BREAK_EVENT)
+                    time.sleep(1)
+                except Exception:
+                    pass
             node_process.terminate()
             node_process.wait(timeout=5)
         except Exception:
-            node_process.kill()
+            try:
+                node_process.kill()
+            except Exception:
+                pass
         finally:
             node_process = None
 
@@ -321,16 +342,16 @@ def terminate_alyncoin_node():
 
 # ---- Resource helpers ----
 def get_logo_path():
-    candidates = [
+    for path in (
         os.path.join(os.getcwd(), "logo.png"),
         os.path.join(os.path.dirname(sys.argv[0]), "logo.png"),
         resource_path("logo.png"),
-    ]
-    for path in candidates:
+    ):
         if os.path.exists(path):
             return path
     return None
 
+# ---------------- GUI ----------------
 class AlynCoinApp(QMainWindow):
     walletChanged = pyqtSignal(str)
 
@@ -341,7 +362,7 @@ class AlynCoinApp(QMainWindow):
         self.loadedAddress = ""
         self.miningActive = False
 
-        # -- Use all discovered DNS peers
+        # Use all discovered DNS peers
         self.dns_peers = get_peers_from_dns()
         self.initUI(get_logo_path())
         self.applyDarkTheme()
@@ -435,90 +456,20 @@ class AlynCoinApp(QMainWindow):
 
     def applyDarkTheme(self):
         self.setStyleSheet("""
-            QMainWindow {
-                background-color: #0d0d0d;
-                color: #eeeeee;
-                font-family: "Segoe UI", sans-serif;
-                font-size: 14px;
-            }
-            QLabel {
-                color: #eeeeee;
-                font-weight: 500;
-                font-size: 14px;
-            }
-            QPushButton {
-                background-color: #222222;
-                color: #ffffff;
-                border-radius: 8px;
-                padding: 6px 14px;
-                border: 1px solid #444444;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #333333;
-                border: 1px solid #00ffcc;
-                color: #00ffcc;
-            }
-            QLineEdit, QComboBox {
-                background-color: #1a1a1a;
-                color: #ffffff;
-                border: 1px solid #444444;
-                border-radius: 6px;
-                padding: 6px;
-            }
-            QLineEdit:focus, QComboBox:focus {
-                border: 1px solid #00ffcc;
-                background-color: #1e1e1e;
-                color: #00ffcc;
-            }
-            QTextEdit {
-                background-color: #121212;
-                color: #00ffcc;
-                border: 1px solid #444444;
-                border-radius: 6px;
-                padding: 8px;
-                font-family: Consolas, monospace;
-                font-size: 13px;
-            }
-            QTabWidget::pane {
-                border: 1px solid #444444;
-                top: -1px;
-                background-color: #101010;
-            }
-            QTabBar::tab {
-                background: #202020;
-                border: 1px solid #444;
-                border-bottom: none;
-                padding: 8px 18px;
-                color: #cccccc;
-                font-weight: 500;
-                border-top-left-radius: 8px;
-                border-top-right-radius: 8px;
-            }
-            QTabBar::tab:selected {
-                background: #2a2a2a;
-                color: #ffffff;
-                border: 1px solid #00ffcc;
-                font-weight: bold;
-            }
-            QTabBar::tab:hover {
-                background: #333333;
-                color: #00ffcc;
-                border: 1px solid #00cc99;
-            }
-            QScrollBar:vertical {
-                background: #1a1a1a;
-                width: 10px;
-                margin: 0px;
-                border-radius: 4px;
-            }
-            QScrollBar::handle:vertical {
-                background: #444444;
-                border-radius: 5px;
-            }
-            QScrollBar::handle:vertical:hover {
-                background: #00ffcc;
-            }
+            QMainWindow { background-color: #0d0d0d; color: #eeeeee; font-family: "Segoe UI", sans-serif; font-size: 14px; }
+            QLabel { color: #eeeeee; font-weight: 500; font-size: 14px; }
+            QPushButton { background-color: #222222; color: #ffffff; border-radius: 8px; padding: 6px 14px; border: 1px solid #444444; font-weight: bold; }
+            QPushButton:hover { background-color: #333333; border: 1px solid #00ffcc; color: #00ffcc; }
+            QLineEdit, QComboBox { background-color: #1a1a1a; color: #ffffff; border: 1px solid #444444; border-radius: 6px; padding: 6px; }
+            QLineEdit:focus, QComboBox:focus { border: 1px solid #00ffcc; background-color: #1e1e1e; color: #00ffcc; }
+            QTextEdit { background-color: #121212; color: #00ffcc; border: 1px solid #444444; border-radius: 6px; padding: 8px; font-family: Consolas, monospace; font-size: 13px; }
+            QTabWidget::pane { border: 1px solid #444444; top: -1px; background-color: #101010; }
+            QTabBar::tab { background: #202020; border: 1px solid #444; border-bottom: none; padding: 8px 18px; color: #cccccc; font-weight: 500; border-top-left-radius: 8px; border-top-right-radius: 8px; }
+            QTabBar::tab:selected { background: #2a2a2a; color: #ffffff; border: 1px solid #00ffcc; font-weight: bold; }
+            QTabBar::tab:hover { background: #333333; color: #00ffcc; border: 1px solid #00cc99; }
+            QScrollBar:vertical { background: #1a1a1a; width: 10px; margin: 0px; border-radius: 4px; }
+            QScrollBar::handle:vertical { background: #444444; border-radius: 5px; }
+            QScrollBar::handle:vertical:hover { background: #00ffcc; }
         """)
 
     def updateStatusBanner(self, text, color="#ffaa00"):
@@ -562,30 +513,38 @@ class AlynCoinApp(QMainWindow):
         terminate_alyncoin_node()
         super().closeEvent(event)
 
+# ---------------- Entrypoint ----------------
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    # --- Try to launch the background node ---
+
+    # Try to launch the background node
     if not ensure_alyncoin_node():
-        QMessageBox.critical(None, "AlynCoin Node Missing",
-                             "Could not start AlynCoin node process.\nMake sure 'alyncoin' is in the same folder.")
-        sys.exit(1)
-    # --- DNS requirement ---
-    if not is_alyncoin_dns_accessible():
-        msg = (
-            "🛑 Cannot reach AlynCoin peer DNS (peers.alyncoin.com).\n"
-            "Please contact alyncoin.com"
+        QMessageBox.critical(
+            None,
+            "AlynCoin Node Missing",
+            "Could not start AlynCoin node process.\nMake sure 'alyncoin' is next to the app or in the 'bin' directory."
         )
-        QMessageBox.critical(None, "DNS Unreachable", msg)
         sys.exit(1)
 
+    # DNS is a warning (fallback peers are used)
+    if not is_alyncoin_dns_accessible():
+        QMessageBox.warning(
+            None, "DNS Unreachable",
+            "Cannot reach peers.alyncoin.com.\nUsing built-in fallback peers."
+        )
+
+    # Optional: sync status
     sync_info = alyncoin_rpc("syncstatus")
     if isinstance(sync_info, dict) and "error" in sync_info:
         print("⚠️  RPC 'syncstatus' not available; skipping sync check")
     elif not isinstance(sync_info, dict):
         QMessageBox.warning(None, "Node Sync", "Unable to determine sync status.")
     elif not sync_info.get("synced", False):
-        QMessageBox.warning(None, "Node Sync",
-                             "Local node is still syncing. The wallet will open, but some features may be unavailable.")
+        QMessageBox.warning(
+            None, "Node Sync",
+            "Local node is still syncing. The wallet will open, but some features may be unavailable."
+        )
+
     window = AlynCoinApp()
     window.show()
     exit_code = app.exec_()
