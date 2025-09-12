@@ -1148,8 +1148,20 @@ int main(int argc, char *argv[]) {
   unsigned short port = DEFAULT_PORT;
   bool portSpecified = false;
   unsigned short rpcPort = 1567;
-  bool rpcPortSpecified = false;
   std::string rpcBindHost = "127.0.0.1";
+  {
+    const std::string &bind = getAppConfig().rpc_bind;
+    auto pos = bind.find(':');
+    if (pos != std::string::npos) {
+      rpcBindHost = bind.substr(0, pos);
+      try {
+        rpcPort = static_cast<unsigned short>(
+            std::stoi(bind.substr(pos + 1)));
+      } catch (...) {
+      }
+    }
+  }
+  bool rpcPortSpecified = false;
   std::string dbPath = DBPaths::getBlockchainDB();
   std::string connectIP = "";
   std::string keyDir = DBPaths::getKeyDir();

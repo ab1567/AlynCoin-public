@@ -10,12 +10,12 @@ from requests.adapters import HTTPAdapter, Retry
 # Endpoint configuration (overridable via env)
 # -----------------------------------------------------------------------------
 
-# Example single var: ALYNCOIN_RPC_URL=http://127.0.0.1:15672/json_rpc
+# Example single var: ALYNCOIN_RPC_URL=http://127.0.0.1:1567/rpc
 RPC_URL_ENV = os.environ.get("ALYNCOIN_RPC_URL")
 
 # Or specify components:
 RPC_HOST = os.environ.get("ALYNCOIN_RPC_HOST", "127.0.0.1")
-RPC_PORT = int(os.environ.get("ALYNCOIN_RPC_PORT", "15671"))  # override if your RPC != 15671
+RPC_PORT = int(os.environ.get("ALYNCOIN_RPC_PORT", "1567"))  # override if your RPC != 1567
 RPC_BASE = f"http://{RPC_HOST}:{RPC_PORT}"
 
 # If you know it, set ALYNCOIN_RPC_PATH to '/json_rpc' or '/rpc'
