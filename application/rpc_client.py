@@ -1,4 +1,3 @@
-# rpc_client.py
 import json
 import os
 from typing import Any, Dict, Optional
@@ -11,26 +10,24 @@ from requests.adapters import HTTPAdapter, Retry
 # Endpoint configuration (overridable via env)
 # -----------------------------------------------------------------------------
 
-# Example: ALYNCOIN_RPC_URL=http://127.0.0.1:15671/json_rpc
+# Example single var: ALYNCOIN_RPC_URL=http://127.0.0.1:15672/json_rpc
 RPC_URL_ENV = os.environ.get("ALYNCOIN_RPC_URL")
 
-# Or specify host/port and (optionally) ALYNCOIN_RPC_PATH
+# Or specify components:
 RPC_HOST = os.environ.get("ALYNCOIN_RPC_HOST", "127.0.0.1")
-RPC_PORT = int(os.environ.get("ALYNCOIN_RPC_PORT", "15671"))
-
-# Base URL (no path). We’ll append candidate paths when calling.
+RPC_PORT = int(os.environ.get("ALYNCOIN_RPC_PORT", "15671"))  # override if your RPC != 15671
 RPC_BASE = f"http://{RPC_HOST}:{RPC_PORT}"
 
-# If the exact path is known (e.g. "/json_rpc" or "/rpc"), set it here.
+# If you know it, set ALYNCOIN_RPC_PATH to '/json_rpc' or '/rpc'
 explicit_path = os.environ.get("ALYNCOIN_RPC_PATH")
 
-# Reasonable guesses we’ll try in order:
-CANDIDATE_PATHS = [p for p in [explicit_path, "/json_rpc", "/rpc", "/"] if p]
+# Try common JSON-RPC paths (order matters)
+CANDIDATE_PATHS = [p for p in [explicit_path, "/json_rpc", "/rpc"] if p]
 
-# Small per-attempt timeout keeps UI responsive when daemon is down.
+# Small timeout keeps the UI responsive when the daemon is down.
 TIMEOUT = float(os.environ.get("ALYNCOIN_RPC_TIMEOUT", "3.0"))
 
-# Shared session with mild retries for transient network hiccups
+# Shared session with mild retries for transient hiccups
 SESSION = requests.Session()
 SESSION.mount(
     "http://",
@@ -80,9 +77,8 @@ def alyncoin_rpc(method: str, params: Optional[Dict[str, Any]] = None) -> Any:
     """
     Robust RPC wrapper:
       - Tries multiple candidate paths.
-      - Returns either the 'result' or {'error': {...}}.
+      - Returns either the 'result' or {'error': {...}} (no exceptions).
       - Adds a metrics fallback for 'peercount'.
-    Never raises; callers should check for 'error'.
     """
     base = _resolved_base()
 
@@ -106,7 +102,7 @@ def alyncoin_rpc(method: str, params: Optional[Dict[str, Any]] = None) -> Any:
                 # Consistent shape back to UI
                 return body
 
-    # 2) Fallback for non-JSON endpoints
+    # 2) Fallback for non-JSON endpoints: best-effort peer count via /metrics
     if method == "peercount":
         try:
             m = SESSION.get(f"{base}/metrics", timeout=TIMEOUT)
