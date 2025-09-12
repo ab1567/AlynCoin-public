@@ -85,19 +85,16 @@ def _discover_node_binary() -> Optional[str]:
 
     base = _resource_dir()
 
+    # Prefer Windows .exe when available on Windows platforms
+    names = ["alyncoin.exe", "alyncoin"] if platform.system() == "Windows" else ["alyncoin", "alyncoin.exe"]
+
     # next to app / packaged resource
-    cand += [
-        os.path.join(base, "alyncoin"),
-        os.path.join(base, "alyncoin.exe"),
-        resource_path("alyncoin"),
-        resource_path("alyncoin.exe"),
-    ]
+    for n in names:
+        cand += [os.path.join(base, n), resource_path(n)]
 
     # PyInstaller bin/ (Windows/Linux/macOS bundle)
-    cand += [
-        os.path.join(base, "bin", "alyncoin"),
-        os.path.join(base, "bin", "alyncoin.exe"),
-    ]
+    for n in names:
+        cand.append(os.path.join(base, "bin", n))
 
     # macOS .app layout (if running inside a bundle)
     cand += [
@@ -106,12 +103,11 @@ def _discover_node_binary() -> Optional[str]:
     ]
 
     # common dev subfolders
-    cand += [
-        os.path.join(base, "build", "alyncoin"),
-        os.path.join(base, "build", "alyncoin.exe"),
-        os.path.join(base, "alyncoin", "alyncoin"),
-        os.path.join(base, "alyncoin", "alyncoin.exe"),
-    ]
+    for n in names:
+        cand += [
+            os.path.join(base, "build", n),
+            os.path.join(base, "alyncoin", n),
+        ]
 
     # PATH search
     for name in ("alyncoin.exe" if platform.system() == "Windows" else "alyncoin", "alyncoin"):
