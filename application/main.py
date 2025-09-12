@@ -102,7 +102,7 @@ def _discover_node_binary() -> Optional[str]:
     # macOS .app layout (if running inside a bundle)
     cand += [
         os.path.join(base, "Contents", "Resources", "bin", "alyncoin"),
-        os.path.join(base, "Contents", "MacOS", "alyncoin"),
+        os.path.join(base, "Contents", "MacOS", "alyncoin"),  # sometimes dropped here
     ]
 
     # common dev subfolders
@@ -173,7 +173,10 @@ def is_rpc_up(host=RPC_HOST, port=RPC_PORT):
         return False
 
 def get_peer_count():
-    """Return the current number of connected peers via the metrics endpoint."""
+    """
+    Try to read peer count from a /metrics endpoint (if the daemon exposes one).
+    Be quiet if it isn’t there; many builds don’t serve HTTP metrics.
+    """
     url = f"http://{RPC_HOST}:{RPC_PORT}/metrics"
     try:
         resp = requests.get(url, timeout=2)
@@ -183,8 +186,8 @@ def get_peer_count():
                     parts = line.split()
                     if len(parts) == 2:
                         return int(float(parts[1]))
-    except Exception as e:
-        print(f"[WARN] Unable to fetch peer count: {e}")
+    except requests.RequestException:
+        pass
     return 0
 
 def rpc_peer_count():
@@ -554,7 +557,7 @@ if __name__ == "__main__":
             "Cannot reach peers.alyncoin.com.\nUsing built-in fallback peers."
         )
 
-    # Optional: sync status
+    # Optional: sync status (not all daemons implement this; ignore failure)
     sync_info = alyncoin_rpc("syncstatus")
     if isinstance(sync_info, dict) and "error" in sync_info:
         print("⚠️  RPC 'syncstatus' not available; skipping sync check")
