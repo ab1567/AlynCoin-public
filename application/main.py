@@ -172,11 +172,14 @@ def is_rpc_up(host=RPC_HOST, port=RPC_PORT):
     except Exception:
         return False
 
+_peer_count_warned = False
+
 def get_peer_count():
     """
     Try to read peer count from a /metrics endpoint (if the daemon exposes one).
-    Be quiet if it isn’t there; many builds don’t serve HTTP metrics.
+    Warn only once when the endpoint is unreachable to avoid console spam.
     """
+    global _peer_count_warned
     url = f"http://{RPC_HOST}:{RPC_PORT}/metrics"
     try:
         resp = requests.get(url, timeout=2)
@@ -185,9 +188,12 @@ def get_peer_count():
                 if line.startswith("peer_count"):
                     parts = line.split()
                     if len(parts) == 2:
+                        _peer_count_warned = False
                         return int(float(parts[1]))
-    except requests.RequestException:
-        pass
+    except requests.RequestException as e:
+        if not _peer_count_warned:
+            print(f"[WARN] Unable to fetch peer count: {e}")
+            _peer_count_warned = True
     return 0
 
 def rpc_peer_count():
