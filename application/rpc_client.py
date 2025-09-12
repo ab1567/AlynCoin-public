@@ -1,87 +1,129 @@
+# rpc_client.py
+import json
 import os
-import time
-from urllib.parse import urlparse, urlunparse
+from typing import Any, Dict, Optional
+from urllib.parse import urlparse
 
 import requests
 from requests.adapters import HTTPAdapter, Retry
 
+# -----------------------------------------------------------------------------
+# Endpoint configuration (overridable via env)
+# -----------------------------------------------------------------------------
 
-# Allow overriding the RPC endpoint via env. When only ALYNCOIN_RPC_URL is set,
-# derive host/port so other parts of the app behave consistently.
+# Example: ALYNCOIN_RPC_URL=http://127.0.0.1:15671/json_rpc
 RPC_URL_ENV = os.environ.get("ALYNCOIN_RPC_URL")
+
+# Or specify host/port and (optionally) ALYNCOIN_RPC_PATH
 RPC_HOST = os.environ.get("ALYNCOIN_RPC_HOST", "127.0.0.1")
-RPC_PORT = os.environ.get("ALYNCOIN_RPC_PORT", "1567")
-RPC_PATH = "/rpc"
+RPC_PORT = int(os.environ.get("ALYNCOIN_RPC_PORT", "15671"))
 
-if RPC_URL_ENV:
-    try:
-        parsed = urlparse(RPC_URL_ENV)
-        if parsed.hostname:
-            RPC_HOST = parsed.hostname
-        if parsed.port:
-            RPC_PORT = str(parsed.port)
-        # Force correct RPC path regardless of user-supplied path
-        path = parsed.path.rstrip("/") or RPC_PATH
-        if path != RPC_PATH:
-            parsed = parsed._replace(path=RPC_PATH)
-        RPC_URL = urlunparse(parsed)
-    except Exception:
-        RPC_URL = RPC_URL_ENV
-else:
-    RPC_URL = f"http://{RPC_HOST}:{RPC_PORT}{RPC_PATH}"
+# Base URL (no path). We’ll append candidate paths when calling.
+RPC_BASE = f"http://{RPC_HOST}:{RPC_PORT}"
 
-RPC_PORT = int(RPC_PORT)
+# If the exact path is known (e.g. "/json_rpc" or "/rpc"), set it here.
+explicit_path = os.environ.get("ALYNCOIN_RPC_PATH")
 
-# Shared session with retries for robustness
+# Reasonable guesses we’ll try in order:
+CANDIDATE_PATHS = [p for p in [explicit_path, "/json_rpc", "/rpc", "/"] if p]
+
+# Small per-attempt timeout keeps UI responsive when daemon is down.
+TIMEOUT = float(os.environ.get("ALYNCOIN_RPC_TIMEOUT", "3.0"))
+
+# Shared session with mild retries for transient network hiccups
 SESSION = requests.Session()
-adapter = HTTPAdapter(
-    max_retries=Retry(
-        total=3,
-        backoff_factor=0.5,
-        status_forcelist=[500, 502, 503, 504],
-        allowed_methods=frozenset(["POST"]),
-    )
+SESSION.mount(
+    "http://",
+    HTTPAdapter(
+        max_retries=Retry(
+            total=2,
+            backoff_factor=0.3,
+            status_forcelist=[500, 502, 503, 504],
+            allowed_methods=frozenset({"POST", "GET"}),
+        )
+    ),
 )
-SESSION.mount("http://", adapter)
-SESSION.mount("https://", adapter)
-
-# Mining a block can be slow at high difficulty — allow generous timeout.
-TIMEOUT_S = 300
+SESSION.mount("https://", SESSION.adapters["http://"])
 
 
-def alyncoin_rpc(method: str, params=None, id_: int | None = None):
-    """Call the AlynCoin JSON-RPC server and return the 'result'.
-
-    Raises RuntimeError on RPC/HTTP errors.
+def _resolved_base() -> str:
     """
-
-    headers = {"Content-Type": "application/json"}
-    body = {
-        "jsonrpc": "2.0",
-        "id": id_ if id_ is not None else (int(time.time() * 1000) & 0x7FFFFFFF),
-        "method": method,
-        "params": params or [],
-    }
-
+    If ALYNCOIN_RPC_URL is provided, prefer its scheme://host:port while still
+    letting us try multiple paths.
+    """
+    if not RPC_URL_ENV:
+        return RPC_BASE
     try:
-        resp = SESSION.post(RPC_URL, headers=headers, json=body, timeout=TIMEOUT_S)
-        resp.raise_for_status()
-        data = resp.json()
-    except Exception as e:
-        # Surface a predictable exception to callers
-        raise RuntimeError(f"RPC request failed: {e}") from e
-
-    if "error" in data and data["error"] is not None:
-        err = data["error"]
-        # JSON-RPC 2.0 error object: { code, message, data? }
-        if isinstance(err, dict):
-            code = err.get("code", -32000)
-            msg = err.get("message", "Unknown RPC error")
-            raise RuntimeError(f"RPC error {code}: {msg}")
-        raise RuntimeError(str(err))
-
-    return data.get("result")
+        p = urlparse(RPC_URL_ENV)
+        host = p.hostname or RPC_HOST
+        port = p.port or RPC_PORT
+        scheme = p.scheme or "http"
+        return f"{scheme}://{host}:{port}"
+    except Exception:
+        return RPC_BASE
 
 
-__all__ = ["alyncoin_rpc", "RPC_URL", "RPC_HOST", "RPC_PORT"]
+def _post_jsonrpc(url: str, method: str, params: Optional[Dict[str, Any]]):
+    payload: Dict[str, Any] = {"jsonrpc": "2.0", "id": 1, "method": method}
+    if params is not None:
+        payload["params"] = params
+    # Some daemons are picky—use data= and explicit header.
+    return SESSION.post(
+        url,
+        data=json.dumps(payload),
+        headers={"Content-Type": "application/json"},
+        timeout=TIMEOUT,
+    )
 
+
+def alyncoin_rpc(method: str, params: Optional[Dict[str, Any]] = None) -> Any:
+    """
+    Robust RPC wrapper:
+      - Tries multiple candidate paths.
+      - Returns either the 'result' or {'error': {...}}.
+      - Adds a metrics fallback for 'peercount'.
+    Never raises; callers should check for 'error'.
+    """
+    base = _resolved_base()
+
+    # 1) Try JSON-RPC on common paths
+    for path in CANDIDATE_PATHS:
+        url = f"{base}{path}"
+        try:
+            resp = _post_jsonrpc(url, method, params)
+        except requests.RequestException:
+            continue
+
+        try:
+            body = resp.json()
+        except ValueError:
+            body = None
+
+        if isinstance(body, dict):
+            if "result" in body:
+                return body["result"]
+            if "error" in body:
+                # Consistent shape back to UI
+                return body
+
+    # 2) Fallback for non-JSON endpoints
+    if method == "peercount":
+        try:
+            m = SESSION.get(f"{base}/metrics", timeout=TIMEOUT)
+            if m.ok:
+                for line in m.text.splitlines():
+                    if line.startswith("peer_count"):
+                        parts = line.split()
+                        if len(parts) >= 2:
+                            try:
+                                return int(float(parts[-1]))
+                            except Exception:
+                                pass
+        except requests.RequestException:
+            pass
+
+    # 3) Uniform error when nothing worked
+    return {"error": {"code": -1, "message": f"RPC '{method}' unreachable or not supported"}}
+
+
+__all__ = ["alyncoin_rpc", "RPC_HOST", "RPC_PORT", "RPC_BASE"]
