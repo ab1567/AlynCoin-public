@@ -261,7 +261,19 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
     nlohmann::json input;
     nlohmann::json id = nullptr;
     try {
-      input = nlohmann::json::parse(req.body);
+      // Some clients on Windows may prepend a UTF-8 BOM to the payload.
+      // nlohmann::json::parse cannot handle the BOM directly and will
+      // throw a parse error.  Strip it out before parsing so the RPC
+      // server behaves consistently across platforms.
+      std::string body = req.body;
+      if (body.size() >= 3 &&
+          static_cast<unsigned char>(body[0]) == 0xEF &&
+          static_cast<unsigned char>(body[1]) == 0xBB &&
+          static_cast<unsigned char>(body[2]) == 0xBF) {
+        body.erase(0, 3);
+      }
+
+      input = nlohmann::json::parse(body);
       id = input.value("id", nullptr);
     } catch (...) {
       nlohmann::json resp{
