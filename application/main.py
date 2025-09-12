@@ -102,7 +102,7 @@ def _discover_node_binary() -> Optional[str]:
     # macOS .app layout (if running inside a bundle)
     cand += [
         os.path.join(base, "Contents", "Resources", "bin", "alyncoin"),
-        os.path.join(base, "Contents", "MacOS", "alyncoin"),  # sometimes dropped here
+        os.path.join(base, "Contents", "MacOS", "alyncoin"),
     ]
 
     # common dev subfolders
@@ -244,7 +244,14 @@ def ensure_alyncoin_node(block: bool = True) -> bool:
 
     flavor = _bin_flavor(bin_path)  # 'win', 'elf', or 'unknown'
     use_wsl = os.environ.get("ALYNCOIN_USE_WSL", "0") == "1"
-    log_file = open(os.devnull, "w")
+
+    # Prefer writing a log file we can point users to
+    log_path = os.path.join(_resource_dir(), "alyncoin-node.log")
+    try:
+        log_file = open(log_path, "w")
+    except Exception:
+        log_file = open(os.devnull, "w")
+        log_path = None
 
     try:
         if platform.system() == "Windows":
@@ -297,12 +304,26 @@ def ensure_alyncoin_node(block: bool = True) -> bool:
         return False
 
     if block:
-        for _ in range(40):  # ~20s
+        # Allow callers to adjust how long we wait for the node to expose RPC.
+        timeout_s = max(5, int(os.environ.get("ALYNCOIN_STARTUP_WAIT", "30")))
+        steps = int(timeout_s / 0.5)
+        for _ in range(steps):
             if is_rpc_up():
                 log_file.close()
                 return True
+            # If the process died early, surface that with a hint to the log.
+            if node_process and node_process.poll() is not None:
+                msg = f"❌ Node process terminated early (code {node_process.returncode})."
+                if log_path:
+                    msg += f" See {log_path} for details."
+                print(msg)
+                log_file.close()
+                return False
             time.sleep(0.5)
-        print("❌ Node RPC did not become available after launch.")
+        msg = "❌ Node RPC did not become available after launch."
+        if log_path:
+            msg += f" See {log_path} for details."
+        print(msg)
         log_file.close()
         return False
 
