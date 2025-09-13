@@ -64,10 +64,12 @@ def _post_jsonrpc(url: str, method: str, params: Optional[Dict[str, Any]]):
     payload: Dict[str, Any] = {"jsonrpc": "2.0", "id": 1, "method": method}
     if params is not None:
         payload["params"] = params
-    # Some daemons are picky—use data= and explicit header.
+    # Let requests handle JSON serialization to avoid extraneous bytes that can
+    # trip up strict servers.  This mirrors the approach used in earlier
+    # revisions that did not exhibit parse errors.
     return SESSION.post(
         url,
-        data=json.dumps(payload),
+        json=payload,
         headers={"Content-Type": "application/json"},
         timeout=TIMEOUT,
     )
