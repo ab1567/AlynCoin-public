@@ -22,10 +22,20 @@ RPC_BASE = f"http://{RPC_HOST}:{RPC_PORT}"
 explicit_path = os.environ.get("ALYNCOIN_RPC_PATH")
 
 # Try common JSON-RPC paths (order matters)
-CANDIDATE_PATHS = [p for p in [explicit_path, "/json_rpc", "/rpc"] if p]
+if explicit_path:
+    CANDIDATE_PATHS = [explicit_path]
+else:
+    CANDIDATE_PATHS = ["/rpc", "/json_rpc"]
 
 # Small timeout keeps the UI responsive when the daemon is down.
 TIMEOUT = float(os.environ.get("ALYNCOIN_RPC_TIMEOUT", "3.0"))
+
+# Optional metrics fallback for peer count
+ENABLE_METRICS = os.environ.get("ALYNCOIN_METRICS_FALLBACK", "").lower() in (
+    "1",
+    "true",
+    "yes",
+)
 
 # Shared session with mild retries for transient hiccups
 SESSION = requests.Session()
@@ -80,7 +90,7 @@ def alyncoin_rpc(method: str, params: Optional[Dict[str, Any]] = None) -> Any:
     Robust RPC wrapper:
       - Tries multiple candidate paths.
       - Returns either the 'result' or {'error': {...}} (no exceptions).
-      - Adds a metrics fallback for 'peercount'.
+      - Optionally falls back to /metrics for 'peercount'.
     """
     base = _resolved_base()
 
@@ -105,7 +115,7 @@ def alyncoin_rpc(method: str, params: Optional[Dict[str, Any]] = None) -> Any:
                 return body
 
     # 2) Fallback for non-JSON endpoints: best-effort peer count via /metrics
-    if method == "peercount":
+    if method == "peercount" and ENABLE_METRICS:
         try:
             m = SESSION.get(f"{base}/metrics", timeout=TIMEOUT)
             if m.ok:

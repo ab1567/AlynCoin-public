@@ -17,6 +17,13 @@ except Exception as e:
 
 from rpc_client import alyncoin_rpc, RPC_HOST, RPC_PORT
 
+# Allow optional metrics probing via env (disabled by default)
+ENABLE_METRICS = os.environ.get("ALYNCOIN_METRICS_FALLBACK", "").lower() in (
+    "1",
+    "true",
+    "yes",
+)
+
 def resource_path(filename: str) -> str:
     """Return path to resource bundled by PyInstaller or next to the script."""
     base = getattr(sys, "_MEIPASS", os.path.abspath(os.path.dirname(__file__)))
@@ -175,6 +182,8 @@ def get_peer_count():
     Try to read peer count from a /metrics endpoint (if the daemon exposes one).
     Warn only once when the endpoint is unreachable to avoid console spam.
     """
+    if not ENABLE_METRICS:
+        return 0
     global _peer_count_warned
     url = f"http://{RPC_HOST}:{RPC_PORT}/metrics"
     try:
@@ -411,7 +420,7 @@ class AlynCoinApp(QMainWindow):
 
         # Display network status based on actual peer connections
         peer_count = rpc_peer_count()
-        if peer_count is None:
+        if peer_count is None and ENABLE_METRICS:
             peer_count = get_peer_count()
         if peer_count > 0:
             peer_status = f"🌐 AlynCoin Network: Online ({peer_count} peers)"
@@ -512,7 +521,7 @@ class AlynCoinApp(QMainWindow):
 
     def refreshPeerBanner(self):
         count = rpc_peer_count()
-        if count is None:
+        if count is None and ENABLE_METRICS:
             count = get_peer_count()
         if count > 0:
             status = f"🌐 AlynCoin Network: Online ({count} peers)"
