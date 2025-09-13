@@ -420,8 +420,8 @@ class AlynCoinApp(QMainWindow):
 
         # Display network status based on actual peer connections
         peer_count = rpc_peer_count()
-        if peer_count is None and ENABLE_METRICS:
-            peer_count = get_peer_count()
+        if peer_count is None:
+            peer_count = get_peer_count() if ENABLE_METRICS else 0
         if peer_count > 0:
             peer_status = f"🌐 AlynCoin Network: Online ({peer_count} peers)"
             color = "#44e"
@@ -521,8 +521,8 @@ class AlynCoinApp(QMainWindow):
 
     def refreshPeerBanner(self):
         count = rpc_peer_count()
-        if count is None and ENABLE_METRICS:
-            count = get_peer_count()
+        if count is None:
+            count = get_peer_count() if ENABLE_METRICS else 0
         if count > 0:
             status = f"🌐 AlynCoin Network: Online ({count} peers)"
             color = "#44e"
