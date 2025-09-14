@@ -10,7 +10,13 @@ try:  # pragma: no cover - import guard
 except ModuleNotFoundError:  # pragma: no cover - handled at runtime
     blake3 = None
 
-from Crypto.Hash import keccak
+# pycryptodome provides the Keccak hashing function.  It might not be
+# installed in all environments, so guard its import and provide a helpful
+# runtime message instead of crashing at import time.
+try:  # pragma: no cover - import guard
+    from Crypto.Hash import keccak
+except ModuleNotFoundError:  # pragma: no cover - handled at runtime
+    keccak = None
 
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QDialog, QLineEdit,
@@ -105,6 +111,12 @@ class SwapTab(QWidget):
             if blake3 is None:
                 self.parent.appendOutput(
                     "❌ blake3 package is missing. Install it with 'pip install blake3'."
+                )
+                return
+
+            if keccak is None:
+                self.parent.appendOutput(
+                    "❌ pycryptodome package is missing. Install it with 'pip install pycryptodome'."
                 )
                 return
 
