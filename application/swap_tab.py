@@ -1,5 +1,5 @@
-import hashlib
 from blake3 import blake3
+from Crypto.Hash import keccak
 
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QDialog, QLineEdit,
@@ -91,8 +91,9 @@ class SwapTab(QWidget):
                 self.parent.appendOutput("❌ Amount and duration must be numeric.")
                 return
 
+            # Match the chain's hybrid hash: keccak256(blake3(secret))
             b3 = blake3(sec.encode()).hexdigest()
-            hashed = hashlib.sha3_256(b3.encode()).hexdigest()
+            hashed = keccak.new(digest_bits=256, data=b3.encode()).hexdigest()
             self.parent.appendOutput(f"🧮 Local Secret Hash (preview): {hashed}")
             params = [addr, recv, amt, hashed, dur]
             result = alyncoin_rpc("swap-initiate", params)
