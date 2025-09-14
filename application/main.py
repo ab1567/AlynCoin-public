@@ -92,7 +92,11 @@ def get_peer_count():
 
 def rpc_peer_count():
     """Return peer count using the RPC interface or ``None`` if unavailable."""
-    result = alyncoin_rpc("peercount")
+    try:
+        result = alyncoin_rpc("peercount")
+    except RuntimeError as e:
+        print(f"⚠️  RPC 'peercount' failed: {e}")
+        return None
     if isinstance(result, dict) and "error" in result:
         return None
     try:
