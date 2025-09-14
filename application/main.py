@@ -38,11 +38,11 @@ from stats_tab import StatsTab
 from nft_tab import NFTTab
 from swap_tab import SwapTab
 
-# Fallback peer(s) if DNS resolution fails
-# Must mirror the list in src/network.cpp
+# Fallback peer if DNS resolution fails. This mirrors the seed in
+# src/network.cpp but avoids embedding a fixed IP so DNS changes
+# propagate automatically.
 DEFAULT_DNS_PEERS = [
     "peers.alyncoin.com:15671",
-    "35.202.230.184:15671",
 ]
 
 # Keep track of the launched node process so we can terminate it on exit

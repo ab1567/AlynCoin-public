@@ -487,10 +487,11 @@ alyncoin::net::Handshake Network::buildHandshake() const {
   hs.set_nonce(nonce);
   return hs;
 }
-// Fallback peer(s) in case DNS discovery fails
+// Fallback peer in case DNS TXT lookup returns no peers.
+// Uses the domain seed rather than a hard-coded IP so the
+// network can migrate hosts without code changes.
 static const std::vector<std::string> DEFAULT_DNS_PEERS = {
-    "peers.alyncoin.com:15671",
-    "35.202.230.184:15671"};
+    "peers.alyncoin.com:15671"};
 
 // ==== [DNS Peer Discovery] ====
 #ifndef _WIN32
