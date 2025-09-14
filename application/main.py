@@ -594,7 +594,12 @@ if __name__ == "__main__":
         QMessageBox.critical(None, "DNS Unreachable", msg)
         sys.exit(1)
 
-    sync_info = alyncoin_rpc("syncstatus")
+    try:
+        sync_info = alyncoin_rpc("syncstatus")
+    except RuntimeError as e:
+        print(f"⚠️  RPC 'syncstatus' failed: {e}")
+        sync_info = None
+
     if isinstance(sync_info, dict) and "error" in sync_info:
         print("⚠️  RPC 'syncstatus' not available; skipping sync check")
     elif not isinstance(sync_info, dict):
