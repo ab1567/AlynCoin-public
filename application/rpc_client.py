@@ -1,5 +1,6 @@
 import os
 import time
+from typing import Optional
 from urllib.parse import urlparse, urlunparse
 
 import requests
@@ -20,13 +21,11 @@ if RPC_URL_ENV:
             RPC_HOST = parsed.hostname
         if parsed.port:
             RPC_PORT = str(parsed.port)
-        # Force correct RPC path regardless of user-supplied path
-        path = parsed.path.rstrip("/") or RPC_PATH
-        if path != RPC_PATH:
-            parsed = parsed._replace(path=RPC_PATH)
+        parsed = parsed._replace(path=RPC_PATH)
         RPC_URL = urlunparse(parsed)
     except Exception:
-        RPC_URL = RPC_URL_ENV
+        base = RPC_URL_ENV.rstrip("/")
+        RPC_URL = base + RPC_PATH if not base.endswith(RPC_PATH) else base
 else:
     RPC_URL = f"http://{RPC_HOST}:{RPC_PORT}{RPC_PATH}"
 
@@ -49,10 +48,10 @@ SESSION.mount("https://", adapter)
 TIMEOUT_S = 300
 
 
-def alyncoin_rpc(method: str, params=None, id_: int | None = None):
-    """Call the AlynCoin JSON-RPC server and return the 'result'.
+def alyncoin_rpc(method: str, params=None, id_: Optional[int] = None):
+    """Call the AlynCoin JSON-RPC server and return the ``result`` value.
 
-    Raises RuntimeError on RPC/HTTP errors.
+    Raises ``RuntimeError`` on RPC or HTTP failures.
     """
 
     headers = {"Content-Type": "application/json"}
@@ -68,12 +67,10 @@ def alyncoin_rpc(method: str, params=None, id_: int | None = None):
         resp.raise_for_status()
         data = resp.json()
     except Exception as e:
-        # Surface a predictable exception to callers
         raise RuntimeError(f"RPC request failed: {e}") from e
 
-    if "error" in data and data["error"] is not None:
+    if isinstance(data, dict) and data.get("error"):
         err = data["error"]
-        # JSON-RPC 2.0 error object: { code, message, data? }
         if isinstance(err, dict):
             code = err.get("code", -32000)
             msg = err.get("message", "Unknown RPC error")
