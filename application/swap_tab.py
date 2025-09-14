@@ -1,4 +1,15 @@
-from blake3 import blake3
+"""Swap-related GUI actions."""
+
+# blake3 is used to hash secrets before sending them to the chain.  The
+# dependency may not be installed in all environments (e.g. when running the
+# GUI without `pip install -r requirements.txt`).  Import it lazily so the
+# application can still start and provide a helpful runtime message instead of
+# crashing on import.
+try:  # pragma: no cover - import guard
+    from blake3 import blake3
+except ModuleNotFoundError:  # pragma: no cover - handled at runtime
+    blake3 = None
+
 from Crypto.Hash import keccak
 
 from PyQt5.QtWidgets import (
@@ -89,6 +100,12 @@ class SwapTab(QWidget):
                 int(dur)
             except ValueError:
                 self.parent.appendOutput("❌ Amount and duration must be numeric.")
+                return
+
+            if blake3 is None:
+                self.parent.appendOutput(
+                    "❌ blake3 package is missing. Install it with 'pip install blake3'."
+                )
                 return
 
             # Match the chain's hybrid hash: keccak256(blake3(secret))
