@@ -163,20 +163,36 @@ def _discover_node_binary() -> str | None:
     base = _resource_dir()
 
     # 2) next to app / packaged resource
-    cand += [
-        os.path.join(base, "alyncoin"),
-        os.path.join(base, "alyncoin.exe"),
-        resource_path("alyncoin"),
-        resource_path("alyncoin.exe"),
-    ]
+    if platform.system() == "Windows":
+        cand += [
+            os.path.join(base, "alyncoin.exe"),
+            os.path.join(base, "alyncoin"),
+            resource_path("alyncoin.exe"),
+            resource_path("alyncoin"),
+        ]
+    else:
+        cand += [
+            os.path.join(base, "alyncoin"),
+            os.path.join(base, "alyncoin.exe"),
+            resource_path("alyncoin"),
+            resource_path("alyncoin.exe"),
+        ]
 
     # 3) common subfolders
-    cand += [
-        os.path.join(base, "build", "alyncoin"),
-        os.path.join(base, "build", "alyncoin.exe"),
-        os.path.join(base, "alyncoin", "alyncoin"),
-        os.path.join(base, "alyncoin", "alyncoin.exe"),
-    ]
+    if platform.system() == "Windows":
+        cand += [
+            os.path.join(base, "build", "alyncoin.exe"),
+            os.path.join(base, "build", "alyncoin"),
+            os.path.join(base, "alyncoin", "alyncoin.exe"),
+            os.path.join(base, "alyncoin", "alyncoin"),
+        ]
+    else:
+        cand += [
+            os.path.join(base, "build", "alyncoin"),
+            os.path.join(base, "build", "alyncoin.exe"),
+            os.path.join(base, "alyncoin", "alyncoin"),
+            os.path.join(base, "alyncoin", "alyncoin.exe"),
+        ]
 
     # 4) PATH
     for name in ("alyncoin.exe" if platform.system() == "Windows" else "alyncoin", "alyncoin"):
