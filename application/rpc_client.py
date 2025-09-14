@@ -1,4 +1,5 @@
 import os
+import json
 import time
 from typing import Optional
 from urllib.parse import urlparse, urlunparse
@@ -51,7 +52,9 @@ TIMEOUT_S = 300
 def alyncoin_rpc(method: str, params=None, id_: Optional[int] = None):
     """Call the AlynCoin JSON-RPC server and return the ``result`` value.
 
-    Raises ``RuntimeError`` on RPC or HTTP failures.
+    Raises ``RuntimeError`` on RPC or HTTP failures.  When talking to older
+    nodes that predate the JSON-RPC 2.0 envelope, the function automatically
+    retries with the legacy request format.
     """
 
     headers = {"Content-Type": "application/json"}
@@ -62,18 +65,42 @@ def alyncoin_rpc(method: str, params=None, id_: Optional[int] = None):
         "params": params or [],
     }
 
-    try:
-        resp = SESSION.post(RPC_URL, headers=headers, json=body, timeout=TIMEOUT_S)
-        resp.raise_for_status()
-        data = resp.json()
-    except Exception as e:
-        raise RuntimeError(f"RPC request failed: {e}") from e
+    def _do_request(payload, use_json=True):
+        try:
+            if use_json:
+                resp = SESSION.post(
+                    RPC_URL, headers=headers, json=payload, timeout=TIMEOUT_S
+                )
+            else:
+                resp = SESSION.post(
+                    RPC_URL, headers=headers, data=payload, timeout=TIMEOUT_S
+                )
+            resp.raise_for_status()
+            return resp.json()
+        except Exception as e:
+            raise RuntimeError(f"RPC request failed: {e}") from e
+
+    data = _do_request(body, use_json=True)
 
     if isinstance(data, dict) and data.get("error"):
         err = data["error"]
         if isinstance(err, dict):
             code = err.get("code", -32000)
             msg = err.get("message", "Unknown RPC error")
+            # Legacy nodes may return a parse error (-32700) when they don't
+            # understand the JSON-RPC 2.0 envelope. Retry with the original
+            # format for backward compatibility.
+            if code == -32700:
+                legacy_body = json.dumps({"method": method, "params": params or []})
+                data = _do_request(legacy_body, use_json=False)
+                if isinstance(data, dict) and data.get("error"):
+                    err = data["error"]
+                    if isinstance(err, dict):
+                        code = err.get("code", -32000)
+                        msg = err.get("message", "Unknown RPC error")
+                        raise RuntimeError(f"RPC error {code}: {msg}")
+                    raise RuntimeError(str(err))
+                return data.get("result")
             raise RuntimeError(f"RPC error {code}: {msg}")
         raise RuntimeError(str(err))
 
