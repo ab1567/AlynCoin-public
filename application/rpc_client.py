@@ -4,8 +4,53 @@ import time
 from typing import Optional
 from urllib.parse import urlparse, urlunparse
 
-import requests
-from requests.adapters import HTTPAdapter, Retry
+# ``requests`` is optional on macOS; fall back to ``urllib`` if it's missing
+try:  # pragma: no cover - simple import guard
+    import requests
+    from requests.adapters import HTTPAdapter, Retry
+
+    # Shared session with retries for robustness
+    SESSION = requests.Session()
+    adapter = HTTPAdapter(
+        max_retries=Retry(
+            total=3,
+            backoff_factor=0.5,
+            status_forcelist=[500, 502, 503, 504],
+            allowed_methods=frozenset(["POST"]),
+        )
+    )
+    SESSION.mount("http://", adapter)
+    SESSION.mount("https://", adapter)
+except ModuleNotFoundError:  # pragma: no cover
+    import urllib.request
+
+    json_module = json  # alias to avoid clashing with ``json`` parameter below
+
+    class _SimpleResponse:
+        def __init__(self, data: bytes, code: int):
+            self._data = data.decode()
+            self.status_code = code
+
+        def json(self):
+            return json_module.loads(self._data)
+
+        def raise_for_status(self):
+            if not 200 <= self.status_code < 300:
+                raise RuntimeError(f"HTTP error {self.status_code}")
+
+    class _SimpleSession:
+        def post(self, url, headers=None, json=None, data=None, timeout=30):
+            if json is not None:
+                data_bytes = json_module.dumps(json).encode()
+            else:
+                data_bytes = data if isinstance(data, (bytes, bytearray)) else (data or "").encode()
+            req = urllib.request.Request(url, data=data_bytes, headers=headers or {}, method="POST")
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return _SimpleResponse(resp.read(), resp.getcode())
+
+    # ``requests`` not available — use the simple urllib-based session
+    requests = None  # type: ignore
+    SESSION = _SimpleSession()
 
 
 # Allow overriding the RPC endpoint via env. When only ALYNCOIN_RPC_URL is set,
@@ -31,19 +76,6 @@ else:
     RPC_URL = f"http://{RPC_HOST}:{RPC_PORT}{RPC_PATH}"
 
 RPC_PORT = int(RPC_PORT)
-
-# Shared session with retries for robustness
-SESSION = requests.Session()
-adapter = HTTPAdapter(
-    max_retries=Retry(
-        total=3,
-        backoff_factor=0.5,
-        status_forcelist=[500, 502, 503, 504],
-        allowed_methods=frozenset(["POST"]),
-    )
-)
-SESSION.mount("http://", adapter)
-SESSION.mount("https://", adapter)
 
 # Mining a block can be slow at high difficulty — allow generous timeout.
 TIMEOUT_S = 300
