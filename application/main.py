@@ -206,12 +206,13 @@ def _discover_node_binary() -> Optional[str]:
     if env_bin:
         cand.append(env_bin)
 
-    base = _resource_dir()
-    contents = os.path.abspath(os.path.join(base, '..'))  # .../Contents
+    base = _resource_dir()                        # .../Contents/MacOS
+    contents = os.path.abspath(os.path.join(base, '..'))
+    # Prefer the known-good Frameworks placement
     cand += [
-        os.path.join(base, "alyncoin"),                                  # Contents/MacOS
-        os.path.join(contents, "Resources", "alyncoin"),                  # Contents/Resources
-        os.path.join(contents, "Frameworks", "alyncoin"),                 # just in case
+        os.path.join(contents, "Frameworks", "alyncoin"),
+        os.path.join(contents, "Resources", "alyncoin"),
+        os.path.join(base, "alyncoin"),
     ]
 
     # 2) next to app / packaged resource
