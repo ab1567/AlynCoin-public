@@ -1,34 +1,22 @@
-# main.spec — minimal PyQt5/Qt bundle; put `alyncoin` in Contents/MacOS only
+# main.spec — PyQt5 minimal; bundle `alyncoin` in MacOS *and* Resources; certifi bundled
 block_cipher = None
 
 import os
 from pathlib import Path
-from PyInstaller.utils.hooks import collect_dynamic_libs
+from PyInstaller.utils.hooks import collect_dynamic_libs, collect_data_files
 
-# ---- Qt modules you actually use
 QT_MODULES = [
-    'PyQt5',              # keep 'PyQt5' to trigger runtime hook
-    'PyQt5.QtCore',
-    'PyQt5.QtGui',
-    'PyQt5.QtWidgets',
-    'PyQt5.QtNetwork',
-    'PyQt5.QtPrintSupport',
+    'PyQt5', 'PyQt5.QtCore', 'PyQt5.QtGui', 'PyQt5.QtWidgets',
+    'PyQt5.QtNetwork', 'PyQt5.QtPrintSupport',
 ]
 
-# ---- Exclude heavy/unneeded modules
 EXCLUDES = [
-    'PyQt5.QtQml',
-    'PyQt5.QtQuick',
-    'PyQt5.QtQuickWidgets',
-    'PyQt5.QtQuick3D',
-    'PyQt5.Qt3DCore',
-    'PyQt5.Qt3DRender',
-    'PyQt5.Qt3DInput',
-    'PyQt5.QtBluetooth',
-    'PyQt5.QtPositioning',
+    'PyQt5.QtQml', 'PyQt5.QtQuick', 'PyQt5.QtQuickWidgets',
+    'PyQt5.QtQuick3D', 'PyQt5.Qt3DCore', 'PyQt5.Qt3DRender',
+    'PyQt5.Qt3DInput', 'PyQt5.QtBluetooth', 'PyQt5.QtPositioning',
 ]
 
-# ---- Collect only required Qt dylibs; filter out 3D/Bluetooth/etc.
+# Collect only required Qt dylibs
 qt_bins = []
 for mod in QT_MODULES[1:]:
     for src, dst in collect_dynamic_libs(mod):
@@ -36,7 +24,7 @@ for mod in QT_MODULES[1:]:
             continue
         qt_bins.append((src, dst))
 
-# De-dup destinations to avoid symlink collisions
+# De-dup to avoid symlink collisions
 seen = set()
 qt_bins_dedup = []
 for src, dst in qt_bins:
@@ -46,7 +34,7 @@ for src, dst in qt_bins:
     seen.add(key)
     qt_bins_dedup.append((src, dst))
 
-# ---- Copy essential Qt plugins (platforms/imageformats/styles)
+# Essential plugins (skip qpdf to avoid QtPdf warning)
 plugins_pairs = []
 try:
     from PyQt5.QtCore import QLibraryInfo
@@ -55,23 +43,39 @@ try:
             return QLibraryInfo.path(role)
         except Exception:
             return QLibraryInfo.location(role)
+
     plugins_dir = qpath(QLibraryInfo.PluginsPath)
-    for sub in ('platforms', 'imageformats', 'styles'):
-        src_dir = os.path.join(plugins_dir, sub)
-        if os.path.isdir(src_dir):
-            # Put under PyQt5/Qt/plugins/<sub> in the bundle
-            plugins_pairs.append((src_dir, os.path.join('PyQt5', 'Qt', 'plugins', sub)))
+
+    plat_dir = os.path.join(plugins_dir, 'platforms')
+    if os.path.isdir(plat_dir):
+        plugins_pairs.append((plat_dir, os.path.join('PyQt5','Qt','plugins','platforms')))
+
+    styles_dir = os.path.join(plugins_dir, 'styles')
+    if os.path.isdir(styles_dir):
+        plugins_pairs.append((styles_dir, os.path.join('PyQt5','Qt','plugins','styles')))
+
+    img_dir = os.path.join(plugins_dir, 'imageformats')
+    img_dst = os.path.join('PyQt5','Qt','plugins','imageformats')
+    for fname in ('libqjpeg.dylib','libqico.dylib','libqsvg.dylib','libqtiff.dylib','libqgif.dylib','libqicns.dylib'):
+        src = os.path.join(img_dir, fname)
+        if os.path.isfile(src):
+            plugins_pairs.append((src, img_dst))
 except Exception:
     pass
+
+# Bundle CA bundle for requests
+certifi_datas = collect_data_files('certifi')
 
 a = Analysis(
     ['main.py'],
     pathex=['.'],
 
-    # 🔴 IMPORTANT: place your node binary in Contents/MacOS
-    binaries=[('alyncoin', 'MacOS')] + qt_bins_dedup,
+    # Put node into Contents/MacOS (primary)
+    binaries=[(os.path.abspath('alyncoin'), 'MacOS')] + qt_bins_dedup,
 
+    # Also copy into Resources so resource_path('alyncoin') works too
     datas=[
+        (os.path.abspath('alyncoin'), '.'),  # -> Contents/Resources/alyncoin
         ('style.qss', '.'),
         ('logo.icns', '.'),
         ('logo.png', '.'),
@@ -86,9 +90,15 @@ a = Analysis(
         ('nft_tab.py', '.'),
         ('swap_tab.py', '.'),
         ('rpc_client.py', '.'),
-    ] + plugins_pairs,
+    ] + plugins_pairs + certifi_datas,
 
-    hiddenimports=QT_MODULES,
+    hiddenimports=[
+        'PyQt5','PyQt5.sip',
+        'PyQt5.QtCore','PyQt5.QtGui','PyQt5.QtWidgets',
+        'PyQt5.QtNetwork','PyQt5.QtPrintSupport',
+        'requests','urllib3','idna','charset_normalizer','certifi',
+        'sip',  # quiets rare "Hidden import 'sip' not found!" logs
+    ],
     hookspath=[],
     runtime_hooks=[],
     excludes=EXCLUDES,
