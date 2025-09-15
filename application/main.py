@@ -7,6 +7,7 @@ import subprocess
 import time
 import platform
 import shutil
+from typing import Optional
 
 # ``requests`` is optional on macOS; fall back to ``urllib`` if it's missing
 try:  # pragma: no cover - simple import guard
@@ -48,6 +49,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtGui import QIcon, QFont, QPixmap
 from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QTimer
+from PyQt5.QtNetwork import QLocalServer, QLocalSocket
 
 from wallet_tab import WalletTab
 from send_tab import SendTab
@@ -57,6 +59,26 @@ from dao_tab import DAOTab
 from stats_tab import StatsTab
 from nft_tab import NFTTab
 from swap_tab import SwapTab
+
+_singleton_server: Optional[QLocalServer] = None
+
+def acquire_single_instance(name: str) -> bool:
+    sock = QLocalSocket()
+    sock.connectToServer(name)
+    if sock.waitForConnected(100):
+        sock.close()
+        return False
+    try:
+        QLocalServer.removeServer(name)
+    except Exception:
+        pass
+    global _singleton_server
+    _singleton_server = QLocalServer()
+    if not _singleton_server.listen(name):
+        QLocalServer.removeServer(name)
+        if not _singleton_server.listen(name):
+            return False
+    return True
 
 # Fallback peer if DNS resolution fails. This mirrors the seed in
 # src/network.cpp but avoids embedding a fixed IP so DNS changes
@@ -172,7 +194,7 @@ def _resource_dir() -> str:
     return os.path.dirname(sys.executable if hasattr(sys, "frozen") else os.path.abspath(__file__))
 
 
-def _discover_node_binary() -> str | None:
+def _discover_node_binary() -> Optional[str]:
     """
     Find the node in common places. Accept both Windows and Linux binaries
     because Windows users may run the Linux binary via WSL.
@@ -185,6 +207,12 @@ def _discover_node_binary() -> str | None:
         cand.append(env_bin)
 
     base = _resource_dir()
+    contents = os.path.abspath(os.path.join(base, '..'))  # .../Contents
+    cand += [
+        os.path.join(base, "alyncoin"),                                  # Contents/MacOS
+        os.path.join(contents, "Resources", "alyncoin"),                  # Contents/Resources
+        os.path.join(contents, "Frameworks", "alyncoin"),                 # just in case
+    ]
 
     # 2) next to app / packaged resource
     if platform.system() == "Windows":
@@ -604,6 +632,9 @@ class AlynCoinApp(QMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    if not acquire_single_instance("com.alyncoin.wallet"):
+        QMessageBox.information(None, "AlynCoin", "AlynCoin is already running.")
+        sys.exit(0)
     # --- Try to launch the background node ---
     if not ensure_alyncoin_node():
         QMessageBox.critical(None, "AlynCoin Node Missing",
