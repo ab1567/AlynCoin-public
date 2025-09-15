@@ -4,8 +4,26 @@ import socket
 import subprocess
 import time
 import platform
-import requests
 import shutil
+
+# ``requests`` is optional on macOS; fall back to ``urllib`` if it's missing
+try:  # pragma: no cover - simple import guard
+    import requests  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover
+    import urllib.request
+
+    class _SimpleResponse:
+        def __init__(self, resp: urllib.request.addinfourl):
+            self.text = resp.read().decode("utf-8", errors="ignore")
+            self.status_code = resp.getcode() or 0
+
+    class _SimpleRequests:
+        @staticmethod
+        def get(url: str, timeout: int = 2) -> _SimpleResponse:
+            with urllib.request.urlopen(url, timeout=timeout) as resp:
+                return _SimpleResponse(resp)
+
+    requests = _SimpleRequests()  # type: ignore
 try:
     import dns.resolver
 except Exception as e:
