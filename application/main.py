@@ -43,13 +43,23 @@ def resource_path(filename):
         base = os.path.abspath(os.path.dirname(__file__))
     return os.path.join(base, filename)
 
-from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QTabWidget, QTextEdit, QVBoxLayout,
-    QWidget, QLabel, QMessageBox, QFileDialog
-)
-from PyQt5.QtGui import QIcon, QFont, QPixmap
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QTimer
-from PyQt5.QtNetwork import QLocalServer, QLocalSocket
+try:
+    from PyQt5.QtWidgets import (
+        QApplication, QMainWindow, QTabWidget, QTextEdit, QVBoxLayout,
+        QWidget, QLabel, QMessageBox, QFileDialog
+    )
+    from PyQt5.QtGui import QIcon, QFont, QPixmap
+    from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QTimer
+    from PyQt5.QtNetwork import QLocalServer, QLocalSocket
+except ModuleNotFoundError as exc:  # pragma: no cover - guard for missing GUI deps
+    missing = exc.name or "PyQt5"
+    print(
+        f"❌ Required dependency '{missing}' is not installed.\n"
+        "   Install the desktop UI requirements with\n"
+        "   `python -m pip install -r requirements.txt` from the `application` directory.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
 from wallet_tab import WalletTab
 from send_tab import SendTab
