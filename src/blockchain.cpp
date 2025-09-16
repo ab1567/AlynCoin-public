@@ -1153,7 +1153,7 @@ Block Blockchain::minePendingTransactions(
   }
 
   std::cout << "[DEBUG] Attempting to addBlock()...\n";
-  if (!addBlock(newBlock)) {
+  if (!addBlock(newBlock, true)) {
     std::cerr << "❌ Error adding mined block to blockchain.\n";
     return Block();
   }
