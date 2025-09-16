@@ -1338,9 +1338,12 @@ void Blockchain::addTransaction(const Transaction &tx) {
   std::transform(senderLower.begin(), senderLower.end(), senderLower.begin(),
                  ::tolower);
 
+  // Cache PQ keys locally to avoid repeatedly creating temporaries
+  const std::string senderPubDil = tx.getSenderPublicKeyDilithium();
+  const std::string senderPubFal = tx.getSenderPublicKeyFalcon();
+
   // If we don't have the sender's PQ keys in the tx, reject immediately
-  if (tx.getSenderPublicKeyDilithium().empty() ||
-      tx.getSenderPublicKeyFalcon().empty()) {
+  if (senderPubDil.empty() || senderPubFal.empty()) {
     std::cerr << "⛔  [addTransaction] No PQ public keys for " << senderLower
               << ".  Transaction rejected.\n";
     return;
@@ -1355,10 +1358,10 @@ void Blockchain::addTransaction(const Transaction &tx) {
     const std::string sL = lower(tx.getSender());
 
     // derive expected from either pubkey
-    std::vector<unsigned char> pubDil(tx.getSenderPublicKeyDilithium().begin(),
-                                      tx.getSenderPublicKeyDilithium().end());
-    std::vector<unsigned char> pubFal(tx.getSenderPublicKeyFalcon().begin(),
-                                      tx.getSenderPublicKeyFalcon().end());
+    std::vector<unsigned char> pubDil(senderPubDil.begin(),
+                                      senderPubDil.end());
+    std::vector<unsigned char> pubFal(senderPubFal.begin(),
+                                      senderPubFal.end());
     std::string expectedDil = Crypto::deriveAddressFromPub(pubDil);
     std::string expectedFal = Crypto::deriveAddressFromPub(pubFal);
     bool matches = (sL == expectedDil) || (sL == expectedFal);
