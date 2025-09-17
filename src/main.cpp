@@ -592,45 +592,44 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
         if (dil.publicKey.empty() || fal.publicKey.empty() ||
             dil.privateKey.empty() || fal.privateKey.empty()) {
           output = {{"error", "Missing PQ key material for sender"}};
-          break;
-        }
-
-        std::string canonicalSender;
-        std::vector<unsigned char> pubDil(dil.publicKey.begin(),
-                                          dil.publicKey.end());
-        if (!pubDil.empty()) {
-          canonicalSender = Crypto::deriveAddressFromPub(pubDil);
         } else {
-          std::vector<unsigned char> pubFal(fal.publicKey.begin(),
-                                            fal.publicKey.end());
-          if (!pubFal.empty())
-            canonicalSender = Crypto::deriveAddressFromPub(pubFal);
-        }
-        if (canonicalSender.empty())
-          canonicalSender = from;
+          std::string canonicalSender;
+          std::vector<unsigned char> pubDil(dil.publicKey.begin(),
+                                            dil.publicKey.end());
+          if (!pubDil.empty()) {
+            canonicalSender = Crypto::deriveAddressFromPub(pubDil);
+          } else {
+            std::vector<unsigned char> pubFal(fal.publicKey.begin(),
+                                              fal.publicKey.end());
+            if (!pubFal.empty())
+              canonicalSender = Crypto::deriveAddressFromPub(pubFal);
+          }
+          if (canonicalSender.empty())
+            canonicalSender = from;
 
-        Transaction tx(canonicalSender, to, amount, "", metadata,
-                        time(nullptr));
-        if (method == "sendl2")
-          tx.setMetadata("L2:" + metadata);
-        tx.setSenderPublicKeyDilithium(std::string(
-            reinterpret_cast<const char*>(dil.publicKey.data()),
-            dil.publicKey.size()));
-        tx.setSenderPublicKeyFalcon(std::string(
-            reinterpret_cast<const char*>(fal.publicKey.data()),
-            fal.publicKey.size()));
-        tx.signTransaction(dil.privateKey, fal.privateKey);
-        if (!tx.getSignatureDilithium().empty() &&
-            !tx.getSignatureFalcon().empty()) {
-          blockchain->addTransaction(tx);
-          blockchain->savePendingTransactionsToDB();
-          if (network)
-            network->broadcastTransaction(tx);
-          output = {{"result", "Transaction broadcasted"},
-                    {"sender", canonicalSender},
-                    {"key_id", from}};
-        } else {
-          output = {{"error", "Transaction signing failed"}};
+          Transaction tx(canonicalSender, to, amount, "", metadata,
+                          time(nullptr));
+          if (method == "sendl2")
+            tx.setMetadata("L2:" + metadata);
+          tx.setSenderPublicKeyDilithium(std::string(
+              reinterpret_cast<const char*>(dil.publicKey.data()),
+              dil.publicKey.size()));
+          tx.setSenderPublicKeyFalcon(std::string(
+              reinterpret_cast<const char*>(fal.publicKey.data()),
+              fal.publicKey.size()));
+          tx.signTransaction(dil.privateKey, fal.privateKey);
+          if (!tx.getSignatureDilithium().empty() &&
+              !tx.getSignatureFalcon().empty()) {
+            blockchain->addTransaction(tx);
+            blockchain->savePendingTransactionsToDB();
+            if (network)
+              network->broadcastTransaction(tx);
+            output = {{"result", "Transaction broadcasted"},
+                      {"sender", canonicalSender},
+                      {"key_id", from}};
+          } else {
+            output = {{"error", "Transaction signing failed"}};
+          }
         }
       }
       // Rollup Block
