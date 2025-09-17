@@ -217,7 +217,7 @@ std::optional<std::string> resolveKeyIdInternal(const std::string& addressOrKeyI
 } // namespace
 
 std::optional<std::string>
-Crypto::resolveWalletKeyIdentifier(const std::string& addressOrKeyId) {
+resolveWalletKeyIdentifier(const std::string& addressOrKeyId) {
   return resolveKeyIdInternal(addressOrKeyId);
 }
 
