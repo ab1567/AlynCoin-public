@@ -6,6 +6,28 @@
 #include <fstream>
 #include <iostream>
 
+void Wallet::updateAddressFromPQKeys() {
+    std::string derivedAddress;
+
+    if (!dilithiumKeys.publicKey.empty()) {
+        std::vector<unsigned char> pubDil(dilithiumKeys.publicKey.begin(),
+                                          dilithiumKeys.publicKey.end());
+        derivedAddress = Crypto::deriveAddressFromPub(pubDil);
+    }
+
+    if (derivedAddress.empty() && !falconKeys.publicKey.empty()) {
+        std::vector<unsigned char> pubFal(falconKeys.publicKey.begin(),
+                                          falconKeys.publicKey.end());
+        derivedAddress = Crypto::deriveAddressFromPub(pubFal);
+    }
+
+    if (!derivedAddress.empty()) {
+        address = derivedAddress;
+    } else {
+        address = walletName;
+    }
+}
+
 namespace fs = std::filesystem;
 
 // Default wallet constructor
@@ -52,7 +74,10 @@ Wallet::Wallet(const std::string& address, const std::string& keyDirectoryPath, 
         falconKeys = Crypto::loadFalconKeys(address);
     }
 
-    std::cout << "✅ Wallet created successfully!\nAddress: " << address << std::endl;
+    updateAddressFromPQKeys();
+
+    std::cout << "✅ Wallet created successfully!\nAddress: " << address
+              << "\nKey Identifier: " << walletName << std::endl;
 }
 
 // Alternate constructor: load wallet from explicit private key path
@@ -90,13 +115,16 @@ Wallet::Wallet(const std::string& privateKeyPath, const std::string& keyDirector
         throw std::runtime_error("❌ Falcon keys missing for wallet: " + walletName);
     }
 
+    updateAddressFromPQKeys();
+
     // Optional: verify address matches public key
     std::string derived = Crypto::generateAddress(publicKey);
-    if (derived != address) {
+    if (derived != walletName) {
         std::cerr << "⚠️ Warning: Loaded public key doesn't match provided address.\n";
     }
 
-    std::cout << "✅ Wallet loaded successfully!\nAddress: " << address << std::endl;
+    std::cout << "✅ Wallet loaded successfully!\nAddress: " << address
+              << "\nKey Identifier: " << walletName << std::endl;
 }
 
 // Key loader
@@ -119,9 +147,11 @@ std::string Wallet::getAddress() const { return address; }
 std::string Wallet::getPublicKey() const { return publicKey; }
 void Wallet::generateDilithiumKeyPair() {
     dilithiumKeys = Crypto::generateDilithiumKeys(walletName);
+    updateAddressFromPQKeys();
 }
 void Wallet::generateFalconKeyPair() {
     falconKeys = Crypto::generateFalconKeys(walletName);
+    updateAddressFromPQKeys();
 }
 std::string Wallet::getDilithiumPublicKey() const {
     if (!dilithiumKeys.publicKeyHex.empty())
@@ -155,6 +185,15 @@ Transaction Wallet::createTransaction(const std::string& recipient, double amoun
                    "",
                    "",
                    std::time(nullptr));
+
+    if (dilithiumKeys.publicKey.empty() || falconKeys.publicKey.empty()) {
+        throw std::runtime_error("❌ Post-quantum public keys missing for wallet.");
+    }
+
+    tx.setSenderPublicKeyDilithium(std::string(
+        dilithiumKeys.publicKey.begin(), dilithiumKeys.publicKey.end()));
+    tx.setSenderPublicKeyFalcon(std::string(
+        falconKeys.publicKey.begin(), falconKeys.publicKey.end()));
 
     tx.signTransaction(dilithiumKeys.privateKey, falconKeys.privateKey);
 

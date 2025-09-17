@@ -23,6 +23,9 @@
 #include <random>
 #include <sstream>
 #include <thread>
+#include <unordered_map>
+#include <mutex>
+#include <cctype>
 #ifdef _WIN32
 #include <io.h>
 #include <Windows.h>
@@ -120,6 +123,102 @@ std::string deriveAddressFromPub(const std::vector<unsigned char>& pubkeyBytes) 
   // This matches the chain's current address generation semantics.
   std::string raw(reinterpret_cast<const char*>(pubkeyBytes.data()), pubkeyBytes.size());
   return hybridHash(raw).substr(0, 40);
+}
+
+namespace {
+
+std::string toLowerCopy(std::string value) {
+  std::transform(value.begin(), value.end(), value.begin(),
+                 [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+  return value;
+}
+
+bool endsWith(const std::string& value, const std::string& suffix) {
+  return value.size() >= suffix.size() &&
+         value.compare(value.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
+std::optional<std::string> findKeyIdByCanonical(const std::string& canonicalLower) {
+  namespace fs = std::filesystem;
+  if (!fs::exists(KEY_DIR)) {
+    return std::nullopt;
+  }
+
+  const std::string dilSuffix = "_dilithium.pub";
+  const std::string falSuffix = "_falcon.pub";
+
+  for (const auto& entry : fs::directory_iterator(KEY_DIR)) {
+    if (!entry.is_regular_file()) continue;
+    const auto filename = entry.path().filename().string();
+
+    std::string prefix;
+    if (endsWith(filename, dilSuffix)) {
+      prefix = filename.substr(0, filename.size() - dilSuffix.size());
+    } else if (endsWith(filename, falSuffix)) {
+      prefix = filename.substr(0, filename.size() - falSuffix.size());
+    } else {
+      continue;
+    }
+
+    std::ifstream pub(entry.path(), std::ios::binary);
+    if (!pub) continue;
+
+    std::vector<unsigned char> buffer((std::istreambuf_iterator<char>(pub)),
+                                      std::istreambuf_iterator<char>());
+    if (buffer.empty()) continue;
+
+    std::string derived = toLowerCopy(Crypto::deriveAddressFromPub(buffer));
+    if (derived == canonicalLower) {
+      return prefix;
+    }
+  }
+
+  return std::nullopt;
+}
+
+std::optional<std::string> resolveKeyIdInternal(const std::string& addressOrKeyId) {
+  if (addressOrKeyId.empty()) {
+    return std::nullopt;
+  }
+
+  namespace fs = std::filesystem;
+
+  auto hasDirectFiles = [](const std::string& prefix) {
+    return fs::exists(KEY_DIR + prefix + "_falcon.key") ||
+           fs::exists(KEY_DIR + prefix + "_dilithium.key") ||
+           fs::exists(KEY_DIR + prefix + "_private.pem");
+  };
+
+  if (hasDirectFiles(addressOrKeyId)) {
+    return addressOrKeyId;
+  }
+
+  const std::string canonicalLower = toLowerCopy(addressOrKeyId);
+
+  static std::mutex cacheMutex;
+  static std::unordered_map<std::string, std::string> cache;
+
+  {
+    std::lock_guard<std::mutex> lock(cacheMutex);
+    auto it = cache.find(canonicalLower);
+    if (it != cache.end()) {
+      return it->second;
+    }
+  }
+
+  auto matched = findKeyIdByCanonical(canonicalLower);
+  if (matched) {
+    std::lock_guard<std::mutex> lock(cacheMutex);
+    cache[canonicalLower] = *matched;
+  }
+  return matched;
+}
+
+} // namespace
+
+std::optional<std::string>
+Crypto::resolveWalletKeyIdentifier(const std::string& addressOrKeyId) {
+  return resolveKeyIdInternal(addressOrKeyId);
 }
 
 // --- Dilithium Key Generation ---
@@ -362,7 +461,9 @@ std::string extractDilithiumPublicKey(const std::string &username) {
 }
 
 std::string extractFalconPublicKey(const std::string &username) {
-  std::string pubPath = KEY_DIR + username + "_falcon.pub";
+  std::string resolved =
+      resolveWalletKeyIdentifier(username).value_or(username);
+  std::string pubPath = KEY_DIR + resolved + "_falcon.pub";
   if (!Crypto::fileExists(pubPath))
     return "";
   std::ifstream pubFile(pubPath, std::ios::binary);
@@ -372,7 +473,9 @@ std::string extractFalconPublicKey(const std::string &username) {
 }
 // --- Public Key Loaders ---
 std::vector<unsigned char> getPublicKeyDilithium(const std::string &walletAddress) {
-  std::string pubPath = KEY_DIR + walletAddress + "_dilithium.pub";
+  std::string resolved =
+      Crypto::resolveWalletKeyIdentifier(walletAddress).value_or(walletAddress);
+  std::string pubPath = KEY_DIR + resolved + "_dilithium.pub";
   std::ifstream pubFile(pubPath, std::ios::binary);
   if (!pubFile) return {};
 
@@ -386,7 +489,9 @@ std::vector<unsigned char> getPublicKeyDilithium(const std::string &walletAddres
 }
 
 std::vector<unsigned char> getPublicKeyFalcon(const std::string &walletAddress) {
-  std::string pubPath = KEY_DIR + walletAddress + "_falcon.pub";
+  std::string resolved =
+      Crypto::resolveWalletKeyIdentifier(walletAddress).value_or(walletAddress);
+  std::string pubPath = KEY_DIR + resolved + "_falcon.pub";
   std::ifstream pubFile(pubPath, std::ios::binary);
   if (!pubFile) return {};
 
@@ -403,8 +508,11 @@ std::vector<unsigned char> getPublicKeyFalcon(const std::string &walletAddress) 
 DilithiumKeyPair loadDilithiumKeys(const std::string &username) {
   DilithiumKeyPair keypair;
 
-  std::string privPath = KEY_DIR + username + "_dilithium.key";
-  std::string pubPath  = KEY_DIR + username + "_dilithium.pub";
+  std::string resolved =
+      resolveWalletKeyIdentifier(username).value_or(username);
+
+  std::string privPath = KEY_DIR + resolved + "_dilithium.key";
+  std::string pubPath  = KEY_DIR + resolved + "_dilithium.pub";
 
   std::ifstream priv(privPath, std::ios::binary);
   std::ifstream pub(pubPath, std::ios::binary);
@@ -427,8 +535,10 @@ DilithiumKeyPair loadDilithiumKeys(const std::string &username) {
 
 FalconKeyPair loadFalconKeys(const std::string &username) {
   FalconKeyPair keypair;
-  std::string privPath = KEY_DIR + username + "_falcon.key";
-  std::string pubPath = KEY_DIR + username + "_falcon.pub";
+  std::string resolved =
+      resolveWalletKeyIdentifier(username).value_or(username);
+  std::string privPath = KEY_DIR + resolved + "_falcon.key";
+  std::string pubPath = KEY_DIR + resolved + "_falcon.pub";
 
   std::ifstream pub(pubPath, std::ios::binary);
   std::ifstream priv(privPath, std::ios::binary);
@@ -939,12 +1049,15 @@ bool fileExists(const std::string &path) {
 }
 
 bool keysExist(const std::string &username) {
-    std::string rsaPriv = getPrivateKeyPath(username);
-    std::string rsaPub  = getPublicKeyPath(username);
-    std::string dilPriv = KEY_DIR + username + "_dilithium.key";
-    std::string dilPub  = KEY_DIR + username + "_dilithium.pub";
-    std::string falPriv = KEY_DIR + username + "_falcon.key";
-    std::string falPub  = KEY_DIR + username + "_falcon.pub";
+    std::string resolved =
+        resolveWalletKeyIdentifier(username).value_or(username);
+
+    std::string rsaPriv = getPrivateKeyPath(resolved);
+    std::string rsaPub  = getPublicKeyPath(resolved);
+    std::string dilPriv = KEY_DIR + resolved + "_dilithium.key";
+    std::string dilPub  = KEY_DIR + resolved + "_dilithium.pub";
+    std::string falPriv = KEY_DIR + resolved + "_falcon.key";
+    std::string falPub  = KEY_DIR + resolved + "_falcon.pub";
 
     return fileExists(rsaPriv) && fileExists(rsaPub) &&
            fileExists(dilPriv) && fileExists(dilPub) &&
@@ -1176,7 +1289,13 @@ bool decryptFile(const std::string &inputFilePath,
 //
 
 std::vector<unsigned char> getPublicKeyBytes(const std::string &walletAddress) {
-  std::string pubPath = KEY_DIR + walletAddress + "_dilithium.pub";  // or default to dilithium
+  std::string resolved =
+      Crypto::resolveWalletKeyIdentifier(walletAddress).value_or(walletAddress);
+  std::string pubPath = KEY_DIR + resolved + "_dilithium.pub";
+  if (!std::filesystem::exists(pubPath)) {
+    pubPath = KEY_DIR + resolved + "_falcon.pub";
+  }
+
   std::ifstream pubFile(pubPath, std::ios::binary);
 
   if (!pubFile.is_open()) {

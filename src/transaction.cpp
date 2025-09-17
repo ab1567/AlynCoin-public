@@ -459,10 +459,14 @@ void Transaction::signTransaction(const std::vector<unsigned char> &dilithiumPri
     signatureFalcon.assign(falconSigVec.begin(), falconSigVec.end());
 
     // ✅ Step 3: Attach public keys (raw)
-    std::vector<unsigned char> pubDil = Crypto::getPublicKeyDilithium(sender);
-    std::vector<unsigned char> pubFal = Crypto::getPublicKeyFalcon(sender);
-    senderPublicKeyDilithium.assign(pubDil.begin(), pubDil.end());
-    senderPublicKeyFalcon.assign(pubFal.begin(), pubFal.end());
+    if (senderPublicKeyDilithium.empty()) {
+        std::vector<unsigned char> pubDil = Crypto::getPublicKeyDilithium(sender);
+        senderPublicKeyDilithium.assign(pubDil.begin(), pubDil.end());
+    }
+    if (senderPublicKeyFalcon.empty()) {
+        std::vector<unsigned char> pubFal = Crypto::getPublicKeyFalcon(sender);
+        senderPublicKeyFalcon.assign(pubFal.begin(), pubFal.end());
+    }
 
     // ✅ Step 4: Generate zk-STARK proof
     zkProof = WinterfellStark::generateTransactionProof(sender, recipient, amount, timestamp);

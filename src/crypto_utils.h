@@ -65,6 +65,11 @@ bool keysExist(const std::string &username);
 void ensureMinerKeys();
 std::string generateMinerAddress();
 
+// Allow callers to resolve either a legacy wallet label or a canonical
+// post-quantum address to the key identifier used on disk.
+std::optional<std::string>
+resolveWalletKeyIdentifier(const std::string &addressOrKeyId);
+
 // Generic helpers
 EVP_PKEY *loadPrivateKey(const std::string &privateKeyPath);
 bool fileExists(const std::string &path);
