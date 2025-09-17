@@ -89,12 +89,47 @@ class WalletTab(QWidget):
             priv_path = os.path.join(self.walletDir, f"{user_input}_private.pem")
             if not os.path.exists(priv_path):
                 break
-        self.appendOutput(f"⚙️ Auto-generating wallet name: {user_input}")
+        self.appendOutput(
+            "🔐 Creating new wallet. The passphrase protects your wallet file—if you lose it, you will not be able to access the wallet."
+        )
+        self.appendOutput(f"⚙️ Auto-generating wallet name (key identifier): {user_input}")
 
-        passphrase, _ = QInputDialog.getText(self, "Passphrase", "Enter passphrase (optional):", QLineEdit.Password)
+        prompt_text = (
+            "Enter a passphrase (leave blank to have none). If provided, it must be at least "
+            "8 characters. The wallet name above is a 40-hex-character key identifier."
+        )
+        passphrase, ok = QInputDialog.getText(
+            self,
+            "Wallet Passphrase",
+            prompt_text,
+            QLineEdit.Password,
+        )
+        if not ok:
+            self.appendOutput("ℹ️ Wallet creation cancelled before passphrase entry.")
+            return
+
+        validated_passphrase = passphrase
+        if passphrase:
+            if len(passphrase) < 8:
+                self.appendOutput("❌ Passphrase must be at least 8 characters long.")
+                return
+            confirm_passphrase, confirm_ok = QInputDialog.getText(
+                self,
+                "Confirm Passphrase",
+                "Re-enter the passphrase to confirm:",
+                QLineEdit.Password,
+            )
+            if not confirm_ok:
+                self.appendOutput("ℹ️ Wallet creation cancelled during passphrase confirmation.")
+                return
+            if passphrase != confirm_passphrase:
+                self.appendOutput("❌ Passphrases do not match. Wallet creation aborted.")
+                return
+        else:
+            validated_passphrase = ""
 
         # RPC createwallet accepts [name, passphrase]
-        result = alyncoin_rpc("createwallet", [user_input, passphrase])
+        result = alyncoin_rpc("createwallet", [user_input, validated_passphrase])
         if isinstance(result, dict) and "error" in result:
             self.appendOutput(f"❌ {result['error']}")
             return
@@ -109,6 +144,7 @@ class WalletTab(QWidget):
             self.parent.set_wallet_address(final_addr, user_input)
             self.appendOutput(f"📬 Wallet Address: {final_addr}")
             self.appendOutput(f"🆔 Key Identifier: {user_input}")
+            self.appendOutput("💡 Remember to back up your wallet via the 'Export Wallet' button.")
         self.refreshWalletList()
 
     def loadWallet(self):
