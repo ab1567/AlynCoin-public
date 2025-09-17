@@ -1169,6 +1169,145 @@ void clearInputBuffer() {
   std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 }
 
+static bool handleNodeMenuSelection(int choice, Blockchain &blockchain,
+                                    Network *network,
+                                    SelfHealingNode &healer,
+                                    const std::string &keyDir) {
+  switch (choice) {
+  case 1: {
+    std::cout << "\n=== Blockchain Stats ===\n";
+    std::cout << "Total Blocks: " << blockchain.getBlockCount() << "\n";
+    std::cout << "Difficulty: " << calculateSmartDifficulty(blockchain)
+              << "\n";
+    std::cout << "Total Supply: " << blockchain.getTotalSupply()
+              << " AlynCoin\n";
+    std::cout << "Total Burned Supply: " << blockchain.getTotalBurnedSupply()
+              << " AlynCoin\n";
+    std::cout << "Dev Fund Balance: "
+              << blockchain.getBalance("DevFundWallet") << " AlynCoin\n";
+    return true;
+  }
+
+  case 2: {
+    std::string minerAddress;
+    std::cout << "Enter miner address: ";
+    std::cin >> minerAddress;
+    Block mined = blockchain.mineBlock(minerAddress);
+    if (!mined.getHash().empty()) {
+      blockchain.saveToDB();
+      blockchain.savePendingTransactionsToDB();
+      if (network)
+        network->broadcastBlock(mined);
+      blockchain.reloadBlockchainState();
+      std::cout << "✅ Block mined and broadcasted.\n";
+    }
+    return true;
+  }
+
+  case 3:
+    blockchain.printBlockchain();
+    return true;
+
+  case 4: {
+    std::string minerAddress;
+    std::cout << "Enter miner address: ";
+    std::cin >> minerAddress;
+    Miner::startMiningProcess(minerAddress);
+    return true;
+  }
+
+  case 5:
+    if (network) {
+      network->scanForPeers();
+      network->requestPeerList();
+      network->intelligentSync();
+    }
+    return true;
+
+  case 6:
+    std::cout << "Dev Fund Balance: "
+              << blockchain.getBalance("DevFundWallet") << " AlynCoin\n";
+    return true;
+
+  case 7: {
+    std::string addr;
+    std::cout << "Enter address: ";
+    std::cin >> addr;
+    std::cout << "Balance: " << blockchain.getBalance(addr) << " AlynCoin\n";
+    return true;
+  }
+
+  case 8: {
+    blockchain.loadPendingTransactionsFromDB();
+    auto allTxs = blockchain.getPendingTransactions();
+    blockchain.setPendingL2TransactionsIfNotInRollups(allTxs);
+    auto l2Transactions = blockchain.getPendingL2Transactions();
+    if (l2Transactions.empty()) {
+      std::cout << "⚠️ No pending L2 transactions to roll up.\n";
+      return true;
+    }
+    auto stateBefore = blockchain.getCurrentState();
+    auto stateAfter =
+        blockchain.simulateL2StateUpdate(stateBefore, l2Transactions);
+    RollupBlock rollup(blockchain.getRollupChainSize(),
+                       blockchain.getLastRollupHash(), l2Transactions);
+    std::string prevRecursive = blockchain.getLastRollupProof();
+    rollup.generateRollupProof(stateBefore, stateAfter, prevRecursive);
+    if (blockchain.isRollupBlockValid(rollup)) {
+      blockchain.addRollupBlock(rollup);
+      if (network)
+        network->broadcastRollupBlock(rollup);
+      std::cout << "✅ Rollup Block created. Hash: " << rollup.getHash()
+                << "\n";
+    } else {
+      std::cout << "❌ Rollup Block creation failed.\n";
+    }
+    return true;
+  }
+
+  case 9:
+    std::cout << "Shutting down AlynCoin Node...\n";
+    return false;
+
+  case 10:
+    std::cout << "🩺 Manually triggering self-healing check...\n";
+    healer.monitorAndHeal();
+    return true;
+
+  case 12: {
+    std::string name;
+    std::string outPath;
+    std::cout << "Enter wallet name (leave blank for current): ";
+    std::getline(std::cin >> std::ws, name);
+    if (name.empty()) {
+      std::ifstream cur(DBPaths::getHomePath() +
+                        "/.alyncoin/current_wallet.txt");
+      std::getline(cur, name);
+    }
+    if (name.empty()) {
+      std::cout << "❌ No wallet name provided and no current wallet set\n";
+      return true;
+    }
+    std::cout << "Enter output file path: ";
+    std::getline(std::cin, outPath);
+    exportWalletToFile(keyDir, blockchain, name, outPath);
+    return true;
+  }
+
+  case 13: {
+    std::string inPath;
+    std::cout << "Enter backup file path: ";
+    std::getline(std::cin >> std::ws, inPath);
+    importWalletFromFile(keyDir, inPath);
+    return true;
+  }
+
+  default:
+    std::cout << "Invalid choice!\n";
+    return true;
+  }
+}
+
 int main(int argc, char *argv[]) {
   std::srand(std::time(nullptr));
   loadConfigFile("config.ini");
@@ -1847,18 +1986,19 @@ int main(int argc, char *argv[]) {
     std::vector<std::string> hashes;
     int selected = 0;
 
-      auto blocks = b.getAllBlocks();
-      for (auto it = blocks.rbegin(); it != blocks.rend() && selected < count;
-           ++it) {
-        const auto &txs = it->getTransactions();
-        for (size_t idx = 0; idx < txs.size() && selected < count; ++idx) {
-          const auto &tx = txs[idx];
-          if (tx.getSender() == addr || tx.getRecipient() == addr) {
-            hashes.push_back(tx.getHash());
-            selected++;
-          }
+    auto blocks = b.getAllBlocks();
+    for (auto it = blocks.rbegin(); it != blocks.rend() && selected < count;
+         ++it) {
+      auto txs = it->getTransactions();
+      for (const auto &tx : txs) {
+        if (selected >= count)
+          break;
+        if (tx.getSender() == addr || tx.getRecipient() == addr) {
+          hashes.push_back(tx.getHash());
+          selected++;
         }
       }
+    }
 
     if (hashes.empty()) {
       std::cout << "⚠️ No transactions found for " << addr << ".\n";
@@ -2353,7 +2493,6 @@ int main(int argc, char *argv[]) {
   }
   std::this_thread::sleep_for(std::chrono::seconds(2));
 
-  std::string minerAddress;
   bool running = true;
 
   while (running) {
@@ -2379,106 +2518,7 @@ int main(int argc, char *argv[]) {
       std::cout << "Invalid input!\n";
       continue;
     }
-
-      if (choice == 1) {
-        std::cout << "\n=== Blockchain Stats ===\n";
-        std::cout << "Total Blocks: " << blockchain.getBlockCount() << "\n";
-        std::cout << "Difficulty: " << calculateSmartDifficulty(blockchain)
-                  << "\n";
-        std::cout << "Total Supply: " << blockchain.getTotalSupply()
-                  << " AlynCoin\n";
-        std::cout << "Total Burned Supply: " << blockchain.getTotalBurnedSupply()
-                  << " AlynCoin\n";
-        std::cout << "Dev Fund Balance: "
-                  << blockchain.getBalance("DevFundWallet") << " AlynCoin\n";
-      } else if (choice == 2) {
-        std::cout << "Enter miner address: ";
-        std::cin >> minerAddress;
-        Block mined = blockchain.mineBlock(minerAddress);
-        if (!mined.getHash().empty()) {
-          blockchain.saveToDB();
-          blockchain.savePendingTransactionsToDB();
-          if (network)
-            network->broadcastBlock(mined);
-          blockchain.reloadBlockchainState();
-          std::cout << "✅ Block mined and broadcasted.\n";
-        }
-      } else if (choice == 3) {
-        blockchain.printBlockchain();
-      } else if (choice == 4) {
-        std::cout << "Enter miner address: ";
-        std::cin >> minerAddress;
-        Miner::startMiningProcess(minerAddress);
-      } else if (choice == 5) {
-        if (network) {
-          network->scanForPeers();
-          network->requestPeerList();
-          network->intelligentSync();
-        }
-      } else if (choice == 6) {
-        std::cout << "Dev Fund Balance: "
-                  << blockchain.getBalance("DevFundWallet") << " AlynCoin\n";
-      } else if (choice == 7) {
-        std::string addr;
-        std::cout << "Enter address: ";
-        std::cin >> addr;
-        std::cout << "Balance: " << blockchain.getBalance(addr) << " AlynCoin\n";
-      } else if (choice == 8) {
-        blockchain.loadPendingTransactionsFromDB();
-        auto allTxs = blockchain.getPendingTransactions();
-        blockchain.setPendingL2TransactionsIfNotInRollups(allTxs);
-        auto l2Transactions = blockchain.getPendingL2Transactions();
-        if (l2Transactions.empty()) {
-          std::cout << "⚠️ No pending L2 transactions to roll up.\n";
-        } else {
-          auto stateBefore = blockchain.getCurrentState();
-          auto stateAfter =
-              blockchain.simulateL2StateUpdate(stateBefore, l2Transactions);
-          RollupBlock rollup(blockchain.getRollupChainSize(),
-                             blockchain.getLastRollupHash(), l2Transactions);
-          std::string prevRecursive = blockchain.getLastRollupProof();
-          rollup.generateRollupProof(stateBefore, stateAfter, prevRecursive);
-          if (blockchain.isRollupBlockValid(rollup)) {
-            blockchain.addRollupBlock(rollup);
-            if (network)
-              network->broadcastRollupBlock(rollup);
-            std::cout << "✅ Rollup Block created. Hash: " << rollup.getHash()
-                      << "\n";
-          } else {
-            std::cout << "❌ Rollup Block creation failed.\n";
-          }
-        }
-      } else if (choice == 9) {
-        std::cout << "Shutting down AlynCoin Node...\n";
-        running = false;
-      } else if (choice == 10) {
-        std::cout << "🩺 Manually triggering self-healing check...\n";
-        healer.monitorAndHeal();
-      } else if (choice == 12) {
-        std::string name;
-        std::string outPath;
-        std::cout << "Enter wallet name (leave blank for current): ";
-        std::getline(std::cin >> std::ws, name);
-        if (name.empty()) {
-          std::ifstream cur(DBPaths::getHomePath() +
-                            "/.alyncoin/current_wallet.txt");
-          std::getline(cur, name);
-        }
-        if (name.empty()) {
-          std::cout << "❌ No wallet name provided and no current wallet set\n";
-        } else {
-          std::cout << "Enter output file path: ";
-          std::getline(std::cin, outPath);
-          exportWalletToFile(keyDir, blockchain, name, outPath);
-        }
-      } else if (choice == 13) {
-        std::string inPath;
-        std::cout << "Enter backup file path: ";
-        std::getline(std::cin >> std::ws, inPath);
-        importWalletFromFile(keyDir, inPath);
-      } else {
-        std::cout << "Invalid choice!\n";
-      }
+    running = handleNodeMenuSelection(choice, blockchain, network, healer, keyDir);
   }
 
   return 0;
