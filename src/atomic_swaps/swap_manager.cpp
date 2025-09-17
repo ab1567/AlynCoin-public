@@ -15,10 +15,56 @@ std::optional<std::string> AtomicSwapManager::initiateSwap(const std::string& se
                                                            uint64_t amount,
                                                            const std::string& secretHash,
                                                            time_t durationSeconds) {
+    auto resolvedSender = Crypto::resolveWalletKeyIdentifier(sender);
+    std::string senderKeyId = resolvedSender.value_or(sender);
+
+    auto falKeys = Crypto::loadFalconKeys(senderKeyId);
+    auto dilKeys = Crypto::loadDilithiumKeys(senderKeyId);
+    if (falKeys.privateKey.empty() || falKeys.publicKey.empty() ||
+        dilKeys.privateKey.empty() || dilKeys.publicKey.empty()) {
+        std::cerr << "[AtomicSwapManager] Missing PQ key material for sender: "
+                  << sender << std::endl;
+        return std::nullopt;
+    }
+
+    auto toLower = [](std::string v) {
+        std::transform(v.begin(), v.end(), v.begin(), ::tolower);
+        return v;
+    };
+
+    std::string canonicalSender;
+    if (!dilKeys.publicKey.empty()) {
+        canonicalSender = Crypto::deriveAddressFromPub(dilKeys.publicKey);
+    }
+    if (canonicalSender.empty() && !falKeys.publicKey.empty()) {
+        canonicalSender = Crypto::deriveAddressFromPub(falKeys.publicKey);
+    }
+    if (canonicalSender.empty()) {
+        canonicalSender = senderKeyId;
+    }
+    canonicalSender = toLower(canonicalSender);
+
+    std::string canonicalReceiver = receiver;
+    bool receiverResolved = false;
+    if (auto resolvedReceiver = Crypto::resolveWalletKeyIdentifier(receiver)) {
+        auto recvDil = Crypto::loadDilithiumKeys(*resolvedReceiver);
+        auto recvFal = Crypto::loadFalconKeys(*resolvedReceiver);
+        if (!recvDil.publicKey.empty()) {
+            canonicalReceiver = Crypto::deriveAddressFromPub(recvDil.publicKey);
+            receiverResolved = true;
+        } else if (!recvFal.publicKey.empty()) {
+            canonicalReceiver = Crypto::deriveAddressFromPub(recvFal.publicKey);
+            receiverResolved = true;
+        }
+    }
+    if (receiverResolved || Crypto::isLikelyHex(canonicalReceiver)) {
+        canonicalReceiver = toLower(canonicalReceiver);
+    }
+
     AtomicSwap swap;
     swap.uuid = "SWAP-" + Crypto::generateRandomHex(12);
-    swap.senderAddress = sender;
-    swap.receiverAddress = receiver;
+    swap.senderAddress = canonicalSender;
+    swap.receiverAddress = canonicalReceiver;
     swap.amount = amount;
     swap.secretHash = secretHash;
     swap.secret = std::nullopt;
@@ -33,9 +79,7 @@ std::optional<std::string> AtomicSwapManager::initiateSwap(const std::string& se
 
     std::vector<uint8_t> msgHash = Crypto::sha256ToBytes(canonicalData);
 
-    // ✅ Sign with Falcon & Dilithium
-    auto falKeys = Crypto::loadFalconKeys(sender);
-    auto dilKeys = Crypto::loadDilithiumKeys(sender);
+    // ✅ Sign with Falcon & Dilithium using resolved key identifier
     std::vector<uint8_t> sigFal = Crypto::signWithFalcon(msgHash, falKeys.privateKey);
     std::vector<uint8_t> sigDil = Crypto::signWithDilithium(msgHash, dilKeys.privateKey);
 

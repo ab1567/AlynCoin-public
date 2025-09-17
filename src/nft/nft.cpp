@@ -88,7 +88,29 @@ bool NFT::submitMetadataHashTransaction() const {
     std::string meta = metadata;
     time_t timestamp = std::time(nullptr);
 
-    Transaction tx(from, to, amount, "", meta, timestamp);
+    auto dil = Crypto::loadDilithiumKeys(from);
+    auto fal = Crypto::loadFalconKeys(from);
+    if (dil.publicKey.empty() || fal.publicKey.empty() ||
+        dil.privateKey.empty() || fal.privateKey.empty()) {
+        std::cerr << "❌ NFT mint: Missing PQ key material for sender: " << from << "\n";
+        return false;
+    }
+
+    std::string canonicalSender;
+    std::vector<unsigned char> pubDil(dil.publicKey.begin(), dil.publicKey.end());
+    if (!pubDil.empty()) {
+        canonicalSender = Crypto::deriveAddressFromPub(pubDil);
+    } else {
+        std::vector<unsigned char> pubFal(fal.publicKey.begin(), fal.publicKey.end());
+        if (!pubFal.empty()) {
+            canonicalSender = Crypto::deriveAddressFromPub(pubFal);
+        }
+    }
+    if (canonicalSender.empty()) {
+        canonicalSender = from;
+    }
+
+    Transaction tx(canonicalSender, to, amount, "", meta, timestamp);
     // Tag for L2 so rollup recognizes it (your convention)
     tx.setMetadata("L2:" + meta);
 
@@ -109,8 +131,10 @@ bool NFT::submitMetadataHashTransaction() const {
     localSeenHashes.insert(txHash);
 
     // PQ sign (you may use only one, but both per your normal NFT tx)
-    auto dil = Crypto::loadDilithiumKeys(from);
-    auto fal = Crypto::loadFalconKeys(from);
+    tx.setSenderPublicKeyDilithium(std::string(
+        reinterpret_cast<const char*>(dil.publicKey.data()), dil.publicKey.size()));
+    tx.setSenderPublicKeyFalcon(std::string(
+        reinterpret_cast<const char*>(fal.publicKey.data()), fal.publicKey.size()));
     tx.signTransaction(dil.privateKey, fal.privateKey);
 
     // Add to L2 pool (pendingTransactions tagged "L2:..."), save, and broadcast
@@ -119,7 +143,8 @@ bool NFT::submitMetadataHashTransaction() const {
     if (!Network::isUninitialized()) {
         Network::getInstance().broadcastTransaction(tx); // L2 tx will be handled as L2 on receiving end by metadata
     }
-    std::cout << "✅ NFT minted (L2): " << from << " → " << to << " (meta: " << meta << ")\n";
+    std::cout << "✅ NFT minted (L2): " << canonicalSender << " (key id: " << from
+              << ") → " << to << " (meta: " << meta << ")\n";
     return true;
 }
 
@@ -317,7 +342,29 @@ bool submitMetadataHashTransaction(
     std::string meta = metadataHash;
     time_t timestamp = std::time(nullptr);
 
-    Transaction tx(from, to, amount, "", meta, timestamp);
+    auto dil = Crypto::loadDilithiumKeys(from);
+    auto fal = Crypto::loadFalconKeys(from);
+    if (dil.publicKey.empty() || fal.publicKey.empty() ||
+        dil.privateKey.empty() || fal.privateKey.empty()) {
+        std::cerr << "❌ NFT re-mint: Missing PQ key material for sender: " << from << "\n";
+        return false;
+    }
+
+    std::string canonicalSender;
+    std::vector<unsigned char> pubDil(dil.publicKey.begin(), dil.publicKey.end());
+    if (!pubDil.empty()) {
+        canonicalSender = Crypto::deriveAddressFromPub(pubDil);
+    } else {
+        std::vector<unsigned char> pubFal(fal.publicKey.begin(), fal.publicKey.end());
+        if (!pubFal.empty()) {
+            canonicalSender = Crypto::deriveAddressFromPub(pubFal);
+        }
+    }
+    if (canonicalSender.empty()) {
+        canonicalSender = from;
+    }
+
+    Transaction tx(canonicalSender, to, amount, "", meta, timestamp);
     // Tag for L2 so rollup recognizes it
     tx.setMetadata("L2:" + meta);
 
@@ -337,8 +384,10 @@ bool submitMetadataHashTransaction(
     }
     localSeenHashes.insert(txHash);
 
-    auto dil = Crypto::loadDilithiumKeys(from);
-    auto fal = Crypto::loadFalconKeys(from);
+    tx.setSenderPublicKeyDilithium(std::string(
+        reinterpret_cast<const char*>(dil.publicKey.data()), dil.publicKey.size()));
+    tx.setSenderPublicKeyFalcon(std::string(
+        reinterpret_cast<const char*>(fal.publicKey.data()), fal.publicKey.size()));
     tx.signTransaction(dil.privateKey, fal.privateKey);
 
     // Add to L2 pool, save, and broadcast
@@ -347,7 +396,9 @@ bool submitMetadataHashTransaction(
     if (!Network::isUninitialized()) {
         Network::getInstance().broadcastTransaction(tx);
     }
-    std::cout << "✅ NFT re-mint (L2): " << from << " → " << to << " (meta: " << meta << ")\n";
+    std::cout << "✅ NFT re-mint (L2): " << canonicalSender
+              << " (key id: " << from << ") → " << to
+              << " (meta: " << meta << ")\n";
     return true;
 }
 

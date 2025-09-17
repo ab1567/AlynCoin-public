@@ -589,9 +589,36 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
         std::string metadata = params.at(3);
         auto dil = Crypto::loadDilithiumKeys(from);
         auto fal = Crypto::loadFalconKeys(from);
-        Transaction tx(from, to, amount, "", metadata, time(nullptr));
+        if (dil.publicKey.empty() || fal.publicKey.empty() ||
+            dil.privateKey.empty() || fal.privateKey.empty()) {
+          output = {{"error", "Missing PQ key material for sender"}};
+          break;
+        }
+
+        std::string canonicalSender;
+        std::vector<unsigned char> pubDil(dil.publicKey.begin(),
+                                          dil.publicKey.end());
+        if (!pubDil.empty()) {
+          canonicalSender = Crypto::deriveAddressFromPub(pubDil);
+        } else {
+          std::vector<unsigned char> pubFal(fal.publicKey.begin(),
+                                            fal.publicKey.end());
+          if (!pubFal.empty())
+            canonicalSender = Crypto::deriveAddressFromPub(pubFal);
+        }
+        if (canonicalSender.empty())
+          canonicalSender = from;
+
+        Transaction tx(canonicalSender, to, amount, "", metadata,
+                        time(nullptr));
         if (method == "sendl2")
           tx.setMetadata("L2:" + metadata);
+        tx.setSenderPublicKeyDilithium(std::string(
+            reinterpret_cast<const char*>(dil.publicKey.data()),
+            dil.publicKey.size()));
+        tx.setSenderPublicKeyFalcon(std::string(
+            reinterpret_cast<const char*>(fal.publicKey.data()),
+            fal.publicKey.size()));
         tx.signTransaction(dil.privateKey, fal.privateKey);
         if (!tx.getSignatureDilithium().empty() &&
             !tx.getSignatureFalcon().empty()) {
@@ -599,7 +626,9 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
           blockchain->savePendingTransactionsToDB();
           if (network)
             network->broadcastTransaction(tx);
-          output = {{"result", "Transaction broadcasted"}};
+          output = {{"result", "Transaction broadcasted"},
+                    {"sender", canonicalSender},
+                    {"key_id", from}};
         } else {
           output = {{"error", "Transaction signing failed"}};
         }
@@ -1584,10 +1613,34 @@ int main(int argc, char *argv[]) {
     auto dil = Crypto::loadDilithiumKeys(from);
     auto fal = Crypto::loadFalconKeys(from);
 
-    Transaction tx(from, to, amount, "", metadata, time(nullptr));
+    if (dil.publicKey.empty() || fal.publicKey.empty() ||
+        dil.privateKey.empty() || fal.privateKey.empty()) {
+      std::cerr << "❌ Missing PQ key material for sender: " << from << "\n";
+      return 1;
+    }
+
+    std::string canonicalSender;
+    std::vector<unsigned char> pubDil(dil.publicKey.begin(), dil.publicKey.end());
+    if (!pubDil.empty()) {
+      canonicalSender = Crypto::deriveAddressFromPub(pubDil);
+    } else {
+      std::vector<unsigned char> pubFal(fal.publicKey.begin(), fal.publicKey.end());
+      if (!pubFal.empty()) {
+        canonicalSender = Crypto::deriveAddressFromPub(pubFal);
+      }
+    }
+    if (canonicalSender.empty()) {
+      canonicalSender = from;
+    }
+
+    Transaction tx(canonicalSender, to, amount, "", metadata, time(nullptr));
     if (std::string(argv[1]) == "sendl2") {
       tx.setMetadata("L2:" + metadata);
     }
+    tx.setSenderPublicKeyDilithium(std::string(
+        reinterpret_cast<const char*>(dil.publicKey.data()), dil.publicKey.size()));
+    tx.setSenderPublicKeyFalcon(std::string(
+        reinterpret_cast<const char*>(fal.publicKey.data()), fal.publicKey.size()));
 
     // Hash-based deduplication for CLI too (mirrors network, prevents resending
     // on retry)
@@ -1617,8 +1670,8 @@ int main(int argc, char *argv[]) {
       if (!Network::isUninitialized()) {
         Network::getInstance().broadcastTransaction(tx);
       }
-      std::cout << "✅ Transaction broadcasted: " << from << " → " << to
-
+      std::cout << "✅ Transaction broadcasted: " << canonicalSender
+                << " (key id: " << from << ") → " << to
                 << " (" << amount << " AlynCoin, metadata: " << metadata
                 << ")\n";
     } else {

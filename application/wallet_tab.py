@@ -106,8 +106,9 @@ class WalletTab(QWidget):
         # Show wallet name in the input box for future loads
         self.addressInput.setText(user_input)
         if final_addr:
-            self.parent.set_wallet_address(final_addr)
+            self.parent.set_wallet_address(final_addr, user_input)
             self.appendOutput(f"📬 Wallet Address: {final_addr}")
+            self.appendOutput(f"🆔 Key Identifier: {user_input}")
         self.refreshWalletList()
 
     def loadWallet(self):
@@ -133,8 +134,9 @@ class WalletTab(QWidget):
         # Keep wallet name in the input box
         self.addressInput.setText(name)
         if final_addr:
-            self.parent.set_wallet_address(final_addr)
+            self.parent.set_wallet_address(final_addr, name)
             self.appendOutput(f"📬 Loaded Wallet: {final_addr}")
+            self.appendOutput(f"🆔 Key Identifier: {name}")
         self.refreshWalletList()
 
     def exportWallet(self):
@@ -179,8 +181,9 @@ class WalletTab(QWidget):
             wallet_name = result
         if wallet_name:
             self.addressInput.setText(wallet_name)
-            self.parent.set_wallet_address(wallet_name)
+            self.parent.set_wallet_address(wallet_name, wallet_name)
             self.appendOutput(f"📬 Imported Wallet: {wallet_name}")
+            self.appendOutput(f"🆔 Key Identifier: {wallet_name}")
         else:
             self.appendOutput("⚠️ Wallet imported but no address returned.")
         self.refreshWalletList()

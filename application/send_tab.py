@@ -11,6 +11,7 @@ class SendTab(QWidget):
         super().__init__(parent)
         self.parent = parent
         self.sender = ""
+        self.senderKeyId = ""
         self.sendInProgress = False
         self.executor = ThreadPoolExecutor(max_workers=1)
         self.initUI()
@@ -40,6 +41,7 @@ class SendTab(QWidget):
 
     def onWalletChanged(self, address):
         self.sender = address
+        self.senderKeyId = getattr(self.parent, "loadedKeyId", "")
         self.updateSendUIState()
 
     def updateSendUIState(self):
@@ -57,6 +59,7 @@ class SendTab(QWidget):
         self.sendInProgress = True
         self.updateSendUIState()
         sender = self.sender or self.parent.get_wallet_address()
+        key_id = self.senderKeyId or self.parent.get_wallet_key_id()
         recipient = self.recipientInput.text().strip()
         amount_text = self.amountInput.text().strip()
 
@@ -83,9 +86,11 @@ class SendTab(QWidget):
         tx_type = "sendl2" if isL2 else "sendl1"
         metadata = "viaGUI"
 
+        rpc_sender = key_id if key_id else sender
+
         def _work():
             try:
-                return alyncoin_rpc(tx_type, [sender, recipient, amount, metadata])
+                return alyncoin_rpc(tx_type, [rpc_sender, recipient, amount, metadata])
             except Exception as e:
                 return {"error": f"{type(e).__name__}: {e}"}
 
@@ -105,8 +110,9 @@ class SendTab(QWidget):
         if isinstance(result, dict) and "error" in result:
             self.parent.appendOutput(f"❌ {result['error']}")
         elif isinstance(result, str) and "broadcasted" in result.lower():
+            key_info = f" (Key ID: {self.senderKeyId})" if self.senderKeyId else ""
             self.parent.appendOutput(
-                f"✅ Transaction sent from {sender} to {recipient} for {amount} AlynCoin."
+                f"✅ Transaction sent from {sender}{key_info} to {recipient} for {amount} AlynCoin."
             )
         else:
             self.parent.appendOutput(f"❌ Transaction failed: {result}")

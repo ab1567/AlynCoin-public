@@ -382,7 +382,33 @@ if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == 
     auto dil = Crypto::loadDilithiumKeys(from);
     auto fal = Crypto::loadFalconKeys(from);
 
-    Transaction tx(from, to, amount, "", metadata, time(nullptr));
+    if (dil.publicKey.empty() || fal.publicKey.empty() ||
+        dil.privateKey.empty() || fal.privateKey.empty()) {
+        std::cerr << "❌ Missing PQ key material for sender: " << from << "\n";
+        return 1;
+    }
+
+    std::string canonicalSender;
+    {
+        std::vector<unsigned char> pubDil(dil.publicKey.begin(), dil.publicKey.end());
+        if (!pubDil.empty()) {
+            canonicalSender = Crypto::deriveAddressFromPub(pubDil);
+        } else {
+            std::vector<unsigned char> pubFal(fal.publicKey.begin(), fal.publicKey.end());
+            if (!pubFal.empty()) {
+                canonicalSender = Crypto::deriveAddressFromPub(pubFal);
+            }
+        }
+    }
+    if (canonicalSender.empty()) {
+        canonicalSender = from;
+    }
+
+    Transaction tx(canonicalSender, to, amount, "", metadata, time(nullptr));
+    tx.setSenderPublicKeyDilithium(std::string(
+        reinterpret_cast<const char*>(dil.publicKey.data()), dil.publicKey.size()));
+    tx.setSenderPublicKeyFalcon(std::string(
+        reinterpret_cast<const char*>(fal.publicKey.data()), fal.publicKey.size()));
     if (std::string(argv[1]) == "sendl2") {
         tx.setMetadata("L2:" + metadata);
     }
@@ -412,8 +438,8 @@ if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == 
 	if (!Network::isUninitialized()) {
 	    Network::getInstance().broadcastTransaction(tx);
 	}
-	std::cout << "✅ Transaction broadcasted: " << from << " → " << to
-
+        std::cout << "✅ Transaction broadcasted: " << canonicalSender
+                  << " (key id: " << from << ") → " << to
                   << " (" << amount << " AlynCoin, metadata: " << metadata << ")\n";
     } else {
         std::cerr << "❌ Transaction signing failed.\n";
@@ -878,10 +904,12 @@ int cliMain(int argc, char *argv[]) {
       if (wallet) delete wallet;
       try {
         wallet = new Wallet(derivedAddress, keyDir, pass);
+        const std::string keyId = wallet->getKeyIdentifier();
         if (!pass.empty()) {
-          std::ofstream(keyDir + derivedAddress + "_pass.txt") << Crypto::sha256(pass);
+          std::ofstream(keyDir + keyId + "_pass.txt") << Crypto::sha256(pass);
         }
-        std::cout << "✅ New wallet created!\nAddress: " << wallet->getAddress() << std::endl;
+        std::cout << "✅ New wallet created!\nAddress: " << wallet->getAddress()
+                  << "\nKey Identifier: " << keyId << std::endl;
       } catch (const std::exception &e) {
         std::cerr << "❌ Wallet creation failed: " << e.what() << std::endl;
         wallet = nullptr;
@@ -921,7 +949,9 @@ int cliMain(int argc, char *argv[]) {
       if (wallet) delete wallet;
       try {
         wallet = new Wallet(privPath, keyDir, walletAddress, pass);
-        std::cout << "✅ Wallet loaded successfully!\nAddress: " << wallet->getAddress() << std::endl;
+        std::cout << "✅ Wallet loaded successfully!\nAddress: "
+                  << wallet->getAddress() << "\nKey Identifier: "
+                  << wallet->getKeyIdentifier() << std::endl;
       } catch (const std::exception &e) {
         std::cerr << "❌ Wallet loading failed: " << e.what() << std::endl;
         wallet = nullptr;
@@ -963,13 +993,42 @@ int cliMain(int argc, char *argv[]) {
 	        break;
 	    }
 
-	    std::string sender = wallet->getAddress();
-	    auto dilPriv = Crypto::loadDilithiumKeys(sender);
-	    auto falPriv = Crypto::loadFalconKeys(sender);
+            const auto& dilKeys = wallet->getDilithiumKeyPair();
+            const auto& falKeys = wallet->getFalconKeyPair();
 
-	    Transaction tx(sender, recipient, amount, "", "", time(nullptr));
-	    std::cout << "[DEBUG] signTransaction() called for sender: " << sender << "\n";
-	    tx.signTransaction(dilPriv.privateKey, falPriv.privateKey);
+            if (dilKeys.privateKey.empty() || falKeys.privateKey.empty() ||
+                dilKeys.publicKey.empty() || falKeys.publicKey.empty()) {
+                std::cerr << "❌ Missing PQ key material for this wallet.\n";
+                break;
+            }
+
+            std::string sender = wallet->getAddress();
+            std::string canonicalSender = sender;
+            {
+                std::vector<unsigned char> pubDil(dilKeys.publicKey.begin(),
+                                                  dilKeys.publicKey.end());
+                if (!pubDil.empty()) {
+                    canonicalSender = Crypto::deriveAddressFromPub(pubDil);
+                } else {
+                    std::vector<unsigned char> pubFal(falKeys.publicKey.begin(),
+                                                      falKeys.publicKey.end());
+                    if (!pubFal.empty()) {
+                        canonicalSender = Crypto::deriveAddressFromPub(pubFal);
+                    }
+                }
+            }
+
+            sender = canonicalSender;
+
+            Transaction tx(canonicalSender, recipient, amount, "", "", time(nullptr));
+            tx.setSenderPublicKeyDilithium(std::string(
+                reinterpret_cast<const char*>(dilKeys.publicKey.data()),
+                dilKeys.publicKey.size()));
+            tx.setSenderPublicKeyFalcon(std::string(
+                reinterpret_cast<const char*>(falKeys.publicKey.data()),
+                falKeys.publicKey.size()));
+            std::cout << "[DEBUG] signTransaction() called for sender: " << sender << "\n";
+            tx.signTransaction(dilKeys.privateKey, falKeys.privateKey);
 
 	    // === New: Deduplication block (session-level and mempool) ===
 	    std::string txHash = tx.getHash();
@@ -1026,15 +1085,44 @@ int cliMain(int argc, char *argv[]) {
 	        break;
 	    }
 
-	    std::string sender = wallet->getAddress();
-	    auto dilPriv = Crypto::loadDilithiumKeys(sender);
-	    auto falPriv = Crypto::loadFalconKeys(sender);
+            const auto& dilKeys = wallet->getDilithiumKeyPair();
+            const auto& falKeys = wallet->getFalconKeyPair();
 
-	    Transaction tx(sender, recipient, amount, "", "", time(nullptr));
-	    tx.setMetadata("L2");
+            if (dilKeys.privateKey.empty() || falKeys.privateKey.empty() ||
+                dilKeys.publicKey.empty() || falKeys.publicKey.empty()) {
+                std::cerr << "❌ Missing PQ key material for this wallet.\n";
+                break;
+            }
 
-	    std::cout << "[DEBUG] signTransaction() called for sender: " << sender << "\n";
-	    tx.signTransaction(dilPriv.privateKey, falPriv.privateKey);
+            std::string sender = wallet->getAddress();
+            std::string canonicalSender = sender;
+            {
+                std::vector<unsigned char> pubDil(dilKeys.publicKey.begin(),
+                                                  dilKeys.publicKey.end());
+                if (!pubDil.empty()) {
+                    canonicalSender = Crypto::deriveAddressFromPub(pubDil);
+                } else {
+                    std::vector<unsigned char> pubFal(falKeys.publicKey.begin(),
+                                                      falKeys.publicKey.end());
+                    if (!pubFal.empty()) {
+                        canonicalSender = Crypto::deriveAddressFromPub(pubFal);
+                    }
+                }
+            }
+
+            sender = canonicalSender;
+
+            Transaction tx(sender, recipient, amount, "", "", time(nullptr));
+            tx.setMetadata("L2");
+
+            std::cout << "[DEBUG] signTransaction() called for sender: " << sender << "\n";
+            tx.setSenderPublicKeyDilithium(std::string(
+                reinterpret_cast<const char*>(dilKeys.publicKey.data()),
+                dilKeys.publicKey.size()));
+            tx.setSenderPublicKeyFalcon(std::string(
+                reinterpret_cast<const char*>(falKeys.publicKey.data()),
+                falKeys.publicKey.size()));
+            tx.signTransaction(dilKeys.privateKey, falKeys.privateKey);
 
 	    // === New: Deduplication block (session-level and mempool) ===
 	    std::string txHash = tx.getHash();
@@ -1058,7 +1146,7 @@ int cliMain(int argc, char *argv[]) {
 	        break;
 	    }
 
-	    std::string seed = sender + recipient + std::to_string((int)amount) + std::to_string(tx.getTimestamp());
+            std::string seed = sender + recipient + std::to_string((int)amount) + std::to_string(tx.getTimestamp());
 	    std::string proof = WinterfellStark::generateProof(tx.getHash(), tx.getHash(), seed);
 	    if (proof.empty()) {
 	        std::cerr << "❌ [ERROR] zk-STARK proof generation failed!\n";
@@ -1081,12 +1169,23 @@ int cliMain(int argc, char *argv[]) {
         break;
       }
 
+      const auto& dilKeys = wallet->getDilithiumKeyPair();
+      const auto& falKeys = wallet->getFalconKeyPair();
+      if (dilKeys.privateKey.empty() || falKeys.privateKey.empty()) {
+        std::cout << "❌ Missing PQ private keys for mining.\n";
+        break;
+      }
+
       std::string addr = wallet->getAddress();
-      auto dilPriv = Crypto::loadDilithiumKeys(addr);
-      auto falPriv = Crypto::loadFalconKeys(addr);
+      std::vector<unsigned char> pubDil(dilKeys.publicKey.begin(),
+                                        dilKeys.publicKey.end());
+      if (!pubDil.empty()) {
+        addr = Crypto::deriveAddressFromPub(pubDil);
+      }
 
       std::cout << "Starting mining with address: " << addr << std::endl;
-      Block mined = blockchain.minePendingTransactions(addr, dilPriv.privateKey, falPriv.privateKey);
+      Block mined = blockchain.minePendingTransactions(addr, dilKeys.privateKey,
+                                                       falKeys.privateKey);
 
       if (mined.getHash().empty()) {
         std::cout << "❌ Mining failed or returned empty block.\n";

@@ -418,6 +418,7 @@ class AlynCoinApp(QMainWindow):
         self.setWindowTitle("AlynCoin Wallet & Miner")
         self.setGeometry(200, 100, 720, 600)
         self.loadedAddress = ""
+        self.loadedKeyId = ""
         self.miningActive = False
 
         # -- Use all discovered DNS peers
@@ -508,9 +509,14 @@ class AlynCoinApp(QMainWindow):
     def get_wallet_address(self):
         return self.loadedAddress if self.loadedAddress else ""
 
-    def set_wallet_address(self, addr):
-        self.loadedAddress = addr
-        self.walletChanged.emit(addr)
+    def get_wallet_key_id(self):
+        return self.loadedKeyId if self.loadedKeyId else ""
+
+    def set_wallet_address(self, addr, key_id=None):
+        self.loadedAddress = addr or ""
+        if key_id is not None:
+            self.loadedKeyId = key_id or ""
+        self.walletChanged.emit(self.loadedAddress)
 
     def applyDarkTheme(self):
         self.setStyleSheet("""

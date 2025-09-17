@@ -22,6 +22,7 @@ private:
   FalconKeyPair falconKeys;
 
   std::string loadKeyFile(const std::string &keyPath);
+  void updateAddressFromPQKeys();
 
 public:
   // Constructors
@@ -43,6 +44,9 @@ public:
   std::string getPrivateKeyPath() const;
   bool privateKeyExists() const;
   static std::string generateAddress(const std::string &publicKey);
+  const DilithiumKeyPair &getDilithiumKeyPair() const { return dilithiumKeys; }
+  const FalconKeyPair &getFalconKeyPair() const { return falconKeys; }
+  std::string getKeyIdentifier() const { return walletName; }
 
   // Signing
   std::string signWithPrivateKey(const std::string &message);

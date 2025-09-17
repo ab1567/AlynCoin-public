@@ -73,8 +73,30 @@ inline bool verifySwapSignature(const AtomicSwap& swap) {
 
     std::vector<uint8_t> msgHash = Crypto::sha256ToBytes(canonicalData);
 
-    std::vector<uint8_t> pubFal = Crypto::getPublicKeyFalcon(swap.senderAddress);
-    std::vector<uint8_t> pubDil = Crypto::getPublicKeyDilithium(swap.senderAddress);
+    auto toLower = [](std::string v) {
+        std::transform(v.begin(), v.end(), v.begin(), ::tolower);
+        return v;
+    };
+
+    std::string senderCanonical = toLower(swap.senderAddress);
+
+    std::vector<uint8_t> pubFal = Crypto::getPublicKeyFalcon(senderCanonical);
+    std::vector<uint8_t> pubDil = Crypto::getPublicKeyDilithium(senderCanonical);
+
+    if (pubFal.empty() || pubDil.empty()) {
+        std::cerr << "❌ [verifySwapSignature] Missing PQ public keys for sender: "
+                  << swap.senderAddress << "\n";
+        return false;
+    }
+
+    std::string expectedFal = toLower(Crypto::deriveAddressFromPub(pubFal));
+    std::string expectedDil = toLower(Crypto::deriveAddressFromPub(pubDil));
+
+    if (senderCanonical != expectedFal && senderCanonical != expectedDil) {
+        std::cerr << "❌ ERR_ADDR_MISMATCH (swap): sender=" << swap.senderAddress
+                  << " expected(any)=[" << expectedDil << "," << expectedFal << "]\n";
+        return false;
+    }
 
     return Crypto::verifyWithFalcon(msgHash, *swap.falconSignature, pubFal) &&
            Crypto::verifyWithDilithium(msgHash, *swap.dilithiumSignature, pubDil);

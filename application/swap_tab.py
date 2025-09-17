@@ -43,7 +43,15 @@ class SwapTab(QWidget):
         self.setLayout(layout)
 
     def onWalletChanged(self, addr: str):
-        self.parent.appendOutput(f"📬 Active Wallet for Swaps: {addr}")
+        if not addr:
+            return
+        key_id = getattr(self.parent, "loadedKeyId", "")
+        if key_id:
+            self.parent.appendOutput(
+                f"📬 Active Wallet for Swaps: {addr} (Key ID: {key_id})"
+            )
+        else:
+            self.parent.appendOutput(f"📬 Active Wallet for Swaps: {addr}")
 
     def addButton(self, label, callback, layout):
         btn = QPushButton(label)
