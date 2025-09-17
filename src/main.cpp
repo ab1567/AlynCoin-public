@@ -268,6 +268,7 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
           {"jsonrpc", "2.0"},
           {"id", nullptr},
           {"error", {{"code", -32700}, {"message", "Parse error"}}}};
+      res.status = 200;
       res.set_content(resp.dump(), "application/json");
       set_cors(res);
       return;
@@ -276,6 +277,20 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
     nlohmann::json output;
     std::string method = input.value("method", "");
     auto params = input.value("params", nlohmann::json::array());
+
+    auto make_error = [](int code, const std::string &msg) {
+      return nlohmann::json{{"error",
+                             {{"code", code}, {"message", msg}}}};
+    };
+
+    auto params_error = [&](const std::string &msg) { output = make_error(-32602, msg); };
+
+    auto json_to_hex = [](const std::vector<uint8_t> &data) {
+      if (data.empty())
+        return std::string();
+      std::vector<unsigned char> bytes(data.begin(), data.end());
+      return Crypto::toHex(bytes);
+    };
 
     try {
       // --- Chain helpers ---
@@ -418,51 +433,111 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
           }
         }
       } else if (method == "exportwallet") {
-        if (params.size() < 1) {
-          output = {{"error", "Missing wallet name parameter"}};
+        if (!params.is_array() || params.empty() || !params[0].is_string()) {
+          params_error("exportwallet expects the wallet key identifier");
         } else {
-          std::string name = params.at(0);
-          std::string priv = DBPaths::getKeyDir() + name + "_private.pem";
-          std::string dil = DBPaths::getKeyDir() + name + "_dilithium.key";
-          std::string fal = DBPaths::getKeyDir() + name + "_falcon.key";
-          if (!std::filesystem::exists(priv) || !std::filesystem::exists(dil) ||
-              !std::filesystem::exists(fal)) {
-            output = {{"error", "Wallet key files not found for: " + name}};
+          std::string keyId = params[0].get<std::string>();
+          auto dil = Crypto::loadDilithiumKeys(keyId);
+          auto fal = Crypto::loadFalconKeys(keyId);
+
+          if (dil.privateKey.empty() && fal.privateKey.empty()) {
+            output = {{"error", "Wallet not found"}};
           } else {
+            std::string addr;
+            if (!dil.publicKey.empty())
+              addr = Crypto::deriveAddressFromPub(
+                  std::vector<unsigned char>(dil.publicKey.begin(),
+                                             dil.publicKey.end()));
+            if (addr.empty() && !fal.publicKey.empty())
+              addr = Crypto::deriveAddressFromPub(
+                  std::vector<unsigned char>(fal.publicKey.begin(),
+                                             fal.publicKey.end()));
+            if (addr.empty())
+              addr = keyId;
+
             auto readFile = [](const std::string &path) {
+              if (!std::filesystem::exists(path))
+                return std::string();
               std::ifstream in(path, std::ios::binary);
               std::ostringstream ss;
               ss << in.rdbuf();
               return ss.str();
             };
+
             nlohmann::json j;
-            j["address"] = name;
-            j["private_key"] = readFile(priv);
-            j["dilithium_key"] = readFile(dil);
-            j["falcon_key"] = readFile(fal);
-            std::string passPath = DBPaths::getKeyDir() + name + "_pass.txt";
-            if (std::filesystem::exists(passPath)) {
-              j["pass_hash"] = readFile(passPath);
-            }
-            j["balance"] = blockchain->getBalance(name);
+            j["address"] = addr;
+            j["key_id"] = keyId;
+
+            if (!dil.publicKey.empty())
+              j["dilithium_pub"] = json_to_hex(dil.publicKey);
+            if (!fal.publicKey.empty())
+              j["falcon_pub"] = json_to_hex(fal.publicKey);
+            if (!dil.privateKey.empty())
+              j["dilithium_priv"] = json_to_hex(dil.privateKey);
+            if (!fal.privateKey.empty())
+              j["falcon_priv"] = json_to_hex(fal.privateKey);
+
+            std::string privPath =
+                DBPaths::getKeyDir() + keyId + "_private.pem";
+            std::string passPath =
+                DBPaths::getKeyDir() + keyId + "_pass.txt";
+            std::string dilPath =
+                DBPaths::getKeyDir() + keyId + "_dilithium.key";
+            std::string falPath =
+                DBPaths::getKeyDir() + keyId + "_falcon.key";
+
+            std::string rsaPriv = readFile(privPath);
+            if (!rsaPriv.empty())
+              j["private_key"] = rsaPriv;
+
+            std::string rawDil = readFile(dilPath);
+            if (!rawDil.empty())
+              j["dilithium_key"] = rawDil;
+            std::string rawFal = readFile(falPath);
+            if (!rawFal.empty())
+              j["falcon_key"] = rawFal;
+
+            std::string passHash = readFile(passPath);
+            if (!passHash.empty())
+              j["pass_hash"] = passHash;
+
+            j["balance"] = blockchain->getBalance(addr);
             output = {{"result", j}};
           }
         }
       } else if (method == "importwallet") {
-        if (params.empty() || !params.at(0).is_object()) {
+        if (!params.is_array() || params.empty() || !params[0].is_object()) {
           output = {{"error", "Missing wallet data"}};
         } else {
-          auto data = params.at(0);
+          auto data = params[0];
           std::string name = data.value("address", "");
+          std::string keyId = data.value("key_id", name);
+          if (keyId.empty())
+            keyId = name;
+
+          auto decodeHexOrRaw = [](const nlohmann::json &obj,
+                                   const std::string &hexField,
+                                   const std::string &rawField) {
+            std::string hex = obj.value(hexField, "");
+            if (!hex.empty()) {
+              auto bytes = Crypto::fromHex(hex);
+              return std::string(bytes.begin(), bytes.end());
+            }
+            return obj.value(rawField, std::string());
+          };
+
           std::string priv = data.value("private_key", "");
-          std::string dil = data.value("dilithium_key", "");
-          std::string fal = data.value("falcon_key", "");
+          std::string dil = decodeHexOrRaw(data, "dilithium_priv",
+                                           "dilithium_key");
+          std::string fal = decodeHexOrRaw(data, "falcon_priv",
+                                           "falcon_key");
           std::string passHash = data.value("pass_hash", "");
-          if (name.empty() || priv.empty() || dil.empty() || fal.empty()) {
+
+          if (keyId.empty() || priv.empty() || dil.empty() || fal.empty()) {
             output = {{"error", "Invalid wallet backup data"}};
-          } else if (std::filesystem::exists(DBPaths::getKeyDir() + name +
+          } else if (std::filesystem::exists(DBPaths::getKeyDir() + keyId +
                                              "_private.pem")) {
-            output = {{"error", "Wallet already exists: " + name}};
+            output = {{"error", "Wallet already exists: " + keyId}};
           } else {
             auto writeFile = [](const std::string &path,
                                 const std::string &contents) {
@@ -470,16 +545,26 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
               out << contents;
             };
             try {
-              writeFile(DBPaths::getKeyDir() + name + "_private.pem", priv);
-              writeFile(DBPaths::getKeyDir() + name + "_dilithium.key", dil);
-              writeFile(DBPaths::getKeyDir() + name + "_falcon.key", fal);
+              writeFile(DBPaths::getKeyDir() + keyId + "_private.pem", priv);
+              writeFile(DBPaths::getKeyDir() + keyId + "_dilithium.key", dil);
+              writeFile(DBPaths::getKeyDir() + keyId + "_falcon.key", fal);
+              if (!data.value("dilithium_pub", "").empty()) {
+                auto pub = Crypto::fromHex(data.value("dilithium_pub", ""));
+                writeFile(DBPaths::getKeyDir() + keyId + "_dilithium.pub",
+                          std::string(pub.begin(), pub.end()));
+              }
+              if (!data.value("falcon_pub", "").empty()) {
+                auto pub = Crypto::fromHex(data.value("falcon_pub", ""));
+                writeFile(DBPaths::getKeyDir() + keyId + "_falcon.pub",
+                          std::string(pub.begin(), pub.end()));
+              }
               if (!passHash.empty()) {
-                writeFile(DBPaths::getKeyDir() + name + "_pass.txt", passHash);
+                writeFile(DBPaths::getKeyDir() + keyId + "_pass.txt", passHash);
               }
               std::ofstream(DBPaths::getHomePath() +
                             "/.alyncoin/current_wallet.txt")
-                  << name;
-              output = {{"result", name}};
+                  << keyId;
+              output = {{"result", keyId}};
             } catch (const std::exception &e) {
               output = {
                   {"error", std::string("Wallet import failed: ") + e.what()}};
@@ -583,52 +668,75 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
       }
       // Send L1 Transaction
       else if (method == "sendl1" || method == "sendl2") {
-        std::string from = params.at(0);
-        std::string to = params.at(1);
-        double amount = params.at(2);
-        std::string metadata = params.at(3);
-        auto dil = Crypto::loadDilithiumKeys(from);
-        auto fal = Crypto::loadFalconKeys(from);
-        if (dil.publicKey.empty() || fal.publicKey.empty() ||
-            dil.privateKey.empty() || fal.privateKey.empty()) {
-          output = {{"error", "Missing PQ key material for sender"}};
+        if (!params.is_array() || params.size() < 4 || !params[0].is_string() ||
+            !params[1].is_string() || !params[3].is_string()) {
+          params_error(
+              "sendl1/sendl2 expect [sender, recipient, amount, metadata]");
         } else {
-          std::string canonicalSender;
-          std::vector<unsigned char> pubDil(dil.publicKey.begin(),
-                                            dil.publicKey.end());
-          if (!pubDil.empty()) {
-            canonicalSender = Crypto::deriveAddressFromPub(pubDil);
-          } else {
-            std::vector<unsigned char> pubFal(fal.publicKey.begin(),
-                                              fal.publicKey.end());
-            if (!pubFal.empty())
-              canonicalSender = Crypto::deriveAddressFromPub(pubFal);
+          auto amountParam = params[2];
+          double amount = 0.0;
+          bool amountOk = false;
+          if (amountParam.is_number_float() || amountParam.is_number_integer()) {
+            amount = amountParam.get<double>();
+            amountOk = true;
+          } else if (amountParam.is_string()) {
+            try {
+              amount = std::stod(amountParam.get<std::string>());
+              amountOk = true;
+            } catch (const std::exception &) {
+              amountOk = false;
+            }
           }
-          if (canonicalSender.empty())
-            canonicalSender = from;
-
-          Transaction tx(canonicalSender, to, amount, "", metadata,
-                          time(nullptr));
-          if (method == "sendl2")
-            tx.setMetadata("L2:" + metadata);
-          tx.setSenderPublicKeyDilithium(std::string(
-              reinterpret_cast<const char*>(dil.publicKey.data()),
-              dil.publicKey.size()));
-          tx.setSenderPublicKeyFalcon(std::string(
-              reinterpret_cast<const char*>(fal.publicKey.data()),
-              fal.publicKey.size()));
-          tx.signTransaction(dil.privateKey, fal.privateKey);
-          if (!tx.getSignatureDilithium().empty() &&
-              !tx.getSignatureFalcon().empty()) {
-            blockchain->addTransaction(tx);
-            blockchain->savePendingTransactionsToDB();
-            if (network)
-              network->broadcastTransaction(tx);
-            output = {{"result", "Transaction broadcasted"},
-                      {"sender", canonicalSender},
-                      {"key_id", from}};
+          if (!amountOk) {
+            params_error("Invalid amount parameter");
           } else {
-            output = {{"error", "Transaction signing failed"}};
+            std::string from = params[0].get<std::string>();
+            std::string to = params[1].get<std::string>();
+            std::string metadata = params[3].get<std::string>();
+            auto dil = Crypto::loadDilithiumKeys(from);
+            auto fal = Crypto::loadFalconKeys(from);
+            if (dil.publicKey.empty() || fal.publicKey.empty() ||
+                dil.privateKey.empty() || fal.privateKey.empty()) {
+              output = {{"error", "Missing PQ key material for sender"}};
+            } else {
+              std::string canonicalSender;
+              std::vector<unsigned char> pubDil(dil.publicKey.begin(),
+                                                dil.publicKey.end());
+              if (!pubDil.empty()) {
+                canonicalSender = Crypto::deriveAddressFromPub(pubDil);
+              } else {
+                std::vector<unsigned char> pubFal(fal.publicKey.begin(),
+                                                  fal.publicKey.end());
+                if (!pubFal.empty())
+                  canonicalSender = Crypto::deriveAddressFromPub(pubFal);
+              }
+              if (canonicalSender.empty())
+                canonicalSender = from;
+
+              Transaction tx(canonicalSender, to, amount, "", metadata,
+                              time(nullptr));
+              if (method == "sendl2")
+                tx.setMetadata("L2:" + metadata);
+              tx.setSenderPublicKeyDilithium(std::string(
+                  reinterpret_cast<const char *>(dil.publicKey.data()),
+                  dil.publicKey.size()));
+              tx.setSenderPublicKeyFalcon(std::string(
+                  reinterpret_cast<const char *>(fal.publicKey.data()),
+                  fal.publicKey.size()));
+              tx.signTransaction(dil.privateKey, fal.privateKey);
+              if (!tx.getSignatureDilithium().empty() &&
+                  !tx.getSignatureFalcon().empty()) {
+                blockchain->addTransaction(tx);
+                blockchain->savePendingTransactionsToDB();
+                if (network)
+                  network->broadcastTransaction(tx);
+                output = {{"result", "Transaction broadcasted"},
+                          {"sender", canonicalSender},
+                          {"key_id", from}};
+              } else {
+                output = {{"error", "Transaction signing failed"}};
+              }
+            }
           }
         }
       }
@@ -1138,7 +1246,13 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
             {"error", {{"code", -32601}, {"message", "Method not found"}}}};
       }
     } catch (const std::exception &e) {
+      std::cerr << "❌ [RPC] Exception while handling method '" << method
+                << "': " << e.what() << "\n";
       output = {{"error", {{"code", -32603}, {"message", e.what()}}}};
+    } catch (...) {
+      std::cerr << "❌ [RPC] Unknown exception while handling method '"
+                << method << "'\n";
+      output = {{"error", {{"code", -32603}, {"message", "internal error"}}}};
     }
 
     if (output.contains("error")) {
@@ -1155,6 +1269,7 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
 
     output["jsonrpc"] = "2.0";
     output["id"] = id;
+    res.status = 200;
     res.set_content(output.dump(), "application/json");
     set_cors(res);
   });

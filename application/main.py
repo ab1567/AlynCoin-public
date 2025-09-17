@@ -33,7 +33,7 @@ except Exception as e:
     dns = None
     print(f"[WARN] dnspython unavailable: {e}; using fallback peers only")
 
-from rpc_client import alyncoin_rpc, RPC_HOST, RPC_PORT
+from rpc_client import alyncoin_rpc, RPC_HOST, RPC_PORT, wait_for_rpc_ready
 
 def resource_path(filename):
     """Return path to resource bundled by PyInstaller or next to the script."""
@@ -666,19 +666,30 @@ if __name__ == "__main__":
         QMessageBox.critical(None, "DNS Unreachable", msg)
         sys.exit(1)
 
-    try:
-        sync_info = alyncoin_rpc("syncstatus")
-    except RuntimeError as e:
-        print(f"⚠️  RPC 'syncstatus' failed: {e}")
-        sync_info = None
+    rpc_ready = wait_for_rpc_ready(timeout=15.0)
+    if not rpc_ready:
+        QMessageBox.warning(
+            None,
+            "RPC Unavailable",
+            "The local AlynCoin node has not started its RPC interface yet.\n"
+            "The wallet will continue to open, but some features may be temporarily unavailable.",
+        )
 
-    if isinstance(sync_info, dict) and "error" in sync_info:
-        print("⚠️  RPC 'syncstatus' not available; skipping sync check")
-    elif not isinstance(sync_info, dict):
-        QMessageBox.warning(None, "Node Sync", "Unable to determine sync status.")
-    elif not sync_info.get("synced", False):
-        QMessageBox.warning(None, "Node Sync",
-                             "Local node is still syncing. The wallet will open, but some features may be unavailable.")
+    sync_info = None
+    if rpc_ready:
+        try:
+            sync_info = alyncoin_rpc("syncstatus")
+        except RuntimeError as e:
+            print(f"⚠️  RPC 'syncstatus' failed: {e}")
+
+    if sync_info is not None:
+        if isinstance(sync_info, dict) and "error" in sync_info:
+            print("⚠️  RPC 'syncstatus' not available; skipping sync check")
+        elif not isinstance(sync_info, dict):
+            QMessageBox.warning(None, "Node Sync", "Unable to determine sync status.")
+        elif not sync_info.get("synced", False):
+            QMessageBox.warning(None, "Node Sync",
+                                 "Local node is still syncing. The wallet will open, but some features may be unavailable.")
     window = AlynCoinApp()
     window.show()
     exit_code = app.exec_()

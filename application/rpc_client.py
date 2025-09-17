@@ -1,5 +1,5 @@
-import os
 import json
+import os
 import time
 from typing import Optional
 from urllib.parse import urlparse, urlunparse
@@ -15,8 +15,9 @@ try:  # pragma: no cover - simple import guard
         max_retries=Retry(
             total=3,
             backoff_factor=0.5,
-            status_forcelist=[500, 502, 503, 504],
+            status_forcelist=[502, 503, 504],
             allowed_methods=frozenset(["POST"]),
+            raise_on_status=False,
         )
     )
     SESSION.mount("http://", adapter)
@@ -29,14 +30,11 @@ except ModuleNotFoundError:  # pragma: no cover
     class _SimpleResponse:
         def __init__(self, data: bytes, code: int):
             self._data = data.decode()
+            self.text = self._data
             self.status_code = code
 
         def json(self):
             return json_module.loads(self._data)
-
-        def raise_for_status(self):
-            if not 200 <= self.status_code < 300:
-                raise RuntimeError(f"HTTP error {self.status_code}")
 
     class _SimpleSession:
         def post(self, url, headers=None, json=None, data=None, timeout=30):
@@ -107,10 +105,19 @@ def alyncoin_rpc(method: str, params=None, id_: Optional[int] = None):
                 resp = SESSION.post(
                     RPC_URL, headers=headers, data=payload, timeout=TIMEOUT_S
                 )
-            resp.raise_for_status()
-            return resp.json()
         except Exception as e:
             raise RuntimeError(f"RPC request failed: {e}") from e
+
+        text = getattr(resp, "text", "")
+        try:
+            data = resp.json()
+        except Exception as e:
+            msg = text or str(e)
+            raise RuntimeError(f"Failed to decode RPC response: {msg}") from e
+
+        if getattr(resp, "status_code", 200) >= 400:
+            return data
+        return data
 
     data = _do_request(body, use_json=True)
 
@@ -139,5 +146,25 @@ def alyncoin_rpc(method: str, params=None, id_: Optional[int] = None):
     return data.get("result")
 
 
-__all__ = ["alyncoin_rpc", "RPC_URL", "RPC_HOST", "RPC_PORT"]
+def wait_for_rpc_ready(timeout: float = 10.0, interval: float = 0.25) -> bool:
+    """Poll ``peercount`` until the RPC server responds or ``timeout`` elapses."""
+
+    deadline = time.time() + timeout
+    last_error: Optional[Exception] = None
+    while time.time() < deadline:
+        try:
+            alyncoin_rpc("peercount", [])
+            return True
+        except RuntimeError as exc:
+            last_error = exc
+        except Exception as exc:  # pragma: no cover - defensive guard
+            last_error = exc
+        time.sleep(interval)
+
+    if last_error:
+        print(f"⚠️  RPC not ready: {last_error}")
+    return False
+
+
+__all__ = ["alyncoin_rpc", "RPC_URL", "RPC_HOST", "RPC_PORT", "wait_for_rpc_ready"]
 
