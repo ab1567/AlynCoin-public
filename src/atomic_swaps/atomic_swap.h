@@ -7,6 +7,7 @@
 #include <vector>
 #include <sstream>
 #include <cstdint>
+#include <algorithm>
 #include "../crypto_utils.h"
 
 // -------------------- Enum for Swap State --------------------
