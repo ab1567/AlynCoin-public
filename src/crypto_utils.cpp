@@ -26,6 +26,7 @@
 #include <unordered_map>
 #include <mutex>
 #include <cctype>
+#include <stdexcept>
 #ifdef _WIN32
 #include <io.h>
 #include <Windows.h>
@@ -759,8 +760,9 @@ void generateKeysForUser(const std::string &username) {
   std::string cleanUsername = username;
   std::replace(cleanUsername.begin(), cleanUsername.end(), ' ', '_');
 
-  std::string privateKeyPath = KEY_DIR + cleanUsername + "_private.pem";
-  std::string publicKeyPath = KEY_DIR + cleanUsername + "_public.pem";
+  fs::path baseDir(KEY_DIR);
+  fs::path privateKeyPath = baseDir / (cleanUsername + "_private.pem");
+  fs::path publicKeyPath = baseDir / (cleanUsername + "_public.pem");
 
   std::cout << "[DEBUG] Private key path: " << privateKeyPath << std::endl;
   std::cout << "[DEBUG] Public key path: " << publicKeyPath << std::endl;
@@ -774,17 +776,20 @@ void generateKeysForUser(const std::string &username) {
   std::cout << "🔑 Generating new keys for user: " << cleanUsername << "\n";
 
   std::string privCmd = "openssl genpkey -algorithm RSA -out \"" +
-                        privateKeyPath + "\" -pkeyopt rsa_keygen_bits:2048";
-  std::string pubCmd = "openssl rsa -in \"" + privateKeyPath +
-                       "\" -pubout -out \"" + publicKeyPath + "\"";
+                        privateKeyPath.string() +
+                        "\" -pkeyopt rsa_keygen_bits:2048";
+  std::string pubCmd = "openssl rsa -in \"" + privateKeyPath.string() +
+                       "\" -pubout -out \"" + publicKeyPath.string() +
+                       "\"";
 
   std::cout << "[DEBUG] Running private key generation command: " << privCmd
             << std::endl;
   int privStatus = system(privCmd.c_str());
   if (privStatus != 0) {
-    std::cerr << "❌ [ERROR] Private key generation failed for user: "
-              << cleanUsername << std::endl;
-    return;
+    throw std::runtime_error("Private key generation failed for user '" +
+                             cleanUsername +
+                             "' (openssl exited with code " +
+                             std::to_string(privStatus) + ")");
   }
   std::cout << "[DEBUG] Private key generated successfully." << std::endl;
 
@@ -792,9 +797,10 @@ void generateKeysForUser(const std::string &username) {
             << std::endl;
   int pubStatus = system(pubCmd.c_str());
   if (pubStatus != 0) {
-    std::cerr << "❌ [ERROR] Public key extraction failed for user: "
-              << cleanUsername << std::endl;
-    return;
+    throw std::runtime_error("Public key extraction failed for user '" +
+                             cleanUsername +
+                             "' (openssl exited with code " +
+                             std::to_string(pubStatus) + ")");
   }
   std::cout << "[DEBUG] Public key generated successfully." << std::endl;
 
@@ -803,8 +809,9 @@ void generateKeysForUser(const std::string &username) {
     std::cout << "✅ [INFO] Successfully generated keys for user: "
               << cleanUsername << std::endl;
   } else {
-    std::cerr << "❌ [ERROR] Key files missing after generation attempt!"
-              << std::endl;
+    throw std::runtime_error("Key files missing after generation attempt for "
+                             "user '" +
+                             cleanUsername + "'");
   }
 }
 
@@ -817,8 +824,9 @@ void generateKeysForUser(const std::string &username,
   std::string cleanUsername = username;
   std::replace(cleanUsername.begin(), cleanUsername.end(), ' ', '_');
 
-  std::string privateKeyPath = KEY_DIR + cleanUsername + "_private.pem";
-  std::string publicKeyPath = KEY_DIR + cleanUsername + "_public.pem";
+  fs::path baseDir(KEY_DIR);
+  fs::path privateKeyPath = baseDir / (cleanUsername + "_private.pem");
+  fs::path publicKeyPath = baseDir / (cleanUsername + "_public.pem");
 
   if (fs::exists(privateKeyPath) && fs::exists(publicKeyPath)) {
     std::cout << "🔑 Keys for user " << cleanUsername
@@ -830,18 +838,21 @@ void generateKeysForUser(const std::string &username,
 
   std::string privCmd =
       "openssl genpkey -algorithm RSA -aes-256-cbc -pass pass:" + passphrase +
-      " -out \"" + privateKeyPath + "\" -pkeyopt rsa_keygen_bits:2048";
-  std::string pubCmd = "openssl rsa -in \"" + privateKeyPath +
+      " -out \"" + privateKeyPath.string() +
+      "\" -pkeyopt rsa_keygen_bits:2048";
+  std::string pubCmd = "openssl rsa -in \"" + privateKeyPath.string() +
                        "\" -passin pass:" + passphrase +
-                       " -pubout -out \"" + publicKeyPath + "\"";
+                       " -pubout -out \"" + publicKeyPath.string() +
+                       "\"";
 
   std::cout << "[DEBUG] Running private key generation command: " << privCmd
             << std::endl;
   int privStatus = system(privCmd.c_str());
   if (privStatus != 0) {
-    std::cerr << "❌ [ERROR] Private key generation failed for user: "
-              << cleanUsername << std::endl;
-    return;
+    throw std::runtime_error("Private key generation failed for user '" +
+                             cleanUsername +
+                             "' (openssl exited with code " +
+                             std::to_string(privStatus) + ")");
   }
   std::cout << "[DEBUG] Private key generated successfully." << std::endl;
 
@@ -849,9 +860,10 @@ void generateKeysForUser(const std::string &username,
             << std::endl;
   int pubStatus = system(pubCmd.c_str());
   if (pubStatus != 0) {
-    std::cerr << "❌ [ERROR] Public key extraction failed for user: "
-              << cleanUsername << std::endl;
-    return;
+    throw std::runtime_error("Public key extraction failed for user '" +
+                             cleanUsername +
+                             "' (openssl exited with code " +
+                             std::to_string(pubStatus) + ")");
   }
   std::cout << "[DEBUG] Public key generated successfully." << std::endl;
 
@@ -859,8 +871,9 @@ void generateKeysForUser(const std::string &username,
     std::cout << "✅ [INFO] Successfully generated keys for user: "
               << cleanUsername << std::endl;
   } else {
-    std::cerr << "❌ [ERROR] Key files missing after generation attempt!"
-              << std::endl;
+    throw std::runtime_error("Key files missing after generation attempt for "
+                             "user '" +
+                             cleanUsername + "'");
   }
 }
 

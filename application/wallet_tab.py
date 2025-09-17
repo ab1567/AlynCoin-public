@@ -83,68 +83,56 @@ class WalletTab(QWidget):
             self.addressInput.setText(name)
 
     def createWallet(self):
-        # Generate a unique wallet name using cryptographically secure randomness
         while True:
-            user_input = secrets.token_hex(20)
-            priv_path = os.path.join(self.walletDir, f"{user_input}_private.pem")
+            key_id = secrets.token_hex(20)
+            priv_path = os.path.join(self.walletDir, f"{key_id}_private.pem")
             if not os.path.exists(priv_path):
                 break
-        self.appendOutput(
-            "🔐 Creating new wallet. The passphrase protects your wallet file—if you lose it, you will not be able to access the wallet."
-        )
-        self.appendOutput(f"⚙️ Auto-generating wallet name (key identifier): {user_input}")
+        self.appendOutput(f"⚙️ Auto-generating wallet name: {key_id}")
 
-        prompt_text = (
-            "Enter a passphrase (leave blank to have none). If provided, it must be at least "
-            "8 characters. The wallet name above is a 40-hex-character key identifier."
-        )
-        passphrase, ok = QInputDialog.getText(
+        pass1, ok = QInputDialog.getText(
             self,
-            "Wallet Passphrase",
-            prompt_text,
+            "Passphrase",
+            "Enter passphrase (leave blank for none, ≥8 chars if set):",
             QLineEdit.Password,
         )
         if not ok:
-            self.appendOutput("ℹ️ Wallet creation cancelled before passphrase entry.")
+            return
+        pass1 = (pass1 or "").strip()
+        if pass1 and len(pass1) < 8:
+            self.appendOutput("⚠️ Passphrase must be at least 8 characters.")
             return
 
-        validated_passphrase = passphrase
-        if passphrase:
-            if len(passphrase) < 8:
-                self.appendOutput("❌ Passphrase must be at least 8 characters long.")
-                return
-            confirm_passphrase, confirm_ok = QInputDialog.getText(
+        pass2 = ""
+        if pass1:
+            pass2, ok2 = QInputDialog.getText(
                 self,
-                "Confirm Passphrase",
-                "Re-enter the passphrase to confirm:",
+                "Confirm passphrase",
+                "Confirm passphrase:",
                 QLineEdit.Password,
             )
-            if not confirm_ok:
-                self.appendOutput("ℹ️ Wallet creation cancelled during passphrase confirmation.")
+            if not ok2:
                 return
-            if passphrase != confirm_passphrase:
-                self.appendOutput("❌ Passphrases do not match. Wallet creation aborted.")
+            if pass1 != pass2:
+                self.appendOutput("❌ Passphrases do not match.")
                 return
-        else:
-            validated_passphrase = ""
 
-        # RPC createwallet accepts [name, passphrase]
-        result = alyncoin_rpc("createwallet", [user_input, validated_passphrase])
+        try:
+            result = alyncoin_rpc("createwallet", [key_id, pass1])
+        except Exception as e:
+            self.appendOutput(f"❌ Wallet creation failed: {e}")
+            return
+
         if isinstance(result, dict) and "error" in result:
             self.appendOutput(f"❌ {result['error']}")
             return
 
-        final_addr = ""
-        if isinstance(result, str) and re.match(r"^[a-f0-9]{40,64}$", result):
-            final_addr = result
-
-        # Show wallet name in the input box for future loads
-        self.addressInput.setText(user_input)
-        if final_addr:
-            self.parent.set_wallet_address(final_addr, user_input)
-            self.appendOutput(f"📬 Wallet Address: {final_addr}")
-            self.appendOutput(f"🆔 Key Identifier: {user_input}")
-            self.appendOutput("💡 Remember to back up your wallet via the 'Export Wallet' button.")
+        wallet_addr = result if isinstance(result, str) else ""
+        self.addressInput.setText(key_id)
+        if wallet_addr:
+            self.parent.set_wallet_address(wallet_addr, key_id)
+            self.appendOutput(f"📬 Wallet Address: {wallet_addr}")
+            self.appendOutput(f"🆔 Key Identifier: {key_id}")
         self.refreshWalletList()
 
     def loadWallet(self):
@@ -157,8 +145,11 @@ class WalletTab(QWidget):
         if not ok:
             return
 
-        # RPC: loadwallet returns loaded address (or error)
-        result = alyncoin_rpc("loadwallet", [name, passphrase])
+        try:
+            result = alyncoin_rpc("loadwallet", [name, passphrase])
+        except Exception as e:
+            self.appendOutput(f"❌ Wallet load failed: {e}")
+            return
         if isinstance(result, dict) and "error" in result:
             self.appendOutput(f"❌ {result['error']}")
             return
@@ -180,7 +171,11 @@ class WalletTab(QWidget):
         if not wallet:
             self.appendOutput("❌ No wallet selected to export.")
             return
-        result = alyncoin_rpc("exportwallet", [wallet])
+        try:
+            result = alyncoin_rpc("exportwallet", [wallet])
+        except Exception as e:
+            self.appendOutput(f"❌ Export failed: {e}")
+            return
         if isinstance(result, dict) and "error" in result:
             self.appendOutput(f"❌ {result['error']}")
             return
@@ -207,7 +202,11 @@ class WalletTab(QWidget):
             self.appendOutput(f"❌ Failed to read wallet backup: {ex}")
             return
 
-        result = alyncoin_rpc("importwallet", [data])
+        try:
+            result = alyncoin_rpc("importwallet", [data])
+        except Exception as e:
+            self.appendOutput(f"❌ Import failed: {e}")
+            return
         if isinstance(result, dict) and "error" in result:
             self.appendOutput(f"❌ {result['error']}")
             return
@@ -232,7 +231,11 @@ class WalletTab(QWidget):
 
         self.appendOutput("🔍 Checking balance...")
 
-        result = alyncoin_rpc("balance", [addr])
+        try:
+            result = alyncoin_rpc("balance", [addr])
+        except Exception as e:
+            self.appendOutput(f"❌ Balance check failed: {e}")
+            return
         if isinstance(result, dict) and "error" in result:
             self.appendOutput(f"❌ {result['error']}")
             return
