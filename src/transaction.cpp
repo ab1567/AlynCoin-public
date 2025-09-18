@@ -24,16 +24,16 @@ namespace fs = std::filesystem;
 // ✅ Constructor:
 Transaction::Transaction()
     : sender(""), recipient(""), amount(0), signatureDilithium(""),
-      signatureFalcon(""), timestamp(std::time(nullptr)) {}
+      signatureFalcon(""), timestamp(std::time(nullptr)), nonce(0) {}
 
 Transaction::Transaction(const std::string &sender,
                          const std::string &recipient, double amount,
                          const std::string &signatureDilithium,
                          const std::string &signatureFalcon,
-                         std::time_t timestamp)
+                         std::time_t timestamp, uint64_t nonce)
     : sender(sender), recipient(recipient), amount(amount),
       signatureDilithium(signatureDilithium), signatureFalcon(signatureFalcon),
-      timestamp(timestamp) {}
+      timestamp(timestamp), nonce(nonce) {}
 
 // ✅ Getters:
 std::string Transaction::getSender() const { return sender; }
@@ -44,8 +44,10 @@ std::string Transaction::getSignatureDilithium() const {
 }
 std::string Transaction::getSignatureFalcon() const { return signatureFalcon; }
 time_t Transaction::getTimestamp() const { return timestamp; }
+uint64_t Transaction::getNonce() const { return nonce; }
 std::string Transaction::getZkProof() const { return zkProof; }
 void Transaction::setZkProof(const std::string &proof) { zkProof = proof; }
+void Transaction::setNonce(uint64_t value) { nonce = value; }
 
 // Transaction Hash:
 inline std::string canonicalAmount(double amount) {
@@ -57,7 +59,7 @@ inline std::string canonicalAmount(double amount) {
 // 2. Transaction hash: canonicalize all fields for hash, including amount
 std::string Transaction::getTransactionHash() const {
     std::ostringstream data;
-    data << sender << recipient << canonicalAmount(amount) << timestamp;
+    data << sender << recipient << canonicalAmount(amount) << timestamp << nonce;
     return Crypto::hybridHash(data.str());
 }
 //
@@ -97,6 +99,7 @@ void Transaction::serializeToProtobuf(alyncoin::TransactionProto &proto) const {
             senderPublicKeyFalcon.size());
 
     proto.set_timestamp(timestamp);
+    proto.set_nonce(nonce);
 
     // Clamp metadata safely
     if (metadata.size() > 16384) {
@@ -117,6 +120,7 @@ bool Transaction::deserializeFromProtobuf(const alyncoin::TransactionProto &prot
         recipient = proto.recipient();
         amount = proto.amount();
         timestamp = proto.timestamp();
+        nonce = proto.nonce();
 
         // Clamp metadata safely
         {
@@ -173,7 +177,7 @@ bool Transaction::deserializeFromProtobuf(const alyncoin::TransactionProto &prot
 
         // --- Always recalc hash from canonical fields
         std::ostringstream data;
-        data << sender << recipient << amount_str << timestamp;
+        data << sender << recipient << amount_str << timestamp << nonce;
         std::string canonical_hash = Crypto::hybridHash(data.str());
         if (hash.empty() || hash != canonical_hash) {
             std::cerr << "⚠️ [Transaction::deserializeFromProtobuf] Hash mismatch or empty! Recomputing canonical.\n";
@@ -208,6 +212,7 @@ Transaction Transaction::fromProto(const alyncoin::TransactionProto& protoTx) {
         // Scalar fields
         tx.amount = protoTx.amount();
         tx.timestamp = protoTx.timestamp();
+        tx.nonce = protoTx.nonce();
 
         // Critical field check
         if (tx.sender.empty() || tx.recipient.empty() || tx.amount <= 0.0) {
@@ -282,6 +287,7 @@ Json::Value Transaction::toJSON() const {
     tx["recipient"] = recipient;
     tx["amount"] = amount;
     tx["timestamp"] = static_cast<Json::Int64>(timestamp);
+    tx["nonce"] = static_cast<Json::UInt64>(nonce);
     return tx;
   }
 
@@ -289,6 +295,7 @@ Json::Value Transaction::toJSON() const {
   tx["recipient"] = recipient;
   tx["amount"] = amount;
   tx["timestamp"] = static_cast<Json::Int64>(timestamp);
+  tx["nonce"] = static_cast<Json::UInt64>(nonce);
   tx["metadata"] = metadata;
 
   // ✅ Encode binary data to base64
@@ -308,6 +315,7 @@ Transaction Transaction::fromJSON(const Json::Value &txJson) {
   tx.recipient = txJson.get("recipient", "").asString();
   tx.amount = txJson.get("amount", 0.0).asDouble();
   tx.timestamp = txJson.get("timestamp", 0).asInt64();
+  tx.nonce = txJson.get("nonce", 0).asUInt64();
   tx.metadata = txJson.get("metadata", "").asString();
 
   if (tx.sender != "System") {
@@ -379,6 +387,7 @@ alyncoin::TransactionProto Transaction::toProto() const {
     proto.set_amount(amount);
     proto.set_timestamp(timestamp);
     proto.set_hash(hash);
+    proto.set_nonce(nonce);
 
     if (sender == "System") {
         // Dev-fund or reward tx: skip keys/signatures
@@ -694,6 +703,7 @@ Transaction Transaction::createSystemRewardTransaction(
     tx.senderPublicKeyDilithium = "";
     tx.senderPublicKeyFalcon = "";
     tx.metadata = "MiningReward";
+    tx.nonce = 0;
 
     tx.hash = hashOverride;
     if (tx.hash.empty()) {
