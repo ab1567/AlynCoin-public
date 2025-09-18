@@ -49,7 +49,7 @@ void print_usage() {
       << "Commands:\n"
       << "  createwallet                         Create a new wallet (prompts "
          "for passphrase)\n"
-      << "  loadwallet <name>                    Load an existing wallet\n"
+      << "  loadwallet <name|address>           Load an existing wallet\n"
       << "  exportwallet [name] <file>           Export wallet keys and "
          "balance to file\n"
       << "  importwallet <file>                 Import wallet keys from backup "
@@ -395,17 +395,21 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
         if (params.size() < 1) {
           output = {{"error", "Missing wallet name parameter"}};
         } else {
-          std::string name = params.at(0);
+          std::string requested = params.at(0);
           std::string pass = params.size() > 1 && params.at(1).is_string()
                                  ? params.at(1).get<std::string>()
                                  : "";
-          std::string priv = DBPaths::getKeyDir() + name + "_private.pem";
-          std::string dil = DBPaths::getKeyDir() + name + "_dilithium.key";
-          std::string fal = DBPaths::getKeyDir() + name + "_falcon.key";
-          std::string passPath = DBPaths::getKeyDir() + name + "_pass.txt";
+
+          auto resolved = Crypto::resolveWalletKeyIdentifier(requested);
+          std::string keyId = resolved.value_or(requested);
+
+          std::string priv = DBPaths::getKeyDir() + keyId + "_private.pem";
+          std::string dil = DBPaths::getKeyDir() + keyId + "_dilithium.key";
+          std::string fal = DBPaths::getKeyDir() + keyId + "_falcon.key";
+          std::string passPath = DBPaths::getKeyDir() + keyId + "_pass.txt";
           if (!std::filesystem::exists(priv) || !std::filesystem::exists(dil) ||
               !std::filesystem::exists(fal)) {
-            output = {{"error", "Wallet key files not found for: " + name}};
+            output = {{"error", "Wallet key files not found for: " + requested}};
           } else if (std::filesystem::exists(passPath)) {
             std::ifstream pin(passPath);
             std::string stored;
@@ -414,11 +418,15 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
               output = {{"error", "Incorrect passphrase"}};
             } else {
               try {
-                Wallet w(priv, DBPaths::getKeyDir(), name, pass);
+                Wallet w(priv, DBPaths::getKeyDir(), keyId, pass);
                 std::ofstream(DBPaths::getHomePath() +
                               "/.alyncoin/current_wallet.txt")
                     << w.getAddress();
-                output = {{"result", w.getAddress()}};
+                nlohmann::json walletInfo = {
+                    {"address", w.getAddress()},
+                    {"key_id", keyId},
+                };
+                output = {{"result", walletInfo}};
               } catch (const std::exception &e) {
                 output = {
                     {"error", std::string("Wallet load failed: ") + e.what()}};
@@ -426,11 +434,15 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
             }
           } else {
             try {
-              Wallet w(priv, DBPaths::getKeyDir(), name, pass);
+              Wallet w(priv, DBPaths::getKeyDir(), keyId, pass);
               std::ofstream(DBPaths::getHomePath() +
                             "/.alyncoin/current_wallet.txt")
                   << w.getAddress();
-              output = {{"result", w.getAddress()}};
+              nlohmann::json walletInfo = {
+                  {"address", w.getAddress()},
+                  {"key_id", keyId},
+              };
+              output = {{"result", walletInfo}};
             } catch (const std::exception &e) {
               output = {
                   {"error", std::string("Wallet load failed: ") + e.what()}};

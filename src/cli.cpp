@@ -305,13 +305,16 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
         return 0;
     }
     if (cmd == "loadwallet" && argc == 3) {
-        std::string name = argv[2];
-        std::string priv = keyDir + name + "_private.pem";
-        std::string dil = keyDir + name + "_dilithium.key";
-        std::string fal = keyDir + name + "_falcon.key";
-        std::string passPath = keyDir + name + "_pass.txt";
+        std::string requested = argv[2];
+        auto resolved = Crypto::resolveWalletKeyIdentifier(requested);
+        std::string keyId = resolved.value_or(requested);
+
+        std::string priv = keyDir + keyId + "_private.pem";
+        std::string dil = keyDir + keyId + "_dilithium.key";
+        std::string fal = keyDir + keyId + "_falcon.key";
+        std::string passPath = keyDir + keyId + "_pass.txt";
         if (!std::filesystem::exists(priv) || !std::filesystem::exists(dil) || !std::filesystem::exists(fal)) {
-            std::cerr << "❌ Wallet key files not found for: " << name << std::endl;
+            std::cerr << "❌ Wallet key files not found for: " << requested << std::endl;
             return 1;
         }
         std::string pass;
@@ -327,9 +330,13 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
             }
         }
         try {
-            Wallet w(priv, keyDir, name, pass);
+            Wallet w(priv, keyDir, keyId, pass);
             std::ofstream(DBPaths::getHomePath() + "/.alyncoin/current_wallet.txt") << w.getAddress();
-            std::cout << "✅ Wallet loaded: " << w.getAddress() << std::endl;
+            std::cout << "✅ Wallet loaded: " << w.getAddress();
+            if (keyId != requested) {
+                std::cout << " (Key ID: " << keyId << ")";
+            }
+            std::cout << std::endl;
         } catch (const std::exception &e) {
             std::cerr << "❌ Wallet load failed: " << e.what() << std::endl;
             return 1;

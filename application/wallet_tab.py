@@ -31,7 +31,7 @@ class WalletTab(QWidget):
         layout = QVBoxLayout()
 
         self.addressInput = QLineEdit()
-        self.addressInput.setPlaceholderText("Enter wallet name to load. 'Create Wallet' will auto-generate")
+        self.addressInput.setPlaceholderText("Enter wallet name or address to load. 'Create Wallet' will auto-generate")
         layout.addWidget(self.addressInput)
 
         self.walletSwitcher = QComboBox()
@@ -150,20 +150,31 @@ class WalletTab(QWidget):
         except Exception as e:
             self.appendOutput(f"❌ Wallet load failed: {e}")
             return
+
         if isinstance(result, dict) and "error" in result:
             self.appendOutput(f"❌ {result['error']}")
             return
 
         final_addr = ""
-        if isinstance(result, str) and re.match(r"^[a-f0-9]{40,64}$", result):
+        resolved_key_id = name
+        if isinstance(result, dict):
+            addr_candidate = result.get("address")
+            if isinstance(addr_candidate, str):
+                final_addr = addr_candidate
+            key_candidate = result.get("key_id")
+            if isinstance(key_candidate, str) and key_candidate:
+                resolved_key_id = key_candidate
+        elif isinstance(result, str) and re.match(r"^[a-f0-9]{40,64}$", result):
             final_addr = result
 
-        # Keep wallet name in the input box
-        self.addressInput.setText(name)
         if final_addr:
-            self.parent.set_wallet_address(final_addr, name)
+            self.addressInput.setText(resolved_key_id or name)
+            self.parent.set_wallet_address(final_addr, resolved_key_id or name)
             self.appendOutput(f"📬 Loaded Wallet: {final_addr}")
-            self.appendOutput(f"🆔 Key Identifier: {name}")
+            if resolved_key_id:
+                self.appendOutput(f"🆔 Key Identifier: {resolved_key_id}")
+        else:
+            self.appendOutput(f"❌ Unexpected wallet load response: {result}")
         self.refreshWalletList()
 
     def exportWallet(self):
