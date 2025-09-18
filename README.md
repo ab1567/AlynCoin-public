@@ -30,6 +30,24 @@ includes a premine of **10 million ALYN** distributed as follows:
 
 These allocations are minted to dedicated addresses at genesis and count toward the 100 million coin cap.
 
+### Premine addresses
+
+| Allocation        | Wallet Address                             |
+|-------------------|--------------------------------------------|
+| Airdrops          | `9a3d60db8c4aa4e56d4af1e2ca08add8613ad10f` |
+| Liquidity         | `48cb2ae09f550de06f0caff91fb9690e95c9bbc3` |
+| Investors         | `806cc16a6f7235f09bc753923c2c15b721c8f442` |
+| Development       | `406317234be65bf7cc6e8e117b3404a4260f657d` |
+| Exchange Listings | `0267d5c4d63c4223a9ae9ac8ada00dd75357be31` |
+| Team/Founder      | `d823146d399e22d35739c78cef0ad8ff664311f5` |
+
+These canonical addresses are the long-term source of truth on-chain. The
+client still exposes `resolveWalletKeyIdentifier`, but it now resolves a wallet
+by matching the address to locally stored public keys or an operator-defined key
+prefix. Keeping the premine keyed solely by address avoids shipping extra alias
+material in the binary and ensures the canonical hash remains the stable,
+tamper-evident reference going forward.
+
 Block rewards decline as circulating supply approaches the cap. A portion of
 transaction fees is burned while another portion funds ongoing development via
 the DAO treasury. The team allocation is locked for one year and vests
