@@ -20,4 +20,5 @@ message TransactionProto {
     bool is_system = 12;
 
     string amount_str = 13;
+    uint64 nonce = 14;
 }

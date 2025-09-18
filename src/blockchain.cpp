@@ -32,6 +32,7 @@
 #include <locale>
 #include <mutex>
 #include <shared_mutex>
+#include <sstream>
 #include <stdexcept>
 #include <sys/stat.h>
 #include <thread>
@@ -47,6 +48,31 @@ std::vector<StateChannel> stateChannels;
 std::vector<RollupBlock> rollupBlocks;
 double totalSupply = 0.0;
 static Blockchain *g_blockchain_singleton = nullptr;
+
+namespace {
+
+std::string formatAmount(double amount) {
+  std::ostringstream oss;
+  oss << std::fixed << std::setprecision(12) << amount;
+  std::string formatted = oss.str();
+  auto dotPos = formatted.find('.');
+  if (dotPos != std::string::npos) {
+    size_t trimPos = formatted.size();
+    while (trimPos > dotPos + 1 && formatted[trimPos - 1] == '0') {
+      --trimPos;
+    }
+    if (trimPos > dotPos + 1 && formatted[trimPos - 1] == '.') {
+      --trimPos;
+    }
+    formatted.erase(trimPos);
+  }
+  if (formatted.empty()) {
+    return "0";
+  }
+  return formatted;
+}
+
+} // namespace
 
 struct PremineEntry {
   std::string address;
@@ -80,6 +106,7 @@ Blockchain::Blockchain()
     : difficulty(0), miningReward(25.0), db(nullptr), totalBurnedSupply(0.0),
       network(nullptr), totalWork(0) {
   std::cout << "[DEBUG] Default Blockchain constructor called.\n";
+  lastL1Seen.store(std::time(nullptr), std::memory_order_relaxed);
 }
 
 // ✅ Constructor: Open RocksDB
@@ -87,6 +114,8 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath,
                        bool bindNetwork, bool isSyncMode)
     : difficulty(0), miningReward(25.0), port(port), dbPath(dbPath),
       totalWork(0) {
+
+  lastL1Seen.store(std::time(nullptr), std::memory_order_relaxed);
 
   // Only set network pointer if asked AND it's already initialized, otherwise
   // nullptr
@@ -651,6 +680,7 @@ bool Blockchain::addBlock(const Block &block, bool lockHeld) {
       network->getPeerManager()->setLocalWork(totalWork);
     if (network)
       broadcastNewTip();
+    noteNewL1(block.getTimestamp());
   } catch (const std::exception &e) {
     std::cerr << "❌ [CRITICAL][addBlock] push_back failed: " << e.what()
               << "\n";
@@ -678,6 +708,9 @@ bool Blockchain::addBlock(const Block &block, bool lockHeld) {
                            return pendingTx.getHash() == tx.getHash();
                          }),
           pendingTransactions.end());
+      pendingTxHashes.erase(tx.getHash());
+      confirmedTxHashes.insert(tx.getHash());
+      recordConfirmedNonce(tx.getSender(), tx.getNonce(), true);
     }
   }
 
@@ -800,6 +833,18 @@ bool Blockchain::forceAddBlock(const Block &block) {
 
   try {
     chain.push_back(blkCopy);
+    for (const auto &tx : block.getTransactions()) {
+      confirmedTxHashes.insert(tx.getHash());
+      pendingTxHashes.erase(tx.getHash());
+      pendingTransactions.erase(
+          std::remove_if(pendingTransactions.begin(), pendingTransactions.end(),
+                         [&tx](const Transaction &pendingTx) {
+                           return pendingTx.getHash() == tx.getHash();
+                         }),
+          pendingTransactions.end());
+      recordConfirmedNonce(tx.getSender(), tx.getNonce(), true);
+    }
+    noteNewL1(block.getTimestamp());
   } catch (const std::exception &e) {
     std::cerr << "❌ [forceAddBlock] push_back failed: " << e.what() << "\n";
     return false;
@@ -905,6 +950,7 @@ void Blockchain::loadFromPeers() {
 void Blockchain::clearPendingTransactions() {
   // Clear in-memory pending transactions
   pendingTransactions.clear();
+  pendingTxHashes.clear();
   std::cout << "🚨 Cleared all pending transactions after mining.\n";
 
   // Also clear any local JSON file
@@ -999,6 +1045,64 @@ void Blockchain::mergeWith(const Blockchain &other) {
   }
 }
 
+void Blockchain::noteNewL1(std::time_t timestamp) {
+  if (timestamp <= 0) {
+    timestamp = std::time(nullptr);
+  }
+  lastL1Seen.store(timestamp, std::memory_order_relaxed);
+}
+
+void Blockchain::recordConfirmedNonce(const std::string &sender, uint64_t nonce,
+                                      bool lockHeld) {
+  if (sender.empty() || sender == "System")
+    return;
+
+  std::unique_lock<std::mutex> guard(blockchainMutex, std::defer_lock);
+  if (!lockHeld)
+    guard.lock();
+
+  uint64_t &next = nextNonceByAddress[sender];
+  if (nonce + 1 > next)
+    next = nonce + 1;
+}
+
+uint64_t Blockchain::expectedNonceForSender(const std::string &sender,
+                                            bool lockHeld) const {
+  if (sender.empty() || sender == "System")
+    return 0;
+
+  std::unique_lock<std::mutex> guard(blockchainMutex, std::defer_lock);
+  if (!lockHeld)
+    guard.lock();
+
+  uint64_t next = 0;
+  auto it = nextNonceByAddress.find(sender);
+  if (it != nextNonceByAddress.end())
+    next = it->second;
+
+  for (const auto &pending : pendingTransactions) {
+    if (pending.getSender() == sender && pending.getNonce() >= next) {
+      next = pending.getNonce() + 1;
+    }
+  }
+  return next;
+}
+
+bool Blockchain::shouldAutoMine() const {
+  const std::time_t now = std::time(nullptr);
+  const std::time_t last = lastL1Seen.load(std::memory_order_relaxed);
+  if (now == 0 || last == 0)
+    return false;
+  if (now <= last)
+    return false;
+
+  if ((now - last) < AUTO_MINING_GRACE_PERIOD)
+    return false;
+
+  std::unique_lock<std::mutex> lock(blockchainMutex);
+  return !pendingTransactions.empty();
+}
+
 // ✅ **Check for pending transactions**
 bool Blockchain::hasPendingTransactions() const {
   return !pendingTransactions.empty(); // ✅ Only checks, does not modify!
@@ -1006,14 +1110,109 @@ bool Blockchain::hasPendingTransactions() const {
 //
 void Blockchain::setPendingTransactions(
     const std::vector<Transaction> &transactions) {
-  pendingTransactions = transactions;
+  std::lock_guard<std::mutex> lock(blockchainMutex);
+
+  pendingTransactions.clear();
+  pendingTxHashes.clear();
+
+  std::unordered_map<std::string, std::vector<Transaction>> groupedBySender;
+  std::vector<Transaction> passthrough;
+
+  for (const auto &tx : transactions) {
+    const std::string hash = tx.getHash();
+    if (hash.empty()) {
+      continue;
+    }
+    if (confirmedTxHashes.count(hash)) {
+      continue;
+    }
+
+    if (tx.getSender() == "System" || tx.isL2()) {
+      passthrough.push_back(tx);
+      continue;
+    }
+
+    groupedBySender[tx.getSender()].push_back(tx);
+  }
+
+  std::vector<Transaction> accepted;
+  accepted.reserve(transactions.size());
+
+  for (auto &entry : groupedBySender) {
+    const std::string &sender = entry.first;
+    auto &txs = entry.second;
+
+    std::sort(txs.begin(), txs.end(), [](const Transaction &a,
+                                         const Transaction &b) {
+      if (a.getNonce() != b.getNonce()) {
+        return a.getNonce() < b.getNonce();
+      }
+      if (a.getTimestamp() != b.getTimestamp()) {
+        return a.getTimestamp() < b.getTimestamp();
+      }
+      return a.getHash() < b.getHash();
+    });
+
+    uint64_t expected = 0;
+    auto base = nextNonceByAddress.find(sender);
+    if (base != nextNonceByAddress.end()) {
+      expected = base->second;
+    }
+
+    for (const auto &tx : txs) {
+      if (tx.getNonce() < expected) {
+        std::cerr << "⛔  [setPendingTransactions] Dropping stale tx for "
+                  << sender << " nonce=" << tx.getNonce()
+                  << " expected=" << expected << "\n";
+        continue;
+      }
+      if (tx.getNonce() > expected) {
+        std::cerr << "⛔  [setPendingTransactions] Nonce gap for " << sender
+                  << ": expected=" << expected
+                  << " got=" << tx.getNonce() << "\n";
+        break;
+      }
+
+      const std::string hash = tx.getHash();
+      if (!pendingTxHashes.insert(hash).second) {
+        continue;
+      }
+
+      accepted.push_back(tx);
+      ++expected;
+    }
+  }
+
+  for (const auto &tx : passthrough) {
+    const std::string hash = tx.getHash();
+    if (hash.empty()) {
+      continue;
+    }
+    if (pendingTxHashes.insert(hash).second) {
+      accepted.push_back(tx);
+    }
+  }
+
+  std::sort(accepted.begin(), accepted.end(), [](const Transaction &a,
+                                                  const Transaction &b) {
+    if (a.getTimestamp() != b.getTimestamp()) {
+      return a.getTimestamp() < b.getTimestamp();
+    }
+    if (a.getNonce() != b.getNonce()) {
+      return a.getNonce() < b.getNonce();
+    }
+    return a.getHash() < b.getHash();
+  });
+
+  pendingTransactions = std::move(accepted);
 }
 
 // ✅ Mine pending transactions and dynamically adjust difficulty
 Block Blockchain::minePendingTransactions(
     const std::string &minerAddress,
     const std::vector<unsigned char> &minerDilithiumPriv,
-    const std::vector<unsigned char> &minerFalconPriv) {
+    const std::vector<unsigned char> &minerFalconPriv,
+    bool forceAutoReward) {
   if (isRecoveringActive()) {
     std::cout << "[DEBUG] Skipping mining while recovering..." << std::endl;
     return Block();
@@ -1093,24 +1292,35 @@ Block Blockchain::minePendingTransactions(
   }
 
   double blockRewardVal = 0.0;
-  if (totalSupply < MAX_SUPPLY) {
+  bool useAutoReward = forceAutoReward || isAutoMiningRewardMode();
+  if (useAutoReward) {
+    double remaining = std::max(0.0, MAX_SUPPLY - totalSupply);
+    blockRewardVal = std::min(AUTO_MINING_REWARD, remaining);
+    if (blockRewardVal > 0.0) {
+      std::cout << "⛏️ Auto-miner reward reduced to " << blockRewardVal
+                << " AlynCoin → " << minerAddress << "\n";
+    } else {
+      std::cerr << "🚫 Auto-miner reward skipped. Max supply reached.\n";
+    }
+  } else if (totalSupply < MAX_SUPPLY) {
     blockRewardVal = calculateBlockReward();
     if (totalSupply + blockRewardVal > MAX_SUPPLY) {
       blockRewardVal = MAX_SUPPLY - totalSupply;
     }
     std::cout << "[DEBUG] totalSupply = " << totalSupply
               << ", max = " << MAX_SUPPLY << "\n";
+  } else {
+    std::cerr << "🚫 Block reward skipped. Max supply reached.\n";
+  }
 
-    if (blockRewardVal > 0.0) {
-      Transaction rewardTx = Transaction::createSystemRewardTransaction(
-          minerAddress, blockRewardVal, timestamp, "");
-      validTx.push_back(rewardTx);
-      totalSupply += blockRewardVal;
+  if (blockRewardVal > 0.0) {
+    Transaction rewardTx = Transaction::createSystemRewardTransaction(
+        minerAddress, blockRewardVal, timestamp, "");
+    validTx.push_back(rewardTx);
+    if (!useAutoReward) {
       std::cout << "⛏️ Block reward: " << blockRewardVal << " AlynCoin → "
                 << minerAddress << "\n";
     }
-  } else {
-    std::cerr << "🚫 Block reward skipped. Max supply reached.\n";
   }
 
   Block lastBlock = getLatestBlock();
@@ -1236,11 +1446,15 @@ void Blockchain::startMining(const std::string &minerAddress,
       // Reload chain & pending TX from DB so we see the latest state
       reloadBlockchainState();
 
-      // ❌ No more “if (pendingTransactions.empty()) { … }” check!
-      // We always call minePendingTransactions.
+      bool allowAuto = shouldAutoMine();
+      if (!allowAuto) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        continue;
+      }
 
       Block newBlock =
-          minePendingTransactions(minerAddress, dilithiumPriv, falconPriv);
+          minePendingTransactions(minerAddress, dilithiumPriv, falconPriv,
+                                  allowAuto);
 
       // If minePendingTransactions returns an empty Block (hash == ""),
       // handle it gracefully or continue
@@ -1301,14 +1515,15 @@ void Blockchain::printBlockchain() const {
     std::cout << "Hash: " << block.getHash() << "\n";
     std::cout << "Previous Hash: " << block.getPreviousHash() << "\n";
     std::cout << "Miner: " << block.getMinerAddress() << "\n";
-    std::cout << "Reward: " << block.getReward() << " AlynCoin\n";
+    std::cout << "Reward: " << formatAmount(block.getReward())
+              << " AlynCoin\n";
     std::cout << "Nonce: " << block.getNonce() << "\n";
     std::cout << "Timestamp: " << block.getTimestamp() << "\n";
     if (!block.getTransactions().empty()) {
       std::cout << "Transactions: " << block.getTransactions().size() << "\n";
       for (const auto &tx : block.getTransactions()) {
         std::cout << "  - " << tx.getSender() << " → " << tx.getRecipient()
-                  << " (" << tx.getAmount() << " AlynCoin)\n";
+                  << " (" << formatAmount(tx.getAmount()) << " AlynCoin)\n";
       }
     } else {
       std::cout << "Transactions: 0\n";
@@ -1316,7 +1531,7 @@ void Blockchain::printBlockchain() const {
     std::cout << "---------------------------\n";
   }
   std::cout << "===========================\n";
-  std::cout << "🔥 Total Burned Supply: " << totalBurnedSupply
+  std::cout << "🔥 Total Burned Supply: " << formatAmount(totalBurnedSupply)
             << " AlynCoin 🔥\n";
 }
 
@@ -1332,6 +1547,18 @@ void Blockchain::printPendingTransactions() {
 // ✅ **Add a new transaction**
 void Blockchain::addTransaction(const Transaction &tx) {
   std::lock_guard<std::mutex> lock(blockchainMutex);
+
+  const std::string txHash = tx.getHash();
+  if (confirmedTxHashes.count(txHash)) {
+    std::cerr << "⛔  [addTransaction] Transaction already confirmed. Hash="
+              << txHash << "\n";
+    return;
+  }
+  if (pendingTxHashes.count(txHash)) {
+    std::cerr << "⛔  [addTransaction] Duplicate pending transaction skipped. Hash="
+              << txHash << "\n";
+    return;
+  }
 
   // Lowercase sender name
   std::string senderLower = tx.getSender();
@@ -1374,7 +1601,31 @@ void Blockchain::addTransaction(const Transaction &tx) {
     }
   }
 
+  if (tx.getSender() != "System") {
+    uint64_t expectedNonce = expectedNonceForSender(tx.getSender(), true);
+    if (tx.getNonce() != expectedNonce) {
+      std::cerr << "⛔  [addTransaction] Nonce mismatch for " << tx.getSender()
+                << ". expected=" << expectedNonce
+                << " provided=" << tx.getNonce() << "\n";
+      return;
+    }
+
+    double spendable = getBalance(tx.getSender());
+    for (const auto &pending : pendingTransactions) {
+      if (pending.getSender() == tx.getSender()) {
+        spendable -= pending.getAmount();
+      }
+    }
+    if (spendable < tx.getAmount()) {
+      std::cerr << "⛔  [addTransaction] Insufficient spendable balance for "
+                << tx.getSender() << ". spendable=" << spendable
+                << " amount=" << tx.getAmount() << "\n";
+      return;
+    }
+  }
+
   pendingTransactions.push_back(tx);
+  pendingTxHashes.insert(txHash);
 
   // Monitor Dev Fund activity
   if (tx.getSender() == DEV_FUND_ADDRESS ||
@@ -1388,6 +1639,14 @@ void Blockchain::addTransaction(const Transaction &tx) {
 
   std::cout << "✅ Transaction added. Pending count: "
             << pendingTransactions.size() << "\n";
+}
+
+void Blockchain::setAutoMiningRewardMode(bool enabled) {
+  autoMiningRewardMode.store(enabled, std::memory_order_relaxed);
+}
+
+bool Blockchain::isAutoMiningRewardMode() const {
+  return autoMiningRewardMode.load(std::memory_order_relaxed);
 }
 
 // ✅ **Get balance of a public key**
@@ -1496,6 +1755,21 @@ bool Blockchain::saveToDB() {
     std::cout << "🧹 Removed " << deleted << " old rollup blocks from DB.\n";
   }
 
+  {
+    rocksdb::Iterator *it = db->NewIterator(rocksdb::ReadOptions());
+    int deleted = 0;
+    for (it->SeekToFirst(); it->Valid(); it->Next()) {
+      std::string key = it->key().ToString();
+      if (key.rfind("nonce_", 0) == 0) {
+        batch.Delete(key);
+        ++deleted;
+      }
+    }
+    delete it;
+    if (deleted > 0)
+      std::cout << "🧹 Removed " << deleted << " cached nonce entries from DB.\n";
+  }
+
   // ✅ Save rollup blocks with clean re-index
   int rollupCount = 0;
   for (const auto &rb : rollupChain) {
@@ -1511,6 +1785,10 @@ bool Blockchain::saveToDB() {
   for (const auto &[address, balance] : balances) {
     batch.Put("balance_" + address, std::to_string(balance));
     ++balanceCount;
+  }
+
+  for (const auto &[address, nextNonce] : nextNonceByAddress) {
+    batch.Put("nonce_" + address, std::to_string(nextNonce));
   }
 
   // ✅ Save supply + burned supply (now AFTER rollup deltas applied)
@@ -1935,6 +2213,8 @@ bool Blockchain::loadFromProto(const alyncoin::BlockchainProto &protoChain) {
 
   chain.clear();
   pendingTransactions.clear();
+  pendingTxHashes.clear();
+  confirmedTxHashes.clear();
   difficulty = protoChain.difficulty();
   blockReward = protoChain.block_reward();
 
@@ -1947,6 +2227,8 @@ bool Blockchain::loadFromProto(const alyncoin::BlockchainProto &protoChain) {
       cpp_int parentWork =
           chain.empty() ? cpp_int(0) : chain.back().getAccumulatedWork();
       block.setAccumulatedWork(parentWork + thisWork);
+      for (const auto &tx : block.getTransactions())
+        confirmedTxHashes.insert(tx.getHash());
       chain.push_back(block);
     } catch (const std::exception &e) {
       std::cerr
@@ -2278,6 +2560,7 @@ Json::Value Blockchain::toJSON() const {
 //
 void Blockchain::fromJSON(const Json::Value &json) {
   chain.clear();
+  confirmedTxHashes.clear();
 
   for (const auto &blockJson : json["chain"]) { // ✅ Corrected from "blocks"
     Block block = Block::fromJSON(blockJson);
@@ -2285,17 +2568,27 @@ void Blockchain::fromJSON(const Json::Value &json) {
     cpp_int parentWork =
         chain.empty() ? cpp_int(0) : chain.back().getAccumulatedWork();
     block.setAccumulatedWork(parentWork + thisWork);
+    for (const auto &tx : block.getTransactions())
+      confirmedTxHashes.insert(tx.getHash());
     chain.push_back(block);
   }
 
   pendingTransactions.clear();
+  pendingTxHashes.clear();
   for (const auto &txJson : json["pending_transactions"]) {
     Transaction tx = Transaction::fromJSON(txJson);
-    pendingTransactions.push_back(tx);
+    const std::string hash = tx.getHash();
+    if (!confirmedTxHashes.count(hash) &&
+        pendingTxHashes.insert(hash).second) {
+      pendingTransactions.push_back(tx);
+    }
   }
 
   difficulty = json["difficulty"].asUInt();
   blockReward = json["block_reward"].asDouble();
+
+  recalculateBalancesFromChain();
+  applyRollupDeltasToBalances();
 }
 
 // ✅ Update blockchain from JSON
@@ -2442,8 +2735,7 @@ void Blockchain::loadTransactionsFromDB() {
     return;
   }
 
-  pendingTransactions.clear();
-
+  std::vector<Transaction> loaded;
   rocksdb::Iterator *it = db->NewIterator(rocksdb::ReadOptions());
   for (it->SeekToFirst(); it->Valid(); it->Next()) {
     std::string key = it->key().ToString();
@@ -2469,46 +2761,18 @@ void Blockchain::loadTransactionsFromDB() {
       db->Delete(rocksdb::WriteOptions(), key);
       continue;
     }
-
-    pendingTransactions.push_back(tx);
+    loaded.push_back(tx);
   }
 
   delete it;
+  setPendingTransactions(loaded);
+  savePendingTransactionsToDB();
   std::cout << "✅ Transactions loaded successfully! Pending count: "
             << pendingTransactions.size() << "\n";
 }
 //
 void Blockchain::loadPendingTransactionsFromDB() {
-  if (!db)
-    return;
-
-  pendingTransactions.clear();
-
-  std::unique_ptr<rocksdb::Iterator> it(
-      db->NewIterator(rocksdb::ReadOptions()));
-  for (it->SeekToFirst(); it->Valid(); it->Next()) {
-    std::string key = it->key().ToString();
-    std::string val = it->value().ToString();
-
-    // Use "tx_" prefix to match how we save them:
-    if (key.rfind("tx_", 0) == 0) {
-      alyncoin::TransactionProto proto;
-      if (!proto.ParseFromString(val)) {
-        std::cerr << "⚠️ [CORRUPTED] Invalid transaction proto. Deleting key: "
-                  << key << "\n";
-        db->Delete(rocksdb::WriteOptions(), key);
-        continue;
-      }
-      Transaction tx = Transaction::fromProto(proto);
-      if (tx.getAmount() <= 0) {
-        db->Delete(rocksdb::WriteOptions(), key);
-        continue;
-      }
-      pendingTransactions.push_back(tx);
-    }
-  }
-  std::cout << "✅ Transactions loaded successfully! Pending count: "
-            << pendingTransactions.size() << "\n";
+  loadTransactionsFromDB();
 }
 //
 void Blockchain::savePendingTransactionsToDB() {
@@ -2867,12 +3131,18 @@ void Blockchain::recalculateBalancesFromChain() {
   balances.clear();
   totalSupply = 0.0;
   totalBurnedSupply = 0.0;
+  confirmedTxHashes.clear();
+  nextNonceByAddress.clear();
+
+  std::time_t latestTimestamp = 0;
 
   std::unordered_set<std::string> seenBlocks;
 
   for (size_t i = 0; i < chain.size(); ++i) {
     const Block &block = chain[i];
     const std::string &blockHash = block.getHash();
+
+    latestTimestamp = std::max(latestTimestamp, block.getTimestamp());
 
     if (seenBlocks.count(blockHash)) {
       std::cerr << "⚠️ Duplicate block detected during balance recalculation. "
@@ -2901,9 +3171,11 @@ void Blockchain::recalculateBalancesFromChain() {
       const std::string &sender = tx.getSender();
       const std::string &recipient = tx.getRecipient();
       double amount = tx.getAmount();
+      confirmedTxHashes.insert(tx.getHash());
 
       if (!sender.empty() && sender != "System") {
         balances[sender] -= amount;
+        recordConfirmedNonce(sender, tx.getNonce(), true);
       } else if (sender == "System") {
         hasSystemTx = true;
         totalSupply += amount;
@@ -2934,9 +3206,25 @@ void Blockchain::recalculateBalancesFromChain() {
     }
   }
 
+  if (!pendingTransactions.empty()) {
+    auto it = pendingTransactions.begin();
+    while (it != pendingTransactions.end()) {
+      const std::string hash = it->getHash();
+      if (confirmedTxHashes.count(hash)) {
+        pendingTxHashes.erase(hash);
+        it = pendingTransactions.erase(it);
+      } else {
+        ++it;
+      }
+    }
+  }
+
   std::cout << "✅ [DEBUG] Balances recalculated from chain. Unique blocks: "
             << seenBlocks.size() << ", Total Supply: " << totalSupply
             << ", Total Burned: " << totalBurnedSupply << "\n";
+
+  if (latestTimestamp > 0)
+    noteNewL1(latestTimestamp);
 }
 
 //
@@ -3007,6 +3295,9 @@ void Blockchain::clear(bool force) {
 
   chain.clear();
   pendingTransactions.clear();
+  pendingTxHashes.clear();
+  confirmedTxHashes.clear();
+  nextNonceByAddress.clear();
   difficulty = calculateSmartDifficulty(*this);
   blockReward = 25.0;
   devFundBalance = 0.0;
@@ -3014,6 +3305,7 @@ void Blockchain::clear(bool force) {
   balances.clear();
   vestingMap.clear();
   recentTransactionCounts.clear();
+  lastL1Seen.store(std::time(nullptr), std::memory_order_relaxed);
   std::cout << "✅ Blockchain cleared (chain + pending txs)\n";
 }
 
@@ -3124,10 +3416,13 @@ void Blockchain::setPendingL2TransactionsIfNotInRollups(
 
   // ✅ Reset pendingTransactions to only unrolled L2 txs
   pendingTransactions.clear();
+  pendingTxHashes.clear();
 
   for (const auto &tx : allTxs) {
     if (isL2Transaction(tx) && !alreadyRolled.count(tx.getHash())) {
-      pendingTransactions.push_back(tx);
+      const std::string hash = tx.getHash();
+      if (pendingTxHashes.insert(hash).second)
+        pendingTransactions.push_back(tx);
     }
   }
 }
@@ -3642,6 +3937,8 @@ void Blockchain::purgeDataForResync() {
 
   chain.clear();
   pendingTransactions.clear();
+  pendingTxHashes.clear();
+  confirmedTxHashes.clear();
   balances.clear();
   rollupChain.clear();
 

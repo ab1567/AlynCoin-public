@@ -790,6 +790,14 @@ void Network::autoMineBlock() {
                     << std::endl;
           continue;
         }
+        const Block &latestBlock = blockchain.getLatestBlock();
+        double secondsSinceLast =
+            std::difftime(std::time(nullptr), latestBlock.getTimestamp());
+        if (secondsSinceLast < 60.0) {
+          std::cout << "⏳ Auto-miner waiting. Last block is " << secondsSinceLast
+                    << "s old (< 60s threshold)." << std::endl;
+          continue;
+        }
         std::cout << "⛏️ New transactions detected. Starting mining..."
                   << std::endl;
 
@@ -807,8 +815,13 @@ void Network::autoMineBlock() {
           continue;
         }
 
+        blockchain.setAutoMiningRewardMode(true);
+        struct AutoRewardReset {
+          Blockchain &ref;
+          ~AutoRewardReset() { ref.setAutoMiningRewardMode(false); }
+        } autoRewardReset{blockchain};
         Block minedBlock = blockchain.minePendingTransactions(
-            minerAddress, dilithiumPriv, falconPriv);
+            minerAddress, dilithiumPriv, falconPriv, /*forceAutoReward=*/true);
 
         // Validate signatures using the same message that was signed
         std::vector<unsigned char> msgHash = minedBlock.getSignatureMessage();

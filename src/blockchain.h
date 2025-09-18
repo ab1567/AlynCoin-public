@@ -44,6 +44,8 @@ const double MAX_SUPPLY = 100000000.0;
 const size_t MAX_PENDING_TRANSACTIONS = 10000;
 const int EPOCH_SIZE = 64; // number of blocks per aggregated proof epoch
 const size_t MAX_ORPHAN_BLOCKS = 100;
+constexpr double AUTO_MINING_REWARD = 1e-10;
+constexpr std::time_t AUTO_MINING_GRACE_PERIOD = 60;
 
 class Blockchain {
   friend class Network;
@@ -60,6 +62,8 @@ private:
   double totalBurnedSupply = 0.0;
   std::deque<int> recentTransactionCounts;
   std::vector<Transaction> pendingTransactions;
+  std::unordered_set<std::string> pendingTxHashes;
+  std::unordered_set<std::string> confirmedTxHashes;
   static std::atomic<bool> isMining;
   static std::atomic<bool> isRecovering;
   double blockReward = BASE_BLOCK_REWARD;
@@ -77,6 +81,9 @@ private:
   double devFundBalance = 0.0;
   std::time_t devFundLastActivity = std::time(nullptr);
   uint64_t totalWork = 0;
+  std::atomic<bool> autoMiningRewardMode{false};
+  std::atomic<std::time_t> lastL1Seen{0};
+  std::unordered_map<std::string, uint64_t> nextNonceByAddress;
 
   // --- Vesting ---
   struct VestingInfo {
@@ -103,6 +110,12 @@ private:
   void saveVestingInfoToDB();
   void loadCheckpointFromDB();
   void saveCheckpoint(int height, const std::string& hash);
+  void noteNewL1(std::time_t timestamp);
+  bool shouldAutoMine() const;
+  uint64_t expectedNonceForSender(const std::string &sender,
+                                  bool lockHeld = false) const;
+  void recordConfirmedNonce(const std::string &sender, uint64_t nonce,
+                            bool lockHeld = false);
 
 public:
   static Blockchain &getInstance(unsigned short port,
@@ -137,6 +150,8 @@ public:
   bool serializeBlockchain(std::string &outData) const;
   void fromJSON(const Json::Value &root);
   void addTransaction(const Transaction &tx);
+  void setAutoMiningRewardMode(bool enabled);
+  bool isAutoMiningRewardMode() const;
   std::vector<Transaction> getPendingTransactions() const;
   bool isTransactionValid(const Transaction &tx) const;
   std::vector<unsigned char> signTransaction(const std::vector<unsigned char> &privateKey,
@@ -166,7 +181,8 @@ public:
   bool hasPendingTransactions() const;
   Block minePendingTransactions(const std::string &minerAddress,
                                 const std::vector<unsigned char> &minerDilithiumPriv,
-                                const std::vector<unsigned char> &minerFalconPriv);
+                                const std::vector<unsigned char> &minerFalconPriv,
+                                bool forceAutoReward = false);
   void setPendingTransactions(const std::vector<Transaction> &transactions);
   double getAverageBlockTime(int recentCount) const;
   double getAverageDifficulty(int recentCount) const;
