@@ -8,8 +8,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import QDate
 
-from rpc_client import alyncoin_rpc, RpcClientError, RpcNotReady, RpcError
-from wallet_utils import ensure_wallet_ready
+from rpc_client import alyncoin_rpc
 
 class HistoryTab(QWidget):
     def __init__(self, parent=None):
@@ -60,32 +59,10 @@ class HistoryTab(QWidget):
         layout.addWidget(self.proofBtn)
         self.setLayout(layout)
 
-    def _require_wallet(self):
+    def fetchHistory(self):
         address = self.main.get_wallet_address()
-        key_id = self.main.get_wallet_key_id() if hasattr(self.main, "get_wallet_key_id") else ""
         if not address:
             self.appendText("❌ Please load a wallet first.")
-            return None
-        ok, msg = ensure_wallet_ready(address, key_id)
-        if not ok:
-            self.appendText(f"❌ {msg}")
-            return None
-        return address
-
-    def _safe_rpc(self, method, params=None, action="perform this action"):
-        try:
-            return alyncoin_rpc(method, params)
-        except RpcNotReady as exc:
-            self.appendText(f"⚠️ Node RPC unavailable — unable to {action}. ({exc})")
-        except RpcError as exc:
-            self.appendText(f"❌ RPC error while attempting to {action}: {exc}")
-        except RpcClientError as exc:
-            self.appendText(f"❌ Failed to {action}: {exc}")
-        return None
-
-    def fetchHistory(self):
-        address = self._require_wallet()
-        if not address:
             return
         self.appendText("⏳ Fetching transaction history...")
         self.fetchBtn.setEnabled(False)
@@ -93,10 +70,7 @@ class HistoryTab(QWidget):
         self.proofBtn.setEnabled(False)
         self.parsed_transactions.clear()
 
-        result = self._safe_rpc("history", [address], action="fetch transaction history")
-        if result is None:
-            self.fetchBtn.setEnabled(True)
-            return
+        result = alyncoin_rpc("history", [address])
         if isinstance(result, dict) and "error" in result:
             self.appendText(f"❌ {result['error']}")
             self.fetchBtn.setEnabled(True)
@@ -207,8 +181,9 @@ class HistoryTab(QWidget):
             self.appendText(f"❌ Export failed: {str(e)}")
 
     def generateProof(self):
-        address = self._require_wallet()
+        address = self.main.get_wallet_address()
         if not address:
+            self.appendText("❌ Please load a wallet first.")
             return
         if not self.filtered_transactions:
             self.appendText("⚠️ Apply filters to select transactions for proof.")
@@ -225,9 +200,7 @@ class HistoryTab(QWidget):
             file_path += ".json"
         self.proof_path = file_path
 
-        result = self._safe_rpc("recursiveproof", [address, tx_count], action="generate zk proof")
-        if result is None:
-            return
+        result = alyncoin_rpc("recursiveproof", [address, tx_count])
         if isinstance(result, dict) and "error" in result:
             self.appendText(f"❌ {result['error']}")
             return

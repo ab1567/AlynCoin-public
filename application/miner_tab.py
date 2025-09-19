@@ -6,8 +6,7 @@ from PyQt5.QtWidgets import (
     QTextEdit, QHBoxLayout, QFrame
 )
 
-from rpc_client import alyncoin_rpc, RpcClientError, RpcNotReady
-from wallet_utils import ensure_wallet_ready
+from rpc_client import alyncoin_rpc                 # unchanged
 
 # ---------- helpers ----------------------------------------------------------
 
@@ -108,48 +107,19 @@ class MinerTab(QWidget):
 
     def _peer_count(self) -> int:
         """Query backend for current peer count."""
-        try:
-            res = alyncoin_rpc("peercount")
-        except RpcNotReady as exc:
-            self._append(f"⚠️ Node RPC unavailable: {exc}")
-            return -1
-        except RpcClientError as exc:
-            self._append(f"❌ Failed to query peer count: {exc}")
-            return -1
+        res = alyncoin_rpc("peercount")
         if isinstance(res, int):
             return res
         return 0
 
     def _ensure_peer_connected(self) -> bool:
-        count = self._peer_count()
-        if count < 0:
-            self.banner.setText("⚠️ Node RPC unavailable. Mining paused.")
-            self.status.setText("🔴 <b>RPC offline</b>")
-            return False
-        if count == 0:
+        if self._peer_count() == 0:
             msg = "⚠️ Not mining: no peer connected. If error persists visit alyncoin.com"
             self.banner.setText(msg)
             self.status.setText("🔴 <b>No peers connected</b>")
             self._append(msg)
             return False
         return True
-
-    def _wallet_context(self):
-        wallet = self.getWallet()
-        key_id = ""
-        if hasattr(self.parentWin, "get_wallet_key_id"):
-            try:
-                key_id = self.parentWin.get_wallet_key_id()
-            except Exception:
-                key_id = getattr(self.parentWin, "loadedKeyId", "")
-        if not wallet:
-            self._append("❌ Please load a wallet first.")
-            return None
-        ok, msg = ensure_wallet_ready(wallet, key_id)
-        if not ok:
-            self._append(f"❌ {msg}")
-            return None
-        return wallet
 
     def _append(self, txt: str):
         self.out.append(txt)
@@ -221,10 +191,11 @@ class MinerTab(QWidget):
         if self.pending:
             self._append("⚠️ Another request is still running, please wait.")
             return
-        wallet = self._wallet_context()
-        if not wallet:
-            return
         if method == "mineonce" and not self._ensure_peer_connected():
+            return
+        wallet = self.getWallet()
+        if not wallet:
+            self._append("❌ Please load a wallet first.")
             return
         self.pending = True
         self.banner.setText(f"Running <b>{method}</b> …")
@@ -264,9 +235,9 @@ class MinerTab(QWidget):
     def _loop_rpc_step(self):
         if not self.loop_active:
             self._set_idle(); return
-        wallet = self._wallet_context()
+        wallet = self.getWallet()
         if not wallet:
-            self._append("❌ Wallet unloaded or missing keys; stopping loop.")
+            self._append("❌ Wallet unloaded; stopping loop.")
             self.loop_active = False
             self._set_idle()
             return

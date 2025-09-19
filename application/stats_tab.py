@@ -2,7 +2,7 @@ import re
 from PyQt5.QtGui import QFont, QColor
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QTextEdit, QPushButton
 
-from rpc_client import alyncoin_rpc, RpcClientError, RpcNotReady, RpcError
+from rpc_client import alyncoin_rpc
 
 class StatsTab(QWidget):
     def __init__(self, parent=None):
@@ -40,29 +40,12 @@ class StatsTab(QWidget):
 
         self.setLayout(layout)
 
-    def _handle_rpc_failure(self, exc, action="request"):
-        if isinstance(exc, RpcNotReady):
-            self.appendText(
-                f"⚠️ Node RPC unavailable — {action} cannot be completed right now.",
-                color="red",
-            )
-        elif isinstance(exc, RpcError):
-            self.appendText(f"❌ RPC error while {action}: {exc}", color="red")
-        else:
-            self.appendText(f"❌ Failed to {action}: {exc}", color="red")
-
     def fetchStats(self):
         self.outputBox.clear()
         self.appendText("⏳ Fetching stats...", color="orange")
         self.showStatsBtn.setEnabled(False)
 
-        try:
-            result = alyncoin_rpc("stats")
-        except RpcClientError as exc:
-            self._handle_rpc_failure(exc, "fetch stats")
-            self.showStatsBtn.setEnabled(True)
-            return
-
+        result = alyncoin_rpc("stats")
         self.showStatsBtn.setEnabled(True)
 
         if isinstance(result, dict) and "error" in result:
@@ -92,12 +75,7 @@ class StatsTab(QWidget):
     def triggerSync(self):
         self.appendText("⏳ Initiating hard sync...", color="orange")
         self.syncBtn.setEnabled(False)
-        try:
-            result = alyncoin_rpc("selfheal")
-        except RpcClientError as exc:
-            self._handle_rpc_failure(exc, "trigger sync")
-            self.syncBtn.setEnabled(True)
-            return
+        result = alyncoin_rpc("selfheal")
         self.syncBtn.setEnabled(True)
         if isinstance(result, dict) and "error" in result:
             self.appendText(f"❌ {result['error']}", color="red")
@@ -107,11 +85,7 @@ class StatsTab(QWidget):
     def fetchPeers(self):
         self.outputBox.clear()
         self.appendText("⏳ Fetching peer list...", color="orange")
-        try:
-            result = alyncoin_rpc("peerlist")
-        except RpcClientError as exc:
-            self._handle_rpc_failure(exc, "fetch peers")
-            return
+        result = alyncoin_rpc("peerlist")
         if isinstance(result, dict) and "error" in result:
             self.appendText(f"❌ {result['error']}", color="red")
             return

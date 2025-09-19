@@ -9,15 +9,15 @@ from PyQt5.QtWidgets import (
 )
 
 from rpc_client import alyncoin_rpc
-from wallet_utils import get_wallet_dir
 
 class WalletTab(QWidget):
     def __init__(self, parent):
         super().__init__(parent=parent)
         self.parent = parent
-        # Wallet keys and optional passphrase hashes live alongside the node in
-        # ``~/.alyncoin/keys`` (or the directory pointed to by ALYNCOIN_KEY_DIR).
-        self.walletDir = str(get_wallet_dir())
+        # Wallet keys and optional passphrase hashes live in ~/.alyncoin/keys
+        # to match the node's DBPaths::getKeyDir().
+        # Allow overriding the key directory via environment variable, expanding '~'
+        self.walletDir = os.path.expanduser(os.environ.get("ALYNCOIN_KEY_DIR", "~/.alyncoin/keys"))
         if not os.path.exists(self.walletDir):
             try:
                 os.makedirs(self.walletDir, exist_ok=True)
