@@ -1,7 +1,7 @@
 import json
 import os
 import time
-from typing import Optional
+from typing import Optional, Tuple
 from urllib.parse import urlparse, urlunparse
 
 # ``requests`` is optional on macOS; fall back to ``urllib`` if it's missing
@@ -16,7 +16,7 @@ try:  # pragma: no cover - simple import guard
             total=3,
             backoff_factor=0.5,
             status_forcelist=[502, 503, 504],
-            allowed_methods=frozenset(["POST"]),
+            allowed_methods=frozenset(["GET", "POST"]),
             raise_on_status=False,
         )
     )
@@ -36,14 +36,34 @@ except ModuleNotFoundError:  # pragma: no cover
         def json(self):
             return json_module.loads(self._data)
 
+        @property
+        def ok(self) -> bool:
+            return self.status_code < 400
+
     class _SimpleSession:
+        def _normalize_timeout(self, timeout):
+            if isinstance(timeout, (tuple, list)) and timeout:
+                try:
+                    return float(max(timeout))
+                except Exception:
+                    return 30.0
+            try:
+                return float(timeout)
+            except Exception:
+                return 30.0
+
         def post(self, url, headers=None, json=None, data=None, timeout=30):
             if json is not None:
                 data_bytes = json_module.dumps(json).encode()
             else:
                 data_bytes = data if isinstance(data, (bytes, bytearray)) else (data or "").encode()
             req = urllib.request.Request(url, data=data_bytes, headers=headers or {}, method="POST")
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
+            with urllib.request.urlopen(req, timeout=self._normalize_timeout(timeout)) as resp:
+                return _SimpleResponse(resp.read(), resp.getcode())
+
+        def get(self, url, timeout=30):
+            req = urllib.request.Request(url, method="GET")
+            with urllib.request.urlopen(req, timeout=self._normalize_timeout(timeout)) as resp:
                 return _SimpleResponse(resp.read(), resp.getcode())
 
     # ``requests`` not available — use the simple urllib-based session
@@ -75,11 +95,42 @@ else:
 
 RPC_PORT = int(RPC_PORT)
 
+DEFAULT_CONNECT_TIMEOUT = float(os.environ.get("ALYNCOIN_RPC_CONNECT_TIMEOUT", "2.0"))
+DEFAULT_READ_TIMEOUT = float(os.environ.get("ALYNCOIN_RPC_READ_TIMEOUT", "10.0"))
+DEFAULT_TIMEOUT: Tuple[float, float] = (DEFAULT_CONNECT_TIMEOUT, DEFAULT_READ_TIMEOUT)
 # Mining a block can be slow at high difficulty — allow generous timeout.
-TIMEOUT_S = 300
+MINING_TIMEOUT = float(os.environ.get("ALYNCOIN_RPC_MINING_TIMEOUT", "300.0"))
 
 
-def alyncoin_rpc(method: str, params=None, id_: Optional[int] = None):
+class RpcClientError(RuntimeError):
+    """Base class for RPC related errors."""
+
+
+class RpcNotReady(RpcClientError):
+    """Raised when the RPC endpoint is unreachable or times out."""
+
+
+class RpcDecodeError(RpcClientError):
+    """Raised when the HTTP response cannot be decoded as JSON."""
+
+
+class RpcError(RpcClientError):
+    """Raised when the RPC server returns an ``error`` object."""
+
+
+def _should_use_long_timeout(method: str) -> bool:
+    return method in {"mineonce", "rollup", "recursive-rollup"}
+
+
+def _build_timeout(method: str, timeout):
+    if timeout is not None:
+        return timeout
+    if _should_use_long_timeout(method):
+        return (DEFAULT_CONNECT_TIMEOUT, MINING_TIMEOUT)
+    return DEFAULT_TIMEOUT
+
+
+def alyncoin_rpc(method: str, params=None, id_: Optional[int] = None, *, timeout=None):
     """Call the AlynCoin JSON-RPC server and return the ``result`` value.
 
     Raises ``RuntimeError`` on RPC or HTTP failures.  When talking to older
@@ -96,24 +147,25 @@ def alyncoin_rpc(method: str, params=None, id_: Optional[int] = None):
     }
 
     def _do_request(payload, use_json=True):
+        req_timeout = _build_timeout(method, timeout)
         try:
             if use_json:
                 resp = SESSION.post(
-                    RPC_URL, headers=headers, json=payload, timeout=TIMEOUT_S
+                    RPC_URL, headers=headers, json=payload, timeout=req_timeout
                 )
             else:
                 resp = SESSION.post(
-                    RPC_URL, headers=headers, data=payload, timeout=TIMEOUT_S
+                    RPC_URL, headers=headers, data=payload, timeout=req_timeout
                 )
         except Exception as e:
-            raise RuntimeError(f"RPC request failed: {e}") from e
+            raise RpcNotReady(f"RPC request failed: {e}") from e
 
         text = getattr(resp, "text", "")
         try:
             data = resp.json()
         except Exception as e:
             msg = text or str(e)
-            raise RuntimeError(f"Failed to decode RPC response: {msg}") from e
+            raise RpcDecodeError(f"Failed to decode RPC response: {msg}") from e
 
         if getattr(resp, "status_code", 200) >= 400:
             return data
@@ -137,34 +189,58 @@ def alyncoin_rpc(method: str, params=None, id_: Optional[int] = None):
                     if isinstance(err, dict):
                         code = err.get("code", -32000)
                         msg = err.get("message", "Unknown RPC error")
-                        raise RuntimeError(f"RPC error {code}: {msg}")
-                    raise RuntimeError(str(err))
+                        raise RpcError(f"{code}: {msg}")
+                    raise RpcError(str(err))
                 return data.get("result")
-            raise RuntimeError(f"RPC error {code}: {msg}")
-        raise RuntimeError(str(err))
+            raise RpcError(f"{code}: {msg}")
+        raise RpcError(str(err))
 
     return data.get("result")
 
 
-def wait_for_rpc_ready(timeout: float = 10.0, interval: float = 0.25) -> bool:
-    """Poll ``peercount`` until the RPC server responds or ``timeout`` elapses."""
+def _rpc_healthcheck(timeout: float = 2.0) -> bool:
+    metrics_url = f"http://{RPC_HOST}:{RPC_PORT}/metrics"
+    try:
+        resp = SESSION.get(metrics_url, timeout=(timeout, timeout))
+        if getattr(resp, "status_code", 0) == 200:
+            return True
+    except Exception:
+        pass
+
+    probe_body = {"jsonrpc": "2.0", "id": "health", "method": "ping", "params": []}
+    try:
+        _ = SESSION.post(
+            RPC_URL,
+            headers={"Content-Type": "application/json"},
+            json=probe_body,
+            timeout=(timeout, timeout),
+        )
+        return True
+    except Exception:
+        return False
+
+
+def wait_for_rpc_ready(timeout: float = 15.0, interval: float = 0.25) -> bool:
+    """Poll the metrics endpoint (and fall back to ``ping``) until ready."""
 
     deadline = time.time() + timeout
-    last_error: Optional[Exception] = None
     while time.time() < deadline:
-        try:
-            alyncoin_rpc("peercount", [])
+        if _rpc_healthcheck(timeout=interval * 2):
             return True
-        except RuntimeError as exc:
-            last_error = exc
-        except Exception as exc:  # pragma: no cover - defensive guard
-            last_error = exc
         time.sleep(interval)
-
-    if last_error:
-        print(f"⚠️  RPC not ready: {last_error}")
+    print("⚠️  RPC not ready: timed out waiting for health check")
     return False
 
 
-__all__ = ["alyncoin_rpc", "RPC_URL", "RPC_HOST", "RPC_PORT", "wait_for_rpc_ready"]
+__all__ = [
+    "alyncoin_rpc",
+    "RPC_URL",
+    "RPC_HOST",
+    "RPC_PORT",
+    "wait_for_rpc_ready",
+    "RpcClientError",
+    "RpcNotReady",
+    "RpcDecodeError",
+    "RpcError",
+]
 
