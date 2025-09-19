@@ -166,5 +166,29 @@ def wait_for_rpc_ready(timeout: float = 10.0, interval: float = 0.25) -> bool:
     return False
 
 
-__all__ = ["alyncoin_rpc", "RPC_URL", "RPC_HOST", "RPC_PORT", "wait_for_rpc_ready"]
+def safe_alyncoin_rpc(method: str, params=None, id_: Optional[int] = None):
+    """Wrapper around :func:`alyncoin_rpc` that returns error dicts.
+
+    The desktop wallet has a number of buttons that trigger JSON-RPC calls in
+    response to user interaction.  Previously any networking issue (for
+    example, the bundled node taking a little longer to expose its RPC port)
+    would bubble up as a ``RuntimeError`` and crash the Qt slot.  Returning a
+    ``{"error": "..."}`` structure allows the UI to surface a friendly
+    message instead of raising an unhandled exception.
+    """
+
+    try:
+        return alyncoin_rpc(method, params, id_)
+    except RuntimeError as exc:
+        return {"error": str(exc)}
+
+
+__all__ = [
+    "alyncoin_rpc",
+    "safe_alyncoin_rpc",
+    "RPC_URL",
+    "RPC_HOST",
+    "RPC_PORT",
+    "wait_for_rpc_ready",
+]
 
