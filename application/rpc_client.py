@@ -58,6 +58,8 @@ RPC_HOST = os.environ.get("ALYNCOIN_RPC_HOST", "127.0.0.1")
 RPC_PORT = os.environ.get("ALYNCOIN_RPC_PORT", "1567")
 RPC_PATH = "/rpc"
 
+KEY_DIR = os.path.expanduser(os.environ.get("ALYNCOIN_KEY_DIR", "~/.alyncoin/keys"))
+
 if RPC_URL_ENV:
     try:
         parsed = urlparse(RPC_URL_ENV)
@@ -166,5 +168,47 @@ def wait_for_rpc_ready(timeout: float = 10.0, interval: float = 0.25) -> bool:
     return False
 
 
-__all__ = ["alyncoin_rpc", "RPC_URL", "RPC_HOST", "RPC_PORT", "wait_for_rpc_ready"]
+def ensure_wallet_ready(address: str, key_id: Optional[str] = None):
+    """Return ``(True, key_id)`` if required key files are present."""
+
+    address = (address or "").strip()
+    key_id = (key_id or "").strip()
+
+    if not address and not key_id:
+        return False, "No wallet loaded."
+
+    candidates = []
+    if key_id:
+        candidates.append(key_id)
+    if address and address not in candidates:
+        candidates.append(address)
+
+    attempts = []
+    for candidate in candidates:
+        if not candidate:
+            continue
+        priv = os.path.join(KEY_DIR, f"{candidate}_private.pem")
+        dil = os.path.join(KEY_DIR, f"{candidate}_dilithium.key")
+        fal = os.path.join(KEY_DIR, f"{candidate}_falcon.key")
+        missing = [p for p in (priv, dil, fal) if not os.path.exists(p)]
+        if not missing:
+            return True, candidate
+        attempts.append((candidate, missing))
+
+    if attempts:
+        candidate, missing = attempts[0]
+        missing_names = ", ".join(os.path.basename(p) for p in missing)
+        return False, f"Missing key files for wallet {candidate}: {missing_names}"
+
+    return False, "Missing key files for wallet."
+
+
+__all__ = [
+    "alyncoin_rpc",
+    "RPC_URL",
+    "RPC_HOST",
+    "RPC_PORT",
+    "wait_for_rpc_ready",
+    "ensure_wallet_ready",
+]
 

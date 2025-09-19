@@ -804,15 +804,28 @@ void Network::autoMineBlock() {
         // Use default miner address
         std::string minerAddress =
             "miner"; // Replace with actual configured address if needed
-        std::vector<unsigned char> dilithiumPriv =
-            Crypto::loadDilithiumKeys(minerAddress).privateKey;
-        std::vector<unsigned char> falconPriv =
-            Crypto::loadFalconKeys(minerAddress).privateKey;
+        auto resolvedMiner = Crypto::resolveWalletKeyIdentifier(minerAddress);
+        std::string minerKeyId = resolvedMiner.value_or(minerAddress);
 
-        if (dilithiumPriv.empty() || falconPriv.empty()) {
-          std::cerr << "❌ Miner private keys not found or invalid!"
-                    << std::endl;
+        auto dilithiumKeys = Crypto::loadDilithiumKeys(minerKeyId);
+        auto falconKeys = Crypto::loadFalconKeys(minerKeyId);
+
+        if (dilithiumKeys.privateKey.empty() ||
+            falconKeys.privateKey.empty()) {
+          std::cerr << "❌ Miner private keys not found or invalid for: "
+                    << minerKeyId << std::endl;
           continue;
+        }
+
+        std::string canonicalMiner = minerAddress;
+        if (!dilithiumKeys.publicKey.empty()) {
+          canonicalMiner =
+              Crypto::deriveAddressFromPub(dilithiumKeys.publicKey);
+        } else if (!falconKeys.publicKey.empty()) {
+          canonicalMiner = Crypto::deriveAddressFromPub(falconKeys.publicKey);
+        }
+        if (canonicalMiner.empty()) {
+          canonicalMiner = minerKeyId;
         }
 
         blockchain.setAutoMiningRewardMode(true);
@@ -821,7 +834,8 @@ void Network::autoMineBlock() {
           ~AutoRewardReset() { ref.setAutoMiningRewardMode(false); }
         } autoRewardReset{blockchain};
         Block minedBlock = blockchain.minePendingTransactions(
-            minerAddress, dilithiumPriv, falconPriv, /*forceAutoReward=*/true);
+            canonicalMiner, dilithiumKeys.privateKey, falconKeys.privateKey,
+            /*forceAutoReward=*/true);
 
         // Validate signatures using the same message that was signed
         std::vector<unsigned char> msgHash = minedBlock.getSignatureMessage();

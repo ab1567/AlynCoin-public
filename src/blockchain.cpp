@@ -2458,25 +2458,29 @@ Block Blockchain::mineBlock(const std::string &minerAddress) {
     return Block();
   }
 
+  auto resolved = Crypto::resolveWalletKeyIdentifier(minerAddress);
+  std::string minerKeyId = resolved.value_or(minerAddress);
+
   std::string dilithiumKeyPath =
-      DBPaths::getKeyDir() + minerAddress + "_dilithium.key";
+      DBPaths::getKeyDir() + minerKeyId + "_dilithium.key";
   std::string falconKeyPath =
-      DBPaths::getKeyDir() + minerAddress + "_falcon.key";
+      DBPaths::getKeyDir() + minerKeyId + "_falcon.key";
 
   if (!Crypto::fileExists(dilithiumKeyPath) ||
       !Crypto::fileExists(falconKeyPath)) {
-    std::cerr << "❌ Miner key(s) not found for address: " << minerAddress
-              << "\n";
+    std::cerr << "❌ Miner key(s) not found for identifier: " << minerKeyId
+              << " (address: " << minerAddress << ")\n";
     return Block();
   }
 
   std::vector<unsigned char> dilPriv =
-      Crypto::loadDilithiumKeys(minerAddress).privateKey;
+      Crypto::loadDilithiumKeys(minerKeyId).privateKey;
   std::vector<unsigned char> falPriv =
-      Crypto::loadFalconKeys(minerAddress).privateKey;
+      Crypto::loadFalconKeys(minerKeyId).privateKey;
 
   if (dilPriv.empty() || falPriv.empty()) {
-    std::cerr << "❌ Failed to load miner keys for: " << minerAddress << "\n";
+    std::cerr << "❌ Failed to load miner keys for identifier: " << minerKeyId
+              << " (address: " << minerAddress << ")\n";
     return Block();
   }
 

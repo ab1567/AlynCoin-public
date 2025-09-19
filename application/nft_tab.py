@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import (
     QFormLayout, QLineEdit, QDialogButtonBox, QFileDialog
 )
 
-from rpc_client import alyncoin_rpc
+from rpc_client import alyncoin_rpc, ensure_wallet_ready
 
 class NFTTab(QWidget):
     def __init__(self, parent):
@@ -40,10 +40,17 @@ class NFTTab(QWidget):
         btn.clicked.connect(callback)
         layout.addWidget(btn)
 
-    def getAddress(self):
+    def getAddress(self, require_keys: bool = False):
         addr = getattr(self.parent, "loadedAddress", "")
         if not addr:
             self.parent.appendOutput("❌ Wallet not loaded.")
+            return ""
+        if require_keys:
+            key_id = getattr(self.parent, "loadedKeyId", "")
+            ok, info = ensure_wallet_ready(addr, key_id)
+            if not ok:
+                self.parent.appendOutput(f"❌ {info}")
+                return ""
         return addr
 
     def showResult(self, result):
@@ -58,7 +65,7 @@ class NFTTab(QWidget):
 
     # ----- NFT Actions -----
     def mintNFT(self):
-        addr = self.getAddress()
+        addr = self.getAddress(require_keys=True)
         if not addr: return
         dialog = QDialog(self)
         dialog.setWindowTitle("🎨 Mint NFT")
@@ -89,7 +96,7 @@ class NFTTab(QWidget):
             self.showResult(result)
 
     def mintMediaNFT(self):
-        addr = self.getAddress()
+        addr = self.getAddress(require_keys=True)
         if not addr: return
         filePath, _ = QFileDialog.getOpenFileName(self, "Select Media File")
         if not filePath:
@@ -142,7 +149,7 @@ class NFTTab(QWidget):
         self.showResult(result)
 
     def transferNFT(self):
-        addr = self.getAddress()
+        addr = self.getAddress(require_keys=True)
         if not addr: return
         dialog = QDialog(self)
         dialog.setWindowTitle("🔁 Transfer NFT")
@@ -173,7 +180,7 @@ class NFTTab(QWidget):
             self.showResult(result)
 
     def remintNFT(self):
-        addr = self.getAddress()
+        addr = self.getAddress(require_keys=True)
         if not addr: return
         dialog = QDialog(self)
         dialog.setWindowTitle("🛠️ Re-Mint NFT")

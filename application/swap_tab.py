@@ -23,7 +23,7 @@ from PyQt5.QtWidgets import (
     QFormLayout, QDialogButtonBox
 )
 
-from rpc_client import alyncoin_rpc
+from rpc_client import alyncoin_rpc, ensure_wallet_ready
 
 
 class SwapTab(QWidget):
@@ -58,10 +58,17 @@ class SwapTab(QWidget):
         btn.clicked.connect(callback)
         layout.addWidget(btn)
 
-    def getAddress(self):
+    def getAddress(self, require_keys: bool = False):
         addr = getattr(self.parent, "loadedAddress", "")
         if not addr:
             self.parent.appendOutput("❌ Wallet not loaded.")
+            return ""
+        if require_keys:
+            key_id = getattr(self.parent, "loadedKeyId", "")
+            ok, info = ensure_wallet_ready(addr, key_id)
+            if not ok:
+                self.parent.appendOutput(f"❌ {info}")
+                return ""
         return addr
 
     def showResult(self, result):
@@ -71,7 +78,7 @@ class SwapTab(QWidget):
             self.parent.appendOutput(str(result))
 
     def initiateSwap(self):
-        addr = self.getAddress()
+        addr = self.getAddress(require_keys=True)
         if not addr:
             return
 
@@ -137,6 +144,8 @@ class SwapTab(QWidget):
             self.showResult(result)
 
     def redeemSwap(self):
+        if not self.getAddress(require_keys=True):
+            return
         self._multiFieldDialog(
             "🧩 Redeem Swap",
             [("🆔 Swap ID", "id"), ("🧩 Secret Preimage", "secret")],
@@ -146,6 +155,8 @@ class SwapTab(QWidget):
         )
 
     def refundSwap(self):
+        if not self.getAddress(require_keys=True):
+            return
         self._singleFieldDialog(
             "⏱ Refund Swap",
             "Swap ID",
