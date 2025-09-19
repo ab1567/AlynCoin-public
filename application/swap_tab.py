@@ -23,7 +23,7 @@ from PyQt5.QtWidgets import (
     QFormLayout, QDialogButtonBox
 )
 
-from rpc_client import alyncoin_rpc
+from rpc_client import safe_alyncoin_rpc
 
 
 class SwapTab(QWidget):
@@ -133,7 +133,7 @@ class SwapTab(QWidget):
             hashed = keccak.new(digest_bits=256, data=b3.encode()).hexdigest()
             self.parent.appendOutput(f"🧮 Local Secret Hash (preview): {hashed}")
             params = [addr, recv, amt, hashed, dur]
-            result = alyncoin_rpc("swap-initiate", params)
+            result = self._rpc("swap-initiate", params)
             self.showResult(result)
 
     def redeemSwap(self):
@@ -141,7 +141,7 @@ class SwapTab(QWidget):
             "🧩 Redeem Swap",
             [("🆔 Swap ID", "id"), ("🧩 Secret Preimage", "secret")],
             lambda d: self.showResult(
-                alyncoin_rpc("swap-redeem", [d["id"], d["secret"]]) if d["secret"].strip() else {"error": "Secret cannot be empty"}
+                self._rpc("swap-redeem", [d["id"], d["secret"]]) if d["secret"].strip() else {"error": "Secret cannot be empty"}
             ),
         )
 
@@ -149,28 +149,28 @@ class SwapTab(QWidget):
         self._singleFieldDialog(
             "⏱ Refund Swap",
             "Swap ID",
-            lambda sid: self.showResult(alyncoin_rpc("swap-refund", [sid])),
+            lambda sid: self.showResult(self._rpc("swap-refund", [sid])),
         )
 
     def getSwap(self):
         self._singleFieldDialog(
             "🔍 Get Swap Info",
             "Swap ID",
-            lambda sid: self.showResult(alyncoin_rpc("swap-get", [sid])),
+            lambda sid: self.showResult(self._rpc("swap-get", [sid])),
         )
 
     def getState(self):
         self._singleFieldDialog(
             "📊 Swap State",
             "Swap ID",
-            lambda sid: self.showResult(alyncoin_rpc("swap-state", [sid])),
+            lambda sid: self.showResult(self._rpc("swap-state", [sid])),
         )
 
     def verifySwap(self):
         self._singleFieldDialog(
             "🛡 Verify Swap Signature",
             "Swap ID",
-            lambda sid: self.showResult(alyncoin_rpc("swap-verify", [sid])),
+            lambda sid: self.showResult(self._rpc("swap-verify", [sid])),
         )
 
     def _singleFieldDialog(self, title, label, callback):
@@ -220,4 +220,12 @@ class SwapTab(QWidget):
                     return
                 result[key] = val
             callback(result)
+
+    def _rpc(self, method: str, params=None):
+        result = safe_alyncoin_rpc(method, params)
+        if isinstance(result, dict) and "error" in result:
+            err = result["error"].lower()
+            if "rpc request failed" in err or "connection refused" in err:
+                return {"error": "Unable to reach the local node RPC. Ensure the node is running."}
+        return result
 

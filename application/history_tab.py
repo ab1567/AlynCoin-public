@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import QDate
 
-from rpc_client import alyncoin_rpc
+from rpc_client import safe_alyncoin_rpc
 
 class HistoryTab(QWidget):
     def __init__(self, parent=None):
@@ -70,7 +70,7 @@ class HistoryTab(QWidget):
         self.proofBtn.setEnabled(False)
         self.parsed_transactions.clear()
 
-        result = alyncoin_rpc("history", [address])
+        result = self._rpc("history", [address])
         if isinstance(result, dict) and "error" in result:
             self.appendText(f"❌ {result['error']}")
             self.fetchBtn.setEnabled(True)
@@ -200,7 +200,7 @@ class HistoryTab(QWidget):
             file_path += ".json"
         self.proof_path = file_path
 
-        result = alyncoin_rpc("recursiveproof", [address, tx_count])
+        result = self._rpc("recursiveproof", [address, tx_count])
         if isinstance(result, dict) and "error" in result:
             self.appendText(f"❌ {result['error']}")
             return
@@ -219,3 +219,11 @@ class HistoryTab(QWidget):
             sb.setValue(sb.maximum())
         except Exception:
             pass
+
+    def _rpc(self, method: str, params=None):
+        result = safe_alyncoin_rpc(method, params)
+        if isinstance(result, dict) and "error" in result:
+            err = result["error"].lower()
+            if "rpc request failed" in err or "connection refused" in err:
+                return {"error": "Unable to reach the local node RPC. Ensure the node is running."}
+        return result

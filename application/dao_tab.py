@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 
-from rpc_client import alyncoin_rpc
+from rpc_client import safe_alyncoin_rpc
 
 class DAOTab(QWidget):
     def __init__(self, parent):
@@ -90,7 +90,7 @@ class DAOTab(QWidget):
             else:
                 params = [addr, desc_val, ptype_val]
 
-            result = alyncoin_rpc("dao_submit", params)
+            result = self._rpc("dao_submit", params)
             if isinstance(result, dict) and "error" in result:
                 self.parent.appendOutput(f"❌ {result['error']}")
             else:
@@ -126,7 +126,7 @@ class DAOTab(QWidget):
                 self.parent.appendOutput("❌ Proposal ID is required.")
                 return
             params = [addr, pid, vote]
-            result = alyncoin_rpc("dao_vote", params)
+            result = self._rpc("dao_vote", params)
             if isinstance(result, dict) and "error" in result:
                 self.parent.appendOutput(f"❌ {result['error']}")
             else:
@@ -136,7 +136,7 @@ class DAOTab(QWidget):
     def viewProposals(self):
         self.parent.clearOutput()
         self.parent.appendOutput("📜 Fetching all DAO proposals...")
-        result = alyncoin_rpc("dao_view")
+        result = self._rpc("dao_view")
         if isinstance(result, dict) and "error" in result:
             self.parent.appendOutput(f"❌ {result['error']}")
             return
@@ -156,3 +156,11 @@ class DAOTab(QWidget):
             self.parent.appendOutput("⚠️ No proposals found.")
         else:
             self.parent.appendOutput(f"✅ {len(proposals)} proposals listed.")
+
+    def _rpc(self, method: str, params=None):
+        result = safe_alyncoin_rpc(method, params)
+        if isinstance(result, dict) and "error" in result:
+            err = result["error"].lower()
+            if "rpc request failed" in err or "connection refused" in err:
+                return {"error": "Unable to reach the local node RPC. Ensure the node is running."}
+        return result

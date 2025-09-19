@@ -2,7 +2,7 @@ import re
 from PyQt5.QtGui import QFont, QColor
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QTextEdit, QPushButton
 
-from rpc_client import alyncoin_rpc
+from rpc_client import safe_alyncoin_rpc
 
 class StatsTab(QWidget):
     def __init__(self, parent=None):
@@ -45,11 +45,11 @@ class StatsTab(QWidget):
         self.appendText("⏳ Fetching stats...", color="orange")
         self.showStatsBtn.setEnabled(False)
 
-        result = alyncoin_rpc("stats")
+        result = safe_alyncoin_rpc("stats")
         self.showStatsBtn.setEnabled(True)
 
         if isinstance(result, dict) and "error" in result:
-            self.appendText(f"❌ {result['error']}", color="red")
+            self._showRpcError(result["error"])
             return
         if not result or not isinstance(result, dict):
             self.appendText("⚠️ Could not fetch stats from RPC server.", color="red")
@@ -75,19 +75,19 @@ class StatsTab(QWidget):
     def triggerSync(self):
         self.appendText("⏳ Initiating hard sync...", color="orange")
         self.syncBtn.setEnabled(False)
-        result = alyncoin_rpc("selfheal")
+        result = safe_alyncoin_rpc("selfheal")
         self.syncBtn.setEnabled(True)
         if isinstance(result, dict) and "error" in result:
-            self.appendText(f"❌ {result['error']}", color="red")
+            self._showRpcError(result["error"])
         else:
             self.appendText("✅ Sync triggered. Check node output for progress.", color="green")
 
     def fetchPeers(self):
         self.outputBox.clear()
         self.appendText("⏳ Fetching peer list...", color="orange")
-        result = alyncoin_rpc("peerlist")
+        result = safe_alyncoin_rpc("peerlist")
         if isinstance(result, dict) and "error" in result:
-            self.appendText(f"❌ {result['error']}", color="red")
+            self._showRpcError(result["error"])
             return
         if isinstance(result, list):
             self.appendText(f"Connected peers ({len(result)}):", color="cyan")
@@ -110,3 +110,13 @@ class StatsTab(QWidget):
     def onWalletChanged(self, address):
         # Optional: clear stats or refresh when wallet changes
         pass
+
+    def _showRpcError(self, message: str):
+        friendly = "❌ " + message
+        lowered = message.lower()
+        if "rpc request failed" in lowered or "connection refused" in lowered:
+            friendly = (
+                "❌ Unable to reach the local node's RPC interface. "
+                "Ensure the bundled node is running and has opened port 1567."
+            )
+        self.appendText(friendly, color="red")
