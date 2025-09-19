@@ -222,14 +222,35 @@ class WalletTab(QWidget):
             self.appendOutput(f"❌ {result['error']}")
             return
 
-        wallet_name = data.get("address") or ""
-        if isinstance(result, str):
-            wallet_name = result
-        if wallet_name:
-            self.addressInput.setText(wallet_name)
-            self.parent.set_wallet_address(wallet_name, wallet_name)
-            self.appendOutput(f"📬 Imported Wallet: {wallet_name}")
-            self.appendOutput(f"🆔 Key Identifier: {wallet_name}")
+        resolved_addr = ""
+        resolved_key = ""
+        if isinstance(result, dict):
+            addr_candidate = result.get("address")
+            key_candidate = result.get("key_id")
+            if isinstance(addr_candidate, str):
+                resolved_addr = addr_candidate
+            if isinstance(key_candidate, str):
+                resolved_key = key_candidate
+        elif isinstance(result, str):
+            resolved_key = result
+
+        backup_addr = data.get("address") or ""
+        backup_key = data.get("key_id") or backup_addr
+
+        if not resolved_key:
+            resolved_key = backup_key
+        if not resolved_addr:
+            resolved_addr = backup_addr or resolved_key
+
+        if resolved_addr:
+            display_key = resolved_key or resolved_addr
+            self.addressInput.setText(display_key)
+            self.parent.set_wallet_address(resolved_addr, display_key)
+            self.appendOutput(f"📬 Imported Wallet Address: {resolved_addr}")
+            if resolved_key:
+                self.appendOutput(f"🆔 Key Identifier: {resolved_key}")
+            else:
+                self.appendOutput(f"🆔 Key Identifier: {display_key}")
         else:
             self.appendOutput("⚠️ Wallet imported but no address returned.")
         self.refreshWalletList()

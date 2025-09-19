@@ -70,6 +70,11 @@ std::string generateMinerAddress();
 std::optional<std::string>
 resolveWalletKeyIdentifier(const std::string &addressOrKeyId);
 
+// Remember a mapping between an address (or legacy label) and the on-disk
+// key identifier so the resolver can find the correct key material later.
+void rememberWalletKeyIdentifier(const std::string &address,
+                                 const std::string &keyId);
+
 // Generic helpers
 EVP_PKEY *loadPrivateKey(const std::string &privateKeyPath);
 bool fileExists(const std::string &path);

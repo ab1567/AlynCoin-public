@@ -1,6 +1,7 @@
 #include <generated/crypto_protos.pb.h>
 #include "crypto_utils.h"
 #include "blake3.h"
+#include "json.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
@@ -130,6 +131,16 @@ std::string deriveAddressFromPub(const std::vector<unsigned char>& pubkeyBytes) 
 
 namespace {
 
+std::mutex &resolvedCacheMutex() {
+  static std::mutex mutex;
+  return mutex;
+}
+
+std::unordered_map<std::string, std::string> &resolvedCache() {
+  static std::unordered_map<std::string, std::string> cache;
+  return cache;
+}
+
 std::string toLowerCopy(std::string value) {
   std::transform(value.begin(), value.end(), value.begin(),
                  [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
@@ -139,6 +150,92 @@ std::string toLowerCopy(std::string value) {
 bool endsWith(const std::string& value, const std::string& suffix) {
   return value.size() >= suffix.size() &&
          value.compare(value.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
+std::optional<std::string> getCachedResolvedKeyId(const std::string& canonicalLower) {
+  std::lock_guard<std::mutex> lock(resolvedCacheMutex());
+  auto& cache = resolvedCache();
+  auto it = cache.find(canonicalLower);
+  if (it != cache.end()) {
+    return it->second;
+  }
+  return std::nullopt;
+}
+
+void setCachedResolvedKeyId(const std::string& canonicalLower,
+                            const std::string& keyId) {
+  std::lock_guard<std::mutex> lock(resolvedCacheMutex());
+  resolvedCache()[canonicalLower] = keyId;
+}
+
+fs::path walletDataDir() {
+  return fs::path(DBPaths::getHomePath()) / ".alyncoin";
+}
+
+fs::path walletMapPath() {
+  return walletDataDir() / "wallet_map.json";
+}
+
+std::mutex& walletMapMutex() {
+  static std::mutex mutex;
+  return mutex;
+}
+
+std::unordered_map<std::string, std::string>& loadWalletMapLocked() {
+  static bool loaded = false;
+  static std::unordered_map<std::string, std::string> cached;
+
+  if (!loaded) {
+    loaded = true;
+    const auto path = walletMapPath();
+    std::ifstream in(path);
+    if (in) {
+      nlohmann::json parsed = nlohmann::json::parse(in, nullptr, false);
+      if (!parsed.is_discarded() && parsed.is_object()) {
+        for (auto it = parsed.begin(); it != parsed.end(); ++it) {
+          if (it->is_string()) {
+            cached[toLowerCopy(it.key())] = toLowerCopy(it->get<std::string>());
+          }
+        }
+      }
+    }
+  }
+
+  return cached;
+}
+
+void persistWalletMapLocked(const std::unordered_map<std::string, std::string>& map) {
+  const auto dir = walletDataDir();
+  std::error_code ec;
+  fs::create_directories(dir, ec);
+  if (ec) {
+    std::cerr << "⚠️ Failed to create wallet data directory '" << dir.string()
+              << "': " << ec.message() << "\n";
+    return;
+  }
+
+  nlohmann::json serialized = nlohmann::json::object();
+  for (const auto& [address, keyId] : map) {
+    serialized[address] = keyId;
+  }
+
+  const auto path = walletMapPath();
+  std::ofstream out(path);
+  if (!out) {
+    std::cerr << "⚠️ Failed to write wallet map at '" << path.string() << "'\n";
+    return;
+  }
+  out << serialized.dump(2);
+}
+
+std::optional<std::string> findKeyIdInWalletMap(const std::string& canonicalLower) {
+  std::lock_guard<std::mutex> lock(walletMapMutex());
+  auto& map = loadWalletMapLocked();
+  auto it = map.find(canonicalLower);
+  if (it != map.end()) {
+    return it->second;
+  }
+  return std::nullopt;
 }
 
 using EVPKeyPtr = std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)>;
@@ -223,15 +320,15 @@ void writePublicKeyPem(const fs::path& path, EVP_PKEY* key) {
 }
 
 std::optional<std::string> findKeyIdByCanonical(const std::string& canonicalLower) {
-  namespace fs = std::filesystem;
-  if (!fs::exists(KEY_DIR)) {
+  const fs::path baseDir = DBPaths::getKeyDir();
+  if (!fs::exists(baseDir)) {
     return std::nullopt;
   }
 
   const std::string dilSuffix = "_dilithium.pub";
   const std::string falSuffix = "_falcon.pub";
 
-  for (const auto& entry : fs::directory_iterator(KEY_DIR)) {
+  for (const auto& entry : fs::directory_iterator(baseDir)) {
     if (!entry.is_regular_file()) continue;
     const auto filename = entry.path().filename().string();
 
@@ -253,7 +350,7 @@ std::optional<std::string> findKeyIdByCanonical(const std::string& canonicalLowe
 
     std::string derived = toLowerCopy(Crypto::deriveAddressFromPub(buffer));
     if (derived == canonicalLower) {
-      return prefix;
+      return toLowerCopy(prefix);
     }
   }
 
@@ -265,37 +362,36 @@ std::optional<std::string> resolveKeyIdInternal(const std::string& addressOrKeyI
     return std::nullopt;
   }
 
-  namespace fs = std::filesystem;
-
-  auto hasDirectFiles = [](const std::string& prefix) {
-    return fs::exists(KEY_DIR + prefix + "_falcon.key") ||
-           fs::exists(KEY_DIR + prefix + "_dilithium.key") ||
-           fs::exists(KEY_DIR + prefix + "_private.pem");
-  };
-
-  if (hasDirectFiles(addressOrKeyId)) {
-    return addressOrKeyId;
-  }
-
   const std::string canonicalLower = toLowerCopy(addressOrKeyId);
 
-  static std::mutex cacheMutex;
-  static std::unordered_map<std::string, std::string> cache;
-
-  {
-    std::lock_guard<std::mutex> lock(cacheMutex);
-    auto it = cache.find(canonicalLower);
-    if (it != cache.end()) {
-      return it->second;
-    }
+  if (auto cached = getCachedResolvedKeyId(canonicalLower)) {
+    return cached;
   }
 
-  auto matched = findKeyIdByCanonical(canonicalLower);
-  if (matched) {
-    std::lock_guard<std::mutex> lock(cacheMutex);
-    cache[canonicalLower] = *matched;
+  const fs::path baseDir = DBPaths::getKeyDir();
+  auto hasDirectFiles = [&](const std::string& prefix) {
+    return fs::exists(baseDir / (prefix + "_private.pem")) ||
+           fs::exists(baseDir / (prefix + "_dilithium.key")) ||
+           fs::exists(baseDir / (prefix + "_falcon.key"));
+  };
+
+  if (hasDirectFiles(canonicalLower)) {
+    setCachedResolvedKeyId(canonicalLower, canonicalLower);
+    return canonicalLower;
   }
-  return matched;
+
+  if (auto mapped = findKeyIdInWalletMap(canonicalLower)) {
+    setCachedResolvedKeyId(canonicalLower, *mapped);
+    return mapped;
+  }
+
+  if (auto matched = findKeyIdByCanonical(canonicalLower)) {
+    Crypto::rememberWalletKeyIdentifier(canonicalLower, *matched);
+    setCachedResolvedKeyId(canonicalLower, *matched);
+    return matched;
+  }
+
+  return std::nullopt;
 }
 
 } // namespace
@@ -303,6 +399,25 @@ std::optional<std::string> resolveKeyIdInternal(const std::string& addressOrKeyI
 std::optional<std::string>
 resolveWalletKeyIdentifier(const std::string& addressOrKeyId) {
   return resolveKeyIdInternal(addressOrKeyId);
+}
+
+void rememberWalletKeyIdentifier(const std::string& address,
+                                 const std::string& keyId) {
+  if (address.empty() || keyId.empty()) {
+    return;
+  }
+
+  const std::string canonicalAddress = toLowerCopy(address);
+  const std::string canonicalKeyId = toLowerCopy(keyId);
+
+  {
+    std::lock_guard<std::mutex> lock(walletMapMutex());
+    auto& map = loadWalletMapLocked();
+    map[canonicalAddress] = canonicalKeyId;
+    persistWalletMapLocked(map);
+  }
+
+  setCachedResolvedKeyId(canonicalAddress, canonicalKeyId);
 }
 
 // --- Dilithium Key Generation ---
