@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import (
     QTextEdit, QHBoxLayout, QFrame
 )
 
-from rpc_client import alyncoin_rpc, safe_alyncoin_rpc  # unchanged
+from rpc_client import alyncoin_rpc                 # unchanged
 
 # ---------- helpers ----------------------------------------------------------
 
@@ -40,7 +40,6 @@ class MinerTab(QWidget):
         self.parentWin   = parent
         self.loop_active = False            # True while “mining loop” toggle is on
         self.pending     = False            # True while one RPC is in-flight
-        self._peer_error_logged = False
         self.executor    = ThreadPoolExecutor(max_workers=1)
         self._build_ui()
         # wire internal signals so callbacks always run in the GUI thread
@@ -108,13 +107,7 @@ class MinerTab(QWidget):
 
     def _peer_count(self) -> int:
         """Query backend for current peer count."""
-        res = safe_alyncoin_rpc("peercount")
-        if isinstance(res, dict) and "error" in res:
-            if not self._peer_error_logged:
-                self._append(f"❌ Failed to query peer count: {res['error']}")
-                self._peer_error_logged = True
-            return 0
-        self._peer_error_logged = False
+        res = alyncoin_rpc("peercount")
         if isinstance(res, int):
             return res
         return 0
