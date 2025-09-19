@@ -59,6 +59,11 @@ RPC_PORT = os.environ.get("ALYNCOIN_RPC_PORT", "1567")
 RPC_PATH = "/rpc"
 
 KEY_DIR = os.path.expanduser(os.environ.get("ALYNCOIN_KEY_DIR", "~/.alyncoin/keys"))
+WALLET_DATA_DIR = os.path.dirname(os.path.normpath(KEY_DIR)) or os.path.expanduser("~/.alyncoin")
+WALLET_MAP_PATH = os.path.join(WALLET_DATA_DIR, "wallet_map.json")
+
+_WALLET_MAP_CACHE = {}
+_WALLET_MAP_MTIME = None
 
 if RPC_URL_ENV:
     try:
@@ -168,6 +173,57 @@ def wait_for_rpc_ready(timeout: float = 10.0, interval: float = 0.25) -> bool:
     return False
 
 
+def _load_wallet_map():
+    global _WALLET_MAP_CACHE, _WALLET_MAP_MTIME
+    try:
+        stat = os.stat(WALLET_MAP_PATH)
+    except FileNotFoundError:
+        _WALLET_MAP_CACHE = {}
+        _WALLET_MAP_MTIME = None
+        return _WALLET_MAP_CACHE
+    if _WALLET_MAP_MTIME == stat.st_mtime:
+        return _WALLET_MAP_CACHE
+
+    try:
+        with open(WALLET_MAP_PATH, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        if isinstance(data, dict):
+            _WALLET_MAP_CACHE = {
+                str(k).lower(): str(v).lower()
+                for k, v in data.items()
+                if isinstance(k, str) and isinstance(v, str)
+            }
+        else:
+            _WALLET_MAP_CACHE = {}
+    except Exception:
+        _WALLET_MAP_CACHE = {}
+    _WALLET_MAP_MTIME = stat.st_mtime
+    return _WALLET_MAP_CACHE
+
+
+def _has_key_files(prefix: str) -> bool:
+    priv = os.path.join(KEY_DIR, f"{prefix}_private.pem")
+    dil = os.path.join(KEY_DIR, f"{prefix}_dilithium.key")
+    fal = os.path.join(KEY_DIR, f"{prefix}_falcon.key")
+    return all(os.path.exists(path) for path in (priv, dil, fal))
+
+
+def resolve_local_key_identifier(token: str) -> Optional[str]:
+    canonical = (token or "").strip().lower()
+    if not canonical:
+        return None
+
+    mapping = _load_wallet_map()
+    mapped = mapping.get(canonical)
+    if mapped:
+        return mapped
+
+    if _has_key_files(canonical):
+        return canonical
+
+    return None
+
+
 def ensure_wallet_ready(address: str, key_id: Optional[str] = None):
     """Return ``(True, key_id)`` if required key files are present."""
 
@@ -180,8 +236,14 @@ def ensure_wallet_ready(address: str, key_id: Optional[str] = None):
     candidates = []
     if key_id:
         candidates.append(key_id)
-    if address and address not in candidates:
-        candidates.append(address)
+
+    resolved_from_address = None
+    if address:
+        resolved_from_address = resolve_local_key_identifier(address)
+        if resolved_from_address and resolved_from_address not in candidates:
+            candidates.append(resolved_from_address)
+        if address not in candidates:
+            candidates.append(address)
 
     attempts = []
     for candidate in candidates:
@@ -198,7 +260,14 @@ def ensure_wallet_ready(address: str, key_id: Optional[str] = None):
     if attempts:
         candidate, missing = attempts[0]
         missing_names = ", ".join(os.path.basename(p) for p in missing)
-        return False, f"Missing key files for wallet {candidate}: {missing_names}"
+        hint = ""
+        if (
+            resolved_from_address
+            and candidate == resolved_from_address
+            and address.lower() != candidate.lower()
+        ):
+            hint = f" (resolved from {address})"
+        return False, f"Missing key files for '{candidate}'{hint}: {missing_names}"
 
     return False, "Missing key files for wallet."
 
@@ -210,5 +279,6 @@ __all__ = [
     "RPC_PORT",
     "wait_for_rpc_ready",
     "ensure_wallet_ready",
+    "resolve_local_key_identifier",
 ]
 

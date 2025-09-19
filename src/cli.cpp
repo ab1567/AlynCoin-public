@@ -297,6 +297,9 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
                 std::ofstream(keyDir + name + "_pass.txt")
                     << Crypto::sha256(pass);
             }
+            Crypto::rememberWalletKeyIdentifier(w.getAddress(), name);
+            std::ofstream(DBPaths::getHomePath() + "/.alyncoin/current_wallet.txt")
+                << w.getAddress();
             std::cout << "✅ Wallet created: " << w.getAddress() << "\n";
         } catch (const std::exception &e) {
             std::cerr << "❌ Wallet creation failed: " << e.what() << "\n";
@@ -314,7 +317,8 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
         std::string fal = keyDir + keyId + "_falcon.key";
         std::string passPath = keyDir + keyId + "_pass.txt";
         if (!std::filesystem::exists(priv) || !std::filesystem::exists(dil) || !std::filesystem::exists(fal)) {
-            std::cerr << "❌ Wallet key files not found for: " << requested << std::endl;
+            std::cerr << "❌ Wallet key files not found for: " << requested
+                      << "\n   (Tip: try loading by the key identifier first.)" << std::endl;
             return 1;
         }
         std::string pass;
@@ -331,6 +335,7 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
         }
         try {
             Wallet w(priv, keyDir, keyId, pass);
+            Crypto::rememberWalletKeyIdentifier(w.getAddress(), keyId);
             std::ofstream(DBPaths::getHomePath() + "/.alyncoin/current_wallet.txt") << w.getAddress();
             std::cout << "✅ Wallet loaded: " << w.getAddress();
             if (keyId != requested) {

@@ -76,9 +76,12 @@ void print_usage() {
 static bool exportWalletToFile(const std::string &keyDir,
                                Blockchain &blockchain, const std::string &name,
                                const std::string &outPath) {
-  std::string priv = keyDir + name + "_private.pem";
-  std::string dil = keyDir + name + "_dilithium.key";
-  std::string fal = keyDir + name + "_falcon.key";
+  std::string keyId =
+      Crypto::resolveWalletKeyIdentifier(name).value_or(name);
+
+  std::string priv = keyDir + keyId + "_private.pem";
+  std::string dil = keyDir + keyId + "_dilithium.key";
+  std::string fal = keyDir + keyId + "_falcon.key";
   if (!std::filesystem::exists(priv) || !std::filesystem::exists(dil) ||
       !std::filesystem::exists(fal)) {
     std::cerr << "❌ Wallet key files not found for: " << name << "\n";
@@ -92,6 +95,7 @@ static bool exportWalletToFile(const std::string &keyDir,
   };
   nlohmann::json j;
   j["address"] = name;
+  j["key_id"] = keyId;
   j["private_key"] = readFile(priv);
   j["dilithium_key"] = readFile(dil);
   j["falcon_key"] = readFile(fal);
@@ -124,17 +128,18 @@ static bool importWalletFromFile(const std::string &keyDir,
     std::cerr << "❌ Invalid wallet backup JSON: " << e.what() << "\n";
     return false;
   }
-  std::string name = j.value("address", "");
+  std::string address = j.value("address", "");
+  std::string keyId = j.value("key_id", address);
   std::string priv = j.value("private_key", "");
   std::string dil = j.value("dilithium_key", "");
   std::string fal = j.value("falcon_key", "");
   std::string passHash = j.value("pass_hash", "");
-  if (name.empty() || priv.empty() || dil.empty() || fal.empty()) {
+  if (keyId.empty() || priv.empty() || dil.empty() || fal.empty()) {
     std::cerr << "❌ Invalid wallet backup data\n";
     return false;
   }
-  if (std::filesystem::exists(keyDir + name + "_private.pem")) {
-    std::cerr << "❌ Wallet already exists: " << name << "\n";
+  if (std::filesystem::exists(keyDir + keyId + "_private.pem")) {
+    std::cerr << "❌ Wallet already exists: " << keyId << "\n";
     return false;
   }
   auto writeFile = [](const std::string &path, const std::string &contents) {
@@ -142,15 +147,49 @@ static bool importWalletFromFile(const std::string &keyDir,
     out << contents;
   };
   try {
-    writeFile(keyDir + name + "_private.pem", priv);
-    writeFile(keyDir + name + "_dilithium.key", dil);
-    writeFile(keyDir + name + "_falcon.key", fal);
-    if (!passHash.empty()) {
-      writeFile(keyDir + name + "_pass.txt", passHash);
+    writeFile(keyDir + keyId + "_private.pem", priv);
+    writeFile(keyDir + keyId + "_dilithium.key", dil);
+    writeFile(keyDir + keyId + "_falcon.key", fal);
+    if (!j.value("dilithium_pub", std::string()).empty()) {
+      auto pub = Crypto::fromHex(j.value("dilithium_pub", std::string()));
+      writeFile(keyDir + keyId + "_dilithium.pub",
+                std::string(pub.begin(), pub.end()));
     }
+    if (!j.value("falcon_pub", std::string()).empty()) {
+      auto pub = Crypto::fromHex(j.value("falcon_pub", std::string()));
+      writeFile(keyDir + keyId + "_falcon.pub",
+                std::string(pub.begin(), pub.end()));
+    }
+    if (!passHash.empty()) {
+      writeFile(keyDir + keyId + "_pass.txt", passHash);
+    }
+    std::string resolvedAddress = address;
+    if (resolvedAddress.empty()) {
+      auto dilHex = j.value("dilithium_pub", std::string());
+      if (!dilHex.empty()) {
+        auto bytes = Crypto::fromHex(dilHex);
+        if (!bytes.empty())
+          resolvedAddress = Crypto::deriveAddressFromPub(bytes);
+      }
+    }
+    if (resolvedAddress.empty()) {
+      auto falHex = j.value("falcon_pub", std::string());
+      if (!falHex.empty()) {
+        auto bytes = Crypto::fromHex(falHex);
+        if (!bytes.empty())
+          resolvedAddress = Crypto::deriveAddressFromPub(bytes);
+      }
+    }
+    if (resolvedAddress.empty())
+      resolvedAddress = keyId;
+
+    Crypto::rememberWalletKeyIdentifier(resolvedAddress, keyId);
     std::ofstream(DBPaths::getHomePath() + "/.alyncoin/current_wallet.txt")
-        << name;
-    std::cout << "✅ Wallet imported: " << name << "\n";
+        << resolvedAddress;
+    std::cout << "✅ Wallet imported: " << resolvedAddress;
+    if (!resolvedAddress.empty() && resolvedAddress != keyId)
+      std::cout << " (Key ID: " << keyId << ")";
+    std::cout << "\n";
   } catch (const std::exception &e) {
     std::cerr << "❌ Wallet import failed: " << e.what() << "\n";
     return false;
@@ -385,6 +424,9 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
               std::ofstream(keyDirPath / (keyId + "_pass.txt"))
                   << Crypto::sha256(pass);
             }
+            Crypto::rememberWalletKeyIdentifier(w.getAddress(), keyId);
+            std::ofstream(DBPaths::getHomePath() + "/.alyncoin/current_wallet.txt")
+                << w.getAddress();
             output = {{"result", w.getAddress()}, {"key_id", keyId}};
           } catch (const std::exception &e) {
             output = {
@@ -419,6 +461,7 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
             } else {
               try {
                 Wallet w(priv, DBPaths::getKeyDir(), keyId, pass);
+                Crypto::rememberWalletKeyIdentifier(w.getAddress(), keyId);
                 std::ofstream(DBPaths::getHomePath() +
                               "/.alyncoin/current_wallet.txt")
                     << w.getAddress();
@@ -435,6 +478,7 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
           } else {
             try {
               Wallet w(priv, DBPaths::getKeyDir(), keyId, pass);
+              Crypto::rememberWalletKeyIdentifier(w.getAddress(), keyId);
               std::ofstream(DBPaths::getHomePath() +
                             "/.alyncoin/current_wallet.txt")
                   << w.getAddress();
@@ -578,10 +622,35 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
               if (!passHash.empty()) {
                 writeFile(DBPaths::getKeyDir() + keyId + "_pass.txt", passHash);
               }
+
+              std::string resolvedAddress = data.value("address", std::string());
+              if (resolvedAddress.empty()) {
+                auto dilHex = data.value("dilithium_pub", std::string());
+                if (!dilHex.empty()) {
+                  auto bytes = Crypto::fromHex(dilHex);
+                  if (!bytes.empty())
+                    resolvedAddress = Crypto::deriveAddressFromPub(bytes);
+                }
+              }
+              if (resolvedAddress.empty()) {
+                auto falHex = data.value("falcon_pub", std::string());
+                if (!falHex.empty()) {
+                  auto bytes = Crypto::fromHex(falHex);
+                  if (!bytes.empty())
+                    resolvedAddress = Crypto::deriveAddressFromPub(bytes);
+                }
+              }
+              if (resolvedAddress.empty())
+                resolvedAddress = keyId;
+
+              Crypto::rememberWalletKeyIdentifier(resolvedAddress, keyId);
               std::ofstream(DBPaths::getHomePath() +
                             "/.alyncoin/current_wallet.txt")
-                  << keyId;
-              output = {{"result", keyId}};
+                  << resolvedAddress;
+
+              nlohmann::json result{{"key_id", keyId},
+                                    {"address", resolvedAddress}};
+              output = {{"result", result}};
             } catch (const std::exception &e) {
               output = {
                   {"error", std::string("Wallet import failed: ") + e.what()}};
