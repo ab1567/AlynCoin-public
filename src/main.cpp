@@ -611,10 +611,8 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
                        "Missing key files for miner wallet: " + minerKeyId}};
           } else {
             blockchain->loadPendingTransactionsFromDB();
-            if (blockchain->getPendingTransactions().empty()) {
-              output = {{"error", "No pending transactions to mine"}};
-            } else if (!network || !network->getPeerManager() ||
-                       network->getPeerManager()->getPeerCount() == 0) {
+            if (!network || !network->getPeerManager() ||
+                network->getPeerManager()->getPeerCount() == 0) {
               output = {{"error", "No peers connected"}};
             } else {
               Block mined = blockchain->mineBlock(miner);
