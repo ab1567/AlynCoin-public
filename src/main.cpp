@@ -595,16 +595,39 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
           output = {{"error", "mineonce expects miner address as first param"}};
         } else {
           std::string miner = params.at(0);
-          blockchain->loadPendingTransactionsFromDB();
-          Block mined = blockchain->mineBlock(miner);
-          if (!mined.getHash().empty()) {
-            blockchain->saveToDB();
-            if (network)
-              network->broadcastBlock(mined);
-            blockchain->reloadBlockchainState();
-            output = {{"result", mined.getHash()}};
+          auto resolvedMiner = Crypto::resolveWalletKeyIdentifier(miner);
+          std::string minerKeyId = resolvedMiner.value_or(miner);
+
+          auto ensureFile = [](const std::string &path) {
+            return std::filesystem::exists(path);
+          };
+          std::string base = DBPaths::getKeyDir();
+          std::string privPath = base + minerKeyId + "_private.pem";
+          std::string dilPath = base + minerKeyId + "_dilithium.key";
+          std::string falPath = base + minerKeyId + "_falcon.key";
+          if (!ensureFile(privPath) || !ensureFile(dilPath) ||
+              !ensureFile(falPath)) {
+            output = {{"error",
+                       "Missing key files for miner wallet: " + minerKeyId}};
           } else {
-            output = {{"error", "Mining failed or nothing to mine"}};
+            blockchain->loadPendingTransactionsFromDB();
+            if (blockchain->getPendingTransactions().empty()) {
+              output = {{"error", "No pending transactions to mine"}};
+            } else if (!network || !network->getPeerManager() ||
+                       network->getPeerManager()->getPeerCount() == 0) {
+              output = {{"error", "No peers connected"}};
+            } else {
+              Block mined = blockchain->mineBlock(miner);
+              if (!mined.getHash().empty()) {
+                blockchain->saveToDB();
+                if (network)
+                  network->broadcastBlock(mined);
+                blockchain->reloadBlockchainState();
+                output = {{"result", mined.getHash()}};
+              } else {
+                output = {{"error", "Mining failed"}};
+              }
+            }
           }
         }
       }
@@ -710,11 +733,17 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
             std::string from = params[0].get<std::string>();
             std::string to = params[1].get<std::string>();
             std::string metadata = params[3].get<std::string>();
-            auto dil = Crypto::loadDilithiumKeys(from);
-            auto fal = Crypto::loadFalconKeys(from);
+
+            auto resolved = Crypto::resolveWalletKeyIdentifier(from);
+            std::string keyId = resolved.value_or(from);
+
+            auto dil = Crypto::loadDilithiumKeys(keyId);
+            auto fal = Crypto::loadFalconKeys(keyId);
             if (dil.publicKey.empty() || fal.publicKey.empty() ||
                 dil.privateKey.empty() || fal.privateKey.empty()) {
-              output = {{"error", "Missing PQ key material for sender"}};
+              output = {{"error",
+                         "Missing PQ key material for sender (" + keyId +
+                             ")"}};
             } else {
               std::string canonicalSender;
               std::vector<unsigned char> pubDil(dil.publicKey.begin(),
@@ -749,7 +778,7 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
                   network->broadcastTransaction(tx);
                 output = {{"result", "Transaction broadcasted"},
                           {"sender", canonicalSender},
-                          {"key_id", from}};
+                          {"key_id", keyId}};
               } else {
                 output = {{"error", "Transaction signing failed"}};
               }
@@ -952,12 +981,20 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
         std::string secretHash = params.at(3).get<std::string>();
         time_t duration =
             static_cast<time_t>(std::stoll(params.at(4).get<std::string>()));
-        auto uuidOpt = swapMgr.initiateSwap(sender, receiver, amount,
-                                            secretHash, duration);
-        if (uuidOpt)
-          output = {{"result", *uuidOpt}};
-        else
-          output = {{"error", "Failed to create swap"}};
+        auto resolvedSender = Crypto::resolveWalletKeyIdentifier(sender);
+        std::string senderKeyId = resolvedSender.value_or(sender);
+        auto senderDil = Crypto::loadDilithiumKeys(senderKeyId);
+        auto senderFal = Crypto::loadFalconKeys(senderKeyId);
+        if (senderDil.privateKey.empty() || senderFal.privateKey.empty()) {
+          output = {{"error", "Missing key files for wallet: " + senderKeyId}};
+        } else {
+          auto uuidOpt = swapMgr.initiateSwap(sender, receiver, amount,
+                                              secretHash, duration);
+          if (uuidOpt)
+            output = {{"result", *uuidOpt}};
+          else
+            output = {{"error", "Failed to create swap"}};
+        }
       } else if (method == "swap-redeem") {
         std::string uuid = params.at(0).get<std::string>();
         std::string secret = params.at(1).get<std::string>();
@@ -977,15 +1014,41 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
           } else if (secret.empty()) {
             output = {{"error", "secret is required"}};
           } else {
-            bool ok = swapMgr.redeemSwap(uuid, secret);
-            output = ok ? nlohmann::json{{"result", "Swap redeemed"}}
-                        : nlohmann::json{{"error", "Redeem failed"}};
+            auto resolvedCurrent = Crypto::resolveWalletKeyIdentifier(current);
+            std::string currentKeyId = resolvedCurrent.value_or(current);
+            auto dil = Crypto::loadDilithiumKeys(currentKeyId);
+            auto fal = Crypto::loadFalconKeys(currentKeyId);
+            if (dil.privateKey.empty() || fal.privateKey.empty()) {
+              output = {{"error", "Missing key files for wallet: " +
+                                     currentKeyId}};
+            } else {
+              bool ok = swapMgr.redeemSwap(uuid, secret);
+              output = ok ? nlohmann::json{{"result", "Swap redeemed"}}
+                          : nlohmann::json{{"error", "Redeem failed"}};
+            }
           }
         }
       } else if (method == "swap-refund") {
-        bool ok = swapMgr.refundSwap(params.at(0).get<std::string>());
-        output = ok ? nlohmann::json{{"result", "Swap refunded"}}
-                    : nlohmann::json{{"error", "Refund failed"}};
+        std::ifstream cur(DBPaths::getHomePath() +
+                          "/.alyncoin/current_wallet.txt");
+        std::string current;
+        std::getline(cur, current);
+        if (current.empty()) {
+          output = {{"error", "No wallet loaded"}};
+        } else {
+          auto resolvedCurrent = Crypto::resolveWalletKeyIdentifier(current);
+          std::string currentKeyId = resolvedCurrent.value_or(current);
+          auto dil = Crypto::loadDilithiumKeys(currentKeyId);
+          auto fal = Crypto::loadFalconKeys(currentKeyId);
+          if (dil.privateKey.empty() || fal.privateKey.empty()) {
+            output = {{"error", "Missing key files for wallet: " +
+                                   currentKeyId}};
+          } else {
+            bool ok = swapMgr.refundSwap(params.at(0).get<std::string>());
+            output = ok ? nlohmann::json{{"result", "Swap refunded"}}
+                        : nlohmann::json{{"error", "Refund failed"}};
+          }
+        }
       } else if (method == "swap-get") {
         auto s = swapMgr.getSwap(params.at(0).get<std::string>());
         if (s) {
@@ -1038,8 +1101,11 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
         std::string imageHash = params.at(2);
         std::string identity = params.size() > 3 ? params.at(3) : "";
 
+        auto resolvedCreator = Crypto::resolveWalletKeyIdentifier(creator);
+        std::string keyId = resolvedCreator.value_or(creator);
+
         std::string privKeyPath =
-            DBPaths::getKeyDir() + creator + "_private.pem";
+            DBPaths::getKeyDir() + keyId + "_private.pem";
         if (!std::filesystem::exists(privKeyPath)) {
           output = {
               {"error", "Missing private key file for wallet: " + privKeyPath}};
@@ -1049,21 +1115,26 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
           std::string message = id + creator + creator + metadata + imageHash +
                                 std::to_string(ts);
           auto msgHash = Crypto::sha256ToBytes(message);
-          auto keypair = Crypto::loadFalconKeys(creator);
-          std::vector<uint8_t> sig =
-              Crypto::signWithFalcon(msgHash, keypair.privateKey);
-
-          NFT nft{id, creator, creator, metadata, imageHash, ts, sig};
-          nft.creator_identity = identity;
-          nft.generateZkStarkProof();
-
-          if (!nft.submitMetadataHashTransaction()) {
-            output = {{"error", "Metadata transaction failed"}};
-          } else if (!nft.verifySignature() ||
-                     !NFTStorage::saveNFT(nft, blockchain->getRawDB())) {
-            output = {{"error", "Failed to verify or save NFT"}};
+          auto keypair = Crypto::loadFalconKeys(keyId);
+          if (keypair.privateKey.empty()) {
+            output = {{"error", "Missing Falcon key material for wallet: " +
+                                   creator}};
           } else {
-            output = {{"result", id}};
+            std::vector<uint8_t> sig =
+                Crypto::signWithFalcon(msgHash, keypair.privateKey);
+
+            NFT nft{id, creator, creator, metadata, imageHash, ts, sig};
+            nft.creator_identity = identity;
+            nft.generateZkStarkProof();
+
+            if (!nft.submitMetadataHashTransaction()) {
+              output = {{"error", "Metadata transaction failed"}};
+            } else if (!nft.verifySignature() ||
+                       !NFTStorage::saveNFT(nft, blockchain->getRawDB())) {
+              output = {{"error", "Failed to verify or save NFT"}};
+            } else {
+              output = {{"result", id}};
+            }
           }
         }
       } else if (method == "nft-transfer") {
@@ -1082,14 +1153,21 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
           nft.timestamp = std::time(nullptr);
           std::string message = nft.getSignatureMessage();
           auto msgHash = Crypto::sha256ToBytes(message);
-          auto keypair = Crypto::loadFalconKeys(current);
-          nft.signature = Crypto::signWithFalcon(msgHash, keypair.privateKey);
-
-          if (!nft.verifySignature() ||
-              !NFTStorage::saveNFT(nft, blockchain->getRawDB())) {
-            output = {{"error", "Failed to verify or save transfer"}};
+          auto resolvedCurrent = Crypto::resolveWalletKeyIdentifier(current);
+          std::string currentKeyId = resolvedCurrent.value_or(current);
+          auto keypair = Crypto::loadFalconKeys(currentKeyId);
+          if (keypair.privateKey.empty()) {
+            output = {{"error", "Missing Falcon key material for wallet: " +
+                                   current}};
           } else {
-            output = {{"result", "NFT transferred"}};
+            nft.signature = Crypto::signWithFalcon(msgHash, keypair.privateKey);
+
+            if (!nft.verifySignature() ||
+                !NFTStorage::saveNFT(nft, blockchain->getRawDB())) {
+              output = {{"error", "Failed to verify or save transfer"}};
+            } else {
+              output = {{"result", "NFT transferred"}};
+            }
           }
         }
       } else if (method == "nft-remint") {
@@ -1122,30 +1200,37 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
                                   newMetadata + nft.imageHash +
                                   std::to_string(ts);
             auto msgHash = Crypto::sha256ToBytes(message);
-            auto keys = Crypto::loadFalconKeys(currentUser);
-            std::vector<uint8_t> sig =
-                Crypto::signWithFalcon(msgHash, keys.privateKey);
-
-            NFT updated{newId,         currentUser, currentUser, newMetadata,
-                        nft.imageHash, ts,          sig};
-            updated.version = std::to_string(newVersion);
-            updated.creator_identity = nft.creator_identity;
-            updated.expiry_timestamp = nft.expiry_timestamp;
-            updated.previous_versions = nft.previous_versions;
-            updated.previous_versions.push_back(nft.id);
-
-            updated.generateZkStarkProof();
-
-            std::string rehash = Crypto::sha256(
-                updated.metadata + updated.imageHash + updated.version);
-            if (!submitMetadataHashTransaction(rehash, currentUser, "falcon",
-                                               true)) {
-              output = {{"error", "Metadata transaction failed"}};
-            } else if (!updated.verifySignature() ||
-                       !NFTStorage::saveNFT(updated, blockchain->getRawDB())) {
-              output = {{"error", "Failed to verify or save updated NFT"}};
+            auto resolvedCurrent = Crypto::resolveWalletKeyIdentifier(currentUser);
+            std::string currentKeyId = resolvedCurrent.value_or(currentUser);
+            auto keys = Crypto::loadFalconKeys(currentKeyId);
+            if (keys.privateKey.empty()) {
+              output = {{"error", "Missing Falcon key material for wallet: " +
+                                     currentUser}};
             } else {
-              output = {{"result", newId}};
+              std::vector<uint8_t> sig =
+                  Crypto::signWithFalcon(msgHash, keys.privateKey);
+
+              NFT updated{newId,         currentUser, currentUser, newMetadata,
+                          nft.imageHash, ts,          sig};
+              updated.version = std::to_string(newVersion);
+              updated.creator_identity = nft.creator_identity;
+              updated.expiry_timestamp = nft.expiry_timestamp;
+              updated.previous_versions = nft.previous_versions;
+              updated.previous_versions.push_back(nft.id);
+
+              updated.generateZkStarkProof();
+
+              std::string rehash = Crypto::sha256(
+                  updated.metadata + updated.imageHash + updated.version);
+              if (!submitMetadataHashTransaction(rehash, currentUser, "falcon",
+                                                 true)) {
+                output = {{"error", "Metadata transaction failed"}};
+              } else if (!updated.verifySignature() ||
+                         !NFTStorage::saveNFT(updated, blockchain->getRawDB())) {
+                output = {{"error", "Failed to verify or save updated NFT"}};
+              } else {
+                output = {{"result", newId}};
+              }
             }
           }
         }

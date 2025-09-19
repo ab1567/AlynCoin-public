@@ -420,6 +420,7 @@ class AlynCoinApp(QMainWindow):
         self.loadedAddress = ""
         self.loadedKeyId = ""
         self.miningActive = False
+        self._rpcReadyTimer = None
 
         # -- Use all discovered DNS peers
         self.dns_peers = get_peers_from_dns()
@@ -647,6 +648,25 @@ class AlynCoinApp(QMainWindow):
         terminate_alyncoin_node()
         super().closeEvent(event)
 
+    def beginRpcReadyPolling(self):
+        if self._rpcReadyTimer:
+            return
+        self._rpcReadyTimer = QTimer(self)
+        self._rpcReadyTimer.setInterval(2000)
+        self._rpcReadyTimer.timeout.connect(self._checkRpcReady)
+        self._rpcReadyTimer.start()
+
+    def _checkRpcReady(self):
+        try:
+            alyncoin_rpc("peercount")
+        except Exception:
+            return
+        if self._rpcReadyTimer:
+            self._rpcReadyTimer.stop()
+            self._rpcReadyTimer = None
+        self.tabs.setEnabled(True)
+        self.updateStatusBanner("✅ Ready.", "#22dd55")
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     if not acquire_single_instance("com.alyncoin.wallet"):
@@ -691,6 +711,10 @@ if __name__ == "__main__":
             QMessageBox.warning(None, "Node Sync",
                                  "Local node is still syncing. The wallet will open, but some features may be unavailable.")
     window = AlynCoinApp()
+    if not rpc_ready:
+        window.tabs.setEnabled(False)
+        window.updateStatusBanner("⚠️ Waiting for node RPC interface…", "#ffaa00")
+        window.beginRpcReadyPolling()
     window.show()
     exit_code = app.exec_()
     terminate_alyncoin_node()

@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import (
     QTextEdit, QHBoxLayout, QFrame
 )
 
-from rpc_client import alyncoin_rpc                 # unchanged
+from rpc_client import alyncoin_rpc, ensure_wallet_ready
 
 # ---------- helpers ----------------------------------------------------------
 
@@ -197,6 +197,18 @@ class MinerTab(QWidget):
         if not wallet:
             self._append("❌ Please load a wallet first.")
             return
+        key_id = ""
+        if self.parentWin and hasattr(self.parentWin, "get_wallet_key_id"):
+            try:
+                key_id = self.parentWin.get_wallet_key_id()
+            except Exception:
+                key_id = ""
+        ready, info = ensure_wallet_ready(wallet, key_id)
+        if not ready:
+            self.banner.setText(info)
+            self.status.setText("🔴 <b>Wallet keys missing</b>")
+            self._append(f"❌ {info}")
+            return
         self.pending = True
         self.banner.setText(f"Running <b>{method}</b> …")
         self.status.setText("🟢 <b>Working…</b>")
@@ -241,6 +253,20 @@ class MinerTab(QWidget):
             self.loop_active = False
             self._set_idle()
             return
+        key_id = ""
+        if self.parentWin and hasattr(self.parentWin, "get_wallet_key_id"):
+            try:
+                key_id = self.parentWin.get_wallet_key_id()
+            except Exception:
+                key_id = ""
+        ready, info = ensure_wallet_ready(wallet, key_id)
+        if not ready:
+            self._append(f"❌ {info}")
+            self.loop_active = False
+            self.banner.setText(info)
+            self.status.setText("🔴 <b>Wallet keys missing</b>")
+            self._set_idle()
+            return
         if not self._ensure_peer_connected():
             self.loop_active = False
             self._set_idle()
@@ -279,11 +305,21 @@ class MinerTab(QWidget):
                 self._append("⚠️  RPC timed-out, retrying…")
                 return
             err = result["error"]
-            if "peer" in err.lower() and "mine" in err.lower():
+            lower_err = err.lower()
+            if "no pending transactions" in lower_err:
+                msg = "⛏️ Nothing to mine right now — waiting for new transactions."
+                self.banner.setText(msg)
+                self.status.setText("🟡 <b>Idle</b>")
+                self._append(msg)
+            elif "no peers connected" in lower_err:
                 msg = "⚠️ Not mining: no peer connected. If error persists visit alyncoin.com"
                 self.banner.setText(msg)
                 self.status.setText("🔴 <b>No peers connected</b>")
                 self._append(msg)
+            elif "missing key files" in lower_err:
+                self.banner.setText(err)
+                self.status.setText("🔴 <b>Wallet keys missing</b>")
+                self._append(f"❌ {err}")
             else:
                 self._append(f"❌ {err}")
             return
