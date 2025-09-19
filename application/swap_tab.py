@@ -23,7 +23,8 @@ from PyQt5.QtWidgets import (
     QFormLayout, QDialogButtonBox
 )
 
-from rpc_client import alyncoin_rpc
+from rpc_client import alyncoin_rpc, RpcClientError, RpcNotReady, RpcError
+from wallet_utils import ensure_wallet_ready
 
 
 class SwapTab(QWidget):
@@ -58,20 +59,39 @@ class SwapTab(QWidget):
         btn.clicked.connect(callback)
         layout.addWidget(btn)
 
-    def getAddress(self):
+    def _require_wallet(self):
         addr = getattr(self.parent, "loadedAddress", "")
+        key_id = getattr(self.parent, "loadedKeyId", "")
         if not addr:
             self.parent.appendOutput("❌ Wallet not loaded.")
+            return None
+        ok, msg = ensure_wallet_ready(addr, key_id)
+        if not ok:
+            self.parent.appendOutput(f"❌ {msg}")
+            return None
         return addr
 
+    def _call_rpc(self, method, params=None, action="perform this action"):
+        try:
+            return alyncoin_rpc(method, params)
+        except RpcNotReady as exc:
+            self.parent.appendOutput(f"⚠️ Node RPC unavailable — unable to {action}. ({exc})")
+        except RpcError as exc:
+            self.parent.appendOutput(f"❌ RPC error while attempting to {action}: {exc}")
+        except RpcClientError as exc:
+            self.parent.appendOutput(f"❌ Failed to {action}: {exc}")
+        return None
+
     def showResult(self, result):
+        if result is None:
+            return
         if isinstance(result, dict) and "error" in result:
             self.parent.appendOutput(f"❌ {result['error']}")
         else:
             self.parent.appendOutput(str(result))
 
     def initiateSwap(self):
-        addr = self.getAddress()
+        addr = self._require_wallet()
         if not addr:
             return
 
@@ -133,44 +153,59 @@ class SwapTab(QWidget):
             hashed = keccak.new(digest_bits=256, data=b3.encode()).hexdigest()
             self.parent.appendOutput(f"🧮 Local Secret Hash (preview): {hashed}")
             params = [addr, recv, amt, hashed, dur]
-            result = alyncoin_rpc("swap-initiate", params)
+            result = self._call_rpc("swap-initiate", params, action="initiate swap")
             self.showResult(result)
 
     def redeemSwap(self):
+        def _redeem(data):
+            secret = data["secret"].strip()
+            if not secret:
+                self.parent.appendOutput("❌ Secret cannot be empty")
+                return
+            result = self._call_rpc("swap-redeem", [data["id"], secret], action="redeem swap")
+            if result is not None:
+                self.showResult(result)
+
         self._multiFieldDialog(
             "🧩 Redeem Swap",
             [("🆔 Swap ID", "id"), ("🧩 Secret Preimage", "secret")],
-            lambda d: self.showResult(
-                alyncoin_rpc("swap-redeem", [d["id"], d["secret"]]) if d["secret"].strip() else {"error": "Secret cannot be empty"}
-            ),
+            _redeem,
         )
 
     def refundSwap(self):
         self._singleFieldDialog(
             "⏱ Refund Swap",
             "Swap ID",
-            lambda sid: self.showResult(alyncoin_rpc("swap-refund", [sid])),
+            lambda sid: self.showResult(
+                self._call_rpc("swap-refund", [sid], action="refund swap")
+            ),
         )
 
     def getSwap(self):
         self._singleFieldDialog(
             "🔍 Get Swap Info",
             "Swap ID",
-            lambda sid: self.showResult(alyncoin_rpc("swap-get", [sid])),
+            lambda sid: self.showResult(
+                self._call_rpc("swap-get", [sid], action="fetch swap info")
+            ),
         )
 
     def getState(self):
         self._singleFieldDialog(
             "📊 Swap State",
             "Swap ID",
-            lambda sid: self.showResult(alyncoin_rpc("swap-state", [sid])),
+            lambda sid: self.showResult(
+                self._call_rpc("swap-state", [sid], action="fetch swap state")
+            ),
         )
 
     def verifySwap(self):
         self._singleFieldDialog(
             "🛡 Verify Swap Signature",
             "Swap ID",
-            lambda sid: self.showResult(alyncoin_rpc("swap-verify", [sid])),
+            lambda sid: self.showResult(
+                self._call_rpc("swap-verify", [sid], action="verify swap signature")
+            ),
         )
 
     def _singleFieldDialog(self, title, label, callback):
