@@ -42,9 +42,34 @@ inline std::string getBlacklistDB() {
   return env ? std::string(env) : getHomePath() + "/.alyncoin/blacklist";
 }
 
+inline std::string ensureTrailingSeparator(std::string path) {
+  if (path.empty()) {
+    return path;
+  }
+
+  const char last = path.back();
+  if (last == '/' || last == '\\') {
+    return path;
+  }
+
+#ifdef _WIN32
+  // Preserve existing Windows-style separators when present to avoid
+  // returning mixed "\\" and "/" paths.
+  if (path.find('\\') != std::string::npos && path.find('/') == std::string::npos) {
+    path.push_back('\\');
+  } else {
+    path.push_back('/');
+  }
+#else
+  path.push_back('/');
+#endif
+  return path;
+}
+
 inline std::string getKeyDir() {
   const char *env = std::getenv("ALYNCOIN_KEY_DIR");
-  return env ? std::string(env) : getHomePath() + "/.alyncoin/keys/";
+  std::string base = env ? std::string(env) : getHomePath() + "/.alyncoin/keys/";
+  return ensureTrailingSeparator(base);
 }
 
 inline std::string getKeyPath(const std::string &address) {
