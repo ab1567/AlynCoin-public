@@ -33,13 +33,7 @@ except Exception as e:
     dns = None
     print(f"[WARN] dnspython unavailable: {e}; using fallback peers only")
 
-from rpc_client import (
-    alyncoin_rpc,
-    RPC_HOST,
-    RPC_PORT,
-    wait_for_rpc_ready,
-    RpcClientError,
-)
+from rpc_client import alyncoin_rpc, RPC_HOST, RPC_PORT, wait_for_rpc_ready
 
 def resource_path(filename):
     """Return path to resource bundled by PyInstaller or next to the script."""
@@ -152,7 +146,7 @@ def rpc_peer_count():
     """Return peer count using the RPC interface or ``None`` if unavailable."""
     try:
         result = alyncoin_rpc("peercount")
-    except RpcClientError as e:
+    except RuntimeError as e:
         print(f"⚠️  RPC 'peercount' failed: {e}")
         return None
     if isinstance(result, dict) and "error" in result:
@@ -672,7 +666,7 @@ if __name__ == "__main__":
         QMessageBox.critical(None, "DNS Unreachable", msg)
         sys.exit(1)
 
-    rpc_ready = wait_for_rpc_ready(timeout=30.0)
+    rpc_ready = wait_for_rpc_ready(timeout=15.0)
     if not rpc_ready:
         QMessageBox.warning(
             None,
@@ -685,7 +679,7 @@ if __name__ == "__main__":
     if rpc_ready:
         try:
             sync_info = alyncoin_rpc("syncstatus")
-        except RpcClientError as e:
+        except RuntimeError as e:
             print(f"⚠️  RPC 'syncstatus' failed: {e}")
 
     if sync_info is not None:

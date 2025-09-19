@@ -4,8 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLineEdit, QComboBox, QPushButton
 
-from rpc_client import alyncoin_rpc, RpcClientError, RpcNotReady, RpcError
-from wallet_utils import ensure_wallet_ready
+from rpc_client import alyncoin_rpc
 
 class SendTab(QWidget):
     def __init__(self, parent):
@@ -72,11 +71,6 @@ class SendTab(QWidget):
             self.parent.appendOutput("❌ Missing recipient or amount.")
             self.resetState()
             return
-        ok, msg = ensure_wallet_ready(sender, key_id)
-        if not ok:
-            self.parent.appendOutput(f"❌ {msg}")
-            self.resetState()
-            return
         try:
             amount = float(amount_text)
             if amount <= 0:
@@ -97,12 +91,6 @@ class SendTab(QWidget):
         def _work():
             try:
                 return alyncoin_rpc(tx_type, [rpc_sender, recipient, amount, metadata])
-            except RpcNotReady as e:
-                return {"error": f"RPC unavailable: {e}"}
-            except RpcError as e:
-                return {"error": f"RPC error: {e}"}
-            except RpcClientError as e:
-                return {"error": f"RPC failure: {e}"}
             except Exception as e:
                 return {"error": f"{type(e).__name__}: {e}"}
 

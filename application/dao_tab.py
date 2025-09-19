@@ -4,8 +4,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 
-from rpc_client import alyncoin_rpc, RpcClientError, RpcNotReady, RpcError
-from wallet_utils import ensure_wallet_ready
+from rpc_client import alyncoin_rpc
 
 class DAOTab(QWidget):
     def __init__(self, parent):
@@ -33,8 +32,9 @@ class DAOTab(QWidget):
         self.setLayout(layout)
 
     def submitProposal(self):
-        addr = self._require_wallet()
+        addr = getattr(self.parent, "loadedAddress", "")
         if not addr:
+            self.parent.appendOutput("❌ Wallet not loaded.")
             return
 
         dialog = QDialog(self)
@@ -90,15 +90,16 @@ class DAOTab(QWidget):
             else:
                 params = [addr, desc_val, ptype_val]
 
-            result = self._safe_rpc("dao_submit", params, action="submit proposal")
+            result = alyncoin_rpc("dao_submit", params)
             if isinstance(result, dict) and "error" in result:
                 self.parent.appendOutput(f"❌ {result['error']}")
             else:
                 self.parent.appendOutput(f"✅ Proposal submitted.\n{result}")
 
     def voteProposal(self):
-        addr = self._require_wallet()
+        addr = getattr(self.parent, "loadedAddress", "")
         if not addr:
+            self.parent.appendOutput("❌ Wallet not loaded.")
             return
 
         dialog = QDialog(self)
@@ -125,7 +126,7 @@ class DAOTab(QWidget):
                 self.parent.appendOutput("❌ Proposal ID is required.")
                 return
             params = [addr, pid, vote]
-            result = self._safe_rpc("dao_vote", params, action="submit vote")
+            result = alyncoin_rpc("dao_vote", params)
             if isinstance(result, dict) and "error" in result:
                 self.parent.appendOutput(f"❌ {result['error']}")
             else:
@@ -135,7 +136,7 @@ class DAOTab(QWidget):
     def viewProposals(self):
         self.parent.clearOutput()
         self.parent.appendOutput("📜 Fetching all DAO proposals...")
-        result = self._safe_rpc("dao_view", action="fetch DAO proposals")
+        result = alyncoin_rpc("dao_view")
         if isinstance(result, dict) and "error" in result:
             self.parent.appendOutput(f"❌ {result['error']}")
             return
@@ -155,25 +156,3 @@ class DAOTab(QWidget):
             self.parent.appendOutput("⚠️ No proposals found.")
         else:
             self.parent.appendOutput(f"✅ {len(proposals)} proposals listed.")
-    def _require_wallet(self):
-        addr = getattr(self.parent, "loadedAddress", "")
-        key_id = getattr(self.parent, "loadedKeyId", "")
-        if not addr:
-            self.parent.appendOutput("❌ Wallet not loaded.")
-            return None
-        ok, msg = ensure_wallet_ready(addr, key_id)
-        if not ok:
-            self.parent.appendOutput(f"❌ {msg}")
-            return None
-        return addr
-
-    def _safe_rpc(self, method, params=None, action="perform this action"):
-        try:
-            return alyncoin_rpc(method, params)
-        except RpcNotReady as exc:
-            self.parent.appendOutput(f"⚠️ Node RPC unavailable — unable to {action}. ({exc})")
-        except RpcError as exc:
-            self.parent.appendOutput(f"❌ RPC error while {action}: {exc}")
-        except RpcClientError as exc:
-            self.parent.appendOutput(f"❌ Failed to {action}: {exc}")
-        return None
