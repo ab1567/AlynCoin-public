@@ -105,6 +105,7 @@ std::atomic<bool> Blockchain::isRecovering{false};
 Blockchain::Blockchain()
     : difficulty(0), miningReward(25.0), db(nullptr), totalBurnedSupply(0.0),
       network(nullptr), totalWork(0) {
+  DBPaths::ensureDirs();
   std::cout << "[DEBUG] Default Blockchain constructor called.\n";
   lastL1Seen.store(std::time(nullptr), std::memory_order_relaxed);
 }
@@ -114,6 +115,8 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath,
                        bool bindNetwork, bool isSyncMode)
     : difficulty(0), miningReward(25.0), port(port), dbPath(dbPath),
       totalWork(0) {
+
+  DBPaths::ensureDirs();
 
   lastL1Seen.store(std::time(nullptr), std::memory_order_relaxed);
 
@@ -516,7 +519,7 @@ bool Blockchain::importGenesisBlock(const std::string &path) {
 
 // ✅ Adds block, applies smart burn, and broadcasts to peers
 bool Blockchain::addBlock(const Block &block, bool lockHeld) {
-  std::unique_lock<std::mutex> lk(blockchainMutex, std::defer_lock);
+  std::unique_lock<std::recursive_mutex> lk(blockchainMutex, std::defer_lock);
   if (!lockHeld)
     lk.lock();
   std::cerr << "[addBlock] Attempting: idx=" << block.getIndex()
@@ -925,7 +928,7 @@ rocksdb::DB *Blockchain::getRawDB() { return this->db; }
 const std::vector<Block> &Blockchain::getChain() const { return chain; }
 
 std::vector<Block> Blockchain::snapshot() const {
-  std::lock_guard<std::mutex> lk(blockchainMutex);
+  std::lock_guard<std::recursive_mutex> lk(blockchainMutex);
   return chain;
 }
 //
@@ -954,10 +957,8 @@ void Blockchain::clearPendingTransactions() {
   std::cout << "🚨 Cleared all pending transactions after mining.\n";
 
   // Also clear any local JSON file
-  if (!std::filesystem::exists("data")) {
-    std::filesystem::create_directory("data");
-  }
-  std::ofstream outFile("data/transactions.json", std::ios::trunc);
+  const std::string txFile = DBPaths::getDataDir() + "/transactions.json";
+  std::ofstream outFile(txFile, std::ios::trunc);
   if (outFile.is_open()) {
     outFile << "[]"; // Write empty JSON array
     outFile.close();
@@ -1057,7 +1058,7 @@ void Blockchain::recordConfirmedNonce(const std::string &sender, uint64_t nonce,
   if (sender.empty() || sender == "System")
     return;
 
-  std::unique_lock<std::mutex> guard(blockchainMutex, std::defer_lock);
+  std::unique_lock<std::recursive_mutex> guard(blockchainMutex, std::defer_lock);
   if (!lockHeld)
     guard.lock();
 
@@ -1071,7 +1072,7 @@ uint64_t Blockchain::expectedNonceForSender(const std::string &sender,
   if (sender.empty() || sender == "System")
     return 0;
 
-  std::unique_lock<std::mutex> guard(blockchainMutex, std::defer_lock);
+  std::unique_lock<std::recursive_mutex> guard(blockchainMutex, std::defer_lock);
   if (!lockHeld)
     guard.lock();
 
@@ -1099,7 +1100,7 @@ bool Blockchain::shouldAutoMine() const {
   if ((now - last) < AUTO_MINING_GRACE_PERIOD)
     return false;
 
-  std::unique_lock<std::mutex> lock(blockchainMutex);
+  std::unique_lock<std::recursive_mutex> lock(blockchainMutex);
   return !pendingTransactions.empty();
 }
 
@@ -1110,7 +1111,7 @@ bool Blockchain::hasPendingTransactions() const {
 //
 void Blockchain::setPendingTransactions(
     const std::vector<Transaction> &transactions) {
-  std::lock_guard<std::mutex> lock(blockchainMutex);
+  std::lock_guard<std::recursive_mutex> lock(blockchainMutex);
 
   pendingTransactions.clear();
   pendingTxHashes.clear();
@@ -1226,7 +1227,7 @@ Block Blockchain::minePendingTransactions(
   }
   std::cout
       << "[DEBUG] Waiting on blockchainMutex in minePendingTransactions()...\n";
-  std::unique_lock<std::mutex> lock(blockchainMutex);
+  std::unique_lock<std::recursive_mutex> lock(blockchainMutex);
   std::cout
       << "[DEBUG] Acquired blockchainMutex in minePendingTransactions()!\n";
 
@@ -1397,7 +1398,7 @@ Block Blockchain::minePendingTransactions(
 
 // ✅ **Sync Blockchain**
 void Blockchain::syncChain(const Json::Value &jsonData) {
-  std::unique_lock<std::mutex> lock(blockchainMutex);
+  std::unique_lock<std::recursive_mutex> lock(blockchainMutex);
 
   std::vector<Block> newChain;
   for (const auto &blockJson : jsonData["chain"]) {
@@ -1546,7 +1547,7 @@ void Blockchain::printPendingTransactions() {
 
 // ✅ **Add a new transaction**
 void Blockchain::addTransaction(const Transaction &tx) {
-  std::lock_guard<std::mutex> lock(blockchainMutex);
+  std::lock_guard<std::recursive_mutex> lock(blockchainMutex);
 
   const std::string txHash = tx.getHash();
   if (confirmedTxHashes.count(txHash)) {
@@ -2143,7 +2144,7 @@ bool Blockchain::serializeBlockchain(std::string &outData) const {
 
 // ✅ Deserialize Blockchain from Protobuf
 bool Blockchain::deserializeBlockchain(const std::string &data) {
-  std::unique_lock<std::mutex> lock(blockchainMutex);
+  std::unique_lock<std::recursive_mutex> lock(blockchainMutex);
 
   if (data.empty()) {
     std::cerr << "❌ [ERROR] Received empty Protobuf blockchain data!\n";
@@ -2265,7 +2266,7 @@ bool Blockchain::loadFromProto(const alyncoin::BlockchainProto &protoChain) {
 
 // ✅ **Replace blockchain if a longer valid chain is found**
 void Blockchain::replaceChain(const std::vector<Block> &newChain) {
-  std::unique_lock<std::mutex> lock(blockchainMutex);
+  std::unique_lock<std::recursive_mutex> lock(blockchainMutex);
 
   if (newChain.size() > chain.size()) {
     // 1. Check genesis block matches our chain
@@ -2306,7 +2307,7 @@ void Blockchain::replaceChain(const std::vector<Block> &newChain) {
 // ✅ Replace a prefix of the blockchain using a snapshot
 bool Blockchain::replaceChainUpTo(const std::vector<Block> &blocks,
                                   int upToHeight) {
-  std::unique_lock<std::mutex> lock(blockchainMutex);
+  std::unique_lock<std::recursive_mutex> lock(blockchainMutex);
 
   if (blocks.empty() || upToHeight < 0 ||
       static_cast<int>(blocks.size()) != upToHeight + 1) {
@@ -2846,7 +2847,7 @@ void Blockchain::validateChainContinuity() const {
 }
 //
 std::vector<Block> Blockchain::getAllBlocks() {
-  std::lock_guard<std::mutex> lock(blockchainMutex);
+  std::lock_guard<std::recursive_mutex> lock(blockchainMutex);
   return chain; // assuming `chain` is the vector<Block> holding all blocks
 }
 
@@ -3287,7 +3288,7 @@ std::unordered_map<std::string, double> Blockchain::getCurrentState() const {
 }
 //
 void Blockchain::clear(bool force) {
-  std::lock_guard<std::mutex> lock(blockchainMutex);
+  std::lock_guard<std::recursive_mutex> lock(blockchainMutex);
 
   if (!force && !chain.empty()) {
     std::cerr << "⚠️ Blockchain::clear() skipped — chain already initialized. "
@@ -3358,7 +3359,7 @@ std::string Blockchain::getLastRollupProof() const {
 
 // Append an L2 transaction to pending pool
 void Blockchain::addL2Transaction(const Transaction &tx) {
-  std::lock_guard<std::mutex> lock(blockchainMutex);
+  std::lock_guard<std::recursive_mutex> lock(blockchainMutex);
   if (pendingTransactions.size() >= MAX_PENDING_TRANSACTIONS) {
     std::cerr << "[WARN] Max pending transactions reached. Cannot add L2 "
                  "transaction.\n";
@@ -3439,7 +3440,7 @@ std::vector<RollupBlock> Blockchain::getAllRollupBlocks() const {
 // Read-only helpers
 
 Blockchain::SupplyInfo Blockchain::getSupplyInfo() const {
-  std::lock_guard<std::mutex> lock(blockchainMutex);
+  std::lock_guard<std::recursive_mutex> lock(blockchainMutex);
   SupplyInfo info;
   info.total = static_cast<uint64_t>(totalSupply);
   info.burned = static_cast<uint64_t>(totalBurnedSupply);
@@ -3457,7 +3458,7 @@ Blockchain::SupplyInfo Blockchain::getSupplyInfo() const {
 }
 
 uint64_t Blockchain::getBalanceOf(const std::string &address) const {
-  std::lock_guard<std::mutex> lock(blockchainMutex);
+  std::lock_guard<std::recursive_mutex> lock(blockchainMutex);
   auto it = balances.find(address);
   if (it != balances.end())
     return static_cast<uint64_t>(it->second);
@@ -3465,12 +3466,12 @@ uint64_t Blockchain::getBalanceOf(const std::string &address) const {
 }
 
 int Blockchain::getHeight() const {
-  std::lock_guard<std::mutex> lock(blockchainMutex);
+  std::lock_guard<std::recursive_mutex> lock(blockchainMutex);
   return static_cast<int>(chain.size()) - 1;
 }
 
 std::string Blockchain::getTipHashHex() const {
-  std::lock_guard<std::mutex> lock(blockchainMutex);
+  std::lock_guard<std::recursive_mutex> lock(blockchainMutex);
   if (chain.empty())
     return "";
   return chain.back().getHash();
@@ -3484,7 +3485,7 @@ uint32_t Blockchain::getPeerCount() const {
 
 // Get block hash at specific height
 std::string Blockchain::getBlockHashAtHeight(int height) const {
-  std::lock_guard<std::mutex> lock(blockchainMutex);
+  std::lock_guard<std::recursive_mutex> lock(blockchainMutex);
   if (height >= 0 && height < static_cast<int>(chain.size())) {
     return chain[height].getHash();
   }
@@ -3493,7 +3494,7 @@ std::string Blockchain::getBlockHashAtHeight(int height) const {
 
 // Rollback to a specific block height (inclusive)
 bool Blockchain::rollbackToHeight(int height) {
-  std::unique_lock<std::mutex> lk(blockchainMutex);
+  std::unique_lock<std::recursive_mutex> lk(blockchainMutex);
 
   if (height < 0 || height >= static_cast<int>(chain.size())) {
     std::cerr << "❌ Invalid rollback height: " << height << "\n";
@@ -3640,7 +3641,7 @@ void Blockchain::recomputeChainWork() {
 }
 //
 std::vector<Block> Blockchain::getChainUpTo(size_t height) const {
-  std::lock_guard<std::mutex> lk(blockchainMutex);
+  std::lock_guard<std::recursive_mutex> lk(blockchainMutex);
   if (chain.empty())
     return {};
 
@@ -3652,7 +3653,7 @@ std::vector<Block> Blockchain::getChainUpTo(size_t height) const {
 
 std::vector<Block> Blockchain::getChainSlice(size_t startHeight,
                                              size_t endHeight) const {
-  std::lock_guard<std::mutex> lk(blockchainMutex);
+  std::lock_guard<std::recursive_mutex> lk(blockchainMutex);
   if (chain.empty())
     return {};
 
@@ -3667,7 +3668,7 @@ std::vector<Block> Blockchain::getChainSlice(size_t startHeight,
 
 //
 bool Blockchain::tryAppendBlock(const Block &blk) {
-  std::unique_lock<std::mutex> lk(blockchainMutex);
+  std::unique_lock<std::recursive_mutex> lk(blockchainMutex);
 
   if (blk.getIndex() != static_cast<int>(chain.size()))
     return false;
@@ -3883,17 +3884,17 @@ bool Blockchain::deserializeBlockchainForkView(
 }
 //
 void Blockchain::setPendingForkChain(const std::vector<Block> &fork) {
-  std::lock_guard<std::mutex> lock(blockchainMutex);
+  std::lock_guard<std::recursive_mutex> lock(blockchainMutex);
   pendingForkChain = fork;
 }
 
 void Blockchain::clearPendingForkChain() {
-  std::lock_guard<std::mutex> lock(blockchainMutex);
+  std::lock_guard<std::recursive_mutex> lock(blockchainMutex);
   pendingForkChain.clear();
 }
 
 std::vector<Block> Blockchain::getPendingForkChain() const {
-  std::lock_guard<std::mutex> lock(blockchainMutex);
+  std::lock_guard<std::recursive_mutex> lock(blockchainMutex);
   return pendingForkChain;
 }
 //

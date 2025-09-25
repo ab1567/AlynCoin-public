@@ -69,7 +69,7 @@ private:
   double blockReward = BASE_BLOCK_REWARD;
   int difficulty;
   double miningReward;
-  mutable std::mutex blockchainMutex;  // protects in-memory chain vector
+  mutable std::recursive_mutex blockchainMutex;  // protects in-memory chain vector
   std::string minerAddress;
   Network *network;
   rocksdb::DB *db;

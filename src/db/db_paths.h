@@ -1,5 +1,7 @@
 #pragma once
 #include <cstdlib>
+#include <filesystem>
+#include <mutex>
 #include <stdexcept>
 #include <string>
 
@@ -22,29 +24,33 @@ inline std::string getHomePath() {
   return std::string(home);
 }
 
+inline std::string getBaseDir() {
+  return getHomePath() + "/.alyncoin";
+}
+
 inline std::string getBlockchainDB() {
   const char *env = std::getenv("ALYNCOIN_BLOCKCHAIN_DB");
-  return env ? std::string(env) : getHomePath() + "/.alyncoin/blockchain_db";
+  return env ? std::string(env) : getBaseDir() + "/blockchain_db";
 }
 
 inline std::string getTransactionDB() {
   const char *env = std::getenv("ALYNCOIN_TX_DB");
-  return env ? std::string(env) : getHomePath() + "/.alyncoin/transactions_db";
+  return env ? std::string(env) : getBaseDir() + "/transactions_db";
 }
 
 inline std::string getGovernanceDB() {
   const char *env = std::getenv("ALYNCOIN_GOV_DB");
-  return env ? std::string(env) : getHomePath() + "/.alyncoin/governance_db";
+  return env ? std::string(env) : getBaseDir() + "/governance_db";
 }
 
 inline std::string getBlacklistDB() {
   const char *env = std::getenv("ALYNCOIN_BLACKLIST_DB");
-  return env ? std::string(env) : getHomePath() + "/.alyncoin/blacklist";
+  return env ? std::string(env) : getBaseDir() + "/blacklist";
 }
 
 inline std::string getKeyDir() {
   const char *env = std::getenv("ALYNCOIN_KEY_DIR");
-  return env ? std::string(env) : getHomePath() + "/.alyncoin/keys/";
+  return env ? std::string(env) : getBaseDir() + "/keys/";
 }
 
 inline std::string getKeyPath(const std::string &address) {
@@ -53,12 +59,49 @@ inline std::string getKeyPath(const std::string &address) {
 
 inline std::string getIdentityDB() {
   const char *env = std::getenv("ALYNCOIN_IDENTITY_DB");
-  return env ? std::string(env) : getHomePath() + "/.alyncoin/identity_db";
+  return env ? std::string(env) : getBaseDir() + "/identity_db";
 }
 
 inline std::string getGenesisFile() {
   const char *env = std::getenv("ALYNCOIN_GENESIS_FILE");
   return env ? std::string(env)
-             : getHomePath() + "/.alyncoin/genesis_block.bin";
+             : getBaseDir() + "/genesis_block.bin";
+}
+
+inline std::string getDataDir() {
+  const char *env = std::getenv("ALYNCOIN_DATA_DIR");
+  return env ? std::string(env) : getBaseDir() + "/data";
+}
+
+inline std::once_flag &ensureFlag() {
+  static std::once_flag flag;
+  return flag;
+}
+
+inline void ensureDirs() {
+  std::call_once(ensureFlag(), []() {
+    namespace fs = std::filesystem;
+
+    const auto ensureDir = [](const std::string &path) {
+      if (path.empty()) {
+        return;
+      }
+      std::error_code ec;
+      fs::create_directories(path, ec);
+      if (ec) {
+        throw std::runtime_error("Failed to create directory '" + path +
+                                 "': " + ec.message());
+      }
+    };
+
+    ensureDir(getBaseDir());
+    ensureDir(getDataDir());
+    ensureDir(getBlockchainDB());
+    ensureDir(getTransactionDB());
+    ensureDir(getGovernanceDB());
+    ensureDir(getBlacklistDB());
+    ensureDir(getKeyDir());
+    ensureDir(getIdentityDB());
+  });
 }
 } // namespace DBPaths
