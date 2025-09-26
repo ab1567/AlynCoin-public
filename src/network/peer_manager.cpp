@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <numeric>
 #include <sstream>
+#include <chrono>
 
 PeerManager::PeerManager(PeerBlacklist* bl, Network* net)
     : blacklist(bl), network(net), localWork(0) {}
@@ -170,6 +171,19 @@ bool PeerManager::fetchBlockAtHeight(int height, Block& outBlock) {
     alyncoin::net::Frame request;
     request.mutable_block_request()->set_index(height);
 
+    auto pending = std::make_shared<PendingBlockRequest>();
+    {
+        std::lock_guard<std::mutex> lock(pendingRequestMutex);
+        pendingBlockRequests[height] = pending;
+    }
+
+    auto cleanup = [this, height, pending]() {
+        std::lock_guard<std::mutex> lock(pendingRequestMutex);
+        auto it = pendingBlockRequests.find(height);
+        if (it != pendingBlockRequests.end() && it->second == pending)
+            pendingBlockRequests.erase(it);
+    };
+
     for (const std::string& peer : connected_peers) {
         const auto& table = network->getPeerTable();
         auto it = table.find(peer);
@@ -177,21 +191,40 @@ bool PeerManager::fetchBlockAtHeight(int height, Block& outBlock) {
 
         network->sendFrame(it->second.tx, request, /*immediate=*/true);
 
-        // Avoid hanging indefinitely if the peer doesn't respond
-        if (!it->second.tx->waitReadable(5)) {
-            continue;
+        std::unique_lock<std::mutex> lk(pending->mutex);
+        bool gotBlock = pending->cv.wait_for(
+            lk, std::chrono::seconds(5), [&pending]() { return pending->fulfilled; });
+        if (gotBlock) {
+            outBlock = pending->block;
+            cleanup();
+            return true;
         }
-
-        std::string response = it->second.tx->readBinaryBlocking();
-        if (response.empty()) continue;
-        alyncoin::net::Frame fr;
-        if (!fr.ParseFromString(response) || !fr.has_block_response())
-            continue;
-        outBlock = Block::fromProto(fr.block_response().block());
-        return true;
+        // Timed out waiting for this peer. Try next.
     }
 
+    cleanup();
     return false;
+}
+
+void PeerManager::handleBlockResponse(const Block& block) {
+    std::shared_ptr<PendingBlockRequest> pending;
+    int height = static_cast<int>(block.getIndex());
+    {
+        std::lock_guard<std::mutex> lock(pendingRequestMutex);
+        auto it = pendingBlockRequests.find(height);
+        if (it != pendingBlockRequests.end())
+            pending = it->second;
+    }
+
+    if (!pending)
+        return;
+
+    {
+        std::lock_guard<std::mutex> lk(pending->mutex);
+        pending->block = block;
+        pending->fulfilled = true;
+    }
+    pending->cv.notify_all();
 }
 void PeerManager::setPeerHeight(const std::string& peer, int height) {
     if (height < 0) return;
