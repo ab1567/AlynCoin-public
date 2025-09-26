@@ -3624,6 +3624,7 @@ class Handshake final : public ::google::protobuf::Message
     kGenesisHashFieldNumber = 5,
     kPubKeyFieldNumber = 7,
     kNodeIdFieldNumber = 12,
+    kObservedIpFieldNumber = 14,
     kHeightFieldNumber = 3,
     kListenPortFieldNumber = 4,
     kFrameRevFieldNumber = 8,
@@ -3734,6 +3735,22 @@ class Handshake final : public ::google::protobuf::Message
   std::string* _internal_mutable_node_id();
 
   public:
+  // string observed_ip = 14;
+  void clear_observed_ip() ;
+  const std::string& observed_ip() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_observed_ip(Arg_&& arg, Args_... args);
+  std::string* mutable_observed_ip();
+  PROTOBUF_NODISCARD std::string* release_observed_ip();
+  void set_allocated_observed_ip(std::string* value);
+
+  private:
+  const std::string& _internal_observed_ip() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_observed_ip(
+      const std::string& value);
+  std::string* _internal_mutable_observed_ip();
+
+  public:
   // uint64 height = 3;
   void clear_height() ;
   ::uint64_t height() const;
@@ -3809,8 +3826,8 @@ class Handshake final : public ::google::protobuf::Message
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      4, 13, 0,
-      75, 2>
+      4, 14, 0,
+      86, 2>
       _table_;
 
   friend class ::google::protobuf::MessageLite;
@@ -3833,6 +3850,7 @@ class Handshake final : public ::google::protobuf::Message
     ::google::protobuf::internal::ArenaStringPtr genesis_hash_;
     ::google::protobuf::internal::ArenaStringPtr pub_key_;
     ::google::protobuf::internal::ArenaStringPtr node_id_;
+    ::google::protobuf::internal::ArenaStringPtr observed_ip_;
     ::uint64_t height_;
     ::uint32_t listen_port_;
     ::uint32_t frame_rev_;
@@ -7380,6 +7398,54 @@ inline ::uint64_t Handshake::_internal_nonce() const {
 inline void Handshake::_internal_set_nonce(::uint64_t value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.nonce_ = value;
+}
+
+// string observed_ip = 14;
+inline void Handshake::clear_observed_ip() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.observed_ip_.ClearToEmpty();
+}
+inline const std::string& Handshake::observed_ip() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:alyncoin.net.Handshake.observed_ip)
+  return _internal_observed_ip();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void Handshake::set_observed_ip(Arg_&& arg,
+                                                     Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.observed_ip_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:alyncoin.net.Handshake.observed_ip)
+}
+inline std::string* Handshake::mutable_observed_ip() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_observed_ip();
+  // @@protoc_insertion_point(field_mutable:alyncoin.net.Handshake.observed_ip)
+  return _s;
+}
+inline const std::string& Handshake::_internal_observed_ip() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.observed_ip_.Get();
+}
+inline void Handshake::_internal_set_observed_ip(const std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.observed_ip_.Set(value, GetArena());
+}
+inline std::string* Handshake::_internal_mutable_observed_ip() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.observed_ip_.Mutable( GetArena());
+}
+inline std::string* Handshake::release_observed_ip() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:alyncoin.net.Handshake.observed_ip)
+  return _impl_.observed_ip_.Release();
+}
+inline void Handshake::set_allocated_observed_ip(std::string* value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.observed_ip_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.observed_ip_.IsDefault()) {
+    _impl_.observed_ip_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.net.Handshake.observed_ip)
 }
 
 // -------------------------------------------------------------------

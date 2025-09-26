@@ -44,6 +44,7 @@ struct PeerState {
   uint32_t highestSeen{0};
   std::chrono::steady_clock::time_point connectedAt{};
   std::chrono::steady_clock::time_point graceUntil{};
+  uint64_t remoteNonce{0};
   std::mutex m;
 };
 

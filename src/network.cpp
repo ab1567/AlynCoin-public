@@ -21,6 +21,7 @@
 #include <boost/asio.hpp>
 #include <boost/asio/connect.hpp>
 #include <boost/asio/io_context.hpp>
+#include <boost/asio/ip/address.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 #include <condition_variable>
@@ -99,6 +100,43 @@ static std::string ipPrefix(const std::string &ip) {
     ++count;
   }
   return count == 3 ? out : std::string();
+}
+
+static bool isRoutableAddress(const std::string &ip) {
+  try {
+    const auto addr = boost::asio::ip::make_address(ip);
+    if (addr.is_unspecified() || addr.is_loopback() || addr.is_multicast())
+      return false;
+    if (addr.is_v4()) {
+      const auto bytes = addr.to_v4().to_bytes();
+      if (bytes[0] == 0)
+        return false;
+      if (bytes[0] == 10)
+        return false;
+      if (bytes[0] == 127)
+        return false;
+      if (bytes[0] == 169 && bytes[1] == 254)
+        return false; // 169.254.0.0/16 link-local
+      if (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31)
+        return false;
+      if (bytes[0] == 192 && bytes[1] == 168)
+        return false;
+      if (bytes[0] == 198 && (bytes[1] == 18 || bytes[1] == 19))
+        return false; // benchmarking
+      if (bytes[0] == 100 && bytes[1] >= 64 && bytes[1] <= 127)
+        return false; // carrier-grade NAT
+      return true;
+    }
+    const auto v6 = addr.to_v6();
+    if (v6.is_loopback() || v6.is_link_local() || v6.is_site_local())
+      return false;
+    const auto bytes = v6.to_bytes();
+    if ((bytes[0] & 0xFE) == 0xFC)
+      return false; // fc00::/7 unique local
+    return true;
+  } catch (const std::exception &) {
+    return false;
+  }
 }
 
 namespace {
@@ -426,9 +464,12 @@ void Network::sendPeerList(const std::string &peer) {
   std::lock_guard<std::timed_mutex> lk(peersMutex);
   for (const auto &kv : peerTransports) {
     const std::string &ip = kv.second.ip;
-    if (ip.empty() || ip == "127.0.0.1" || ip == "localhost")
+    const int port = kv.second.port;
+    if (ip.empty() || port <= 0)
       continue;
-    pl->add_peers(ip + ':' + std::to_string(kv.second.port));
+    if (!isRoutableAddress(ip))
+      continue;
+    pl->add_peers(ip + ':' + std::to_string(port));
   }
   sendFrame(it->second.tx, fr);
 }
@@ -482,9 +523,7 @@ alyncoin::net::Handshake Network::buildHandshake() const {
   hs.set_want_snapshot(false);
   hs.set_snapshot_size(static_cast<uint32_t>(MAX_SNAPSHOT_CHUNK_SIZE));
   hs.set_node_id(nodeId);
-  uint64_t nonce;
-  randombytes_buf(&nonce, sizeof(nonce));
-  hs.set_nonce(nonce);
+  hs.set_nonce(localHandshakeNonce);
   return hs;
 }
 // Fallback peer in case DNS TXT lookup returns no peers.
@@ -662,6 +701,9 @@ Network::Network(unsigned short port, Blockchain *blockchain,
       ioContext(), tlsContext(nullptr), acceptor(ioContext),
       blacklist(blacklistPtr) {
   nodeId = Crypto::generateRandomHex(16);
+  randombytes_buf(&localHandshakeNonce, sizeof(localHandshakeNonce));
+  if (localHandshakeNonce == 0)
+    localHandshakeNonce = 1; // reserve zero to denote "unknown"
   if (!blacklistPtr) {
     std::cerr
         << "❌ [FATAL] PeerBlacklist is null! Cannot initialize network.\n";
@@ -1035,6 +1077,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
   bool remoteTls = false;
   bool remoteBanDecay = false;
   int finalPort = 0;
+  uint64_t remoteNonce = 0;
 
   /* what *we* look like to the outside world */
   // Determine how peers see this node. We capture `this` so the lambda
@@ -1109,6 +1152,13 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     if (!gotBinary)
       throw std::runtime_error("legacy peer – no binary_v1");
     claimedPeerId = hs.node_id().empty() ? realPeerId : hs.node_id();
+    remoteNonce = hs.nonce();
+    if (remoteNonce != 0 && remoteNonce == localHandshakeNonce) {
+      std::cout << "🛑 Self-connect ignored (nonce match) from " << realPeerId
+                << '\n';
+      transport->closeGraceful();
+      return;
+    }
 
     std::string myGenesis;
     if (!Blockchain::getInstance().getChain().empty())
@@ -1150,7 +1200,8 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
   }
 
   // ── 2. refuse self-connects ─────────────────────────────────────────────
-  if (claimedPeerId == selfAddr() || realPeerId == selfAddr()) {
+  if (claimedPeerId == selfAddr() || realPeerId == selfAddr() ||
+      claimedPeerId == nodeId) {
     std::cout << "🛑 Self-connect ignored: " << claimedPeerId << '\n';
     return;
   }
@@ -1163,24 +1214,28 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     auto itExisting = peerTransports.find(claimedPeerId);
     if (itExisting != peerTransports.end() && itExisting->second.tx &&
         itExisting->second.tx->isOpen()) {
-      bool keepExisting = false;
-      bool inbound = true;
-      if (claimedPeerId == nodeId) {
-        keepExisting = false;
-      } else if (claimedPeerId < nodeId && inbound) {
-        keepExisting = true;
-      } else if (claimedPeerId > nodeId && !inbound) {
-        keepExisting = true;
+      uint64_t existingNonce =
+          itExisting->second.state ? itExisting->second.state->remoteNonce : 0;
+      bool replaceExisting = false;
+      if (existingNonce == 0 && remoteNonce != 0) {
+        replaceExisting = true;
+      } else if (remoteNonce != 0 && existingNonce != 0 &&
+                 remoteNonce < existingNonce) {
+        replaceExisting = true;
       }
-      if (keepExisting) {
+      if (replaceExisting) {
         std::cout << "🔁 replacing connection for " << claimedPeerId << "\n";
         if (itExisting->second.tx)
           itExisting->second.tx->closeGraceful();
         itExisting->second.tx = transport;
         itExisting->second.initiatedByUs = false;
+        if (itExisting->second.state)
+          itExisting->second.state->remoteNonce = remoteNonce;
       } else {
         std::cout << "🔁 duplicate connection from " << claimedPeerId
                   << " closed\n";
+        if (itExisting->second.state && existingNonce == 0 && remoteNonce != 0)
+          itExisting->second.state->remoteNonce = remoteNonce;
         if (transport)
           transport->closeGraceful();
         return;
@@ -1212,6 +1267,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     entry.state->frameRev = remoteRev;
     entry.state->version = claimedVersion;
     std::copy(shared.begin(), shared.end(), entry.state->linkKey.begin());
+    entry.state->remoteNonce = remoteNonce;
 
     if (peerManager) {
       if (peerManager->registerPeer(claimedPeerId)) {
@@ -1229,6 +1285,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     hs_out.set_pub_key(
         std::string(reinterpret_cast<char *>(myPub.data()), myPub.size()));
     hs_out.set_snapshot_size(static_cast<uint32_t>(MAX_SNAPSHOT_CHUNK_SIZE));
+    hs_out.set_observed_ip(realPeerId);
     if (remoteWantSnap)
       hs_out.set_want_snapshot(true);
     alyncoin::net::Frame out;
@@ -2176,6 +2233,8 @@ bool Network::finishOutboundHandshake(std::shared_ptr<Transport> tx,
   if (!tx || !tx->isOpen())
     return false;
   alyncoin::net::Handshake hs = buildHandshake();
+  if (!publicPeerId.empty() && publicPeerId != "127.0.0.1")
+    hs.set_observed_ip(publicPeerId);
   std::array<uint8_t, 32> pub{};
   randombytes_buf(privOut.data(), privOut.size());
   crypto_scalarmult_curve25519_base(pub.data(), privOut.data());
@@ -2549,6 +2608,10 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
         continue;
       std::string ip = p.substr(0, pos);
       int port = std::stoi(p.substr(pos + 1));
+      if (ip.empty() || port <= 0)
+        continue;
+      if (!isRoutableAddress(ip))
+        continue;
       if ((ip == "127.0.0.1" || ip == "localhost") && port == this->port)
         continue;
       if (peerTransports.count(ip))
@@ -2661,14 +2724,20 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
   const auto selfAddr = [this] {
     return publicPeerId.empty() ? "127.0.0.1" : publicPeerId;
   };
+  if (host == selfAddr() && remotePort == static_cast<int>(port)) {
+    std::cout << "⚠️ [connectToNode] Peer list contains our own address "
+              << host << ':' << remotePort
+              << ". Skipping self-connect. If other nodes fail to reach you, "
+                 "forward TCP port "
+              << port << " or enable UPnP." << '\n';
+    return false;
+  }
   {
     std::lock_guard<std::timed_mutex> g(peersMutex);
     auto it = peerTransports.find(peerKey);
     if (it != peerTransports.end() && it->second.tx && it->second.tx->isOpen())
       return true;
   }
-  if (selfAddr() > peerKey)
-    return false;
   if (isBlacklisted(peerKey)) {
     std::cerr << "⚠️ [connectToNode] " << peerKey << " is banned.\n";
     return false;
@@ -2802,6 +2871,25 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     std::string theirNodeId = rhs.node_id();
     if (theirNodeId.empty())
       theirNodeId = peerKey;
+    const uint64_t remoteNonce = rhs.nonce();
+    if (remoteNonce != 0 && remoteNonce == localHandshakeNonce) {
+      std::cout << "🛑 Self-connect ignored (nonce match) while dialing "
+                << peerKey << '\n';
+      tx->close();
+      return false;
+    }
+    std::string canonicalIp = host;
+    if (!rhs.observed_ip().empty() && isRoutableAddress(rhs.observed_ip()))
+      canonicalIp = rhs.observed_ip();
+    int advertisedPort = remotePort;
+    if (rhs.listen_port() > 0)
+      advertisedPort = static_cast<int>(rhs.listen_port());
+    if ((publicPeerId.empty() || publicPeerId == "127.0.0.1") &&
+        isRoutableAddress(rhs.observed_ip())) {
+      setPublicPeerId(rhs.observed_ip());
+      std::cout << "🌐 [connectToNode] Detected external address "
+                << publicPeerId << " from peer " << theirNodeId << '\n';
+    }
 
     // ─── Compatibility gate ────────────────────────────
     remoteRev = rhs.frame_rev();
@@ -2844,29 +2932,36 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
       auto itExisting = peerTransports.find(finalKey);
       if (itExisting != peerTransports.end() && itExisting->second.tx &&
           itExisting->second.tx->isOpen()) {
-        bool keepNew = false;
-        bool outbound = true;
-        if (finalKey == nodeId) {
-          keepNew = false;
-        } else if (finalKey > nodeId && outbound) {
-          keepNew = true;
+        uint64_t existingNonce =
+            itExisting->second.state ? itExisting->second.state->remoteNonce : 0;
+        bool replaceExisting = false;
+        if (existingNonce == 0 && remoteNonce != 0) {
+          replaceExisting = true;
+        } else if (remoteNonce != 0 && existingNonce != 0 &&
+                   remoteNonce < existingNonce) {
+          replaceExisting = true;
         }
-        if (keepNew) {
+        if (replaceExisting) {
           std::cout << "🔁 replacing connection to " << finalKey << '\n';
           itExisting->second.tx->closeGraceful();
           itExisting->second.tx = tx;
           itExisting->second.initiatedByUs = true;
-          itExisting->second.port = remotePort;
-          itExisting->second.ip = host;
+          itExisting->second.port = advertisedPort;
+          itExisting->second.ip = canonicalIp;
+          if (itExisting->second.state)
+            itExisting->second.state->remoteNonce = remoteNonce;
         } else {
           std::cout << "🔁 already connected to " << finalKey << '\n';
+          if (itExisting->second.state && existingNonce == 0 &&
+              remoteNonce != 0)
+            itExisting->second.state->remoteNonce = remoteNonce;
           if (tx)
             tx->closeGraceful();
           return false;
         }
       } else {
         peerTransports[finalKey] = {tx, std::make_shared<PeerState>(), true,
-                                    remotePort, host};
+                                    advertisedPort, canonicalIp};
       }
       knownPeers.insert(finalKey);
       if (anchorPeers.size() < 2)
@@ -2885,6 +2980,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
       st->highestSeen = static_cast<uint32_t>(theirHeight);
       if (rhs.pub_key().size() == 32)
         std::copy(shared.begin(), shared.end(), st->linkKey.begin());
+      st->remoteNonce = remoteNonce;
       if (peerManager) {
         if (peerManager->registerPeer(finalKey))
           peerManager->setPeerHeight(finalKey, theirHeight);
