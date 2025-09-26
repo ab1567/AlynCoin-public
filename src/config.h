@@ -14,7 +14,10 @@ struct AppConfig {
   int self_heal_interval = 0;             // seconds; 0 disables periodic self-heal
   std::string reserve_address;            // native reserve address for PoR
   double por_expected_walyn = 0.0;        // expected wrapped supply for PoR comparison
+  std::string external_address;           // externally reachable <ip:port>
 };
 
 AppConfig& getAppConfig();
 void loadConfigFile(const std::string &path);
+void saveConfigValue(const std::string &path, const std::string &key,
+                     const std::string &value);

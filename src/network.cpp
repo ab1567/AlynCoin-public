@@ -42,6 +42,7 @@
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <random>
 #ifndef _WIN32
 #include <arpa/nameser.h>
@@ -199,6 +200,43 @@ static bool isShareableAddress(const std::string &ip) {
   } catch (const std::exception &) {
     return false;
   }
+}
+
+static std::pair<std::string, unsigned short>
+parseEndpoint(const std::string &value, unsigned short defaultPort) {
+  if (value.empty())
+    return {std::string(), 0};
+  std::string host = value;
+  unsigned short port = defaultPort;
+
+  try {
+    if (value.front() == '[') {
+      auto end = value.find(']');
+      if (end != std::string::npos) {
+        host = value.substr(1, end - 1);
+        if (end + 1 < value.size() && value[end + 1] == ':') {
+          int parsed = std::stoi(value.substr(end + 2));
+          if (parsed > 0 && parsed <= std::numeric_limits<unsigned short>::max())
+            port = static_cast<unsigned short>(parsed);
+        }
+      }
+    } else {
+      auto pos = value.rfind(':');
+      if (pos != std::string::npos && value.find(':', pos + 1) == std::string::npos) {
+        host = value.substr(0, pos);
+        int parsed = std::stoi(value.substr(pos + 1));
+        if (parsed > 0 && parsed <= std::numeric_limits<unsigned short>::max())
+          port = static_cast<unsigned short>(parsed);
+      } else {
+        host = value;
+      }
+    }
+  } catch (const std::exception &) {
+    return {std::string(), 0};
+  }
+  if (host.empty())
+    return {std::string(), 0};
+  return {host, port};
 }
 
 static std::pair<std::string, int>
@@ -560,6 +598,12 @@ void Network::sendPeerList(const std::string &peer) {
     }
   }
 
+  auto announce = determineAnnounceEndpoint();
+  if (!announce.first.empty() && announce.second > 0 &&
+      isShareableAddress(announce.first)) {
+    pl->add_peers(announce.first + ':' + std::to_string(announce.second));
+  }
+
   if (pl->peers_size() == 0)
     return;
   sendFrame(targetTx, fr);
@@ -597,7 +641,10 @@ alyncoin::net::Handshake Network::buildHandshake() const {
   hs.set_version("1.0.0");
   hs.set_network_id("mainnet");
   hs.set_height(bc.getHeight());
-  hs.set_listen_port(this->port);
+  auto announce = determineAnnounceEndpoint();
+  if (announce.second == 0)
+    announce.second = this->port;
+  hs.set_listen_port(announce.second);
   if (!bc.getChain().empty())
     hs.set_genesis_hash(bc.getChain().front().getHash());
   hs.add_capabilities("full");
@@ -622,6 +669,8 @@ alyncoin::net::Handshake Network::buildHandshake() const {
   hs.set_snapshot_size(static_cast<uint32_t>(MAX_SNAPSHOT_CHUNK_SIZE));
   hs.set_node_id(nodeId);
   hs.set_nonce(localHandshakeNonce);
+  if (!announce.first.empty() && isShareableAddress(announce.first))
+    hs.set_observed_ip(announce.first);
   return hs;
 }
 // Fallback peer in case DNS TXT lookup returns no peers.
@@ -691,8 +740,8 @@ std::vector<std::string> fetchPeersFromDNS(const std::string &domain) {
 #endif
 
 // ==== [Network Ctor/Dtor] ====
-#ifdef HAVE_MINIUPNPC
-void tryUPnPPortMapping(int port) {
+#if defined(ALYN_ENABLE_NAT_TRAVERSAL) && defined(HAVE_MINIUPNPC)
+std::optional<std::string> tryUPnPPortMapping(int port) {
   struct UPnPContext {
     UPNPUrls urls{};
     IGDdatas data{};
@@ -715,7 +764,7 @@ void tryUPnPPortMapping(int port) {
 #endif
   if (!ctx.devlist) {
     std::cerr << "⚠️ [UPnP] upnpDiscover() failed or no devices found\n";
-    return;
+    return std::nullopt;
   }
 
   int igdStatus = 0;
@@ -734,7 +783,7 @@ void tryUPnPPortMapping(int port) {
 #endif
   if (igdStatus != 1) {
     std::cerr << "⚠️ [UPnP] No valid IGD found\n";
-    return;
+    return std::nullopt;
   }
 
   char portStr[16];
@@ -747,26 +796,36 @@ void tryUPnPPortMapping(int port) {
   if (ret == UPNPCOMMAND_SUCCESS) {
     std::cout << "✅ [UPnP] Port mapping added on port " << std::dec << port
               << "\n";
+    char external[64] = {0};
+    if (UPNP_GetExternalIPAddress(ctx.urls.controlURL,
+                                  ctx.data.first.servicetype, external) ==
+            UPNPCOMMAND_SUCCESS &&
+        external[0] != '\0') {
+      return std::string(external);
+    }
   } else {
     std::cerr << "⚠️ [UPnP] Failed to add port mapping: " << strupnperror(ret)
               << "\n";
   }
+  return std::nullopt;
 }
+#elif defined(ALYN_ENABLE_NAT_TRAVERSAL)
+std::optional<std::string> tryUPnPPortMapping(int) { return std::nullopt; }
 #endif
-#ifdef HAVE_LIBNATPMP
-void tryNATPMPPortMapping(int port) {
+#if defined(ALYN_ENABLE_NAT_TRAVERSAL) && defined(HAVE_LIBNATPMP)
+std::optional<std::string> tryNATPMPPortMapping(int port) {
   natpmp_t natpmp;
   natpmpresp_t response;
   int r = initnatpmp(&natpmp, 0, 0);
   if (r < 0) {
     std::cerr << "⚠️ [NAT-PMP] initnatpmp failed: " << r << "\n";
-    return;
+    return std::nullopt;
   }
   r = sendnewportmappingrequest(&natpmp, NATPMP_PROTOCOL_TCP, port, port, 3600);
   if (r < 0) {
     std::cerr << "⚠️ [NAT-PMP] send request failed: " << r << "\n";
     closenatpmp(&natpmp);
-    return;
+    return std::nullopt;
   }
   do {
     fd_set fds;
@@ -776,7 +835,7 @@ void tryNATPMPPortMapping(int port) {
     if (getnatpmprequesttimeout(&natpmp, &timeout) < 0) {
       std::cerr << "⚠️ [NAT-PMP] timeout failed\n";
       closenatpmp(&natpmp);
-      return;
+      return std::nullopt;
     }
     select(natpmp.s + 1, &fds, nullptr, nullptr, &timeout);
     r = readnatpmpresponseorretry(&natpmp, &response);
@@ -785,12 +844,39 @@ void tryNATPMPPortMapping(int port) {
   if (r >= 0 && response.resultcode == 0) {
     std::cout << "✅ [NAT-PMP] Port mapping added on port " << std::dec << port
               << "\n";
+    natpmpresp_t addrResp{};
+    r = sendpublicaddressrequest(&natpmp);
+    if (r >= 0) {
+      do {
+        fd_set fds;
+        FD_ZERO(&fds);
+        FD_SET(natpmp.s, &fds);
+        struct timeval timeout;
+        if (getnatpmprequesttimeout(&natpmp, &timeout) < 0)
+          break;
+        select(natpmp.s + 1, &fds, nullptr, nullptr, &timeout);
+        r = readnatpmpresponseorretry(&natpmp, &addrResp);
+      } while (r == NATPMP_TRYAGAIN);
+      if (r >= 0 && addrResp.type == NATPMP_RESPTYPE_PUBLICADDRESS) {
+        char buf[INET_ADDRSTRLEN] = {0};
+        uint32_t ip = addrResp.pnu.publicaddress.addr;
+        in_addr ia{};
+        ia.s_addr = htonl(ip);
+        if (inet_ntop(AF_INET, &ia, buf, sizeof(buf))) {
+          closenatpmp(&natpmp);
+          return std::string(buf);
+        }
+      }
+    }
   } else {
     std::cerr << "⚠️ [NAT-PMP] Failed to add port mapping: " << r
               << " resp=" << response.resultcode << "\n";
   }
   closenatpmp(&natpmp);
+  return std::nullopt;
 }
+#elif defined(ALYN_ENABLE_NAT_TRAVERSAL)
+std::optional<std::string> tryNATPMPPortMapping(int) { return std::nullopt; }
 #endif
 
 Network::Network(unsigned short port, Blockchain *blockchain,
@@ -833,22 +919,27 @@ Network::Network(unsigned short port, Blockchain *blockchain,
         boost::asio::ip::make_address("0.0.0.0"), port);
     acceptor.bind(endpoint, ec);
     if (ec) {
-      std::cerr << "❌ [Network Bind Error] bind failed on port " << port
-                << ": " << ec.message() << "\n";
-      std::cerr << "❌ Failed to bind Network on port " << port
-                << " — skipping network startup.\n";
-      return;
+      std::ostringstream oss;
+      oss << "bind failed on port " << port << ": " << ec.message();
+      throw std::runtime_error(oss.str());
     }
 
     acceptor.listen(boost::asio::socket_base::max_listen_connections, ec);
     if (ec) {
-      std::cerr << "❌ [Network Listen Error] " << ec.message() << "\n";
-      return;
+      std::ostringstream oss;
+      oss << "listen failed on port " << port << ": " << ec.message();
+      throw std::runtime_error(oss.str());
     }
 
     std::cout << "🌐 Network listener started on port: " << std::dec << port
               << "\n";
     peerManager = std::make_unique<PeerManager>(blacklistPtr, this);
+    if (!configuredExternalAddress.empty()) {
+      auto announce = determineAnnounceEndpoint();
+      if (!announce.first.empty() && announce.second > 0)
+        peerManager->setExternalAddress(announce.first + ':' +
+                                        std::to_string(announce.second));
+    }
     selfHealer =
         std::make_unique<SelfHealingNode>(blockchain, peerManager.get());
     isRunning = true;
@@ -857,6 +948,7 @@ Network::Network(unsigned short port, Blockchain *blockchain,
 
   } catch (const std::exception &ex) {
     std::cerr << "❌ [Network Exception] " << ex.what() << "\n";
+    throw;
   }
 }
 
@@ -913,6 +1005,12 @@ void Network::listenForConnections() {
 
 void Network::start() {
   startServer();
+  if (peerManager) {
+    auto endpoint = determineAnnounceEndpoint();
+    if (!endpoint.first.empty() && endpoint.second > 0)
+      peerManager->setExternalAddress(endpoint.first + ':' +
+                                      std::to_string(endpoint.second));
+  }
   intelligentSync();
 }
 
@@ -1139,6 +1237,12 @@ void Network::broadcastPeerList() {
         continue;
       peers.push_back(std::move(endpoint));
     }
+  }
+
+  auto announce = determineAnnounceEndpoint();
+  if (!announce.first.empty() && announce.second > 0 &&
+      isShareableAddress(announce.first)) {
+    peers.emplace_back(std::move(announce));
   }
 
   if (peers.empty() || sinks.empty())
@@ -1416,7 +1520,11 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     hs_out.set_pub_key(
         std::string(reinterpret_cast<char *>(myPub.data()), myPub.size()));
     hs_out.set_snapshot_size(static_cast<uint32_t>(MAX_SNAPSHOT_CHUNK_SIZE));
-    hs_out.set_observed_ip(realPeerId);
+    auto endpoint = determineAnnounceEndpoint();
+    if (!endpoint.first.empty() && isShareableAddress(endpoint.first))
+      hs_out.set_observed_ip(endpoint.first);
+    else
+      hs_out.set_observed_ip(realPeerId);
     if (remoteWantSnap)
       hs_out.set_want_snapshot(true);
     alyncoin::net::Frame out;
@@ -1457,10 +1565,19 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
 // ✅ **Run Network Thread**
 void Network::run() {
   std::cout << "🚀 [Network] Starting network stack for port " << port << "\n";
-#ifdef HAVE_MINIUPNPC
-  tryUPnPPortMapping(this->port);
-#elif defined(HAVE_LIBNATPMP)
-  tryNATPMPPortMapping(this->port);
+#if defined(ALYN_ENABLE_NAT_TRAVERSAL)
+  std::optional<std::string> natAddress;
+#if defined(HAVE_MINIUPNPC)
+  natAddress = tryUPnPPortMapping(this->port);
+#endif
+#if defined(HAVE_LIBNATPMP)
+  if (!natAddress || natAddress->empty())
+    natAddress = tryNATPMPPortMapping(this->port);
+#endif
+  if (!configuredExternalExplicit && natAddress && !natAddress->empty()) {
+    recordExternalAddress(*natAddress, this->port);
+    runHairpinCheck();
+  }
 #endif
   // Start listener and IO thread
   startServer();
@@ -1487,10 +1604,8 @@ void Network::run() {
   std::thread([this]() {
     std::this_thread::sleep_for(std::chrono::seconds(5));
     this->broadcastPeerList();
+    this->requestPeerList();
   }).detach();
-
-  // Initial sync/gossip setup
-  requestPeerList();
   if (autoMineEnabled)
     autoMineBlock();
 
@@ -1946,7 +2061,84 @@ std::string Network::getSelfAddressAndPort() const {
 }
 
 void Network::setPublicPeerId(const std::string &peerId) {
-  publicPeerId = peerId;
+  if (configuredExternalExplicit) {
+    auto parsed = parseEndpoint(configuredExternalAddress, port);
+    if (!parsed.first.empty())
+      publicPeerId = parsed.first;
+  } else {
+    publicPeerId = peerId;
+  }
+  if (peerManager) {
+    auto endpoint = determineAnnounceEndpoint();
+    if (!endpoint.first.empty() && endpoint.second > 0)
+      peerManager->setExternalAddress(endpoint.first + ':' + std::to_string(endpoint.second));
+  }
+  if (!configuredExternalExplicit)
+    runHairpinCheck();
+}
+
+void Network::setConfiguredExternalAddress(const std::string &address) {
+  if (address.empty())
+    return;
+  configuredExternalExplicit = true;
+  auto parsed = parseEndpoint(address, port);
+  if (parsed.first.empty() || parsed.second == 0) {
+    std::cerr << "⚠️ [Network] Ignoring invalid external address: " << address
+              << '\n';
+    return;
+  }
+  configuredExternalAddress = parsed.first + ':' + std::to_string(parsed.second);
+  recordExternalAddress(parsed.first, parsed.second);
+  runHairpinCheck();
+}
+
+std::pair<std::string, unsigned short> Network::determineAnnounceEndpoint() const {
+  if (!configuredExternalAddress.empty()) {
+    auto parsed = parseEndpoint(configuredExternalAddress, port);
+    if (!parsed.first.empty() && parsed.second > 0)
+      return parsed;
+  }
+  if (!publicPeerId.empty())
+    return {publicPeerId, port};
+  return {std::string(), 0};
+}
+
+void Network::recordExternalAddress(const std::string &ip, unsigned short portValue) {
+  if (ip.empty() || portValue == 0)
+    return;
+  if (!configuredExternalExplicit)
+    configuredExternalAddress = ip + ':' + std::to_string(portValue);
+  setPublicPeerId(ip);
+  std::cout << "📣 [Network] Announcing reachable address " << ip << ':' << portValue
+            << '\n';
+}
+
+void Network::runHairpinCheck() {
+  if (hairpinCheckAttempted)
+    return;
+  hairpinCheckAttempted = true;
+  auto endpoint = determineAnnounceEndpoint();
+  if (endpoint.first.empty() || endpoint.second == 0)
+    return;
+  if (!isRoutableAddress(endpoint.first))
+    return;
+  try {
+    boost::asio::io_context ctx;
+    tcp::socket sock(ctx);
+    boost::system::error_code ec;
+    sock.connect({boost::asio::ip::make_address(endpoint.first), endpoint.second}, ec);
+    if (ec) {
+      std::cerr << "⚠️ [NAT] Hairpin test failed for " << endpoint.first << ':'
+                << endpoint.second << " — " << ec.message()
+                << ". Will rely on DNS/bootstrap peers.\n";
+    } else {
+      std::cout << "✅ [NAT] Hairpin test succeeded for " << endpoint.first << ':'
+                << endpoint.second << '\n';
+      sock.close();
+    }
+  } catch (const std::exception &ex) {
+    std::cerr << "⚠️ [NAT] Hairpin test error: " << ex.what() << '\n';
+  }
 }
 //
 
@@ -2377,8 +2569,6 @@ bool Network::finishOutboundHandshake(std::shared_ptr<Transport> tx,
   if (!tx || !tx->isOpen())
     return false;
   alyncoin::net::Handshake hs = buildHandshake();
-  if (!publicPeerId.empty() && publicPeerId != "127.0.0.1")
-    hs.set_observed_ip(publicPeerId);
   std::array<uint8_t, 32> pub{};
   randombytes_buf(privOut.data(), privOut.size());
   crypto_scalarmult_curve25519_base(pub.data(), privOut.data());

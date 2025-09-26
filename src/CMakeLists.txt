@@ -3,6 +3,10 @@ project(alyncoin LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+option(ALYN_ENABLE_NAT_TRAVERSAL "Enable NAT traversal via UPnP/NAT-PMP" ON)
+if(ALYN_ENABLE_NAT_TRAVERSAL)
+  add_compile_definitions(ALYN_ENABLE_NAT_TRAVERSAL)
+endif()
 # ---- Windows toolchain / CRT -------------------------------------------------
 if(MSVC)
   set(CMAKE_POLICY_DEFAULT_CMP0091 NEW)

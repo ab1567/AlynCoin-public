@@ -72,6 +72,7 @@ public:
 
   Blockchain &getBlockchain() { return *blockchain; }
   void setPublicPeerId(const std::string &peerId);
+  void setConfiguredExternalAddress(const std::string &address);
   void start();
   void connectToPeer(const std::string &host, short port);
   void broadcastTransaction(const Transaction &tx);
@@ -207,6 +208,9 @@ private:
   std::unique_ptr<PeerManager> peerManager;
   std::unique_ptr<SelfHealingNode> selfHealer;
   std::string publicPeerId;
+  std::string configuredExternalAddress;
+  bool configuredExternalExplicit{false};
+  bool hairpinCheckAttempted{false};
   std::string nodeId; // stable identifier for this node
   uint64_t localHandshakeNonce{0};
   struct BanEntry {
@@ -229,5 +233,8 @@ private:
   void handlePeer(std::shared_ptr<Transport> transport);
   bool validateBlockSignatures(const Block &blk);
   void penalizePeer(const std::string &peer, int points);
+  std::pair<std::string, unsigned short> determineAnnounceEndpoint() const;
+  void recordExternalAddress(const std::string &ip, unsigned short port);
+  void runHairpinCheck();
 };
 #endif // NETWORK_H
