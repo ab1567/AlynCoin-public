@@ -93,11 +93,15 @@ sudo apt install -y \
   librocksdb-dev zlib1g-dev libbz2-dev \
   libsnappy-dev liblz4-dev libzstd-dev libsodium-dev \
   libasio-dev nlohmann-json3-dev \
-  libspdlog-dev \
+  libspdlog-dev libnatpmp-dev \
   zip unzip git curl python3 python3-pip
 
 # UPnP NAT traversal library
 sudo apt install -y libminiupnpc-dev
+
+> **Note:** NAT-PMP port mapping is optional. If you do not need it, you can
+> remove `libnatpmp-dev` from the package list above and the build will disable
+> NAT-PMP automatically.
 ```
 
 To install all of these packages automatically, run:
@@ -113,6 +117,13 @@ mkdir build
 cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j$(nproc)
+```
+
+On Windows builds that use vcpkg, install the NAT-PMP package alongside the
+other dependencies before generating build files:
+
+```powershell
+vcpkg install libnatpmp:x64-windows-static
 ```
 
 Run the basic unit tests to verify the build:
