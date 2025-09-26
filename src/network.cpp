@@ -1177,6 +1177,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
   bool remoteBanDecay = false;
   int finalPort = 0;
   uint64_t remoteNonce = 0;
+  std::string senderIP;
   std::string canonicalIp;
   int observedPort = 0;
 
@@ -1210,7 +1211,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
         throw std::runtime_error("invalid peer public key");
     }
 
-    const std::string senderIP = transport->getRemoteIP();
+    senderIP = transport->getRemoteIP();
     observedPort = transport->getRemotePort();
     // The Handshake proto uses proto3 semantics so there is no
     // `has_listen_port()` accessor. Older nodes may omit this field, so
