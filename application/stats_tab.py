@@ -75,12 +75,39 @@ class StatsTab(QWidget):
     def triggerSync(self):
         self.appendText("⏳ Initiating hard sync...", color="orange")
         self.syncBtn.setEnabled(False)
-        result = alyncoin_rpc("selfheal")
+        try:
+            result = alyncoin_rpc("selfheal")
+        except RuntimeError as exc:
+            self.appendText(f"❌ {exc}", color="red")
+            self.syncBtn.setEnabled(True)
+            return
         self.syncBtn.setEnabled(True)
-        if isinstance(result, dict) and "error" in result:
-            self.appendText(f"❌ {result['error']}", color="red")
+        if isinstance(result, dict):
+            message = result.get("message", "Hard sync triggered")
+            self.appendText(f"✅ {message}", color="green")
+            status = result.get("status", {})
+            if isinstance(status, dict) and status:
+                healthy = "Yes" if status.get("healthy") else "No"
+                far_behind = "Yes" if status.get("far_behind") else "No"
+                self.appendText(
+                    f"• Healthy: {healthy} | Far behind: {far_behind}",
+                    color="cyan",
+                )
+                local_h = status.get("local_height")
+                net_h = status.get("network_height")
+                if local_h is not None and net_h is not None:
+                    self.appendText(
+                        f"• Heights → local: {local_h} / network: {net_h}",
+                        color="cyan",
+                    )
+                peers = status.get("connected_peers")
+                if peers is not None:
+                    self.appendText(f"• Connected peers: {peers}", color="cyan")
+                reason = status.get("reason")
+                if reason:
+                    self.appendText(f"• Status: {reason}", color="orange")
         else:
-            self.appendText("✅ Sync triggered. Check node output for progress.", color="green")
+            self.appendText("✅ Hard sync triggered.", color="green")
 
     def fetchPeers(self):
         self.outputBox.clear()

@@ -767,8 +767,18 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
         output = {{"result", peers}};
       } else if (method == "selfheal") {
         if (healer) {
-          healer->monitorAndHeal();
-          output = {{"result", "Self-heal triggered"}};
+          NodeHealthStatus status = healer->manualHeal();
+          nlohmann::json statusJson = {{"healthy", status.isHealthy},
+                                      {"reason", status.reason},
+                                      {"local_height", status.localHeight},
+                                      {"network_height", status.networkHeight},
+                                      {"connected_peers", status.connectedPeers},
+                                      {"far_behind", status.farBehind},
+                                      {"local_tip", status.localTipHash},
+                                      {"expected_tip", status.expectedTipHash}};
+          output = {{"result",
+                     {{"message", "Hard sync triggered"},
+                      {"status", statusJson}}}};
         } else {
           output = {{"error", "Healer unavailable"}};
         }

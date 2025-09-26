@@ -139,6 +139,27 @@ static bool isRoutableAddress(const std::string &ip) {
   }
 }
 
+static std::pair<std::string, int>
+selectReachableEndpoint(const PeerEntry &entry) {
+  auto choosePort = [&](int candidate) {
+    if (candidate > 0)
+      return candidate;
+    if (entry.observedPort > 0)
+      return entry.observedPort;
+    return 0;
+  };
+
+  if (isRoutableAddress(entry.ip))
+    return {entry.ip, choosePort(entry.port)};
+  if (isRoutableAddress(entry.observedIp))
+    return {entry.observedIp, choosePort(entry.observedPort)};
+  if (!entry.ip.empty())
+    return {entry.ip, choosePort(entry.port)};
+  if (!entry.observedIp.empty())
+    return {entry.observedIp, choosePort(entry.observedPort)};
+  return {std::string(), 0};
+}
+
 namespace {
 std::string dumpHex(const void *data, size_t len) {
   const uint8_t *b = static_cast<const uint8_t *>(data);
@@ -456,22 +477,30 @@ void Network::sendTipHash(const std::string &peer) {
 }
 
 void Network::sendPeerList(const std::string &peer) {
-  auto it = peerTransports.find(peer);
-  if (it == peerTransports.end() || !it->second.tx)
-    return;
+  std::shared_ptr<Transport> targetTx;
   alyncoin::net::Frame fr;
   auto *pl = fr.mutable_peer_list();
-  std::lock_guard<std::timed_mutex> lk(peersMutex);
-  for (const auto &kv : peerTransports) {
-    const std::string &ip = kv.second.ip;
-    const int port = kv.second.port;
-    if (ip.empty() || port <= 0)
-      continue;
-    if (!isRoutableAddress(ip))
-      continue;
-    pl->add_peers(ip + ':' + std::to_string(port));
+
+  {
+    std::lock_guard<std::timed_mutex> lk(peersMutex);
+    auto it = peerTransports.find(peer);
+    if (it == peerTransports.end() || !it->second.tx ||
+        !it->second.tx->isOpen())
+      return;
+    targetTx = it->second.tx;
+    for (const auto &kv : peerTransports) {
+      const auto endpoint = selectReachableEndpoint(kv.second);
+      if (endpoint.first.empty() || endpoint.second <= 0)
+        continue;
+      if (!isRoutableAddress(endpoint.first))
+        continue;
+      pl->add_peers(endpoint.first + ':' + std::to_string(endpoint.second));
+    }
   }
-  sendFrame(it->second.tx, fr);
+
+  if (pl->peers_size() == 0)
+    return;
+  sendFrame(targetTx, fr);
 }
 
 void Network::markPeerOffline(const std::string &peerId) {
@@ -1026,26 +1055,40 @@ void Network::connectToPeer(const std::string &ip, short port) {
 void Network::broadcastPeerList() {
   ScopedLockTracer tracer("broadcastPeerList");
   std::vector<std::pair<std::string, int>> peers;
+  std::vector<std::shared_ptr<Transport>> sinks;
   {
     std::lock_guard<std::timed_mutex> lock(peersMutex);
     if (peerTransports.empty())
       return;
-    for (const auto &[peerId, entry] : peerTransports)
-      peers.emplace_back(entry.ip, entry.port);
+    for (const auto &[peerId, entry] : peerTransports) {
+      if (entry.tx && entry.tx->isOpen())
+        sinks.push_back(entry.tx);
+      auto endpoint = selectReachableEndpoint(entry);
+      if (endpoint.first.empty() || endpoint.second <= 0)
+        continue;
+      if (!isRoutableAddress(endpoint.first))
+        continue;
+      peers.push_back(std::move(endpoint));
+    }
   }
 
+  if (peers.empty() || sinks.empty())
+    return;
+
+  std::unordered_set<std::string> seen;
+  alyncoin::net::Frame fr;
+  auto *pl = fr.mutable_peer_list();
   for (const auto &peer : peers) {
-    const std::string &ip = peer.first;
-    auto it = std::find_if(peerTransports.begin(), peerTransports.end(),
-                           [ip](const auto &kv) { return kv.second.ip == ip; });
-    if (it == peerTransports.end() || !it->second.tx)
-      continue;
-    alyncoin::net::Frame fr;
-    auto *pl = fr.mutable_peer_list();
-    for (const auto &[pIp, pPort] : peers)
-      pl->add_peers(pIp + ':' + std::to_string(pPort));
-    sendFrame(it->second.tx, fr);
+    std::string label = peer.first + ':' + std::to_string(peer.second);
+    if (seen.insert(label).second)
+      pl->add_peers(label);
   }
+
+  if (pl->peers_size() == 0)
+    return;
+
+  for (const auto &tx : sinks)
+    sendFrame(tx, fr);
 }
 
 //
@@ -1078,6 +1121,8 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
   bool remoteBanDecay = false;
   int finalPort = 0;
   uint64_t remoteNonce = 0;
+  std::string canonicalIp;
+  int observedPort = 0;
 
   /* what *we* look like to the outside world */
   // Determine how peers see this node. We capture `this` so the lambda
@@ -1110,6 +1155,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     }
 
     const std::string senderIP = transport->getRemoteIP();
+    observedPort = transport->getRemotePort();
     // The Handshake proto uses proto3 semantics so there is no
     // `has_listen_port()` accessor. Older nodes may omit this field, so
     // fall back to the remote port if zero.
@@ -1117,6 +1163,9 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     if (finalPort == 0)
       finalPort = transport->getRemotePort();
     realPeerId = senderIP;
+    canonicalIp = senderIP;
+    if (!hs.observed_ip().empty() && isRoutableAddress(hs.observed_ip()))
+      canonicalIp = hs.observed_ip();
 
     claimedVersion = hs.version();
     claimedNetwork = hs.network_id();
@@ -1229,6 +1278,10 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
           itExisting->second.tx->closeGraceful();
         itExisting->second.tx = transport;
         itExisting->second.initiatedByUs = false;
+        itExisting->second.port = finalPort;
+        itExisting->second.ip = canonicalIp.empty() ? realPeerId : canonicalIp;
+        itExisting->second.observedIp = senderIP;
+        itExisting->second.observedPort = observedPort;
         if (itExisting->second.state)
           itExisting->second.state->remoteNonce = remoteNonce;
       } else {
@@ -1246,7 +1299,9 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     entry.tx = transport;
     entry.initiatedByUs = false;
     entry.port = finalPort;
-    entry.ip = realPeerId;
+    entry.ip = canonicalIp.empty() ? realPeerId : canonicalIp;
+    entry.observedIp = senderIP;
+    entry.observedPort = observedPort;
     knownPeers.insert(claimedPeerId);
     if (!entry.state)
       entry.state = std::make_shared<PeerState>();
@@ -1581,11 +1636,20 @@ void Network::periodicSync() {
     auto it = peerTransports.find(peerId);
     if (it == peerTransports.end() || !it->second.tx ||
         !it->second.tx->isOpen()) {
-      int port = it != peerTransports.end() ? it->second.port : 0;
-      const std::string &host =
-          (it != peerTransports.end() && !it->second.ip.empty()) ? it->second.ip
-                                                                 : peerId;
-      connectToNode(host, port);
+      int port = 0;
+      std::string host = peerId;
+      if (it != peerTransports.end()) {
+        auto endpoint = selectReachableEndpoint(it->second);
+        if (!endpoint.first.empty() && endpoint.second > 0) {
+          host = endpoint.first;
+          port = endpoint.second;
+        } else if (!it->second.ip.empty() && it->second.port > 0) {
+          host = it->second.ip;
+          port = it->second.port;
+        }
+      }
+      if (port > 0)
+        connectToNode(host, port);
       auto it2 = peerTransports.find(peerId);
       if (it2 != peerTransports.end() && it2->second.tx &&
           it2->second.tx->isOpen()) {
@@ -2213,9 +2277,13 @@ void Network::addPeer(const std::string &peer) {
   }
   auto transport = std::make_shared<TcpTransport>(ioContext);
 
-  peerTransports.emplace(
-      peer,
-      PeerEntry{transport, std::make_shared<PeerState>(), false, 0, peer});
+  PeerEntry entry;
+  entry.tx = transport;
+  entry.state = std::make_shared<PeerState>();
+  entry.initiatedByUs = false;
+  entry.port = 0;
+  entry.ip = peer;
+  peerTransports.emplace(peer, std::move(entry));
   if (auto it = peerTransports.find(peer); it != peerTransports.end()) {
     it->second.state->connectedAt = std::chrono::steady_clock::now();
     it->second.state->graceUntil =
@@ -2793,6 +2861,9 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
       tx = plain;
     }
 
+    std::string socketIp = tx->getRemoteIP();
+    int socketPort = tx->getRemotePort();
+
     {
       ScopedLockTracer _t("connectToNode");
       // no pre-handshake duplicate check since peers are keyed by node_id
@@ -2950,6 +3021,8 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
           itExisting->second.initiatedByUs = true;
           itExisting->second.port = advertisedPort;
           itExisting->second.ip = canonicalIp;
+          itExisting->second.observedIp = socketIp.empty() ? host : socketIp;
+          itExisting->second.observedPort = socketPort;
           if (itExisting->second.state)
             itExisting->second.state->remoteNonce = remoteNonce;
         } else {
@@ -2962,8 +3035,15 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
           return false;
         }
       } else {
-        peerTransports[finalKey] = {tx, std::make_shared<PeerState>(), true,
-                                    advertisedPort, canonicalIp};
+        PeerEntry entry;
+        entry.tx = tx;
+        entry.state = std::make_shared<PeerState>();
+        entry.initiatedByUs = true;
+        entry.port = advertisedPort;
+        entry.ip = canonicalIp;
+        entry.observedPort = socketPort;
+        entry.observedIp = socketIp.empty() ? host : socketIp;
+        peerTransports[finalKey] = std::move(entry);
       }
       knownPeers.insert(finalKey);
       if (anchorPeers.size() < 2)
@@ -3139,12 +3219,16 @@ void Network::savePeers() {
   }
 
   for (const auto &[peerId, entry] : peerTransports) {
-    if (!entry.ip.empty()) {
-      std::string keyStr = Crypto::base64Encode(
-          std::string(entry.state->linkKey.begin(), entry.state->linkKey.end()),
-          false);
-      file << entry.ip << ':' << entry.port << ' ' << keyStr << std::endl;
-    }
+    if (!entry.state)
+      continue;
+    auto endpoint = selectReachableEndpoint(entry);
+    if (endpoint.first.empty() || endpoint.second <= 0)
+      continue;
+    std::string keyStr = Crypto::base64Encode(
+        std::string(entry.state->linkKey.begin(), entry.state->linkKey.end()),
+        false);
+    file << endpoint.first << ':' << endpoint.second << ' ' << keyStr
+         << std::endl;
   }
 
   file.close();

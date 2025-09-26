@@ -54,6 +54,8 @@ struct PeerEntry {
   bool initiatedByUs{false};
   int port{0};
   std::string ip; // original IP address
+  int observedPort{0};
+  std::string observedIp; // socket-observed remote address
 };
 
 // Canonical global peer table and mutex for the entire app:
