@@ -797,10 +797,18 @@ std::optional<std::string> tryUPnPPortMapping(int port) {
     std::cout << "✅ [UPnP] Port mapping added on port " << std::dec << port
               << "\n";
     char external[64] = {0};
+#if defined(MINIUPNPC_API_VERSION) && (MINIUPNPC_API_VERSION >= 18)
+    int status = 0;
+    if (UPNP_GetExternalIPAddress(ctx.urls.controlURL,
+                                  ctx.data.first.servicetype, external,
+                                  &status) == UPNPCOMMAND_SUCCESS &&
+        external[0] != '\0') {
+#else
     if (UPNP_GetExternalIPAddress(ctx.urls.controlURL,
                                   ctx.data.first.servicetype, external) ==
             UPNPCOMMAND_SUCCESS &&
         external[0] != '\0') {
+#endif
       return std::string(external);
     }
   } else {
@@ -859,9 +867,10 @@ std::optional<std::string> tryNATPMPPortMapping(int port) {
       } while (r == NATPMP_TRYAGAIN);
       if (r >= 0 && addrResp.type == NATPMP_RESPTYPE_PUBLICADDRESS) {
         char buf[INET_ADDRSTRLEN] = {0};
-        uint32_t ip = addrResp.pnu.publicaddress.addr;
         in_addr ia{};
-        ia.s_addr = htonl(ip);
+        static_assert(sizeof(ia) >= sizeof(addrResp.pnu.publicaddress),
+                      "Unexpected natpmp public address size");
+        std::memcpy(&ia, &addrResp.pnu.publicaddress, sizeof(addrResp.pnu.publicaddress));
         if (inet_ntop(AF_INET, &ia, buf, sizeof(buf))) {
           closenatpmp(&natpmp);
           return std::string(buf);
