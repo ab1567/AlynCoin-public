@@ -2453,6 +2453,8 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
   }
   case alyncoin::net::Frame::kBlockResponse: {
     Block blk = Block::fromProto(f.block_response().block());
+    if (peerManager)
+      peerManager->handleBlockResponse(blk);
     handleNewBlock(blk, peer);
     break;
   }

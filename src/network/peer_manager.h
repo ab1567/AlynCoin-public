@@ -5,6 +5,10 @@
 #include <vector>
 #include <map>
 #include <cstdint>
+#include <condition_variable>
+#include <mutex>
+#include <unordered_map>
+#include <memory>
 #include "peer_blacklist.h"
 #include "block.h"
 
@@ -20,6 +24,15 @@ private:
     PeerBlacklist* blacklist;
     Network* network;
 
+    struct PendingBlockRequest {
+        std::mutex mutex;
+        std::condition_variable cv;
+        bool fulfilled{false};
+        Block block;
+    };
+    std::mutex pendingRequestMutex;
+    std::unordered_map<int, std::shared_ptr<PendingBlockRequest>> pendingBlockRequests;
+
 public:
     PeerManager(PeerBlacklist* bl, Network* net = nullptr);
 
@@ -34,6 +47,7 @@ public:
     std::string getMajorityTipHash() const;
 
     bool fetchBlockAtHeight(int height, Block& outBlock);
+    void handleBlockResponse(const Block& block);
 
     void setPeerHeight(const std::string& peer, int height);
     int getPeerHeight(const std::string& peer) const;
