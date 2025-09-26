@@ -1990,10 +1990,8 @@ bool Blockchain::loadFromDB() {
   if (db->Get(rocksdb::ReadOptions(), "blockchain", &protoSnapshot).ok()) {
     alyncoin::BlockchainProto snapshotProto;
     if (snapshotProto.ParseFromString(protoSnapshot)) {
-      if (snapshotProto.has_difficulty())
-        persistedDifficulty = snapshotProto.difficulty();
-      if (snapshotProto.has_block_reward())
-        persistedBlockReward = snapshotProto.block_reward();
+      persistedDifficulty = snapshotProto.difficulty();
+      persistedBlockReward = snapshotProto.block_reward();
     } else {
       std::cerr << "⚠️ [loadFromDB] Failed to parse persisted blockchain snapshot"
                 << " for difficulty recovery.\n";
