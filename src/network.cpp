@@ -797,18 +797,10 @@ std::optional<std::string> tryUPnPPortMapping(int port) {
     std::cout << "✅ [UPnP] Port mapping added on port " << std::dec << port
               << "\n";
     char external[64] = {0};
-#if defined(MINIUPNPC_API_VERSION) && (MINIUPNPC_API_VERSION >= 18)
-    int status = 0;
-    if (UPNP_GetExternalIPAddress(ctx.urls.controlURL,
-                                  ctx.data.first.servicetype, external,
-                                  &status) == UPNPCOMMAND_SUCCESS &&
-        external[0] != '\0') {
-#else
     if (UPNP_GetExternalIPAddress(ctx.urls.controlURL,
                                   ctx.data.first.servicetype, external) ==
             UPNPCOMMAND_SUCCESS &&
         external[0] != '\0') {
-#endif
       return std::string(external);
     }
   } else {
