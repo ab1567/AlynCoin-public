@@ -28,6 +28,7 @@
 #include <queue>
 #include <cctype>
 #include <chrono>
+#include <exception>
 #include <cstring>
 #include <ctime>
 #include <filesystem>
@@ -74,6 +75,54 @@
 #include "transport/tcp_transport.h"
 
 using namespace alyncoin;
+
+namespace {
+struct ConsensusHints {
+  bool hasDifficulty{false};
+  bool hasReward{false};
+  int difficulty{0};
+  double reward{0.0};
+};
+
+ConsensusHints parseConsensusHints(
+    const ::google::protobuf::RepeatedPtrField<std::string> &capabilities) {
+  static constexpr char kPrefix[] = "consensus:";
+  ConsensusHints hints;
+
+  for (const auto &cap : capabilities) {
+    if (cap.rfind(kPrefix, 0) != 0)
+      continue;
+
+    std::string body = cap.substr(sizeof(kPrefix) - 1);
+    std::stringstream ss(body);
+    std::string token;
+    while (std::getline(ss, token, ';')) {
+      auto eqPos = token.find('=');
+      if (eqPos == std::string::npos)
+        continue;
+
+      std::string key = token.substr(0, eqPos);
+      std::string value = token.substr(eqPos + 1);
+
+      if (key == "difficulty") {
+        try {
+          hints.difficulty = std::stoi(value);
+          hints.hasDifficulty = true;
+        } catch (const std::exception &) {
+        }
+      } else if (key == "reward") {
+        try {
+          hints.reward = std::stod(value);
+          hints.hasReward = true;
+        } catch (const std::exception &) {
+        }
+      }
+    }
+  }
+
+  return hints;
+}
+} // namespace
 
 static std::string ipPrefix(const std::string &ip) {
   if (ip.find(':') == std::string::npos) {
@@ -546,6 +595,13 @@ alyncoin::net::Handshake Network::buildHandshake() const {
   hs.add_capabilities("whisper_v1");
   hs.add_capabilities("tls_v1");
   hs.add_capabilities("ban_decay_v1");
+  {
+    std::ostringstream consensus;
+    consensus << std::fixed << std::setprecision(12)
+              << "consensus:difficulty=" << bc.getCurrentDifficulty()
+              << ";reward=" << bc.getCurrentBlockReward();
+    hs.add_capabilities(consensus.str());
+  }
   hs.set_frame_rev(kFrameRevision);
   auto work = bc.computeCumulativeDifficulty(bc.getChain());
   hs.set_total_work(safeUint64(work));
@@ -1197,6 +1253,12 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
         remoteBanDecay = true;
       if (cap == "binary_v1")
         gotBinary = true;
+    }
+    if (auto hints = parseConsensusHints(hs.capabilities());
+        hints.hasDifficulty || hints.hasReward) {
+      Blockchain::getInstance().applyConsensusHints(
+          remoteHeight, hints.hasDifficulty ? hints.difficulty : -1,
+          hints.hasReward ? hints.reward : -1.0);
     }
     if (!gotBinary)
       throw std::runtime_error("legacy peer – no binary_v1");
@@ -2492,6 +2554,13 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
       auto it = peerTransports.find(peer);
       if (it != peerTransports.end() && it->second.state)
         it->second.state->highestSeen = hs.height();
+    }
+    if (auto hints = parseConsensusHints(hs.capabilities());
+        hints.hasDifficulty || hints.hasReward) {
+      Blockchain::getInstance().applyConsensusHints(
+          static_cast<int>(hs.height()),
+          hints.hasDifficulty ? hints.difficulty : -1,
+          hints.hasReward ? hints.reward : -1.0);
     }
     break;
   }

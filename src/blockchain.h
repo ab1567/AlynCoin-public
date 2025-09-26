@@ -111,6 +111,7 @@ private:
   void loadCheckpointFromDB();
   void saveCheckpoint(int height, const std::string& hash);
   void noteNewL1(std::time_t timestamp);
+  void refreshRewardFromTip();
   bool shouldAutoMine() const;
   uint64_t expectedNonceForSender(const std::string &sender,
                                   bool lockHeld = false) const;
@@ -213,6 +214,8 @@ public:
     double getTotalBurnedSupply() const { return totalBurnedSupply; }
     double getTotalSupply() const;
     double getBlockReward() const { return blockReward; }
+    double getCurrentBlockReward() const;
+    int getCurrentDifficulty() const;
     // Median timestamp of the last 11 blocks up to `height`.
     std::time_t medianTimePast(size_t height) const;
   Block createBlock(const std::string &minerDilithiumKey,
@@ -259,6 +262,8 @@ public:
 
   int getCheckpointHeight() const { return checkpointHeight; }
   void broadcastNewTip();
+  void applyConsensusHints(int remoteHeight, int hintedDifficulty,
+                           double hintedReward);
   std::string getBlockHashAtHeight(int height) const;
   bool rollbackToHeight(int height);
 

@@ -19,6 +19,7 @@
 #include <atomic>
 #include <boost/multiprecision/cpp_int.hpp>
 #include <chrono>
+#include <cmath>
 #include <cstdlib>
 #include <ctime>
 #include <filesystem>
@@ -684,6 +685,7 @@ bool Blockchain::addBlock(const Block &block, bool lockHeld) {
     if (network)
       broadcastNewTip();
     noteNewL1(block.getTimestamp());
+    refreshRewardFromTip();
   } catch (const std::exception &e) {
     std::cerr << "❌ [CRITICAL][addBlock] push_back failed: " << e.what()
               << "\n";
@@ -1039,6 +1041,7 @@ void Blockchain::mergeWith(const Blockchain &other) {
   if (newChain.size() > chain.size()) {
     std::cout << "✅ Replacing current blockchain with a longer valid chain!\n";
     chain = newChain;
+    refreshRewardFromTip();
     adjustDifficulty();
     saveToDB();
   } else {
@@ -1051,6 +1054,28 @@ void Blockchain::noteNewL1(std::time_t timestamp) {
     timestamp = std::time(nullptr);
   }
   lastL1Seen.store(timestamp, std::memory_order_relaxed);
+}
+
+void Blockchain::refreshRewardFromTip() {
+  if (chain.empty()) {
+    blockReward = BASE_BLOCK_REWARD;
+    return;
+  }
+
+  const Block &tip = chain.back();
+  double tipReward = tip.getReward();
+
+  if (tip.getIndex() == 0 && tipReward <= 0.0) {
+    blockReward = BASE_BLOCK_REWARD;
+    return;
+  }
+
+  if (tipReward <= 0.0) {
+    blockReward = 0.0;
+    return;
+  }
+
+  blockReward = tipReward;
 }
 
 void Blockchain::recordConfirmedNonce(const std::string &sender, uint64_t nonce,
@@ -1415,6 +1440,7 @@ void Blockchain::syncChain(const Json::Value &jsonData) {
 
   if (newChain.size() > chain.size()) {
     chain = newChain;
+    refreshRewardFromTip();
     lock.unlock();
     saveToDB();
     std::cout
@@ -1738,6 +1764,8 @@ bool Blockchain::saveToDB() {
 
   batch.Put("blockchain", serializedData);
   batch.Put("burned_supply", std::to_string(totalBurnedSupply));
+  batch.Put("last_difficulty", std::to_string(difficulty));
+  batch.Put("last_reward", formatAmount(blockReward));
 
   saveVestingInfoToDB();
 
@@ -1870,6 +1898,7 @@ bool Blockchain::loadFromDB() {
     std::cout
         << "🔎 [Fork] Detected pending fork during loadFromDB(). Merging...\n";
     chain = loadedBlocks;
+    refreshRewardFromTip();
     compareAndMergeChains(pendingFork);
     clearPendingForkChain();
   } else if (!loadedBlocks.empty()) {
@@ -1881,6 +1910,7 @@ bool Blockchain::loadFromDB() {
       return false;
     }
     chain = loadedBlocks;
+    refreshRewardFromTip();
   } else {
     bool imported = false;
     if (alyn_assets::kEmbeddedGenesisSize > 0) {
@@ -1953,7 +1983,71 @@ bool Blockchain::loadFromDB() {
   if (network && network->getPeerManager())
     network->getPeerManager()->setLocalWork(totalWork);
 
-  difficulty = calculateSmartDifficulty(*this);
+  uint64_t persistedDifficulty = 0;
+  double persistedBlockReward = blockReward;
+
+  std::string protoSnapshot;
+  if (db->Get(rocksdb::ReadOptions(), "blockchain", &protoSnapshot).ok()) {
+    alyncoin::BlockchainProto snapshotProto;
+    if (snapshotProto.ParseFromString(protoSnapshot)) {
+      if (snapshotProto.has_difficulty())
+        persistedDifficulty = snapshotProto.difficulty();
+      if (snapshotProto.has_block_reward())
+        persistedBlockReward = snapshotProto.block_reward();
+    } else {
+      std::cerr << "⚠️ [loadFromDB] Failed to parse persisted blockchain snapshot"
+                << " for difficulty recovery.\n";
+    }
+  }
+
+  if (persistedDifficulty == 0) {
+    std::string diffStr;
+    if (db->Get(rocksdb::ReadOptions(), "last_difficulty", &diffStr).ok()) {
+      try {
+        persistedDifficulty = static_cast<uint64_t>(std::stoull(diffStr));
+      } catch (const std::exception &e) {
+        std::cerr << "⚠️ [loadFromDB] Invalid last_difficulty value: "
+                  << diffStr << " (" << e.what() << ")\n";
+      }
+    }
+  }
+
+  if (persistedBlockReward <= 0.0) {
+    std::string rewardStr;
+    if (db->Get(rocksdb::ReadOptions(), "last_reward", &rewardStr).ok()) {
+      try {
+        persistedBlockReward = std::stod(rewardStr);
+      } catch (const std::exception &e) {
+        std::cerr << "⚠️ [loadFromDB] Invalid last_reward value: " << rewardStr
+                  << " (" << e.what() << ")\n";
+      }
+    }
+  }
+
+  blockReward = persistedBlockReward;
+
+  uint64_t computedDifficulty = calculateSmartDifficulty(*this);
+
+  if (persistedDifficulty > 0) {
+    long double guardFloor = static_cast<long double>(persistedDifficulty) * 0.85L;
+    uint64_t anchoredFloor =
+        std::max<uint64_t>(1, static_cast<uint64_t>(std::llround(guardFloor)));
+    uint64_t anchoredDifficulty =
+        std::max<uint64_t>(computedDifficulty, anchoredFloor);
+
+    std::cout << "⚙️ [loadFromDB] Restoring difficulty from "
+              << persistedDifficulty << " (computed " << computedDifficulty
+              << ", floor " << anchoredFloor << ")\n";
+
+    difficulty = anchoredDifficulty;
+  } else {
+    difficulty = computedDifficulty;
+  }
+
+  if (db) {
+    db->Put(rocksdb::WriteOptions(), "last_difficulty",
+            std::to_string(difficulty));
+  }
 
   std::string burnedStr;
   if (db->Get(rocksdb::ReadOptions(), "burned_supply", &burnedStr).ok())
@@ -2255,6 +2349,7 @@ bool Blockchain::loadFromProto(const alyncoin::BlockchainProto &protoChain) {
 
   // 🔁 Ensure full state is recomputed
   recalculateBalancesFromChain();
+  refreshRewardFromTip();
 
   // 🔁 Restore L2 rollup state
   applyRollupDeltasToBalances();
@@ -2293,6 +2388,7 @@ void Blockchain::replaceChain(const std::vector<Block> &newChain) {
 
     // 3. Replace and update
     chain = newChain;
+    refreshRewardFromTip();
     recalculateBalancesFromChain();
     lock.unlock();
     saveToDB();
@@ -3071,6 +3167,15 @@ void Blockchain::adjustDifficulty() {
   std::cout << "⚙️ Adjusted difficulty from " << difficulty << " → "
             << newDifficulty << "\n";
   difficulty = newDifficulty;
+  if (db) {
+    rocksdb::Status status =
+        db->Put(rocksdb::WriteOptions(), "last_difficulty",
+                std::to_string(static_cast<uint64_t>(difficulty)));
+    if (!status.ok()) {
+      std::cerr << "⚠️ [adjustDifficulty] Failed to persist last_difficulty: "
+                << status.ToString() << "\n";
+    }
+  }
 }
 // block time
 double Blockchain::getAverageBlockTime(int recentCount) const {
@@ -3304,13 +3409,18 @@ void Blockchain::clear(bool force) {
   confirmedTxHashes.clear();
   nextNonceByAddress.clear();
   difficulty = calculateSmartDifficulty(*this);
-  blockReward = 25.0;
+  blockReward = BASE_BLOCK_REWARD;
   devFundBalance = 0.0;
   rollupChain.clear();
   balances.clear();
   vestingMap.clear();
   recentTransactionCounts.clear();
   lastL1Seen.store(std::time(nullptr), std::memory_order_relaxed);
+  if (db) {
+    rocksdb::WriteOptions opts;
+    db->Delete(opts, "last_difficulty");
+    db->Delete(opts, "last_reward");
+  }
   std::cout << "✅ Blockchain cleared (chain + pending txs)\n";
 }
 
@@ -3477,6 +3587,16 @@ std::string Blockchain::getTipHashHex() const {
   return chain.back().getHash();
 }
 
+double Blockchain::getCurrentBlockReward() const {
+  std::lock_guard<std::recursive_mutex> lock(blockchainMutex);
+  return blockReward;
+}
+
+int Blockchain::getCurrentDifficulty() const {
+  std::lock_guard<std::recursive_mutex> lock(blockchainMutex);
+  return difficulty;
+}
+
 uint32_t Blockchain::getPeerCount() const {
   if (network && network->getPeerManager())
     return static_cast<uint32_t>(network->getPeerManager()->getPeerCount());
@@ -3568,6 +3688,7 @@ bool Blockchain::rollbackToIndex(int index) {
   }
 
   chain.resize(index + 1); // Keep only up to common ancestor
+  refreshRewardFromTip();
   saveToDB();
   recalculateBalancesFromChain();
   applyRollupDeltasToBalances();
@@ -3703,6 +3824,7 @@ void Blockchain::compareAndMergeChains(const std::vector<Block> &otherChain) {
   if (chain.empty()) {
     std::cout << "🆕 [Fork] Local chain is empty. Accepting full chain.\n";
     chain = otherChain;
+    refreshRewardFromTip();
     saveToDB();
     recalculateBalancesFromChain();
     applyRollupDeltasToBalances();
@@ -3767,6 +3889,7 @@ void Blockchain::compareAndMergeChains(const std::vector<Block> &otherChain) {
       std::cerr
           << "🔁 [Fork] Same length but higher difficulty. Replacing chain.\n";
       chain = otherChain;
+      refreshRewardFromTip();
       saveToDB();
       recalculateBalancesFromChain();
       applyRollupDeltasToBalances();
@@ -3792,6 +3915,7 @@ void Blockchain::compareAndMergeChains(const std::vector<Block> &otherChain) {
   if (commonIndex == -1) {
     std::cerr << "⚠️ [Fork] No common ancestor. Replacing full chain.\n";
     chain = otherChain;
+    refreshRewardFromTip();
     saveToDB();
     recalculateBalancesFromChain();
     applyRollupDeltasToBalances();
@@ -3996,6 +4120,59 @@ void Blockchain::tryAttachOrphans(const std::string &parentHash) {
   }
 }
 
+void Blockchain::applyConsensusHints(int remoteHeight, int hintedDifficulty,
+                                     double hintedReward) {
+  std::lock_guard<std::recursive_mutex> lock(blockchainMutex);
+
+  if (remoteHeight < 0)
+    return;
+
+  int localHeight = static_cast<int>(chain.size()) - 1;
+  if (remoteHeight < localHeight)
+    return;
+
+  bool difficultyChanged = false;
+  bool rewardChanged = false;
+
+  if (hintedDifficulty > 0 && hintedDifficulty != difficulty) {
+    std::cout << "🛰️ [consensus] Updating difficulty from network hint "
+              << difficulty << " → " << hintedDifficulty
+              << " (remote height " << remoteHeight << ")\n";
+    difficulty = hintedDifficulty;
+    difficultyChanged = true;
+  }
+
+  if (hintedReward > 0.0 && std::fabs(blockReward - hintedReward) > 1e-9) {
+    std::cout << "🛰️ [consensus] Updating reward from network hint "
+              << formatAmount(blockReward) << " → "
+              << formatAmount(hintedReward) << "\n";
+    blockReward = hintedReward;
+    rewardChanged = true;
+  }
+
+  if (!db)
+    return;
+
+  rocksdb::WriteOptions opts;
+  if (difficultyChanged) {
+    rocksdb::Status st = db->Put(
+        opts, "last_difficulty",
+        std::to_string(static_cast<uint64_t>(std::max(difficulty, 0))));
+    if (!st.ok()) {
+      std::cerr << "⚠️ [consensus] Failed to persist last_difficulty: "
+                << st.ToString() << "\n";
+    }
+  }
+
+  if (rewardChanged) {
+    rocksdb::Status st = db->Put(opts, "last_reward", formatAmount(blockReward));
+    if (!st.ok()) {
+      std::cerr << "⚠️ [consensus] Failed to persist last_reward: "
+                << st.ToString() << "\n";
+    }
+  }
+}
+
 size_t Blockchain::getOrphanPoolSize() const {
   size_t total = 0;
   for (const auto &[_, vec] : orphanBlocks)
@@ -4007,4 +4184,5 @@ void Blockchain::broadcastNewTip() {
   if (!network)
     return;
   network->broadcastHeight(chain.back().getIndex());
+  network->broadcastHandshake();
 }
