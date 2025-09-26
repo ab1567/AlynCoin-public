@@ -52,6 +52,23 @@ int UPNP_AddPortMapping(const char *controlURL, const char *servicetype,
   return -1;
 }
 
+int UPNP_GetExternalIPAddress(const char *controlURL,
+                              const char *servicetype, char *extIpAdd
+#if defined(MINIUPNPC_API_VERSION) && (MINIUPNPC_API_VERSION >= 18)
+                              , int *status
+#endif
+) {
+  (void)controlURL;
+  (void)servicetype;
+  if (extIpAdd)
+    extIpAdd[0] = '\0';
+#if defined(MINIUPNPC_API_VERSION) && (MINIUPNPC_API_VERSION >= 18)
+  if (status)
+    *status = 0;
+#endif
+  return -1;
+}
+
 const char *strupnperror(int err) {
   (void)err;
   return "miniupnpc stub";
