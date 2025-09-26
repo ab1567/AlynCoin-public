@@ -39,6 +39,11 @@ message Handshake {
   // 64-bit nonce used as a tie breaker when both sides initiate a
   // connection at the same time.
   uint64 nonce = 13;
+
+  // Optional: the sender's externally observed IP address. Modern nodes set
+  // this when responding to a handshake so the remote peer learns which
+  // address the network sees for it.
+  string observed_ip = 14;
 }
 
 message Ping {}
