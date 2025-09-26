@@ -22,6 +22,7 @@ public:
 
     // Legacy wrappers (compat with CLI / tests)
     void monitorAndHeal();
+    NodeHealthStatus manualHeal();
     void runPeriodicCheck(std::chrono::seconds interval);
 
     // --- future health modules (stubs) ---------------------------------
@@ -33,6 +34,8 @@ private:
     std::unique_ptr<SyncRecovery> syncRecovery_;
     Blockchain* blockchain_;
     PeerManager* peerManager_;
+
+    NodeHealthStatus runHealthCheck(bool manualTrigger);
 };
 
 #endif // SELF_HEALING_NODE_H

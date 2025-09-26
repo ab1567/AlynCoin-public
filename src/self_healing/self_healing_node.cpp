@@ -5,6 +5,7 @@
 #include "network.h"
 #include <thread>
 #include <chrono>
+#include <vector>
 
 SelfHealingNode::SelfHealingNode(Blockchain* blockchain, PeerManager* peerManager)
     : blockchain_(blockchain), peerManager_(peerManager) {
@@ -12,15 +13,45 @@ SelfHealingNode::SelfHealingNode(Blockchain* blockchain, PeerManager* peerManage
     syncRecovery_ = std::make_unique<SyncRecovery>(blockchain, peerManager);
 }
 
-void SelfHealingNode::checkPeerHeights() {
+NodeHealthStatus SelfHealingNode::runHealthCheck(bool manualTrigger) {
+    NodeHealthStatus status{};
+
+    if (!healthMonitor_) {
+        Logger::error("❌ [SelfHealer] Health monitor unavailable.");
+        status.isHealthy = false;
+        status.reason = "Health monitor unavailable";
+        return status;
+    }
+
+    if (!blockchain_) {
+        Logger::error("❌ [SelfHealer] Blockchain instance unavailable.");
+        status.isHealthy = false;
+        status.reason = "Blockchain unavailable";
+        return status;
+    }
+
+    if (!peerManager_) {
+        Logger::warn("⚠️ [SelfHealer] Peer manager unavailable; cannot evaluate peers.");
+        status.isHealthy = false;
+        status.reason = "Peer manager unavailable";
+        return status;
+    }
+
     if (auto net = Network::getExistingInstance()) {
         alyncoin::net::Frame fr;
         fr.mutable_height_req();
         net->broadcastFrame(fr);
     }
 
-    NodeHealthStatus status = healthMonitor_->checkHealth();
+    status = healthMonitor_->checkHealth();
     healthMonitor_->logStatus(status);
+
+    auto ensureManualKick = [this, manualTrigger]() {
+        if (!manualTrigger)
+            return;
+        Logger::info("🩺 [SelfHealer] Manual hard sync requested. Forcing peer re-sync probes...");
+        kickStalledSync();
+    };
 
     if (status.farBehind) {
         Logger::warn("🚨 Node far behind. Purging local data and requesting snapshot...");
@@ -30,22 +61,36 @@ void SelfHealingNode::checkPeerHeights() {
             if (auto net = Network::getExistingInstance()) {
                 net->requestSnapshotSync(peers.front());
             }
+        } else {
+            Logger::warn("⚠️ [SelfHealer] No peers available to request snapshot from.");
         }
-        return;
+        ensureManualKick();
+        return status;
     }
 
-    if (!healthMonitor_->shouldTriggerRecovery(status)) return;
+    if (!healthMonitor_->shouldTriggerRecovery(status)) {
+        ensureManualKick();
+        return status;
+    }
 
     Logger::warn("🚨 Node health degraded. Initiating recovery...");
 
     if (!syncRecovery_->attemptRecovery(status.expectedTipHash)) {
         Logger::error("❌ Self-healing failed. Manual intervention may be required.");
     }
+
+    ensureManualKick();
+    return status;
+}
+
+void SelfHealingNode::checkPeerHeights() {
+    runHealthCheck(false);
 }
 
 void SelfHealingNode::kickStalledSync() {
     if (auto net = Network::getExistingInstance()) {
         net->autoSyncIfBehind();
+        net->intelligentSync();
     }
 }
 
@@ -62,7 +107,11 @@ void SelfHealingNode::checkSwapLiquidity() {}
 // ---------------------------------------------------------------------
 // Legacy wrappers used by older CLI paths
 void SelfHealingNode::monitorAndHeal() {
-    checkPeerHeights();
+    runHealthCheck(false);
+}
+
+NodeHealthStatus SelfHealingNode::manualHeal() {
+    return runHealthCheck(true);
 }
 
 void SelfHealingNode::runPeriodicCheck(std::chrono::seconds interval) {
