@@ -126,6 +126,12 @@ uint64_t PeerManager::getMaxPeerWork() const {
     return maxW;
 }
 
+void PeerManager::setExternalAddress(const std::string &address) {
+    externalAddress_ = address;
+}
+
+std::string PeerManager::getExternalAddress() const { return externalAddress_; }
+
 uint64_t PeerManager::getMedianNetworkHeight() {
     std::vector<int> heights;
 

@@ -23,6 +23,7 @@ private:
     uint64_t localWork = 0;
     PeerBlacklist* blacklist;
     Network* network;
+    std::string externalAddress_;
 
     struct PendingBlockRequest {
         std::mutex mutex;
@@ -65,6 +66,9 @@ public:
     // --- New helpers for chain health ---------------------------------
     int getMaxPeerHeight() const;
     std::string getConsensusTipHash(int localHeight) const;
+
+    void setExternalAddress(const std::string &address);
+    std::string getExternalAddress() const;
 };
 
 #endif // PEER_MANAGER_H

@@ -25,6 +25,39 @@ void loadConfigFile(const std::string &path) {
             cfg.reserve_address = line.substr(16);
         } else if (line.rfind("por_expected_walyn=", 0) == 0) {
             cfg.por_expected_walyn = std::stod(line.substr(18));
+        } else if (line.rfind("external_address=", 0) == 0) {
+            cfg.external_address = line.substr(17);
         }
+    }
+}
+
+void saveConfigValue(const std::string &path, const std::string &key,
+                     const std::string &value) {
+    std::ifstream in(path);
+    std::vector<std::string> lines;
+    bool updated = false;
+    std::string line;
+    if (in.is_open()) {
+        while (std::getline(in, line)) {
+            if (line.rfind(key + '=', 0) == 0) {
+                lines.push_back(key + '=' + value);
+                updated = true;
+            } else {
+                lines.push_back(line);
+            }
+        }
+        in.close();
+    }
+    if (!updated) {
+        lines.push_back(key + '=' + value);
+    }
+
+    std::ofstream out(path, std::ios::trunc);
+    if (!out.is_open())
+        return;
+    for (size_t i = 0; i < lines.size(); ++i) {
+        out << lines[i];
+        if (i + 1 != lines.size())
+            out << '\n';
     }
 }

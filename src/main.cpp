@@ -1606,7 +1606,6 @@ int main(int argc, char *argv[]) {
   std::srand(std::time(nullptr));
   loadConfigFile("config.ini");
   unsigned short port = DEFAULT_PORT;
-  bool portSpecified = false;
   unsigned short rpcPort = 1567;
   bool rpcPortSpecified = false;
   std::string rpcBindHost = "127.0.0.1";
@@ -1614,6 +1613,8 @@ int main(int argc, char *argv[]) {
   std::string connectIP = "";
   std::string keyDir = DBPaths::getKeyDir();
   bool autoMine = true;
+  std::string externalAddress = getAppConfig().external_address;
+  bool externalSpecified = false;
 
   for (int i = 1; i < argc; ++i) {
     std::string arg = argv[i];
@@ -1622,7 +1623,6 @@ int main(int argc, char *argv[]) {
       return 0;
     } else if (arg == "--port" && i + 1 < argc) {
       port = static_cast<unsigned short>(std::stoi(argv[++i]));
-      portSpecified = true;
       std::cout << "🌐 Using custom port: " << port << std::endl;
     } else if (arg == "--rpcport" && i + 1 < argc) {
       rpcPort = static_cast<unsigned short>(std::stoi(argv[++i]));
@@ -1664,13 +1664,9 @@ int main(int argc, char *argv[]) {
       autoMine = false;
     } else if (arg == "--banminutes" && i + 1 < argc) {
       getAppConfig().ban_minutes = std::stoi(argv[++i]);
-    }
-  }
-  if (!portSpecified) {
-    unsigned short newPort = Network::findAvailablePort(port);
-    if (newPort != 0 && newPort != port) {
-      port = newPort;
-      std::cout << "🌐 Auto-selected available port: " << port << std::endl;
+    } else if (arg == "--external_address" && i + 1 < argc) {
+      externalAddress = argv[++i];
+      externalSpecified = true;
     }
   }
 
@@ -1679,15 +1675,17 @@ int main(int argc, char *argv[]) {
       ++rpcPort;
       std::cout << "🔌 RPC port adjusted to " << rpcPort
                 << " to avoid conflict with network port" << std::endl;
-    } else if (!portSpecified) {
-      ++port;
-      std::cout << "🌐 Network port adjusted to " << port
-                << " to avoid conflict with RPC port" << std::endl;
     } else {
       std::cerr << "❌ Network port and RPC port cannot be the same."
                 << std::endl;
       return 1;
     }
+  }
+  if (externalSpecified) {
+    getAppConfig().external_address = externalAddress;
+    saveConfigValue("config.ini", "external_address", externalAddress);
+  } else if (!externalAddress.empty()) {
+    getAppConfig().external_address = externalAddress;
   }
   getAppConfig().rpc_bind = rpcBindHost + ":" + std::to_string(rpcPort);
   std::cout << "🔌 RPC bind: " << rpcBindHost << ':' << rpcPort << std::endl;
@@ -1702,6 +1700,9 @@ int main(int argc, char *argv[]) {
   if (getAppConfig().por_expected_walyn > 0)
     std::cout << "💱 Expected wALYN: " << getAppConfig().por_expected_walyn
               << std::endl;
+  if (!getAppConfig().external_address.empty())
+    std::cout << "📣 Announcing external address: "
+              << getAppConfig().external_address << std::endl;
   std::string blacklistPath = dbPath + "/blacklist";
   {
     std::error_code ec;
@@ -1731,6 +1732,8 @@ int main(int argc, char *argv[]) {
     Network::autoMineEnabled = autoMine;
     network = &Network::getInstance(port, &blockchain, peerBlacklistPtr.get());
     blockchain.setNetwork(network);
+    if (network && !getAppConfig().external_address.empty())
+      network->setConfiguredExternalAddress(getAppConfig().external_address);
   } else {
     std::cerr << "⚠️ Network disabled due to PeerBlacklist failure.\n";
   }

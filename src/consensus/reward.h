@@ -19,6 +19,8 @@ double calculateBlockSubsidy(const Blockchain &chain,
 
 double calculateBlockSubsidy(const Blockchain &chain);
 
+double blockSubsidyForHeight(std::uint64_t height);
+
 } // namespace consensus
 
 #endif // ALYNCOIN_CONSENSUS_REWARD_H

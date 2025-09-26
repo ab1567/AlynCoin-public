@@ -76,6 +76,27 @@ std::string formatAmount(double amount) {
 
 } // namespace
 
+namespace {
+struct FeeBreakdown {
+  double totalFee{0.0};
+  double burn{0.0};
+  double dev{0.0};
+};
+
+FeeBreakdown computeFeeBreakdown(double amount, double txActivity) {
+  FeeBreakdown out{};
+  const double burnRate = std::clamp(txActivity / 1000.0, 0.01, 0.05);
+  double feeAmount = amount * 0.01;
+  const double maxFeePct = 0.00005;
+  feeAmount = std::min(feeAmount, amount * maxFeePct);
+  feeAmount = std::min(feeAmount, 1.0);
+  out.burn = std::min(feeAmount * burnRate, 0.003);
+  out.dev = std::min(feeAmount - out.burn, 0.002);
+  out.totalFee = feeAmount;
+  return out;
+}
+} // namespace
+
 struct PremineEntry {
   std::string address;
   double amount;
@@ -653,6 +674,32 @@ bool Blockchain::addBlock(const Block &block, bool lockHeld) {
     return false;
   }
 
+  double mintedTotal = 0.0;
+  for (const auto &tx : block.getTransactions()) {
+    if (tx.getSender() == "System")
+      mintedTotal += tx.getAmount();
+  }
+
+  double computedFees = 0.0;
+  for (const auto &tx : block.getTransactions()) {
+    if (tx.getSender() == "System")
+      continue;
+    double txActivity = static_cast<double>(getRecentTransactionCount());
+    FeeBreakdown fees = computeFeeBreakdown(tx.getAmount(), txActivity);
+    computedFees += fees.totalFee;
+  }
+
+  double expectedSubsidy = consensus::blockSubsidyForHeight(block.getIndex());
+  double remainingSupply = std::max(0.0, MAX_SUPPLY - totalSupply);
+  expectedSubsidy = std::min(expectedSubsidy, remainingSupply);
+  double expectedCoinbase = expectedSubsidy + computedFees;
+  const double rewardTolerance = 1e-8;
+  if (std::abs(mintedTotal - expectedCoinbase) > rewardTolerance) {
+    std::cerr << "❌ [addBlock] Coinbase mismatch. Minted " << mintedTotal
+              << " expected " << expectedCoinbase << "\n";
+    return false;
+  }
+
   // 6. Diagnostics
   std::cerr << "🧪 [addBlock] Safe push diagnostics:\n";
   std::cerr << "  - Index: " << block.getIndex() << "\n";
@@ -1058,31 +1105,12 @@ void Blockchain::noteNewL1(std::time_t timestamp) {
 }
 
 void Blockchain::refreshRewardFromTip() {
-  if (chain.empty()) {
-    blockReward = consensus::calculateBlockSubsidy(*this, 0, totalSupply);
-    return;
-  }
-
-  const Block &tip = chain.back();
-  double tipReward = tip.getReward();
-
-  if (tip.getIndex() == 0 && tipReward <= 0.0) {
-    blockReward = BASE_BLOCK_REWARD;
-    return;
-  }
-
-  if (tipReward <= 0.0) {
-    blockReward = 0.0;
-    return;
-  }
-
-  blockReward = tipReward;
-
-  double projected = consensus::calculateBlockSubsidy(
-      *this, static_cast<uint64_t>(tip.getIndex()) + 1ULL, totalSupply,
-      std::time(nullptr));
-  if (projected > 0.0)
-    blockReward = projected;
+  std::uint64_t nextHeight = 0;
+  if (!chain.empty())
+    nextHeight = static_cast<std::uint64_t>(chain.back().getIndex()) + 1ULL;
+  double subsidy = consensus::blockSubsidyForHeight(nextHeight);
+  double remaining = std::max(0.0, MAX_SUPPLY - totalSupply);
+  blockReward = std::min(subsidy, remaining);
 }
 
 void Blockchain::recordConfirmedNonce(const std::string &sender, uint64_t nonce,
@@ -1246,6 +1274,7 @@ Block Blockchain::minePendingTransactions(
     const std::vector<unsigned char> &minerDilithiumPriv,
     const std::vector<unsigned char> &minerFalconPriv,
     bool forceAutoReward) {
+  (void)forceAutoReward;
   if (isRecoveringActive()) {
     std::cout << "[DEBUG] Skipping mining while recovering..." << std::endl;
     return Block();
@@ -1258,20 +1287,25 @@ Block Blockchain::minePendingTransactions(
     return Block();
   }
   std::cout
-      << "[DEBUG] Waiting on blockchainMutex in minePendingTransactions()...\n";
+      << "[DEBUG] Waiting on blockchainMutex in minePendingTransactions()...
+";
   std::unique_lock<std::recursive_mutex> lock(blockchainMutex);
   std::cout
-      << "[DEBUG] Acquired blockchainMutex in minePendingTransactions()!\n";
+      << "[DEBUG] Acquired blockchainMutex in minePendingTransactions()!
+";
 
   std::map<std::string, double> tempBalances;
   std::vector<Transaction> validTx;
-  std::cout << "[DEBUG] Validating and preparing transactions...\n";
+  std::cout << "[DEBUG] Validating and preparing transactions...
+";
 
   std::time_t timestamp = std::time(nullptr);
+  double totalFeesCollected = 0.0;
 
   for (const auto &tx : pendingTransactions) {
     if (isL2Transaction(tx)) {
-      std::cout << "⚠️ Skipping L2 transaction during L1 mining.\n";
+      std::cout << "⚠️ Skipping L2 transaction during L1 mining.
+";
       continue;
     }
 
@@ -1279,7 +1313,8 @@ Block Blockchain::minePendingTransactions(
         tx.getRecipient().empty() || tx.getAmount() <= 0.0 ||
         tx.getSignatureDilithium().empty() || tx.getSignatureFalcon().empty() ||
         tx.getZkProof().empty()) {
-      std::cerr << "❌ Skipping invalid transaction.\n";
+      std::cerr << "❌ Skipping invalid transaction.
+";
       continue;
     }
 
@@ -1289,94 +1324,74 @@ Block Blockchain::minePendingTransactions(
 
     if (sender != "System" && senderBal < amount) {
       std::cerr << "❌ Insufficient balance (" << senderBal << ") for sender ("
-                << sender << ")\n";
+                << sender << ")
+";
       continue;
     }
 
     double txActivity = static_cast<double>(getRecentTransactionCount());
-    double burnRate = std::clamp(txActivity / 1000.0, 0.01, 0.05);
-    double rawFee = amount * 0.01;
-    double maxFeePct = 0.00005;
-    double feeAmount = std::min({rawFee, amount * maxFeePct, 1.0});
-    double burnAmount = std::min(feeAmount * burnRate, 0.003);
-    double devFundAmt = std::min(feeAmount - burnAmount, 0.002);
-    double finalAmount = amount - feeAmount;
+    FeeBreakdown fees = computeFeeBreakdown(amount, txActivity);
+    double finalAmount = amount - fees.totalFee;
 
     tempBalances[sender] -= amount;
     tempBalances[tx.getRecipient()] += finalAmount;
-    tempBalances[DEV_FUND_ADDRESS] += devFundAmt;
-    totalBurnedSupply += burnAmount;
+    tempBalances[DEV_FUND_ADDRESS] += fees.dev;
+    totalBurnedSupply += fees.burn;
+    totalFeesCollected += fees.totalFee;
 
     validTx.push_back(tx);
 
-    if (devFundAmt > 0.0) {
-      Transaction devTx = Transaction::createSystemRewardTransaction(
-          DEV_FUND_ADDRESS, devFundAmt, timestamp, "");
-      validTx.push_back(devTx);
-    }
-
-    std::cout << "🔥 Burned: " << burnAmount
-              << " AlynCoin, 💰 Dev Fund: " << devFundAmt
-              << ", 📤 Final Sent: " << finalAmount << " AlynCoin\n";
+    std::cout << "🔥 Burned: " << fees.burn
+              << " AlynCoin, 💰 Dev Fund: " << fees.dev
+              << ", 📤 Final Sent: " << finalAmount << " AlynCoin
+";
   }
 
   if (validTx.empty()) {
-    std::cout << "⛏️ No valid transactions found, creating empty block.\n";
+    std::cout << "⛏️ No valid transactions found, creating empty block.
+";
   }
 
-  double blockRewardVal = 0.0;
-  bool useAutoReward = forceAutoReward || isAutoMiningRewardMode();
-  if (useAutoReward) {
-    double remaining = std::max(0.0, MAX_SUPPLY - totalSupply);
-    blockRewardVal = std::min(AUTO_MINING_REWARD, remaining);
-    if (blockRewardVal > 0.0) {
-      std::cout << "⛏️ Auto-miner reward reduced to " << blockRewardVal
-                << " AlynCoin → " << minerAddress << "\n";
-    } else {
-      std::cerr << "🚫 Auto-miner reward skipped. Max supply reached.\n";
-    }
-  } else if (totalSupply < MAX_SUPPLY) {
-    blockRewardVal = calculateBlockReward();
-    if (totalSupply + blockRewardVal > MAX_SUPPLY) {
-      blockRewardVal = MAX_SUPPLY - totalSupply;
-    }
-    std::cout << "[DEBUG] totalSupply = " << totalSupply
-              << ", max = " << MAX_SUPPLY << "\n";
-  } else {
-    std::cerr << "🚫 Block reward skipped. Max supply reached.\n";
-  }
-
-  if (blockRewardVal > 0.0) {
+  std::uint64_t nextHeight =
+      chain.empty() ? 0 : static_cast<std::uint64_t>(chain.back().getIndex()) + 1ULL;
+  double remainingSupply = std::max(0.0, MAX_SUPPLY - totalSupply);
+  double baseSubsidy = consensus::blockSubsidyForHeight(nextHeight);
+  double subsidy = std::min(baseSubsidy, remainingSupply);
+  double coinbaseReward = subsidy + totalFeesCollected;
+  if (coinbaseReward > 0.0) {
     Transaction rewardTx = Transaction::createSystemRewardTransaction(
-        minerAddress, blockRewardVal, timestamp, "");
+        minerAddress, coinbaseReward, timestamp, "");
     validTx.push_back(rewardTx);
-    if (!useAutoReward) {
-      std::cout << "⛏️ Block reward: " << blockRewardVal << " AlynCoin → "
-                << minerAddress << "\n";
-    }
+    std::cout << "⛏️ Coinbase reward: subsidy=" << subsidy
+              << " fees=" << totalFeesCollected << " → " << minerAddress
+              << "
+";
   }
 
   Block lastBlock = getLatestBlock();
-  std::cout << "[DEBUG] Last block hash: " << lastBlock.getHash() << "\n";
+  std::cout << "[DEBUG] Last block hash: " << lastBlock.getHash() << "
+";
   adjustDifficulty();
-  std::cout << "⚙️ Difficulty set to: " << difficulty << "\n";
+  std::cout << "⚙️ Difficulty set to: " << difficulty << "
+";
 
   Block newBlock(chain.size(), lastBlock.getHash(), validTx, minerAddress,
                  difficulty, timestamp, 0);
 
-  // ✅ Store reward in block
-  std::cout << "[DEBUG] Setting reward in block: " << blockRewardVal << "\n";
-  newBlock.setReward(blockRewardVal);
-  std::cout << "[DEBUG] Block reward now: " << newBlock.getReward() << "\n";
+  std::cout << "[DEBUG] Setting reward in block: " << coinbaseReward << "
+";
+  newBlock.setReward(coinbaseReward);
+  std::cout << "[DEBUG] Block reward now: " << newBlock.getReward() << "
+";
 
   lock.unlock();
   if (!newBlock.mineBlock(difficulty)) {
-    std::cerr << "❌ Mining process returned false!\n";
+    std::cerr << "❌ Mining process returned false!
+";
     return Block();
   }
   lock.lock();
 
-  // If this block completes an epoch, compute aggregated root and dummy proof
   size_t nextIndex = chain.size();
   if ((nextIndex + 1) % EPOCH_SIZE == 0 &&
       chain.size() >= static_cast<size_t>(EPOCH_SIZE - 1)) {
@@ -1391,20 +1406,24 @@ Block Blockchain::minePendingTransactions(
   }
 
   if (newBlock.getZkProof().empty()) {
-    std::cerr << "❌ [ERROR] Mined block has empty zkProof! Aborting mining.\n";
+    std::cerr << "❌ [ERROR] Mined block has empty zkProof! Aborting mining.
+";
     return Block();
   }
 
-  std::cout << "[DEBUG] Attempting to addBlock()...\n";
+  std::cout << "[DEBUG] Attempting to addBlock()...
+";
   if (!addBlock(newBlock, true)) {
-    std::cerr << "❌ Error adding mined block to blockchain.\n";
+    std::cerr << "❌ Error adding mined block to blockchain.
+";
     return Block();
   }
 
   clearPendingTransactions();
   lock.unlock();
   std::cout << "[DEBUG] About to serialize block with reward = "
-            << newBlock.getReward() << "\n";
+            << newBlock.getReward() << "
+";
   saveToDB();
 
   std::thread(
@@ -1424,10 +1443,10 @@ Block Blockchain::minePendingTransactions(
       .detach();
 
   std::cout << "✅ Block mined and added successfully. Total burned supply: "
-            << totalBurnedSupply << "\n";
+            << totalBurnedSupply << "
+";
   return newBlock;
 }
-
 // ✅ **Sync Blockchain**
 void Blockchain::syncChain(const Json::Value &jsonData) {
   std::unique_lock<std::recursive_mutex> lock(blockchainMutex);
@@ -3197,9 +3216,9 @@ double Blockchain::calculateBlockReward() {
   const uint64_t nextHeight = chain.empty()
                                    ? 0
                                    : static_cast<uint64_t>(chain.back().getIndex()) + 1ULL;
-  const double reward = consensus::calculateBlockSubsidy(
-      *this, nextHeight, totalSupply, std::time(nullptr));
-  blockReward = reward;
+  double reward = consensus::blockSubsidyForHeight(nextHeight);
+  double remaining = std::max(0.0, MAX_SUPPLY - totalSupply);
+  blockReward = std::min(reward, remaining);
   return blockReward;
 }
 
