@@ -1275,6 +1275,9 @@ Block Blockchain::minePendingTransactions(
     const std::vector<unsigned char> &minerFalconPriv,
     bool forceAutoReward) {
   (void)forceAutoReward;
+  (void)minerDilithiumPriv;
+  (void)minerFalconPriv;
+
   if (isRecoveringActive()) {
     std::cout << "[DEBUG] Skipping mining while recovering..." << std::endl;
     return Block();
@@ -1286,26 +1289,27 @@ Block Blockchain::minePendingTransactions(
               << std::endl;
     return Block();
   }
+
   std::cout
-      << "[DEBUG] Waiting on blockchainMutex in minePendingTransactions()...
-";
+      << "[DEBUG] Waiting on blockchainMutex in minePendingTransactions()..."
+      << std::endl;
   std::unique_lock<std::recursive_mutex> lock(blockchainMutex);
   std::cout
-      << "[DEBUG] Acquired blockchainMutex in minePendingTransactions()!
-";
+      << "[DEBUG] Acquired blockchainMutex in minePendingTransactions()!"
+      << std::endl;
 
   std::map<std::string, double> tempBalances;
   std::vector<Transaction> validTx;
-  std::cout << "[DEBUG] Validating and preparing transactions...
-";
+  std::cout << "[DEBUG] Validating and preparing transactions..."
+            << std::endl;
 
   std::time_t timestamp = std::time(nullptr);
   double totalFeesCollected = 0.0;
 
   for (const auto &tx : pendingTransactions) {
     if (isL2Transaction(tx)) {
-      std::cout << "⚠️ Skipping L2 transaction during L1 mining.
-";
+      std::cout << "⚠️ Skipping L2 transaction during L1 mining."
+                << std::endl;
       continue;
     }
 
@@ -1313,8 +1317,8 @@ Block Blockchain::minePendingTransactions(
         tx.getRecipient().empty() || tx.getAmount() <= 0.0 ||
         tx.getSignatureDilithium().empty() || tx.getSignatureFalcon().empty() ||
         tx.getZkProof().empty()) {
-      std::cerr << "❌ Skipping invalid transaction.
-";
+      std::cerr << "❌ Skipping invalid transaction."
+                << std::endl;
       continue;
     }
 
@@ -1324,8 +1328,7 @@ Block Blockchain::minePendingTransactions(
 
     if (sender != "System" && senderBal < amount) {
       std::cerr << "❌ Insufficient balance (" << senderBal << ") for sender ("
-                << sender << ")
-";
+                << sender << ")" << std::endl;
       continue;
     }
 
@@ -1343,13 +1346,13 @@ Block Blockchain::minePendingTransactions(
 
     std::cout << "🔥 Burned: " << fees.burn
               << " AlynCoin, 💰 Dev Fund: " << fees.dev
-              << ", 📤 Final Sent: " << finalAmount << " AlynCoin
-";
+              << ", 📤 Final Sent: " << finalAmount << " AlynCoin"
+              << std::endl;
   }
 
   if (validTx.empty()) {
-    std::cout << "⛏️ No valid transactions found, creating empty block.
-";
+    std::cout << "⛏️ No valid transactions found, creating empty block."
+              << std::endl;
   }
 
   std::uint64_t nextHeight =
@@ -1364,30 +1367,27 @@ Block Blockchain::minePendingTransactions(
     validTx.push_back(rewardTx);
     std::cout << "⛏️ Coinbase reward: subsidy=" << subsidy
               << " fees=" << totalFeesCollected << " → " << minerAddress
-              << "
-";
+              << std::endl;
   }
 
   Block lastBlock = getLatestBlock();
-  std::cout << "[DEBUG] Last block hash: " << lastBlock.getHash() << "
-";
+  std::cout << "[DEBUG] Last block hash: " << lastBlock.getHash()
+            << std::endl;
   adjustDifficulty();
-  std::cout << "⚙️ Difficulty set to: " << difficulty << "
-";
+  std::cout << "⚙️ Difficulty set to: " << difficulty << std::endl;
 
   Block newBlock(chain.size(), lastBlock.getHash(), validTx, minerAddress,
                  difficulty, timestamp, 0);
 
-  std::cout << "[DEBUG] Setting reward in block: " << coinbaseReward << "
-";
+  std::cout << "[DEBUG] Setting reward in block: " << coinbaseReward
+            << std::endl;
   newBlock.setReward(coinbaseReward);
-  std::cout << "[DEBUG] Block reward now: " << newBlock.getReward() << "
-";
+  std::cout << "[DEBUG] Block reward now: " << newBlock.getReward()
+            << std::endl;
 
   lock.unlock();
   if (!newBlock.mineBlock(difficulty)) {
-    std::cerr << "❌ Mining process returned false!
-";
+    std::cerr << "❌ Mining process returned false!" << std::endl;
     return Block();
   }
   lock.lock();
@@ -1406,24 +1406,21 @@ Block Blockchain::minePendingTransactions(
   }
 
   if (newBlock.getZkProof().empty()) {
-    std::cerr << "❌ [ERROR] Mined block has empty zkProof! Aborting mining.
-";
+    std::cerr << "❌ [ERROR] Mined block has empty zkProof! Aborting mining."
+              << std::endl;
     return Block();
   }
 
-  std::cout << "[DEBUG] Attempting to addBlock()...
-";
+  std::cout << "[DEBUG] Attempting to addBlock()..." << std::endl;
   if (!addBlock(newBlock, true)) {
-    std::cerr << "❌ Error adding mined block to blockchain.
-";
+    std::cerr << "❌ Error adding mined block to blockchain." << std::endl;
     return Block();
   }
 
   clearPendingTransactions();
   lock.unlock();
   std::cout << "[DEBUG] About to serialize block with reward = "
-            << newBlock.getReward() << "
-";
+            << newBlock.getReward() << std::endl;
   saveToDB();
 
   std::thread(
@@ -1443,10 +1440,10 @@ Block Blockchain::minePendingTransactions(
       .detach();
 
   std::cout << "✅ Block mined and added successfully. Total burned supply: "
-            << totalBurnedSupply << "
-";
+            << totalBurnedSupply << std::endl;
   return newBlock;
 }
+
 // ✅ **Sync Blockchain**
 void Blockchain::syncChain(const Json::Value &jsonData) {
   std::unique_lock<std::recursive_mutex> lock(blockchainMutex);

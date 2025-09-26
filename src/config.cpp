@@ -1,5 +1,6 @@
 #include "config.h"
 #include <fstream>
+#include <vector>
 
 AppConfig& getAppConfig() {
     static AppConfig cfg;
