@@ -73,6 +73,7 @@ file(GLOB SOURCES
   ${SOURCE_DIR}/keccak.cpp
   ${SOURCE_DIR}/key_paths.cpp
   ${SOURCE_DIR}/consensus/difficulty.cpp
+  ${SOURCE_DIR}/consensus/reward.cpp
   ${SOURCE_DIR}/consensus/fork_choice.cpp
   ${SOURCE_DIR}/zk/*.cpp
   ${SOURCE_DIR}/atomic_swaps/*.cpp
