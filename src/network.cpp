@@ -188,6 +188,19 @@ static bool isRoutableAddress(const std::string &ip) {
   }
 }
 
+static bool isShareableAddress(const std::string &ip) {
+  if (ip.empty())
+    return false;
+  try {
+    const auto addr = boost::asio::ip::make_address(ip);
+    if (addr.is_unspecified() || addr.is_loopback() || addr.is_multicast())
+      return false;
+    return true;
+  } catch (const std::exception &) {
+    return false;
+  }
+}
+
 static std::pair<std::string, int>
 selectReachableEndpoint(const PeerEntry &entry) {
   auto choosePort = [&](int candidate) {
@@ -1122,7 +1135,7 @@ void Network::broadcastPeerList() {
       auto endpoint = selectReachableEndpoint(entry);
       if (endpoint.first.empty() || endpoint.second <= 0)
         continue;
-      if (!isRoutableAddress(endpoint.first))
+      if (!isShareableAddress(endpoint.first))
         continue;
       peers.push_back(std::move(endpoint));
     }
@@ -2750,12 +2763,13 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
       int port = std::stoi(p.substr(pos + 1));
       if (ip.empty() || port <= 0)
         continue;
-      if (!isRoutableAddress(ip))
+      if (!isShareableAddress(ip))
         continue;
       if ((ip == "127.0.0.1" || ip == "localhost") && port == this->port)
         continue;
-      if (peerTransports.count(ip))
+      if (peerTransports.count(p))
         continue;
+      knownPeers.insert(p);
       connectToNode(ip, port);
     }
     break;

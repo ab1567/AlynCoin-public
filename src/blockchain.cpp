@@ -5,6 +5,7 @@
 #include "db/db_paths.h"
 #include "db/db_writer.h"
 #include "difficulty.h"
+#include "consensus/reward.h"
 #include "embedded_genesis.h"
 #include "genesis.h"
 #include "layer2/state_channel.h"
@@ -1058,7 +1059,7 @@ void Blockchain::noteNewL1(std::time_t timestamp) {
 
 void Blockchain::refreshRewardFromTip() {
   if (chain.empty()) {
-    blockReward = BASE_BLOCK_REWARD;
+    blockReward = consensus::calculateBlockSubsidy(*this, 0, totalSupply);
     return;
   }
 
@@ -1076,6 +1077,12 @@ void Blockchain::refreshRewardFromTip() {
   }
 
   blockReward = tipReward;
+
+  double projected = consensus::calculateBlockSubsidy(
+      *this, static_cast<uint64_t>(tip.getIndex()) + 1ULL, totalSupply,
+      std::time(nullptr));
+  if (projected > 0.0)
+    blockReward = projected;
 }
 
 void Blockchain::recordConfirmedNonce(const std::string &sender, uint64_t nonce,
@@ -2022,7 +2029,13 @@ bool Blockchain::loadFromDB() {
     }
   }
 
-  blockReward = persistedBlockReward;
+  recalculateBalancesFromChain();
+
+  if (persistedBlockReward > 0.0) {
+    blockReward = persistedBlockReward;
+  } else {
+    blockReward = consensus::calculateBlockSubsidy(*this);
+  }
 
   uint64_t computedDifficulty = calculateSmartDifficulty(*this);
 
@@ -2045,13 +2058,13 @@ bool Blockchain::loadFromDB() {
   if (db) {
     db->Put(rocksdb::WriteOptions(), "last_difficulty",
             std::to_string(difficulty));
+    db->Put(rocksdb::WriteOptions(), "last_reward",
+            formatAmount(blockReward));
   }
 
   std::string burnedStr;
   if (db->Get(rocksdb::ReadOptions(), "burned_supply", &burnedStr).ok())
     totalBurnedSupply = std::stod(burnedStr);
-
-  recalculateBalancesFromChain();
 
   std::cout << "🔁 [loadFromDB] Loading rollup blocks from RocksDB...\n";
   int rollupIndex = 0;
@@ -2506,6 +2519,43 @@ bool Blockchain::isValidNewBlock(const Block &newBlock) const {
     std::cerr << "❌ Previous hash mismatch for block index "
               << newBlock.getIndex() << ". Got: " << newBlock.getPreviousHash()
               << ", Expected: " << lastBlock.getHash() << "\n";
+    return false;
+  }
+
+  auto approxEqual = [](double a, double b) {
+    const double scale = std::max({1.0, std::fabs(a), std::fabs(b)});
+    return std::fabs(a - b) <= 1e-6 * scale;
+  };
+
+  const double supplyBefore = totalSupply;
+  const uint64_t blockHeight = static_cast<uint64_t>(newBlock.getIndex());
+  double expectedReward = consensus::calculateBlockSubsidy(
+      *this, blockHeight, supplyBefore, newBlock.getTimestamp());
+  double declaredReward = newBlock.getReward();
+
+  bool matchesConsensus = approxEqual(declaredReward, expectedReward);
+  bool matchesAuto = approxEqual(declaredReward, AUTO_MINING_REWARD);
+
+  if (!matchesConsensus && !matchesAuto) {
+    std::cerr << "❌ [Blockchain] Block reward mismatch. Declared="
+              << declaredReward << " expected=" << expectedReward
+              << " (auto=" << AUTO_MINING_REWARD << ")\n";
+    return false;
+  }
+
+  double actualReward = 0.0;
+  for (const auto &tx : newBlock.getTransactions()) {
+    if (tx.getSender() == "System" &&
+        tx.getRecipient() == newBlock.getMinerAddress() &&
+        tx.getMetadata() == "MiningReward") {
+      actualReward += tx.getAmount();
+    }
+  }
+
+  if (!approxEqual(actualReward, declaredReward)) {
+    std::cerr << "❌ [Blockchain] Coinbase payout does not match declared reward."
+              << " paid=" << actualReward << " declared=" << declaredReward
+              << "\n";
     return false;
   }
 
@@ -3144,18 +3194,12 @@ Blockchain::createRollupBlock(const std::vector<Transaction> &offChainTxs) {
 
 // Block reward
 double Blockchain::calculateBlockReward() {
-  const double maxSupply = 100000000.0;
-
-  if (totalSupply >= maxSupply)
-    return 0.0;
-
-  blockReward *= 0.9991; // exponential decay
-  if (blockReward < 0.25)
-    blockReward = 0.25; // tail emission
-
-  if (totalSupply + blockReward > maxSupply)
-    blockReward = maxSupply - totalSupply;
-
+  const uint64_t nextHeight = chain.empty()
+                                   ? 0
+                                   : static_cast<uint64_t>(chain.back().getIndex()) + 1ULL;
+  const double reward = consensus::calculateBlockSubsidy(
+      *this, nextHeight, totalSupply, std::time(nullptr));
+  blockReward = reward;
   return blockReward;
 }
 
@@ -3306,7 +3350,12 @@ void Blockchain::recalculateBalancesFromChain() {
 
     if (!hasSystemTx && !block.getMinerAddress().empty() &&
         block.getMinerAddress() != "System") {
-      double reward = calculateBlockReward();
+      double reward = block.getReward();
+      if (reward <= 0.0) {
+        reward =
+            consensus::calculateBlockSubsidy(*this, block.getIndex(),
+                                             totalSupply, block.getTimestamp());
+      }
       if (reward > 0.0) {
         balances[block.getMinerAddress()] += reward;
         totalSupply += reward;
