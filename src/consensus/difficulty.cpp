@@ -152,5 +152,9 @@ uint64_t calculateSmartDifficulty(const Blockchain& chain)
         nextDiff = std::max<long double>(ABSOLUTE_FLOOR,
                                          (nextFloor / 2.0L) * minerBonus);
 
+    const long double lastDiff = static_cast<long double>(chain.getLatestBlock().getDifficulty());
+    if (nextDiff < lastDiff)
+        nextDiff = lastDiff;
+
     return static_cast<uint64_t>(std::llround(nextDiff));
 }

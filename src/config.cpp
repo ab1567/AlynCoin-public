@@ -1,4 +1,6 @@
 #include "config.h"
+#include <algorithm>
+#include <cctype>
 #include <fstream>
 #include <vector>
 
@@ -13,6 +15,17 @@ void loadConfigFile(const std::string &path) {
         return;
     std::string line;
     auto &cfg = getAppConfig();
+    auto parseBool = [](std::string value) {
+        value.erase(std::remove_if(value.begin(), value.end(), [](unsigned char ch) {
+                         return std::isspace(ch) != 0;
+                     }),
+                     value.end());
+        std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
+            return static_cast<char>(std::tolower(c));
+        });
+        return value == "1" || value == "true" || value == "yes" || value == "on";
+    };
+
     while (std::getline(in, line)) {
         if (line.rfind("ban_minutes=", 0) == 0) {
             cfg.ban_minutes = std::stoi(line.substr(12));
@@ -26,6 +39,10 @@ void loadConfigFile(const std::string &path) {
             cfg.reserve_address = line.substr(16);
         } else if (line.rfind("por_expected_walyn=", 0) == 0) {
             cfg.por_expected_walyn = std::stod(line.substr(18));
+        } else if (line.rfind("enable_upnp=", 0) == 0) {
+            cfg.enable_upnp = parseBool(line.substr(12));
+        } else if (line.rfind("enable_natpmp=", 0) == 0) {
+            cfg.enable_natpmp = parseBool(line.substr(14));
         } else if (line.rfind("external_address=", 0) == 0) {
             cfg.external_address = line.substr(17);
         }

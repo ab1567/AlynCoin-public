@@ -703,10 +703,10 @@ bool Blockchain::addBlock(const Block &block, bool lockHeld) {
 
   const bool isGenesisBlock = (block.getIndex() == 0) && block.isGenesisBlock();
   double expectedSubsidy =
-      isGenesisBlock ? 0.0
-                     : consensus::blockSubsidyForHeight(block.getIndex());
-  double remainingSupply = std::max(0.0, MAX_SUPPLY - totalSupply);
-  expectedSubsidy = std::min(expectedSubsidy, remainingSupply);
+      isGenesisBlock
+          ? 0.0
+          : consensus::calculateBlockSubsidy(*this, block.getIndex(), totalSupply,
+                                             block.getTimestamp());
   double expectedCoinbase =
       isGenesisBlock ? getGenesisPremineTotal() : expectedSubsidy + computedFees;
   const double rewardTolerance = 1e-8;
@@ -1126,9 +1126,9 @@ void Blockchain::refreshRewardFromTip() {
   std::uint64_t nextHeight = 0;
   if (!chain.empty())
     nextHeight = static_cast<std::uint64_t>(chain.back().getIndex()) + 1ULL;
-  double subsidy = consensus::blockSubsidyForHeight(nextHeight);
-  double remaining = std::max(0.0, MAX_SUPPLY - totalSupply);
-  blockReward = std::min(subsidy, remaining);
+  double subsidy =
+      consensus::calculateBlockSubsidy(*this, nextHeight, totalSupply, std::time(nullptr));
+  blockReward = std::min(subsidy, std::max(0.0, MAX_SUPPLY - totalSupply));
 }
 
 void Blockchain::recordConfirmedNonce(const std::string &sender, uint64_t nonce,
@@ -1292,7 +1292,6 @@ Block Blockchain::minePendingTransactions(
     const std::vector<unsigned char> &minerDilithiumPriv,
     const std::vector<unsigned char> &minerFalconPriv,
     bool forceAutoReward) {
-  (void)forceAutoReward;
   (void)minerDilithiumPriv;
   (void)minerFalconPriv;
 
@@ -1300,12 +1299,26 @@ Block Blockchain::minePendingTransactions(
     std::cout << "[DEBUG] Skipping mining while recovering..." << std::endl;
     return Block();
   }
-  if (Network::isUninitialized() || !Network::getInstance().getPeerManager() ||
-      Network::getInstance().getPeerManager()->getPeerCount() == 0) {
-    std::cerr << "⚠️ Cannot mine without at least one connected peer. If error "
-                 "persists visit alyncoin.com"
-              << std::endl;
-    return Block();
+  bool havePeers = false;
+  if (!Network::isUninitialized()) {
+    if (auto *pm = Network::getInstance().getPeerManager())
+      havePeers = pm->getPeerCount() > 0;
+  }
+  static bool soloWarned = false;
+  if (!havePeers) {
+    if (!forceAutoReward) {
+      std::cerr << "⚠️ Cannot mine without at least one connected peer. If error "
+                   "persists visit alyncoin.com"
+                << std::endl;
+      return Block();
+    }
+    if (!soloWarned) {
+      std::cerr << "⚠️ Mining without connected peers; continuing in solo mode."
+                << std::endl;
+      soloWarned = true;
+    }
+  } else {
+    soloWarned = false;
   }
 
   std::cout
@@ -1373,11 +1386,10 @@ Block Blockchain::minePendingTransactions(
               << std::endl;
   }
 
-  std::uint64_t nextHeight =
-      chain.empty() ? 0 : static_cast<std::uint64_t>(chain.back().getIndex()) + 1ULL;
-  double remainingSupply = std::max(0.0, MAX_SUPPLY - totalSupply);
-  double baseSubsidy = consensus::blockSubsidyForHeight(nextHeight);
-  double subsidy = std::min(baseSubsidy, remainingSupply);
+  std::uint64_t nextHeight = chain.empty()
+                               ? 0
+                               : static_cast<std::uint64_t>(chain.back().getIndex()) + 1ULL;
+  double subsidy = consensus::calculateBlockSubsidy(*this, nextHeight, totalSupply, timestamp);
   double coinbaseReward = subsidy + totalFeesCollected;
   if (coinbaseReward > 0.0) {
     Transaction rewardTx = Transaction::createSystemRewardTransaction(
@@ -2637,6 +2649,11 @@ Block Blockchain::mineBlock(const std::string &minerAddress) {
     return Block();
   }
 
+  if (getPeerCount() == 0) {
+    std::cerr << "❌ Mining requires at least one connected peer.\n";
+    return Block();
+  }
+
   auto resolved = Crypto::resolveWalletKeyIdentifier(minerAddress);
   std::string minerKeyId = resolved.value_or(minerAddress);
 
@@ -3231,9 +3248,11 @@ double Blockchain::calculateBlockReward() {
   const uint64_t nextHeight = chain.empty()
                                    ? 0
                                    : static_cast<uint64_t>(chain.back().getIndex()) + 1ULL;
-  double reward = consensus::blockSubsidyForHeight(nextHeight);
-  double remaining = std::max(0.0, MAX_SUPPLY - totalSupply);
-  blockReward = std::min(reward, remaining);
+  double reward = consensus::calculateBlockSubsidy(
+      *this, nextHeight, totalSupply, std::time(nullptr));
+  if (blockReward > 0.0)
+    reward = std::min(reward, blockReward);
+  blockReward = std::min(reward, std::max(0.0, MAX_SUPPLY - totalSupply));
   return blockReward;
 }
 

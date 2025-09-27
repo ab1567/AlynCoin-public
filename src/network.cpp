@@ -78,6 +78,7 @@
 using namespace alyncoin;
 
 namespace {
+
 struct ConsensusHints {
   bool hasDifficulty{false};
   bool hasReward{false};
@@ -298,7 +299,7 @@ static constexpr int PARSE_FAIL_LIMIT = 5;
 static constexpr std::chrono::seconds BAN_GRACE_BASE{60};
 static constexpr std::chrono::milliseconds BAN_GRACE_PER_BLOCK{100};
 static constexpr std::chrono::seconds BAN_GRACE_MAX{3600};
-static constexpr size_t MIN_CONNECTED_PEERS = 4;
+static constexpr size_t MIN_CONNECTED_PEERS = 2;
 static constexpr std::chrono::minutes PEERLIST_INTERVAL{5};
 #ifdef ENABLE_PEERLIST_LOGS
 #define PEERLIST_LOG(x) std::cout << x << std::endl
@@ -610,17 +611,21 @@ void Network::sendPeerList(const std::string &peer) {
 }
 
 void Network::markPeerOffline(const std::string &peerId) {
-  std::lock_guard<std::timed_mutex> lk(peersMutex);
-  auto it = peerTransports.find(peerId);
-  if (it != peerTransports.end()) {
-    if (it->second.tx)
-      it->second.tx->close();
-    peerTransports.erase(it);
+  {
+    std::lock_guard<std::timed_mutex> lk(peersMutex);
+    auto it = peerTransports.find(peerId);
+    if (it != peerTransports.end()) {
+      if (it->second.tx)
+        it->second.tx->close();
+      peerTransports.erase(it);
+    }
+    anchorPeers.erase(peerId);
+    knownPeers.erase(peerId);
   }
-  anchorPeers.erase(peerId);
-  knownPeers.erase(peerId);
   if (peerManager)
     peerManager->disconnectPeer(peerId);
+  // Allow the peer manager to reconcile naturally; removing a peer should not
+  // trigger automatic connection churn that misreports the live peer count.
 }
 
 void Network::penalizePeer(const std::string &peer, int points) {
@@ -1035,6 +1040,8 @@ void Network::start() {
       peerManager->setExternalAddress(endpoint.first + ':' +
                                       std::to_string(endpoint.second));
   }
+  requestPeerList();
+  autoSyncIfBehind();
   intelligentSync();
 }
 
@@ -1046,12 +1053,17 @@ void Network::autoMineBlock() {
 
       Blockchain &blockchain = *this->blockchain;
       if (!blockchain.getPendingTransactions().empty()) {
-        if (!this->peerManager || this->peerManager->getPeerCount() == 0) {
-          std::cerr << "⚠️ Cannot auto-mine without peers connected. If error "
-                       "persists visit alyncoin.com"
-                    << std::endl;
+        bool havePeers = this->peerManager && this->peerManager->getPeerCount() > 0;
+        static bool warnedSolo = false;
+        if (!havePeers) {
+          if (!warnedSolo) {
+            std::cerr << "⚠️ Auto-miner waiting for peer connections before "
+                         "mining." << std::endl;
+            warnedSolo = true;
+          }
           continue;
         }
+        warnedSolo = false;
         const Block &latestBlock = blockchain.getLatestBlock();
         double secondsSinceLast =
             std::difftime(std::time(nullptr), latestBlock.getTimestamp());
@@ -1591,7 +1603,7 @@ void Network::run() {
   std::cout << "🚀 [Network] Starting network stack for port " << port << "\n";
   // Start listener and IO thread
   startServer();
-  std::this_thread::sleep_for(std::chrono::seconds(2));
+  std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
   configureNatTraversal();
 
@@ -1720,7 +1732,15 @@ void Network::run() {
 
 void Network::configureNatTraversal() {
 #if defined(ALYN_ENABLE_NAT_TRAVERSAL)
-  std::thread([this]() {
+  AppConfig cfg = getAppConfig();
+  if (!cfg.enable_upnp && !cfg.enable_natpmp) {
+    if (!configuredExternalExplicit)
+      std::cout << "ℹ️  [Network] NAT traversal disabled by config; advertising "
+                   "bound interfaces only.\n";
+    return;
+  }
+
+  std::thread([this, cfg]() {
     auto endpoint = determineAnnounceEndpoint();
     if (!endpoint.first.empty() && isRoutableAddress(endpoint.first))
       return;
@@ -1730,10 +1750,11 @@ void Network::configureNatTraversal() {
     std::optional<std::string> natAddress;
 
 #if defined(HAVE_MINIUPNPC)
-    natAddress = tryUPnPPortMapping(this->port);
+    if (cfg.enable_upnp)
+      natAddress = tryUPnPPortMapping(this->port);
 #endif
 #if defined(HAVE_LIBNATPMP)
-    if ((!natAddress || natAddress->empty()) &&
+    if (cfg.enable_natpmp && (!natAddress || natAddress->empty()) &&
         std::chrono::steady_clock::now() < deadline) {
       auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
           deadline - std::chrono::steady_clock::now());
@@ -1744,6 +1765,11 @@ void Network::configureNatTraversal() {
     if (!configuredExternalExplicit && natAddress && !natAddress->empty()) {
       recordExternalAddress(*natAddress, this->port);
       runHairpinCheck();
+    } else if ((!natAddress || natAddress->empty()) &&
+               !configuredExternalExplicit) {
+      std::cerr <<
+          "⚠️ [Network] NAT traversal failed; set external_address in config or "
+          "manually forward port." << std::endl;
     }
   }).detach();
 #else
@@ -3495,7 +3521,7 @@ void Network::loadPeers() {
 void Network::scanForPeers() {
   std::lock_guard<std::timed_mutex> lock(peersMutex);
   if (!peerTransports.empty()) {
-    std::cout << "✅ [scanForPeers] Mesh established, skipping DNS scan.\n";
+    std::cout << "✅ [scanForPeers] Existing peer sockets present, skipping DNS scan.\n";
     return;
   }
   std::vector<std::string> potentialPeers =
@@ -3645,6 +3671,8 @@ void Network::cleanupPeers() {
   if (!inactivePeers.empty()) {
     broadcastPeerList();
   }
+  // Leaving reconnection decisions to manual discovery avoids inflating the
+  // reported peer count when the network is limited by external routing.
 }
 
 // Add methods to handle rollup block synchronization
