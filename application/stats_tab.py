@@ -1,13 +1,19 @@
 import re
+import threading
+
+from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtGui import QFont, QColor
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QTextEdit, QPushButton
 
 from rpc_client import alyncoin_rpc
 
 class StatsTab(QWidget):
+    restartFinished = pyqtSignal(bool, str)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.main = parent
+        self.restartFinished.connect(self.onRestartFinished)
         self.initUI()
         if hasattr(parent, 'walletChanged'):
             parent.walletChanged.connect(self.onWalletChanged)
@@ -37,6 +43,11 @@ class StatsTab(QWidget):
         self.syncBtn.setStyleSheet("padding: 10px; font-weight: bold;")
         self.syncBtn.clicked.connect(self.triggerSync)
         layout.addWidget(self.syncBtn)
+
+        self.restartBtn = QPushButton("♻️ Restart Node")
+        self.restartBtn.setStyleSheet("padding: 10px; font-weight: bold;")
+        self.restartBtn.clicked.connect(self.triggerRestart)
+        layout.addWidget(self.restartBtn)
 
         self.setLayout(layout)
 
@@ -108,6 +119,35 @@ class StatsTab(QWidget):
                     self.appendText(f"• Status: {reason}", color="orange")
         else:
             self.appendText("✅ Hard sync triggered.", color="green")
+
+    def triggerRestart(self):
+        if not hasattr(self.main, "restart_node"):
+            self.appendText("❌ Node restart not supported in this build.", color="red")
+            return
+
+        self.appendText("⏳ Restarting local node...", color="orange")
+        self.syncBtn.setEnabled(False)
+        self.restartBtn.setEnabled(False)
+
+        def worker():
+            try:
+                ok = bool(self.main.restart_node())
+                self.restartFinished.emit(ok, "")
+            except Exception as exc:  # pragma: no cover - defensive guard
+                self.restartFinished.emit(False, str(exc))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def onRestartFinished(self, ok, error):
+        self.syncBtn.setEnabled(True)
+        self.restartBtn.setEnabled(True)
+        if ok:
+            self.appendText("✅ Node restarted. Waiting for sync status...", color="green")
+            if hasattr(self.main, "refreshPeerBanner"):
+                self.main.refreshPeerBanner()
+        else:
+            message = error or "Unknown restart failure"
+            self.appendText(f"❌ Node restart failed: {message}", color="red")
 
     def fetchPeers(self):
         self.outputBox.clear()
