@@ -40,6 +40,7 @@
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
+#include <optional>
 
 using boost::multiprecision::cpp_int;
 
@@ -52,6 +53,10 @@ double totalSupply = 0.0;
 static Blockchain *g_blockchain_singleton = nullptr;
 
 namespace {
+
+constexpr const char kMiningCheckpointHeightKey[] = "mining_checkpoint_height";
+constexpr const char kMiningCheckpointHashKey[] = "mining_checkpoint_hash";
+constexpr const char kMiningCheckpointTimeKey[] = "mining_checkpoint_time";
 
 std::string formatAmount(double amount) {
   std::ostringstream oss;
@@ -815,6 +820,7 @@ bool Blockchain::addBlock(const Block &block, bool lockHeld) {
                    "adding block.\n";
       return false;
     }
+    persistMiningCheckpoint(block);
     if (block.getIndex() % 1000 == 0)
       saveCheckpoint(block.getIndex(), block.getHash());
   } else {
@@ -2220,6 +2226,84 @@ void Blockchain::loadCheckpointFromDB() {
   if (it->Valid()) {
     checkpointHeight = std::stoi(it->key().ToString());
   }
+}
+
+void Blockchain::persistMiningCheckpoint(const Block &block) const {
+  if (!db)
+    return;
+  rocksdb::WriteOptions opts;
+  const std::string heightStr = std::to_string(block.getIndex());
+  const std::string timeStr = std::to_string(block.getTimestamp());
+  auto s1 = db->Put(opts, kMiningCheckpointHeightKey, heightStr);
+  if (!s1.ok()) {
+    std::cerr << "⚠️ [persistMiningCheckpoint] Failed to persist height: "
+              << s1.ToString() << "\n";
+  }
+  auto s2 = db->Put(opts, kMiningCheckpointHashKey, block.getHash());
+  if (!s2.ok()) {
+    std::cerr << "⚠️ [persistMiningCheckpoint] Failed to persist hash: "
+              << s2.ToString() << "\n";
+  }
+  auto s3 = db->Put(opts, kMiningCheckpointTimeKey, timeStr);
+  if (!s3.ok()) {
+    std::cerr << "⚠️ [persistMiningCheckpoint] Failed to persist timestamp: "
+              << s3.ToString() << "\n";
+  }
+}
+
+std::optional<Blockchain::MiningCheckpoint>
+Blockchain::readMiningCheckpoint() const {
+  if (!db)
+    return std::nullopt;
+
+  std::string heightStr;
+  std::string hash;
+  std::string timeStr;
+  auto opts = rocksdb::ReadOptions();
+  if (!db->Get(opts, kMiningCheckpointHeightKey, &heightStr).ok())
+    return std::nullopt;
+  if (!db->Get(opts, kMiningCheckpointHashKey, &hash).ok())
+    return std::nullopt;
+  if (!db->Get(opts, kMiningCheckpointTimeKey, &timeStr).ok())
+    timeStr.clear();
+
+  try {
+    MiningCheckpoint cp;
+    cp.height = std::stoi(heightStr);
+    cp.hash = hash;
+    if (!timeStr.empty())
+      cp.timestamp = static_cast<std::time_t>(std::stoll(timeStr));
+
+    std::unique_lock<std::recursive_mutex> lock(blockchainMutex);
+    if (cp.height >= 0 && cp.height < static_cast<int>(chain.size())) {
+      const std::string &localHash = chain[cp.height].getHash();
+      if (localHash != cp.hash) {
+        std::cerr << "⚠️ [readMiningCheckpoint] Hash mismatch at height "
+                  << cp.height << " (stored=" << cp.hash
+                  << ", local=" << localHash << "). Ignoring checkpoint.\n";
+        return std::nullopt;
+      }
+    } else if (cp.height >= static_cast<int>(chain.size())) {
+      std::cerr << "⚠️ [readMiningCheckpoint] Stored height " << cp.height
+                << " exceeds current tip "
+                << (chain.empty() ? -1 : static_cast<int>(chain.size()) - 1)
+                << ".\n";
+    }
+    return cp;
+  } catch (const std::exception &e) {
+    std::cerr << "⚠️ [readMiningCheckpoint] Parse error: " << e.what()
+              << "\n";
+    return std::nullopt;
+  }
+}
+
+void Blockchain::clearMiningCheckpoint() const {
+  if (!db)
+    return;
+  rocksdb::WriteOptions opts;
+  db->Delete(opts, kMiningCheckpointHeightKey);
+  db->Delete(opts, kMiningCheckpointHashKey);
+  db->Delete(opts, kMiningCheckpointTimeKey);
 }
 
 void Blockchain::saveCheckpoint(int height, const std::string &hash) {
@@ -3728,8 +3812,23 @@ bool Blockchain::rollbackToHeight(int height) {
   applyRollupDeltasToBalances();
   recomputeChainWork();
 
+  Block tipCopy;
+  bool hasTip = false;
+  if (!chain.empty()) {
+    tipCopy = chain.back();
+    hasTip = true;
+  }
+
   lk.unlock();
-  saveToDB();
+  bool saved = saveToDB();
+  if (!saved) {
+    std::cerr << "⚠️ [rollbackToHeight] Failed to persist chain after rollback.\n";
+  }
+  if (hasTip) {
+    persistMiningCheckpoint(tipCopy);
+  } else {
+    clearMiningCheckpoint();
+  }
   return true;
 }
 
