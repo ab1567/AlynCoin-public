@@ -644,6 +644,11 @@ class AlynCoinApp(QMainWindow):
         self.miningActive = False
         self.updateStatusBanner("✅ Ready.", "#22dd55")
 
+    def restart_node(self) -> bool:
+        terminate_alyncoin_node()
+        time.sleep(0.5)
+        return ensure_alyncoin_node(block=True)
+
     def closeEvent(self, event):
         terminate_alyncoin_node()
         super().closeEvent(event)
