@@ -31,6 +31,8 @@ inline constexpr int DESYNC_THRESHOLD = 5000;
 inline constexpr std::size_t MAX_SNAPSHOT_CHUNK_SIZE = 250 * 1024; // 250 KiB
 inline constexpr std::size_t MAX_PEERS = 32;                       // hard cap
 inline constexpr int MAX_TAIL_BLOCKS = 256; // limit tail block batches
+inline constexpr int FAST_SYNC_RECENT_BLOCKS = 256; // preview burst for lagging peers
+inline constexpr int FAST_SYNC_TRIGGER_GAP = 2048;  // require sizeable gap before preview
 // Peers will exchange up to 100 blocks directly before snapshotting.
 inline constexpr int TAIL_SYNC_THRESHOLD = 100; // height gap for tail sync
 // Increased to support larger batch frames
