@@ -5,6 +5,7 @@
 #include "self_healing/sync_recovery.h"
 #include <memory>
 #include <chrono>
+#include <cstddef>
 
 class Blockchain;
 class PeerManager;
@@ -34,6 +35,7 @@ private:
     std::unique_ptr<SyncRecovery> syncRecovery_;
     Blockchain* blockchain_;
     PeerManager* peerManager_;
+    std::size_t consecutiveFarBehind_;
 
     NodeHealthStatus runHealthCheck(bool manualTrigger);
 };
