@@ -1566,20 +1566,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
 // ✅ **Run Network Thread**
 void Network::run() {
   std::cout << "🚀 [Network] Starting network stack for port " << port << "\n";
-#if defined(ALYN_ENABLE_NAT_TRAVERSAL)
-  std::optional<std::string> natAddress;
-#if defined(HAVE_MINIUPNPC)
-  natAddress = tryUPnPPortMapping(this->port);
-#endif
-#if defined(HAVE_LIBNATPMP)
-  if (!natAddress || natAddress->empty())
-    natAddress = tryNATPMPPortMapping(this->port);
-#endif
-  if (!configuredExternalExplicit && natAddress && !natAddress->empty()) {
-    recordExternalAddress(*natAddress, this->port);
-    runHairpinCheck();
-  }
-#endif
+  configureNatTraversal();
   // Start listener and IO thread
   startServer();
   std::this_thread::sleep_for(std::chrono::seconds(2));
@@ -1705,6 +1692,27 @@ void Network::run() {
   }).detach();
 
   std::cout << "✅ [Network] Network loop launched successfully.\n";
+}
+
+void Network::configureNatTraversal() {
+#if defined(ALYN_ENABLE_NAT_TRAVERSAL)
+  std::optional<std::string> natAddress;
+#if defined(HAVE_MINIUPNPC)
+  natAddress = tryUPnPPortMapping(this->port);
+#endif
+#if defined(HAVE_LIBNATPMP)
+  if (!natAddress || natAddress->empty())
+    natAddress = tryNATPMPPortMapping(this->port);
+#endif
+  if (!configuredExternalExplicit && natAddress && !natAddress->empty()) {
+    recordExternalAddress(*natAddress, this->port);
+    runHairpinCheck();
+  }
+#else
+  if (!configuredExternalExplicit)
+    std::cout << "ℹ️  [Network] NAT traversal disabled at compile time; "
+                 "listening on bound interfaces only.\n";
+#endif
 }
 
 // Call this after all initial peers are connected

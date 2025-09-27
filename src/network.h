@@ -192,6 +192,7 @@ private:
   // Construct a Handshake populated with the current chain height
   // and supported feature list.
   alyncoin::net::Handshake buildHandshake() const;
+  void configureNatTraversal();
 
   unsigned short port;
   Blockchain *blockchain;
