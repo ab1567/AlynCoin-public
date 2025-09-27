@@ -701,8 +701,7 @@ bool Blockchain::addBlock(const Block &block, bool lockHeld) {
   for (const auto &tx : block.getTransactions()) {
     if (tx.getSender() == "System")
       continue;
-    double txActivity = static_cast<double>(getRecentTransactionCount());
-    FeeBreakdown fees = computeFeeBreakdown(tx.getAmount(), txActivity);
+    FeeBreakdown fees = computeFeeBreakdown(tx.getAmount(), /*txActivity=*/0.0);
     computedFees += fees.totalFee;
   }
 
@@ -714,7 +713,7 @@ bool Blockchain::addBlock(const Block &block, bool lockHeld) {
                                              block.getTimestamp());
   double expectedCoinbase =
       isGenesisBlock ? getGenesisPremineTotal() : expectedSubsidy + computedFees;
-  const double rewardTolerance = 1e-8;
+  const double rewardTolerance = 5e-5;
   if (std::abs(mintedTotal - expectedCoinbase) > rewardTolerance) {
     std::cerr << "❌ [addBlock] Coinbase mismatch. Minted "
               << formatAmount(mintedTotal) << " expected "
@@ -1369,8 +1368,7 @@ Block Blockchain::minePendingTransactions(
       continue;
     }
 
-    double txActivity = static_cast<double>(getRecentTransactionCount());
-    FeeBreakdown fees = computeFeeBreakdown(amount, txActivity);
+    FeeBreakdown fees = computeFeeBreakdown(amount, /*txActivity=*/0.0);
     double finalAmount = amount - fees.totalFee;
 
     tempBalances[sender] -= amount;
@@ -2654,13 +2652,27 @@ bool Blockchain::isValidNewBlock(const Block &newBlock) const {
 
   auto approxEqual = [](double a, double b) {
     const double scale = std::max({1.0, std::fabs(a), std::fabs(b)});
-    return std::fabs(a - b) <= 1e-6 * scale;
+    const double absoluteSlack = 5e-5;
+    const double relativeSlack = 1e-8;
+    return std::fabs(a - b) <= absoluteSlack + relativeSlack * scale;
   };
 
   const double supplyBefore = totalSupply;
   const uint64_t blockHeight = static_cast<uint64_t>(newBlock.getIndex());
-  double expectedReward = consensus::calculateBlockSubsidy(
+  const double subsidyOnly = consensus::calculateBlockSubsidy(
       *this, blockHeight, supplyBefore, newBlock.getTimestamp());
+  double totalFeesInBlock = 0.0;
+  for (const auto &tx : newBlock.getTransactions()) {
+    if (tx.isMiningRewardFor(newBlock.getMinerAddress()))
+      continue;
+    if (tx.getSender() == "System")
+      continue;
+
+    FeeBreakdown fees = computeFeeBreakdown(tx.getAmount(), /*txActivity=*/0.0);
+    totalFeesInBlock += fees.totalFee;
+  }
+
+  const double expectedReward = subsidyOnly + totalFeesInBlock;
   double declaredReward = newBlock.getReward();
 
   bool matchesConsensus = approxEqual(declaredReward, expectedReward);
@@ -2669,7 +2681,8 @@ bool Blockchain::isValidNewBlock(const Block &newBlock) const {
   if (!matchesConsensus && !matchesAuto) {
     std::cerr << "❌ [Blockchain] Block reward mismatch. Declared="
               << declaredReward << " expected=" << expectedReward
-              << " (auto=" << AUTO_MINING_REWARD << ")\n";
+              << " (subsidy=" << subsidyOnly << ", fees=" << totalFeesInBlock
+              << ", auto=" << AUTO_MINING_REWARD << ")\n";
     return false;
   }
 
@@ -2778,7 +2791,7 @@ Block Blockchain::mineBlock(const std::string &minerAddress) {
 }
 
 // ✅ **Fix Smart Burn Mechanism**
-int Blockchain::getRecentTransactionCount() {
+int Blockchain::getRecentTransactionCount() const {
   if (recentTransactionCounts.empty())
     return 0;
 

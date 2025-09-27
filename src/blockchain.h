@@ -222,7 +222,7 @@ public:
     std::time_t medianTimePast(size_t height) const;
   Block createBlock(const std::string &minerDilithiumKey,
                     const std::string &minerFalconKey);
-  int getRecentTransactionCount();
+  int getRecentTransactionCount() const;
   bool replaceChainUpTo(const std::vector<Block>& blocks, int upToHeight);
   void updateTransactionHistory(int newTxCount);
   const std::vector<Block> &getChain() const;
