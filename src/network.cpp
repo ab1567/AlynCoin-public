@@ -3836,22 +3836,22 @@ void Network::sendSnapshot(std::shared_ptr<Transport> transport,
 void Network::sendTailBlocks(std::shared_ptr<Transport> transport,
                              int fromHeight, const std::string &peerId) {
   Blockchain &bc = Blockchain::getInstance();
-  int myHeight = bc.getHeight();
+  const int myHeight = bc.getHeight();
   if (fromHeight < 0 || fromHeight >= myHeight)
     return;
   auto it = peerTransports.find(peerId);
   if (it == peerTransports.end() || !it->second.state)
     return;
   auto ps = it->second.state;
-  if (fromHeight < ps->lastTailHeight)
-    fromHeight = ps->lastTailHeight;
-  if (fromHeight >= bc.getHeight()) {
+  int effectiveFrom = fromHeight;
+  if (effectiveFrom < ps->lastTailHeight)
+    effectiveFrom = ps->lastTailHeight;
+  if (effectiveFrom >= myHeight) {
     std::cerr << "[sendTailBlocks] aborting: peer height >= local height\n";
     return;
   }
+
   constexpr std::size_t MSG_LIMIT = MAX_TAIL_PAYLOAD;
-  int start = fromHeight + 1;
-  int end = std::min(static_cast<int>(bc.getHeight()), start + MAX_TAIL_BLOCKS - 1);
   std::vector<Block> chainCopy = bc.snapshot();
   auto flushTail = [&](alyncoin::net::TailBlocks &tb) {
     if (tb.blocks_size() == 0)
@@ -3861,22 +3861,50 @@ void Network::sendTailBlocks(std::shared_ptr<Transport> transport,
     sendFrame(transport, f);
   };
 
-  alyncoin::net::TailBlocks proto;
-  size_t current = 0;
-  for (int i = start; i <= end && i < static_cast<int>(chainCopy.size()); ++i) {
-    const auto &bp = chainCopy[i].toProtobuf();
-    size_t add = bp.ByteSizeLong();
-    if (current && current + add > MSG_LIMIT) {
-      flushTail(proto);
-      proto.clear_blocks();
-      current = 0;
+  auto sendRange = [&](int rangeStart, int rangeEnd, bool updateTailState) {
+    if (rangeStart > rangeEnd)
+      return;
+    rangeStart = std::max(rangeStart, 0);
+    rangeEnd = std::min(rangeEnd, static_cast<int>(chainCopy.size()) - 1);
+    if (rangeStart > rangeEnd)
+      return;
+
+    alyncoin::net::TailBlocks proto;
+    size_t current = 0;
+    for (int i = rangeStart; i <= rangeEnd; ++i) {
+      const auto &bp = chainCopy[i].toProtobuf();
+      size_t add = bp.ByteSizeLong();
+      if (current && current + add > MSG_LIMIT) {
+        flushTail(proto);
+        proto.clear_blocks();
+        current = 0;
+      }
+      *proto.add_blocks() = bp;
+      current += add;
     }
-    *proto.add_blocks() = bp;
-    current += add;
+    flushTail(proto);
+    if (!ps)
+      return;
+    ps->highestSeen = std::max(ps->highestSeen, static_cast<uint32_t>(rangeEnd));
+    if (updateTailState)
+      ps->lastTailHeight = rangeEnd;
+  };
+
+  const int gap = myHeight - effectiveFrom;
+  if (ps && !ps->sentFastCatchup && gap > FAST_SYNC_TRIGGER_GAP && myHeight > 0) {
+    int previewEnd = myHeight;
+    int previewStart = std::max(effectiveFrom + 1,
+                                previewEnd - FAST_SYNC_RECENT_BLOCKS + 1);
+    if (previewStart <= previewEnd) {
+      sendRange(previewStart, previewEnd, false);
+      ps->sentFastCatchup = true;
+    }
   }
-  flushTail(proto);
-  ps->lastTailHeight = end;
-  ps->highestSeen = static_cast<uint32_t>(end);
+
+  const int start = effectiveFrom + 1;
+  const int end =
+      std::min(myHeight, start + MAX_TAIL_BLOCKS - 1);
+  sendRange(start, end, true);
 }
 
 void Network::handleSnapshotMeta(const std::string &peer,

@@ -42,6 +42,7 @@ struct PeerState {
   int lastTailHeight{-1};
   std::string lastTailAnchor;
   uint32_t highestSeen{0};
+  bool sentFastCatchup{false};
   std::chrono::steady_clock::time_point connectedAt{};
   std::chrono::steady_clock::time_point graceUntil{};
   uint64_t remoteNonce{0};
