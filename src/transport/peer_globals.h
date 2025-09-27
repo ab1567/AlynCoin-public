@@ -24,6 +24,8 @@ struct PeerState {
   size_t snapshotExpectBytes{0};
   size_t snapshotReceived{0};
   bool snapshotActive{false};
+  bool snapshotServing{false};
+  size_t snapshotChunkPreference{0};
   bool supportsAggProof{false};
   bool supportsSnapshot{false};
   bool supportsWhisper{false};
@@ -46,6 +48,7 @@ struct PeerState {
   std::chrono::steady_clock::time_point connectedAt{};
   std::chrono::steady_clock::time_point graceUntil{};
   uint64_t remoteNonce{0};
+  std::chrono::steady_clock::time_point lastSnapshotServed{};
   std::mutex m;
 };
 

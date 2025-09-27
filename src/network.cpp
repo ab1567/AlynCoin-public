@@ -126,6 +126,15 @@ ConsensusHints parseConsensusHints(
 }
 } // namespace
 
+constexpr auto SNAPSHOT_RESEND_COOLDOWN = std::chrono::seconds(45);
+
+static size_t resolveSnapshotChunkSize(size_t preferred) {
+  if (preferred == 0)
+    return MAX_SNAPSHOT_CHUNK_SIZE;
+  const size_t clamped = std::min(preferred, MAX_SNAPSHOT_CHUNK_SIZE);
+  return std::max<size_t>(1, clamped);
+}
+
 static std::string ipPrefix(const std::string &ip) {
   if (ip.find(':') == std::string::npos) {
     std::stringstream ss(ip);
@@ -1537,6 +1546,8 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     entry.state->supportsBanDecay = remoteBanDecay;
     entry.state->frameRev = remoteRev;
     entry.state->version = claimedVersion;
+    entry.state->snapshotChunkPreference =
+        remoteSnap ? resolveSnapshotChunkSize(remoteSnapSize) : 0;
     std::copy(shared.begin(), shared.end(), entry.state->linkKey.begin());
     entry.state->remoteNonce = remoteNonce;
 
@@ -2829,8 +2840,36 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
     }
     {
       auto it = peerTransports.find(peer);
-      if (it != peerTransports.end() && it->second.state)
-        it->second.state->highestSeen = hs.height();
+      if (it != peerTransports.end() && it->second.state) {
+        auto st = it->second.state;
+        st->highestSeen = hs.height();
+        bool remoteAgg = false;
+        bool remoteSnap = false;
+        bool remoteWhisper = false;
+        bool remoteTls = false;
+        bool remoteBanDecay = false;
+        for (const auto &cap : hs.capabilities()) {
+          if (cap == "agg_proof_v1")
+            remoteAgg = true;
+          else if (cap == "snapshot_v1")
+            remoteSnap = true;
+          else if (cap == "whisper_v1")
+            remoteWhisper = true;
+          else if (cap == "tls_v1")
+            remoteTls = true;
+          else if (cap == "ban_decay_v1")
+            remoteBanDecay = true;
+        }
+        st->supportsAggProof = remoteAgg;
+        st->supportsSnapshot = remoteSnap;
+        st->supportsWhisper = remoteWhisper;
+        st->supportsTls = remoteTls;
+        st->supportsBanDecay = remoteBanDecay;
+        st->snapshotChunkPreference =
+            remoteSnap ? resolveSnapshotChunkSize(hs.snapshot_size()) : 0;
+        st->frameRev = hs.frame_rev();
+        st->version = hs.version();
+      }
     }
     if (auto hints = parseConsensusHints(hs.capabilities());
         hints.hasDifficulty || hints.hasReward) {
@@ -3114,9 +3153,17 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
     }
     break;
   }
-  case alyncoin::net::Frame::kSnapshotReq:
-    sendSnapshot(peerTransports[peer].tx, -1);
+  case alyncoin::net::Frame::kSnapshotReq: {
+    auto it = peerTransports.find(peer);
+    if (it != peerTransports.end() && it->second.tx) {
+      size_t preferred =
+          it->second.state ? it->second.state->snapshotChunkPreference : 0;
+      sendSnapshot(peer, it->second.tx, -1, preferred);
+    } else
+      std::cerr << "⚠️ [Snapshot] Received request from unknown peer " << peer
+                << '\n';
     break;
+  }
   case alyncoin::net::Frame::kTailReq:
     handleTailRequest(peer, f.tail_req().from_height());
     break;
@@ -3790,12 +3837,65 @@ bool Network::peerSupportsTls(const std::string &peerId) const {
   return st ? st->supportsTls : false;
 }
 //
-void Network::sendSnapshot(std::shared_ptr<Transport> transport,
-                           int upToHeight) {
+void Network::sendSnapshot(const std::string &peerId,
+                           std::shared_ptr<Transport> transport,
+                           int upToHeight, size_t preferredChunk) {
+  if (!transport)
+    return;
+
+  std::shared_ptr<PeerState> ps;
+  auto it = peerTransports.find(peerId);
+  if (it != peerTransports.end())
+    ps = it->second.state;
+
+  if (preferredChunk == 0 && ps)
+    preferredChunk = ps->snapshotChunkPreference;
+
+  const auto now = std::chrono::steady_clock::now();
+  if (ps) {
+    if (ps->snapshotServing) {
+      std::cerr << "⚠️ [Snapshot] Ignoring duplicate request from " << peerId
+                << " (snapshot already in flight)\n";
+      return;
+    }
+    if (ps->lastSnapshotServed != std::chrono::steady_clock::time_point{} &&
+        now - ps->lastSnapshotServed < SNAPSHOT_RESEND_COOLDOWN) {
+      std::cerr << "⚠️ [Snapshot] Request from " << peerId
+                << " throttled – last snapshot sent "
+                << std::chrono::duration_cast<std::chrono::seconds>(
+                       now - ps->lastSnapshotServed)
+                       .count()
+                << "s ago\n";
+      return;
+    }
+    ps->snapshotServing = true;
+  }
+
+  bool completed = false;
+  auto previousLast = ps ? ps->lastSnapshotServed
+                         : std::chrono::steady_clock::time_point{};
+  struct SnapshotGuard {
+    std::shared_ptr<PeerState> state;
+    std::chrono::steady_clock::time_point prev;
+    bool &done;
+    SnapshotGuard(std::shared_ptr<PeerState> st,
+                  std::chrono::steady_clock::time_point p, bool &d)
+        : state(std::move(st)), prev(p), done(d) {}
+    ~SnapshotGuard() {
+      if (!state)
+        return;
+      state->snapshotServing = false;
+      if (!done)
+        state->lastSnapshotServed = prev;
+    }
+  } guard(ps, previousLast, completed);
+
   Blockchain &bc = Blockchain::getInstance();
   int height = upToHeight < 0 ? bc.getHeight() : upToHeight;
   if (height > bc.getHeight())
     height = bc.getHeight();
+  if (height < 0)
+    height = 0;
   int start =
       height >= MAX_SNAPSHOT_BLOCKS ? height - MAX_SNAPSHOT_BLOCKS + 1 : 0;
   std::vector<Block> blocks = bc.getChainSlice(start, height);
@@ -3809,14 +3909,19 @@ void Network::sendSnapshot(std::shared_ptr<Transport> transport,
   if (!snap.SerializeToString(&raw))
     return;
 
-  const size_t CHUNK_SIZE = MAX_SNAPSHOT_CHUNK_SIZE;
+  const size_t CHUNK_SIZE = resolveSnapshotChunkSize(preferredChunk);
   // --- Send metadata first ---
   alyncoin::net::Frame meta;
   meta.mutable_snapshot_meta()->set_height(height);
   meta.mutable_snapshot_meta()->set_root_hash(bc.getHeaderMerkleRoot());
   meta.mutable_snapshot_meta()->set_total_bytes(raw.size());
-  meta.mutable_snapshot_meta()->set_chunk_size(CHUNK_SIZE);
-  sendFrame(transport, meta);
+  meta.mutable_snapshot_meta()->set_chunk_size(
+      static_cast<uint32_t>(CHUNK_SIZE));
+  if (!sendFrame(transport, meta)) {
+    std::cerr << "❌ [Snapshot] Failed to queue metadata for " << peerId
+              << '\n';
+    return;
+  }
 
   // --- Stream snapshot in bounded chunks ---
   uint32_t seq = 0;
@@ -3824,12 +3929,24 @@ void Network::sendSnapshot(std::shared_ptr<Transport> transport,
     size_t len = std::min(CHUNK_SIZE, raw.size() - off);
     alyncoin::net::Frame fr;
     fr.mutable_snapshot_chunk()->set_data(raw.substr(off, len));
-    sendFrame(transport, fr);
+    if (!sendFrame(transport, fr)) {
+      std::cerr << "❌ [Snapshot] Failed to queue chunk " << seq
+                << " for peer " << peerId << '\n';
+      return;
+    }
     ++seq;
   }
   alyncoin::net::Frame end;
   end.mutable_snapshot_end();
-  sendFrame(transport, end);
+  if (!sendFrame(transport, end)) {
+    std::cerr << "❌ [Snapshot] Failed to queue completion signal for "
+              << peerId << '\n';
+    return;
+  }
+
+  if (ps)
+    ps->lastSnapshotServed = std::chrono::steady_clock::now();
+  completed = true;
 }
 //
 
@@ -4273,8 +4390,11 @@ void Network::handleBlockchainSyncRequest(
 
   if (request.request_type() == "snapshot") {
     auto it = peerTransports.find(peer);
-    if (it != peerTransports.end() && it->second.tx)
-      sendSnapshot(it->second.tx, -1);
+    if (it != peerTransports.end() && it->second.tx) {
+      size_t preferred =
+          it->second.state ? it->second.state->snapshotChunkPreference : 0;
+      sendSnapshot(peer, it->second.tx, -1, preferred);
+    }
   } else if (request.request_type() == "epoch_headers") {
     auto it = peerTransports.find(peer);
     if (it != peerTransports.end() && it->second.tx) {
