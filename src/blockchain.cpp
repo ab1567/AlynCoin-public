@@ -97,6 +97,7 @@ FeeBreakdown computeFeeBreakdown(double amount, double txActivity) {
 }
 } // namespace
 
+namespace {
 struct PremineEntry {
   std::string address;
   double amount;
@@ -106,6 +107,17 @@ static const std::vector<PremineEntry> PREMINE_ALLOCATIONS = {
     {AIRDROP_ADDRESS, 1'000'000.0},  {LIQUIDITY_ADDRESS, 1'000'000.0},
     {INVESTOR_ADDRESS, 3'000'000.0}, {DEVELOPMENT_ADDRESS, 2'000'000.0},
     {EXCHANGE_ADDRESS, 1'000'000.0}, {TEAM_FOUNDER_ADDRESS, 2'000'000.0}};
+
+double getGenesisPremineTotal() {
+  static const double total = [] {
+    double sum = 0.0;
+    for (const auto &entry : PREMINE_ALLOCATIONS)
+      sum += entry.amount;
+    return sum;
+  }();
+  return total;
+}
+} // namespace
 
 // --- helper ---------------------------------------------------------------
 // Compute BLAKE3 hash of concatenated block hashes for the epoch ending at
@@ -689,14 +701,20 @@ bool Blockchain::addBlock(const Block &block, bool lockHeld) {
     computedFees += fees.totalFee;
   }
 
-  double expectedSubsidy = consensus::blockSubsidyForHeight(block.getIndex());
+  const bool isGenesisBlock = (block.getIndex() == 0) && block.isGenesisBlock();
+  double expectedSubsidy =
+      isGenesisBlock ? 0.0
+                     : consensus::blockSubsidyForHeight(block.getIndex());
   double remainingSupply = std::max(0.0, MAX_SUPPLY - totalSupply);
   expectedSubsidy = std::min(expectedSubsidy, remainingSupply);
-  double expectedCoinbase = expectedSubsidy + computedFees;
+  double expectedCoinbase =
+      isGenesisBlock ? getGenesisPremineTotal() : expectedSubsidy + computedFees;
   const double rewardTolerance = 1e-8;
   if (std::abs(mintedTotal - expectedCoinbase) > rewardTolerance) {
-    std::cerr << "❌ [addBlock] Coinbase mismatch. Minted " << mintedTotal
-              << " expected " << expectedCoinbase << "\n";
+    std::cerr << "❌ [addBlock] Coinbase mismatch. Minted "
+              << formatAmount(mintedTotal) << " expected "
+              << formatAmount(expectedCoinbase) << " (height "
+              << block.getIndex() << ")\n";
     return false;
   }
 
