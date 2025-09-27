@@ -1057,7 +1057,7 @@ void Network::start() {
 
 // ✅ **Auto-Mining Background Thread**
 void Network::autoMineBlock() {
-  std::thread([this]() {
+  auto workerFunc = [this]() {
     while (true) {
       std::this_thread::sleep_for(std::chrono::seconds(5));
 
@@ -1066,7 +1066,7 @@ void Network::autoMineBlock() {
         continue;
       }
 
-      PeerManager *pm = this->peerManager;
+      PeerManager *pm = peerManager.get();
       bool havePeers = pm && pm->getPeerCount() > 0;
       static bool warnedSolo = false;
       static bool warnedBehind = false;
@@ -1115,69 +1115,68 @@ void Network::autoMineBlock() {
       std::cout << "⛏️ New transactions detected. Starting mining..."
                 << std::endl;
 
-        // Use default miner address
-        std::string minerAddress =
-            "miner"; // Replace with actual configured address if needed
-        auto resolvedMiner = Crypto::resolveWalletKeyIdentifier(minerAddress);
-        std::string minerKeyId = resolvedMiner.value_or(minerAddress);
+      // Use default miner address
+      std::string minerAddress =
+          "miner"; // Replace with actual configured address if needed
+      auto resolvedMiner = Crypto::resolveWalletKeyIdentifier(minerAddress);
+      std::string minerKeyId = resolvedMiner.value_or(minerAddress);
 
-        auto dilithiumKeys = Crypto::loadDilithiumKeys(minerKeyId);
-        auto falconKeys = Crypto::loadFalconKeys(minerKeyId);
+      auto dilithiumKeys = Crypto::loadDilithiumKeys(minerKeyId);
+      auto falconKeys = Crypto::loadFalconKeys(minerKeyId);
 
-        if (dilithiumKeys.privateKey.empty() ||
-            falconKeys.privateKey.empty()) {
-          std::cerr << "❌ Miner private keys not found or invalid for: "
-                    << minerKeyId << std::endl;
-          continue;
-        }
-
-        std::string canonicalMiner = minerAddress;
-        if (!dilithiumKeys.publicKey.empty()) {
-          canonicalMiner =
-              Crypto::deriveAddressFromPub(dilithiumKeys.publicKey);
-        } else if (!falconKeys.publicKey.empty()) {
-          canonicalMiner = Crypto::deriveAddressFromPub(falconKeys.publicKey);
-        }
-        if (canonicalMiner.empty()) {
-          canonicalMiner = minerKeyId;
-        }
-
-        blockchain.setAutoMiningRewardMode(true);
-        struct AutoRewardReset {
-          Blockchain &ref;
-          ~AutoRewardReset() { ref.setAutoMiningRewardMode(false); }
-        } autoRewardReset{blockchain};
-        Block minedBlock = blockchain.minePendingTransactions(
-            canonicalMiner, dilithiumKeys.privateKey, falconKeys.privateKey,
-            /*forceAutoReward=*/true);
-
-        // Validate signatures using the same message that was signed
-        std::vector<unsigned char> msgHash = minedBlock.getSignatureMessage();
-        std::vector<unsigned char> sigDil = minedBlock.getDilithiumSignature();
-        std::vector<unsigned char> pubDil =
-            Crypto::getPublicKeyDilithium(minedBlock.getMinerAddress());
-
-        std::vector<unsigned char> sigFal = minedBlock.getFalconSignature();
-        std::vector<unsigned char> pubFal =
-            Crypto::getPublicKeyFalcon(minedBlock.getMinerAddress());
-        bool validSignatures =
-            Crypto::verifyWithDilithium(msgHash, sigDil, pubDil) &&
-            Crypto::verifyWithFalcon(msgHash, sigFal, pubFal);
-
-        if (blockchain.isValidNewBlock(minedBlock) && validSignatures) {
-          Blockchain::getInstance().saveToDB();
-          broadcastBlock(minedBlock);
-          blockchain.broadcastNewTip();
-          autoSyncIfBehind();
-          std::cout << "✅ Mined & broadcasted block: " << minedBlock.getHash()
-                    << std::endl;
-        } else {
-          std::cerr << "❌ Mined block failed validation or signature check!"
-                    << std::endl;
-        }
+      if (dilithiumKeys.privateKey.empty() || falconKeys.privateKey.empty()) {
+        std::cerr << "❌ Miner private keys not found or invalid for: "
+                  << minerKeyId << std::endl;
+        continue;
       }
-    }
-  }).detach();
+
+      std::string canonicalMiner = minerAddress;
+      if (!dilithiumKeys.publicKey.empty()) {
+        canonicalMiner = Crypto::deriveAddressFromPub(dilithiumKeys.publicKey);
+      } else if (!falconKeys.publicKey.empty()) {
+        canonicalMiner = Crypto::deriveAddressFromPub(falconKeys.publicKey);
+      }
+      if (canonicalMiner.empty()) {
+        canonicalMiner = minerKeyId;
+      }
+
+      blockchain.setAutoMiningRewardMode(true);
+      struct AutoRewardReset {
+        Blockchain &ref;
+        ~AutoRewardReset() { ref.setAutoMiningRewardMode(false); }
+      } autoRewardReset{blockchain};
+      Block minedBlock = blockchain.minePendingTransactions(
+          canonicalMiner, dilithiumKeys.privateKey, falconKeys.privateKey,
+          /*forceAutoReward=*/true);
+
+      // Validate signatures using the same message that was signed
+      std::vector<unsigned char> msgHash = minedBlock.getSignatureMessage();
+      std::vector<unsigned char> sigDil = minedBlock.getDilithiumSignature();
+      std::vector<unsigned char> pubDil =
+          Crypto::getPublicKeyDilithium(minedBlock.getMinerAddress());
+
+      std::vector<unsigned char> sigFal = minedBlock.getFalconSignature();
+      std::vector<unsigned char> pubFal =
+          Crypto::getPublicKeyFalcon(minedBlock.getMinerAddress());
+      bool validSignatures =
+          Crypto::verifyWithDilithium(msgHash, sigDil, pubDil) &&
+          Crypto::verifyWithFalcon(msgHash, sigFal, pubFal);
+
+      if (blockchain.isValidNewBlock(minedBlock) && validSignatures) {
+        Blockchain::getInstance().saveToDB();
+        broadcastBlock(minedBlock);
+        blockchain.broadcastNewTip();
+        autoSyncIfBehind();
+        std::cout << "✅ Mined & broadcasted block: " << minedBlock.getHash()
+                  << std::endl;
+      } else {
+        std::cerr << "❌ Mined block failed validation or signature check!"
+                  << std::endl;
+      }
+      }
+    };
+  std::thread worker(workerFunc);
+  worker.detach();
 }
 
 //
@@ -1829,7 +1828,7 @@ void Network::autoSyncIfBehind() {
   auto work = bc.computeCumulativeDifficulty(bc.getChain());
   uint64_t myWork = safeUint64(work);
 
-  PeerManager *pm = peerManager;
+  PeerManager *pm = peerManager.get();
   if (pm)
     pm->setLocalWork(myWork);
 
