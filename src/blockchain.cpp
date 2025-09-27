@@ -1790,9 +1790,21 @@ bool Blockchain::saveToDB() {
     std::cout << "[🧪 saveToDB] Block[" << blockCount << "] Index: " << index
               << ", zkProof: " << zk.size() << " bytes\n";
 
-    alyncoin::BlockProto *blockProto = blockchainProto.add_blocks();
-    *blockProto = block.toProtobuf();
+    alyncoin::BlockProto blockProto = block.toProtobuf();
+    std::string serializedBlock;
+    if (!blockProto.SerializeToString(&serializedBlock)) {
+      std::cerr << "❌ [saveToDB] Failed to serialize block " << index
+                << " for persistence.\n";
+      return false;
+    }
+
+    *blockchainProto.add_blocks() = blockProto;
     ++blockCount;
+
+    const std::string heightKey =
+        "block_height_" + std::to_string(block.getIndex());
+    batch.Put(heightKey, serializedBlock);
+    batch.Put("block_" + block.getHash(), serializedBlock);
 
     std::cout << "🧱 [DEBUG] Block[" << blockCount
               << "] hash = " << block.getHash() << std::endl;

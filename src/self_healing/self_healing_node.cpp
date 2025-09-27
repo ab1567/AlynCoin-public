@@ -8,7 +8,7 @@
 #include <vector>
 
 SelfHealingNode::SelfHealingNode(Blockchain* blockchain, PeerManager* peerManager)
-    : blockchain_(blockchain), peerManager_(peerManager) {
+    : blockchain_(blockchain), peerManager_(peerManager), consecutiveFarBehind_(0) {
     healthMonitor_ = std::make_unique<HealthMonitor>(blockchain, peerManager);
     syncRecovery_ = std::make_unique<SyncRecovery>(blockchain, peerManager);
 }
@@ -53,8 +53,23 @@ NodeHealthStatus SelfHealingNode::runHealthCheck(bool manualTrigger) {
         kickStalledSync();
     };
 
+    constexpr std::size_t FAR_BEHIND_CONFIRMATIONS = 3;
+
     if (status.farBehind) {
-        Logger::warn("🚨 Node far behind. Purging local data and requesting snapshot...");
+        ++consecutiveFarBehind_;
+        Logger::warn(
+            "🚨 Node far behind (" + std::to_string(consecutiveFarBehind_) + "/" +
+            std::to_string(FAR_BEHIND_CONFIRMATIONS) +
+            "). Waiting for confirmation before purging local data...");
+
+        if (consecutiveFarBehind_ < FAR_BEHIND_CONFIRMATIONS) {
+            ensureManualKick();
+            return status;
+        }
+
+        Logger::warn("🚨 Node far behind confirmed. Purging local data and requesting snapshot...");
+        consecutiveFarBehind_ = 0;
+
         blockchain_->purgeDataForResync();
         auto peers = peerManager_ ? peerManager_->getConnectedPeers() : std::vector<std::string>{};
         if (!peers.empty()) {
@@ -67,6 +82,8 @@ NodeHealthStatus SelfHealingNode::runHealthCheck(bool manualTrigger) {
         ensureManualKick();
         return status;
     }
+
+    consecutiveFarBehind_ = 0;
 
     if (!healthMonitor_->shouldTriggerRecovery(status)) {
         ensureManualKick();
