@@ -10,6 +10,7 @@
 #include <cstring>
 #include <thread>
 #include <chrono>
+#include <boost/asio/steady_timer.hpp>
 #ifdef _WIN32
 #ifndef _WIN32_WINNT
 #define _WIN32_WINNT 0x0601
@@ -141,7 +142,45 @@ bool TcpTransport::connect(const std::string& host, int port)
         }
 
         auto eps = res.resolve(connectHost, std::to_string(connectPort));
-        boost::asio::connect(*socket, eps);
+
+        boost::system::error_code ec = boost::asio::error::would_block;
+        bool timedOut = false;
+
+        boost::asio::steady_timer timer(socket->get_executor());
+        timer.expires_after(std::chrono::seconds(5));
+        timer.async_wait([this, &timedOut](const boost::system::error_code& tec) {
+            if (!tec) {
+                timedOut = true;
+                if (socket && socket->is_open()) {
+                    boost::system::error_code cancelEc;
+                    socket->cancel(cancelEc);
+                }
+            }
+        });
+
+        boost::asio::async_connect(*socket, eps,
+            [&ec](const boost::system::error_code& connectEc, const auto&) {
+                ec = connectEc;
+            });
+
+        auto& ctx = static_cast<boost::asio::io_context&>(socket->get_executor().context());
+        ctx.restart();
+        while (ec == boost::asio::error::would_block && !timedOut) {
+            if (ctx.run_one() == 0) {
+                break;
+            }
+        }
+        timer.cancel();
+
+        if (timedOut || ec) {
+            if (timedOut) {
+                std::cerr << "[TcpTransport::connect] connect timed out to "
+                          << connectHost << ':' << connectPort << '\n';
+            } else {
+                std::cerr << "[TcpTransport::connect] " << ec.message() << '\n';
+            }
+            return false;
+        }
 
         if (connectHost != host) {
             uint8_t req1[3] = {0x05, 0x01, 0x00};
