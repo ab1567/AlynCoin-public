@@ -180,6 +180,15 @@ public test network, run:
 
 The default RPC port is `1567` and the peer port is `15671`.
 
+> **Peer count tip:** the number displayed in the GUI banner represents only the
+> **remote** peers your node is connected to. When you run exactly two nodes,
+> each one will report a single peer because it only counts the other node, not
+> itself. The node now persists any peers it contacts (including via
+> `--connect`) into `peers.txt` and falls back to the built-in bootstrap list if
+> the file is empty, so you rarely need to edit it manually. Opening TCP `15671`
+> for inbound connections still helps other nodes reach you and increases the
+> banner count more quickly.
+
 Nodes now relay any peers discovered via DNS to all connected nodes shortly
 after startup. This helps the mesh stay connected even if the DNS seed becomes
 unreachable.

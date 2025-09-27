@@ -694,6 +694,62 @@ alyncoin::net::Handshake Network::buildHandshake() const {
 static const std::vector<std::string> DEFAULT_DNS_PEERS = {
     "peers.alyncoin.com:15671"};
 
+std::vector<std::string> fetchPeersFromDNS(const std::string &domain);
+
+struct PeerFileEntry {
+  std::string host;
+  int port{0};
+  std::string keyB64;
+};
+
+std::optional<PeerFileEntry> parsePeerFileEntry(const std::string &line) {
+  std::istringstream iss(line);
+  std::string endpoint;
+  if (!(iss >> endpoint))
+    return std::nullopt;
+
+  auto colon = endpoint.find(':');
+  if (colon == std::string::npos)
+    return std::nullopt;
+
+  PeerFileEntry entry;
+  entry.host = endpoint.substr(0, colon);
+  std::string portStr = endpoint.substr(colon + 1);
+  try {
+    entry.port = std::stoi(portStr);
+  } catch (const std::exception &) {
+    return std::nullopt;
+  }
+  if (entry.port <= 0 || entry.port > 65535)
+    return std::nullopt;
+
+  iss >> entry.keyB64;
+  return entry;
+}
+
+std::vector<PeerFileEntry> gatherBootstrapPeers() {
+  std::set<std::string> seen;
+  std::vector<PeerFileEntry> peers;
+
+  auto addCandidate = [&](const std::string &candidate) {
+    auto parsed = parsePeerFileEntry(candidate);
+    if (!parsed)
+      return;
+    std::string key = parsed->host + ":" + std::to_string(parsed->port);
+    if (seen.insert(key).second)
+      peers.push_back(*parsed);
+  };
+
+  for (const auto &seed : DEFAULT_DNS_PEERS)
+    addCandidate(seed);
+
+  auto dnsPeers = fetchPeersFromDNS("peers.alyncoin.com");
+  for (const auto &seed : dnsPeers)
+    addCandidate(seed);
+
+  return peers;
+}
+
 // ==== [DNS Peer Discovery] ====
 #ifndef _WIN32
 std::vector<std::string> fetchPeersFromDNS(const std::string &domain) {
@@ -1290,7 +1346,8 @@ void Network::connectToPeer(const std::string &ip, short port) {
     std::cerr << "⚠️ [connectToPeer] Skipping self connect: " << peerKey << "\n";
     return;
   }
-  connectToNode(ip, port);
+  if (connectToNode(ip, port))
+    rememberPeerEndpoint(ip, port);
 }
 
 // ✅ **Broadcast peer list to all connected nodes**
@@ -1648,21 +1705,32 @@ void Network::run() {
 
   configureNatTraversal();
 
-  // === 1. Only DNS-based bootstrap at startup ===
-  std::vector<std::string> dnsPeers = fetchPeersFromDNS("peers.alyncoin.com");
-  for (const std::string &peer : dnsPeers) {
-    size_t colonPos = peer.find(":");
-    if (colonPos == std::string::npos)
-      continue;
-    std::string ip = peer.substr(0, colonPos);
-    int p = std::stoi(peer.substr(colonPos + 1));
-    if ((ip == "127.0.0.1" || ip == "localhost") && p == this->port)
-      continue;
-    if (ip == "127.0.0.1" || ip == "localhost")
-      continue;
-    if (isSelfPeer(ip))
-      continue;
-    connectToNode(ip, p);
+  loadPeers();
+
+  bool shouldDialDns = false;
+  {
+    std::lock_guard<std::timed_mutex> lock(peersMutex);
+    shouldDialDns = peerTransports.empty();
+  }
+
+  if (shouldDialDns) {
+    std::vector<std::string> dnsPeers = fetchPeersFromDNS("peers.alyncoin.com");
+    for (const std::string &peer : dnsPeers) {
+      size_t colonPos = peer.find(":");
+      if (colonPos == std::string::npos)
+        continue;
+      std::string ip = peer.substr(0, colonPos);
+      int p = std::stoi(peer.substr(colonPos + 1));
+      if ((ip == "127.0.0.1" || ip == "localhost") && p == this->port)
+        continue;
+      if (ip == "127.0.0.1" || ip == "localhost")
+        continue;
+      if (isSelfPeer(ip))
+        continue;
+      connectToNode(ip, p);
+    }
+  } else {
+    std::cout << "ℹ️  [Network] Existing peers from peers.txt; DNS bootstrap skipped.\n";
   }
   // After dialing DNS peers, share them with connected nodes so the mesh can
   // survive even if DNS is unreachable later.
@@ -3568,42 +3636,42 @@ void Network::handleReceivedBlockIndex(const std::string &peerIP,
 
 // ✅ **Fix Peer Saving & Loading**
 void Network::loadPeers() {
-  std::lock_guard<std::mutex> lock(fileIOMutex);
-
-  std::ifstream file("peers.txt");
-  if (!file.is_open()) {
-    std::cerr
-        << "⚠️ [loadPeers] peers.txt not found, skipping manual mesh restore.\n";
-    return;
+  std::vector<PeerFileEntry> manualPeers;
+  {
+    std::lock_guard<std::mutex> lock(fileIOMutex);
+    std::ifstream file("peers.txt");
+    if (!file.is_open()) {
+      std::cerr << "⚠️ [loadPeers] peers.txt not found, using automatic bootstrap.\n";
+    } else {
+      std::string line;
+      while (std::getline(file, line)) {
+        if (line.empty())
+          continue;
+        auto parsed = parsePeerFileEntry(line);
+        if (parsed)
+          manualPeers.push_back(*parsed);
+      }
+      if (manualPeers.empty())
+        std::cout << "ℹ️  [loadPeers] peers.txt contained no usable peers; falling back to bootstrap list.\n";
+    }
   }
 
-  std::string line;
-  while (std::getline(file, line)) {
-    if (line.empty())
+  bool connected = false;
+  for (const auto &entry : manualPeers) {
+    if (isSelfPeer(entry.host))
       continue;
-    std::istringstream iss(line);
-    std::string addr;
-    std::string keyB64;
-    iss >> addr >> keyB64;
-    if (addr.find(":") == std::string::npos)
+    if (entry.host == "127.0.0.1" || entry.host == "localhost")
       continue;
-    std::string ip = addr.substr(0, addr.find(":"));
-    int portVal = std::stoi(addr.substr(addr.find(":") + 1));
-    // Exclude self and local-only
-    if (isSelfPeer(ip))
-      continue;
-    if (ip == "127.0.0.1" || ip == "localhost")
-      continue;
-
-    if (connectToNode(ip, portVal)) {
-      std::cout << "✅ Peer loaded & connected: " << line << "\n";
-      if (!keyB64.empty()) {
-        std::string decoded = Crypto::base64Decode(keyB64, false);
+    if (connectToNode(entry.host, entry.port)) {
+      connected = true;
+      if (!entry.keyB64.empty()) {
+        std::string decoded = Crypto::base64Decode(entry.keyB64, false);
         if (decoded.size() == 32) {
           std::lock_guard<std::timed_mutex> lk(peersMutex);
-          auto it =
-              std::find_if(peerTransports.begin(), peerTransports.end(),
-                           [&](const auto &kv) { return kv.second.ip == ip; });
+          auto it = std::find_if(peerTransports.begin(), peerTransports.end(),
+                                 [&](const auto &kv) {
+                                   return kv.second.ip == entry.host;
+                                 });
           if (it != peerTransports.end() && it->second.state)
             std::copy(decoded.begin(), decoded.end(),
                       it->second.state->linkKey.begin());
@@ -3611,8 +3679,28 @@ void Network::loadPeers() {
       }
     }
   }
-  file.close();
-  std::cout << "✅ [loadPeers] Peer file mesh restore complete.\n";
+
+  if (!connected) {
+    auto bootstrap = gatherBootstrapPeers();
+    if (!bootstrap.empty())
+      std::cout << "ℹ️  [loadPeers] Using bootstrap peer list.\n";
+    for (const auto &entry : bootstrap) {
+      if (isSelfPeer(entry.host))
+        continue;
+      if (entry.host == "127.0.0.1" || entry.host == "localhost")
+        continue;
+      if (connectToNode(entry.host, entry.port)) {
+        connected = true;
+        rememberPeerEndpoint(entry.host, entry.port);
+      }
+    }
+  }
+
+  if (connected) {
+    std::cout << "✅ [loadPeers] Peer bootstrap complete.\n";
+  } else {
+    std::cerr << "⚠️ [loadPeers] Unable to reach any peers from manual or bootstrap lists.\n";
+  }
 }
 
 //
@@ -3679,6 +3767,36 @@ void Network::savePeers() {
   file.close();
   std::cout << "✅ Peer list saved successfully. Total peers: "
             << peerTransports.size() << std::endl;
+}
+
+void Network::rememberPeerEndpoint(const std::string &ip, int port) {
+  if (ip == "127.0.0.1" || ip == "localhost")
+    return;
+  if (isSelfPeer(ip))
+    return;
+
+  std::string endpoint = ip + ":" + std::to_string(port);
+  std::lock_guard<std::mutex> lock(fileIOMutex);
+
+  {
+    std::ifstream file("peers.txt");
+    if (file.is_open()) {
+      std::string line;
+      while (std::getline(file, line)) {
+        auto parsed = parsePeerFileEntry(line);
+        if (parsed && parsed->host == ip && parsed->port == port)
+          return; // Already persisted
+      }
+    }
+  }
+
+  std::ofstream out("peers.txt", std::ios::app);
+  if (!out.is_open()) {
+    std::cerr << "⚠️ [peers.txt] Unable to append peer " << endpoint << "\n";
+    return;
+  }
+  out << endpoint << std::endl;
+  std::cout << "📝 [peers.txt] Remembering peer " << endpoint << std::endl;
 }
 
 // ✅ **Broadcast Latest Block Correctly (Base64 Encoded)**

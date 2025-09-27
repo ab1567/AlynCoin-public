@@ -426,6 +426,10 @@ class AlynCoinApp(QMainWindow):
         self.dns_peers = get_peers_from_dns()
         self.initUI(get_logo_path())
         self.applyDarkTheme()
+        self.appendOutput(
+            "ℹ️ Peer connections are restored automatically from peers.txt. "
+            "Use the Stats tab to review current peers."
+        )
 
     def initUI(self, logo_path=None):
         centralWidget = QWidget()
@@ -683,13 +687,14 @@ if __name__ == "__main__":
                              "Could not start AlynCoin node process.\nMake sure 'alyncoin' is in the same folder.")
         sys.exit(1)
     # --- DNS requirement ---
+    dns_warning = None
     if not is_alyncoin_dns_accessible():
-        msg = (
-            "🛑 Cannot reach AlynCoin peer DNS (peers.alyncoin.com).\n"
-            "Please contact alyncoin.com"
+        dns_warning = (
+            "⚠️ Unable to reach peers.alyncoin.com for DNS bootstrap.\n"
+            "The node will continue using the built-in bootstrap list and any peers saved "
+            "in peers.txt."
         )
-        QMessageBox.critical(None, "DNS Unreachable", msg)
-        sys.exit(1)
+        print(dns_warning)
 
     rpc_ready = wait_for_rpc_ready(timeout=15.0)
     if not rpc_ready:
@@ -716,6 +721,9 @@ if __name__ == "__main__":
             QMessageBox.warning(None, "Node Sync",
                                  "Local node is still syncing. The wallet will open, but some features may be unavailable.")
     window = AlynCoinApp()
+    if dns_warning:
+        QMessageBox.warning(window, "Peer Discovery", dns_warning)
+        window.appendOutput(dns_warning)
     if not rpc_ready:
         window.tabs.setEnabled(False)
         window.updateStatusBanner("⚠️ Waiting for node RPC interface…", "#ffaa00")

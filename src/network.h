@@ -239,5 +239,6 @@ private:
   std::pair<std::string, unsigned short> determineAnnounceEndpoint() const;
   void recordExternalAddress(const std::string &ip, unsigned short port);
   void runHairpinCheck();
+  void rememberPeerEndpoint(const std::string &ip, int port);
 };
 #endif // NETWORK_H
