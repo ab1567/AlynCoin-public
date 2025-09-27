@@ -813,68 +813,91 @@ std::optional<std::string> tryUPnPPortMapping(int port) {
 std::optional<std::string> tryUPnPPortMapping(int) { return std::nullopt; }
 #endif
 #if defined(ALYN_ENABLE_NAT_TRAVERSAL) && defined(HAVE_LIBNATPMP)
-std::optional<std::string> tryNATPMPPortMapping(int port) {
+namespace {
+std::optional<std::string> tryNATPMPPortMapping(int port, int max_wait_ms) {
   natpmp_t natpmp;
-  natpmpresp_t response;
-  int r = initnatpmp(&natpmp, 0, 0);
-  if (r < 0) {
-    std::cerr << "⚠️ [NAT-PMP] initnatpmp failed: " << r << "\n";
+  natpmpresp_t response{};
+  const int waitBudget = std::max(0, max_wait_ms);
+  auto deadline = std::chrono::steady_clock::now() +
+                  std::chrono::milliseconds(waitBudget);
+
+  const int initResult = initnatpmp(&natpmp, 0, 0);
+  if (initResult < 0) {
+    std::cerr << "⚠️ [NAT-PMP] initnatpmp failed: " << initResult << "\n";
     return std::nullopt;
   }
-  r = sendnewportmappingrequest(&natpmp, NATPMP_PROTOCOL_TCP, port, port, 3600);
+
+  struct NatpmpCloser {
+    natpmp_t *handle;
+    ~NatpmpCloser() {
+      if (handle)
+        closenatpmp(handle);
+    }
+  } closer{&natpmp};
+
+  int r = sendnewportmappingrequest(&natpmp, NATPMP_PROTOCOL_TCP, port, port, 3600);
   if (r < 0) {
     std::cerr << "⚠️ [NAT-PMP] send request failed: " << r << "\n";
-    closenatpmp(&natpmp);
     return std::nullopt;
   }
-  do {
-    fd_set fds;
-    FD_ZERO(&fds);
-    FD_SET(natpmp.s, &fds);
-    struct timeval timeout;
-    if (getnatpmprequesttimeout(&natpmp, &timeout) < 0) {
-      std::cerr << "⚠️ [NAT-PMP] timeout failed\n";
-      closenatpmp(&natpmp);
-      return std::nullopt;
+
+  auto waitForResponse = [&](natpmpresp_t &resp) -> int {
+    int result = NATPMP_TRYAGAIN;
+    while (result == NATPMP_TRYAGAIN &&
+           std::chrono::steady_clock::now() < deadline) {
+      fd_set fds;
+      FD_ZERO(&fds);
+      FD_SET(natpmp.s, &fds);
+      const auto now = std::chrono::steady_clock::now();
+      auto remaining =
+          std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now);
+      if (remaining.count() <= 0) {
+        break;
+      }
+
+      const long slice = std::min<long>(remaining.count(), 100);
+      timeval tv{};
+      tv.tv_sec = slice / 1000;
+      tv.tv_usec = (slice % 1000) * 1000;
+      select(natpmp.s + 1, &fds, nullptr, nullptr, &tv);
+      result = readnatpmpresponseorretry(&natpmp, &resp);
     }
-    select(natpmp.s + 1, &fds, nullptr, nullptr, &timeout);
-    r = readnatpmpresponseorretry(&natpmp, &response);
-  } while (r == NATPMP_TRYAGAIN);
+    return result;
+  };
+
+  r = waitForResponse(response);
 
   if (r >= 0 && response.resultcode == 0) {
     std::cout << "✅ [NAT-PMP] Port mapping added on port " << std::dec << port
               << "\n";
     natpmpresp_t addrResp{};
-    r = sendpublicaddressrequest(&natpmp);
-    if (r >= 0) {
-      do {
-        fd_set fds;
-        FD_ZERO(&fds);
-        FD_SET(natpmp.s, &fds);
-        struct timeval timeout;
-        if (getnatpmprequesttimeout(&natpmp, &timeout) < 0)
-          break;
-        select(natpmp.s + 1, &fds, nullptr, nullptr, &timeout);
-        r = readnatpmpresponseorretry(&natpmp, &addrResp);
-      } while (r == NATPMP_TRYAGAIN);
+    int addrReq = sendpublicaddressrequest(&natpmp);
+    if (addrReq >= 0) {
+      r = waitForResponse(addrResp);
       if (r >= 0 && addrResp.type == NATPMP_RESPTYPE_PUBLICADDRESS) {
         char buf[INET_ADDRSTRLEN] = {0};
         in_addr ia{};
         static_assert(sizeof(ia) >= sizeof(addrResp.pnu.publicaddress),
                       "Unexpected natpmp public address size");
-        std::memcpy(&ia, &addrResp.pnu.publicaddress, sizeof(addrResp.pnu.publicaddress));
+        std::memcpy(&ia, &addrResp.pnu.publicaddress,
+                    sizeof(addrResp.pnu.publicaddress));
         if (inet_ntop(AF_INET, &ia, buf, sizeof(buf))) {
-          closenatpmp(&natpmp);
           return std::string(buf);
         }
       }
     }
-  } else {
+  } else if (r >= 0) {
     std::cerr << "⚠️ [NAT-PMP] Failed to add port mapping: " << r
               << " resp=" << response.resultcode << "\n";
   }
-  closenatpmp(&natpmp);
+
   return std::nullopt;
+}
+
+} // namespace
+
+std::optional<std::string> tryNATPMPPortMapping(int port) {
+  return tryNATPMPPortMapping(port, 2000);
 }
 #elif defined(ALYN_ENABLE_NAT_TRAVERSAL)
 std::optional<std::string> tryNATPMPPortMapping(int) { return std::nullopt; }
@@ -1566,10 +1589,11 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
 // ✅ **Run Network Thread**
 void Network::run() {
   std::cout << "🚀 [Network] Starting network stack for port " << port << "\n";
-  configureNatTraversal();
   // Start listener and IO thread
   startServer();
   std::this_thread::sleep_for(std::chrono::seconds(2));
+
+  configureNatTraversal();
 
   // === 1. Only DNS-based bootstrap at startup ===
   std::vector<std::string> dnsPeers = fetchPeersFromDNS("peers.alyncoin.com");
@@ -1696,18 +1720,32 @@ void Network::run() {
 
 void Network::configureNatTraversal() {
 #if defined(ALYN_ENABLE_NAT_TRAVERSAL)
-  std::optional<std::string> natAddress;
+  std::thread([this]() {
+    auto endpoint = determineAnnounceEndpoint();
+    if (!endpoint.first.empty() && isRoutableAddress(endpoint.first))
+      return;
+
+    auto deadline = std::chrono::steady_clock::now() +
+                    std::chrono::seconds(1);
+    std::optional<std::string> natAddress;
+
 #if defined(HAVE_MINIUPNPC)
-  natAddress = tryUPnPPortMapping(this->port);
+    natAddress = tryUPnPPortMapping(this->port);
 #endif
 #if defined(HAVE_LIBNATPMP)
-  if (!natAddress || natAddress->empty())
-    natAddress = tryNATPMPPortMapping(this->port);
+    if ((!natAddress || natAddress->empty()) &&
+        std::chrono::steady_clock::now() < deadline) {
+      auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
+          deadline - std::chrono::steady_clock::now());
+      natAddress =
+          tryNATPMPPortMapping(this->port, static_cast<int>(remaining.count()));
+    }
 #endif
-  if (!configuredExternalExplicit && natAddress && !natAddress->empty()) {
-    recordExternalAddress(*natAddress, this->port);
-    runHairpinCheck();
-  }
+    if (!configuredExternalExplicit && natAddress && !natAddress->empty()) {
+      recordExternalAddress(*natAddress, this->port);
+      runHairpinCheck();
+    }
+  }).detach();
 #else
   if (!configuredExternalExplicit)
     std::cout << "ℹ️  [Network] NAT traversal disabled at compile time; "
