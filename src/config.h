@@ -4,6 +4,13 @@
 struct AppConfig {
     bool enable_tls = false;
     bool enable_whisper = false;
+#ifdef _WIN32
+    bool enable_upnp = true;
+    bool enable_natpmp = true;
+#else
+    bool enable_upnp = false;
+    bool enable_natpmp = false;
+#endif
     std::string data_dir = "./data";
   std::string proxy_host;
   int proxy_port = 0;

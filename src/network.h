@@ -221,6 +221,7 @@ private:
   std::unordered_map<std::string, BanEntry> bannedPeers;
   std::unordered_set<std::string> knownPeers;
   std::unordered_set<std::string> anchorPeers;
+  std::atomic<bool> peerFileLoaded{false};
   PeerBlacklist *blacklist;
   std::unordered_set<std::string> seenTxHashes;
   static Network *instancePtr;
