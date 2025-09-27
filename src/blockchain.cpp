@@ -41,6 +41,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <optional>
+#include <memory>
 
 using boost::multiprecision::cpp_int;
 
@@ -1754,12 +1755,48 @@ bool Blockchain::saveToDB() {
 
   /* --- zap stale heights ----------------------------------- */
   rocksdb::WriteBatch batch;
+  std::unordered_map<int, std::string> currentHashesByHeight;
+  currentHashesByHeight.reserve(chain.size());
+  std::unordered_set<std::string> currentHashes;
+  currentHashes.reserve(chain.size());
+  for (const auto &block : chain) {
+    currentHashesByHeight[block.getIndex()] = block.getHash();
+    currentHashes.insert(block.getHash());
+  }
+
+  rocksdb::ReadOptions readOptions;
   std::string v;
   int lastHeight = 0;
-  if (db->Get(rocksdb::ReadOptions(), "last_height", &v).ok())
+  if (db->Get(readOptions, "last_height", &v).ok())
     lastHeight = std::stoi(v);
-  for (int h = chain.size(); h <= lastHeight; ++h) {
-    batch.Delete("block_height_" + std::to_string(h));
+
+  for (int h = 0; h <= lastHeight; ++h) {
+    if (currentHashesByHeight.find(h) != currentHashesByHeight.end()) {
+      continue;
+    }
+
+    const std::string heightKey = "block_height_" + std::to_string(h);
+    std::string serializedBlock;
+    if (db->Get(readOptions, heightKey, &serializedBlock).ok()) {
+      batch.Delete(heightKey);
+    }
+  }
+
+  std::unique_ptr<rocksdb::Iterator> it(db->NewIterator(readOptions));
+  constexpr size_t kBlockKeyPrefixLen = 6; // length of "block_"
+  for (it->Seek("block_"); it->Valid(); it->Next()) {
+    std::string key = it->key().ToString();
+    if (key.rfind("block_", 0) != 0) {
+      break;
+    }
+    if (key.rfind("block_height_", 0) == 0) {
+      continue;
+    }
+
+    std::string hashKey = key.substr(kBlockKeyPrefixLen);
+    if (currentHashes.find(hashKey) == currentHashes.end()) {
+      batch.Delete(key);
+    }
   }
   /* ---------------------------------------------------------- */
 
