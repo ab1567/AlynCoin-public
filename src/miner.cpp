@@ -13,6 +13,54 @@
 
 std::atomic<bool> miningActive{false};
 
+namespace {
+
+const auto kSyncPollInterval = std::chrono::seconds(2);
+const auto kInitialCatchupTimeout = std::chrono::seconds(90);
+constexpr int kMiningSyncTolerance = 4;
+
+bool chainCaughtUp(Blockchain &blockchain, PeerManager *pm, int tolerance) {
+    if (!pm)
+        return true;
+    const int peerMax = pm->getMaxPeerHeight();
+    if (peerMax < 0)
+        return true;
+    const int localHeight = blockchain.getHeight();
+    if (peerMax <= tolerance || localHeight >= peerMax - tolerance)
+        return true;
+    const uint64_t peerWork = pm->getMaxPeerWork();
+    if (peerWork == 0)
+        return false;
+    return blockchain.getTotalWork() >= peerWork;
+}
+
+bool waitForCatchup(Blockchain &blockchain, PeerManager *pm, Network *net,
+                    int tolerance, std::chrono::seconds timeout) {
+    if (!pm)
+        return true;
+    bool logged = false;
+    auto start = std::chrono::steady_clock::now();
+    while (!chainCaughtUp(blockchain, pm, tolerance)) {
+        if (!logged) {
+            std::cout << "⏳ Waiting for blockchain to catch up before mining...\n";
+            logged = true;
+        }
+        if (net)
+            net->autoSyncIfBehind();
+        if (timeout.count() > 0 &&
+            std::chrono::steady_clock::now() - start > timeout) {
+            std::cerr << "⚠️ Proceeding with mining despite lagging behind peers.\n";
+            return false;
+        }
+        std::this_thread::sleep_for(kSyncPollInterval);
+    }
+    if (logged)
+        std::cout << "✅ Local chain caught up with peers. Continuing.\n";
+    return true;
+}
+
+} // namespace
+
 bool containsValidTransaction(const std::vector<Transaction> &transactions) {
     for (const auto &tx : transactions) {
         if (tx.getSender() != "System") {
@@ -36,7 +84,43 @@ void Miner::startMiningProcess(const std::string &minerAddress) {
         blockchain.loadPendingTransactionsFromDB();
         blockchain.reloadBlockchainState();  // Load once before loop
 
+        Network *networkPtr = Network::isUninitialized() ? nullptr : &Network::getInstance();
+        PeerManager *peerManager = networkPtr ? networkPtr->getPeerManager() : nullptr;
+
+        if (auto checkpoint = blockchain.readMiningCheckpoint()) {
+            std::cout << "⏮️  Last mining checkpoint height=" << checkpoint->height
+                      << " hash=" << checkpoint->hash;
+            if (checkpoint->timestamp != 0)
+                std::cout << " ts=" << checkpoint->timestamp;
+            std::cout << "\n";
+        }
+
+        waitForCatchup(blockchain, peerManager, networkPtr, kMiningSyncTolerance,
+                       kInitialCatchupTimeout);
+
+        bool warnedBehind = false;
+
         while (miningActive) {
+            if (!Network::isUninitialized()) {
+                networkPtr = &Network::getInstance();
+                peerManager = networkPtr->getPeerManager();
+            } else {
+                networkPtr = nullptr;
+                peerManager = nullptr;
+            }
+
+            if (peerManager && !chainCaughtUp(blockchain, peerManager, kMiningSyncTolerance)) {
+                if (!warnedBehind) {
+                    std::cerr << "⚠️ Local chain is behind peers; pausing mining for sync.\n";
+                    warnedBehind = true;
+                }
+                if (networkPtr)
+                    networkPtr->autoSyncIfBehind();
+                std::this_thread::sleep_for(kSyncPollInterval);
+                continue;
+            }
+            warnedBehind = false;
+
             Block minedBlock = blockchain.mineBlock(minerAddress);
 
             if (minedBlock.getHash().empty()) {
@@ -89,6 +173,8 @@ void Miner::startMiningProcess(const std::string &minerAddress) {
     } catch (const std::exception &e) {
         std::cerr << "❌ Fatal error: " << e.what() << std::endl;
     }
+
+    miningActive = false;
 }
 
 // ✅ Improved Mining Algorithm: Hybrid PoW (BLAKE3 + Keccak256)

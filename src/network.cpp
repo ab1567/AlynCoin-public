@@ -300,6 +300,7 @@ static constexpr uint64_t FRAME_LIMIT_MIN = 200;
 static constexpr uint64_t BYTE_LIMIT_MIN = 1 << 20;
 static constexpr int MAX_REORG = 100;
 static constexpr int BAN_THRESHOLD = 200;
+static constexpr int SYNC_HEIGHT_TOLERANCE = 1;
 // Allow more leniency before dropping a peer for corrupted frames. Temporary
 // network hiccups can truncate protobuf messages. Such glitches should not
 // immediately disconnect healthy peers, so PARSE_FAIL_LIMIT is set higher to
@@ -1061,28 +1062,58 @@ void Network::autoMineBlock() {
       std::this_thread::sleep_for(std::chrono::seconds(5));
 
       Blockchain &blockchain = *this->blockchain;
-      if (!blockchain.getPendingTransactions().empty()) {
-        bool havePeers = this->peerManager && this->peerManager->getPeerCount() > 0;
-        static bool warnedSolo = false;
-        if (!havePeers) {
-          if (!warnedSolo) {
-            std::cerr << "⚠️ Auto-miner waiting for peer connections before "
-                         "mining." << std::endl;
-            warnedSolo = true;
-          }
-          continue;
+      if (!blockchain.shouldAutoMine()) {
+        continue;
+      }
+
+      PeerManager *pm = this->peerManager;
+      bool havePeers = pm && pm->getPeerCount() > 0;
+      static bool warnedSolo = false;
+      static bool warnedBehind = false;
+      if (!havePeers) {
+        if (!warnedSolo) {
+          std::cerr << "⚠️ Auto-miner waiting for peer connections before "
+                       "mining." << std::endl;
+          warnedSolo = true;
         }
-        warnedSolo = false;
-        const Block &latestBlock = blockchain.getLatestBlock();
-        double secondsSinceLast =
-            std::difftime(std::time(nullptr), latestBlock.getTimestamp());
-        if (secondsSinceLast < 60.0) {
-          std::cout << "⏳ Auto-miner waiting. Last block is " << secondsSinceLast
-                    << "s old (< 60s threshold)." << std::endl;
-          continue;
+        continue;
+      }
+      warnedSolo = false;
+
+      bool caughtUp = true;
+      if (pm) {
+        const int peerMax = pm->getMaxPeerHeight();
+        if (peerMax > 0) {
+          const int localHeight = blockchain.getHeight();
+          if (peerMax > SYNC_HEIGHT_TOLERANCE &&
+              localHeight < peerMax - SYNC_HEIGHT_TOLERANCE)
+            caughtUp = false;
         }
-        std::cout << "⛏️ New transactions detected. Starting mining..."
-                  << std::endl;
+        const uint64_t peerWork = pm->getMaxPeerWork();
+        if (peerWork > 0 && blockchain.getTotalWork() < peerWork)
+          caughtUp = false;
+      }
+
+      if (!caughtUp) {
+        if (!warnedBehind) {
+          std::cerr << "⚠️ Auto-miner pausing until local chain catches up." << std::endl;
+          warnedBehind = true;
+        }
+        autoSyncIfBehind();
+        continue;
+      }
+      warnedBehind = false;
+
+      const Block &latestBlock = blockchain.getLatestBlock();
+      double secondsSinceLast =
+          std::difftime(std::time(nullptr), latestBlock.getTimestamp());
+      if (secondsSinceLast < 60.0) {
+        std::cout << "⏳ Auto-miner waiting. Last block is " << secondsSinceLast
+                  << "s old (< 60s threshold)." << std::endl;
+        continue;
+      }
+      std::cout << "⛏️ New transactions detected. Starting mining..."
+                << std::endl;
 
         // Use default miner address
         std::string minerAddress =
@@ -1798,6 +1829,12 @@ void Network::autoSyncIfBehind() {
   auto work = bc.computeCumulativeDifficulty(bc.getChain());
   uint64_t myWork = safeUint64(work);
 
+  PeerManager *pm = peerManager;
+  if (pm)
+    pm->setLocalWork(myWork);
+
+  bool behind = false;
+
   std::lock_guard<std::timed_mutex> lock(peersMutex);
   for (const auto &[peerAddr, entry] : peerTransports) {
     auto tr = entry.tx;
@@ -1813,16 +1850,17 @@ void Network::autoSyncIfBehind() {
     // Advertise our own height information to avoid isolation
     sendHeightProbe(tr);
 
-    if (!peerManager)
+    if (!pm)
       continue;
-    int peerHeight = peerManager->getPeerHeight(peerAddr);
-    std::string peerTip = peerManager->getPeerTipHash(peerAddr);
-    uint64_t peerWork = peerManager->getPeerWork(peerAddr);
+    int peerHeight = pm->getPeerHeight(peerAddr);
+    std::string peerTip = pm->getPeerTipHash(peerAddr);
+    uint64_t peerWork = pm->getPeerWork(peerAddr);
 
     std::cout << "[autoSync] peer=" << peerAddr << " height=" << peerHeight
               << " | local=" << myHeight << '\n';
 
     if (peerWork > myWork) {
+      behind = true;
       int gap = peerHeight - static_cast<int>(myHeight);
       if (gap <= TAIL_SYNC_THRESHOLD) {
         std::cout << "  → requesting tail blocks\n";
@@ -1841,6 +1879,7 @@ void Network::autoSyncIfBehind() {
       }
     } else if (peerHeight == static_cast<int>(myHeight) && !peerTip.empty() &&
                peerTip != myTip && peerWork >= myWork) {
+      behind = true;
       std::cout << "  → tip mismatch, requesting missing block\n";
       requestBlockByHash(peerAddr, peerTip);
     } else if (peerHeight < static_cast<int>(myHeight) && peerWork < myWork) {
@@ -1850,6 +1889,19 @@ void Network::autoSyncIfBehind() {
       }
     }
   }
+
+  if (pm) {
+    int medianHeight = pm->getMedianNetworkHeight();
+    if (medianHeight > 0 &&
+        static_cast<long long>(myHeight) + SYNC_HEIGHT_TOLERANCE <
+            static_cast<long long>(medianHeight)) {
+      behind = true;
+    }
+    if (pm->getMaxPeerWork() > myWork)
+      behind = true;
+  }
+
+  syncing = behind;
 }
 void Network::waitForInitialSync(int timeoutSeconds) {
   auto start = std::chrono::steady_clock::now();
@@ -4250,8 +4302,13 @@ void Network::handleTailBlocks(const std::string &peer,
     while (pos < blocks.size() && blocks[pos].getPreviousHash() != localTip) {
       ++pos;
     }
-    if (pos == blocks.size())
-      return; // no connector
+    if (pos == blocks.size()) {
+      std::cerr << "⚠️ [TAIL_BLOCKS] No connector from peer " << peer
+                << "; requesting headers to bridge gap.\n";
+      HeadersSync::requestHeaders(peer, chain.getLatestBlockHash());
+      syncing = true;
+      return;
+    }
 
     size_t appended = 0;
     for (; pos < blocks.size(); ++pos) {
@@ -4280,6 +4337,7 @@ void Network::handleTailBlocks(const std::string &peer,
     if (peerManager)
       peerManager->setPeerHeight(peer, chain.getHeight());
     chain.broadcastNewTip();
+    syncing = false;
 
     if (peerManager) {
       int remoteH = peerManager->getPeerHeight(peer);
@@ -4294,6 +4352,7 @@ void Network::handleTailBlocks(const std::string &peer,
       Blockchain &chain = Blockchain::getInstance();
       requestTailBlocks(peer, chain.getHeight(), chain.getLatestBlockHash());
     }
+    syncing = true;
   } catch (...) {
     std::cerr
         << "❌ [TAIL_BLOCKS] Unknown error applying tail blocks from peer "
@@ -4303,6 +4362,7 @@ void Network::handleTailBlocks(const std::string &peer,
       Blockchain &chain = Blockchain::getInstance();
       requestTailBlocks(peer, chain.getHeight(), chain.getLatestBlockHash());
     }
+    syncing = true;
   }
 }
 

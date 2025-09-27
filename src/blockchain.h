@@ -26,6 +26,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <optional>
 #include "constants.h"
 
 #define DEFAULT_PORT 15671
@@ -117,6 +118,7 @@ private:
                                   bool lockHeld = false) const;
   void recordConfirmedNonce(const std::string &sender, uint64_t nonce,
                             bool lockHeld = false);
+  void clearMiningCheckpoint() const;
 
 public:
   static Blockchain &getInstance(unsigned short port,
@@ -258,6 +260,14 @@ public:
       const std::vector<Transaction> &l2Txs) const;
   int getRollupChainSize() const;
   std::string getLastRollupHash() const;
+
+  struct MiningCheckpoint {
+    int height{-1};
+    std::string hash;
+    std::time_t timestamp{0};
+  };
+  void persistMiningCheckpoint(const Block &block) const;
+  std::optional<MiningCheckpoint> readMiningCheckpoint() const;
   std::string getLastRollupProof() const;
 
   int getCheckpointHeight() const { return checkpointHeight; }
