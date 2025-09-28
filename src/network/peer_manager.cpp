@@ -30,26 +30,71 @@ static std::string ipPrefixPM(const std::string &ip) {
     return count == 3 ? out : std::string();
 }
 
+PeerManager::PeerInsertResult PeerManager::tryInsertPeer(const std::string& peer_id,
+                                                        bool enforceNetgroup) {
+    std::lock_guard<std::mutex> guard(peerMutex);
+
+    if (std::find(connected_peers.begin(), connected_peers.end(), peer_id) != connected_peers.end()) {
+        return PeerInsertResult::AlreadyPresent;
+    }
+
+    const std::string ip = peer_id.substr(0, peer_id.find(':'));
+    const std::string prefix = ipPrefixPM(ip);
+
+    if (enforceNetgroup && !prefix.empty()) {
+        int cnt = 0;
+        for (const auto &p : connected_peers) {
+            std::string pIp = p.substr(0, p.find(':'));
+            if (ipPrefixPM(pIp) == prefix) {
+                ++cnt;
+                if (cnt >= 2) {
+                    return PeerInsertResult::NetgroupLimit;
+                }
+            }
+        }
+    }
+
+    connected_peers.push_back(peer_id);
+    return PeerInsertResult::Added;
+}
+
+void PeerManager::announcePeerConnected(const std::string& peer_id) {
+    std::cout << "✅ Connected to peer: " << peer_id << std::endl;
+
+    if (!network) {
+        return;
+    }
+
+    std::vector<std::string> activePeers = network->getPeers();
+    if (std::find(activePeers.begin(), activePeers.end(), peer_id) == activePeers.end()) {
+        std::cout << "🔁 [PeerManager] Peer not in active sockets: " << peer_id
+                  << ". Reconnecting...\n";
+
+        size_t pos = peer_id.find(":");
+        if (pos != std::string::npos) {
+            std::string ip = peer_id.substr(0, pos);
+            int port = std::stoi(peer_id.substr(pos + 1));
+            network->connectToNode(ip, port);
+        }
+    }
+}
+
 bool PeerManager::registerPeer(const std::string &peer_id) {
     if (blacklist->isBlacklisted(peer_id)) {
         std::cout << "❌ Rejected blacklisted peer: " << peer_id << std::endl;
         return false;
     }
-    std::string ip = peer_id.substr(0, peer_id.find(':'));
-    std::string prefix = ipPrefixPM(ip);
-    if (!prefix.empty()) {
-        int cnt = 0;
-        for (const auto &p : connected_peers) {
-            std::string pIp = p.substr(0, p.find(':'));
-            if (ipPrefixPM(pIp) == prefix)
-                ++cnt;
-        }
-        if (cnt >= 2) {
-            std::cerr << "⚠️ [registerPeer] netgroup limit" << std::endl;
-            return false;
-        }
+    auto result = tryInsertPeer(peer_id, /*enforceNetgroup=*/true);
+    if (result == PeerInsertResult::NetgroupLimit) {
+        std::cerr << "⚠️ [registerPeer] netgroup limit" << std::endl;
+        return false;
     }
-    return connectToPeer(peer_id);
+
+    if (result == PeerInsertResult::Added) {
+        announcePeerConnected(peer_id);
+    }
+
+    return true;
 }
 
 bool PeerManager::connectToPeer(const std::string& peer_id) {
@@ -58,32 +103,16 @@ bool PeerManager::connectToPeer(const std::string& peer_id) {
         return false;
     }
 
-    // Avoid duplicate insertions
-    if (std::find(connected_peers.begin(), connected_peers.end(), peer_id) == connected_peers.end()) {
-        connected_peers.push_back(peer_id);
-    }
-
-    std::cout << "✅ Connected to peer: " << peer_id << std::endl;
-
-    // ✅ Reconnection only if peer not present in peerSockets
-    if (network) {
-        std::vector<std::string> activePeers = network->getPeers();
-        if (std::find(activePeers.begin(), activePeers.end(), peer_id) == activePeers.end()) {
-            std::cout << "🔁 [PeerManager] Peer not in active sockets: " << peer_id << ". Reconnecting...\n";
-
-            size_t pos = peer_id.find(":");
-            if (pos != std::string::npos) {
-                std::string ip = peer_id.substr(0, pos);
-                int port = std::stoi(peer_id.substr(pos + 1));
-                network->connectToNode(ip, port);
-            }
-        }
+    auto result = tryInsertPeer(peer_id, /*enforceNetgroup=*/false);
+    if (result == PeerInsertResult::Added) {
+        announcePeerConnected(peer_id);
     }
 
     return true;
 }
 
 void PeerManager::disconnectPeer(const std::string& peer_id) {
+    std::lock_guard<std::mutex> guard(peerMutex);
     connected_peers.erase(
         std::remove(connected_peers.begin(), connected_peers.end(), peer_id),
         connected_peers.end()
@@ -92,26 +121,32 @@ void PeerManager::disconnectPeer(const std::string& peer_id) {
 }
 
 std::vector<std::string> PeerManager::getConnectedPeers() {
+    std::lock_guard<std::mutex> guard(peerMutex);
     return connected_peers;
 }
 
 int PeerManager::getPeerCount() const {
+    std::lock_guard<std::mutex> guard(peerMutex);
     return connected_peers.size();
 }
 
 void PeerManager::setLocalWork(uint64_t work) {
+    std::lock_guard<std::mutex> guard(peerMutex);
     localWork = work;
 }
 
 uint64_t PeerManager::getLocalWork() const {
+    std::lock_guard<std::mutex> guard(peerMutex);
     return localWork;
 }
 
 void PeerManager::setPeerWork(const std::string& peer, uint64_t work) {
+    std::lock_guard<std::mutex> guard(peerMutex);
     peerWorks[peer] = work;
 }
 
 uint64_t PeerManager::getPeerWork(const std::string& peer) const {
+    std::lock_guard<std::mutex> guard(peerMutex);
     auto it = peerWorks.find(peer);
     if (it != peerWorks.end()) return it->second;
     return 0;
@@ -119,6 +154,7 @@ uint64_t PeerManager::getPeerWork(const std::string& peer) const {
 
 uint64_t PeerManager::getMaxPeerWork() const {
     uint64_t maxW = 0;
+    std::lock_guard<std::mutex> guard(peerMutex);
     for (const auto& kv : peerWorks) {
         if (kv.second > maxW)
             maxW = kv.second;
@@ -127,19 +163,27 @@ uint64_t PeerManager::getMaxPeerWork() const {
 }
 
 void PeerManager::setExternalAddress(const std::string &address) {
+    std::lock_guard<std::mutex> guard(peerMutex);
     externalAddress_ = address;
 }
 
-std::string PeerManager::getExternalAddress() const { return externalAddress_; }
+std::string PeerManager::getExternalAddress() const {
+    std::lock_guard<std::mutex> guard(peerMutex);
+    return externalAddress_;
+}
 
 uint64_t PeerManager::getMedianNetworkHeight() {
     std::vector<int> heights;
 
-    for (const std::string& peer : connected_peers) {
-        if (peerHeights.count(peer)) {
-            int h = peerHeights[peer];
-            if (h >= 0)
-                heights.push_back(h);
+    {
+        std::lock_guard<std::mutex> guard(peerMutex);
+        for (const std::string& peer : connected_peers) {
+            auto it = peerHeights.find(peer);
+            if (it != peerHeights.end()) {
+                int h = it->second;
+                if (h >= 0)
+                    heights.push_back(h);
+            }
         }
     }
 
@@ -152,13 +196,21 @@ uint64_t PeerManager::getMedianNetworkHeight() {
 std::string PeerManager::getMajorityTipHash() const {
     std::map<std::string, int> hashVotes;
 
-    for (const std::string& peer : connected_peers) {
-        auto it = peerTipHashes.find(peer);
-        if (it != peerTipHashes.end()) {
-            const std::string& hash = it->second;
-            if (hash.empty() || hash.length() < 64) continue;
-            hashVotes[hash]++;
+    std::vector<std::string> peerHashes;
+    {
+        std::lock_guard<std::mutex> guard(peerMutex);
+        peerHashes.reserve(connected_peers.size());
+        for (const std::string& peer : connected_peers) {
+            auto it = peerTipHashes.find(peer);
+            if (it != peerTipHashes.end()) {
+                peerHashes.push_back(it->second);
+            }
         }
+    }
+
+    for (const auto& hash : peerHashes) {
+        if (hash.empty() || hash.length() < 64) continue;
+        hashVotes[hash]++;
     }
 
     if (hashVotes.empty()) {
@@ -190,7 +242,8 @@ bool PeerManager::fetchBlockAtHeight(int height, Block& outBlock) {
             pendingBlockRequests.erase(it);
     };
 
-    for (const std::string& peer : connected_peers) {
+    auto peersSnapshot = getConnectedPeers();
+    for (const std::string& peer : peersSnapshot) {
         const auto& table = network->getPeerTable();
         auto it = table.find(peer);
         if (it == table.end() || !it->second.tx) continue;
@@ -234,21 +287,25 @@ void PeerManager::handleBlockResponse(const Block& block) {
 }
 void PeerManager::setPeerHeight(const std::string& peer, int height) {
     if (height < 0) return;
+    std::lock_guard<std::mutex> guard(peerMutex);
     peerHeights[peer] = height;
 }
 int PeerManager::getPeerHeight(const std::string& peer) const {
+    std::lock_guard<std::mutex> guard(peerMutex);
     auto it = peerHeights.find(peer);
     if (it != peerHeights.end()) return it->second;
     return -1;
 }
 
 std::string PeerManager::getPeerTipHash(const std::string& peer) const {
+    std::lock_guard<std::mutex> guard(peerMutex);
     auto it = peerTipHashes.find(peer);
     if (it != peerTipHashes.end()) return it->second;
     return "";
 }
 
 void PeerManager::setPeerTipHash(const std::string& peer, const std::string& tipHash) {
+    std::lock_guard<std::mutex> guard(peerMutex);
     peerTipHashes[peer] = tipHash;
 }
 void PeerManager::recordTipHash(const std::string& peer, const std::string& tipHash) {
@@ -257,6 +314,7 @@ void PeerManager::recordTipHash(const std::string& peer, const std::string& tipH
 
 int PeerManager::getMaxPeerHeight() const {
     int maxH = -1;
+    std::lock_guard<std::mutex> guard(peerMutex);
     for (const auto& kv : peerHeights) {
         if (kv.second > maxH)
             maxH = kv.second;
@@ -267,16 +325,23 @@ int PeerManager::getMaxPeerHeight() const {
 std::string PeerManager::getConsensusTipHash(int localHeight) const {
     std::map<std::string, int> hashVotes;
     int threshold = static_cast<int>(localHeight * 0.10);
-    for (const std::string& peer : connected_peers) {
-        auto itH = peerHeights.find(peer);
-        if (itH != peerHeights.end() && itH->second < threshold)
-            continue;
-        auto it = peerTipHashes.find(peer);
-        if (it != peerTipHashes.end()) {
-            const std::string& hash = it->second;
-            if (hash.empty() || hash.length() < 64) continue;
-            hashVotes[hash]++;
+    std::vector<std::string> peerHashes;
+    {
+        std::lock_guard<std::mutex> guard(peerMutex);
+        peerHashes.reserve(connected_peers.size());
+        for (const std::string& peer : connected_peers) {
+            auto itH = peerHeights.find(peer);
+            if (itH != peerHeights.end() && itH->second < threshold)
+                continue;
+            auto it = peerTipHashes.find(peer);
+            if (it != peerTipHashes.end()) {
+                peerHashes.push_back(it->second);
+            }
         }
+    }
+    for (const auto& hash : peerHashes) {
+        if (hash.empty() || hash.length() < 64) continue;
+        hashVotes[hash]++;
     }
     if (hashVotes.empty())
         return getMajorityTipHash();
