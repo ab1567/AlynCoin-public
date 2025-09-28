@@ -33,7 +33,13 @@ except Exception as e:
     dns = None
     print(f"[WARN] dnspython unavailable: {e}; using fallback peers only")
 
-from rpc_client import alyncoin_rpc, RPC_HOST, RPC_PORT, wait_for_rpc_ready
+from rpc_client import (
+    alyncoin_rpc,
+    RPC_HOST,
+    RPC_PORT,
+    wait_for_rpc_ready,
+    fetch_peer_status,
+)
 
 def resource_path(filename):
     """Return path to resource bundled by PyInstaller or next to the script."""
@@ -142,19 +148,17 @@ def get_peer_count():
         print(f"[WARN] Unable to fetch peer count: {e}")
     return 0
 
-def rpc_peer_count():
-    """Return peer count using the RPC interface or ``None`` if unavailable."""
+
+def rpc_peer_status():
+    """Return connection status via RPC or ``None`` when unavailable."""
+
     try:
-        result = alyncoin_rpc("peercount")
+        status = fetch_peer_status()
     except RuntimeError as e:
-        print(f"⚠️  RPC 'peercount' failed: {e}")
+        print(f"⚠️  RPC 'peerstatus' failed: {e}")
         return None
-    if isinstance(result, dict) and "error" in result:
-        return None
-    try:
-        return int(result)
-    except Exception:
-        return None
+
+    return status
 
 # ---- Data Directory Helpers ----
 def ensure_blockchain_db_dir():
@@ -448,15 +452,7 @@ class AlynCoinApp(QMainWindow):
         layout.addWidget(logoLabel)
 
         # Display network status based on actual peer connections
-        peer_count = rpc_peer_count()
-        if peer_count is None:
-            peer_count = get_peer_count()
-        if peer_count > 0:
-            peer_status = f"🌐 AlynCoin Network: Online ({peer_count} peers)"
-            color = "#44e"
-        else:
-            peer_status = "🌐 AlynCoin Network: Offline (Solo)"
-            color = "#f44"
+        peer_status, color = self._resolve_peer_banner()
         self.peerBanner = QLabel(peer_status)
         self.peerBanner.setAlignment(Qt.AlignCenter)
         self.peerBanner.setStyleSheet(f"background-color: #191919; color: {color}; padding: 4px; font-weight: bold;")
@@ -623,16 +619,29 @@ class AlynCoinApp(QMainWindow):
     def showError(self, msg):
         self.updateStatusBanner(msg, "#ff4444")
 
-    def refreshPeerBanner(self):
-        count = rpc_peer_count()
-        if count is None:
-            count = get_peer_count()
+    def _resolve_peer_banner(self):
+        status = rpc_peer_status()
+        if status:
+            state = (status.get("state") or "").lower()
+            connected = status.get("connected", 0)
+            if connected and connected > 0:
+                return "🌐 AlynCoin Network: Connected", "#44e"
+            if state == "connecting":
+                return "🌐 AlynCoin Network: Connecting…", "#ffaa00"
+            if state == "offline":
+                return "🌐 AlynCoin Network: Offline", "#f44"
+
+        count = get_peer_count()
         if count > 0:
-            status = f"🌐 AlynCoin Network: Online ({count} peers)"
-            color = "#44e"
-        else:
-            status = "🌐 AlynCoin Network: Offline (Solo)"
-            color = "#f44"
+            return "🌐 AlynCoin Network: Connected", "#44e"
+
+        if is_rpc_up():
+            return "🌐 AlynCoin Network: Connecting…", "#ffaa00"
+
+        return "🌐 AlynCoin Network: Offline", "#f44"
+
+    def refreshPeerBanner(self):
+        status, color = self._resolve_peer_banner()
         self.peerBanner.setText(status)
         self.peerBanner.setStyleSheet(
             f"background-color: #191919; color: {color}; padding: 4px; font-weight: bold;"
