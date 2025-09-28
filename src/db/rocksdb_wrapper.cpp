@@ -1,9 +1,11 @@
 #include "rocksdb_wrapper.h"
+#include "rocksdb_options_utils.h"
 #include <iostream>
 
 RocksDBWrapper::RocksDBWrapper(const std::string& db_path, bool readOnly)
     : db_(nullptr), db_path_(db_path) {
     options_.create_if_missing = !readOnly;
+    alyn::db::ApplyDatabaseDefaults(options_);
 
     rocksdb::Status status;
     if (readOnly) {

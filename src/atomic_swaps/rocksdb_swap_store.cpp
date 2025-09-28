@@ -1,10 +1,12 @@
 #include "rocksdb_swap_store.h"
+#include "../db/rocksdb_options_utils.h"
 #include <rocksdb/utilities/transaction_db.h>
 #include <rocksdb/write_batch.h>
 #include "proto_utils.h"  // serializeSwap, deserializeSwap
 
 RocksDBAtomicSwapStore::RocksDBAtomicSwapStore(const std::string& dbPath) {
     options.create_if_missing = true;
+    alyn::db::ApplyDatabaseDefaults(options);
     rocksdb::Status status = rocksdb::TransactionDB::Open(options, txn_options, dbPath, &db);
     if (!status.ok()) {
         throw std::runtime_error("Failed to open RocksDB: " + status.ToString());

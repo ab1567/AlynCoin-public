@@ -5,12 +5,14 @@
 #include "../block.h"
 #include "../transaction.h"
 #include "../constants.h"
+#include "../db/rocksdb_options_utils.h"
 #include <iostream>
 #include <sstream>
 
 ExplorerDB::ExplorerDB(const std::string& db_path) : dbPath(db_path), db(nullptr) {
     rocksdb::Options options;
     options.create_if_missing = true;
+    alyn::db::ApplyDatabaseDefaults(options);
     rocksdb::Status status = rocksdb::DB::OpenForReadOnly(options, dbPath, &db);
     if (!status.ok()) {
         std::cerr << "❌ [ExplorerDB] Failed to open RocksDB: " << status.ToString() << "\n";

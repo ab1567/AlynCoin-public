@@ -1,5 +1,5 @@
 #include "peer_blacklist.h"
-#include <rocksdb/options.h>
+#include "../db/rocksdb_options_utils.h"
 #include <rocksdb/write_batch.h>
 #include <chrono>
 #include <iostream>
@@ -13,6 +13,7 @@ PeerBlacklist::PeerBlacklist(const std::string& path, int threshold)
 {
     rocksdb::Options options;
     options.create_if_missing = true;
+    alyn::db::ApplyDatabaseDefaults(options);
     rocksdb::Status status = rocksdb::DB::Open(options, db_path, &db);
     if (!status.ok()) {
         if (status.IsIOError()) {

@@ -1,8 +1,10 @@
 #include "rocksdb_wrapper.h"
+#include "../../src/db/rocksdb_options_utils.h"
 #include <iostream>
 
 RocksDBWrapper::RocksDBWrapper(const std::string& db_path) {
     options_.create_if_missing = true;
+    alyn::db::ApplyDatabaseDefaults(options_);
     rocksdb::Status status = rocksdb::DB::Open(options_, db_path, &db_);
     if (!status.ok()) {
         std::cerr << "Failed to open RocksDB: " << status.ToString() << std::endl;
