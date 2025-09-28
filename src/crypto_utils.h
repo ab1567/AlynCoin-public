@@ -83,7 +83,8 @@ std::vector<unsigned char> fromHex(const std::string &hex);
 
 // Base-64 helpers (non‑recursive, only these two signatures!)
 std::string base64Encode(const std::string &input, bool wrapLines = true);
-std::string base64Decode(const std::string &input, bool inputIsWrapped = true);
+std::string base64Decode(const std::string &input, bool inputIsWrapped = true,
+                         bool enableDebugLog = true);
 
 std::vector<unsigned char> stringToBytes(const std::string &input);
 

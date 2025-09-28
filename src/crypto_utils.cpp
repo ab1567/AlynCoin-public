@@ -1251,10 +1251,16 @@ std::string encodeRaw(const unsigned char* data, size_t len, bool wrap) {
     BIO_free_all(b64);
     return out;
 }
-std::string decodeRaw(const char* data, size_t len, bool wrapped) {
-    std::cout << "[decodeRaw DEBUG] Input len: " << len
-              << " | First chars: [" << std::string(data, std::min(len, size_t(60)))
-              << "] | Last chars: [" << std::string(data + len - std::min(len, size_t(10)), std::min(len, size_t(10))) << "]\n";
+std::string decodeRaw(const char* data, size_t len, bool wrapped,
+                      bool enableDebugLog) {
+    if (enableDebugLog) {
+        std::cout << "[decodeRaw DEBUG] Input len: " << len
+                  << " | First chars: [" << std::string(data, std::min(len, size_t(60)))
+                  << "] | Last chars: ["
+                  << std::string(data + len - std::min(len, size_t(10)),
+                                std::min(len, size_t(10)))
+                  << "]\n";
+    }
 
     while (len > 0 && (data[len-1] == '\n' || data[len-1] == '\r'))
         --len;
@@ -1270,11 +1276,16 @@ std::string decodeRaw(const char* data, size_t len, bool wrapped) {
     BIO_free_all(bio);
 
     if (n <= 0) {
-        std::cerr << "[decodeRaw DEBUG] Decode failed, returned size = " << n << "\n";
+        if (enableDebugLog) {
+            std::cerr << "[decodeRaw DEBUG] Decode failed, returned size = " << n
+                      << "\n";
+        }
         return "";
     }
 
-    std::cout << "[decodeRaw DEBUG] Decoded size: " << n << "\n";
+    if (enableDebugLog) {
+        std::cout << "[decodeRaw DEBUG] Decoded size: " << n << "\n";
+    }
     return std::string(reinterpret_cast<char*>(buffer.data()), n);
 }
 
@@ -1691,6 +1702,7 @@ std::string getPublicKeyPath(const std::string &username,
 std::string Crypto::base64Encode(const std::string& input, bool wrapLines) {
     return encodeRaw(reinterpret_cast<const unsigned char*>(input.data()), input.size(), wrapLines);
 }
-std::string Crypto::base64Decode(const std::string& input, bool inputIsWrapped) {
-    return decodeRaw(input.data(), input.size(), inputIsWrapped);
+std::string Crypto::base64Decode(const std::string& input, bool inputIsWrapped,
+                                 bool enableDebugLog) {
+    return decodeRaw(input.data(), input.size(), inputIsWrapped, enableDebugLog);
 }
