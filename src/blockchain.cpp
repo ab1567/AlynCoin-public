@@ -1744,108 +1744,172 @@ double Blockchain::getBalance(const std::string &publicKey) const {
 }
 
 // ✅ **Save Blockchain to RocksDB using Protobuf**
-bool Blockchain::saveToDB() {
+bool Blockchain::saveToDB(bool forceFullSave) {
   std::cout << "[DEBUG] Attempting to save blockchain to DB..." << std::endl;
 
   if (!db) {
-    std::cout << "🛑 Skipping full blockchain save: RocksDB not initialized "
-                 "(--nodb mode).\n";
+    std::cout << "🛑 Skipping blockchain save: RocksDB not initialized (--nodb mode).\n";
     return true;
   }
 
-  /* --- zap stale heights ----------------------------------- */
   rocksdb::WriteBatch batch;
-  std::unordered_map<int, std::string> currentHashesByHeight;
-  currentHashesByHeight.reserve(chain.size());
-  std::unordered_set<std::string> currentHashes;
-  currentHashes.reserve(chain.size());
-  for (const auto &block : chain) {
-    currentHashesByHeight[block.getIndex()] = block.getHash();
-    currentHashes.insert(block.getHash());
-  }
-
   rocksdb::ReadOptions readOptions;
-  std::string v;
-  int lastHeight = 0;
-  if (db->Get(readOptions, "last_height", &v).ok())
-    lastHeight = std::stoi(v);
 
-  for (int h = 0; h <= lastHeight; ++h) {
-    if (currentHashesByHeight.find(h) != currentHashesByHeight.end()) {
-      continue;
+  auto fetchPersistedHash = [&](int height) -> std::string {
+    auto memoIt = persistedHashesByHeight.find(height);
+    if (memoIt != persistedHashesByHeight.end())
+      return memoIt->second;
+
+    std::string storedHash;
+    std::string hashKey = "block_hash_" + std::to_string(height);
+    if (db->Get(readOptions, hashKey, &storedHash).ok() && !storedHash.empty()) {
+      persistedHashesByHeight[height] = storedHash;
+      return storedHash;
     }
 
-    const std::string heightKey = "block_height_" + std::to_string(h);
     std::string serializedBlock;
+    std::string heightKey = "block_height_" + std::to_string(height);
     if (db->Get(readOptions, heightKey, &serializedBlock).ok()) {
-      batch.Delete(heightKey);
+      alyncoin::BlockProto proto;
+      if (proto.ParseFromString(serializedBlock) && !proto.hash().empty()) {
+        storedHash = proto.hash();
+        persistedHashesByHeight[height] = storedHash;
+      }
+    }
+    return storedHash;
+  };
+
+  int64_t recordedHeight = lastPersistedHeight;
+  if (recordedHeight < 0 || forceFullSave) {
+    std::string heightStr;
+    if (db->Get(readOptions, "last_height", &heightStr).ok()) {
+      try {
+        recordedHeight = std::stoll(heightStr);
+      } catch (const std::exception &e) {
+        std::cerr << "⚠️ [saveToDB] Invalid last_height value '" << heightStr
+                  << "' (" << e.what() << "). Treating as empty DB.\n";
+        recordedHeight = -1;
+      }
     }
   }
 
-  std::unique_ptr<rocksdb::Iterator> it(db->NewIterator(readOptions));
-  constexpr size_t kBlockKeyPrefixLen = 6; // length of "block_"
-  for (it->Seek("block_"); it->Valid(); it->Next()) {
-    std::string key = it->key().ToString();
-    if (key.rfind("block_", 0) != 0) {
+  int64_t chainHeight = chain.empty()
+                            ? -1
+                            : static_cast<int64_t>(chain.back().getIndex());
+
+  int64_t rewriteFrom = 0;
+  if (forceFullSave || recordedHeight < 0)
+    rewriteFrom = 0;
+  else
+    rewriteFrom = recordedHeight + 1;
+
+  if (!forceFullSave && recordedHeight >= 0) {
+    int64_t probe = std::min(recordedHeight, chainHeight);
+    while (probe >= 0) {
+      std::string storedHash = fetchPersistedHash(static_cast<int>(probe));
+      if (storedHash.empty()) {
+        rewriteFrom = 0;
+        forceFullSave = true;
+        break;
+      }
+
+      if (static_cast<size_t>(probe) < chain.size() &&
+          chain[static_cast<size_t>(probe)].getHash() == storedHash) {
+        break;
+      }
+
+      rewriteFrom = probe;
+      --probe;
+    }
+  }
+
+  if (forceFullSave)
+    rewriteFrom = 0;
+
+  rewriteFrom = std::max<int64_t>(0, rewriteFrom);
+
+  std::vector<int> mapEraseHeights;
+  std::vector<std::pair<int, std::string>> mapSetEntries;
+  std::vector<std::string> staleHashDeletes;
+
+  auto scheduleEraseHeight = [&](int height) {
+    mapEraseHeights.push_back(height);
+    auto it = persistedHashesByHeight.find(height);
+    if (it != persistedHashesByHeight.end()) {
+      staleHashDeletes.push_back(it->second);
+    } else {
+      std::string previousHash = fetchPersistedHash(height);
+      if (!previousHash.empty())
+        staleHashDeletes.push_back(previousHash);
+    }
+  };
+
+  if (recordedHeight > chainHeight) {
+    for (int64_t h = chainHeight + 1; h <= recordedHeight; ++h) {
+      std::string suffix = std::to_string(h);
+      batch.Delete("block_height_" + suffix);
+      batch.Delete("block_hash_" + suffix);
+      scheduleEraseHeight(static_cast<int>(h));
+    }
+  }
+
+  int64_t rewriteUpper = std::min(recordedHeight, chainHeight);
+  if (rewriteFrom <= rewriteUpper) {
+    for (int64_t h = rewriteFrom; h <= rewriteUpper; ++h) {
+      std::string existingHash = fetchPersistedHash(static_cast<int>(h));
+      if (!existingHash.empty())
+        staleHashDeletes.push_back(existingHash);
+    }
+  }
+
+  for (const auto &hash : staleHashDeletes) {
+    batch.Delete("block_" + hash);
+  }
+
+  int64_t firstWrite = std::min<int64_t>(rewriteFrom, chainHeight + 1);
+  if (firstWrite < 0)
+    firstWrite = 0;
+
+  int blocksPersisted = 0;
+  for (int64_t h = firstWrite; h <= chainHeight; ++h) {
+    if (h < 0 || static_cast<size_t>(h) >= chain.size())
       break;
-    }
-    if (key.rfind("block_height_", 0) == 0) {
-      continue;
-    }
 
-    std::string hashKey = key.substr(kBlockKeyPrefixLen);
-    if (currentHashes.find(hashKey) == currentHashes.end()) {
-      batch.Delete(key);
-    }
-  }
-  /* ---------------------------------------------------------- */
-
-  alyncoin::BlockchainProto blockchainProto;
-  blockchainProto.set_chain_id(1);
-
-  std::set<int> usedIndices;
-  int blockCount = 0;
-  for (const auto &block : chain) {
+    const Block &block = chain[static_cast<size_t>(h)];
     const auto &zk = block.getZkProof();
     if (zk.empty()) {
-      std::cerr
-          << "❌ [saveToDB] Cannot save! Block at index " << block.getIndex()
-          << " has empty zkProof. Aborting full save to prevent corruption.\n";
+      std::cerr << "❌ [saveToDB] Cannot save! Block at index "
+                << block.getIndex()
+                << " has empty zkProof. Aborting persistence.\n";
       return false;
     }
-
-    int index = block.getIndex();
-    if (usedIndices.count(index)) {
-      std::cerr << "⚠️ [saveToDB] Duplicate block index detected. Skipping "
-                   "block at index: "
-                << index << ", Hash: " << block.getHash() << "\n";
-      continue;
-    }
-
-    usedIndices.insert(index);
-
-    std::cout << "[🧪 saveToDB] Block[" << blockCount << "] Index: " << index
-              << ", zkProof: " << zk.size() << " bytes\n";
 
     alyncoin::BlockProto blockProto = block.toProtobuf();
     std::string serializedBlock;
     if (!blockProto.SerializeToString(&serializedBlock)) {
-      std::cerr << "❌ [saveToDB] Failed to serialize block " << index
+      std::cerr << "❌ [saveToDB] Failed to serialize block " << block.getIndex()
                 << " for persistence.\n";
       return false;
     }
-
-    *blockchainProto.add_blocks() = blockProto;
-    ++blockCount;
 
     const std::string heightKey =
         "block_height_" + std::to_string(block.getIndex());
     batch.Put(heightKey, serializedBlock);
     batch.Put("block_" + block.getHash(), serializedBlock);
-
-    std::cout << "🧱 [DEBUG] Block[" << blockCount
-              << "] hash = " << block.getHash() << std::endl;
+    batch.Put("block_hash_" + std::to_string(block.getIndex()),
+              block.getHash());
+    mapSetEntries.emplace_back(block.getIndex(), block.getHash());
+    ++blocksPersisted;
   }
+
+  if (blocksPersisted > 0)
+    std::cout << "🧱 Persisted " << blocksPersisted
+              << " block(s) to RocksDB starting at height " << firstWrite << "\n";
+  else
+    std::cout << "🧱 No new blocks to persist this round.\n";
+
+  alyncoin::BlockchainProto blockchainProto;
+  blockchainProto.set_chain_id(1);
 
   for (const auto &tx : pendingTransactions) {
     alyncoin::TransactionProto *txProto =
@@ -1858,26 +1922,13 @@ bool Blockchain::saveToDB() {
 
   std::string serializedData;
   if (!blockchainProto.SerializeToString(&serializedData)) {
-    std::cerr << "❌ [ERROR] Failed to serialize BlockchainProto to string.\n";
+    std::cerr << "❌ [ERROR] Failed to serialize BlockchainProto metadata.\n";
     return false;
   }
-
-  std::vector<unsigned char> sampleBytes(
-      serializedData.begin(),
-      serializedData.begin() + std::min<size_t>(32, serializedData.size()));
-  std::cout << "🧪 [DEBUG] First 32 bytes of serialized proto (hex): "
-            << Crypto::toHex(sampleBytes) << std::endl;
-
   batch.Put("blockchain", serializedData);
-  batch.Put("burned_supply", std::to_string(totalBurnedSupply));
-  batch.Put("last_difficulty", std::to_string(difficulty));
-  batch.Put("last_reward", formatAmount(blockReward));
 
-  saveVestingInfoToDB();
-
-  // 🧹 Clear old rollup_* entries
-  {
-    rocksdb::Iterator *it = db->NewIterator(rocksdb::ReadOptions());
+  std::unique_ptr<rocksdb::Iterator> it(db->NewIterator(readOptions));
+  if (it) {
     int deleted = 0;
     for (it->SeekToFirst(); it->Valid(); it->Next()) {
       std::string key = it->key().ToString();
@@ -1886,52 +1937,70 @@ bool Blockchain::saveToDB() {
         ++deleted;
       }
     }
-    delete it;
     std::cout << "🧹 Removed " << deleted << " old rollup blocks from DB.\n";
   }
 
   {
-    rocksdb::Iterator *it = db->NewIterator(rocksdb::ReadOptions());
+    std::unique_ptr<rocksdb::Iterator> nonceIt(
+        db->NewIterator(rocksdb::ReadOptions()));
     int deleted = 0;
-    for (it->SeekToFirst(); it->Valid(); it->Next()) {
-      std::string key = it->key().ToString();
+    for (nonceIt->SeekToFirst(); nonceIt->Valid(); nonceIt->Next()) {
+      std::string key = nonceIt->key().ToString();
       if (key.rfind("nonce_", 0) == 0) {
         batch.Delete(key);
         ++deleted;
       }
     }
-    delete it;
     if (deleted > 0)
       std::cout << "🧹 Removed " << deleted << " cached nonce entries from DB.\n";
   }
 
-  // ✅ Save rollup blocks with clean re-index
   int rollupCount = 0;
   for (const auto &rb : rollupChain) {
-    std::string key = "rollup_" + std::to_string(rollupCount); // Clean index
-    std::string value = rb.serialize();
-    batch.Put(key, value);
+    std::string key = "rollup_" + std::to_string(rollupCount);
+    batch.Put(key, rb.serialize());
     ++rollupCount;
   }
   std::cout << "🧱 Saved " << rollupCount << " rollup blocks to DB.\n";
 
-  // ✅ Save final balances
-  int balanceCount = 0;
+  auto nearlyEqual = [](double a, double b) {
+    return std::fabs(a - b) < 1e-9;
+  };
+
+  std::vector<std::pair<std::string, double>> balanceUpdates;
+  balanceUpdates.reserve(balances.size());
   for (const auto &[address, balance] : balances) {
-    batch.Put("balance_" + address, std::to_string(balance));
-    ++balanceCount;
+    auto itBal = persistedBalancesCache.find(address);
+    if (itBal == persistedBalancesCache.end() ||
+        !nearlyEqual(itBal->second, balance)) {
+      batch.Put("balance_" + address, std::to_string(balance));
+      balanceUpdates.emplace_back(address, balance);
+    }
+  }
+
+  std::vector<std::string> balanceRemovals;
+  balanceRemovals.reserve(persistedBalancesCache.size());
+  for (const auto &[address, _] : persistedBalancesCache) {
+    if (!balances.count(address)) {
+      batch.Delete("balance_" + address);
+      balanceRemovals.push_back(address);
+    }
   }
 
   for (const auto &[address, nextNonce] : nextNonceByAddress) {
     batch.Put("nonce_" + address, std::to_string(nextNonce));
   }
 
-  // ✅ Save supply + burned supply (now AFTER rollup deltas applied)
   batch.Put("total_supply", std::to_string(totalSupply));
   batch.Put("burned_supply", std::to_string(totalBurnedSupply));
 
-  std::cout << "💾 Persisted " << balanceCount << " balances to DB.\n";
-  batch.Put("last_height", std::to_string(chain.size() - 1));
+  std::cout << "💾 Persisted " << balanceUpdates.size()
+            << " balance update(s) to DB";
+  if (!balanceRemovals.empty())
+    std::cout << " (removed " << balanceRemovals.size() << ")";
+  std::cout << ".\n";
+
+  batch.Put("last_height", std::to_string(chainHeight));
 
   rocksdb::WriteOptions wo;
   wo.sync = true;
@@ -1942,15 +2011,27 @@ bool Blockchain::saveToDB() {
             .get();
   else
     status = db->Write(wo, &batch);
+
   if (!status.ok()) {
     std::cerr << "❌ [saveToDB] Failed to write batch: " << status.ToString()
               << "\n";
     return false;
   }
+
+  for (int height : mapEraseHeights)
+    persistedHashesByHeight.erase(height);
+  for (const auto &[height, hash] : mapSetEntries)
+    persistedHashesByHeight[height] = hash;
+  lastPersistedHeight = chainHeight;
+
+  for (const auto &address : balanceRemovals)
+    persistedBalancesCache.erase(address);
+  for (const auto &[address, balance] : balanceUpdates)
+    persistedBalancesCache[address] = balance;
+
   std::cout << "✅ Blockchain saved successfully to RocksDB.\n";
   return true;
 }
-
 // ✅ **Load Blockchain from RocksDB using Protobuf**
 bool Blockchain::loadFromDB() {
   static bool skipProofVerification = true;
@@ -1959,6 +2040,20 @@ bool Blockchain::loadFromDB() {
   if (!db) {
     std::cerr << "❌ RocksDB not initialized!\n";
     return false;
+  }
+
+  int64_t recordedHeight = -1;
+  {
+    std::string heightStr;
+    if (db->Get(rocksdb::ReadOptions(), "last_height", &heightStr).ok()) {
+      try {
+        recordedHeight = std::stoll(heightStr);
+      } catch (const std::exception &e) {
+        std::cerr << "⚠️ [loadFromDB] Invalid last_height value: " << heightStr
+                  << " (" << e.what() << ")\n";
+        recordedHeight = -1;
+      }
+    }
   }
 
   std::vector<Block> loadedBlocks;
@@ -2207,6 +2302,16 @@ bool Blockchain::loadFromDB() {
   std::cout << "💾 Final balance state persisted. Total Supply: " << totalSupply
             << ", Burned: " << totalBurnedSupply
             << ", Addresses: " << balances.size() << "\n";
+
+  persistedHashesByHeight.clear();
+  persistedHashesByHeight.reserve(chain.size());
+  for (const auto &block : chain)
+    persistedHashesByHeight[block.getIndex()] = block.getHash();
+
+  int64_t chainHeightFinal =
+      chain.empty() ? -1 : static_cast<int64_t>(chain.back().getIndex());
+  lastPersistedHeight = std::max<int64_t>(recordedHeight, chainHeightFinal);
+  persistedBalancesCache = balances;
 
   return true;
 }
@@ -3667,6 +3772,9 @@ void Blockchain::clear(bool force) {
     db->Delete(opts, "last_difficulty");
     db->Delete(opts, "last_reward");
   }
+  persistedHashesByHeight.clear();
+  persistedBalancesCache.clear();
+  lastPersistedHeight = -1;
   std::cout << "✅ Blockchain cleared (chain + pending txs)\n";
 }
 

@@ -85,6 +85,9 @@ private:
   std::atomic<bool> autoMiningRewardMode{false};
   std::atomic<std::time_t> lastL1Seen{0};
   std::unordered_map<std::string, uint64_t> nextNonceByAddress;
+  int64_t lastPersistedHeight{-1};
+  std::unordered_map<int, std::string> persistedHashesByHeight;
+  std::unordered_map<std::string, double> persistedBalancesCache;
 
   // --- Vesting ---
   struct VestingInfo {
@@ -134,7 +137,7 @@ public:
   // Blockchain Operations
   void adjustDifficulty();
   void syncChain(const Json::Value &jsonData);
-  bool saveToDB();
+  bool saveToDB(bool forceFullSave = false);
   bool loadFromDB();
   void loadFromPeers();
   void reloadBlockchainState();
