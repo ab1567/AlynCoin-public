@@ -133,6 +133,15 @@ make blacklist_test
 ./blacklist_test
 ```
 
+### RocksDB storage footprint
+
+All RocksDB consumers (the core chain, explorers, identity, swaps, etc.) call
+`ApplyDatabaseDefaults` before opening the database.  The helper enables
+Zstandard compression and tuned compaction targets so new SST files are 3–5×
+smaller than the uncompressed baseline.  See [`docs/storage_tuning.md`](docs/storage_tuning.md)
+for a breakdown of the settings and how to override them if you need to run
+benchmarks without compression.
+
 Trace-level lock diagnostics are disabled by default. If you need detailed
 mutex tracing for debugging, pass `-DENABLE_LOCK_TRACING=ON` to CMake when
 configuring the build.

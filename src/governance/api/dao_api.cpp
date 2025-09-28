@@ -4,6 +4,7 @@
 #include "crow_all.h"
 #include "../../json.hpp"
 #include <rocksdb/db.h>
+#include "../../db/rocksdb_options_utils.h"
 #include "db/db_paths.h"
 
 using json = nlohmann::json;
@@ -20,6 +21,7 @@ void setupGovernanceAPI(crow::SimpleApp& app) {
         rocksdb::DB* db;
         rocksdb::Options options;
         options.create_if_missing = true;
+        alyn::db::ApplyDatabaseDefaults(options);
         rocksdb::Status status = rocksdb::DB::Open(options, DBPaths::getGovernanceDB(), &db);
         if (!status.ok()) {
             res["error"] = "Failed to open DB";

@@ -1,10 +1,12 @@
 #include "identity_store.h"
 #include "proto_utils.h"
 #include "../db/db_paths.h"
+#include "../db/rocksdb_options_utils.h"
 
 IdentityStore::IdentityStore() {
     rocksdb::Options options;
     options.create_if_missing = true;
+    alyn::db::ApplyDatabaseDefaults(options);
     std::string path = DBPaths::getIdentityDB();
     rocksdb::Status status = rocksdb::DB::Open(options, path, &db);
     if (!status.ok()) {

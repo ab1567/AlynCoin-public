@@ -16,6 +16,7 @@
 #include "transaction.h"
 #include "zk/winterfell_stark.h"
 #include "json/json.h"
+#include "db/rocksdb_options_utils.h"
 #include <algorithm>
 #include <atomic>
 #include <boost/multiprecision/cpp_int.hpp>
@@ -199,9 +200,21 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath,
     }
   }
 
+  auto configureColumnFamily = []() {
+    rocksdb::ColumnFamilyOptions cfOptions;
+    alyn::db::ApplyCompactionDefaults(cfOptions);
+    return cfOptions;
+  };
+
   rocksdb::Options options;
   options.create_if_missing = true;
   options.create_missing_column_families = true;
+  alyn::db::ApplyDatabaseDefaults(options);
+  std::cout << "🧱 RocksDB compression: "
+            << alyn::db::DescribeCompression(options.compression)
+            << ", write buffer = " << options.write_buffer_size / (1024 * 1024)
+            << " MiB, target file size = "
+            << options.target_file_size_base / (1024 * 1024) << " MiB\n";
 
   std::vector<std::string> cfNames;
   rocksdb::Status status =
@@ -212,14 +225,14 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath,
     for (const auto &name : cfNames) {
       if (name == "cfCheck")
         hasCheck = true;
-      cfDesc.emplace_back(name, rocksdb::ColumnFamilyOptions());
+      cfDesc.emplace_back(name, configureColumnFamily());
     }
   }
   if (cfDesc.empty())
     cfDesc.emplace_back(rocksdb::kDefaultColumnFamilyName,
-                        rocksdb::ColumnFamilyOptions());
+                        configureColumnFamily());
   if (!hasCheck)
-    cfDesc.emplace_back("cfCheck", rocksdb::ColumnFamilyOptions());
+    cfDesc.emplace_back("cfCheck", configureColumnFamily());
 
   std::vector<rocksdb::ColumnFamilyHandle *> handles;
   status = rocksdb::DB::Open(options, dbPathFinal, cfDesc, &handles, &db);
@@ -4356,6 +4369,7 @@ bool Blockchain::openDB(bool readOnly) {
     return true;
   rocksdb::Options options;
   options.create_if_missing = true;
+  alyn::db::ApplyDatabaseDefaults(options);
   rocksdb::Status status;
   if (readOnly)
     status = rocksdb::DB::OpenForReadOnly(options, dbPath, &db);
@@ -4377,6 +4391,7 @@ void Blockchain::purgeDataForResync() {
   }
 
   rocksdb::Options opts;
+  alyn::db::ApplyDatabaseDefaults(opts);
   rocksdb::Status st = rocksdb::DestroyDB(dbPath, opts);
   if (!st.ok()) {
     std::cerr << "[Blockchain] Warning: failed to destroy DB at '" << dbPath

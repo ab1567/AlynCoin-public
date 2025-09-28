@@ -16,6 +16,7 @@
 #include <iostream>
 #include <openssl/sha.h>
 #include <rocksdb/db.h>
+#include "db/rocksdb_options_utils.h"
 #include <sstream>
 #include <thread>
 
@@ -622,6 +623,7 @@ std::vector<Transaction> Transaction::loadAllFromDB() {
 
     rocksdb::Options options;
     options.create_if_missing = true;
+    alyn::db::ApplyDatabaseDefaults(options);
 
     rocksdb::Status status = rocksdb::DB::OpenForReadOnly(
         options, DBPaths::getBlockchainDB(), &rawDB);
@@ -666,6 +668,7 @@ bool Transaction::saveToDB(const Transaction &tx, int index) {
     rocksdb::DB *db = nullptr;
     rocksdb::Options options;
     options.create_if_missing = true;
+    alyn::db::ApplyDatabaseDefaults(options);
     rocksdb::Status status = rocksdb::DB::Open(options, DBPaths::getTransactionDB(), &db);
     if (!status.ok()) return false;
 
