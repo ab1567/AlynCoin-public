@@ -652,7 +652,8 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
             if (raw.empty())
               return raw;
 
-            std::string decoded = Crypto::base64Decode(raw, /*inputIsWrapped=*/false);
+            std::string decoded = Crypto::base64Decode(
+                raw, /*inputIsWrapped=*/false, /*enableDebugLog=*/false);
             if (!decoded.empty())
               return decoded;
 
