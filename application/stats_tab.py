@@ -5,7 +5,7 @@ from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtGui import QFont, QColor
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QTextEdit, QPushButton
 
-from rpc_client import alyncoin_rpc
+from rpc_client import alyncoin_rpc, fetch_peer_status
 
 class StatsTab(QWidget):
     restartFinished = pyqtSignal(bool, str)
@@ -152,16 +152,28 @@ class StatsTab(QWidget):
     def fetchPeers(self):
         self.outputBox.clear()
         self.appendText("⏳ Fetching peer list...", color="orange")
-        result = alyncoin_rpc("peerlist")
-        if isinstance(result, dict) and "error" in result:
-            self.appendText(f"❌ {result['error']}", color="red")
+        try:
+            status = fetch_peer_status()
+        except RuntimeError as exc:
+            self.appendText(f"⚠️ {exc}", color="red")
             return
-        if isinstance(result, list):
-            self.appendText(f"Connected peers ({len(result)}):", color="cyan")
-            for p in result:
+
+        peers = status.get("peers", [])
+        try:
+            count = int(status.get("connected", len(peers)))
+        except Exception:
+            count = len(peers)
+        state = status.get("state", "offline") or "offline"
+        state_str = str(state)
+
+        self.appendText(f"🌐 Network state: {state_str.capitalize()}", color="cyan")
+
+        if peers:
+            self.appendText(f"Connected peers ({count}):", color="cyan")
+            for p in peers:
                 self.appendText(f"- {p}")
         else:
-            self.appendText("⚠️ Could not fetch peers from RPC server.", color="red")
+            self.appendText("No peers connected.", color="orange")
 
     def appendText(self, text, color="white"):
         color_map = {

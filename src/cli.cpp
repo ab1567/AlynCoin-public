@@ -10,6 +10,11 @@
 #include <limits>
 #include <string>
 #include <filesystem>
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <mutex>
+#include <thread>
 #include "db/db_paths.h"
 #include "governance/dao.h"
 #include "governance/devfund.h"
@@ -22,6 +27,69 @@
 
 #include <unordered_set>
 static std::unordered_set<std::string> cliSeenTxHashes;
+
+namespace {
+
+std::mutex gCliOutputMutex;
+
+enum class ConnectOutcome { Success, Failure, Pending };
+
+ConnectOutcome connectPeerWithFeedback(Network &network, const std::string &ip,
+                                      int port,
+                                      std::chrono::milliseconds waitFor,
+                                      bool allowBackground) {
+    std::mutex stateMutex;
+    std::condition_variable stateCv;
+    bool finished = false;
+    bool success = false;
+    std::atomic<bool> backgroundAnnounce{false};
+
+    auto worker = std::thread([&network, ip, port, allowBackground, &stateMutex,
+                               &stateCv, &finished, &success,
+                               &backgroundAnnounce]() {
+        bool ok = network.connectToNode(ip, port);
+        {
+            std::lock_guard<std::mutex> lock(stateMutex);
+            finished = true;
+            success = ok;
+        }
+        stateCv.notify_one();
+        if (allowBackground && backgroundAnnounce.load()) {
+            std::lock_guard<std::mutex> outLock(gCliOutputMutex);
+            if (ok) {
+                std::cout << "✅ Connected to peer " << ip << ':' << port
+                          << std::endl;
+            } else {
+                std::cout << "❌ Could not connect to peer: " << ip << ':'
+                          << port << std::endl;
+            }
+        }
+    });
+
+    std::unique_lock<std::mutex> lock(stateMutex);
+    if (waitFor.count() > 0) {
+        if (!stateCv.wait_for(lock, waitFor, [&]() { return finished; })) {
+            if (allowBackground) {
+                backgroundAnnounce.store(true);
+                lock.unlock();
+                worker.detach();
+                return ConnectOutcome::Pending;
+            }
+        }
+    }
+
+    if (!finished) {
+        stateCv.wait(lock, [&]() { return finished; });
+    }
+    lock.unlock();
+
+    if (worker.joinable())
+        worker.join();
+
+    return success ? ConnectOutcome::Success : ConnectOutcome::Failure;
+}
+
+} // namespace
 
 std::string getCurrentWallet() {
     std::ifstream in(DBPaths::getHomePath() + "/.alyncoin/current_wallet.txt");
@@ -795,7 +863,14 @@ if (argc >= 3 && std::string(argv[1]) == "recursive-rollup") {
         Blockchain& b = getBlockchain();
         if (!Network::isUninitialized()) {
             Network& net = Network::getInstance();
-            if (net.connectToNode(ip, port)) {
+            {
+                std::lock_guard<std::mutex> lock(gCliOutputMutex);
+                std::cout << "🔌 Attempting to connect to peer " << cmd << "..."
+                          << std::endl;
+            }
+            auto outcome = connectPeerWithFeedback(
+                net, ip, port, std::chrono::milliseconds(0), false);
+            if (outcome == ConnectOutcome::Success) {
                 std::cout << "✅ Connected to peer " << cmd << "\n";
             } else {
                 std::cerr << "❌ Could not connect to peer: " << cmd << "\n";
@@ -855,10 +930,21 @@ int cliMain(int argc, char *argv[]) {
     if (colonPos != std::string::npos) {
       std::string ip = connectPeer.substr(0, colonPos);
       int peerPort = std::stoi(connectPeer.substr(colonPos + 1));
-      if (!network->connectToNode(ip, peerPort)) {
-        std::cerr << "Failed to connect to AlynCoin node at " << connectPeer << "\n";
+      {
+        std::lock_guard<std::mutex> lock(gCliOutputMutex);
+        std::cout << "🔌 Attempting to connect to peer " << connectPeer
+                  << "..." << std::endl;
+      }
+      auto outcome = connectPeerWithFeedback(
+          *network, ip, peerPort, std::chrono::seconds(3), true);
+      if (outcome == ConnectOutcome::Success) {
+        std::cout << "✅ Connected to AlynCoin Node at " << connectPeer << "\n";
+      } else if (outcome == ConnectOutcome::Failure) {
+        std::cerr << "❌ Failed to connect to AlynCoin node at " << connectPeer
+                  << "\n";
       } else {
-        std::cout << "Connected to AlynCoin Node at " << connectPeer << "\n";
+        std::cout << "⏳ Connection attempt is continuing in the background."
+                  << std::endl;
       }
     }
   }

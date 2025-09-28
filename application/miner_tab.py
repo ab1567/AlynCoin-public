@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import (
     QTextEdit, QHBoxLayout, QFrame
 )
 
-from rpc_client import alyncoin_rpc, ensure_wallet_ready
+from rpc_client import alyncoin_rpc, ensure_wallet_ready, fetch_peer_status
 
 # ---------- helpers ----------------------------------------------------------
 
@@ -107,10 +107,16 @@ class MinerTab(QWidget):
 
     def _peer_count(self) -> int:
         """Query backend for current peer count."""
-        res = alyncoin_rpc("peercount")
-        if isinstance(res, int):
-            return res
-        return 0
+        try:
+            status = fetch_peer_status()
+        except RuntimeError:
+            return 0
+
+        connected = status.get("connected", 0)
+        try:
+            return int(connected)
+        except Exception:
+            return 0
 
     def _ensure_peer_connected(self) -> bool:
         if self._peer_count() == 0:

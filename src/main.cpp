@@ -833,6 +833,17 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
         if (network && network->getPeerManager())
           pc = network->getPeerManager()->getPeerCount();
         output = {{"result", pc}};
+      } else if (method == "peerstatus") {
+        nlohmann::json status =
+            {{"state", "offline"}, {"connected", 0}, {"peers", nlohmann::json::array()}};
+        if (network && network->getPeerManager()) {
+          auto *pm = network->getPeerManager();
+          int connected = pm->getPeerCount();
+          status["connected"] = connected;
+          status["state"] = connected > 0 ? "connected" : "connecting";
+          status["peers"] = pm->getConnectedPeers();
+        }
+        output = {{"result", status}};
       } else if (method == "peerlist") {
         std::vector<std::string> peers;
         if (network && network->getPeerManager())

@@ -160,6 +160,14 @@ def wait_for_rpc_ready(timeout: float = 10.0, interval: float = 0.25) -> bool:
     last_error: Optional[Exception] = None
     while time.time() < deadline:
         try:
+            status = alyncoin_rpc("peerstatus", [])
+            if isinstance(status, dict):
+                return True
+        except RuntimeError as exc:
+            last_error = exc
+        except Exception as exc:  # pragma: no cover - defensive guard
+            last_error = exc
+        try:
             alyncoin_rpc("peercount", [])
             return True
         except RuntimeError as exc:
@@ -171,6 +179,38 @@ def wait_for_rpc_ready(timeout: float = 10.0, interval: float = 0.25) -> bool:
     if last_error:
         print(f"⚠️  RPC not ready: {last_error}")
     return False
+
+
+def fetch_peer_status() -> dict:
+    """Return the current peer connection summary.
+
+    The dictionary always contains ``connected`` (int), ``state`` (str), and
+    ``peers`` (list[str]) keys.  RPC failures propagate as ``RuntimeError`` so
+    callers can surface an error message to the user.
+    """
+
+    raw = alyncoin_rpc("peerstatus")
+    if not isinstance(raw, dict):
+        return {"connected": 0, "state": "offline", "peers": []}
+
+    connected = raw.get("connected", 0)
+    state = raw.get("state", "offline")
+    peers = raw.get("peers", [])
+
+    try:
+        connected = int(connected)
+    except Exception:
+        connected = 0
+
+    if not isinstance(state, str):
+        state = "offline"
+
+    if isinstance(peers, list):
+        peers = [str(p) for p in peers]
+    else:
+        peers = []
+
+    return {"connected": connected, "state": state, "peers": peers}
 
 
 def _load_wallet_map():

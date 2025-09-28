@@ -2,11 +2,13 @@
 #include "network.h"
 #include "blockchain.h"
 #include "json/json.h"
-#include <iostream>
+#include "transport/peer_globals.h"
 #include <algorithm>
+#include <chrono>
+#include <iostream>
 #include <numeric>
 #include <sstream>
-#include <chrono>
+#include <unordered_set>
 
 PeerManager::PeerManager(PeerBlacklist* bl, Network* net)
     : blacklist(bl), network(net), localWork(0) {}
@@ -121,13 +123,111 @@ void PeerManager::disconnectPeer(const std::string& peer_id) {
 }
 
 std::vector<std::string> PeerManager::getConnectedPeers() {
-    std::lock_guard<std::mutex> guard(peerMutex);
-    return connected_peers;
+    std::vector<std::string> peers;
+    std::vector<std::string> snapshot;
+    {
+        std::lock_guard<std::mutex> guard(peerMutex);
+        snapshot = connected_peers;
+    }
+
+    std::unordered_set<std::string> seenPeerIds;
+    std::unordered_set<std::string> seenEndpoints;
+
+    if (network) {
+        std::lock_guard<std::timed_mutex> netGuard(peersMutex);
+        const auto &table = network->getPeerTable();
+        peers.reserve(table.size());
+        for (const auto &kv : table) {
+            const auto &peerId = kv.first;
+            const auto &entry = kv.second;
+            if (!entry.tx || !entry.tx->isOpen())
+                continue;
+
+            std::string host = !entry.observedIp.empty() ? entry.observedIp : entry.ip;
+            int port = entry.observedPort > 0 ? entry.observedPort : entry.port;
+
+            std::string endpointKey;
+            if (!host.empty()) {
+                std::ostringstream ep;
+                ep << host;
+                if (port > 0)
+                    ep << ':' << port;
+                endpointKey = ep.str();
+            } else {
+                endpointKey = peerId;
+            }
+
+            if (!seenEndpoints.insert(endpointKey).second)
+                continue;
+
+            std::ostringstream label;
+            label << peerId;
+            if (!host.empty()) {
+                label << " (" << host;
+                if (port > 0)
+                    label << ':' << port;
+                label << ')';
+            }
+            label << (entry.initiatedByUs ? " [outbound]" : " [inbound]");
+
+            peers.push_back(label.str());
+            seenPeerIds.insert(peerId);
+        }
+    }
+
+    for (const auto &peerId : snapshot) {
+        if (!seenPeerIds.insert(peerId).second)
+            continue;
+        peers.push_back(peerId);
+    }
+
+    return peers;
 }
 
 int PeerManager::getPeerCount() const {
-    std::lock_guard<std::mutex> guard(peerMutex);
-    return connected_peers.size();
+    std::vector<std::string> snapshot;
+    {
+        std::lock_guard<std::mutex> guard(peerMutex);
+        snapshot = connected_peers;
+    }
+
+    if (network) {
+        std::lock_guard<std::timed_mutex> netGuard(peersMutex);
+        const auto &table = network->getPeerTable();
+
+        std::unordered_set<std::string> dedup;
+        dedup.reserve(table.size());
+        int active = 0;
+        for (const auto &kv : table) {
+            const auto &peerId = kv.first;
+            const auto &entry = kv.second;
+            if (!entry.tx || !entry.tx->isOpen())
+                continue;
+
+            std::string host = !entry.observedIp.empty() ? entry.observedIp : entry.ip;
+            int port = entry.observedPort > 0 ? entry.observedPort : entry.port;
+
+            std::string key;
+            if (!host.empty()) {
+                std::ostringstream ep;
+                ep << host;
+                if (port > 0)
+                    ep << ':' << port;
+                key = ep.str();
+            } else {
+                key = peerId;
+            }
+
+            if (dedup.insert(key).second)
+                ++active;
+        }
+
+        if (active > 0)
+            return active;
+    }
+
+    std::unordered_set<std::string> unique(snapshot.begin(), snapshot.end());
+    return static_cast<int>(unique.size());
 }
 
 void PeerManager::setLocalWork(uint64_t work) {
