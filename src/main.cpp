@@ -551,10 +551,17 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
             if (!rsaPriv.empty())
               j["private_key"] = rsaPriv;
 
-            std::string rawDil = readFile(dilPath);
+            auto encodeFileBase64 = [&readFile](const std::string &path) {
+              std::string contents = readFile(path);
+              if (contents.empty())
+                return std::string();
+              return Crypto::base64Encode(contents, /*wrapLines=*/false);
+            };
+
+            std::string rawDil = encodeFileBase64(dilPath);
             if (!rawDil.empty())
               j["dilithium_key"] = rawDil;
-            std::string rawFal = readFile(falPath);
+            std::string rawFal = encodeFileBase64(falPath);
             if (!rawFal.empty())
               j["falcon_key"] = rawFal;
 
@@ -584,7 +591,15 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
               auto bytes = Crypto::fromHex(hex);
               return std::string(bytes.begin(), bytes.end());
             }
-            return obj.value(rawField, std::string());
+            std::string raw = obj.value(rawField, std::string());
+            if (raw.empty())
+              return raw;
+
+            std::string decoded = Crypto::base64Decode(raw, /*inputIsWrapped=*/false);
+            if (!decoded.empty())
+              return decoded;
+
+            return raw;
           };
 
           std::string priv = data.value("private_key", "");
