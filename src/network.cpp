@@ -441,6 +441,8 @@ bool Network::sendFrame(std::shared_ptr<Transport> tr,
       tag = WireFrame::PEER_LIST;
     else if (fr->has_block_broadcast())
       tag = WireFrame::BLOCK;
+    else if (fr->has_ping() || fr->has_pong())
+      tag = WireFrame::PING;
     else if (fr->has_snapshot_meta())
       tag = WireFrame::SNAP_META;
     else if (fr->has_snapshot_chunk())
@@ -2942,6 +2944,8 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
     tag = WireFrame::PEER_LIST;
   else if (f.has_block_broadcast())
     tag = WireFrame::BLOCK;
+  else if (f.has_ping() || f.has_pong())
+    tag = WireFrame::PING;
   else if (f.has_snapshot_meta())
     tag = WireFrame::SNAP_META;
   else if (f.has_snapshot_chunk())
@@ -3034,8 +3038,19 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
     alyncoin::net::Frame out;
     out.mutable_pong();
     auto it = peerTransports.find(peer);
-    if (it != peerTransports.end())
+    if (it != peerTransports.end()) {
+      if (it->second.state)
+        it->second.state->graceUntil =
+            std::chrono::steady_clock::now() + BAN_GRACE_BASE;
       sendFrame(it->second.tx, out);
+    }
+    break;
+  }
+  case alyncoin::net::Frame::kPong: {
+    auto it = peerTransports.find(peer);
+    if (it != peerTransports.end() && it->second.state)
+      it->second.state->graceUntil =
+          std::chrono::steady_clock::now() + BAN_GRACE_BASE;
     break;
   }
   case alyncoin::net::Frame::kHeightReq:

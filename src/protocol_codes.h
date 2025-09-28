@@ -6,5 +6,6 @@ enum class WireFrame : uint8_t {
     SNAP_META   = 0x05,
     SNAP_CHUNK  = 0x06,
     SNAP_END    = 0x07,
+    PING        = 0x08,
     OTHER       = 0xFF
 };
