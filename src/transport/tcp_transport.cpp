@@ -166,8 +166,12 @@ bool TcpTransport::connect(const std::string& host, int port)
         auto& ctx = static_cast<boost::asio::io_context&>(socket->get_executor().context());
         ctx.restart();
         while (ec == boost::asio::error::would_block && !timedOut) {
-            if (ctx.run_one() == 0) {
-                break;
+            // `run_one()` can hang indefinitely on some Linux environments (e.g. WSL)
+            // when the underlying connect never completes. Poll in short intervals so
+            // the timer handler still fires and we observe the timeout condition.
+            ctx.poll_one();
+            if (ec == boost::asio::error::would_block && !timedOut) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
             }
         }
         timer.cancel();
