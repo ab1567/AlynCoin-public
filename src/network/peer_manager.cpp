@@ -191,13 +191,16 @@ int PeerManager::getPeerCount() const {
         snapshot = connected_peers;
     }
 
+    int count = 0;
+    std::unordered_set<std::string> seenPeerIds;
+
     if (network) {
         std::lock_guard<std::timed_mutex> netGuard(peersMutex);
         const auto &table = network->getPeerTable();
 
-        std::unordered_set<std::string> dedup;
-        dedup.reserve(table.size());
-        int active = 0;
+        std::unordered_set<std::string> dedupEndpoints;
+        dedupEndpoints.reserve(table.size());
+
         for (const auto &kv : table) {
             const auto &peerId = kv.first;
             const auto &entry = kv.second;
@@ -207,27 +210,31 @@ int PeerManager::getPeerCount() const {
             std::string host = !entry.observedIp.empty() ? entry.observedIp : entry.ip;
             int port = entry.observedPort > 0 ? entry.observedPort : entry.port;
 
-            std::string key;
+            std::string endpointKey;
             if (!host.empty()) {
                 std::ostringstream ep;
                 ep << host;
                 if (port > 0)
                     ep << ':' << port;
-                key = ep.str();
+                endpointKey = ep.str();
             } else {
-                key = peerId;
+                endpointKey = peerId;
             }
 
-            if (dedup.insert(key).second)
-                ++active;
-        }
+            if (!dedupEndpoints.insert(endpointKey).second)
+                continue;
 
-        if (active > 0)
-            return active;
+            if (seenPeerIds.insert(peerId).second)
+                ++count;
+        }
     }
 
-    std::unordered_set<std::string> unique(snapshot.begin(), snapshot.end());
-    return static_cast<int>(unique.size());
+    for (const auto &peerId : snapshot) {
+        if (seenPeerIds.insert(peerId).second)
+            ++count;
+    }
+
+    return count;
 }
 
 void PeerManager::setLocalWork(uint64_t work) {
