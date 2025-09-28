@@ -182,6 +182,8 @@ public:
   void sendHeightProbe(std::shared_ptr<Transport> tr);
   void sendTipHash(const std::string &peer);
   void sendPeerList(const std::string &peer);
+  bool noteShareableEndpoint(const std::string &host, int port,
+                             bool triggerBroadcast = true);
 
   // Expose frame processing for worker threads
   void processFrame(const alyncoin::net::Frame &f, const std::string &peer);
@@ -222,6 +224,8 @@ private:
   std::unordered_map<std::string, BanEntry> bannedPeers;
   std::unordered_set<std::string> knownPeers;
   std::unordered_set<std::string> anchorPeers;
+  std::unordered_set<std::string> knownPeerEndpoints;
+  mutable std::mutex gossipMutex;
   std::atomic<bool> peerFileLoaded{false};
   PeerBlacklist *blacklist;
   std::unordered_set<std::string> seenTxHashes;

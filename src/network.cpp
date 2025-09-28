@@ -594,6 +594,7 @@ void Network::sendPeerList(const std::string &peer) {
   std::shared_ptr<Transport> targetTx;
   alyncoin::net::Frame fr;
   auto *pl = fr.mutable_peer_list();
+  std::unordered_set<std::string> seen;
 
   {
     std::lock_guard<std::timed_mutex> lk(peersMutex);
@@ -606,16 +607,43 @@ void Network::sendPeerList(const std::string &peer) {
       const auto endpoint = selectReachableEndpoint(kv.second);
       if (endpoint.first.empty() || endpoint.second <= 0)
         continue;
-      if (!isRoutableAddress(endpoint.first))
+      if (!isShareableAddress(endpoint.first))
         continue;
-      pl->add_peers(endpoint.first + ':' + std::to_string(endpoint.second));
+      std::string label = endpoint.first + ':' + std::to_string(endpoint.second);
+      if (seen.insert(label).second)
+        pl->add_peers(std::move(label));
+    }
+  }
+
+  {
+    std::lock_guard<std::mutex> gossipLock(gossipMutex);
+    for (const auto &label : knownPeerEndpoints) {
+      auto pos = label.rfind(':');
+      if (pos == std::string::npos)
+        continue;
+      int port = 0;
+      try {
+        port = std::stoi(label.substr(pos + 1));
+      } catch (const std::exception &) {
+        continue;
+      }
+      if (port <= 0)
+        continue;
+      std::string host = label.substr(0, pos);
+      if (!isShareableAddress(host))
+        continue;
+      std::string combined = host + ':' + std::to_string(port);
+      if (seen.insert(combined).second)
+        pl->add_peers(std::move(combined));
     }
   }
 
   auto announce = determineAnnounceEndpoint();
   if (!announce.first.empty() && announce.second > 0 &&
       isShareableAddress(announce.first)) {
-    pl->add_peers(announce.first + ':' + std::to_string(announce.second));
+    std::string label = announce.first + ':' + std::to_string(announce.second);
+    if (seen.insert(label).second)
+      pl->add_peers(std::move(label));
   }
 
   if (pl->peers_size() == 0)
@@ -1374,6 +1402,27 @@ void Network::broadcastPeerList() {
     }
   }
 
+  {
+    std::lock_guard<std::mutex> gossipLock(gossipMutex);
+    for (const auto &label : knownPeerEndpoints) {
+      auto pos = label.rfind(':');
+      if (pos == std::string::npos)
+        continue;
+      int port = 0;
+      try {
+        port = std::stoi(label.substr(pos + 1));
+      } catch (const std::exception &) {
+        continue;
+      }
+      if (port <= 0)
+        continue;
+      std::string host = label.substr(0, pos);
+      if (!isShareableAddress(host))
+        continue;
+      peers.emplace_back(std::move(host), port);
+    }
+  }
+
   auto announce = determineAnnounceEndpoint();
   if (!announce.first.empty() && announce.second > 0 &&
       isShareableAddress(announce.first)) {
@@ -1651,6 +1700,9 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
 
   std::cout << "✅ Registered peer: " << claimedPeerId << '\n';
 
+  const std::string shareHost = canonicalIp.empty() ? realPeerId : canonicalIp;
+  noteShareableEndpoint(shareHost, finalPort);
+
   // ── 4. push our handshake back ──────────────────────────────────────────
   {
     alyncoin::net::Handshake hs_out = buildHandshake();
@@ -1718,6 +1770,7 @@ void Network::run() {
 
   if (shouldDialDns) {
     std::vector<std::string> dnsPeers = fetchPeersFromDNS("peers.alyncoin.com");
+    bool added = false;
     for (const std::string &peer : dnsPeers) {
       size_t colonPos = peer.find(":");
       if (colonPos == std::string::npos)
@@ -1730,8 +1783,12 @@ void Network::run() {
         continue;
       if (isSelfPeer(ip))
         continue;
+      if (noteShareableEndpoint(ip, p, false))
+        added = true;
       connectToNode(ip, p);
     }
+    if (added)
+      broadcastPeerList();
   } else {
     std::cout << "ℹ️  [Network] Existing peers from peers.txt; DNS bootstrap skipped.\n";
   }
@@ -3224,6 +3281,7 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
     sendPeerList(peer);
     break;
   case alyncoin::net::Frame::kPeerList: {
+    bool added = false;
     for (const auto &p : f.peer_list().peers()) {
       size_t pos = p.find(':');
       if (pos == std::string::npos)
@@ -3236,11 +3294,15 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
         continue;
       if ((ip == "127.0.0.1" || ip == "localhost") && port == this->port)
         continue;
-      if (peerTransports.count(p))
+      if (isSelfPeer(ip))
         continue;
+      if (noteShareableEndpoint(ip, port, false))
+        added = true;
       knownPeers.insert(p);
       connectToNode(ip, port);
     }
+    if (added)
+      broadcastPeerList();
     break;
   }
   case alyncoin::net::Frame::kRollupBlock: {
@@ -3630,6 +3692,9 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
       }
     }
 
+    const std::string shareHost = canonicalIp.empty() ? host : canonicalIp;
+    noteShareableEndpoint(shareHost, advertisedPort);
+
     /* pick correct sync action now */
     const int localHeight = Blockchain::getInstance().getHeight();
     if (theirHeight > localHeight) {
@@ -3705,11 +3770,14 @@ void Network::loadPeers() {
   }
 
   bool connected = false;
+  bool manualAdded = false;
   for (const auto &entry : manualPeers) {
     if (isSelfPeer(entry.host))
       continue;
     if (entry.host == "127.0.0.1" || entry.host == "localhost")
       continue;
+    if (noteShareableEndpoint(entry.host, entry.port, false))
+      manualAdded = true;
     if (connectToNode(entry.host, entry.port)) {
       connected = true;
       if (!entry.keyB64.empty()) {
@@ -3728,20 +3796,28 @@ void Network::loadPeers() {
     }
   }
 
+  if (manualAdded)
+    broadcastPeerList();
+
   if (!connected) {
     auto bootstrap = gatherBootstrapPeers();
     if (!bootstrap.empty())
       std::cout << "ℹ️  [loadPeers] Using bootstrap peer list.\n";
+    bool added = false;
     for (const auto &entry : bootstrap) {
       if (isSelfPeer(entry.host))
         continue;
       if (entry.host == "127.0.0.1" || entry.host == "localhost")
         continue;
+      if (noteShareableEndpoint(entry.host, entry.port, false))
+        added = true;
       if (connectToNode(entry.host, entry.port)) {
         connected = true;
         rememberPeerEndpoint(entry.host, entry.port);
       }
     }
+    if (added)
+      broadcastPeerList();
   }
 
   if (connected) {
@@ -3762,6 +3838,7 @@ void Network::scanForPeers() {
       fetchPeersFromDNS("peers.alyncoin.com");
   std::cout << "🔍 [DNS] Scanning for AlynCoin nodes..." << std::endl;
 
+  bool added = false;
   for (const auto &peer : potentialPeers) {
     std::string ip = peer.substr(0, peer.find(":"));
     int peerPort = std::stoi(peer.substr(peer.find(":") + 1));
@@ -3770,8 +3847,12 @@ void Network::scanForPeers() {
       continue;
     if (ip == "127.0.0.1" || ip == "localhost")
       continue;
+    if (noteShareableEndpoint(ip, peerPort, false))
+      added = true;
     connectToNode(ip, peerPort);
   }
+  if (added)
+    broadcastPeerList();
   if (peerTransports.empty()) {
     std::cout << "⚠️ No active peers found from DNS. Will retry if needed.\n";
   }
@@ -3817,6 +3898,26 @@ void Network::savePeers() {
             << peerTransports.size() << std::endl;
 }
 
+bool Network::noteShareableEndpoint(const std::string &host, int port,
+                                    bool triggerBroadcast) {
+  if (host.empty() || port <= 0)
+    return false;
+  if (!isShareableAddress(host))
+    return false;
+
+  const std::string label = host + ':' + std::to_string(port);
+  bool inserted = false;
+  {
+    std::lock_guard<std::mutex> gossipLock(gossipMutex);
+    inserted = knownPeerEndpoints.insert(label).second;
+  }
+
+  if (inserted && triggerBroadcast)
+    broadcastPeerList();
+
+  return inserted;
+}
+
 void Network::rememberPeerEndpoint(const std::string &ip, int port) {
   if (ip == "127.0.0.1" || ip == "localhost")
     return;
@@ -3845,6 +3946,7 @@ void Network::rememberPeerEndpoint(const std::string &ip, int port) {
   }
   out << endpoint << std::endl;
   std::cout << "📝 [peers.txt] Remembering peer " << endpoint << std::endl;
+  noteShareableEndpoint(ip, port, false);
 }
 
 // ✅ **Broadcast Latest Block Correctly (Base64 Encoded)**
