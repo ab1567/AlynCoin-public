@@ -27,7 +27,7 @@ inline const char *DescribeCompression(rocksdb::CompressionType compression) {
   case rocksdb::kZSTDNotFinalCompression:
     return "ZSTD (not final)";
 #endif
-#if defined(ROCKSDB_MAJOR) && ROCKSDB_MAJOR < 7
+#if defined(ROCKSDB_MAJOR) && ROCKSDB_MAJOR >= 6 && ROCKSDB_MAJOR < 7
   case rocksdb::kZSTDCompression:
     return "ZSTD";
 #endif
@@ -39,10 +39,10 @@ inline const char *DescribeCompression(rocksdb::CompressionType compression) {
 inline rocksdb::CompressionType PreferredCompression() {
 #if defined(ROCKSDB_MAJOR) && ROCKSDB_MAJOR >= 8
   return rocksdb::kZSTD;
-#elif defined(ROCKSDB_MAJOR) && ROCKSDB_MAJOR < 8
+#elif defined(ROCKSDB_MAJOR) && ROCKSDB_MAJOR >= 6
   return rocksdb::kZSTDCompression;
 #else
-  return rocksdb::kZSTDCompression;
+  return rocksdb::kSnappyCompression;
 #endif
 }
 
