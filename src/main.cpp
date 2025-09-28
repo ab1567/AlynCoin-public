@@ -25,8 +25,10 @@
 #include "zk/recursive_proof_helper.h"
 #include "zk/winterfell_stark.h"
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <chrono>
+#include <condition_variable>
 #include <cstdlib>
 #include <ctime>
 #include <filesystem>
@@ -35,12 +37,79 @@
 #include <json/json.h>
 #include <limits>
 #include <map>
+#include <memory>
+#include <mutex>
 #include <regex>
 #include <sstream>
 #include <string>
 #include <thread>
 #include <unordered_set>
 #include <vector>
+
+namespace {
+
+std::mutex gCliOutputMutex;
+
+enum class ConnectOutcome { Success, Failure, Pending };
+
+ConnectOutcome connectPeerWithFeedback(Network &network, const std::string &ip,
+                                      int port,
+                                      std::chrono::milliseconds waitFor,
+                                      bool allowBackground) {
+  struct ConnectState {
+    std::mutex mutex;
+    std::condition_variable cv;
+    bool finished = false;
+    bool success = false;
+    std::atomic<bool> backgroundAnnounce{false};
+  };
+
+  auto state = std::make_shared<ConnectState>();
+
+  auto worker = std::thread([&network, ip, port, allowBackground, state]() {
+    bool ok = network.connectToNode(ip, port);
+    {
+      std::lock_guard<std::mutex> lock(state->mutex);
+      state->finished = true;
+      state->success = ok;
+    }
+    state->cv.notify_one();
+    if (allowBackground && state->backgroundAnnounce.load()) {
+      std::lock_guard<std::mutex> outLock(gCliOutputMutex);
+      if (ok) {
+        std::cout << "✅ Connected to peer " << ip << ':' << port << std::endl;
+      } else {
+        std::cout << "❌ Could not connect to peer: " << ip << ':' << port
+                  << std::endl;
+      }
+    }
+  });
+
+  std::unique_lock<std::mutex> lock(state->mutex);
+  if (waitFor.count() > 0) {
+    if (!state->cv.wait_for(lock, waitFor,
+                            [&]() { return state->finished; })) {
+      if (allowBackground) {
+        state->backgroundAnnounce.store(true);
+        lock.unlock();
+        worker.detach();
+        return ConnectOutcome::Pending;
+      }
+    }
+  }
+
+  if (!state->finished) {
+    state->cv.wait(lock, [&]() { return state->finished; });
+  }
+  lock.unlock();
+
+  if (worker.joinable())
+    worker.join();
+
+  return state->success ? ConnectOutcome::Success : ConnectOutcome::Failure;
+}
+
+} // namespace
 
 // Print usage information for CLI commands
 void print_usage() {
@@ -2849,9 +2918,23 @@ int main(int argc, char *argv[]) {
       connectPort = 15671;
     }
 
-    // 🌐 Attempt peer connection
-    network->connectToPeer(ip, connectPort);
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    {
+      std::lock_guard<std::mutex> lock(gCliOutputMutex);
+      std::cout << "🔌 Attempting to connect to peer " << connectIP << "..."
+                << std::endl;
+    }
+    auto outcome =
+        connectPeerWithFeedback(*network, ip, connectPort,
+                                std::chrono::seconds(3), /*allowBackground=*/true);
+    if (outcome == ConnectOutcome::Success) {
+      std::cout << "✅ Connected to AlynCoin Node at " << connectIP << "\n";
+    } else if (outcome == ConnectOutcome::Failure) {
+      std::cerr << "❌ Failed to connect to AlynCoin node at " << connectIP
+                << "\n";
+    } else {
+      std::cout << "⏳ Connection attempt is continuing in the background."
+                << std::endl;
+    }
 
     // 📡 Reconnect self to allow reverse sync
     network->connectToPeer("127.0.0.1", port);

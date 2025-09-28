@@ -15,6 +15,7 @@
 #include <condition_variable>
 #include <mutex>
 #include <thread>
+#include <memory>
 #include "db/db_paths.h"
 #include "governance/dao.h"
 #include "governance/devfund.h"
@@ -38,23 +39,25 @@ ConnectOutcome connectPeerWithFeedback(Network &network, const std::string &ip,
                                       int port,
                                       std::chrono::milliseconds waitFor,
                                       bool allowBackground) {
-    std::mutex stateMutex;
-    std::condition_variable stateCv;
-    bool finished = false;
-    bool success = false;
-    std::atomic<bool> backgroundAnnounce{false};
+    struct ConnectState {
+        std::mutex mutex;
+        std::condition_variable cv;
+        bool finished = false;
+        bool success = false;
+        std::atomic<bool> backgroundAnnounce{false};
+    };
 
-    auto worker = std::thread([&network, ip, port, allowBackground, &stateMutex,
-                               &stateCv, &finished, &success,
-                               &backgroundAnnounce]() {
+    auto state = std::make_shared<ConnectState>();
+
+    auto worker = std::thread([&network, ip, port, allowBackground, state]() {
         bool ok = network.connectToNode(ip, port);
         {
-            std::lock_guard<std::mutex> lock(stateMutex);
-            finished = true;
-            success = ok;
+            std::lock_guard<std::mutex> lock(state->mutex);
+            state->finished = true;
+            state->success = ok;
         }
-        stateCv.notify_one();
-        if (allowBackground && backgroundAnnounce.load()) {
+        state->cv.notify_one();
+        if (allowBackground && state->backgroundAnnounce.load()) {
             std::lock_guard<std::mutex> outLock(gCliOutputMutex);
             if (ok) {
                 std::cout << "✅ Connected to peer " << ip << ':' << port
@@ -66,11 +69,12 @@ ConnectOutcome connectPeerWithFeedback(Network &network, const std::string &ip,
         }
     });
 
-    std::unique_lock<std::mutex> lock(stateMutex);
+    std::unique_lock<std::mutex> lock(state->mutex);
     if (waitFor.count() > 0) {
-        if (!stateCv.wait_for(lock, waitFor, [&]() { return finished; })) {
+        if (!state->cv.wait_for(lock, waitFor,
+                                [&]() { return state->finished; })) {
             if (allowBackground) {
-                backgroundAnnounce.store(true);
+                state->backgroundAnnounce.store(true);
                 lock.unlock();
                 worker.detach();
                 return ConnectOutcome::Pending;
@@ -78,15 +82,15 @@ ConnectOutcome connectPeerWithFeedback(Network &network, const std::string &ip,
         }
     }
 
-    if (!finished) {
-        stateCv.wait(lock, [&]() { return finished; });
+    if (!state->finished) {
+        state->cv.wait(lock, [&]() { return state->finished; });
     }
     lock.unlock();
 
     if (worker.joinable())
         worker.join();
 
-    return success ? ConnectOutcome::Success : ConnectOutcome::Failure;
+    return state->success ? ConnectOutcome::Success : ConnectOutcome::Failure;
 }
 
 } // namespace
