@@ -93,17 +93,55 @@ static bool exportWalletToFile(const std::string &keyDir,
     ss << in.rdbuf();
     return ss.str();
   };
+  auto encodeFileBase64 = [&readFile](const std::string &path) {
+    std::string contents = readFile(path);
+    if (contents.empty())
+      return contents;
+    return Crypto::base64Encode(contents, /*wrapLines=*/false);
+  };
+  auto dilKeys = Crypto::loadDilithiumKeys(keyId);
+  auto falKeys = Crypto::loadFalconKeys(keyId);
+
+  auto vec_to_hex = [](const std::vector<uint8_t> &data) {
+    if (data.empty())
+      return std::string();
+    std::vector<unsigned char> bytes(data.begin(), data.end());
+    return Crypto::toHex(bytes);
+  };
+
+  std::string resolvedAddress;
+  if (!dilKeys.publicKey.empty()) {
+    std::vector<unsigned char> bytes(dilKeys.publicKey.begin(),
+                                     dilKeys.publicKey.end());
+    resolvedAddress = Crypto::deriveAddressFromPub(bytes);
+  }
+  if (resolvedAddress.empty() && !falKeys.publicKey.empty()) {
+    std::vector<unsigned char> bytes(falKeys.publicKey.begin(),
+                                     falKeys.publicKey.end());
+    resolvedAddress = Crypto::deriveAddressFromPub(bytes);
+  }
+  if (resolvedAddress.empty())
+    resolvedAddress = name;
+
   nlohmann::json j;
-  j["address"] = name;
+  j["address"] = resolvedAddress;
   j["key_id"] = keyId;
   j["private_key"] = readFile(priv);
-  j["dilithium_key"] = readFile(dil);
-  j["falcon_key"] = readFile(fal);
-  std::string passPath = keyDir + name + "_pass.txt";
+  j["dilithium_key"] = encodeFileBase64(dil);
+  j["falcon_key"] = encodeFileBase64(fal);
+  if (!dilKeys.publicKey.empty())
+    j["dilithium_pub"] = vec_to_hex(dilKeys.publicKey);
+  if (!falKeys.publicKey.empty())
+    j["falcon_pub"] = vec_to_hex(falKeys.publicKey);
+  if (!dilKeys.privateKey.empty())
+    j["dilithium_priv"] = vec_to_hex(dilKeys.privateKey);
+  if (!falKeys.privateKey.empty())
+    j["falcon_priv"] = vec_to_hex(falKeys.privateKey);
+  std::string passPath = keyDir + keyId + "_pass.txt";
   if (std::filesystem::exists(passPath)) {
     j["pass_hash"] = readFile(passPath);
   }
-  j["balance"] = blockchain.getBalance(name);
+  j["balance"] = blockchain.getBalance(resolvedAddress);
   std::ofstream out(outPath);
   if (!out) {
     std::cerr << "❌ Unable to open file for writing: " << outPath << "\n";
@@ -128,11 +166,30 @@ static bool importWalletFromFile(const std::string &keyDir,
     std::cerr << "❌ Invalid wallet backup JSON: " << e.what() << "\n";
     return false;
   }
+  auto decodeHexOrRaw = [](const nlohmann::json &obj,
+                           const std::string &hexField,
+                           const std::string &rawField) {
+    std::string hex = obj.value(hexField, "");
+    if (!hex.empty()) {
+      auto bytes = Crypto::fromHex(hex);
+      return std::string(bytes.begin(), bytes.end());
+    }
+    std::string raw = obj.value(rawField, std::string());
+    if (raw.empty())
+      return raw;
+
+    std::string decoded = Crypto::base64Decode(raw, /*inputIsWrapped=*/false);
+    if (!decoded.empty())
+      return decoded;
+
+    return raw;
+  };
+
   std::string address = j.value("address", "");
   std::string keyId = j.value("key_id", address);
   std::string priv = j.value("private_key", "");
-  std::string dil = j.value("dilithium_key", "");
-  std::string fal = j.value("falcon_key", "");
+  std::string dil = decodeHexOrRaw(j, "dilithium_priv", "dilithium_key");
+  std::string fal = decodeHexOrRaw(j, "falcon_priv", "falcon_key");
   std::string passHash = j.value("pass_hash", "");
   if (keyId.empty() || priv.empty() || dil.empty() || fal.empty()) {
     std::cerr << "❌ Invalid wallet backup data\n";
