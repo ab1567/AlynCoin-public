@@ -23,6 +23,7 @@
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/address.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 #include <condition_variable>
 #include <queue>
@@ -2330,16 +2331,48 @@ void Network::runHairpinCheck() {
   try {
     boost::asio::io_context ctx;
     tcp::socket sock(ctx);
-    boost::system::error_code ec;
-    sock.connect({boost::asio::ip::make_address(endpoint.first), endpoint.second}, ec);
-    if (ec) {
+    tcp::endpoint target(boost::asio::ip::make_address(endpoint.first),
+                         endpoint.second);
+    boost::asio::steady_timer timer(ctx);
+    boost::system::error_code connectEc;
+    bool completed = false;
+    bool timedOut = false;
+
+    timer.expires_after(std::chrono::seconds(3));
+    timer.async_wait([&](const boost::system::error_code &ec) {
+      if (!ec && !completed) {
+        timedOut = true;
+        connectEc =
+            boost::asio::error::make_error_code(boost::asio::error::timed_out);
+        boost::system::error_code cancelEc;
+        sock.cancel(cancelEc);
+      }
+    });
+
+    sock.async_connect(target, [&](const boost::system::error_code &ec) {
+      if (completed)
+        return;
+      completed = true;
+      if (!timedOut)
+        connectEc = ec;
+      boost::system::error_code cancelEc;
+      timer.cancel(cancelEc);
+    });
+
+    ctx.run();
+
+    if (timedOut || connectEc) {
+      std::string reason =
+          timedOut ? "connection timed out"
+                   : connectEc.message();
       std::cerr << "⚠️ [NAT] Hairpin test failed for " << endpoint.first << ':'
-                << endpoint.second << " — " << ec.message()
+                << endpoint.second << " — " << reason
                 << ". Will rely on DNS/bootstrap peers.\n";
     } else {
       std::cout << "✅ [NAT] Hairpin test succeeded for " << endpoint.first << ':'
                 << endpoint.second << '\n';
-      sock.close();
+      boost::system::error_code closeEc;
+      sock.close(closeEc);
     }
   } catch (const std::exception &ex) {
     std::cerr << "⚠️ [NAT] Hairpin test error: " << ex.what() << '\n';
