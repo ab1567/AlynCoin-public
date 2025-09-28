@@ -37,7 +37,7 @@ inline const char *DescribeCompression(rocksdb::CompressionType compression) {
 }
 
 inline rocksdb::CompressionType PreferredCompression() {
-#if defined(ROCKSDB_MAJOR) && ROCKSDB_MAJOR >= 8
+#if defined(ROCKSDB_MAJOR) && ROCKSDB_MAJOR >= 7
   return rocksdb::kZSTD;
 #elif defined(ROCKSDB_MAJOR) && ROCKSDB_MAJOR >= 6
   return rocksdb::kZSTDCompression;
