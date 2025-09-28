@@ -24,6 +24,17 @@ private:
     PeerBlacklist* blacklist;
     Network* network;
     std::string externalAddress_;
+    mutable std::mutex peerMutex;
+
+    enum class PeerInsertResult {
+        Added,
+        AlreadyPresent,
+        NetgroupLimit
+    };
+
+    PeerInsertResult tryInsertPeer(const std::string& peer_id,
+                                   bool enforceNetgroup);
+    void announcePeerConnected(const std::string& peer_id);
 
     struct PendingBlockRequest {
         std::mutex mutex;
