@@ -2519,6 +2519,27 @@ void Network::recordExternalAddress(const std::string &ip, unsigned short portVa
             << '\n';
 }
 
+namespace {
+
+template <typename Timer>
+auto cancelTimer(Timer &timer, int)
+    -> decltype(timer.cancel(), void()) {
+  timer.cancel();
+}
+
+template <typename Timer>
+void cancelTimer(Timer &timer, long) {
+  boost::system::error_code ignored;
+  timer.cancel(ignored);
+}
+
+template <typename Timer>
+void cancelTimer(Timer &timer) {
+  cancelTimer(timer, 0);
+}
+
+} // namespace
+
 void Network::runHairpinCheck() {
   if (hairpinCheckAttempted)
     return;
@@ -2555,8 +2576,7 @@ void Network::runHairpinCheck() {
       completed = true;
       if (!timedOut)
         connectEc = ec;
-      boost::system::error_code cancelEc;
-      timer.cancel(cancelEc);
+      cancelTimer(timer);
     });
 
     ctx.run();
