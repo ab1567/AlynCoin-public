@@ -302,7 +302,10 @@ static std::string formatEndpointForWire(const std::string &host, int port) {
   return host + ':' + std::to_string(port);
 }
 
-static std::mt19937 &threadLocalRng();
+static std::mt19937 &threadLocalRng() {
+  thread_local std::mt19937 rng{std::random_device{}()};
+  return rng;
+}
 
 static std::chrono::milliseconds randomBroadcastDelay() {
   std::uniform_int_distribution<int> jitter(0, 100);
@@ -474,11 +477,6 @@ namespace fs = std::filesystem;
 Network *Network::instancePtr = nullptr;
 
 namespace {
-std::mt19937 &threadLocalRng() {
-  thread_local std::mt19937 rng{std::random_device{}()};
-  return rng;
-}
-
 fs::path peerStorageDir() {
   fs::path dir = getAppConfig().data_dir;
   if (dir.empty())
