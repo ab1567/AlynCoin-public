@@ -20,6 +20,8 @@ private:
     std::map<std::string, int> peerHeights;
     std::map<std::string, uint64_t> peerWorks;
     std::map<std::string, std::string> peerTipHashes;
+    std::map<std::string, std::string> peerCommonHashes;
+    std::map<std::string, int> peerCommonHeights;
     uint64_t localWork = 0;
     PeerBlacklist* blacklist;
     Network* network;
@@ -78,6 +80,9 @@ public:
     // --- New helpers for chain health ---------------------------------
     int getMaxPeerHeight() const;
     std::string getConsensusTipHash(int localHeight) const;
+    void recordCommonAncestor(const std::string &peer, const std::string &hash,
+                              int height);
+    std::string getConsensusCommonHash(int localHeight) const;
 
     void setExternalAddress(const std::string &address);
     std::string getExternalAddress() const;
