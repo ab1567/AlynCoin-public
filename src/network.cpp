@@ -80,6 +80,9 @@ using namespace alyncoin;
 
 namespace {
 
+constexpr size_t MAX_TRACKED_ENDPOINTS = 1024;
+constexpr size_t MAX_UNVERIFIED_ENDPOINTS = 256;
+
 struct ConsensusHints {
   bool hasDifficulty{false};
   bool hasReward{false};
@@ -200,6 +203,12 @@ static bool isRoutableAddress(const std::string &ip) {
   }
 }
 
+static bool isBlockedServicePort(int port) {
+  static const std::array<int, 11> blocked = {
+      0, 1, 7, 19, 25, 53, 123, 135, 137, 161, 3389};
+  return std::find(blocked.begin(), blocked.end(), port) != blocked.end();
+}
+
 static bool isShareableAddress(const std::string &ip) {
   if (ip.empty())
     return false;
@@ -207,10 +216,66 @@ static bool isShareableAddress(const std::string &ip) {
     const auto addr = boost::asio::ip::make_address(ip);
     if (addr.is_unspecified() || addr.is_loopback() || addr.is_multicast())
       return false;
+    if (addr.is_v4()) {
+      const auto bytes = addr.to_v4().to_bytes();
+      if (bytes[0] == 0)
+        return false;
+      if (bytes[0] == 10)
+        return false;
+      if (bytes[0] == 127)
+        return false;
+      if (bytes[0] == 169 && bytes[1] == 254)
+        return false;
+      if (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31)
+        return false;
+      if (bytes[0] == 192 && bytes[1] == 168)
+        return false;
+      if (bytes[0] == 198 && (bytes[1] == 18 || bytes[1] == 19))
+        return false;
+      if (bytes[0] == 100 && bytes[1] >= 64 && bytes[1] <= 127)
+        return false;
+      return true;
+    }
+    const auto v6 = addr.to_v6();
+    if (v6.is_loopback() || v6.is_link_local() || v6.is_site_local())
+      return false;
+    const auto bytes = v6.to_bytes();
+    if ((bytes[0] & 0xFE) == 0xFC)
+      return false;
+    if (bytes[0] == 0xFE && (bytes[1] & 0xC0) == 0x80)
+      return false;
     return true;
   } catch (const std::exception &) {
-    return false;
+    std::string lower;
+    lower.reserve(ip.size());
+    for (char c : ip)
+      lower.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+    if (lower.size() >= 6 && lower.rfind(".local") == lower.size() - 6)
+      return false;
+    if (lower.size() >= 4 && lower.rfind(".lan") == lower.size() - 4)
+      return false;
+    if (lower.size() >= 5 && lower.rfind(".home") == lower.size() - 5)
+      return false;
+    return lower.find(' ') == std::string::npos;
   }
+}
+
+static std::string makeEndpointLabel(const std::string &host, int port) {
+  return host + ':' + std::to_string(port);
+}
+
+static constexpr std::chrono::seconds MIN_DIAL_BACKOFF{5};
+static constexpr std::chrono::seconds MAX_DIAL_BACKOFF{std::chrono::minutes(10)};
+
+static std::chrono::seconds computeDialBackoff(int failures) {
+  int capped = std::min(failures, 6);
+  auto delay = MIN_DIAL_BACKOFF * (1 << capped);
+  if (delay > MAX_DIAL_BACKOFF)
+    delay = MAX_DIAL_BACKOFF;
+  static thread_local std::mt19937 rng(std::random_device{}());
+  std::uniform_int_distribution<int> jitter(0, 5);
+  delay += std::chrono::seconds(jitter(rng));
+  return delay;
 }
 
 static std::pair<std::string, unsigned short>
@@ -312,6 +377,11 @@ static constexpr std::chrono::milliseconds BAN_GRACE_PER_BLOCK{100};
 static constexpr std::chrono::seconds BAN_GRACE_MAX{3600};
 static constexpr size_t MIN_CONNECTED_PEERS = 2;
 static constexpr std::chrono::minutes PEERLIST_INTERVAL{5};
+static constexpr std::chrono::seconds PEERLIST_RATE_LIMIT{45};
+static constexpr size_t MAX_GOSSIP_PEERS = 64;
+static constexpr int MAX_PARALLEL_DIALS = 6;
+static constexpr std::chrono::hours ENDPOINT_TTL{std::chrono::hours(24 * 7)};
+static constexpr std::chrono::minutes ENDPOINT_RECENT_SUCCESS{30};
 #ifdef ENABLE_PEERLIST_LOGS
 #define PEERLIST_LOG(x) std::cout << x << std::endl
 #else
@@ -592,8 +662,7 @@ void Network::sendTipHash(const std::string &peer) {
 
 void Network::sendPeerList(const std::string &peer) {
   std::shared_ptr<Transport> targetTx;
-  alyncoin::net::Frame fr;
-  auto *pl = fr.mutable_peer_list();
+  std::vector<std::pair<std::string, int>> livePeers;
 
   {
     std::lock_guard<std::timed_mutex> lk(peersMutex);
@@ -606,21 +675,89 @@ void Network::sendPeerList(const std::string &peer) {
       const auto endpoint = selectReachableEndpoint(kv.second);
       if (endpoint.first.empty() || endpoint.second <= 0)
         continue;
-      if (!isRoutableAddress(endpoint.first))
+      if (!isShareableAddress(endpoint.first))
         continue;
-      pl->add_peers(endpoint.first + ':' + std::to_string(endpoint.second));
+      if (isBlockedServicePort(endpoint.second))
+        continue;
+      livePeers.push_back(endpoint);
     }
+  }
+
+  if (!targetTx)
+    return;
+
+  auto now = std::chrono::steady_clock::now();
+  std::vector<std::pair<std::string, int>> cachedPeers;
+  {
+    std::lock_guard<std::mutex> gossipLock(gossipMutex);
+    auto itLast = peerListLastSent.find(peer);
+    if (itLast != peerListLastSent.end() &&
+        now - itLast->second < PEERLIST_RATE_LIMIT)
+      return;
+    peerListLastSent[peer] = now;
+
+    for (auto it = knownPeerEndpoints.begin(); it != knownPeerEndpoints.end();) {
+      auto &rec = it->second;
+      if (rec.port <= 0 || rec.port > 65535 || isBlockedServicePort(rec.port)) {
+        it = knownPeerEndpoints.erase(it);
+        continue;
+      }
+      if (rec.lastSeen != std::chrono::steady_clock::time_point{} &&
+          now - rec.lastSeen > ENDPOINT_TTL) {
+        it = knownPeerEndpoints.erase(it);
+        continue;
+      }
+      if (!rec.verified ||
+          rec.lastSuccess == std::chrono::steady_clock::time_point{} ||
+          now - rec.lastSuccess > ENDPOINT_RECENT_SUCCESS) {
+        ++it;
+        continue;
+      }
+      if (!isShareableAddress(rec.host)) {
+        ++it;
+        continue;
+      }
+      cachedPeers.emplace_back(rec.host, rec.port);
+      ++it;
+    }
+  }
+
+  std::unordered_set<std::string> seen;
+  alyncoin::net::Frame peerListFrame;
+  auto *pl = peerListFrame.mutable_peer_list();
+
+  auto appendEndpoint = [&](const std::pair<std::string, int> &ep) {
+    if (pl->peers_size() >= static_cast<int>(MAX_GOSSIP_PEERS))
+      return false;
+    std::string label = ep.first + ':' + std::to_string(ep.second);
+    if (!seen.insert(label).second)
+      return true;
+    pl->add_peers(std::move(label));
+    return true;
+  };
+
+  for (const auto &ep : livePeers) {
+    if (!appendEndpoint(ep))
+      break;
+  }
+  for (const auto &ep : cachedPeers) {
+    if (!appendEndpoint(ep))
+      break;
   }
 
   auto announce = determineAnnounceEndpoint();
   if (!announce.first.empty() && announce.second > 0 &&
-      isShareableAddress(announce.first)) {
-    pl->add_peers(announce.first + ':' + std::to_string(announce.second));
+      isShareableAddress(announce.first) &&
+      !isBlockedServicePort(announce.second) &&
+      pl->peers_size() < static_cast<int>(MAX_GOSSIP_PEERS)) {
+    std::string label = announce.first + ':' + std::to_string(announce.second);
+    if (seen.insert(label).second)
+      pl->add_peers(std::move(label));
   }
 
   if (pl->peers_size() == 0)
     return;
-  sendFrame(targetTx, fr);
+  sendFrame(targetTx, peerListFrame);
 }
 
 void Network::markPeerOffline(const std::string &peerId) {
@@ -637,6 +774,10 @@ void Network::markPeerOffline(const std::string &peerId) {
   }
   if (peerManager)
     peerManager->disconnectPeer(peerId);
+  {
+    std::lock_guard<std::mutex> gossipLock(gossipMutex);
+    peerListLastSent.erase(peerId);
+  }
   // Allow the peer manager to reconcile naturally; removing a peer should not
   // trigger automatic connection churn that misreports the live peer count.
 }
@@ -1354,15 +1495,18 @@ void Network::connectToPeer(const std::string &ip, short port) {
 }
 
 // ✅ **Broadcast peer list to all connected nodes**
-void Network::broadcastPeerList() {
+void Network::broadcastPeerList(const std::string &excludePeer) {
   ScopedLockTracer tracer("broadcastPeerList");
-  std::vector<std::pair<std::string, int>> peers;
+  std::vector<std::pair<std::string, int>> livePeers;
+  std::vector<std::pair<std::string, int>> cachedPeers;
   std::vector<std::shared_ptr<Transport>> sinks;
   {
     std::lock_guard<std::timed_mutex> lock(peersMutex);
     if (peerTransports.empty())
       return;
     for (const auto &[peerId, entry] : peerTransports) {
+      if (!excludePeer.empty() && peerId == excludePeer)
+        continue;
       if (entry.tx && entry.tx->isOpen())
         sinks.push_back(entry.tx);
       auto endpoint = selectReachableEndpoint(entry);
@@ -1370,33 +1514,81 @@ void Network::broadcastPeerList() {
         continue;
       if (!isShareableAddress(endpoint.first))
         continue;
-      peers.push_back(std::move(endpoint));
+      if (isBlockedServicePort(endpoint.second))
+        continue;
+      livePeers.push_back(std::move(endpoint));
     }
+  }
+
+  if (sinks.empty())
+    return;
+
+  auto now = std::chrono::steady_clock::now();
+  {
+    std::lock_guard<std::mutex> gossipLock(gossipMutex);
+    for (auto it = knownPeerEndpoints.begin(); it != knownPeerEndpoints.end();) {
+      auto &rec = it->second;
+      if (rec.port <= 0 || rec.port > 65535 || isBlockedServicePort(rec.port)) {
+        it = knownPeerEndpoints.erase(it);
+        continue;
+      }
+      if (rec.lastSeen != std::chrono::steady_clock::time_point{} &&
+          now - rec.lastSeen > ENDPOINT_TTL) {
+        it = knownPeerEndpoints.erase(it);
+        continue;
+      }
+      if (!rec.verified ||
+          rec.lastSuccess == std::chrono::steady_clock::time_point{} ||
+          now - rec.lastSuccess > ENDPOINT_RECENT_SUCCESS) {
+        ++it;
+        continue;
+      }
+      if (!isShareableAddress(rec.host)) {
+        ++it;
+        continue;
+      }
+      cachedPeers.emplace_back(rec.host, rec.port);
+      ++it;
+    }
+  }
+
+  std::unordered_set<std::string> seen;
+  alyncoin::net::Frame peerListFrame;
+  auto *pl = peerListFrame.mutable_peer_list();
+  auto appendEndpoint = [&](const std::pair<std::string, int> &ep) {
+    if (pl->peers_size() >= static_cast<int>(MAX_GOSSIP_PEERS))
+      return false;
+    std::string label = ep.first + ':' + std::to_string(ep.second);
+    if (!seen.insert(label).second)
+      return true;
+    pl->add_peers(std::move(label));
+    return true;
+  };
+
+  for (const auto &ep : livePeers) {
+    if (!appendEndpoint(ep))
+      break;
+  }
+  for (const auto &ep : cachedPeers) {
+    if (!appendEndpoint(ep))
+      break;
   }
 
   auto announce = determineAnnounceEndpoint();
   if (!announce.first.empty() && announce.second > 0 &&
-      isShareableAddress(announce.first)) {
-    peers.emplace_back(std::move(announce));
-  }
-
-  if (peers.empty() || sinks.empty())
-    return;
-
-  std::unordered_set<std::string> seen;
-  alyncoin::net::Frame fr;
-  auto *pl = fr.mutable_peer_list();
-  for (const auto &peer : peers) {
-    std::string label = peer.first + ':' + std::to_string(peer.second);
+      isShareableAddress(announce.first) &&
+      !isBlockedServicePort(announce.second) &&
+      pl->peers_size() < static_cast<int>(MAX_GOSSIP_PEERS)) {
+    std::string label = announce.first + ':' + std::to_string(announce.second);
     if (seen.insert(label).second)
-      pl->add_peers(label);
+      pl->add_peers(std::move(label));
   }
 
   if (pl->peers_size() == 0)
     return;
 
   for (const auto &tx : sinks)
-    sendFrame(tx, fr);
+    sendFrame(tx, peerListFrame);
 }
 
 //
@@ -1651,6 +1843,9 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
 
   std::cout << "✅ Registered peer: " << claimedPeerId << '\n';
 
+  const std::string shareHost = canonicalIp.empty() ? realPeerId : canonicalIp;
+  noteShareableEndpoint(shareHost, finalPort, true, true, claimedPeerId);
+
   // ── 4. push our handshake back ──────────────────────────────────────────
   {
     alyncoin::net::Handshake hs_out = buildHandshake();
@@ -1718,6 +1913,7 @@ void Network::run() {
 
   if (shouldDialDns) {
     std::vector<std::string> dnsPeers = fetchPeersFromDNS("peers.alyncoin.com");
+    bool added = false;
     for (const std::string &peer : dnsPeers) {
       size_t colonPos = peer.find(":");
       if (colonPos == std::string::npos)
@@ -1730,8 +1926,12 @@ void Network::run() {
         continue;
       if (isSelfPeer(ip))
         continue;
+      if (noteShareableEndpoint(ip, p, false))
+        added = true;
       connectToNode(ip, p);
     }
+    if (added)
+      broadcastPeerList();
   } else {
     std::cout << "ℹ️  [Network] Existing peers from peers.txt; DNS bootstrap skipped.\n";
   }
@@ -3224,23 +3424,35 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
     sendPeerList(peer);
     break;
   case alyncoin::net::Frame::kPeerList: {
+    bool added = false;
     for (const auto &p : f.peer_list().peers()) {
       size_t pos = p.find(':');
       if (pos == std::string::npos)
         continue;
       std::string ip = p.substr(0, pos);
-      int port = std::stoi(p.substr(pos + 1));
-      if (ip.empty() || port <= 0)
+      int port = 0;
+      try {
+        port = std::stoi(p.substr(pos + 1));
+      } catch (const std::exception &) {
+        continue;
+      }
+      if (ip.empty() || port <= 0 || port > 65535)
+        continue;
+      if (isBlockedServicePort(port))
         continue;
       if (!isShareableAddress(ip))
         continue;
       if ((ip == "127.0.0.1" || ip == "localhost") && port == this->port)
         continue;
-      if (peerTransports.count(p))
+      if (isSelfPeer(ip))
         continue;
+      if (noteShareableEndpoint(ip, port, false, false, peer))
+        added = true;
       knownPeers.insert(p);
       connectToNode(ip, port);
     }
+    if (added)
+      broadcastPeerList();
     break;
   }
   case alyncoin::net::Frame::kRollupBlock: {
@@ -3344,6 +3556,16 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
 // Connect to Node
 
 bool Network::connectToNode(const std::string &host, int remotePort) {
+  if (remotePort <= 0 || remotePort > 65535) {
+    std::cerr << "⚠️ [connectToNode] invalid port for " << host << ':' << remotePort
+              << '\n';
+    return false;
+  }
+  if (isBlockedServicePort(remotePort)) {
+    std::cerr << "⚠️ [connectToNode] suspicious service port for " << host << ':'
+              << remotePort << '\n';
+    return false;
+  }
   if (peerTransports.size() >= MAX_PEERS) {
     std::cerr << "⚠️ [connectToNode] peer cap reached, skip " << host << ':'
               << remotePort << '\n';
@@ -3363,6 +3585,47 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
               << port << " or enable UPnP." << '\n';
     return false;
   }
+
+  auto now = std::chrono::steady_clock::now();
+  {
+    std::lock_guard<std::mutex> gossipLock(gossipMutex);
+    auto &rec = knownPeerEndpoints[makeEndpointLabel(host, remotePort)];
+    if (rec.host.empty())
+      rec.host = host;
+    if (rec.port == 0)
+      rec.port = remotePort;
+    if (rec.nextDialAllowed != std::chrono::steady_clock::time_point{} &&
+        now < rec.nextDialAllowed) {
+      auto wait = std::chrono::duration_cast<std::chrono::seconds>(rec.nextDialAllowed - now);
+      std::cerr << "⚠️ [connectToNode] backoff active for " << host << ':'
+                << remotePort << " (" << wait.count() << "s)" << '\n';
+      return false;
+    }
+    rec.lastSeen = now;
+  }
+
+  struct DialGuard {
+    Network *net;
+    explicit DialGuard(Network *n) : net(n) {}
+    ~DialGuard() {
+      if (net)
+        net->activeOutboundDials.fetch_sub(1);
+    }
+  };
+
+  struct DialAttemptGuard {
+    Network *net;
+    std::string host;
+    int port;
+    bool attempted{false};
+    bool success{false};
+    DialAttemptGuard(Network *n, std::string h, int p)
+        : net(n), host(std::move(h)), port(p) {}
+    ~DialAttemptGuard() {
+      if (net && attempted && !success)
+        net->recordEndpointFailure(host, port);
+    }
+  };
   {
     std::lock_guard<std::timed_mutex> g(peersMutex);
     auto it = peerTransports.find(peerKey);
@@ -3383,6 +3646,16 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
       return false;
     }
   }
+
+  int previous = activeOutboundDials.fetch_add(1);
+  if (previous >= MAX_PARALLEL_DIALS) {
+    activeOutboundDials.fetch_sub(1);
+    std::cerr << "⚠️ [connectToNode] dial concurrency limit reached ("
+              << MAX_PARALLEL_DIALS << ")" << '\n';
+    return false;
+  }
+  DialGuard dialGuard(this);
+  DialAttemptGuard attemptGuard(this, host, remotePort);
 
   std::string prefix = ipPrefix(host);
   if (!prefix.empty()) {
@@ -3406,6 +3679,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     std::shared_ptr<Transport> tx;
     if (getAppConfig().enable_tls && tlsContext) {
       auto sslTx = std::make_shared<SslTransport>(ioContext, *tlsContext);
+      attemptGuard.attempted = true;
       if (!sslTx->connect(host, remotePort)) {
         std::cerr << "❌ [connectToNode] Connection to " << host << ':'
                   << remotePort << " failed." << '\n';
@@ -3414,6 +3688,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
       tx = sslTx;
     } else {
       auto plain = std::make_shared<TcpTransport>(ioContext);
+      attemptGuard.attempted = true;
       if (!plain->connect(host, remotePort)) {
         std::cerr << "❌ [connectToNode] Connection to " << host << ':'
                   << remotePort << " failed." << '\n';
@@ -3505,6 +3780,12 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     std::string theirNodeId = rhs.node_id();
     if (theirNodeId.empty())
       theirNodeId = peerKey;
+    if (!theirNodeId.empty() && theirNodeId == nodeId) {
+      std::cerr << "🛑 [connectToNode] remote node id matches ours (" << theirNodeId
+                << ")" << '\n';
+      tx->close();
+      return false;
+    }
     const uint64_t remoteNonce = rhs.nonce();
     if (remoteNonce != 0 && remoteNonce == localHandshakeNonce) {
       std::cout << "🛑 Self-connect ignored (nonce match) while dialing "
@@ -3630,6 +3911,18 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
       }
     }
 
+    const std::string shareHost = canonicalIp.empty() ? host : canonicalIp;
+    {
+      std::lock_guard<std::mutex> gossipLock(gossipMutex);
+      auto itDial = knownPeerEndpoints.find(makeEndpointLabel(host, remotePort));
+      if (itDial != knownPeerEndpoints.end()) {
+        itDial->second.failureCount = 0;
+        itDial->second.nextDialAllowed = std::chrono::steady_clock::now();
+        itDial->second.lastSuccess = std::chrono::steady_clock::now();
+      }
+    }
+    noteShareableEndpoint(shareHost, advertisedPort, true, true, finalKey);
+
     /* pick correct sync action now */
     const int localHeight = Blockchain::getInstance().getHeight();
     if (theirHeight > localHeight) {
@@ -3653,6 +3946,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
 
     autoSyncIfBehind();
     intelligentSync();
+    attemptGuard.success = true;
     return true;
   } catch (const std::exception &e) {
     std::cerr << "❌ [connectToNode] " << host << ':' << remotePort << " – "
@@ -3705,11 +3999,14 @@ void Network::loadPeers() {
   }
 
   bool connected = false;
+  bool manualAdded = false;
   for (const auto &entry : manualPeers) {
     if (isSelfPeer(entry.host))
       continue;
     if (entry.host == "127.0.0.1" || entry.host == "localhost")
       continue;
+    if (noteShareableEndpoint(entry.host, entry.port, false))
+      manualAdded = true;
     if (connectToNode(entry.host, entry.port)) {
       connected = true;
       if (!entry.keyB64.empty()) {
@@ -3728,20 +4025,28 @@ void Network::loadPeers() {
     }
   }
 
+  if (manualAdded)
+    broadcastPeerList();
+
   if (!connected) {
     auto bootstrap = gatherBootstrapPeers();
     if (!bootstrap.empty())
       std::cout << "ℹ️  [loadPeers] Using bootstrap peer list.\n";
+    bool added = false;
     for (const auto &entry : bootstrap) {
       if (isSelfPeer(entry.host))
         continue;
       if (entry.host == "127.0.0.1" || entry.host == "localhost")
         continue;
+      if (noteShareableEndpoint(entry.host, entry.port, false))
+        added = true;
       if (connectToNode(entry.host, entry.port)) {
         connected = true;
         rememberPeerEndpoint(entry.host, entry.port);
       }
     }
+    if (added)
+      broadcastPeerList();
   }
 
   if (connected) {
@@ -3762,6 +4067,7 @@ void Network::scanForPeers() {
       fetchPeersFromDNS("peers.alyncoin.com");
   std::cout << "🔍 [DNS] Scanning for AlynCoin nodes..." << std::endl;
 
+  bool added = false;
   for (const auto &peer : potentialPeers) {
     std::string ip = peer.substr(0, peer.find(":"));
     int peerPort = std::stoi(peer.substr(peer.find(":") + 1));
@@ -3770,8 +4076,12 @@ void Network::scanForPeers() {
       continue;
     if (ip == "127.0.0.1" || ip == "localhost")
       continue;
+    if (noteShareableEndpoint(ip, peerPort, false))
+      added = true;
     connectToNode(ip, peerPort);
   }
+  if (added)
+    broadcastPeerList();
   if (peerTransports.empty()) {
     std::cout << "⚠️ No active peers found from DNS. Will retry if needed.\n";
   }
@@ -3805,16 +4115,139 @@ void Network::savePeers() {
     auto endpoint = selectReachableEndpoint(entry);
     if (endpoint.first.empty() || endpoint.second <= 0)
       continue;
-    std::string keyStr = Crypto::base64Encode(
-        std::string(entry.state->linkKey.begin(), entry.state->linkKey.end()),
-        false);
-    file << endpoint.first << ':' << endpoint.second << ' ' << keyStr
-         << std::endl;
+    if (!isShareableAddress(endpoint.first))
+      continue;
+    if (isBlockedServicePort(endpoint.second))
+      continue;
+    file << endpoint.first << ':' << endpoint.second << std::endl;
   }
 
   file.close();
   std::cout << "✅ Peer list saved successfully. Total peers: "
             << peerTransports.size() << std::endl;
+}
+
+bool Network::noteShareableEndpoint(const std::string &host, int port,
+                                    bool triggerBroadcast, bool markVerified,
+                                    const std::string &originPeer) {
+  if (host.empty() || port <= 0 || port > 65535)
+    return false;
+  if (isBlockedServicePort(port))
+    return false;
+  if (!isShareableAddress(host))
+    return false;
+
+  const std::string label = makeEndpointLabel(host, port);
+  auto now = std::chrono::steady_clock::now();
+  bool inserted = false;
+  bool promoted = false;
+  {
+    std::lock_guard<std::mutex> gossipLock(gossipMutex);
+    auto it = knownPeerEndpoints.find(label);
+    if (it == knownPeerEndpoints.end()) {
+      if (!ensureEndpointCapacityLocked(markVerified))
+        return false;
+      EndpointRecord rec;
+      rec.host = host;
+      rec.port = port;
+      rec.lastSeen = now;
+      rec.lastOrigin = originPeer;
+      if (markVerified) {
+        rec.verified = true;
+        rec.successCount = 1;
+        rec.lastSuccess = now;
+        rec.failureCount = 0;
+        rec.nextDialAllowed = now;
+        promoted = true;
+      }
+      knownPeerEndpoints.emplace(label, std::move(rec));
+      inserted = true;
+    } else {
+      auto &rec = it->second;
+      rec.lastSeen = now;
+      if (!originPeer.empty())
+        rec.lastOrigin = originPeer;
+      if (markVerified) {
+        if (!rec.verified)
+          promoted = true;
+        rec.verified = true;
+        rec.successCount = std::max(rec.successCount + 1, 1);
+        rec.failureCount = 0;
+        rec.lastSuccess = now;
+        rec.nextDialAllowed = now;
+      }
+    }
+  }
+
+  if (triggerBroadcast && (inserted || promoted)) {
+    if (!originPeer.empty())
+      broadcastPeerList(originPeer);
+    else
+      broadcastPeerList();
+  }
+
+  return inserted || promoted;
+}
+
+bool Network::ensureEndpointCapacityLocked(bool incomingVerified) {
+  auto dropOldestUnverified = [this]() -> bool {
+    auto victim = knownPeerEndpoints.end();
+    auto oldest = std::chrono::steady_clock::time_point::max();
+    for (auto it = knownPeerEndpoints.begin(); it != knownPeerEndpoints.end();
+         ++it) {
+      const auto &rec = it->second;
+      if (rec.verified)
+        continue;
+      if (rec.lastSeen < oldest) {
+        oldest = rec.lastSeen;
+        victim = it;
+      }
+    }
+    if (victim == knownPeerEndpoints.end())
+      return false;
+    knownPeerEndpoints.erase(victim);
+    return true;
+  };
+
+  size_t unverifiedCount = 0;
+  for (const auto &kv : knownPeerEndpoints) {
+    if (!kv.second.verified)
+      ++unverifiedCount;
+  }
+
+  if (!incomingVerified) {
+    while (unverifiedCount >= MAX_UNVERIFIED_ENDPOINTS) {
+      if (!dropOldestUnverified())
+        break;
+      --unverifiedCount;
+    }
+    if (unverifiedCount >= MAX_UNVERIFIED_ENDPOINTS)
+      return false;
+  }
+
+  while (knownPeerEndpoints.size() >= MAX_TRACKED_ENDPOINTS) {
+    if (dropOldestUnverified()) {
+      if (unverifiedCount > 0)
+        --unverifiedCount;
+      continue;
+    }
+    if (!incomingVerified)
+      return false;
+    auto victim = knownPeerEndpoints.end();
+    auto oldest = std::chrono::steady_clock::time_point::max();
+    for (auto it = knownPeerEndpoints.begin(); it != knownPeerEndpoints.end();
+         ++it) {
+      if (it->second.lastSeen < oldest) {
+        oldest = it->second.lastSeen;
+        victim = it;
+      }
+    }
+    if (victim == knownPeerEndpoints.end())
+      return false;
+    knownPeerEndpoints.erase(victim);
+  }
+
+  return true;
 }
 
 void Network::rememberPeerEndpoint(const std::string &ip, int port) {
@@ -3845,6 +4278,25 @@ void Network::rememberPeerEndpoint(const std::string &ip, int port) {
   }
   out << endpoint << std::endl;
   std::cout << "📝 [peers.txt] Remembering peer " << endpoint << std::endl;
+  noteShareableEndpoint(ip, port, false);
+}
+
+void Network::recordEndpointFailure(const std::string &host, int port) {
+  if (host.empty() || port <= 0)
+    return;
+  const std::string label = makeEndpointLabel(host, port);
+  auto now = std::chrono::steady_clock::now();
+  std::lock_guard<std::mutex> gossipLock(gossipMutex);
+  auto &rec = knownPeerEndpoints[label];
+  if (rec.host.empty())
+    rec.host = host;
+  if (rec.port == 0)
+    rec.port = port;
+  rec.lastSeen = now;
+  rec.failureCount = std::min(rec.failureCount + 1, 16);
+  rec.nextDialAllowed = now + computeDialBackoff(rec.failureCount);
+  if (rec.failureCount >= 3)
+    rec.verified = false;
 }
 
 // ✅ **Broadcast Latest Block Correctly (Base64 Encoded)**

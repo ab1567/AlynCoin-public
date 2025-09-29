@@ -15,6 +15,7 @@
 #include <boost/asio/ssl.hpp>
 #include <atomic>
 #include <boost/asio.hpp>
+#include <chrono>
 #include <fstream>
 #include <generated/net_frame.pb.h>
 #include <cstdint>
@@ -102,7 +103,7 @@ public:
   std::vector<std::string> getPeers();
   bool sendData(std::shared_ptr<Transport> transport, const std::string &data);
   void receiveTransaction(const Transaction &tx);
-  void broadcastPeerList();
+  void broadcastPeerList(const std::string &excludePeer = "");
   void run();
   bool isSyncing() const;
   bool connectToNode(const std::string &ip, int remotePort);
@@ -182,6 +183,10 @@ public:
   void sendHeightProbe(std::shared_ptr<Transport> tr);
   void sendTipHash(const std::string &peer);
   void sendPeerList(const std::string &peer);
+  bool noteShareableEndpoint(const std::string &host, int port,
+                             bool triggerBroadcast = true,
+                             bool markVerified = false,
+                             const std::string &originPeer = "");
 
   // Expose frame processing for worker threads
   void processFrame(const alyncoin::net::Frame &f, const std::string &peer);
@@ -220,8 +225,25 @@ private:
     int strikes{0};
   };
   std::unordered_map<std::string, BanEntry> bannedPeers;
+  struct EndpointRecord {
+    std::string host;
+    int port{0};
+    bool verified{false};
+    int successCount{0};
+    int failureCount{0};
+    std::chrono::steady_clock::time_point lastSeen{};
+    std::chrono::steady_clock::time_point lastSuccess{};
+    std::chrono::steady_clock::time_point nextDialAllowed{};
+    std::string lastOrigin;
+  };
+
   std::unordered_set<std::string> knownPeers;
   std::unordered_set<std::string> anchorPeers;
+  std::unordered_map<std::string, EndpointRecord> knownPeerEndpoints;
+  std::unordered_map<std::string, std::chrono::steady_clock::time_point>
+      peerListLastSent;
+  std::atomic<int> activeOutboundDials{0};
+  mutable std::mutex gossipMutex;
   std::atomic<bool> peerFileLoaded{false};
   PeerBlacklist *blacklist;
   std::unordered_set<std::string> seenTxHashes;
@@ -236,9 +258,11 @@ private:
   void handlePeer(std::shared_ptr<Transport> transport);
   bool validateBlockSignatures(const Block &blk);
   void penalizePeer(const std::string &peer, int points);
+  bool ensureEndpointCapacityLocked(bool incomingVerified);
   std::pair<std::string, unsigned short> determineAnnounceEndpoint() const;
   void recordExternalAddress(const std::string &ip, unsigned short port);
   void runHairpinCheck();
   void rememberPeerEndpoint(const std::string &ip, int port);
+  void recordEndpointFailure(const std::string &host, int port);
 };
 #endif // NETWORK_H
