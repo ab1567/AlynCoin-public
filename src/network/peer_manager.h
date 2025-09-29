@@ -53,6 +53,7 @@ public:
     void disconnectPeer(const std::string& peer_id);
 
     std::vector<std::string> getConnectedPeers();
+    std::vector<std::string> getConnectedPeerIds() const;
     int getPeerCount() const;
 
     uint64_t getMedianNetworkHeight();
