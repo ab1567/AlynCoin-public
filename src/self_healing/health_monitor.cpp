@@ -18,7 +18,12 @@ NodeHealthStatus HealthMonitor::checkHealth() {
     status.localHeight = blockchain_->getHeight();
     status.networkHeight = getNetworkHeight();
     status.localTipHash = getLocalTipHash();
-    status.expectedTipHash = peerManager_->getConsensusTipHash(status.localHeight);
+    status.consensusCommonHash =
+        peerManager_->getConsensusCommonHash(status.localHeight);
+    status.expectedTipHash =
+        peerManager_->getConsensusTipHash(status.localHeight);
+    if (status.expectedTipHash.empty())
+        status.expectedTipHash = status.consensusCommonHash;
     status.connectedPeers = peerManager_->getPeerCount();
     auto localWorkBI = blockchain_->computeCumulativeDifficulty(blockchain_->getChain());
     uint64_t localWork = localWorkBI.convert_to<uint64_t>();
@@ -96,6 +101,11 @@ void HealthMonitor::logStatus(const NodeHealthStatus& status) {
         << "  • Remote Work: " << peerManager_->getMaxPeerWork() << "\n"
         << "  • Local Tip Hash: " << status.localTipHash.substr(0, 10) << "...\n"
         << "  • Expected Tip Hash: " << status.expectedTipHash.substr(0, 10) << "...";
+
+    if (!status.consensusCommonHash.empty()) {
+        log << "\n  • Consensus Common Hash: "
+            << status.consensusCommonHash.substr(0, 10) << "...";
+    }
 
     if (status.farBehind) {
         log << "\n  • Desync Gap: " << (status.networkHeight - status.localHeight);

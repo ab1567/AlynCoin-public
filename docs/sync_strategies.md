@@ -8,6 +8,9 @@
 ## Complementary Mechanisms Already Present
 - Tail-sync requests allow peers that are only a few blocks behind to stream recent history without replaying the full snapshot.
 - Epoch and aggregate proof responses support lighter-weight validation without resending full chain data when a peer only needs checkpoints.
+- Header bridging now escalates fork recovery by requesting exponentially larger header windows (32 → 256) until it finds a
+  common ancestor. The peer manager records the discovered ancestor hash and the health monitor uses that consensus anchor when
+  selecting a rollback point, preventing the "no rollback point" dead-end observed when forks span more than the initial search window.
 
 ## Options Observed in Other Networks
 - **Ethereum Snap Sync / Beam Sync**: peers exchange recent headers then reconstruct state trie data on-demand, reducing upfront snapshot cost at the expense of more complex state proof handling.

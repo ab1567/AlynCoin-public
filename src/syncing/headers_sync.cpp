@@ -1,7 +1,7 @@
 #include "headers_sync.h"
-#include "network.h"
-#include "blockchain.h"
 #include "block.h"
+#include "blockchain.h"
+#include "network.h"
 
 static Network &getNet() {
     return *Network::getExistingInstance();
@@ -9,22 +9,33 @@ static Network &getNet() {
 
 void HeadersSync::requestHeaders(const std::string &peer, const std::string &fromHash) {
     Network &net = getNet();
-    auto it = net.getPeerTable().find(peer);
-    if (it == net.getPeerTable().end() || !it->second.tx)
+    auto snapshot = net.getPeerSnapshot(peer);
+    if (!snapshot.transport || !snapshot.transport->isOpen())
         return;
     alyncoin::net::Frame fr;
     fr.mutable_get_headers()->set_from_hash(fromHash);
-    net.sendFrame(it->second.tx, fr);
+    net.sendFrame(snapshot.transport, fr);
 }
 
 void HeadersSync::handleHeaders(const std::string &peer, const alyncoin::net::Headers &proto) {
-    Blockchain &bc = Blockchain::getInstance();
+    std::vector<HeaderRecord> headers;
+    headers.reserve(proto.headers_size());
     for (const auto &pb : proto.headers()) {
         try {
-            Block blk = Block::fromProto(pb, true);
-            bc.addBlock(blk);
+            Block tmp = Block::fromProto(pb, true);
+            HeaderRecord rec;
+            rec.hash = tmp.getHash();
+            rec.previousHash = tmp.getPreviousHash();
+            rec.index = tmp.getIndex();
+            headers.emplace_back(std::move(rec));
+        } catch (const std::exception &ex) {
+            std::cerr << "⚠️ [HeadersSync] Failed to parse header from peer "
+                      << peer << ": " << ex.what() << "\n";
         } catch (...) {
-            std::cerr << "⚠️ [HeadersSync] Failed to parse header from peer " << peer << "\n";
+            std::cerr << "⚠️ [HeadersSync] Failed to parse header from peer "
+                      << peer << "\n";
         }
     }
+    if (auto net = Network::getExistingInstance())
+        net->handleHeaderResponse(peer, headers);
 }

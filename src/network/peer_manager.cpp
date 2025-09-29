@@ -533,3 +533,45 @@ std::string PeerManager::getConsensusTipHash(int localHeight) const {
         [](const auto& a, const auto& b) { return a.second < b.second; });
     return majority->first;
 }
+
+void PeerManager::recordCommonAncestor(const std::string &peer,
+                                       const std::string &hash, int height) {
+    if (hash.empty() || height < 0)
+        return;
+    std::lock_guard<std::mutex> guard(peerMutex);
+    peerCommonHashes[peer] = hash;
+    peerCommonHeights[peer] = height;
+}
+
+std::string PeerManager::getConsensusCommonHash(int localHeight) const {
+    std::lock_guard<std::mutex> guard(peerMutex);
+    std::map<std::string, int> voteCount;
+    std::map<std::string, int> maxHeight;
+    for (const auto &kv : peerCommonHashes) {
+        const std::string &peer = kv.first;
+        const std::string &hash = kv.second;
+        auto itHeight = peerCommonHeights.find(peer);
+        if (itHeight == peerCommonHeights.end())
+            continue;
+        int height = itHeight->second;
+        if (height < 0 || height > localHeight)
+            continue;
+        if (hash.empty())
+            continue;
+        voteCount[hash]++;
+        auto &storedHeight = maxHeight[hash];
+        if (height > storedHeight)
+            storedHeight = height;
+    }
+    if (voteCount.empty())
+        return std::string();
+
+    auto best = std::max_element(
+        voteCount.begin(), voteCount.end(),
+        [&](const auto &a, const auto &b) {
+            if (a.second != b.second)
+                return a.second < b.second;
+            return maxHeight[a.first] < maxHeight[b.first];
+        });
+    return best->first;
+}

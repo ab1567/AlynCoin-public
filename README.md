@@ -180,8 +180,9 @@ be adjusted with `--banminutes <m>` or by editing `config.ini`.
 
 ## Join the Network
 
-Peers can be listed in `peers.txt` or specified on the command line. To join the
-public test network, run:
+Peers can be listed in `peers.txt` under your configured data directory (default
+`data/peers.txt`) or specified on the command line. To join the public test
+network, run:
 
 ```bash
 ./build/alyncoin --connect <peer_ip>
@@ -193,7 +194,8 @@ The default RPC port is `1567` and the peer port is `15671`.
 > **remote** peers your node is connected to. When you run exactly two nodes,
 > each one will report a single peer because it only counts the other node, not
 > itself. The node now persists any peers it contacts (including via
-> `--connect`) into `peers.txt` and falls back to the built-in bootstrap list if
+> `--connect`) into `peers.txt` (stored under `data_dir`) and falls back to the
+> built-in bootstrap list if
 > the file is empty, so you rarely need to edit it manually. Opening TCP `15671`
 > for inbound connections still helps other nodes reach you and increases the
 > banner count more quickly.
@@ -201,6 +203,16 @@ The default RPC port is `1567` and the peer port is `15671`.
 Nodes now relay any peers discovered via DNS to all connected nodes shortly
 after startup. This helps the mesh stay connected even if the DNS seed becomes
 unreachable.
+
+Recent hardening focuses on keeping the node synchronized without operator
+intervention:
+
+- **Self-endpoint detection** filters outbound dials that target the node's own
+  public interfaces or cached self-learned endpoints, preventing the
+  self-connection loop that previously left freshly restarted nodes isolated.
+- **Fork recovery improvements** escalate header-bridge requests until a last
+  common ancestor is found. Once identified, the node replays the heavier branch
+  automatically so medium-depth forks heal without manual restarts.
 
 ### Automatic network sync
 
