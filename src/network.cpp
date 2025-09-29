@@ -302,6 +302,8 @@ static std::string formatEndpointForWire(const std::string &host, int port) {
   return host + ':' + std::to_string(port);
 }
 
+static std::mt19937 &threadLocalRng();
+
 static std::chrono::milliseconds randomBroadcastDelay() {
   std::uniform_int_distribution<int> jitter(0, 100);
   return std::chrono::milliseconds(50 + jitter(threadLocalRng()));
