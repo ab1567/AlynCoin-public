@@ -258,6 +258,7 @@ private:
   void handlePeer(std::shared_ptr<Transport> transport);
   bool validateBlockSignatures(const Block &blk);
   void penalizePeer(const std::string &peer, int points);
+  bool ensureEndpointCapacityLocked(bool incomingVerified);
   std::pair<std::string, unsigned short> determineAnnounceEndpoint() const;
   void recordExternalAddress(const std::string &ip, unsigned short port);
   void runHairpinCheck();

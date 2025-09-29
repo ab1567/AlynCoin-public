@@ -80,6 +80,9 @@ using namespace alyncoin;
 
 namespace {
 
+constexpr size_t MAX_TRACKED_ENDPOINTS = 1024;
+constexpr size_t MAX_UNVERIFIED_ENDPOINTS = 256;
+
 struct ConsensusHints {
   bool hasDifficulty{false};
   bool hasReward{false};
@@ -4142,6 +4145,8 @@ bool Network::noteShareableEndpoint(const std::string &host, int port,
     std::lock_guard<std::mutex> gossipLock(gossipMutex);
     auto it = knownPeerEndpoints.find(label);
     if (it == knownPeerEndpoints.end()) {
+      if (!ensureEndpointCapacityLocked(markVerified))
+        return false;
       EndpointRecord rec;
       rec.host = host;
       rec.port = port;
@@ -4182,6 +4187,67 @@ bool Network::noteShareableEndpoint(const std::string &host, int port,
   }
 
   return inserted || promoted;
+}
+
+bool Network::ensureEndpointCapacityLocked(bool incomingVerified) {
+  auto dropOldestUnverified = [this]() -> bool {
+    auto victim = knownPeerEndpoints.end();
+    auto oldest = std::chrono::steady_clock::time_point::max();
+    for (auto it = knownPeerEndpoints.begin(); it != knownPeerEndpoints.end();
+         ++it) {
+      const auto &rec = it->second;
+      if (rec.verified)
+        continue;
+      if (rec.lastSeen < oldest) {
+        oldest = rec.lastSeen;
+        victim = it;
+      }
+    }
+    if (victim == knownPeerEndpoints.end())
+      return false;
+    knownPeerEndpoints.erase(victim);
+    return true;
+  };
+
+  size_t unverifiedCount = 0;
+  for (const auto &kv : knownPeerEndpoints) {
+    if (!kv.second.verified)
+      ++unverifiedCount;
+  }
+
+  if (!incomingVerified) {
+    while (unverifiedCount >= MAX_UNVERIFIED_ENDPOINTS) {
+      if (!dropOldestUnverified())
+        break;
+      --unverifiedCount;
+    }
+    if (unverifiedCount >= MAX_UNVERIFIED_ENDPOINTS)
+      return false;
+  }
+
+  while (knownPeerEndpoints.size() >= MAX_TRACKED_ENDPOINTS) {
+    if (dropOldestUnverified()) {
+      if (unverifiedCount > 0)
+        --unverifiedCount;
+      continue;
+    }
+    if (!incomingVerified)
+      return false;
+    auto victim = knownPeerEndpoints.end();
+    auto oldest = std::chrono::steady_clock::time_point::max();
+    for (auto it = knownPeerEndpoints.begin(); it != knownPeerEndpoints.end();
+         ++it) {
+      if (it->second.lastSeen < oldest) {
+        oldest = it->second.lastSeen;
+        victim = it;
+      }
+    }
+    if (victim == knownPeerEndpoints.end())
+      return false;
+    knownPeerEndpoints.erase(victim);
+  }
+
+  return true;
 }
 
 void Network::rememberPeerEndpoint(const std::string &ip, int port) {
