@@ -35,6 +35,7 @@ static_assert(alyncoin::net::Frame::kBlockBatch == 7,
 
 class Network {
 public:
+  friend class HeadersSync;
   // Singleton initialization
   inline static bool autoMineEnabled = true;
   inline static Network &getInstance(unsigned short port,
