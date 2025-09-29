@@ -261,6 +261,9 @@ static std::string makeEndpointLabel(const std::string &host, int port) {
   return host + ':' + std::to_string(port);
 }
 
+static constexpr std::chrono::seconds MIN_DIAL_BACKOFF{5};
+static constexpr std::chrono::seconds MAX_DIAL_BACKOFF{std::chrono::minutes(10)};
+
 static std::chrono::seconds computeDialBackoff(int failures) {
   int capped = std::min(failures, 6);
   auto delay = MIN_DIAL_BACKOFF * (1 << capped);
@@ -376,8 +379,6 @@ static constexpr size_t MAX_GOSSIP_PEERS = 64;
 static constexpr int MAX_PARALLEL_DIALS = 6;
 static constexpr std::chrono::hours ENDPOINT_TTL{std::chrono::hours(24 * 7)};
 static constexpr std::chrono::minutes ENDPOINT_RECENT_SUCCESS{30};
-static constexpr std::chrono::seconds MIN_DIAL_BACKOFF{5};
-static constexpr std::chrono::seconds MAX_DIAL_BACKOFF{std::chrono::minutes(10)};
 #ifdef ENABLE_PEERLIST_LOGS
 #define PEERLIST_LOG(x) std::cout << x << std::endl
 #else
@@ -719,8 +720,8 @@ void Network::sendPeerList(const std::string &peer) {
   }
 
   std::unordered_set<std::string> seen;
-  alyncoin::net::Frame fr;
-  auto *pl = fr.mutable_peer_list();
+  alyncoin::net::Frame peerListFrame;
+  auto *pl = peerListFrame.mutable_peer_list();
 
   auto appendEndpoint = [&](const std::pair<std::string, int> &ep) {
     if (pl->peers_size() >= static_cast<int>(MAX_GOSSIP_PEERS))
@@ -753,7 +754,7 @@ void Network::sendPeerList(const std::string &peer) {
 
   if (pl->peers_size() == 0)
     return;
-  sendFrame(targetTx, fr);
+  sendFrame(targetTx, peerListFrame);
 }
 
 void Network::markPeerOffline(const std::string &peerId) {
@@ -1549,8 +1550,8 @@ void Network::broadcastPeerList(const std::string &excludePeer) {
   }
 
   std::unordered_set<std::string> seen;
-  alyncoin::net::Frame fr;
-  auto *pl = fr.mutable_peer_list();
+  alyncoin::net::Frame peerListFrame;
+  auto *pl = peerListFrame.mutable_peer_list();
   auto appendEndpoint = [&](const std::pair<std::string, int> &ep) {
     if (pl->peers_size() >= static_cast<int>(MAX_GOSSIP_PEERS))
       return false;
@@ -1584,7 +1585,7 @@ void Network::broadcastPeerList(const std::string &excludePeer) {
     return;
 
   for (const auto &tx : sinks)
-    sendFrame(tx, fr);
+    sendFrame(tx, peerListFrame);
 }
 
 //
