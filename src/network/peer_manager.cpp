@@ -1,14 +1,17 @@
 #include "peer_manager.h"
 #include "network.h"
 #include "blockchain.h"
+#include "config.h"
 #include "json/json.h"
 #include "transport/peer_globals.h"
 #include <algorithm>
 #include <chrono>
+#include <cctype>
 #include <iostream>
 #include <numeric>
 #include <sstream>
 #include <unordered_set>
+#include <vector>
 
 PeerManager::PeerManager(PeerBlacklist* bl, Network* net)
     : blacklist(bl), network(net), localWork(0) {}
@@ -30,6 +33,67 @@ static std::string ipPrefixPM(const std::string &ip) {
         out += seg; ++count;
     }
     return count == 3 ? out : std::string();
+}
+
+static std::string maskEndpointForDisplay(const std::string &host) {
+    if (host.empty())
+        return host;
+
+    const bool hasColon = host.find(':') != std::string::npos;
+    if (!hasColon) {
+        bool dottedDecimal = true;
+        for (unsigned char ch : host) {
+            if (!(std::isdigit(ch) || ch == '.')) {
+                dottedDecimal = false;
+                break;
+            }
+        }
+        if (dottedDecimal) {
+            std::stringstream ss(host);
+            std::string seg;
+            std::vector<std::string> parts;
+            while (std::getline(ss, seg, '.')) {
+                if (seg.empty())
+                    return host;
+                parts.push_back(seg);
+            }
+            if (parts.size() == 4) {
+                parts.back() = "*";
+                std::ostringstream oss;
+                for (size_t i = 0; i < parts.size(); ++i) {
+                    if (i)
+                        oss << '.';
+                    oss << parts[i];
+                }
+                return oss.str();
+            }
+        } else {
+            if (host.size() > 4)
+                return host.substr(0, host.size() - 2) + "**";
+        }
+        return host;
+    }
+
+    std::stringstream ss(host);
+    std::string seg;
+    std::vector<std::string> parts;
+    while (std::getline(ss, seg, ':')) {
+        if (!seg.empty())
+            parts.push_back(seg);
+    }
+    if (!parts.empty()) {
+        size_t keep = std::min<size_t>(parts.size(), 3);
+        std::ostringstream oss;
+        for (size_t i = 0; i < keep; ++i) {
+            if (i)
+                oss << ':';
+            oss << parts[i];
+        }
+        oss << ":*";
+        return oss.str();
+    }
+
+    return host;
 }
 
 PeerManager::PeerInsertResult PeerManager::tryInsertPeer(const std::string& peer_id,
@@ -124,6 +188,7 @@ void PeerManager::disconnectPeer(const std::string& peer_id) {
 
 std::vector<std::string> PeerManager::getConnectedPeers() {
     std::vector<std::string> peers;
+    const bool hideEndpoints = getAppConfig().hide_peer_endpoints;
     std::vector<std::string> snapshot;
     {
         std::lock_guard<std::mutex> guard(peerMutex);
@@ -147,7 +212,7 @@ std::vector<std::string> PeerManager::getConnectedPeers() {
             int port = entry.observedPort > 0 ? entry.observedPort : entry.port;
 
             std::string endpointKey;
-            if (!host.empty()) {
+            if (!hideEndpoints && !host.empty()) {
                 std::ostringstream ep;
                 ep << host;
                 if (port > 0)
@@ -163,10 +228,16 @@ std::vector<std::string> PeerManager::getConnectedPeers() {
             std::ostringstream label;
             label << peerId;
             if (!host.empty()) {
-                label << " (" << host;
-                if (port > 0)
-                    label << ':' << port;
-                label << ')';
+                std::string displayHost = host;
+                if (hideEndpoints)
+                    displayHost = maskEndpointForDisplay(host);
+
+                if (!displayHost.empty()) {
+                    label << " (" << displayHost;
+                    if (port > 0)
+                        label << ':' << port;
+                    label << ')';
+                }
             }
             label << (entry.initiatedByUs ? " [outbound]" : " [inbound]");
 
@@ -184,20 +255,21 @@ std::vector<std::string> PeerManager::getConnectedPeers() {
     return peers;
 }
 
-int PeerManager::getPeerCount() const {
+std::vector<std::string> PeerManager::getConnectedPeerIds() const {
     std::vector<std::string> snapshot;
     {
         std::lock_guard<std::mutex> guard(peerMutex);
         snapshot = connected_peers;
     }
 
-    int count = 0;
     std::unordered_set<std::string> seenPeerIds;
+    std::vector<std::string> ids;
 
     if (network) {
         std::lock_guard<std::timed_mutex> netGuard(peersMutex);
         const auto &table = network->getPeerTable();
 
+        ids.reserve(table.size());
         std::unordered_set<std::string> dedupEndpoints;
         dedupEndpoints.reserve(table.size());
 
@@ -225,16 +297,20 @@ int PeerManager::getPeerCount() const {
                 continue;
 
             if (seenPeerIds.insert(peerId).second)
-                ++count;
+                ids.push_back(peerId);
         }
     }
 
     for (const auto &peerId : snapshot) {
         if (seenPeerIds.insert(peerId).second)
-            ++count;
+            ids.push_back(peerId);
     }
 
-    return count;
+    return ids;
+}
+
+int PeerManager::getPeerCount() const {
+    return static_cast<int>(getConnectedPeerIds().size());
 }
 
 void PeerManager::setLocalWork(uint64_t work) {
@@ -349,7 +425,7 @@ bool PeerManager::fetchBlockAtHeight(int height, Block& outBlock) {
             pendingBlockRequests.erase(it);
     };
 
-    auto peersSnapshot = getConnectedPeers();
+    auto peersSnapshot = getConnectedPeerIds();
     for (const std::string& peer : peersSnapshot) {
         const auto& table = network->getPeerTable();
         auto it = table.find(peer);

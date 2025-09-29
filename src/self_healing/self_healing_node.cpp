@@ -71,10 +71,10 @@ NodeHealthStatus SelfHealingNode::runHealthCheck(bool manualTrigger) {
         consecutiveFarBehind_ = 0;
 
         blockchain_->purgeDataForResync();
-        auto peers = peerManager_ ? peerManager_->getConnectedPeers() : std::vector<std::string>{};
-        if (!peers.empty()) {
+        std::vector<std::string> peerIds = peerManager_ ? peerManager_->getConnectedPeerIds() : std::vector<std::string>{};
+        if (!peerIds.empty()) {
             if (auto net = Network::getExistingInstance()) {
-                net->requestSnapshotSync(peers.front());
+                net->requestSnapshotSync(peerIds.front());
             }
         } else {
             Logger::warn("⚠️ [SelfHealer] No peers available to request snapshot from.");

@@ -12,16 +12,17 @@ struct AppConfig {
     bool enable_natpmp = false;
 #endif
     std::string data_dir = "./data";
-  std::string proxy_host;
-  int proxy_port = 0;
-  int ban_minutes = 5;
-  // --- New RPC/PoR configuration ---
-  std::string rpc_bind = "0.0.0.0:1567"; // host:port for RPC server
-  std::string rpc_cors;                   // value for Access-Control-Allow-Origin
-  int self_heal_interval = 0;             // seconds; 0 disables periodic self-heal
-  std::string reserve_address;            // native reserve address for PoR
-  double por_expected_walyn = 0.0;        // expected wrapped supply for PoR comparison
-  std::string external_address;           // externally reachable <ip:port>
+    std::string proxy_host;
+    int proxy_port = 0;
+    int ban_minutes = 5;
+    // --- New RPC/PoR configuration ---
+    std::string rpc_bind = "0.0.0.0:1567"; // host:port for RPC server
+    std::string rpc_cors;                   // value for Access-Control-Allow-Origin
+    int self_heal_interval = 0;             // seconds; 0 disables periodic self-heal
+    std::string reserve_address;            // native reserve address for PoR
+    double por_expected_walyn = 0.0;        // expected wrapped supply for PoR comparison
+    std::string external_address;           // externally reachable <ip:port>
+    bool hide_peer_endpoints = true;        // suppress peer IP/port details in UIs
 };
 
 AppConfig& getAppConfig();

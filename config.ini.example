@@ -6,3 +6,4 @@ self_heal_interval=600
 reserve_address=
 por_expected_walyn=0
 external_address=
+hide_peer_endpoints=true

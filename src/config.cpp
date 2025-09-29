@@ -45,6 +45,8 @@ void loadConfigFile(const std::string &path) {
             cfg.enable_natpmp = parseBool(line.substr(14));
         } else if (line.rfind("external_address=", 0) == 0) {
             cfg.external_address = line.substr(17);
+        } else if (line.rfind("hide_peer_endpoints=", 0) == 0) {
+            cfg.hide_peer_endpoints = parseBool(line.substr(20));
         }
     }
 }
