@@ -13,6 +13,8 @@
 #include "crypto/aes_utils.h"
 #include <filesystem>
 #include "db/db_paths.h"
+#include <algorithm>
+#include <limits>
 
 namespace fs = std::filesystem;
 namespace NFTCLI {
@@ -62,8 +64,21 @@ void interactiveMenu() {
         std::cout << "Select option: ";
 
         int choice;
-        std::cin >> choice;
-        std::cin.ignore();
+        if (!(std::cin >> choice)) {
+            if (std::cin.eof()) {
+                std::cout << "\nEOF detected. Exiting NFT CLI...\n";
+                return;
+            }
+            if (std::cin.bad()) {
+                std::cerr << "\nFatal input stream error. Exiting NFT CLI.\n";
+                return;
+            }
+            std::cin.clear();
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            std::cout << "Invalid option.\n";
+            continue;
+        }
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
         if (choice == 1) {
 	    std::string metadata, imageHash, identity;
@@ -107,9 +122,22 @@ void interactiveMenu() {
 	        continue;
 	    }
 
-	    std::cout << "Set expiry timestamp? (0 = no expiry): ";
-	    std::cin >> nft.expiry_timestamp;
-	    std::cin.ignore();
+            std::cout << "Set expiry timestamp? (0 = no expiry): ";
+            if (!(std::cin >> nft.expiry_timestamp)) {
+                if (std::cin.eof()) {
+                    std::cout << "\nEOF detected. Exiting NFT CLI...\n";
+                    return;
+                }
+                if (std::cin.bad()) {
+                    std::cerr << "\nFatal input stream error. Exiting NFT CLI.\n";
+                    return;
+                }
+                std::cin.clear();
+                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                std::cout << "Invalid expiry value.\n";
+                continue;
+            }
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
 	    if (!nft.verifySignature() ||!NFTStorage::saveNFT(nft, Blockchain::getActiveInstance().getRawDB())) {
 	        std::cerr << "❌ Failed to verify or save NFT.\n";
@@ -338,12 +366,38 @@ void interactiveMenu() {
 
            std::cout << "1 = Set Expiry, 2 = Revoke\nOption: ";
            int opt;
-           std::cin >> opt;
-           std::cin.ignore();
+           if (!(std::cin >> opt)) {
+               if (std::cin.eof()) {
+                   std::cout << "\nEOF detected. Exiting NFT CLI...\n";
+                   return;
+               }
+               if (std::cin.bad()) {
+                   std::cerr << "\nFatal input stream error. Exiting NFT CLI.\n";
+                   return;
+               }
+               std::cin.clear();
+               std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+               std::cout << "Invalid option.\n";
+               continue;
+           }
+           std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
            if (opt == 1) {
               std::cout << "Enter expiry timestamp: ";
-               std::cin >> nft.expiry_timestamp;
-               std::cin.ignore();
+               if (!(std::cin >> nft.expiry_timestamp)) {
+                   if (std::cin.eof()) {
+                       std::cout << "\nEOF detected. Exiting NFT CLI...\n";
+                       return;
+                   }
+                   if (std::cin.bad()) {
+                       std::cerr << "\nFatal input stream error. Exiting NFT CLI.\n";
+                       return;
+                   }
+                   std::cin.clear();
+                   std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                   std::cout << "Invalid expiry value.\n";
+                   continue;
+               }
+               std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
                std::cout << "✅ Expiry set.\n";
             } else {
                 nft.revoked = true;

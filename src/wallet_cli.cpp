@@ -19,7 +19,20 @@ void WalletCLI::start() {
     std::cout << "Enter choice: ";
 
     int choice;
-    std::cin >> choice;
+    if (!(std::cin >> choice)) {
+      if (std::cin.eof()) {
+        std::cout << "\nEOF detected. Exiting wallet CLI...\n";
+        return;
+      }
+      if (std::cin.bad()) {
+        std::cerr << "\nFatal input stream error. Exiting wallet CLI.\n";
+        return;
+      }
+      std::cin.clear();
+      std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+      std::cout << "Invalid input. Please enter a number.\n";
+      continue;
+    }
 
     switch (choice) {
     case 1:

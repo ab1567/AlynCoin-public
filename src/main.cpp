@@ -27,6 +27,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cctype>
+#include <csignal>
 #include <chrono>
 #include <condition_variable>
 #include <cstdlib>
@@ -49,6 +50,11 @@
 namespace {
 
 std::mutex gCliOutputMutex;
+std::atomic<bool> gShutdownRequested{false};
+
+void handleShutdownSignal(int) {
+  gShutdownRequested.store(true, std::memory_order_relaxed);
+}
 
 enum class ConnectOutcome { Success, Failure, Pending };
 
@@ -1756,6 +1762,9 @@ static bool handleNodeMenuSelection(int choice, Blockchain &blockchain,
 }
 
 int main(int argc, char *argv[]) {
+  std::signal(SIGINT, handleShutdownSignal);
+  std::signal(SIGTERM, handleShutdownSignal);
+
   std::srand(std::time(nullptr));
   loadConfigFile("config.ini");
   unsigned short port = DEFAULT_PORT;
@@ -2960,6 +2969,10 @@ int main(int argc, char *argv[]) {
   bool running = true;
 
   while (running) {
+    if (gShutdownRequested.load(std::memory_order_relaxed)) {
+      std::cout << "\n👋 Shutdown requested. Exiting...\n";
+      break;
+    }
     std::cout << "\n=== AlynCoin Node CLI ===\n";
     std::cout << "1. View Blockchain Stats\n";
     std::cout << "2. Mine Block\n";
@@ -2976,11 +2989,25 @@ int main(int argc, char *argv[]) {
     std::cout << "Choose an option: ";
 
     int choice;
-    std::cin >> choice;
-    if (std::cin.fail()) {
+    if (!(std::cin >> choice)) {
+      if (gShutdownRequested.load(std::memory_order_relaxed) ||
+          std::cin.eof()) {
+        std::cout << "\n👋 Shutdown requested. Exiting...\n";
+        running = false;
+        break;
+      }
+      if (std::cin.bad()) {
+        std::cerr << "\nFatal input stream error. Exiting CLI loop.\n";
+        running = false;
+        break;
+      }
       clearInputBuffer();
       std::cout << "Invalid input!\n";
       continue;
+    }
+    if (gShutdownRequested.load(std::memory_order_relaxed)) {
+      std::cout << "\n👋 Shutdown requested. Exiting...\n";
+      break;
     }
     running = handleNodeMenuSelection(choice, blockchain, network, healer, keyDir);
   }
