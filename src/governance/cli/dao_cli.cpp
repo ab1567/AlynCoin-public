@@ -3,13 +3,14 @@
 #include <iostream>
 #include <string>
 #include <ctime>
+#include <limits>
 
 // CLI: Create Proposal
 void createProposalCLI() {
     Proposal proposal;
     std::cout << "Enter Proposal ID: ";
     std::cin >> proposal.proposal_id;
-    std::cin.ignore();
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
     std::cout << "Enter Description: ";
     std::getline(std::cin, proposal.description);
     std::cout << "Proposal Types:\n";
@@ -88,7 +89,20 @@ int main() {
         std::cout << "Choice: ";
 
         int choice;
-        std::cin >> choice;
+        if (!(std::cin >> choice)) {
+            if (std::cin.eof()) {
+                std::cout << "\nEOF detected. Exiting DAO CLI...\n";
+                return 0;
+            }
+            if (std::cin.bad()) {
+                std::cerr << "\nFatal input stream error. Exiting DAO CLI.\n";
+                return 1;
+            }
+            std::cin.clear();
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            std::cout << "Invalid option.\n";
+            continue;
+        }
 
         switch (choice) {
         case 1:

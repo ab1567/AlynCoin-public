@@ -141,7 +141,20 @@ int main(int argc, char* argv[]) {
     while (true) {
         printMenu();
         int choice;
-        std::cin >> choice;
+        if (!(std::cin >> choice)) {
+            if (std::cin.eof()) {
+                std::cout << "\nEOF detected. Exiting Identity CLI...\n";
+                break;
+            }
+            if (std::cin.bad()) {
+                std::cerr << "\nFatal input stream error. Exiting Identity CLI.\n";
+                return 1;
+            }
+            std::cin.clear();
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            std::cout << "Invalid option.\n";
+            continue;
+        }
         std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
         if (choice == 1) {

@@ -957,9 +957,15 @@ int cliMain(int argc, char *argv[]) {
   while (running) {
     printMenu();
     int choice;
-    std::cin >> choice;
-
-    if (std::cin.fail()) {
+    if (!(std::cin >> choice)) {
+      if (std::cin.eof()) {
+        std::cout << "\nEOF detected. Exiting wallet CLI...\n";
+        break;
+      }
+      if (std::cin.bad()) {
+        std::cerr << "\nFatal input stream error. Shutting down wallet CLI.\n";
+        break;
+      }
       std::cin.clear();
       std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
       std::cout << "Invalid input. Please enter a valid option.\n";
@@ -1331,7 +1337,7 @@ int cliMain(int argc, char *argv[]) {
             std::cout << "Enter peer ID: ";
             std::cin >> peerID;
             std::cout << "Enter reason: ";
-            std::cin.ignore();
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
             std::getline(std::cin, reason);
             addPeer(&peerBlacklist, peerID, reason);
             break;
@@ -1404,7 +1410,7 @@ int cliMain(int argc, char *argv[]) {
 	    proposal.proposal_id = Crypto::sha256(Crypto::generateRandomHex(16));
 	    proposal.proposer_address = wallet->getAddress();
 
-	    std::cin.ignore();
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 	    std::cout << "Enter proposal description: ";
 	    std::getline(std::cin, proposal.description);
 
@@ -1424,7 +1430,7 @@ int cliMain(int argc, char *argv[]) {
         std::cin >> proposal.transfer_amount;
 
         std::cout << "Enter recipient address: ";
-        std::cin.ignore(); // flush newline
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
         std::getline(std::cin, proposal.target_address);
 
         if (proposal.transfer_amount <= 0 || proposal.target_address.empty()) {

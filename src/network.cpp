@@ -45,6 +45,7 @@
 #include <memory>
 #include <optional>
 #include <random>
+#include <string_view>
 #ifndef _WIN32
 #include <arpa/nameser.h>
 #include <ifaddrs.h>
@@ -296,9 +297,56 @@ static std::string makeEndpointLabel(const std::string &host, int port) {
   return normalizeHostForLabel(host) + ':' + std::to_string(port);
 }
 
+static bool needsDnsResolution(const std::string &host) {
+  if (host.empty())
+    return false;
+  static const std::string_view kLiteralChars = "0123456789abcdefABCDEF:.[]";
+  return host.find_first_not_of(kLiteralChars) != std::string::npos;
+}
+
+static void appendResolvedAddresses(const std::string &host,
+                                    std::vector<std::string> &out) {
+  if (!needsDnsResolution(host))
+    return;
+
+#ifdef _WIN32
+  WSADATA wsaData;
+  bool wsaReady = WSAStartup(MAKEWORD(2, 2), &wsaData) == 0;
+#endif
+
+  addrinfo hints{};
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM;
+  addrinfo *info = nullptr;
+  if (getaddrinfo(host.c_str(), nullptr, &hints, &info) != 0) {
+#ifdef _WIN32
+    if (wsaReady)
+      WSACleanup();
+#endif
+    return;
+  }
+
+  for (addrinfo *p = info; p != nullptr; p = p->ai_next) {
+    char buf[NI_MAXHOST];
+    if (getnameinfo(p->ai_addr, static_cast<socklen_t>(p->ai_addrlen), buf,
+                    sizeof(buf), nullptr, 0, NI_NUMERICHOST) == 0) {
+      std::string canonical = toLowerCopy(std::string(buf));
+      if (std::find(out.begin(), out.end(), canonical) == out.end())
+        out.push_back(canonical);
+    }
+  }
+
+  freeaddrinfo(info);
+
+#ifdef _WIN32
+  if (wsaReady)
+    WSACleanup();
+#endif
+}
+
 static std::string formatEndpointForWire(const std::string &host, int port) {
   if (host.find(':') != std::string::npos && host.front() != '[')
-    return '[' + host + "]:" + std::to_string(port);
+    return std::string("[") + host + "]:" + std::to_string(port);
   return host + ':' + std::to_string(port);
 }
 
@@ -2645,6 +2693,13 @@ bool Network::isSelfEndpoint(const std::string &host, int remotePort) const {
   std::vector<std::string> candidates;
   candidates.push_back(host);
   candidates.push_back(lowered);
+  std::string normalized = normalizeHostForLabel(host);
+  if (!normalized.empty() &&
+      std::find(candidates.begin(), candidates.end(), normalized) ==
+          candidates.end()) {
+    candidates.push_back(normalized);
+  }
+  appendResolvedAddresses(host, candidates);
 
   boost::system::error_code ec;
   auto addr = boost::asio::ip::make_address(host, ec);
@@ -4552,11 +4607,16 @@ void Network::recordSelfEndpoint(const std::string &host, int port) {
     return;
 
   std::string lowered = toLowerCopy(host);
+  std::string normalized = normalizeHostForLabel(host);
   std::lock_guard<std::mutex> lock(selfFilterMutex);
   selfObservedAddrs.insert(lowered);
   selfObservedAddrs.insert(host);
+  if (!normalized.empty())
+    selfObservedAddrs.insert(normalized);
   selfObservedEndpoints.insert(makeEndpointLabel(lowered, port));
   selfObservedEndpoints.insert(makeEndpointLabel(host, port));
+  if (!normalized.empty())
+    selfObservedEndpoints.insert(makeEndpointLabel(normalized, port));
 }
 
 void Network::refreshLocalInterfaceCache() {
