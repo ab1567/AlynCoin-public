@@ -964,25 +964,66 @@ void Network::sendPeerList(const std::string &peer) {
 }
 
 void Network::markPeerOffline(const std::string &peerId) {
+  const bool banned = isBlacklisted(peerId);
+
+  std::shared_ptr<Transport> toClose;
+  std::pair<std::string, int> reconnectEndpoint;
+  bool hadEntry = false;
   {
     std::lock_guard<std::timed_mutex> lk(peersMutex);
     auto it = peerTransports.find(peerId);
     if (it != peerTransports.end()) {
-      if (it->second.tx)
-        it->second.tx->close();
-      peerTransports.erase(it);
+      hadEntry = true;
+      if (it->second.tx && it->second.tx->isOpen())
+        toClose = it->second.tx;
+      reconnectEndpoint = selectReachableEndpoint(it->second);
+      it->second.tx.reset();
+      if (it->second.state) {
+        auto &st = *it->second.state;
+        st.jsonBuf.clear();
+        st.prefixBuf.clear();
+        st.orphanBuf.clear();
+        st.snapshotB64.clear();
+        st.snapshotActive = false;
+        st.snapshotServing = false;
+        st.snapshotReceived = 0;
+        st.snapshotExpectBytes = 0;
+        st.snapState = PeerState::SnapState::Idle;
+      }
     }
-    anchorPeers.erase(peerId);
-    knownPeers.erase(peerId);
   }
+
+  if (toClose)
+    toClose->close();
+
   if (peerManager)
     peerManager->disconnectPeer(peerId);
+
   {
     std::lock_guard<std::mutex> gossipLock(gossipMutex);
     peerListLastSent.erase(peerId);
   }
-  // Allow the peer manager to reconcile naturally; removing a peer should not
-  // trigger automatic connection churn that misreports the live peer count.
+
+  if (!hadEntry || banned)
+    return;
+
+  if (!reconnectEndpoint.first.empty() && reconnectEndpoint.second > 0) {
+    const std::string host = reconnectEndpoint.first;
+    const int port = reconnectEndpoint.second;
+    const std::string peerLabel = labelForPeer(peerId);
+    spawnWorker([this, host, port, peerLabel]() {
+      if (sleepWithStop(this->netStop_, std::chrono::seconds(2)))
+        return;
+      if (getAppConfig().hide_peer_endpoints) {
+        std::cout << "🔄 [Network] Attempting to reconnect to " << peerLabel
+                  << std::endl;
+      } else {
+        std::cout << "🔄 [Network] Attempting to reconnect to " << host << ':'
+                  << port << std::endl;
+      }
+      connectToNode(host, port);
+    });
+  }
 }
 
 void Network::penalizePeer(const std::string &peer, int points) {
@@ -4048,7 +4089,10 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
   size_t currentPeers = 0;
   {
     std::lock_guard<std::timed_mutex> g(peersMutex);
-    currentPeers = peerTransports.size();
+    for (const auto &kv : peerTransports) {
+      if (kv.second.tx && kv.second.tx->isOpen())
+        ++currentPeers;
+    }
   }
   if (MAX_PEERS > 0 && currentPeers >= MAX_PEERS) {
     std::cerr << "⚠️ [connectToNode] peer cap reached, skip " << logTarget
@@ -5236,7 +5280,8 @@ void Network::cleanupPeers() {
       try {
         if (!peer.second.tx || !peer.second.tx->isOpen()) {
           std::cerr << "⚠️ Peer transport closed: " << peerLabel << "\n";
-          if (!anchorPeers.count(peer.first))
+          if (!anchorPeers.count(peer.first) &&
+              !knownPeers.count(peer.first))
             inactivePeers.push_back(peer.first);
           continue;
         }
@@ -5269,6 +5314,7 @@ void Network::cleanupPeers() {
 
     for (const auto &peer : inactivePeers) {
       peerTransports.erase(peer);
+      knownPeers.erase(peer);
       anchorPeers.erase(peer);
       std::cout << "🗑️ Removed inactive peer: " << labelForPeer(peer) << "\n";
     }
