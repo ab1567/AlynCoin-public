@@ -241,6 +241,7 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath,
               << std::endl;
     exit(1);
   }
+  columnFamilyHandles = handles;
   for (size_t i = 0; i < cfDesc.size(); ++i) {
     if (cfDesc[i].name == "cfCheck")
       cfCheck = handles[i];
@@ -283,17 +284,20 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath,
 
 // ✅ **Destructor: Close RocksDB**
 Blockchain::~Blockchain() {
-  if (db) {
-    if (cfCheck) {
-      db->DestroyColumnFamilyHandle(cfCheck);
-      cfCheck = nullptr;
-    }
-    delete db;
-    db = nullptr; // ✅ Prevent potential use-after-free issues
-  }
   if (g_dbWriter) {
     delete g_dbWriter;
     g_dbWriter = nullptr;
+  }
+  if (db) {
+    for (auto *handle : columnFamilyHandles) {
+      if (handle) {
+        db->DestroyColumnFamilyHandle(handle);
+      }
+    }
+    columnFamilyHandles.clear();
+    cfCheck = nullptr;
+    delete db;
+    db = nullptr; // ✅ Prevent potential use-after-free issues
   }
 }
 // ✅ **Validate a Transaction**
