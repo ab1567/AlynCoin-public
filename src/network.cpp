@@ -2134,12 +2134,12 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
         remoteSnap ? resolveSnapshotChunkSize(remoteSnapSize) : 0;
     std::copy(shared.begin(), shared.end(), entry.state->linkKey.begin());
     entry.state->remoteNonce = remoteNonce;
+  }
 
-    if (peerManager) {
-      if (peerManager->registerPeer(claimedPeerId)) {
-        peerManager->setPeerHeight(claimedPeerId, remoteHeight);
-        peerManager->setPeerWork(claimedPeerId, remoteWork);
-      }
+  if (peerManager) {
+    if (peerManager->registerPeer(claimedPeerId)) {
+      peerManager->setPeerHeight(claimedPeerId, remoteHeight);
+      peerManager->setPeerWork(claimedPeerId, remoteWork);
     }
   }
 
@@ -4423,10 +4423,11 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
       if (rhs.pub_key().size() == 32)
         std::copy(shared.begin(), shared.end(), st->linkKey.begin());
       st->remoteNonce = remoteNonce;
-      if (peerManager) {
-        if (peerManager->registerPeer(finalKey))
-          peerManager->setPeerHeight(finalKey, theirHeight);
-      }
+    }
+
+    if (peerManager) {
+      if (peerManager->registerPeer(finalKey))
+        peerManager->setPeerHeight(finalKey, theirHeight);
     }
 
     const std::string shareHost = canonicalIp.empty() ? host : canonicalIp;
