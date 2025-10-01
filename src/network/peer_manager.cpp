@@ -2,6 +2,7 @@
 #include "network.h"
 #include "blockchain.h"
 #include "config.h"
+#include "crypto_utils.h"
 #include "transport/peer_globals.h"
 #include <algorithm>
 #include <chrono>
@@ -22,6 +23,45 @@ std::string makeHiddenLabel(size_t ordinal) {
     std::ostringstream oss;
     oss << "Peer #" << ordinal;
     return oss.str();
+}
+
+std::string bytesToLowerHex(const std::string& raw) {
+    static constexpr char kHexDigits[] = "0123456789abcdef";
+    std::string hex;
+    hex.reserve(raw.size() * 2);
+
+    for (unsigned char byte : raw) {
+        hex.push_back(kHexDigits[(byte >> 4) & 0x0F]);
+        hex.push_back(kHexDigits[byte & 0x0F]);
+    }
+
+    return hex;
+}
+
+std::string normaliseTipHashValue(const std::string& tipHash) {
+    if (tipHash.empty()) {
+        return {};
+    }
+
+    std::string candidate;
+
+    if (Crypto::isLikelyHex(tipHash)) {
+        candidate = tipHash;
+    } else if (tipHash.size() == 32 || tipHash.size() == 20) {
+        candidate = bytesToLowerHex(tipHash);
+    } else {
+        return {};
+    }
+
+    std::transform(candidate.begin(), candidate.end(), candidate.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+    candidate = Crypto::normaliseHash(candidate);
+    if (candidate.size() != 64) {
+        return {};
+    }
+
+    return candidate;
 }
 
 } // namespace
@@ -475,8 +515,14 @@ std::string PeerManager::getPeerTipHash(const std::string& peer) const {
 }
 
 void PeerManager::setPeerTipHash(const std::string& peer, const std::string& tipHash) {
+    const std::string normalised = normaliseTipHashValue(tipHash);
+
     std::lock_guard<std::mutex> guard(peerMutex);
-    peerTipHashes[peer] = tipHash;
+    if (normalised.empty()) {
+        peerTipHashes.erase(peer);
+    } else {
+        peerTipHashes[peer] = normalised;
+    }
 }
 void PeerManager::recordTipHash(const std::string& peer, const std::string& tipHash) {
     setPeerTipHash(peer, tipHash);
