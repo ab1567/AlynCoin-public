@@ -1872,6 +1872,59 @@ void Network::broadcastPeerList(const std::string &excludePeer) {
     sendFrame(tx, peerListFrame);
 }
 
+bool Network::ingestPeerList(const alyncoin::net::PeerList &list,
+                             const std::string &originPeer,
+                             bool dialPeers) {
+  bool added = false;
+  size_t processed = 0;
+  for (const auto &p : list.peers()) {
+    if (processed++ >= MAX_GOSSIP_PEERS)
+      break;
+    size_t pos = p.find(':');
+    if (pos == std::string::npos)
+      continue;
+    std::string ip = p.substr(0, pos);
+    int port = 0;
+    try {
+      port = std::stoi(p.substr(pos + 1));
+    } catch (const std::exception &) {
+      continue;
+    }
+    if (ip.empty() || port <= 0 || port > 65535)
+      continue;
+    if (isBlockedServicePort(port))
+      continue;
+    if (!isShareableAddress(ip))
+      continue;
+    if ((ip == "127.0.0.1" || ip == "localhost") && port == this->port)
+      continue;
+    if (isSelfEndpoint(ip, port)) {
+      recordSelfEndpoint(ip, port);
+      continue;
+    }
+    if (noteShareableEndpoint(ip, port, false, false, originPeer))
+      added = true;
+    if (dialPeers)
+      connectToNode(ip, port);
+  }
+  return added;
+}
+
+void Network::maybeRebroadcastPeers(const std::string &excludePeer) {
+  auto now = std::chrono::steady_clock::now();
+  bool canBroadcast = false;
+  {
+    std::lock_guard<std::mutex> lock(peerBroadcastMutex);
+    if (lastPeerRebroadcast == std::chrono::steady_clock::time_point{} ||
+        now - lastPeerRebroadcast >= PEERLIST_RATE_LIMIT) {
+      lastPeerRebroadcast = now;
+      canBroadcast = true;
+    }
+  }
+  if (canBroadcast)
+    broadcastPeerList(excludePeer);
+}
+
 //
 PeerManager *Network::getPeerManager() { return peerManager.get(); }
 
@@ -3876,51 +3929,9 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
     sendPeerList(peer);
     break;
   case alyncoin::net::Frame::kPeerList: {
-    bool added = false;
-    size_t processed = 0;
-    for (const auto &p : f.peer_list().peers()) {
-      if (processed++ >= MAX_GOSSIP_PEERS)
-        break;
-      size_t pos = p.find(':');
-      if (pos == std::string::npos)
-        continue;
-      std::string ip = p.substr(0, pos);
-      int port = 0;
-      try {
-        port = std::stoi(p.substr(pos + 1));
-      } catch (const std::exception &) {
-        continue;
-      }
-      if (ip.empty() || port <= 0 || port > 65535)
-        continue;
-      if (isBlockedServicePort(port))
-        continue;
-      if (!isShareableAddress(ip))
-        continue;
-      if ((ip == "127.0.0.1" || ip == "localhost") && port == this->port)
-        continue;
-      if (isSelfEndpoint(ip, port)) {
-        recordSelfEndpoint(ip, port);
-        continue;
-      }
-      if (noteShareableEndpoint(ip, port, false, false, peer))
-        added = true;
-      connectToNode(ip, port);
-    }
-    if (added) {
-      auto now = std::chrono::steady_clock::now();
-      bool canBroadcast = false;
-      {
-        std::lock_guard<std::mutex> lock(peerBroadcastMutex);
-        if (lastPeerRebroadcast == std::chrono::steady_clock::time_point{} ||
-            now - lastPeerRebroadcast >= PEERLIST_RATE_LIMIT) {
-          lastPeerRebroadcast = now;
-          canBroadcast = true;
-        }
-      }
-      if (canBroadcast)
-        broadcastPeerList(peer);
-    }
+    bool added = ingestPeerList(f.peer_list(), peer, true);
+    if (added)
+      maybeRebroadcastPeers(peer);
     break;
   }
   case alyncoin::net::Frame::kRollupBlock: {
@@ -4266,7 +4277,37 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     int theirHeight = 0;
     uint32_t remoteRev = 0;
     alyncoin::net::Frame fr;
-    if (blob.empty() || !fr.ParseFromString(blob) || !fr.has_handshake()) {
+    if (blob.empty() || !fr.ParseFromString(blob)) {
+      std::cerr << "⚠️ [connectToNode] invalid handshake from "
+                << describeEndpointForLog(peerKey, "", 0) << '\n';
+      std::lock_guard<std::timed_mutex> g(peersMutex);
+      auto it = peerTransports.find(peerKey);
+      if (it != peerTransports.end() && it->second.tx &&
+          it->second.tx->isOpen()) {
+        if (auto tcp = std::dynamic_pointer_cast<TcpTransport>(tx))
+          tcp->close();
+        else if (auto ssl = std::dynamic_pointer_cast<SslTransport>(tx))
+          ssl->close();
+      } else {
+        peerTransports.erase(peerKey);
+      }
+      return false;
+    }
+    if (!fr.has_handshake()) {
+      if (fr.has_peer_list()) {
+        attemptGuard.success = true;
+        if (hideEndpoints)
+          std::cout << "ℹ️ [connectToNode] Bootstrap peer provided peer list."
+                    << '\n';
+        else
+          std::cout << "ℹ️ [connectToNode] " << logTarget
+                    << " returned bootstrap peer list." << '\n';
+        bool added = ingestPeerList(fr.peer_list(), peerKey, true);
+        if (added)
+          maybeRebroadcastPeers("");
+        tx->closeGraceful();
+        return false;
+      }
       std::cerr << "⚠️ [connectToNode] invalid handshake from "
                 << describeEndpointForLog(peerKey, "", 0) << '\n';
       std::lock_guard<std::timed_mutex> g(peersMutex);

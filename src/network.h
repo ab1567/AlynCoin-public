@@ -289,6 +289,10 @@ private:
       const std::string &peer,
       const std::vector<HeadersSync::HeaderRecord> &headers);
   void maintainMeshConnectivity();
+  bool ingestPeerList(const alyncoin::net::PeerList &list,
+                      const std::string &originPeer,
+                      bool dialPeers);
+  void maybeRebroadcastPeers(const std::string &excludePeer);
 
   template <typename Callable>
   void spawnWorker(Callable &&fn) {
