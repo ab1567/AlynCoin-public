@@ -1725,7 +1725,8 @@ static bool handleNodeMenuSelection(int choice, Blockchain &blockchain,
   }
 
   case 9:
-    std::cout << "Shutting down AlynCoin Node...\n";
+    gShutdownRequested.store(true, std::memory_order_relaxed);
+    std::cout << "\n👋 Shutdown requested. Exiting...\n";
     return false;
 
   case 10:
