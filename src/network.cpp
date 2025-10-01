@@ -1042,17 +1042,6 @@ namespace {
 
 constexpr char kBootstrapDnsHost[] = "peers.alyncoin.com";
 
-bool equalsIgnoreCase(const std::string &lhs, const std::string &rhs) {
-  if (lhs.size() != rhs.size())
-    return false;
-  for (size_t i = 0; i < lhs.size(); ++i) {
-    if (std::tolower(static_cast<unsigned char>(lhs[i])) !=
-        std::tolower(static_cast<unsigned char>(rhs[i])))
-      return false;
-  }
-  return true;
-}
-
 void logSelfEndpointSkip(const std::string &context, const std::string &host,
                          int port) {
   const bool hide = getAppConfig().hide_peer_endpoints;
@@ -1112,8 +1101,6 @@ std::vector<PeerFileEntry> gatherBootstrapPeers() {
     if (!parsed)
       return;
     std::string key = parsed->host + ":" + std::to_string(parsed->port);
-    if (equalsIgnoreCase(parsed->host, kBootstrapDnsHost))
-      return;
     if (seen.insert(key).second)
       peers.push_back(*parsed);
   };
@@ -2236,10 +2223,6 @@ void Network::run() {
       if (colonPos == std::string::npos)
         continue;
       std::string ip = peer.substr(0, colonPos);
-      if (equalsIgnoreCase(ip, kBootstrapDnsHost)) {
-        std::cout << "⚠️ [DNS bootstrap] Skipping DNS authority host entry.\n";
-        continue;
-      }
       int p = std::stoi(peer.substr(colonPos + 1));
       if ((ip == "127.0.0.1" || ip == "localhost") && p == this->port)
         continue;
@@ -2543,10 +2526,6 @@ std::vector<std::string> Network::discoverPeers() {
     if (colon == std::string::npos)
       continue;
     std::string host = peer.substr(0, colon);
-    if (equalsIgnoreCase(host, kBootstrapDnsHost)) {
-      std::cout << "⚠️ [DNS bootstrap] Skipping DNS authority host entry.\n";
-      continue;
-    }
     if (!hideEndpoints)
       std::cout << "🌐 [DNS] Found peer: " << peer << "\n";
     peers.push_back(peer);
@@ -4543,8 +4522,6 @@ void Network::loadPeers() {
   bool connected = false;
   bool manualAdded = false;
   for (const auto &entry : manualPeers) {
-    if (equalsIgnoreCase(entry.host, kBootstrapDnsHost))
-      continue;
     if (isSelfEndpoint(entry.host, entry.port)) {
       recordSelfEndpoint(entry.host, entry.port);
       logSelfEndpointSkip("peers.txt", entry.host, entry.port);
@@ -4583,11 +4560,6 @@ void Network::loadPeers() {
     size_t bootstrapCandidates = 0;
     size_t bootstrapSelfSkips = 0;
     for (const auto &entry : bootstrap) {
-      if (equalsIgnoreCase(entry.host, kBootstrapDnsHost)) {
-        std::cout
-            << "⚠️ [DNS bootstrap] Skipping DNS authority host entry.\n";
-        continue;
-      }
       ++bootstrapCandidates;
       if (isSelfEndpoint(entry.host, entry.port)) {
         recordSelfEndpoint(entry.host, entry.port);
@@ -4638,10 +4610,6 @@ void Network::scanForPeers() {
     if (colon == std::string::npos)
       continue;
     std::string ip = peer.substr(0, colon);
-    if (equalsIgnoreCase(ip, kBootstrapDnsHost)) {
-      std::cout << "⚠️ [DNS bootstrap] Skipping DNS authority host entry.\n";
-      continue;
-    }
     int peerPort = std::stoi(peer.substr(colon + 1));
     if (isSelfEndpoint(ip, peerPort)) {
       recordSelfEndpoint(ip, peerPort);
