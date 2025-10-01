@@ -49,7 +49,13 @@ ConnectOutcome connectPeerWithFeedback(Network &network, const std::string &ip,
 
     auto state = std::make_shared<ConnectState>();
 
-    auto worker = std::thread([&network, ip, port, allowBackground, state]() {
+    const bool hideEndpoints = getAppConfig().hide_peer_endpoints;
+    const std::string endpointLabel = hideEndpoints
+                                          ? std::string("peer")
+                                          : (ip + ":" + std::to_string(port));
+
+    auto worker = std::thread([&network, ip, port, allowBackground, state,
+                               endpointLabel]() {
         bool ok = network.connectToNode(ip, port);
         {
             std::lock_guard<std::mutex> lock(state->mutex);
@@ -60,11 +66,11 @@ ConnectOutcome connectPeerWithFeedback(Network &network, const std::string &ip,
         if (allowBackground && state->backgroundAnnounce.load()) {
             std::lock_guard<std::mutex> outLock(gCliOutputMutex);
             if (ok) {
-                std::cout << "✅ Connected to peer " << ip << ':' << port
+                std::cout << "✅ Connected to peer " << endpointLabel
                           << std::endl;
             } else {
-                std::cout << "❌ Could not connect to peer: " << ip << ':'
-                          << port << std::endl;
+                std::cout << "❌ Could not connect to peer: " << endpointLabel
+                          << std::endl;
             }
         }
     });
@@ -934,17 +940,19 @@ int cliMain(int argc, char *argv[]) {
     if (colonPos != std::string::npos) {
       std::string ip = connectPeer.substr(0, colonPos);
       int peerPort = std::stoi(connectPeer.substr(colonPos + 1));
+      const bool hideEndpoints = getAppConfig().hide_peer_endpoints;
+      const std::string peerLabel = hideEndpoints ? std::string("peer") : connectPeer;
       {
         std::lock_guard<std::mutex> lock(gCliOutputMutex);
-        std::cout << "🔌 Attempting to connect to peer " << connectPeer
+        std::cout << "🔌 Attempting to connect to peer " << peerLabel
                   << "..." << std::endl;
       }
       auto outcome = connectPeerWithFeedback(
           *network, ip, peerPort, std::chrono::seconds(3), true);
       if (outcome == ConnectOutcome::Success) {
-        std::cout << "✅ Connected to AlynCoin Node at " << connectPeer << "\n";
+        std::cout << "✅ Connected to AlynCoin Node at " << peerLabel << "\n";
       } else if (outcome == ConnectOutcome::Failure) {
-        std::cerr << "❌ Failed to connect to AlynCoin node at " << connectPeer
+        std::cerr << "❌ Failed to connect to AlynCoin node at " << peerLabel
                   << "\n";
       } else {
         std::cout << "⏳ Connection attempt is continuing in the background."

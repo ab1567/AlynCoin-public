@@ -2,7 +2,6 @@
 #include "network.h"
 #include "blockchain.h"
 #include "config.h"
-#include "json/json.h"
 #include "transport/peer_globals.h"
 #include <algorithm>
 #include <chrono>
@@ -10,11 +9,34 @@
 #include <iostream>
 #include <numeric>
 #include <sstream>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
 PeerManager::PeerManager(PeerBlacklist* bl, Network* net)
     : blacklist(bl), network(net), localWork(0) {}
+
+namespace {
+
+std::string makeHiddenLabel(size_t ordinal) {
+    std::ostringstream oss;
+    oss << "Peer #" << ordinal;
+    return oss.str();
+}
+
+} // namespace
+
+std::string PeerManager::displayLabelForPeer(const std::string &peer_id,
+                                            bool hideEndpoints) const {
+    if (!hideEndpoints)
+        return peer_id;
+
+    std::lock_guard<std::mutex> guard(peerMutex);
+    auto it = hiddenLabels_.find(peer_id);
+    if (it != hiddenLabels_.end())
+        return it->second;
+    return "Peer";
+}
 
 static std::string ipPrefixPM(const std::string &ip) {
     if (ip.find(':') == std::string::npos) {
@@ -33,67 +55,6 @@ static std::string ipPrefixPM(const std::string &ip) {
         out += seg; ++count;
     }
     return count == 3 ? out : std::string();
-}
-
-static std::string maskEndpointForDisplay(const std::string &host) {
-    if (host.empty())
-        return host;
-
-    const bool hasColon = host.find(':') != std::string::npos;
-    if (!hasColon) {
-        bool dottedDecimal = true;
-        for (unsigned char ch : host) {
-            if (!(std::isdigit(ch) || ch == '.')) {
-                dottedDecimal = false;
-                break;
-            }
-        }
-        if (dottedDecimal) {
-            std::stringstream ss(host);
-            std::string seg;
-            std::vector<std::string> parts;
-            while (std::getline(ss, seg, '.')) {
-                if (seg.empty())
-                    return host;
-                parts.push_back(seg);
-            }
-            if (parts.size() == 4) {
-                parts.back() = "*";
-                std::ostringstream oss;
-                for (size_t i = 0; i < parts.size(); ++i) {
-                    if (i)
-                        oss << '.';
-                    oss << parts[i];
-                }
-                return oss.str();
-            }
-        } else {
-            if (host.size() > 4)
-                return host.substr(0, host.size() - 2) + "**";
-        }
-        return host;
-    }
-
-    std::stringstream ss(host);
-    std::string seg;
-    std::vector<std::string> parts;
-    while (std::getline(ss, seg, ':')) {
-        if (!seg.empty())
-            parts.push_back(seg);
-    }
-    if (!parts.empty()) {
-        size_t keep = std::min<size_t>(parts.size(), 3);
-        std::ostringstream oss;
-        for (size_t i = 0; i < keep; ++i) {
-            if (i)
-                oss << ':';
-            oss << parts[i];
-        }
-        oss << ":*";
-        return oss.str();
-    }
-
-    return host;
 }
 
 PeerManager::PeerInsertResult PeerManager::tryInsertPeer(const std::string& peer_id,
@@ -121,11 +82,17 @@ PeerManager::PeerInsertResult PeerManager::tryInsertPeer(const std::string& peer
     }
 
     connected_peers.push_back(peer_id);
+    auto it = hiddenLabels_.find(peer_id);
+    if (it == hiddenLabels_.end() || it->second.empty()) {
+        hiddenLabels_[peer_id] = makeHiddenLabel(nextHiddenOrdinal_++);
+    }
     return PeerInsertResult::Added;
 }
 
 void PeerManager::announcePeerConnected(const std::string& peer_id) {
-    std::cout << "✅ Connected to peer: " << peer_id << std::endl;
+    const bool hideEndpoints = getAppConfig().hide_peer_endpoints;
+    std::cout << "✅ Connected to peer: "
+              << displayLabelForPeer(peer_id, hideEndpoints) << std::endl;
 
     if (!network) {
         return;
@@ -133,7 +100,8 @@ void PeerManager::announcePeerConnected(const std::string& peer_id) {
 
     std::vector<std::string> activePeers = network->getPeers();
     if (std::find(activePeers.begin(), activePeers.end(), peer_id) == activePeers.end()) {
-        std::cout << "🔁 [PeerManager] Peer not in active sockets: " << peer_id
+        std::cout << "🔁 [PeerManager] Peer not in active sockets: "
+                  << displayLabelForPeer(peer_id, hideEndpoints)
                   << ". Reconnecting...\n";
 
         size_t pos = peer_id.find(":");
@@ -143,11 +111,16 @@ void PeerManager::announcePeerConnected(const std::string& peer_id) {
             network->connectToNode(ip, port);
         }
     }
+
+    network->broadcastPeerList();
+    network->requestPeerList();
 }
 
 bool PeerManager::registerPeer(const std::string &peer_id) {
+    const bool hideEndpoints = getAppConfig().hide_peer_endpoints;
     if (blacklist->isBlacklisted(peer_id)) {
-        std::cout << "❌ Rejected blacklisted peer: " << peer_id << std::endl;
+        std::cout << "❌ Rejected blacklisted peer: "
+                  << displayLabelForPeer(peer_id, hideEndpoints) << std::endl;
         return false;
     }
     auto result = tryInsertPeer(peer_id, /*enforceNetgroup=*/true);
@@ -164,8 +137,10 @@ bool PeerManager::registerPeer(const std::string &peer_id) {
 }
 
 bool PeerManager::connectToPeer(const std::string& peer_id) {
+    const bool hideEndpoints = getAppConfig().hide_peer_endpoints;
     if (blacklist->isBlacklisted(peer_id)) {
-        std::cout << "❌ Rejected blacklisted peer: " << peer_id << std::endl;
+        std::cout << "❌ Rejected blacklisted peer: "
+                  << displayLabelForPeer(peer_id, hideEndpoints) << std::endl;
         return false;
     }
 
@@ -178,12 +153,24 @@ bool PeerManager::connectToPeer(const std::string& peer_id) {
 }
 
 void PeerManager::disconnectPeer(const std::string& peer_id) {
-    std::lock_guard<std::mutex> guard(peerMutex);
-    connected_peers.erase(
-        std::remove(connected_peers.begin(), connected_peers.end(), peer_id),
-        connected_peers.end()
-    );
-    std::cout << "🔌 Disconnected peer: " << peer_id << std::endl;
+    std::string hiddenLabel;
+    {
+        std::lock_guard<std::mutex> guard(peerMutex);
+        connected_peers.erase(
+            std::remove(connected_peers.begin(), connected_peers.end(), peer_id),
+            connected_peers.end()
+        );
+        auto it = hiddenLabels_.find(peer_id);
+        if (it != hiddenLabels_.end()) {
+            hiddenLabel = it->second;
+            hiddenLabels_.erase(it);
+        }
+    }
+    const bool hideEndpoints = getAppConfig().hide_peer_endpoints;
+    const std::string display = hideEndpoints && !hiddenLabel.empty()
+                                    ? hiddenLabel
+                                    : peer_id;
+    std::cout << "🔌 Disconnected peer: " << display << std::endl;
 }
 
 std::vector<std::string> PeerManager::getConnectedPeers() {
@@ -199,8 +186,7 @@ std::vector<std::string> PeerManager::getConnectedPeers() {
     std::unordered_set<std::string> seenEndpoints;
 
     if (network) {
-        std::lock_guard<std::timed_mutex> netGuard(peersMutex);
-        const auto &table = network->getPeerTable();
+        auto table = network->getPeerTableSnapshot();
         peers.reserve(table.size());
         for (const auto &kv : table) {
             const auto &peerId = kv.first;
@@ -226,12 +212,9 @@ std::vector<std::string> PeerManager::getConnectedPeers() {
                 continue;
 
             std::ostringstream label;
-            label << peerId;
-            if (!host.empty()) {
+            label << displayLabelForPeer(peerId, hideEndpoints);
+            if (!hideEndpoints && !host.empty()) {
                 std::string displayHost = host;
-                if (hideEndpoints)
-                    displayHost = maskEndpointForDisplay(host);
-
                 if (!displayHost.empty()) {
                     label << " (" << displayHost;
                     if (port > 0)
@@ -249,7 +232,7 @@ std::vector<std::string> PeerManager::getConnectedPeers() {
     for (const auto &peerId : snapshot) {
         if (!seenPeerIds.insert(peerId).second)
             continue;
-        peers.push_back(peerId);
+        peers.push_back(displayLabelForPeer(peerId, hideEndpoints));
     }
 
     return peers;
@@ -264,10 +247,10 @@ std::vector<std::string> PeerManager::getConnectedPeerIds() const {
 
     std::unordered_set<std::string> seenPeerIds;
     std::vector<std::string> ids;
+    const bool hideEndpoints = getAppConfig().hide_peer_endpoints;
 
     if (network) {
-        std::lock_guard<std::timed_mutex> netGuard(peersMutex);
-        const auto &table = network->getPeerTable();
+        auto table = network->getPeerTableSnapshot();
 
         ids.reserve(table.size());
         std::unordered_set<std::string> dedupEndpoints;
@@ -283,7 +266,7 @@ std::vector<std::string> PeerManager::getConnectedPeerIds() const {
             int port = entry.observedPort > 0 ? entry.observedPort : entry.port;
 
             std::string endpointKey;
-            if (!host.empty()) {
+            if (!hideEndpoints && !host.empty()) {
                 std::ostringstream ep;
                 ep << host;
                 if (port > 0)
@@ -426,10 +409,14 @@ bool PeerManager::fetchBlockAtHeight(int height, Block& outBlock) {
     };
 
     auto peersSnapshot = getConnectedPeerIds();
+    std::unordered_map<std::string, Network::PeerEntry> tableSnapshot;
+    if (network) {
+        tableSnapshot = network->getPeerTableSnapshot();
+    }
+
     for (const std::string& peer : peersSnapshot) {
-        const auto& table = network->getPeerTable();
-        auto it = table.find(peer);
-        if (it == table.end() || !it->second.tx) continue;
+        auto it = tableSnapshot.find(peer);
+        if (it == tableSnapshot.end() || !it->second.tx) continue;
 
         network->sendFrame(it->second.tx, request, /*immediate=*/true);
 

@@ -21,11 +21,13 @@
 #include <generated/net_frame.pb.h>
 #include <cstdint>
 #include <iostream>
+#include <map>
 #include <mutex>
 #include <string>
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 using boost::asio::ip::tcp;
@@ -196,6 +198,8 @@ public:
                              bool markVerified = false,
                              const std::string &originPeer = "");
 
+  std::unordered_map<std::string, PeerEntry> getPeerTableSnapshot() const;
+
   // Expose frame processing for worker threads
   void processFrame(const alyncoin::net::Frame &f, const std::string &peer);
 
@@ -218,8 +222,6 @@ private:
   boost::asio::io_context ioContext;
   std::unique_ptr<boost::asio::ssl::context> tlsContext;
   boost::asio::ip::tcp::acceptor acceptor;
-  std::thread listenerThread;
-  std::thread serverThread;
   std::unique_ptr<PeerManager> peerManager;
   std::unique_ptr<SelfHealingNode> selfHealer;
   std::string publicPeerId;
@@ -259,6 +261,8 @@ private:
   std::unordered_set<std::string> seenTxHashes;
   static Network *instancePtr;
   std::vector<std::thread> threads_;
+  mutable std::mutex threadMutex_;
+  std::atomic<bool> netStop_{false};
   mutable std::mutex selfFilterMutex;
   std::unordered_set<std::string> localInterfaceAddrs;
   std::unordered_set<std::string> selfObservedAddrs;
@@ -284,5 +288,12 @@ private:
   void handleHeaderResponse(
       const std::string &peer,
       const std::vector<HeadersSync::HeaderRecord> &headers);
+  void maintainMeshConnectivity();
+
+  template <typename Callable>
+  void spawnWorker(Callable &&fn) {
+    std::lock_guard<std::mutex> lk(threadMutex_);
+    threads_.emplace_back(std::forward<Callable>(fn));
+  }
 };
 #endif // NETWORK_H

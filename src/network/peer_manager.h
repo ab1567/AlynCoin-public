@@ -17,6 +17,8 @@ class Network; // Forward declaration
 class PeerManager {
 private:
     std::vector<std::string> connected_peers;
+    std::unordered_map<std::string, std::string> hiddenLabels_;
+    size_t nextHiddenOrdinal_{1};
     std::map<std::string, int> peerHeights;
     std::map<std::string, uint64_t> peerWorks;
     std::map<std::string, std::string> peerTipHashes;
@@ -37,6 +39,8 @@ private:
     PeerInsertResult tryInsertPeer(const std::string& peer_id,
                                    bool enforceNetgroup);
     void announcePeerConnected(const std::string& peer_id);
+    std::string displayLabelForPeer(const std::string &peer_id,
+                                    bool hideEndpoints) const;
 
     struct PendingBlockRequest {
         std::mutex mutex;
