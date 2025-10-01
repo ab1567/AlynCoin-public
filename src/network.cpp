@@ -1038,8 +1038,37 @@ alyncoin::net::Handshake Network::buildHandshake() const {
 // Fallback peer in case DNS TXT lookup returns no peers.
 // Uses the domain seed rather than a hard-coded IP so the
 // network can migrate hosts without code changes.
+namespace {
+
+constexpr char kBootstrapDnsHost[] = "peers.alyncoin.com";
+
+bool equalsIgnoreCase(const std::string &lhs, const std::string &rhs) {
+  if (lhs.size() != rhs.size())
+    return false;
+  for (size_t i = 0; i < lhs.size(); ++i) {
+    if (std::tolower(static_cast<unsigned char>(lhs[i])) !=
+        std::tolower(static_cast<unsigned char>(rhs[i])))
+      return false;
+  }
+  return true;
+}
+
+void logSelfEndpointSkip(const std::string &context, const std::string &host,
+                         int port) {
+  const bool hide = getAppConfig().hide_peer_endpoints;
+  if (hide) {
+    std::cout << "⚠️ [" << context
+              << "] Skipping self endpoint (hidden)." << std::endl;
+  } else {
+    std::cout << "⚠️ [" << context << "] Skipping self endpoint " << host
+              << ':' << port << std::endl;
+  }
+}
+
+} // namespace
+
 static const std::vector<std::string> DEFAULT_DNS_PEERS = {
-    "peers.alyncoin.com:15671"};
+    std::string(kBootstrapDnsHost) + ":15671"};
 
 std::vector<std::string> fetchPeersFromDNS(const std::string &domain);
 
@@ -1083,6 +1112,8 @@ std::vector<PeerFileEntry> gatherBootstrapPeers() {
     if (!parsed)
       return;
     std::string key = parsed->host + ":" + std::to_string(parsed->port);
+    if (equalsIgnoreCase(parsed->host, kBootstrapDnsHost))
+      return;
     if (seen.insert(key).second)
       peers.push_back(*parsed);
   };
@@ -1090,7 +1121,7 @@ std::vector<PeerFileEntry> gatherBootstrapPeers() {
   for (const auto &seed : DEFAULT_DNS_PEERS)
     addCandidate(seed);
 
-  auto dnsPeers = fetchPeersFromDNS("peers.alyncoin.com");
+  auto dnsPeers = fetchPeersFromDNS(kBootstrapDnsHost);
   for (const auto &seed : dnsPeers)
     addCandidate(seed);
 
@@ -2198,13 +2229,17 @@ void Network::run() {
   }
 
   if (shouldDialDns) {
-    std::vector<std::string> dnsPeers = fetchPeersFromDNS("peers.alyncoin.com");
+    std::vector<std::string> dnsPeers = fetchPeersFromDNS(kBootstrapDnsHost);
     bool added = false;
     for (const std::string &peer : dnsPeers) {
       size_t colonPos = peer.find(":");
       if (colonPos == std::string::npos)
         continue;
       std::string ip = peer.substr(0, colonPos);
+      if (equalsIgnoreCase(ip, kBootstrapDnsHost)) {
+        std::cout << "⚠️ [DNS bootstrap] Skipping DNS authority host entry.\n";
+        continue;
+      }
       int p = std::stoi(peer.substr(colonPos + 1));
       if ((ip == "127.0.0.1" || ip == "localhost") && p == this->port)
         continue;
@@ -2212,6 +2247,7 @@ void Network::run() {
         continue;
       if (isSelfEndpoint(ip, p)) {
         recordSelfEndpoint(ip, p);
+        logSelfEndpointSkip("DNS bootstrap", ip, p);
         continue;
       }
       if (noteShareableEndpoint(ip, p, false))
@@ -2498,11 +2534,19 @@ void Network::waitForInitialSync(int timeoutSeconds) {
 // ✅ Auto-Discover Peers Instead of Manually Adding Nodes
 std::vector<std::string> Network::discoverPeers() {
   std::vector<std::string> peers;
-  std::vector<std::string> dnsPeers = fetchPeersFromDNS("peers.alyncoin.com");
+  std::vector<std::string> dnsPeers = fetchPeersFromDNS(kBootstrapDnsHost);
   const bool hideEndpoints = getAppConfig().hide_peer_endpoints;
   for (const auto &peer : dnsPeers) {
     if (peer.empty())
       continue;
+    auto colon = peer.find(":");
+    if (colon == std::string::npos)
+      continue;
+    std::string host = peer.substr(0, colon);
+    if (equalsIgnoreCase(host, kBootstrapDnsHost)) {
+      std::cout << "⚠️ [DNS bootstrap] Skipping DNS authority host entry.\n";
+      continue;
+    }
     if (!hideEndpoints)
       std::cout << "🌐 [DNS] Found peer: " << peer << "\n";
     peers.push_back(peer);
@@ -2519,13 +2563,9 @@ void Network::connectToDiscoveredPeers() {
       continue;
     std::string ip = peer.substr(0, pos);
     int port = std::stoi(peer.substr(pos + 1));
-    std::string peerKey = ip;
     if (isSelfEndpoint(ip, port)) {
-      if (!getAppConfig().hide_peer_endpoints) {
-        std::cout << "⚠️ Skipping self in discovered peers: "
-                  << describeEndpointForLog(peerKey, ip, port) << "\n";
-      }
       recordSelfEndpoint(ip, port);
+      logSelfEndpointSkip("DNS bootstrap", ip, port);
       continue;
     }
     if (ip == "127.0.0.1" || ip == "localhost")
@@ -4503,8 +4543,11 @@ void Network::loadPeers() {
   bool connected = false;
   bool manualAdded = false;
   for (const auto &entry : manualPeers) {
+    if (equalsIgnoreCase(entry.host, kBootstrapDnsHost))
+      continue;
     if (isSelfEndpoint(entry.host, entry.port)) {
       recordSelfEndpoint(entry.host, entry.port);
+      logSelfEndpointSkip("peers.txt", entry.host, entry.port);
       continue;
     }
     if (entry.host == "127.0.0.1" || entry.host == "localhost")
@@ -4537,9 +4580,19 @@ void Network::loadPeers() {
     if (!bootstrap.empty())
       std::cout << "ℹ️  [loadPeers] Using bootstrap peer list.\n";
     bool added = false;
+    size_t bootstrapCandidates = 0;
+    size_t bootstrapSelfSkips = 0;
     for (const auto &entry : bootstrap) {
+      if (equalsIgnoreCase(entry.host, kBootstrapDnsHost)) {
+        std::cout
+            << "⚠️ [DNS bootstrap] Skipping DNS authority host entry.\n";
+        continue;
+      }
+      ++bootstrapCandidates;
       if (isSelfEndpoint(entry.host, entry.port)) {
         recordSelfEndpoint(entry.host, entry.port);
+        ++bootstrapSelfSkips;
+        logSelfEndpointSkip("DNS bootstrap", entry.host, entry.port);
         continue;
       }
       if (entry.host == "127.0.0.1" || entry.host == "localhost")
@@ -4550,6 +4603,12 @@ void Network::loadPeers() {
         connected = true;
         rememberPeerEndpoint(entry.host, entry.port);
       }
+    }
+    if (!connected && bootstrapCandidates > 0 &&
+        bootstrapCandidates == bootstrapSelfSkips) {
+      std::cout <<
+          "⚠️ [loadPeers] DNS bootstrap returned only self endpoints; requesting peer list from inbound peers.\n";
+      requestPeerList();
     }
     if (added)
       broadcastPeerList();
@@ -4570,15 +4629,23 @@ void Network::scanForPeers() {
     return;
   }
   std::vector<std::string> potentialPeers =
-      fetchPeersFromDNS("peers.alyncoin.com");
+      fetchPeersFromDNS(kBootstrapDnsHost);
   std::cout << "🔍 [DNS] Scanning for AlynCoin nodes..." << std::endl;
 
   bool added = false;
   for (const auto &peer : potentialPeers) {
-    std::string ip = peer.substr(0, peer.find(":"));
-    int peerPort = std::stoi(peer.substr(peer.find(":") + 1));
+    auto colon = peer.find(":");
+    if (colon == std::string::npos)
+      continue;
+    std::string ip = peer.substr(0, colon);
+    if (equalsIgnoreCase(ip, kBootstrapDnsHost)) {
+      std::cout << "⚠️ [DNS bootstrap] Skipping DNS authority host entry.\n";
+      continue;
+    }
+    int peerPort = std::stoi(peer.substr(colon + 1));
     if (isSelfEndpoint(ip, peerPort)) {
       recordSelfEndpoint(ip, peerPort);
+      logSelfEndpointSkip("DNS bootstrap", ip, peerPort);
       continue;
     }
     if (ip == "127.0.0.1" || ip == "localhost")

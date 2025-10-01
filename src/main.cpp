@@ -356,8 +356,14 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
       metrics::chain_height.value = blockchain->getHeight();
       metrics::orphan_pool_size.value = blockchain->getOrphanPoolSize();
       int pc = 0;
-      if (network && network->getPeerManager())
-        pc = network->getPeerManager()->getPeerCount();
+      if (network) {
+        auto table = network->getPeerTableSnapshot();
+        for (const auto &kv : table) {
+          const auto &entry = kv.second;
+          if (entry.tx && entry.tx->isOpen())
+            ++pc;
+        }
+      }
       metrics::peer_count.value = pc;
       metrics::rx_queue_depth.value = 0;
       metrics::reorg_depth.value = 0;
