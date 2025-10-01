@@ -15,6 +15,7 @@ struct NodeHealthStatus {
     uint64_t networkHeight;
     std::string localTipHash;
     std::string expectedTipHash;
+    std::string consensusCommonHash;
     size_t connectedPeers;
     bool farBehind;
 };

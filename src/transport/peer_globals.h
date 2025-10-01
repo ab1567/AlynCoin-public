@@ -5,6 +5,7 @@
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include <array>
 #include <chrono>
@@ -49,6 +50,11 @@ struct PeerState {
   std::chrono::steady_clock::time_point graceUntil{};
   uint64_t remoteNonce{0};
   std::chrono::steady_clock::time_point lastSnapshotServed{};
+  bool headerBridgeActive{false};
+  std::unordered_set<std::string> headerAnchorsRequested;
+  int headerBestCommonHeight{-1};
+  std::string headerBestCommonHash;
+  int headerLastBinaryProbe{-1};
   std::mutex m;
 };
 

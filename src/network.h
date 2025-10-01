@@ -12,6 +12,7 @@
 #include "transport/transport.h"
 #include "self_healing/self_healing_node.h"
 #include "config.h"
+#include "syncing/headers_sync.h"
 #include <boost/asio/ssl.hpp>
 #include <atomic>
 #include <boost/asio.hpp>
@@ -34,6 +35,7 @@ static_assert(alyncoin::net::Frame::kBlockBatch == 7,
 
 class Network {
 public:
+  friend class HeadersSync;
   // Singleton initialization
   inline static bool autoMineEnabled = true;
   inline static Network &getInstance(unsigned short port,
@@ -127,11 +129,17 @@ public:
   void cleanupPeers();
   bool peerSupportsAggProof(const std::string &peerId) const;
   bool isSelfPeer(const std::string &peer) const;
+  bool isSelfEndpoint(const std::string &host, int port) const;
   std::string getSelfAddressAndPort() const;
   inline static bool isUninitialized() { return instancePtr == nullptr; }
   inline static Network *getExistingInstance() { return instancePtr; }
   void autoSyncIfBehind();
   const auto &getPeerTable() const { return peerTransports; }
+  struct PeerSnapshot {
+    std::shared_ptr<Transport> transport;
+    std::shared_ptr<PeerState> state;
+  };
+  PeerSnapshot getPeerSnapshot(const std::string &peer) const;
   void waitForInitialSync(int timeoutSeconds = 10);
   void handleGetData(const std::string &peer,
                      const std::vector<std::string> &hashes);
@@ -244,11 +252,17 @@ private:
       peerListLastSent;
   std::atomic<int> activeOutboundDials{0};
   mutable std::mutex gossipMutex;
+  mutable std::mutex peerBroadcastMutex;
+  std::chrono::steady_clock::time_point lastPeerRebroadcast{};
   std::atomic<bool> peerFileLoaded{false};
   PeerBlacklist *blacklist;
   std::unordered_set<std::string> seenTxHashes;
   static Network *instancePtr;
   std::vector<std::thread> threads_;
+  mutable std::mutex selfFilterMutex;
+  std::unordered_set<std::string> localInterfaceAddrs;
+  std::unordered_set<std::string> selfObservedAddrs;
+  std::unordered_set<std::string> selfObservedEndpoints;
 
   // Helpers reused by handlePeer & connectToNode
   void startBinaryReadLoop(const std::string &peerId,
@@ -264,5 +278,11 @@ private:
   void runHairpinCheck();
   void rememberPeerEndpoint(const std::string &ip, int port);
   void recordEndpointFailure(const std::string &host, int port);
+  void recordSelfEndpoint(const std::string &host, int port);
+  void refreshLocalInterfaceCache();
+  void beginHeaderBridge(const std::string &peer);
+  void handleHeaderResponse(
+      const std::string &peer,
+      const std::vector<HeadersSync::HeaderRecord> &headers);
 };
 #endif // NETWORK_H

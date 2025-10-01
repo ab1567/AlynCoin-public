@@ -47,7 +47,12 @@
 #include <random>
 #ifndef _WIN32
 #include <arpa/nameser.h>
+#include <ifaddrs.h>
+#include <netdb.h>
 #include <resolv.h>
+#else
+#include <winsock2.h>
+#include <ws2tcpip.h>
 #endif
 #include <set>
 #include <sodium.h>
@@ -256,12 +261,55 @@ static bool isShareableAddress(const std::string &ip) {
       return false;
     if (lower.size() >= 5 && lower.rfind(".home") == lower.size() - 5)
       return false;
+    if (lower.size() >= 9 && lower.rfind(".internal") == lower.size() - 9)
+      return false;
     return lower.find(' ') == std::string::npos;
   }
 }
 
+static std::string toLowerCopy(const std::string &value) {
+  std::string lowered;
+  lowered.reserve(value.size());
+  for (char c : value)
+    lowered.push_back(static_cast<char>(
+        std::tolower(static_cast<unsigned char>(c))));
+  return lowered;
+}
+
+static std::string normalizeHostForLabel(const std::string &host) {
+  if (host.empty())
+    return host;
+
+  std::string trimmed = host;
+  if (trimmed.front() == '[' && trimmed.back() == ']' && trimmed.size() > 2)
+    trimmed = trimmed.substr(1, trimmed.size() - 2);
+
+  boost::system::error_code ec;
+  auto addr = boost::asio::ip::make_address(trimmed, ec);
+  if (!ec)
+    return toLowerCopy(addr.to_string());
+
+  return toLowerCopy(trimmed);
+}
+
 static std::string makeEndpointLabel(const std::string &host, int port) {
+  return normalizeHostForLabel(host) + ':' + std::to_string(port);
+}
+
+static std::string formatEndpointForWire(const std::string &host, int port) {
+  if (host.find(':') != std::string::npos && host.front() != '[')
+    return '[' + host + "]:" + std::to_string(port);
   return host + ':' + std::to_string(port);
+}
+
+static std::mt19937 &threadLocalRng() {
+  thread_local std::mt19937 rng{std::random_device{}()};
+  return rng;
+}
+
+static std::chrono::milliseconds randomBroadcastDelay() {
+  std::uniform_int_distribution<int> jitter(0, 100);
+  return std::chrono::milliseconds(50 + jitter(threadLocalRng()));
 }
 
 static constexpr std::chrono::seconds MIN_DIAL_BACKOFF{5};
@@ -269,7 +317,7 @@ static constexpr std::chrono::seconds MAX_DIAL_BACKOFF{std::chrono::minutes(10)}
 
 static std::chrono::seconds computeDialBackoff(int failures) {
   int capped = std::min(failures, 6);
-  auto delay = MIN_DIAL_BACKOFF * (1 << capped);
+  auto delay = MIN_DIAL_BACKOFF * (1u << capped);
   if (delay > MAX_DIAL_BACKOFF)
     delay = MAX_DIAL_BACKOFF;
   static thread_local std::mt19937 rng(std::random_device{}());
@@ -428,6 +476,21 @@ PubSubRouter g_pubsub;
 namespace fs = std::filesystem;
 Network *Network::instancePtr = nullptr;
 
+namespace {
+fs::path peerStorageDir() {
+  fs::path dir = getAppConfig().data_dir;
+  if (dir.empty())
+    dir = ".";
+  std::error_code ec;
+  fs::create_directories(dir, ec);
+  return dir;
+}
+
+fs::path peersFilePath() { return peerStorageDir() / "peers.txt"; }
+
+fs::path peersBackupPath() { return peerStorageDir() / "peers_backup.txt"; }
+} // namespace
+
 // Queue item containing a frame and originating peer for worker threads
 struct RxItem {
   alyncoin::net::Frame frame;
@@ -577,18 +640,23 @@ void Network::sendPrivate(const std::string &peer,
   std::vector<std::string> peers;
   {
     std::lock_guard<std::timed_mutex> lk(peersMutex);
-    for (const auto &kv : peerTransports)
-      if (kv.first != peer)
-        peers.push_back(kv.first);
+    for (const auto &kv : peerTransports) {
+      if (kv.first == peer)
+        continue;
+      if (!kv.second.tx || !kv.second.tx->isOpen())
+        continue;
+      peers.push_back(kv.first);
+    }
   }
   if (peers.empty()) {
     broadcastFrame(m);
     return;
   }
-  std::shuffle(peers.begin(), peers.end(),
-               std::mt19937{std::random_device{}()});
+  auto &rng = threadLocalRng();
+  std::shuffle(peers.begin(), peers.end(), rng);
   size_t hops = std::min<size_t>(3, peers.size() + 1);
   std::vector<std::string> route;
+  route.reserve(hops);
   for (size_t i = 0; i + 1 < hops; ++i)
     route.push_back(peers[i]);
   route.push_back(peer);
@@ -597,16 +665,26 @@ void Network::sendPrivate(const std::string &peer,
     return;
   }
 
-  std::vector<std::vector<uint8_t>> keys;
+  std::vector<PeerSnapshot> snapshots;
+  snapshots.reserve(route.size());
   for (const auto &hop : route) {
-    auto it = peerTransports.find(hop);
-    if (it == peerTransports.end())
+    auto snapshot = getPeerSnapshot(hop);
+    if (!snapshot.state || !snapshot.transport ||
+        !snapshot.transport->isOpen()) {
+      broadcastFrame(m);
       return;
-    keys.emplace_back(it->second.state->linkKey.begin(),
-                      it->second.state->linkKey.end());
+    }
+    snapshots.push_back(std::move(snapshot));
   }
 
-  auto firstHop = route.front();
+  std::vector<std::vector<uint8_t>> keys;
+  keys.reserve(snapshots.size());
+  for (const auto &snapshot : snapshots) {
+    keys.emplace_back(snapshot.state->linkKey.begin(),
+                      snapshot.state->linkKey.end());
+  }
+
+  auto firstHopTx = snapshots.front().transport;
   std::string payload = m.SerializeAsString();
   auto pkt = crypto::createPacket(
       std::vector<uint8_t>(payload.begin(), payload.end()), route, keys);
@@ -614,13 +692,15 @@ void Network::sendPrivate(const std::string &peer,
   fr.mutable_whisper()->set_data(
       std::string(pkt.header.begin(), pkt.header.end()) +
       std::string(pkt.payload.begin(), pkt.payload.end()));
-  std::this_thread::sleep_for(std::chrono::milliseconds(50 + rand() % 101));
-  sendFrame(peerTransports[firstHop].tx, fr);
+  std::uniform_int_distribution<int> jitter(0, 100);
+  std::this_thread::sleep_for(
+      std::chrono::milliseconds(50 + jitter(rng)));
+  sendFrame(firstHopTx, fr);
 }
 
 void Network::sendHeight(const std::string &peer) {
-  auto it = peerTransports.find(peer);
-  if (it == peerTransports.end() || !it->second.tx)
+  auto snapshot = getPeerSnapshot(peer);
+  if (!snapshot.transport || !snapshot.transport->isOpen())
     return;
   alyncoin::net::Frame fr;
   Blockchain &bc = Blockchain::getInstance();
@@ -631,7 +711,7 @@ void Network::sendHeight(const std::string &peer) {
   if (peerManager)
     peerManager->setLocalWork(w64);
   hr->set_total_work(w64);
-  sendFrame(it->second.tx, fr);
+  sendFrame(snapshot.transport, fr);
 }
 
 void Network::sendHeightProbe(std::shared_ptr<Transport> tr) {
@@ -651,13 +731,13 @@ void Network::sendHeightProbe(std::shared_ptr<Transport> tr) {
 }
 
 void Network::sendTipHash(const std::string &peer) {
-  auto it = peerTransports.find(peer);
-  if (it == peerTransports.end() || !it->second.tx)
+  auto snapshot = getPeerSnapshot(peer);
+  if (!snapshot.transport || !snapshot.transport->isOpen())
     return;
   alyncoin::net::Frame fr;
   fr.mutable_tip_hash_res()->set_hash(
       Blockchain::getInstance().getLatestBlockHash());
-  sendFrame(it->second.tx, fr);
+  sendFrame(snapshot.transport, fr);
 }
 
 void Network::sendPeerList(const std::string &peer) {
@@ -729,10 +809,10 @@ void Network::sendPeerList(const std::string &peer) {
   auto appendEndpoint = [&](const std::pair<std::string, int> &ep) {
     if (pl->peers_size() >= static_cast<int>(MAX_GOSSIP_PEERS))
       return false;
-    std::string label = ep.first + ':' + std::to_string(ep.second);
+    const std::string label = makeEndpointLabel(ep.first, ep.second);
     if (!seen.insert(label).second)
       return true;
-    pl->add_peers(std::move(label));
+    pl->add_peers(formatEndpointForWire(ep.first, ep.second));
     return true;
   };
 
@@ -750,9 +830,9 @@ void Network::sendPeerList(const std::string &peer) {
       isShareableAddress(announce.first) &&
       !isBlockedServicePort(announce.second) &&
       pl->peers_size() < static_cast<int>(MAX_GOSSIP_PEERS)) {
-    std::string label = announce.first + ':' + std::to_string(announce.second);
+    const std::string label = makeEndpointLabel(announce.first, announce.second);
     if (seen.insert(label).second)
-      pl->add_peers(std::move(label));
+      pl->add_peers(formatEndpointForWire(announce.first, announce.second));
   }
 
   if (pl->peers_size() == 0)
@@ -1127,6 +1207,7 @@ Network::Network(unsigned short port, Blockchain *blockchain,
   randombytes_buf(&localHandshakeNonce, sizeof(localHandshakeNonce));
   if (localHandshakeNonce == 0)
     localHandshakeNonce = 1; // reserve zero to denote "unknown"
+  refreshLocalInterfaceCache();
   if (!blacklistPtr) {
     std::cerr
         << "❌ [FATAL] PeerBlacklist is null! Cannot initialize network.\n";
@@ -1389,22 +1470,32 @@ void Network::broadcastTransaction(const Transaction &tx) {
   alyncoin::TransactionProto proto = tx.toProto();
   alyncoin::net::Frame fr;
   *fr.mutable_tx_broadcast()->mutable_tx() = proto;
-  if (peerTransports.size() <= 1) {
+  std::vector<std::pair<std::string, std::shared_ptr<Transport>>> targets;
+  {
+    std::lock_guard<std::timed_mutex> lk(peersMutex);
     for (const auto &kv : peerTransports) {
-      if (kv.second.tx && kv.second.tx->isOpen()) {
-        std::this_thread::sleep_for(
-            std::chrono::milliseconds(50 + rand() % 101));
-        sendFrame(kv.second.tx, fr);
-      }
+      if (kv.second.tx && kv.second.tx->isOpen())
+        targets.emplace_back(kv.first, kv.second.tx);
+    }
+  }
+
+  if (targets.empty())
+    return;
+
+  if (targets.size() <= 1) {
+    for (const auto &kv : targets) {
+      std::this_thread::sleep_for(randomBroadcastDelay());
+      sendFrame(kv.second, fr);
     }
     return;
   }
-  for (const auto &kv : peerTransports) {
+
+  for (const auto &kv : targets) {
     if (peerSupportsWhisper(kv.first))
       sendPrivate(kv.first, fr);
-    else if (kv.second.tx && kv.second.tx->isOpen()) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(50 + rand() % 101));
-      sendFrame(kv.second.tx, fr);
+    else {
+      std::this_thread::sleep_for(randomBroadcastDelay());
+      sendFrame(kv.second, fr);
     }
   }
 }
@@ -1415,14 +1506,23 @@ void Network::broadcastTransactionToAllExcept(const Transaction &tx,
   alyncoin::TransactionProto proto = tx.toProto();
   alyncoin::net::Frame fr;
   *fr.mutable_tx_broadcast()->mutable_tx() = proto;
-  for (const auto &kv : peerTransports) {
-    if (kv.first == excludePeer)
-      continue;
+  std::vector<std::pair<std::string, std::shared_ptr<Transport>>> targets;
+  {
+    std::lock_guard<std::timed_mutex> lk(peersMutex);
+    for (const auto &kv : peerTransports) {
+      if (kv.first == excludePeer)
+        continue;
+      if (kv.second.tx && kv.second.tx->isOpen())
+        targets.emplace_back(kv.first, kv.second.tx);
+    }
+  }
+
+  for (const auto &kv : targets) {
     if (peerSupportsWhisper(kv.first))
       sendPrivate(kv.first, fr);
-    else if (kv.second.tx && kv.second.tx->isOpen()) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(50 + rand() % 101));
-      sendFrame(kv.second.tx, fr);
+    else {
+      std::this_thread::sleep_for(randomBroadcastDelay());
+      sendFrame(kv.second, fr);
     }
   }
 }
@@ -1431,24 +1531,37 @@ void Network::broadcastTransactionToAllExcept(const Transaction &tx,
 void Network::intelligentSync() {
   std::cout << "🔄 [Smart Sync] Starting intelligent sync process...\n";
 
-  if (!peerManager || peerTransports.empty()) {
-    std::cerr << "⚠️ [Smart Sync] No peers or no PeerManager. Skipping sync.\n";
+  if (!peerManager) {
+    std::cerr << "⚠️ [Smart Sync] No PeerManager. Skipping sync.\n";
     return;
   }
 
+  std::vector<std::pair<std::string, std::shared_ptr<Transport>>> livePeers;
   {
     std::lock_guard<std::timed_mutex> lk(peersMutex);
-    for (const auto &kv : peerTransports) {
-      auto tr = kv.second.tx;
-      if (!tr || !tr->isOpen())
-        continue;
-      alyncoin::net::Frame req1;
-      req1.mutable_height_req();
-      sendFrame(tr, req1);
-      alyncoin::net::Frame req2;
-      req2.mutable_tip_hash_req();
-      sendFrame(tr, req2);
+    if (peerTransports.empty()) {
+      std::cerr << "⚠️ [Smart Sync] No peers connected. Skipping sync.\n";
+      return;
     }
+    for (const auto &kv : peerTransports) {
+      if (!kv.second.tx || !kv.second.tx->isOpen())
+        continue;
+      livePeers.emplace_back(kv.first, kv.second.tx);
+    }
+  }
+
+  if (livePeers.empty()) {
+    std::cerr << "⚠️ [Smart Sync] No live transports available. Skipping sync.\n";
+    return;
+  }
+
+  for (const auto &[peerId, tr] : livePeers) {
+    alyncoin::net::Frame req1;
+    req1.mutable_height_req();
+    sendFrame(tr, req1);
+    alyncoin::net::Frame req2;
+    req2.mutable_tip_hash_req();
+    sendFrame(tr, req2);
   }
   std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
@@ -1464,17 +1577,17 @@ void Network::intelligentSync() {
   std::cout << "📡 [Smart Sync] Local height: " << localHeight
             << ", Network height: " << networkHeight << ". Sync needed.\n";
 
+  const std::string localTip = blockchain->getLatestBlockHash();
+
   /* pick the first suitable peer that is ahead */
-  for (const auto &[peer, entry] : peerTransports) {
+  for (const auto &[peer, transport] : livePeers) {
     int ph = peerManager->getPeerHeight(peer);
     if (ph <= localHeight)
       continue;
 
     int gap = ph - localHeight;
     if (gap <= TAIL_SYNC_THRESHOLD) {
-      requestTailBlocks(peer, localHeight, blockchain->getLatestBlockHash());
-    } else if (gap <= MAX_TAIL_BLOCKS) {
-      requestTailBlocks(peer, localHeight, blockchain->getLatestBlockHash());
+      requestTailBlocks(peer, localHeight, localTip);
     } else if (peerSupportsSnapshot(peer)) {
       requestSnapshotSync(peer);
     } else if (peerSupportsAggProof(peer)) {
@@ -1486,8 +1599,10 @@ void Network::intelligentSync() {
 //
 void Network::connectToPeer(const std::string &ip, short port) {
   std::string peerKey = ip;
-  if (isSelfPeer(peerKey)) {
-    std::cerr << "⚠️ [connectToPeer] Skipping self connect: " << peerKey << "\n";
+  if (isSelfEndpoint(ip, port)) {
+    std::cerr << "⚠️ [connectToPeer] Skipping self connect: " << peerKey
+              << ':' << port << "\n";
+    recordSelfEndpoint(ip, port);
     return;
   }
   if (connectToNode(ip, port))
@@ -1558,10 +1673,10 @@ void Network::broadcastPeerList(const std::string &excludePeer) {
   auto appendEndpoint = [&](const std::pair<std::string, int> &ep) {
     if (pl->peers_size() >= static_cast<int>(MAX_GOSSIP_PEERS))
       return false;
-    std::string label = ep.first + ':' + std::to_string(ep.second);
+    const std::string label = makeEndpointLabel(ep.first, ep.second);
     if (!seen.insert(label).second)
       return true;
-    pl->add_peers(std::move(label));
+    pl->add_peers(formatEndpointForWire(ep.first, ep.second));
     return true;
   };
 
@@ -1579,9 +1694,9 @@ void Network::broadcastPeerList(const std::string &excludePeer) {
       isShareableAddress(announce.first) &&
       !isBlockedServicePort(announce.second) &&
       pl->peers_size() < static_cast<int>(MAX_GOSSIP_PEERS)) {
-    std::string label = announce.first + ':' + std::to_string(announce.second);
+    const std::string label = makeEndpointLabel(announce.first, announce.second);
     if (seen.insert(label).second)
-      pl->add_peers(std::move(label));
+      pl->add_peers(formatEndpointForWire(announce.first, announce.second));
   }
 
   if (pl->peers_size() == 0)
@@ -1594,14 +1709,35 @@ void Network::broadcastPeerList(const std::string &excludePeer) {
 //
 PeerManager *Network::getPeerManager() { return peerManager.get(); }
 
+Network::PeerSnapshot Network::getPeerSnapshot(const std::string &peer) const {
+  PeerSnapshot snapshot;
+  std::lock_guard<std::timed_mutex> lk(peersMutex);
+  auto it = peerTransports.find(peer);
+  if (it != peerTransports.end()) {
+    snapshot.transport = it->second.tx;
+    snapshot.state = it->second.state;
+  }
+  return snapshot;
+}
+
 // ✅ **Request peer list from connected nodes**
 void Network::requestPeerList() {
-  for (const auto &[peerAddr, entry] : peerTransports) {
-    if (entry.tx && entry.tx->isOpen()) {
-      alyncoin::net::Frame fr;
-      fr.mutable_peer_list_req();
-      sendFrame(entry.tx, fr);
+  std::vector<std::shared_ptr<Transport>> sinks;
+  {
+    std::lock_guard<std::timed_mutex> lk(peersMutex);
+    for (const auto &[peerAddr, entry] : peerTransports) {
+      if (entry.tx && entry.tx->isOpen())
+        sinks.push_back(entry.tx);
     }
+  }
+
+  if (sinks.empty())
+    return;
+
+  for (const auto &tx : sinks) {
+    alyncoin::net::Frame fr;
+    fr.mutable_peer_list_req();
+    sendFrame(tx, fr);
   }
   PEERLIST_LOG("📡 Requesting peer list from all known peers...");
 }
@@ -1626,11 +1762,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
   int observedPort = 0;
 
   /* what *we* look like to the outside world */
-  // Determine how peers see this node. We capture `this` so the lambda
-  // always uses our own listening port rather than the remote port.
-  const auto selfAddr = [this] {
-    return publicPeerId.empty() ? "127.0.0.1" : publicPeerId;
-  };
+  const std::string selfIdentity = getSelfAddressAndPort();
 
   // ── 1. read + verify handshake ──────────────────────────────────────────
   std::array<uint8_t, 32> myPriv{};
@@ -1712,6 +1844,8 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     if (remoteNonce != 0 && remoteNonce == localHandshakeNonce) {
       std::cout << "🛑 Self-connect ignored (nonce match) from " << realPeerId
                 << '\n';
+      recordSelfEndpoint(realPeerId, finalPort);
+      recordSelfEndpoint(canonicalIp, finalPort);
       transport->closeGraceful();
       return;
     }
@@ -1756,9 +1890,11 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
   }
 
   // ── 2. refuse self-connects ─────────────────────────────────────────────
-  if (claimedPeerId == selfAddr() || realPeerId == selfAddr() ||
+  if (claimedPeerId == selfIdentity || realPeerId == selfIdentity ||
       claimedPeerId == nodeId) {
     std::cout << "🛑 Self-connect ignored: " << claimedPeerId << '\n';
+    recordSelfEndpoint(realPeerId, finalPort);
+    recordSelfEndpoint(canonicalIp, finalPort);
     return;
   }
 
@@ -1877,9 +2013,6 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     if (gap <= TAIL_SYNC_THRESHOLD) {
       requestTailBlocks(claimedPeerId, myHeight,
                         Blockchain::getInstance().getLatestBlockHash());
-    } else if (gap <= MAX_TAIL_BLOCKS) {
-      requestTailBlocks(claimedPeerId, myHeight,
-                        Blockchain::getInstance().getLatestBlockHash());
     } else if (remoteSnap) {
       requestSnapshotSync(claimedPeerId);
     } else if (remoteAgg) {
@@ -1924,8 +2057,10 @@ void Network::run() {
         continue;
       if (ip == "127.0.0.1" || ip == "localhost")
         continue;
-      if (isSelfPeer(ip))
+      if (isSelfEndpoint(ip, p)) {
+        recordSelfEndpoint(ip, p);
         continue;
+      }
       if (noteShareableEndpoint(ip, p, false))
         added = true;
       connectToNode(ip, p);
@@ -2136,10 +2271,6 @@ void Network::autoSyncIfBehind() {
         std::cout << "  → requesting tail blocks\n";
         requestTailBlocks(peerAddr, myHeight,
                           Blockchain::getInstance().getLatestBlockHash());
-      } else if (gap <= MAX_TAIL_BLOCKS) {
-        std::cout << "  → requesting tail blocks\n";
-        requestTailBlocks(peerAddr, myHeight,
-                          Blockchain::getInstance().getLatestBlockHash());
       } else if (peerSupportsSnapshot(peerAddr)) {
         std::cout << "  → requesting snapshot sync\n";
         requestSnapshotSync(peerAddr);
@@ -2214,8 +2345,10 @@ void Network::connectToDiscoveredPeers() {
     std::string ip = peer.substr(0, pos);
     int port = std::stoi(peer.substr(pos + 1));
     std::string peerKey = ip;
-    if (isSelfPeer(peerKey)) {
-      std::cout << "⚠️ Skipping self in discovered peers: " << peerKey << "\n";
+    if (isSelfEndpoint(ip, port)) {
+      std::cout << "⚠️ Skipping self in discovered peers: " << peerKey << ':'
+                << port << "\n";
+      recordSelfEndpoint(ip, port);
       continue;
     }
     if (ip == "127.0.0.1" || ip == "localhost")
@@ -2441,11 +2574,12 @@ void Network::sendBlockToPeer(const std::string &peer, const Block &blk) {
     return;
   alyncoin::net::Frame fr;
   *fr.mutable_block_broadcast()->mutable_block() = proto;
-  auto it = peerTransports.find(peer);
-  if (it != peerTransports.end() && it->second.tx && it->second.tx->isOpen())
-    sendFrame(it->second.tx, fr);
-  if (it != peerTransports.end() && it->second.state)
-    it->second.state->highestSeen = blk.getIndex();
+  auto snapshot = getPeerSnapshot(peer);
+  if (!snapshot.transport || !snapshot.transport->isOpen())
+    return;
+  sendFrame(snapshot.transport, fr);
+  if (snapshot.state)
+    snapshot.state->highestSeen = blk.getIndex();
 }
 //
 bool Network::isSelfPeer(const std::string &p) const {
@@ -2453,8 +2587,88 @@ bool Network::isSelfPeer(const std::string &p) const {
     return true;
   if (!publicPeerId.empty() && p == publicPeerId)
     return true;
-  if (p == "127.0.0.1")
+
+  std::string lowered = toLowerCopy(p);
+
+  if (lowered == "127.0.0.1" || lowered == "localhost" || lowered == "::1")
     return true;
+
+  {
+    std::lock_guard<std::mutex> lock(selfFilterMutex);
+    if (localInterfaceAddrs.count(lowered) || localInterfaceAddrs.count(p) ||
+        selfObservedAddrs.count(lowered) || selfObservedAddrs.count(p))
+      return true;
+  }
+
+  return false;
+}
+
+bool Network::isSelfEndpoint(const std::string &host, int remotePort) const {
+  if (host.empty() || remotePort <= 0)
+    return false;
+
+  const int localPort = static_cast<int>(port);
+  const std::string lowered = toLowerCopy(host);
+
+  if (host == nodeId || lowered == nodeId)
+    return true;
+
+  if (!configuredExternalAddress.empty()) {
+    auto parsed = parseEndpoint(configuredExternalAddress, port);
+    if (!parsed.first.empty()) {
+      std::string parsedLower = toLowerCopy(parsed.first);
+      if (remotePort == parsed.second &&
+          (lowered == parsedLower || host == parsed.first))
+        return true;
+    }
+  }
+
+  if (!publicPeerId.empty()) {
+    std::string pubLower = toLowerCopy(publicPeerId);
+    if (remotePort == localPort &&
+        (lowered == pubLower || host == publicPeerId))
+      return true;
+  }
+
+  if (remotePort == localPort) {
+    if (lowered == "127.0.0.1" || lowered == "localhost" || lowered == "::1")
+      return true;
+  }
+
+  {
+    std::lock_guard<std::mutex> lock(selfFilterMutex);
+    if (selfObservedEndpoints.count(makeEndpointLabel(lowered, remotePort)) ||
+        selfObservedEndpoints.count(makeEndpointLabel(host, remotePort)))
+      return true;
+  }
+
+  std::vector<std::string> candidates;
+  candidates.push_back(host);
+  candidates.push_back(lowered);
+
+  boost::system::error_code ec;
+  auto addr = boost::asio::ip::make_address(host, ec);
+  if (!ec)
+    candidates.push_back(addr.to_string());
+
+  {
+    std::lock_guard<std::mutex> lock(selfFilterMutex);
+    for (const auto &candidate : candidates) {
+      std::string candLower = toLowerCopy(candidate);
+      if (localInterfaceAddrs.count(candLower) ||
+          localInterfaceAddrs.count(candidate) ||
+          selfObservedAddrs.count(candLower) ||
+          selfObservedAddrs.count(candidate)) {
+        if (remotePort == localPort)
+          return true;
+      }
+      if (selfObservedEndpoints.count(
+              makeEndpointLabel(candLower, remotePort)) ||
+          selfObservedEndpoints.count(makeEndpointLabel(candidate, remotePort)))
+        return true;
+    }
+  }
+
   return false;
 }
 
@@ -2916,9 +3130,6 @@ std::string Network::requestBlockchainSync(const std::string &peer) {
     if (gap <= TAIL_SYNC_THRESHOLD) {
       requestTailBlocks(peer, localHeight,
                         Blockchain::getInstance().getLatestBlockHash());
-    } else if (gap <= MAX_TAIL_BLOCKS) {
-      requestTailBlocks(peer, localHeight,
-                        Blockchain::getInstance().getLatestBlockHash());
     } else if (peerSupportsSnapshot(peer)) {
       requestSnapshotSync(peer);
     } else if (peerSupportsAggProof(peer)) {
@@ -3074,9 +3285,6 @@ void Network::sendInitialRequests(const std::string &peerId) {
     if (gap <= TAIL_SYNC_THRESHOLD) {
       requestTailBlocks(peerId, localHeight,
                         Blockchain::getInstance().getLatestBlockHash());
-    } else if (gap <= MAX_TAIL_BLOCKS) {
-      requestTailBlocks(peerId, localHeight,
-                        Blockchain::getInstance().getLatestBlockHash());
     } else if (peerSupportsSnapshot(peerId)) {
       requestSnapshotSync(peerId);
     } else if (peerSupportsAggProof(peerId)) {
@@ -3214,38 +3422,35 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
       peerManager->setPeerHeight(peer, hs.height());
       peerManager->setPeerWork(peer, hs.total_work());
     }
-    {
-      auto it = peerTransports.find(peer);
-      if (it != peerTransports.end() && it->second.state) {
-        auto st = it->second.state;
-        st->highestSeen = hs.height();
-        bool remoteAgg = false;
-        bool remoteSnap = false;
-        bool remoteWhisper = false;
-        bool remoteTls = false;
-        bool remoteBanDecay = false;
-        for (const auto &cap : hs.capabilities()) {
-          if (cap == "agg_proof_v1")
-            remoteAgg = true;
-          else if (cap == "snapshot_v1")
-            remoteSnap = true;
-          else if (cap == "whisper_v1")
-            remoteWhisper = true;
-          else if (cap == "tls_v1")
-            remoteTls = true;
-          else if (cap == "ban_decay_v1")
-            remoteBanDecay = true;
-        }
-        st->supportsAggProof = remoteAgg;
-        st->supportsSnapshot = remoteSnap;
-        st->supportsWhisper = remoteWhisper;
-        st->supportsTls = remoteTls;
-        st->supportsBanDecay = remoteBanDecay;
-        st->snapshotChunkPreference =
-            remoteSnap ? resolveSnapshotChunkSize(hs.snapshot_size()) : 0;
-        st->frameRev = hs.frame_rev();
-        st->version = hs.version();
+    if (auto snapshot = getPeerSnapshot(peer); snapshot.state) {
+      auto st = snapshot.state;
+      st->highestSeen = hs.height();
+      bool remoteAgg = false;
+      bool remoteSnap = false;
+      bool remoteWhisper = false;
+      bool remoteTls = false;
+      bool remoteBanDecay = false;
+      for (const auto &cap : hs.capabilities()) {
+        if (cap == "agg_proof_v1")
+          remoteAgg = true;
+        else if (cap == "snapshot_v1")
+          remoteSnap = true;
+        else if (cap == "whisper_v1")
+          remoteWhisper = true;
+        else if (cap == "tls_v1")
+          remoteTls = true;
+        else if (cap == "ban_decay_v1")
+          remoteBanDecay = true;
       }
+      st->supportsAggProof = remoteAgg;
+      st->supportsSnapshot = remoteSnap;
+      st->supportsWhisper = remoteWhisper;
+      st->supportsTls = remoteTls;
+      st->supportsBanDecay = remoteBanDecay;
+      st->snapshotChunkPreference =
+          remoteSnap ? resolveSnapshotChunkSize(hs.snapshot_size()) : 0;
+      st->frameRev = hs.frame_rev();
+      st->version = hs.version();
     }
     if (auto hints = parseConsensusHints(hs.capabilities());
         hints.hasDifficulty || hints.hasReward) {
@@ -3274,9 +3479,8 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
       alyncoin::net::Frame out;
       *out.mutable_block_response()->mutable_block() =
           bc.getChain()[static_cast<size_t>(idx)].toProtobuf();
-      auto it = peerTransports.find(peer);
-      if (it != peerTransports.end() && it->second.tx)
-        sendFrame(it->second.tx, out);
+      if (auto snapshot = getPeerSnapshot(peer); snapshot.transport)
+        sendFrame(snapshot.transport, out);
     }
     break;
   }
@@ -3290,19 +3494,17 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
   case alyncoin::net::Frame::kPing: {
     alyncoin::net::Frame out;
     out.mutable_pong();
-    auto it = peerTransports.find(peer);
-    if (it != peerTransports.end()) {
-      if (it->second.state)
-        it->second.state->graceUntil =
+    if (auto snapshot = getPeerSnapshot(peer); snapshot.transport) {
+      if (snapshot.state)
+        snapshot.state->graceUntil =
             std::chrono::steady_clock::now() + BAN_GRACE_BASE;
-      sendFrame(it->second.tx, out);
+      sendFrame(snapshot.transport, out);
     }
     break;
   }
   case alyncoin::net::Frame::kPong: {
-    auto it = peerTransports.find(peer);
-    if (it != peerTransports.end() && it->second.state)
-      it->second.state->graceUntil =
+    if (auto snapshot = getPeerSnapshot(peer); snapshot.state)
+      snapshot.state->graceUntil =
           std::chrono::steady_clock::now() + BAN_GRACE_BASE;
     break;
   }
@@ -3314,11 +3516,8 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
       peerManager->setPeerHeight(peer, f.height_res().height());
       peerManager->setPeerWork(peer, f.height_res().total_work());
     }
-    {
-      auto it = peerTransports.find(peer);
-      if (it != peerTransports.end() && it->second.state)
-        it->second.state->highestSeen = f.height_res().height();
-    }
+    if (auto snapshot = getPeerSnapshot(peer); snapshot.state)
+      snapshot.state->highestSeen = f.height_res().height();
     if (f.height_res().height() > Blockchain::getInstance().getHeight() &&
         !isSyncing()) {
       Blockchain &bc = Blockchain::getInstance();
@@ -3340,9 +3539,8 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
       peerManager->setPeerWork(peer, hp.total_work());
       peerManager->setPeerTipHash(peer, hp.tip_hash());
     }
-    auto it = peerTransports.find(peer);
-    if (it != peerTransports.end() && it->second.state)
-      it->second.state->highestSeen = hp.height();
+    if (auto snapshot = getPeerSnapshot(peer); snapshot.state)
+      snapshot.state->highestSeen = hp.height();
     {
       Blockchain &bc = Blockchain::getInstance();
       uint64_t localWork =
@@ -3381,9 +3579,8 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
       auto *gd = req.mutable_get_data();
       for (const auto &h : missing)
         gd->add_hashes(h);
-      auto it = peerTransports.find(peer);
-      if (it != peerTransports.end())
-        sendFrame(it->second.tx, req);
+      if (auto snapshot = getPeerSnapshot(peer); snapshot.transport)
+        sendFrame(snapshot.transport, req);
     }
     break;
   }
@@ -3409,9 +3606,8 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
       auto *hdr = out.mutable_headers();
       for (size_t i = startIdx; i < ch.size(); ++i)
         *hdr->add_headers() = ch[i].toProtobuf();
-      auto it = peerTransports.find(peer);
-      if (it != peerTransports.end() && it->second.tx)
-        sendFrame(it->second.tx, out);
+      if (auto snapshot = getPeerSnapshot(peer); snapshot.transport)
+        sendFrame(snapshot.transport, out);
     }
     break;
   }
@@ -3427,13 +3623,10 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
       std::cerr << "⚠️  [dispatch] malformed tip hash from " << peer << "\n";
       if (peerManager)
         peerManager->disconnectPeer(peer);
-      {
-        auto it = peerTransports.find(peer);
-        if (it != peerTransports.end()) {
-          it->second.state->misScore += 100;
-          if (it->second.state->misScore >= BAN_THRESHOLD)
-            blacklistPeer(peer);
-        }
+      if (auto snapshot = getPeerSnapshot(peer); snapshot.state) {
+        snapshot.state->misScore += 100;
+        if (snapshot.state->misScore >= BAN_THRESHOLD)
+          blacklistPeer(peer);
       }
       break;
     }
@@ -3445,7 +3638,10 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
     break;
   case alyncoin::net::Frame::kPeerList: {
     bool added = false;
+    size_t processed = 0;
     for (const auto &p : f.peer_list().peers()) {
+      if (processed++ >= MAX_GOSSIP_PEERS)
+        break;
       size_t pos = p.find(':');
       if (pos == std::string::npos)
         continue;
@@ -3464,15 +3660,28 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
         continue;
       if ((ip == "127.0.0.1" || ip == "localhost") && port == this->port)
         continue;
-      if (isSelfPeer(ip))
+      if (isSelfEndpoint(ip, port)) {
+        recordSelfEndpoint(ip, port);
         continue;
+      }
       if (noteShareableEndpoint(ip, port, false, false, peer))
         added = true;
-      knownPeers.insert(p);
       connectToNode(ip, port);
     }
-    if (added)
-      broadcastPeerList();
+    if (added) {
+      auto now = std::chrono::steady_clock::now();
+      bool canBroadcast = false;
+      {
+        std::lock_guard<std::mutex> lock(peerBroadcastMutex);
+        if (lastPeerRebroadcast == std::chrono::steady_clock::time_point{} ||
+            now - lastPeerRebroadcast >= PEERLIST_RATE_LIMIT) {
+          lastPeerRebroadcast = now;
+          canBroadcast = true;
+        }
+      }
+      if (canBroadcast)
+        broadcastPeerList(peer);
+    }
     break;
   }
   case alyncoin::net::Frame::kRollupBlock: {
@@ -3484,9 +3693,8 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
     const std::string &blob = f.agg_proof().data();
     if (blob.size() <= sizeof(int) + 64) {
       std::cerr << "❌ [agg_proof] malformed proof from " << peer << '\n';
-      auto itBad = peerTransports.find(peer);
-      if (itBad != peerTransports.end())
-        itBad->second.state->misScore += 100;
+      if (auto snapshot = getPeerSnapshot(peer); snapshot.state)
+        snapshot.state->misScore += 100;
       blacklistPeer(peer);
       break;
     }
@@ -3520,28 +3728,26 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
                       f.whisper().data().begin() + hdrSize);
     pkt.payload.assign(f.whisper().data().begin() + hdrSize,
                        f.whisper().data().end());
-    auto it = peerTransports.find(peer);
-    if (it == peerTransports.end())
+    auto snapshot = getPeerSnapshot(peer);
+    if (!snapshot.state)
       break;
     crypto::SphinxPacket inner;
     std::string nextHop;
     if (!crypto::peelPacket(
             pkt,
-            std::vector<uint8_t>(it->second.state->linkKey.begin(),
-                                 it->second.state->linkKey.end()),
+            std::vector<uint8_t>(snapshot.state->linkKey.begin(),
+                                 snapshot.state->linkKey.end()),
             &nextHop, &inner))
       break;
     if (!nextHop.empty()) {
-      auto itF = peerTransports.find(nextHop);
-      if (itF != peerTransports.end() && itF->second.tx &&
-          itF->second.tx->isOpen()) {
+      if (auto relay = getPeerSnapshot(nextHop);
+          relay.transport && relay.transport->isOpen() && relay.state) {
         alyncoin::net::Frame fr;
         fr.mutable_whisper()->set_data(
             std::string(inner.header.begin(), inner.header.end()) +
             std::string(inner.payload.begin(), inner.payload.end()));
-        std::this_thread::sleep_for(
-            std::chrono::milliseconds(50 + rand() % 101));
-        sendFrame(itF->second.tx, fr);
+        std::this_thread::sleep_for(randomBroadcastDelay());
+        sendFrame(relay.transport, fr);
       }
     } else {
       std::string blob(inner.header.begin(), inner.header.end());
@@ -3553,11 +3759,11 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
     break;
   }
   case alyncoin::net::Frame::kSnapshotReq: {
-    auto it = peerTransports.find(peer);
-    if (it != peerTransports.end() && it->second.tx) {
+    if (auto snapshot = getPeerSnapshot(peer);
+        snapshot.transport && snapshot.transport->isOpen()) {
       size_t preferred =
-          it->second.state ? it->second.state->snapshotChunkPreference : 0;
-      sendSnapshot(peer, it->second.tx, -1, preferred);
+          snapshot.state ? snapshot.state->snapshotChunkPreference : 0;
+      sendSnapshot(peer, snapshot.transport, -1, preferred);
     } else
       std::cerr << "⚠️ [Snapshot] Received request from unknown peer " << peer
                 << '\n';
@@ -3586,22 +3792,23 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
               << remotePort << '\n';
     return false;
   }
-  if (peerTransports.size() >= MAX_PEERS) {
+  size_t currentPeers = 0;
+  {
+    std::lock_guard<std::timed_mutex> g(peersMutex);
+    currentPeers = peerTransports.size();
+  }
+  if (currentPeers >= MAX_PEERS) {
     std::cerr << "⚠️ [connectToNode] peer cap reached, skip " << host << ':'
               << remotePort << '\n';
     return false;
   }
 
   const std::string peerKey = host;
-  // Use our own listening IP to recognize self-connections.
-  const auto selfAddr = [this] {
-    return publicPeerId.empty() ? "127.0.0.1" : publicPeerId;
-  };
-  if (host == selfAddr() && remotePort == static_cast<int>(port)) {
-    std::cout << "⚠️ [connectToNode] Peer list contains our own address "
-              << host << ':' << remotePort
-              << ". Skipping self-connect. If other nodes fail to reach you, "
-                 "forward TCP port "
+  if (isSelfEndpoint(host, remotePort)) {
+    recordSelfEndpoint(host, remotePort);
+    std::cout << "⚠️ [connectToNode] Skipping self endpoint " << host << ':'
+              << remotePort
+              << ". If other nodes fail to reach you, forward TCP port "
               << port << " or enable UPnP." << '\n';
     return false;
   }
@@ -3803,29 +4010,33 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     if (!theirNodeId.empty() && theirNodeId == nodeId) {
       std::cerr << "🛑 [connectToNode] remote node id matches ours (" << theirNodeId
                 << ")" << '\n';
+      recordSelfEndpoint(host, remotePort);
       tx->close();
       return false;
     }
+    int advertisedPort = remotePort;
+    if (rhs.listen_port() > 0)
+      advertisedPort = static_cast<int>(rhs.listen_port());
+    std::string canonicalIp = socketIp.empty() ? host : socketIp;
     const uint64_t remoteNonce = rhs.nonce();
     if (remoteNonce != 0 && remoteNonce == localHandshakeNonce) {
       std::cout << "🛑 Self-connect ignored (nonce match) while dialing "
                 << peerKey << '\n';
+      recordSelfEndpoint(host, remotePort);
+      if (!canonicalIp.empty())
+        recordSelfEndpoint(canonicalIp, advertisedPort);
       tx->close();
       return false;
     }
-    std::string canonicalIp = host;
-    if (!rhs.observed_ip().empty() && isRoutableAddress(rhs.observed_ip()))
-      canonicalIp = rhs.observed_ip();
-    int advertisedPort = remotePort;
-    if (rhs.listen_port() > 0)
-      advertisedPort = static_cast<int>(rhs.listen_port());
-    if ((publicPeerId.empty() || publicPeerId == "127.0.0.1") &&
-        isRoutableAddress(rhs.observed_ip())) {
-      setPublicPeerId(rhs.observed_ip());
-      std::cout << "🌐 [connectToNode] Detected external address "
-                << publicPeerId << " from peer " << theirNodeId << '\n';
+    if (!rhs.observed_ip().empty() && isRoutableAddress(rhs.observed_ip()) &&
+        !configuredExternalExplicit) {
+      const std::string observed = rhs.observed_ip();
+      if (publicPeerId.empty() || publicPeerId == "127.0.0.1") {
+        setPublicPeerId(observed);
+        std::cout << "🌐 [connectToNode] Detected external address "
+                  << publicPeerId << " from peer " << theirNodeId << '\n';
+      }
     }
-
     // ─── Compatibility gate ────────────────────────────
     remoteRev = rhs.frame_rev();
     if (remoteRev != 0 && remoteRev != kFrameRevision) {
@@ -3950,9 +4161,6 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
       if (gap <= TAIL_SYNC_THRESHOLD) {
         requestTailBlocks(finalKey, localHeight,
                           Blockchain::getInstance().getLatestBlockHash());
-      } else if (gap <= MAX_TAIL_BLOCKS) {
-        requestTailBlocks(finalKey, localHeight,
-                          Blockchain::getInstance().getLatestBlockHash());
       } else if (theirSnap) {
         requestSnapshotSync(finalKey);
       } else if (theirAgg) {
@@ -4001,9 +4209,10 @@ void Network::loadPeers() {
   std::vector<PeerFileEntry> manualPeers;
   {
     std::lock_guard<std::mutex> lock(fileIOMutex);
-    std::ifstream file("peers.txt");
+    const auto path = peersFilePath();
+    std::ifstream file(path);
     if (!file.is_open()) {
-      std::cerr << "⚠️ [loadPeers] peers.txt not found, using automatic bootstrap.\n";
+      std::cerr << "⚠️ [loadPeers] " << path << " not found, using automatic bootstrap.\n";
     } else {
       std::string line;
       while (std::getline(file, line)) {
@@ -4014,15 +4223,18 @@ void Network::loadPeers() {
           manualPeers.push_back(*parsed);
       }
       if (manualPeers.empty())
-        std::cout << "ℹ️  [loadPeers] peers.txt contained no usable peers; falling back to bootstrap list.\n";
+        std::cout << "ℹ️  [loadPeers] " << path
+                  << " contained no usable peers; falling back to bootstrap list.\n";
     }
   }
 
   bool connected = false;
   bool manualAdded = false;
   for (const auto &entry : manualPeers) {
-    if (isSelfPeer(entry.host))
+    if (isSelfEndpoint(entry.host, entry.port)) {
+      recordSelfEndpoint(entry.host, entry.port);
       continue;
+    }
     if (entry.host == "127.0.0.1" || entry.host == "localhost")
       continue;
     if (noteShareableEndpoint(entry.host, entry.port, false))
@@ -4054,8 +4266,10 @@ void Network::loadPeers() {
       std::cout << "ℹ️  [loadPeers] Using bootstrap peer list.\n";
     bool added = false;
     for (const auto &entry : bootstrap) {
-      if (isSelfPeer(entry.host))
+      if (isSelfEndpoint(entry.host, entry.port)) {
+        recordSelfEndpoint(entry.host, entry.port);
         continue;
+      }
       if (entry.host == "127.0.0.1" || entry.host == "localhost")
         continue;
       if (noteShareableEndpoint(entry.host, entry.port, false))
@@ -4091,9 +4305,10 @@ void Network::scanForPeers() {
   for (const auto &peer : potentialPeers) {
     std::string ip = peer.substr(0, peer.find(":"));
     int peerPort = std::stoi(peer.substr(peer.find(":") + 1));
-    std::string peerKey = ip;
-    if (isSelfPeer(peerKey))
+    if (isSelfEndpoint(ip, peerPort)) {
+      recordSelfEndpoint(ip, peerPort);
       continue;
+    }
     if (ip == "127.0.0.1" || ip == "localhost")
       continue;
     if (noteShareableEndpoint(ip, peerPort, false))
@@ -4112,20 +4327,23 @@ void Network::savePeers() {
   std::lock_guard<std::mutex> lock(fileIOMutex); // 🔒 File IO Mutex lock
 
   // Optional: Backup current peers.txt before overwrite
-  if (fs::exists("peers.txt")) {
+  const auto path = peersFilePath();
+  const auto backup = peersBackupPath();
+  if (fs::exists(path)) {
     try {
-      fs::copy_file("peers.txt", "peers_backup.txt",
+      fs::copy_file(path, backup,
                     fs::copy_options::overwrite_existing);
-      std::cout << "📋 Backup of peers.txt created (peers_backup.txt)\n";
+      std::cout << "📋 Backup of peers.txt created at " << backup << "\n";
     } catch (const std::exception &e) {
       std::cerr << "⚠️ Warning: Failed to backup peers.txt: " << e.what()
                 << "\n";
     }
   }
 
-  std::ofstream file("peers.txt", std::ios::trunc);
+  std::ofstream file(path, std::ios::trunc);
   if (!file.is_open()) {
-    std::cerr << "❌ Error: Unable to open peers.txt for saving!" << std::endl;
+    std::cerr << "❌ Error: Unable to open " << path << " for saving!"
+              << std::endl;
     return;
   }
 
@@ -4218,6 +4436,8 @@ bool Network::ensureEndpointCapacityLocked(bool incomingVerified) {
       const auto &rec = it->second;
       if (rec.verified)
         continue;
+      if (!rec.lastOrigin.empty() && anchorPeers.count(rec.lastOrigin))
+        continue;
       if (rec.lastSeen < oldest) {
         oldest = rec.lastSeen;
         victim = it;
@@ -4257,6 +4477,9 @@ bool Network::ensureEndpointCapacityLocked(bool incomingVerified) {
     auto oldest = std::chrono::steady_clock::time_point::max();
     for (auto it = knownPeerEndpoints.begin(); it != knownPeerEndpoints.end();
          ++it) {
+      if (!it->second.lastOrigin.empty() &&
+          anchorPeers.count(it->second.lastOrigin))
+        continue;
       if (it->second.lastSeen < oldest) {
         oldest = it->second.lastSeen;
         victim = it;
@@ -4273,14 +4496,17 @@ bool Network::ensureEndpointCapacityLocked(bool incomingVerified) {
 void Network::rememberPeerEndpoint(const std::string &ip, int port) {
   if (ip == "127.0.0.1" || ip == "localhost")
     return;
-  if (isSelfPeer(ip))
+  if (isSelfEndpoint(ip, port)) {
+    recordSelfEndpoint(ip, port);
     return;
+  }
 
   std::string endpoint = ip + ":" + std::to_string(port);
+  const auto path = peersFilePath();
   std::lock_guard<std::mutex> lock(fileIOMutex);
 
   {
-    std::ifstream file("peers.txt");
+    std::ifstream file(path);
     if (file.is_open()) {
       std::string line;
       while (std::getline(file, line)) {
@@ -4291,13 +4517,15 @@ void Network::rememberPeerEndpoint(const std::string &ip, int port) {
     }
   }
 
-  std::ofstream out("peers.txt", std::ios::app);
+  std::ofstream out(path, std::ios::app);
   if (!out.is_open()) {
-    std::cerr << "⚠️ [peers.txt] Unable to append peer " << endpoint << "\n";
+    std::cerr << "⚠️ [peers.txt] Unable to append peer " << endpoint
+              << " to " << path << "\n";
     return;
   }
   out << endpoint << std::endl;
-  std::cout << "📝 [peers.txt] Remembering peer " << endpoint << std::endl;
+  std::cout << "📝 [peers.txt] Remembering peer " << endpoint << " in " << path
+            << std::endl;
   noteShareableEndpoint(ip, port, false);
 }
 
@@ -4319,6 +4547,225 @@ void Network::recordEndpointFailure(const std::string &host, int port) {
     rec.verified = false;
 }
 
+void Network::recordSelfEndpoint(const std::string &host, int port) {
+  if (host.empty() || port <= 0)
+    return;
+
+  std::string lowered = toLowerCopy(host);
+  std::lock_guard<std::mutex> lock(selfFilterMutex);
+  selfObservedAddrs.insert(lowered);
+  selfObservedAddrs.insert(host);
+  selfObservedEndpoints.insert(makeEndpointLabel(lowered, port));
+  selfObservedEndpoints.insert(makeEndpointLabel(host, port));
+}
+
+void Network::refreshLocalInterfaceCache() {
+  std::unordered_set<std::string> discovered;
+
+#ifndef _WIN32
+  struct ifaddrs *ifaddr = nullptr;
+  if (getifaddrs(&ifaddr) == 0) {
+    for (struct ifaddrs *ifa = ifaddr; ifa != nullptr; ifa = ifa->ifa_next) {
+      if (!ifa->ifa_addr)
+        continue;
+      int family = ifa->ifa_addr->sa_family;
+      if (family != AF_INET && family != AF_INET6)
+        continue;
+      char hostBuf[NI_MAXHOST];
+      if (getnameinfo(ifa->ifa_addr,
+                      family == AF_INET ? sizeof(struct sockaddr_in)
+                                        : sizeof(struct sockaddr_in6),
+                      hostBuf, sizeof(hostBuf), nullptr, 0, NI_NUMERICHOST) ==
+          0) {
+        discovered.insert(toLowerCopy(hostBuf));
+      }
+    }
+  }
+  if (ifaddr)
+    freeifaddrs(ifaddr);
+#else
+  WSADATA wsaData;
+  bool wsaReady = WSAStartup(MAKEWORD(2, 2), &wsaData) == 0;
+  char hostName[256];
+  if (gethostname(hostName, sizeof(hostName)) == 0) {
+    addrinfo hints{};
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_PASSIVE;
+    addrinfo *info = nullptr;
+    if (getaddrinfo(hostName, nullptr, &hints, &info) == 0) {
+      for (addrinfo *p = info; p != nullptr; p = p->ai_next) {
+        char buf[NI_MAXHOST];
+        if (getnameinfo(p->ai_addr, static_cast<socklen_t>(p->ai_addrlen), buf,
+                        sizeof(buf), nullptr, 0, NI_NUMERICHOST) == 0) {
+          discovered.insert(toLowerCopy(buf));
+        }
+      }
+      freeaddrinfo(info);
+    }
+  }
+  if (wsaReady)
+    WSACleanup();
+#endif
+
+  discovered.insert("127.0.0.1");
+  discovered.insert("localhost");
+  discovered.insert("::1");
+
+  std::lock_guard<std::mutex> lock(selfFilterMutex);
+  localInterfaceAddrs = std::move(discovered);
+}
+
+void Network::beginHeaderBridge(const std::string &peer) {
+  auto snapshot = getPeerSnapshot(peer);
+  if (!snapshot.state)
+    return;
+  auto ps = snapshot.state;
+
+  const auto &chain = Blockchain::getInstance().getChain();
+  if (chain.empty())
+    return;
+
+  int localHeight = static_cast<int>(chain.size()) - 1;
+  std::vector<int> targets;
+  targets.reserve(10);
+  targets.push_back(localHeight);
+  static const std::array<int, 7> kWindows{32, 64, 128, 256, 512, 1024, 2048};
+  for (int depth : kWindows) {
+    int target = std::max(0, localHeight - depth);
+    targets.push_back(target);
+  }
+
+  if (ps->headerBestCommonHeight >= 0 &&
+      localHeight - ps->headerBestCommonHeight > 1) {
+    int mid = ps->headerBestCommonHeight +
+              (localHeight - ps->headerBestCommonHeight) / 2;
+    if (mid > ps->headerBestCommonHeight)
+      targets.push_back(mid);
+  }
+
+  std::vector<std::string> anchors;
+  anchors.reserve(targets.size());
+  {
+    std::lock_guard<std::mutex> lk(ps->m);
+    if (ps->headerBridgeActive && !ps->headerAnchorsRequested.empty())
+      return;
+    ps->headerBridgeActive = true;
+    for (int targetHeight : targets) {
+      if (targetHeight < 0 || targetHeight >= static_cast<int>(chain.size()))
+        continue;
+      const std::string &hash =
+          chain[static_cast<size_t>(targetHeight)].getHash();
+      if (ps->headerAnchorsRequested.insert(hash).second)
+        anchors.push_back(hash);
+    }
+  }
+
+  if (anchors.empty()) {
+    std::lock_guard<std::mutex> lk(ps->m);
+    if (ps->headerAnchorsRequested.empty())
+      ps->headerBridgeActive = false;
+    return;
+  }
+
+  for (const auto &hash : anchors)
+    HeadersSync::requestHeaders(peer, hash);
+}
+
+void Network::handleHeaderResponse(
+    const std::string &peer,
+    const std::vector<HeadersSync::HeaderRecord> &headers) {
+  auto snapshot = getPeerSnapshot(peer);
+  if (!snapshot.state)
+    return;
+  auto ps = snapshot.state;
+
+  const auto &chain = Blockchain::getInstance().getChain();
+  if (chain.empty())
+    return;
+
+  int localHeight = static_cast<int>(chain.size()) - 1;
+  int bestHeight = ps->headerBestCommonHeight;
+  std::string bestHash = ps->headerBestCommonHash;
+  bool divergenceDetected = false;
+
+  if (!headers.empty()) {
+    const std::string &anchorHash = headers.front().previousHash;
+    if (!anchorHash.empty()) {
+      std::lock_guard<std::mutex> lk(ps->m);
+      ps->headerAnchorsRequested.erase(anchorHash);
+    }
+  }
+
+  for (const auto &hdr : headers) {
+    const std::string &hash = hdr.hash;
+    Block local{};
+    if (Blockchain::getInstance().getBlockByHash(hash, local)) {
+      int idx = local.getIndex();
+      if (idx > bestHeight) {
+        bestHeight = idx;
+        bestHash = local.getHash();
+      }
+      continue;
+    }
+    const std::string &prev = hdr.previousHash;
+    Block prevLocal{};
+    if (Blockchain::getInstance().getBlockByHash(prev, prevLocal)) {
+      int idx = prevLocal.getIndex();
+      if (idx > bestHeight) {
+        bestHeight = idx;
+        bestHash = prevLocal.getHash();
+      }
+      divergenceDetected = true;
+    }
+  }
+
+  if (bestHeight > ps->headerBestCommonHeight && !bestHash.empty()) {
+    {
+      std::lock_guard<std::mutex> lk(ps->m);
+      ps->headerBestCommonHeight = bestHeight;
+      ps->headerBestCommonHash = bestHash;
+    }
+    if (peerManager)
+      peerManager->recordCommonAncestor(peer, bestHash, bestHeight);
+  }
+
+  if (divergenceDetected && bestHeight >= 0 &&
+      bestHeight < static_cast<int>(chain.size())) {
+    const std::string &anchor = chain[static_cast<size_t>(bestHeight)].getHash();
+    requestTailBlocks(peer, bestHeight, anchor);
+    {
+      std::lock_guard<std::mutex> lk(ps->m);
+      ps->headerBridgeActive = false;
+      ps->headerAnchorsRequested.clear();
+      ps->headerLastBinaryProbe = -1;
+    }
+  }
+
+  if (bestHeight >= 0 && localHeight - bestHeight > 1) {
+    int mid = bestHeight + (localHeight - bestHeight) / 2;
+    if (mid > bestHeight && mid < localHeight) {
+      std::string midHash = chain[static_cast<size_t>(mid)].getHash();
+      bool shouldRequest = false;
+      {
+        std::lock_guard<std::mutex> lk(ps->m);
+        if (ps->headerAnchorsRequested.insert(midHash).second) {
+          shouldRequest = true;
+          ps->headerLastBinaryProbe = mid;
+        }
+      }
+      if (shouldRequest)
+        HeadersSync::requestHeaders(peer, midHash);
+    }
+  }
+
+  {
+    std::lock_guard<std::mutex> lk(ps->m);
+    if (ps->headerAnchorsRequested.empty() && !divergenceDetected)
+      ps->headerBridgeActive = false;
+  }
+}
+
 // ✅ **Broadcast Latest Block Correctly (Base64 Encoded)**
 void Network::sendLatestBlock(const std::string &peerIP) {
   Blockchain &blockchain = Blockchain::getInstance();
@@ -4330,19 +4777,19 @@ void Network::sendLatestBlock(const std::string &peerIP) {
 
 void Network::sendInventory(const std::string &peer) {
   Blockchain &bc = Blockchain::getInstance();
-  auto it = peerTransports.find(peer);
-  if (it == peerTransports.end() || !it->second.tx)
+  auto snapshot = getPeerSnapshot(peer);
+  if (!snapshot.transport || !snapshot.transport->isOpen())
     return;
   uint32_t start = 0;
-  if (it->second.state)
-    start = it->second.state->highestSeen + 1;
+  if (snapshot.state)
+    start = snapshot.state->highestSeen + 1;
   const auto &chain = bc.getChain();
   for (size_t i = start; i < chain.size(); i += MAX_INV_PER_MSG) {
     alyncoin::net::Frame fr;
     auto *inv = fr.mutable_inv();
     for (size_t j = i; j < chain.size() && j < i + MAX_INV_PER_MSG; ++j)
       inv->add_hashes(chain[j].getHash());
-    sendFrame(it->second.tx, fr);
+    sendFrame(snapshot.transport, fr);
   }
 }
 
@@ -4495,35 +4942,27 @@ void Network::broadcastEpochProof(int epochIdx, const std::string &rootHash,
 }
 //
 bool Network::peerSupportsAggProof(const std::string &peerId) const {
-  auto it = peerTransports.find(peerId);
-  if (it == peerTransports.end())
-    return false;
-  auto st = it->second.state;
-  return st ? st->supportsAggProof : false;
+  if (auto snapshot = getPeerSnapshot(peerId); snapshot.state)
+    return snapshot.state->supportsAggProof;
+  return false;
 }
 //
 bool Network::peerSupportsSnapshot(const std::string &peerId) const {
-  auto it = peerTransports.find(peerId);
-  if (it == peerTransports.end())
-    return false;
-  auto st = it->second.state;
-  return st ? st->supportsSnapshot : false;
+  if (auto snapshot = getPeerSnapshot(peerId); snapshot.state)
+    return snapshot.state->supportsSnapshot;
+  return false;
 }
 
 bool Network::peerSupportsWhisper(const std::string &peerId) const {
-  auto it = peerTransports.find(peerId);
-  if (it == peerTransports.end())
-    return false;
-  auto st = it->second.state;
-  return st ? st->supportsWhisper : false;
+  if (auto snapshot = getPeerSnapshot(peerId); snapshot.state)
+    return snapshot.state->supportsWhisper;
+  return false;
 }
 
 bool Network::peerSupportsTls(const std::string &peerId) const {
-  auto it = peerTransports.find(peerId);
-  if (it == peerTransports.end())
-    return false;
-  auto st = it->second.state;
-  return st ? st->supportsTls : false;
+  if (auto snapshot = getPeerSnapshot(peerId); snapshot.state)
+    return snapshot.state->supportsTls;
+  return false;
 }
 //
 void Network::sendSnapshot(const std::string &peerId,
@@ -4532,10 +4971,7 @@ void Network::sendSnapshot(const std::string &peerId,
   if (!transport)
     return;
 
-  std::shared_ptr<PeerState> ps;
-  auto it = peerTransports.find(peerId);
-  if (it != peerTransports.end())
-    ps = it->second.state;
+  auto ps = getPeerSnapshot(peerId).state;
 
   if (preferredChunk == 0 && ps)
     preferredChunk = ps->snapshotChunkPreference;
@@ -4715,10 +5151,10 @@ void Network::sendTailBlocks(std::shared_ptr<Transport> transport,
 
 void Network::handleSnapshotMeta(const std::string &peer,
                                  const alyncoin::net::SnapshotMeta &meta) {
-  auto it = peerTransports.find(peer);
-  if (it == peerTransports.end() || !it->second.state)
+  auto snapshot = getPeerSnapshot(peer);
+  if (!snapshot.state)
     return;
-  auto ps = it->second.state;
+  auto ps = snapshot.state;
   ps->snapshotExpectBytes = meta.total_bytes();
   ps->snapshotRoot = meta.root_hash();
   ps->snapshotReceived = 0;
@@ -4732,10 +5168,10 @@ void Network::handleSnapshotAck(const std::string &peer, uint32_t /*seq*/) {
 //
 void Network::handleSnapshotChunk(const std::string &peer,
                                   const std::string &chunk) {
-  auto it = peerTransports.find(peer);
-  if (it == peerTransports.end() || !it->second.state)
+  auto snapshot = getPeerSnapshot(peer);
+  if (!snapshot.state)
     return;
-  auto ps = it->second.state;
+  auto ps = snapshot.state;
   if (chunk.empty()) {
     std::cerr << "[SNAPSHOT] empty chunk from " << peer << '\n';
     return;
@@ -4756,21 +5192,22 @@ void Network::handleSnapshotChunk(const std::string &peer,
   ps->snapshotActive = true;
   alyncoin::net::Frame ack;
   ack.mutable_snapshot_ack()->set_seq(ps->snapshotReceived);
-  sendFrame(it->second.tx, ack);
+  if (snapshot.transport && snapshot.transport->isOpen())
+    sendFrame(snapshot.transport, ack);
 }
 
 //
 void Network::handleTailRequest(const std::string &peer, int fromHeight) {
-  auto it = peerTransports.find(peer);
-  if (it == peerTransports.end() || !it->second.tx)
+  auto snapshot = getPeerSnapshot(peer);
+  if (!snapshot.transport || !snapshot.transport->isOpen())
     return;
-  sendTailBlocks(it->second.tx, fromHeight, peer);
+  sendTailBlocks(snapshot.transport, fromHeight, peer);
 }
 void Network::handleSnapshotEnd(const std::string &peer) {
-  auto it = peerTransports.find(peer);
-  if (it == peerTransports.end() || !it->second.state)
+  auto snapshot = getPeerSnapshot(peer);
+  if (!snapshot.state)
     return;
-  auto ps = it->second.state;
+  auto ps = snapshot.state;
   std::cerr << "[SNAPSHOT] 🔴 SnapshotEnd from " << peer
             << ", total buffered=" << ps->snapshotB64.size() << " bytes\n";
 
@@ -4919,9 +5356,8 @@ void Network::handleTailBlocks(const std::string &peer,
       throw std::runtime_error("Bad tailblocks");
     Blockchain &chain = Blockchain::getInstance();
     std::string anchor;
-    auto itP = peerTransports.find(peer);
-    if (itP != peerTransports.end() && itP->second.state)
-      anchor = itP->second.state->lastTailAnchor;
+    if (auto state = getPeerSnapshot(peer).state)
+      anchor = state->lastTailAnchor;
     if (!anchor.empty() && chain.getLatestBlockHash() != anchor) {
       requestTailBlocks(peer, chain.getHeight(), chain.getLatestBlockHash());
       return;
@@ -4942,7 +5378,7 @@ void Network::handleTailBlocks(const std::string &peer,
     if (pos == blocks.size()) {
       std::cerr << "⚠️ [TAIL_BLOCKS] No connector from peer " << peer
                 << "; requesting headers to bridge gap.\n";
-      HeadersSync::requestHeaders(peer, chain.getLatestBlockHash());
+      beginHeaderBridge(peer);
       syncing = true;
       return;
     }
@@ -4961,14 +5397,18 @@ void Network::handleTailBlocks(const std::string &peer,
               << "\n";
 
     // Reset any snapshot sync state now that tail sync succeeded
-    auto itSnap = peerTransports.find(peer);
-    if (itSnap != peerTransports.end() && itSnap->second.state) {
-      auto st = itSnap->second.state;
-      st->snapshotActive = false;
-      st->snapState = PeerState::SnapState::Idle;
-      st->snapshotB64.clear();
-      st->snapshotReceived = 0;
-      st->snapshotExpectBytes = 0;
+    if (auto state = getPeerSnapshot(peer).state) {
+      state->snapshotActive = false;
+      state->snapState = PeerState::SnapState::Idle;
+      state->snapshotB64.clear();
+      state->snapshotReceived = 0;
+      state->snapshotExpectBytes = 0;
+      {
+        std::lock_guard<std::mutex> lk(state->m);
+        state->headerBridgeActive = false;
+        state->headerAnchorsRequested.clear();
+        state->headerLastBinaryProbe = -1;
+      }
     }
 
     if (peerManager)
@@ -5028,10 +5468,10 @@ void Network::handleBlockBatch(const std::string &peer,
 
 //
 void Network::requestSnapshotSync(const std::string &peer) {
-  auto it = peerTransports.find(peer);
-  if (it == peerTransports.end() || !it->second.tx)
+  auto snapshot = getPeerSnapshot(peer);
+  if (!snapshot.transport || !snapshot.transport->isOpen())
     return;
-  auto ps = it->second.state;
+  auto ps = snapshot.state;
   if (ps) {
     ps->snapState = PeerState::SnapState::WaitMeta;
     ps->snapshotB64.clear();
@@ -5040,44 +5480,44 @@ void Network::requestSnapshotSync(const std::string &peer) {
   }
   alyncoin::net::Frame fr;
   fr.mutable_snapshot_req();
-  sendFrame(it->second.tx, fr);
+  sendFrame(snapshot.transport, fr);
 }
 
 void Network::requestTailBlocks(const std::string &peer, int fromHeight,
                                 const std::string &anchorHash) {
-  auto it = peerTransports.find(peer);
-  if (it == peerTransports.end() || !it->second.tx)
+  auto snapshot = getPeerSnapshot(peer);
+  if (!snapshot.transport || !snapshot.transport->isOpen())
     return;
   alyncoin::net::Frame fr;
   auto *req = fr.mutable_tail_req();
   req->set_from_height(fromHeight);
   req->set_anchor_hash(anchorHash);
-  if (it->second.state)
-    it->second.state->lastTailAnchor = anchorHash;
-  sendFrame(it->second.tx, fr);
+  if (snapshot.state)
+    snapshot.state->lastTailAnchor = anchorHash;
+  sendFrame(snapshot.transport, fr);
 }
 
 void Network::requestBlockByHash(const std::string &peer,
                                  const std::string &hash) {
-  auto it = peerTransports.find(peer);
-  if (it == peerTransports.end() || !it->second.tx)
+  auto snapshot = getPeerSnapshot(peer);
+  if (!snapshot.transport || !snapshot.transport->isOpen())
     return;
   alyncoin::net::Frame fr;
   fr.mutable_get_data()->add_hashes(hash);
-  sendFrame(it->second.tx, fr);
+  sendFrame(snapshot.transport, fr);
 }
 //
 void Network::sendForkRecoveryRequest(const std::string &peer,
                                       const std::string &tip) {
-  auto it = peerTransports.find(peer);
-  if (it == peerTransports.end() || !it->second.tx)
+  auto snapshot = getPeerSnapshot(peer);
+  if (!snapshot.transport || !snapshot.transport->isOpen())
     return;
   alyncoin::net::Frame fr;
   if (!tip.empty())
     fr.mutable_snapshot_req()->set_until_hash(tip);
   else
     fr.mutable_snapshot_req();
-  sendFrame(it->second.tx, fr);
+  sendFrame(snapshot.transport, fr);
 }
 
 void Network::handleBlockchainSyncRequest(
