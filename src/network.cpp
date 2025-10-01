@@ -4214,6 +4214,31 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     std::cerr << "[connectToNode] raw handshake bytes size=" << blob.size()
               << " first32=" << dumpHex(blob.data(), blob.size()) << '\n';
 
+    if (blob.empty()) {
+      bool selfDetected = false;
+      if (!socketIp.empty() && isSelfEndpoint(socketIp, remotePort)) {
+        recordSelfEndpoint(socketIp, remotePort);
+        selfDetected = true;
+      }
+      if (isSelfEndpoint(host, remotePort)) {
+        recordSelfEndpoint(host, remotePort);
+        selfDetected = true;
+      }
+      if (selfDetected) {
+        attemptGuard.success = true;
+        if (hideEndpoints) {
+          std::cout << "🛑 [connectToNode] Remote endpoint resolved to this node"
+                    << " (hidden). Skipping self-connection." << '\n';
+        } else {
+          std::cout << "🛑 [connectToNode] Remote endpoint " << logTarget
+                    << " resolved to this node. Skipping self-connection."
+                    << '\n';
+        }
+        tx->closeGraceful();
+        return false;
+      }
+    }
+
     bool theirAgg = false;
     bool theirSnap = false;
     bool theirWhisper = false;
