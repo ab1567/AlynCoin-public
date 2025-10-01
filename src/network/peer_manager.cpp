@@ -152,8 +152,12 @@ void PeerManager::announcePeerConnected(const std::string& peer_id) {
         }
     }
 
-    network->broadcastPeerList();
-    network->requestPeerList();
+    // Requesting or broadcasting peer lists here can interleave with the
+    // initial binary handshake.  Older nodes expect the very first frame they
+    // receive to be a Handshake message; sending a peer list before the
+    // handshake reply causes them to abort the connection.  The network layer
+    // already issues the necessary peer list requests once the handshake is
+    // fully established, so avoid doing it eagerly from the peer manager.
 }
 
 bool PeerManager::registerPeer(const std::string &peer_id) {
