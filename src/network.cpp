@@ -2585,7 +2585,7 @@ std::vector<std::string> Network::getPeers() {
   return peerList;
 }
 
-std::unordered_map<std::string, Network::PeerEntry>
+std::unordered_map<std::string, PeerEntry>
 Network::getPeerTableSnapshot() const {
   std::lock_guard<std::timed_mutex> lk(peersMutex);
   return peerTransports;
@@ -3517,9 +3517,9 @@ void Network::startBinaryReadLoop(const std::string &peerId,
                                   std::shared_ptr<Transport> transport) {
   if (!transport || !transport->isOpen())
     return;
-  auto cb = [this, peerId](const boost::system::error_code &ec,
+  const auto peerLabel = labelForPeer(peerId);
+  auto cb = [this, peerId, peerLabel](const boost::system::error_code &ec,
                            const std::string &blob) {
-    const auto peerLabel = labelForPeer(peerId);
     if (ec) {
       std::cerr << "[readLoop] " << peerLabel << " closed (" << ec.message()
                 << ")\n";

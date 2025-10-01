@@ -409,7 +409,7 @@ bool PeerManager::fetchBlockAtHeight(int height, Block& outBlock) {
     };
 
     auto peersSnapshot = getConnectedPeerIds();
-    std::unordered_map<std::string, Network::PeerEntry> tableSnapshot;
+    std::unordered_map<std::string, PeerEntry> tableSnapshot;
     if (network) {
         tableSnapshot = network->getPeerTableSnapshot();
     }
