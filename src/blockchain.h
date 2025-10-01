@@ -74,6 +74,7 @@ private:
   std::string minerAddress;
   Network *network;
   rocksdb::DB *db;
+  std::vector<rocksdb::ColumnFamilyHandle *> columnFamilyHandles;
   rocksdb::ColumnFamilyHandle* cfCheck{nullptr};
   int checkpointHeight{0};
   std::unordered_map<std::string, double> balances;
