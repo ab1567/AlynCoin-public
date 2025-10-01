@@ -52,6 +52,15 @@ namespace {
 std::mutex gCliOutputMutex;
 std::atomic<bool> gShutdownRequested{false};
 
+[[noreturn]] void exitImmediately() {
+  {
+    std::lock_guard<std::mutex> lock(gCliOutputMutex);
+    std::cout << "\n👋 Shutdown requested. Exiting immediately...\n";
+    std::cout.flush();
+  }
+  std::_Exit(0);
+}
+
 void handleShutdownSignal(int) {
   gShutdownRequested.store(true, std::memory_order_relaxed);
 }
@@ -1725,8 +1734,8 @@ static bool handleNodeMenuSelection(int choice, Blockchain &blockchain,
   }
 
   case 9:
-    std::cout << "Shutting down AlynCoin Node...\n";
-    return false;
+    exitImmediately();
+    return false; // Unreachable, satisfies compiler
 
   case 10:
     std::cout << "🩺 Manually triggering self-healing check...\n";
@@ -2976,8 +2985,7 @@ int main(int argc, char *argv[]) {
 
   while (running) {
     if (gShutdownRequested.load(std::memory_order_relaxed)) {
-      std::cout << "\n👋 Shutdown requested. Exiting...\n";
-      break;
+      exitImmediately();
     }
     std::cout << "\n=== AlynCoin Node CLI ===\n";
     std::cout << "1. View Blockchain Stats\n";
@@ -2998,9 +3006,7 @@ int main(int argc, char *argv[]) {
     if (!(std::cin >> choice)) {
       if (gShutdownRequested.load(std::memory_order_relaxed) ||
           std::cin.eof()) {
-        std::cout << "\n👋 Shutdown requested. Exiting...\n";
-        running = false;
-        break;
+        exitImmediately();
       }
       if (std::cin.bad()) {
         std::cerr << "\nFatal input stream error. Exiting CLI loop.\n";
@@ -3012,8 +3018,7 @@ int main(int argc, char *argv[]) {
       continue;
     }
     if (gShutdownRequested.load(std::memory_order_relaxed)) {
-      std::cout << "\n👋 Shutdown requested. Exiting...\n";
-      break;
+      exitImmediately();
     }
     running = handleNodeMenuSelection(choice, blockchain, network, healer, keyDir);
   }
