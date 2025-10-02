@@ -287,9 +287,6 @@ private:
   void recordEndpointFailure(const std::string &host, int port);
   void recordSelfEndpoint(const std::string &host, int port);
   void refreshLocalInterfaceCache();
-  bool sendLegacySnapshot(const std::string &peerId,
-                          std::shared_ptr<Transport> transport,
-                          int upToHeight);
   bool shouldServeHeavyData(const std::string &peerId,
                             int remoteHeightHint = -1);
   void noteBlockRequested(const std::string &peer, const std::string &hash);
