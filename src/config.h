@@ -23,6 +23,7 @@ struct AppConfig {
     double por_expected_walyn = 0.0;        // expected wrapped supply for PoR comparison
     std::string external_address;           // externally reachable <ip:port>
     bool hide_peer_endpoints = true;        // suppress peer IP/port details in UIs
+    bool hairpin_probe = false;             // disable hairpin self-dial by default
 };
 
 AppConfig& getAppConfig();

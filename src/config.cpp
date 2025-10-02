@@ -47,6 +47,8 @@ void loadConfigFile(const std::string &path) {
             cfg.external_address = line.substr(17);
         } else if (line.rfind("hide_peer_endpoints=", 0) == 0) {
             cfg.hide_peer_endpoints = parseBool(line.substr(20));
+        } else if (line.rfind("hairpin_probe=", 0) == 0) {
+            cfg.hairpin_probe = parseBool(line.substr(13));
         }
     }
 }
