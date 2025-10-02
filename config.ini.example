@@ -7,4 +7,3 @@ reserve_address=
 por_expected_walyn=0
 external_address=
 hide_peer_endpoints=true
-hairpin_probe=false

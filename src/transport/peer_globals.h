@@ -57,7 +57,6 @@ struct PeerState {
   std::string headerBestCommonHash;
   int headerLastBinaryProbe{-1};
   bool handshakeComplete{false};
-  std::unordered_set<std::string> pendingBlockRequests;
   std::mutex m;
 };
 
