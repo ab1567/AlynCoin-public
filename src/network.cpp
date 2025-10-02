@@ -912,11 +912,11 @@ alyncoin::net::Handshake Network::buildHandshake() const {
     hs.set_observed_ip(announce.first);
   return hs;
 }
-// Fallback peer in case DNS TXT lookup returns no peers.
-// Uses the domain seed rather than a hard-coded IP so the
-// network can migrate hosts without code changes.
+// Fallback peers in case DNS TXT lookup returns no results.
+// Keep these as concrete IP:port pairs so we never attempt to dial the DNS
+// seed domain itself (which would fail the protocol handshake).
 static const std::vector<std::string> DEFAULT_DNS_PEERS = {
-    "peers.alyncoin.com:15671"};
+    "136.112.66.121:15671"};
 
 std::vector<std::string> fetchPeersFromDNS(const std::string &domain);
 

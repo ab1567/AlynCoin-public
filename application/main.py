@@ -96,11 +96,10 @@ def acquire_single_instance(name: str) -> bool:
             return False
     return True
 
-# Fallback peer if DNS resolution fails. This mirrors the seed in
-# src/network.cpp but avoids embedding a fixed IP so DNS changes
-# propagate automatically.
+# Fallback peers if DNS resolution fails. These must be concrete IP:port pairs
+# so the UI never tries to handshake with the DNS seed domain itself.
 DEFAULT_DNS_PEERS = [
-    "peers.alyncoin.com:15671",
+    "136.112.66.121:15671",
 ]
 
 # Keep track of the launched node process so we can terminate it on exit
