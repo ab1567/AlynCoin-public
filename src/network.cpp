@@ -2913,6 +2913,9 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
       std::cerr
           << "⚠️ [Fork Detected] Previous hash mismatch at incoming block.\n";
 
+      if (!sender.empty())
+        beginHeaderBridge(sender);
+
       blockchain.saveForkView({newBlock});
 
       Blockchain::ValidationResult vr{};
@@ -2947,6 +2950,8 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
     if (!blockchain.hasBlockHash(newBlock.getHash())) {
       std::cerr
           << "🧐 [Node] Unknown historical block. Requesting fork recovery.\n";
+      if (!sender.empty())
+        beginHeaderBridge(sender);
       blockchain.setPendingForkChain({newBlock});
       for (const auto &peer : peerTransports) {
         sendForkRecoveryRequest(peer.first, newBlock.getHash());
@@ -2964,6 +2969,8 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
     futureBlockBuffer[newBlock.getIndex()] = newBlock;
 
     if (newBlock.getIndex() > expectedIndex + 5) {
+      if (!sender.empty())
+        beginHeaderBridge(sender);
       for (const auto &peer : peerTransports) {
         sendForkRecoveryRequest(peer.first, newBlock.getHash());
       }
@@ -3146,6 +3153,7 @@ std::string Network::requestBlockchainSync(const std::string &peer) {
   } else if (peerHeight == localHeight && !peerTip.empty() &&
              peerTip != localTip) {
     if (peerWork >= localWork) {
+      beginHeaderBridge(peer);
       std::cout << "📡 [SYNC] Tip mismatch with peer " << peer
                 << ", requesting block " << peerTip.substr(0, 8) << "...\n";
       requestBlockByHash(peer, peerTip);
