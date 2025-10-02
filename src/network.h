@@ -225,7 +225,7 @@ private:
   std::string publicPeerId;
   std::string configuredExternalAddress;
   bool configuredExternalExplicit{false};
-  bool hairpinCheckAttempted{false};
+  std::atomic<bool> hairpinCheckAttempted{false};
   std::string nodeId; // stable identifier for this node
   uint64_t localHandshakeNonce{0};
   struct BanEntry {
