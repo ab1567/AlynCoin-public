@@ -5287,17 +5287,13 @@ void Network::sendTailBlocks(std::shared_ptr<Transport> transport,
   const int myHeight = bc.getHeight();
   if (fromHeight < 0 || fromHeight >= myHeight)
     return;
-  auto snapshot = getPeerSnapshot(peerId);
-  auto ps = snapshot.state;
-  if (!ps)
+  auto it = peerTransports.find(peerId);
+  if (it == peerTransports.end() || !it->second.state)
     return;
-
+  auto ps = it->second.state;
   int effectiveFrom = fromHeight;
-  {
-    std::lock_guard<std::mutex> guard(ps->m);
-    if (effectiveFrom < ps->lastTailHeight)
-      effectiveFrom = ps->lastTailHeight;
-  }
+  if (effectiveFrom < ps->lastTailHeight)
+    effectiveFrom = ps->lastTailHeight;
   if (effectiveFrom >= myHeight) {
     std::cerr << "[sendTailBlocks] aborting: peer height >= local height\n";
     return;
@@ -5311,15 +5307,6 @@ void Network::sendTailBlocks(std::shared_ptr<Transport> transport,
     alyncoin::net::Frame f;
     *f.mutable_tail_blocks() = tb;
     sendFrame(transport, f);
-  };
-
-  auto updateTailProgress = [&](uint32_t highest, bool updateTailState) {
-    if (!ps)
-      return;
-    std::lock_guard<std::mutex> guard(ps->m);
-    ps->highestSeen = std::max(ps->highestSeen, highest);
-    if (updateTailState)
-      ps->lastTailHeight = static_cast<int>(highest);
   };
 
   auto sendRange = [&](int rangeStart, int rangeEnd, bool updateTailState) {
@@ -5344,23 +5331,20 @@ void Network::sendTailBlocks(std::shared_ptr<Transport> transport,
       current += add;
     }
     flushTail(proto);
-    updateTailProgress(static_cast<uint32_t>(rangeEnd), updateTailState);
+    if (!ps)
+      return;
+    ps->highestSeen = std::max(ps->highestSeen, static_cast<uint32_t>(rangeEnd));
+    if (updateTailState)
+      ps->lastTailHeight = rangeEnd;
   };
 
   const int gap = myHeight - effectiveFrom;
-  bool needFastCatchup = false;
-  if (myHeight > 0 && gap > FAST_SYNC_TRIGGER_GAP) {
-    std::lock_guard<std::mutex> guard(ps->m);
-    if (!ps->sentFastCatchup)
-      needFastCatchup = true;
-  }
-  if (needFastCatchup) {
+  if (ps && !ps->sentFastCatchup && gap > FAST_SYNC_TRIGGER_GAP && myHeight > 0) {
     int previewEnd = myHeight;
     int previewStart = std::max(effectiveFrom + 1,
                                 previewEnd - FAST_SYNC_RECENT_BLOCKS + 1);
     if (previewStart <= previewEnd) {
       sendRange(previewStart, previewEnd, false);
-      std::lock_guard<std::mutex> guard(ps->m);
       ps->sentFastCatchup = true;
     }
   }
