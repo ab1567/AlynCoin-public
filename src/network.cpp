@@ -5083,7 +5083,7 @@ bool Network::peerSupportsTls(const std::string &peerId) const {
 void Network::sendSnapshot(const std::string &peerId,
                            std::shared_ptr<Transport> transport,
                            int upToHeight, size_t preferredChunk) {
-  if (!transport || !transport->isOpen())
+  if (!transport)
     return;
 
   auto ps = getPeerSnapshot(peerId).state;
@@ -5144,21 +5144,6 @@ void Network::sendSnapshot(const std::string &peerId,
     height = 0;
   int start =
       height >= MAX_SNAPSHOT_BLOCKS ? height - MAX_SNAPSHOT_BLOCKS + 1 : 0;
-  if (ps && ps->frameRev != kFrameRevision) {
-    if (ps->frameRev == 0)
-      std::cerr << "ℹ️  [Snapshot] Peer " << peerId
-                << " uses legacy frame_rev=0; using block_batch fallback.\n";
-    else
-      std::cerr << "⚠️ [Snapshot] Peer " << peerId
-                << " advertises frame_rev=" << ps->frameRev
-                << "; using block_batch fallback.\n";
-    if (sendLegacySnapshot(peerId, transport, height)) {
-      if (ps)
-        ps->lastSnapshotServed = std::chrono::steady_clock::now();
-      completed = true;
-    }
-    return;
-  }
   std::vector<Block> blocks = bc.getChainSlice(start, height);
   SnapshotProto snap;
   snap.set_height(height);
@@ -5675,73 +5660,6 @@ void Network::sendForkRecoveryRequest(const std::string &peer,
   else
     fr.mutable_snapshot_req();
   sendFrame(snapshot.transport, fr);
-}
-
-bool Network::sendLegacySnapshot(const std::string &peerId,
-                                 std::shared_ptr<Transport> transport,
-                                 int upToHeight) {
-  if (!transport || !transport->isOpen())
-    return false;
-
-  Blockchain &bc = Blockchain::getInstance();
-  int height = upToHeight < 0 ? bc.getHeight() : upToHeight;
-  if (height > bc.getHeight())
-    height = bc.getHeight();
-  if (height < 0)
-    height = 0;
-
-  int start =
-      height >= MAX_SNAPSHOT_BLOCKS ? height - MAX_SNAPSHOT_BLOCKS + 1 : 0;
-  std::vector<Block> blocks = bc.getChainSlice(start, height);
-  if (blocks.empty()) {
-    std::cerr << "⚠️ [SnapshotLegacy] No blocks to stream to " << peerId << '\n';
-    return false;
-  }
-
-  constexpr std::size_t LEGACY_BATCH_LIMIT = MAX_WIRE_PAYLOAD - 4096;
-  alyncoin::net::BlockBatch batch;
-  auto *chainProto = batch.mutable_chain();
-  chainProto->clear_blocks();
-  std::size_t currentBytes = 0;
-  auto flush = [&]() -> bool {
-    if (chainProto->blocks_size() == 0)
-      return true;
-    alyncoin::net::Frame fr;
-    *fr.mutable_block_batch() = batch;
-    if (!sendFrame(transport, fr)) {
-      std::cerr << "❌ [SnapshotLegacy] Failed to queue block batch for "
-                << peerId << '\n';
-      return false;
-    }
-    chainProto->clear_blocks();
-    currentBytes = 0;
-    return true;
-  };
-
-  std::size_t streamed = 0;
-  for (const auto &blk : blocks) {
-    alyncoin::BlockProto proto = blk.toProtobuf();
-    const std::size_t blockBytes = proto.ByteSizeLong();
-    if (blockBytes > MAX_WIRE_PAYLOAD) {
-      std::cerr << "⚠️ [SnapshotLegacy] Block " << blk.getIndex()
-                << " too large for legacy frame (" << blockBytes << " bytes)\n";
-      continue;
-    }
-    if (currentBytes && currentBytes + blockBytes > LEGACY_BATCH_LIMIT) {
-      if (!flush())
-        return false;
-    }
-    *chainProto->add_blocks() = std::move(proto);
-    currentBytes += blockBytes;
-    ++streamed;
-  }
-
-  if (!flush())
-    return false;
-
-  std::cerr << "ℹ️  [SnapshotLegacy] Streamed " << streamed
-            << " blocks to " << peerId << '\n';
-  return true;
 }
 
 void Network::handleBlockchainSyncRequest(
