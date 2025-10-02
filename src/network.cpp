@@ -5345,6 +5345,11 @@ void Network::handleSnapshotMeta(const std::string &peer,
   ps->snapshotReceived = 0;
   ps->snapshotB64.clear();
   ps->snapState = PeerState::SnapState::WaitChunks;
+  size_t advertised = static_cast<size_t>(meta.chunk_size());
+  size_t limit = MAX_SNAPSHOT_CHUNK_SIZE;
+  if (advertised > 0)
+    limit = std::min<std::size_t>(advertised, MAX_WIRE_PAYLOAD);
+  ps->snapshotChunkLimit = limit;
 }
 
 void Network::handleSnapshotAck(const std::string &peer, uint32_t /*seq*/) {
@@ -5365,8 +5370,15 @@ void Network::handleSnapshotChunk(const std::string &peer,
     std::cerr << "⚠️ [SNAPSHOT] Unexpected chunk from " << peer << '\n';
     return;
   }
-  if (chunk.size() > MAX_SNAPSHOT_CHUNK_SIZE) {
-    std::cerr << "⚠️ [SNAPSHOT] Oversized chunk, clearing buffer\n";
+  size_t limit = ps->snapshotChunkLimit;
+  if (limit == 0)
+    limit = MAX_SNAPSHOT_CHUNK_SIZE;
+  size_t hardCap = std::min<std::size_t>(limit + SNAPSHOT_CHUNK_TOLERANCE,
+                                         MAX_WIRE_PAYLOAD);
+  if (chunk.size() > hardCap) {
+    std::cerr << "⚠️ [SNAPSHOT] Oversized chunk from " << peer << " ("
+              << chunk.size() << " bytes > " << hardCap
+              << ") – clearing buffer\n";
     ps->snapshotActive = false;
     ps->snapState = PeerState::SnapState::Idle;
     ps->snapshotB64.clear();

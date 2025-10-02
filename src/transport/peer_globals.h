@@ -27,6 +27,7 @@ struct PeerState {
   bool snapshotActive{false};
   bool snapshotServing{false};
   size_t snapshotChunkPreference{0};
+  size_t snapshotChunkLimit{0};
   bool supportsAggProof{false};
   bool supportsSnapshot{false};
   bool supportsWhisper{false};
