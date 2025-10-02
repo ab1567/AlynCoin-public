@@ -2755,62 +2755,67 @@ void cancelTimer(Timer &timer) {
 } // namespace
 
 void Network::runHairpinCheck() {
-  if (hairpinCheckAttempted)
+  bool expected = false;
+  if (!hairpinCheckAttempted.compare_exchange_strong(expected, true))
     return;
-  hairpinCheckAttempted = true;
+
   auto endpoint = determineAnnounceEndpoint();
   if (endpoint.first.empty() || endpoint.second == 0)
     return;
   if (!isRoutableAddress(endpoint.first))
     return;
-  try {
-    boost::asio::io_context ctx;
-    tcp::socket sock(ctx);
-    tcp::endpoint target(boost::asio::ip::make_address(endpoint.first),
-                         endpoint.second);
-    boost::asio::steady_timer timer(ctx);
-    boost::system::error_code connectEc;
-    bool completed = false;
-    bool timedOut = false;
 
-    timer.expires_after(std::chrono::seconds(3));
-    timer.async_wait([&](const boost::system::error_code &ec) {
-      if (!ec && !completed) {
-        timedOut = true;
-        connectEc =
-            boost::asio::error::make_error_code(boost::asio::error::timed_out);
-        boost::system::error_code cancelEc;
-        sock.cancel(cancelEc);
+  recordSelfEndpoint(endpoint.first, static_cast<int>(endpoint.second));
+
+  std::thread([endpoint]() {
+    try {
+      boost::asio::io_context ctx;
+      tcp::socket sock(ctx);
+      tcp::endpoint target(boost::asio::ip::make_address(endpoint.first),
+                           endpoint.second);
+      boost::asio::steady_timer timer(ctx);
+      boost::system::error_code connectEc;
+      bool completed = false;
+      bool timedOut = false;
+
+      timer.expires_after(std::chrono::seconds(3));
+      timer.async_wait([&](const boost::system::error_code &ec) {
+        if (!ec && !completed) {
+          timedOut = true;
+          connectEc = boost::asio::error::make_error_code(
+              boost::asio::error::timed_out);
+          boost::system::error_code cancelEc;
+          sock.cancel(cancelEc);
+        }
+      });
+
+      sock.async_connect(target, [&](const boost::system::error_code &ec) {
+        if (completed)
+          return;
+        completed = true;
+        if (!timedOut)
+          connectEc = ec;
+        cancelTimer(timer);
+      });
+
+      ctx.run();
+
+      if (timedOut || connectEc) {
+        std::string reason =
+            timedOut ? "connection timed out" : connectEc.message();
+        std::cerr << "⚠️ [NAT] Hairpin test failed for " << endpoint.first << ':'
+                  << endpoint.second << " — " << reason
+                  << ". Will rely on DNS/bootstrap peers.\n";
+      } else {
+        std::cout << "✅ [NAT] Hairpin test succeeded for " << endpoint.first
+                  << ':' << endpoint.second << '\n';
+        boost::system::error_code closeEc;
+        sock.close(closeEc);
       }
-    });
-
-    sock.async_connect(target, [&](const boost::system::error_code &ec) {
-      if (completed)
-        return;
-      completed = true;
-      if (!timedOut)
-        connectEc = ec;
-      cancelTimer(timer);
-    });
-
-    ctx.run();
-
-    if (timedOut || connectEc) {
-      std::string reason =
-          timedOut ? "connection timed out"
-                   : connectEc.message();
-      std::cerr << "⚠️ [NAT] Hairpin test failed for " << endpoint.first << ':'
-                << endpoint.second << " — " << reason
-                << ". Will rely on DNS/bootstrap peers.\n";
-    } else {
-      std::cout << "✅ [NAT] Hairpin test succeeded for " << endpoint.first << ':'
-                << endpoint.second << '\n';
-      boost::system::error_code closeEc;
-      sock.close(closeEc);
+    } catch (const std::exception &ex) {
+      std::cerr << "⚠️ [NAT] Hairpin test error: " << ex.what() << '\n';
     }
-  } catch (const std::exception &ex) {
-    std::cerr << "⚠️ [NAT] Hairpin test error: " << ex.what() << '\n';
-  }
+  }).detach();
 }
 //
 
