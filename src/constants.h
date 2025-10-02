@@ -29,10 +29,6 @@ inline constexpr int DESYNC_THRESHOLD = 5000;
 // at 256 KiB to avoid overrunning peer receive windows.
 // Keeping below MAX_WIRE_PAYLOAD to account for frame overhead
 inline constexpr std::size_t MAX_SNAPSHOT_CHUNK_SIZE = 250 * 1024; // 250 KiB
-// Older peers silently drop frames that exceed ~64 KiB. Use this cap when
-// advertising or transmitting snapshot chunks to remain compatible while still
-// benefiting newer peers that can stream larger frames.
-inline constexpr std::size_t SNAPSHOT_COMPAT_CHUNK_CAP = 64 * 1024; // 64 KiB
 // Allow a little extra headroom for peers whose framing or encoding adds a
 // small amount of overhead on top of the advertised chunk size. Without this
 // tolerance the receiver may discard perfectly valid snapshot data that is only
