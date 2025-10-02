@@ -171,6 +171,14 @@ static std::string ipPrefix(const std::string &ip) {
   return count == 3 ? out : std::string();
 }
 
+static bool isNumericAddress(const std::string &ip) {
+  if (ip.empty())
+    return false;
+  boost::system::error_code ec;
+  boost::asio::ip::make_address(ip, ec);
+  return !ec;
+}
+
 static bool isRoutableAddress(const std::string &ip) {
   try {
     const auto addr = boost::asio::ip::make_address(ip);
@@ -428,6 +436,7 @@ static constexpr std::chrono::minutes PEERLIST_INTERVAL{5};
 static constexpr std::chrono::seconds PEERLIST_RATE_LIMIT{45};
 static constexpr size_t MAX_GOSSIP_PEERS = 64;
 static constexpr int MAX_PARALLEL_DIALS = 6;
+static constexpr int MAX_CONNECTIONS_PER_IP = 2;
 static constexpr std::chrono::hours ENDPOINT_TTL{std::chrono::hours(24 * 7)};
 static constexpr std::chrono::minutes ENDPOINT_RECENT_SUCCESS{30};
 #ifdef ENABLE_PEERLIST_LOGS
@@ -959,6 +968,8 @@ std::vector<PeerFileEntry> gatherBootstrapPeers() {
     auto parsed = parsePeerFileEntry(candidate);
     if (!parsed)
       return;
+    if (!isNumericAddress(parsed->host))
+      return;
     std::string key = parsed->host + ":" + std::to_string(parsed->port);
     if (seen.insert(key).second)
       peers.push_back(*parsed);
@@ -1207,7 +1218,7 @@ Network::Network(unsigned short port, Blockchain *blockchain,
   randombytes_buf(&localHandshakeNonce, sizeof(localHandshakeNonce));
   if (localHandshakeNonce == 0)
     localHandshakeNonce = 1; // reserve zero to denote "unknown"
-  refreshLocalInterfaceCache();
+  refreshLocalInterfaces();
   if (!blacklistPtr) {
     std::cerr
         << "❌ [FATAL] PeerBlacklist is null! Cannot initialize network.\n";
@@ -1841,7 +1852,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
       throw std::runtime_error("legacy peer – no binary_v1");
     claimedPeerId = hs.node_id().empty() ? realPeerId : hs.node_id();
     remoteNonce = hs.nonce();
-    if (remoteNonce != 0 && remoteNonce == localHandshakeNonce) {
+    if (isSelfNonce(remoteNonce)) {
       std::cout << "🛑 Self-connect ignored (nonce match) from " << realPeerId
                 << '\n';
       recordSelfEndpoint(realPeerId, finalPort);
@@ -1866,6 +1877,20 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     if (claimedNetwork != "mainnet") {
       std::cerr << "⚠️  [handlePeer] peer is on another network – dropped.\n";
       return;
+    }
+
+    if (!senderIP.empty()) {
+      std::lock_guard<std::timed_mutex> g(peersMutex);
+      int perIp = 0;
+      for (const auto &kv : peerTransports) {
+        if (kv.second.ip == senderIP)
+          ++perIp;
+      }
+      if (perIp >= MAX_CONNECTIONS_PER_IP) {
+        std::cerr << "⚠️  [handlePeer] per-IP limit reached for " << senderIP
+                  << '\n';
+        return;
+      }
     }
 
     std::string prefix = ipPrefix(senderIP);
@@ -1907,7 +1932,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
   }
 
   if (claimedPeerId == selfIdentity || realPeerId == selfIdentity ||
-      claimedPeerId == nodeId) {
+      isSelfNodeId(claimedPeerId)) {
     std::cout << "🛑 Self-connect ignored: " << claimedPeerId << '\n';
     recordSelfEndpoint(realPeerId, finalPort);
     recordSelfEndpoint(canonicalIp, finalPort);
@@ -2035,8 +2060,6 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     } else if (remoteAgg) {
       requestEpochHeaders(claimedPeerId);
     }
-  } else if (remoteHeight < static_cast<int>(myHeight) && remoteSnap) {
-    sendTailBlocks(transport, remoteHeight, claimedPeerId);
   }
 
   autoSyncIfBehind();
@@ -2300,11 +2323,6 @@ void Network::autoSyncIfBehind() {
       behind = true;
       std::cout << "  → tip mismatch, requesting missing block\n";
       requestBlockByHash(peerAddr, peerTip);
-    } else if (peerHeight < static_cast<int>(myHeight) && peerWork < myWork) {
-      if (peerSupportsSnapshot(peerAddr)) {
-        std::cout << "  → sending tail blocks\n";
-        sendTailBlocks(tr, peerHeight, peerAddr);
-      }
     }
   }
 
@@ -2344,10 +2362,15 @@ std::vector<std::string> Network::discoverPeers() {
   std::vector<std::string> peers;
   std::vector<std::string> dnsPeers = fetchPeersFromDNS("peers.alyncoin.com");
   for (const auto &peer : dnsPeers) {
-    if (!peer.empty()) {
-      std::cout << "🌐 [DNS] Found peer: " << peer << "\n";
-      peers.push_back(peer);
-    }
+    if (peer.empty())
+      continue;
+    auto parsed = parsePeerFileEntry(peer);
+    if (!parsed)
+      continue;
+    if (!isNumericAddress(parsed->host))
+      continue;
+    std::cout << "🌐 [DNS] Found peer: " << peer << "\n";
+    peers.push_back(peer);
   }
   return peers;
 }
@@ -2362,6 +2385,8 @@ void Network::connectToDiscoveredPeers() {
     std::string ip = peer.substr(0, pos);
     int port = std::stoi(peer.substr(pos + 1));
     std::string peerKey = ip;
+    if (!isNumericAddress(ip))
+      continue;
     if (isSelfEndpoint(ip, port)) {
       std::cout << "⚠️ Skipping self in discovered peers: " << peerKey << ':'
                 << port << "\n";
@@ -2397,12 +2422,6 @@ void Network::periodicSync() {
       }
       if (port > 0)
         connectToNode(host, port);
-      auto it2 = peerTransports.find(peerId);
-      if (it2 != peerTransports.end() && it2->second.tx &&
-          it2->second.tx->isOpen()) {
-        int ph = peerManager ? peerManager->getPeerHeight(peerId) : 0;
-        sendTailBlocks(it2->second.tx, ph, peerId);
-      }
       continue;
     }
 
@@ -2460,51 +2479,10 @@ void Network::sendStateProof(std::shared_ptr<Transport> tr) {
 void Network::broadcastBlock(const Block &block, bool /*force*/) {
   {
     std::lock_guard<std::mutex> lk(seenBlockMutex);
-    if (seenBlockHashes.count(block.getHash()))
+    if (!seenBlockHashes.insert(block.getHash()).second)
       return;
-    seenBlockHashes.insert(block.getHash());
   }
-  // Serialize to protobuf and then base64
-  alyncoin::BlockProto proto = block.toProtobuf();
-  std::string raw;
-  if (!proto.SerializeToString(&raw) || raw.empty()) {
-    std::cerr << "[BUG] EMPTY proto in broadcastBlock for idx="
-              << block.getIndex() << " hash=" << block.getHash() << "\n";
-    return;
-  }
-  // Pre-build binary frame
-  alyncoin::net::Frame fr;
-  *fr.mutable_block_broadcast()->mutable_block() = proto;
-
-  std::unordered_map<std::string, PeerEntry> peersCopy;
-  {
-    ScopedLockTracer _t("broadcastBlock");
-    std::unique_lock<std::timed_mutex> lk(peersMutex, std::defer_lock);
-    if (!lk.try_lock_for(std::chrono::milliseconds(500))) {
-      std::cerr << "⚠️ [broadcastBlock] peersMutex lock timeout\n";
-      return;
-    }
-    peersCopy = peerTransports;
-  }
-
-  std::set<std::shared_ptr<Transport>> seen;
-  for (auto &[peerId, entry] : peersCopy) {
-    auto transport = entry.tx;
-    if (isSelfPeer(peerId) || !transport || !transport->isOpen())
-      continue;
-    if (!seen.insert(transport).second)
-      continue;
-
-    bool ok = sendFrameImmediate(transport, fr);
-    if (!ok) {
-      std::cerr << "❌ failed to send block " << block.getIndex() << " to "
-                << peerId << " – marking peer offline" << '\n';
-      markPeerOffline(peerId);
-      continue;
-    }
-    std::cout << "✅ [broadcastBlock] Block " << block.getIndex() << " sent to "
-              << peerId << '\n';
-  }
+  broadcastINV({block.getHash()});
 }
 
 // Broadcast a batch of blocks (legacy path removed)
@@ -2578,22 +2556,34 @@ void Network::broadcastHandshake() {
   }
 }
 
-void Network::sendBlockToPeer(const std::string &peer, const Block &blk) {
-  {
-    std::lock_guard<std::mutex> lk(seenBlockMutex);
-    if (seenBlockHashes.count(blk.getHash()))
+void Network::sendBlockToPeer(const std::string &peer, const Block &blk,
+                              bool requireRequest) {
+  std::string raw;
+  auto snapshot = getPeerSnapshot(peer);
+  if (!snapshot.transport || !snapshot.transport->isOpen())
+    return;
+  if (requireRequest) {
+    bool allowed = false;
+    if (snapshot.state) {
+      std::lock_guard<std::mutex> guard(snapshot.state->m);
+      auto &pending = snapshot.state->pendingBlockRequests;
+      auto it = pending.find(blk.getHash());
+      if (it != pending.end()) {
+        pending.erase(it);
+        allowed = true;
+      }
+    }
+    if (!allowed) {
+      std::cerr << "⚠️ [sendBlockToPeer] refusing unsolicited block "
+                << blk.getIndex() << " to " << peer << '\n';
       return;
-    seenBlockHashes.insert(blk.getHash());
+    }
   }
   alyncoin::BlockProto proto = blk.toProtobuf();
-  std::string raw;
   if (!proto.SerializeToString(&raw) || raw.empty())
     return;
   alyncoin::net::Frame fr;
   *fr.mutable_block_broadcast()->mutable_block() = proto;
-  auto snapshot = getPeerSnapshot(peer);
-  if (!snapshot.transport || !snapshot.transport->isOpen())
-    return;
   sendFrame(snapshot.transport, fr);
   if (snapshot.state)
     snapshot.state->highestSeen = blk.getIndex();
@@ -2655,7 +2645,9 @@ bool Network::isSelfEndpoint(const std::string &host, int remotePort) const {
   {
     std::lock_guard<std::mutex> lock(selfFilterMutex);
     if (selfObservedEndpoints.count(makeEndpointLabel(lowered, remotePort)) ||
-        selfObservedEndpoints.count(makeEndpointLabel(host, remotePort)))
+        selfObservedEndpoints.count(makeEndpointLabel(host, remotePort)) ||
+        manualSelfEndpoints.count(makeEndpointLabel(lowered, remotePort)) ||
+        manualSelfEndpoints.count(makeEndpointLabel(host, remotePort)))
       return true;
   }
 
@@ -2675,13 +2667,17 @@ bool Network::isSelfEndpoint(const std::string &host, int remotePort) const {
       if (localInterfaceAddrs.count(candLower) ||
           localInterfaceAddrs.count(candidate) ||
           selfObservedAddrs.count(candLower) ||
-          selfObservedAddrs.count(candidate)) {
+          selfObservedAddrs.count(candidate) ||
+          manualSelfAddrs.count(candLower) ||
+          manualSelfAddrs.count(candidate)) {
         if (remotePort == localPort)
           return true;
       }
       if (selfObservedEndpoints.count(
               makeEndpointLabel(candLower, remotePort)) ||
-          selfObservedEndpoints.count(makeEndpointLabel(candidate, remotePort)))
+          selfObservedEndpoints.count(makeEndpointLabel(candidate, remotePort)) ||
+          manualSelfEndpoints.count(makeEndpointLabel(candLower, remotePort)) ||
+          manualSelfEndpoints.count(makeEndpointLabel(candidate, remotePort)))
         return true;
     }
   }
@@ -2710,7 +2706,7 @@ void Network::setPublicPeerId(const std::string &peerId) {
     if (!endpoint.first.empty() && endpoint.second > 0)
       peerManager->setExternalAddress(endpoint.first + ':' + std::to_string(endpoint.second));
   }
-  if (!configuredExternalExplicit)
+  if (!configuredExternalExplicit && getAppConfig().hairpin_probe)
     runHairpinCheck();
 }
 
@@ -2726,7 +2722,8 @@ void Network::setConfiguredExternalAddress(const std::string &address) {
   }
   configuredExternalAddress = parsed.first + ':' + std::to_string(parsed.second);
   recordExternalAddress(parsed.first, parsed.second);
-  runHairpinCheck();
+  if (getAppConfig().hairpin_probe)
+    runHairpinCheck();
 }
 
 std::pair<std::string, unsigned short> Network::determineAnnounceEndpoint() const {
@@ -2743,10 +2740,10 @@ std::pair<std::string, unsigned short> Network::determineAnnounceEndpoint() cons
 void Network::recordExternalAddress(const std::string &ip, unsigned short portValue) {
   if (ip.empty() || portValue == 0)
     return;
+  setExternalAddress(ip, static_cast<int>(portValue));
   if (!configuredExternalExplicit)
     configuredExternalAddress = ip + ':' + std::to_string(portValue);
   setPublicPeerId(ip);
-  recordSelfEndpoint(ip, static_cast<int>(portValue));
   std::cout << "📣 [Network] Announcing reachable address " << ip << ':' << portValue
             << '\n';
 }
@@ -2773,6 +2770,8 @@ void cancelTimer(Timer &timer) {
 } // namespace
 
 void Network::runHairpinCheck() {
+  if (!getAppConfig().hairpin_probe)
+    return;
   bool expected = false;
   if (!hairpinCheckAttempted.compare_exchange_strong(expected, true))
     return;
@@ -2837,10 +2836,22 @@ void Network::runHairpinCheck() {
 }
 //
 
+void Network::noteBlockRequested(const std::string &peer,
+                                 const std::string &hash) {
+  if (peer.empty() || hash.empty())
+    return;
+  auto snapshot = getPeerSnapshot(peer);
+  if (!snapshot.state)
+    return;
+  std::lock_guard<std::mutex> guard(snapshot.state->m);
+  snapshot.state->pendingBlockRequests.insert(hash);
+}
+
 void Network::handleGetData(const std::string &peer,
                             const std::vector<std::string> &hashes) {
   Blockchain &bc = Blockchain::getInstance();
   for (const auto &h : hashes) {
+    noteBlockRequested(peer, h);
     for (const auto &blk : bc.getChain()) {
       if (blk.getHash() == h) {
         sendBlockToPeer(peer, blk);
@@ -3178,9 +3189,14 @@ std::string Network::requestBlockchainSync(const std::string &peer) {
     } else {
       Block blk;
       if (Blockchain::getInstance().getBlockByHash(localTip, blk)) {
-        std::cout << "📡 [SYNC] Sending block " << localTip.substr(0, 8)
+        std::cout << "📡 [SYNC] Advertising block " << localTip.substr(0, 8)
                   << " to peer " << peer << "\n";
-        sendBlockToPeer(peer, blk);
+        auto snapshot = getPeerSnapshot(peer);
+        if (snapshot.transport && snapshot.transport->isOpen()) {
+          alyncoin::net::Frame fr;
+          fr.mutable_inv()->add_hashes(blk.getHash());
+          sendFrame(snapshot.transport, fr);
+        }
       }
     }
   }
@@ -4039,7 +4055,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     std::string theirNodeId = rhs.node_id();
     if (theirNodeId.empty())
       theirNodeId = peerKey;
-    if (!theirNodeId.empty() && theirNodeId == nodeId) {
+    if (!theirNodeId.empty() && isSelfNodeId(theirNodeId)) {
       std::cerr << "🛑 [connectToNode] remote node id matches ours (" << theirNodeId
                 << ")" << '\n';
       recordSelfEndpoint(host, remotePort);
@@ -4051,7 +4067,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
       advertisedPort = static_cast<int>(rhs.listen_port());
     std::string canonicalIp = socketIp.empty() ? host : socketIp;
     const uint64_t remoteNonce = rhs.nonce();
-    if (remoteNonce != 0 && remoteNonce == localHandshakeNonce) {
+    if (isSelfNonce(remoteNonce)) {
       std::cout << "🛑 Self-connect ignored (nonce match) while dialing "
                 << peerKey << '\n';
       recordSelfEndpoint(host, remotePort);
@@ -4060,10 +4076,11 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
       tx->close();
       return false;
     }
-    if (!rhs.observed_ip().empty() && isRoutableAddress(rhs.observed_ip()) &&
-        !configuredExternalExplicit) {
+    if (!rhs.observed_ip().empty() && isRoutableAddress(rhs.observed_ip())) {
       const std::string observed = rhs.observed_ip();
-      if (publicPeerId.empty() || publicPeerId == "127.0.0.1") {
+      setExternalAddress(observed, static_cast<int>(port));
+      if (!configuredExternalExplicit &&
+          (publicPeerId.empty() || publicPeerId == "127.0.0.1")) {
         setPublicPeerId(observed);
         std::cout << "🌐 [connectToNode] Detected external address "
                   << publicPeerId << " from peer " << theirNodeId << '\n';
@@ -4216,8 +4233,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
       } else if (theirAgg) {
         requestEpochHeaders(finalKey);
       }
-    } else if (theirHeight < localHeight && theirSnap)
-      sendTailBlocks(tx, theirHeight, finalKey);
+    }
 
     startBinaryReadLoop(finalKey, tx);
     sendInitialRequests(finalKey);
@@ -4281,6 +4297,8 @@ void Network::loadPeers() {
   bool connected = false;
   bool manualAdded = false;
   for (const auto &entry : manualPeers) {
+    if (!isNumericAddress(entry.host))
+      continue;
     if (isSelfEndpoint(entry.host, entry.port)) {
       recordSelfEndpoint(entry.host, entry.port);
       continue;
@@ -4316,6 +4334,8 @@ void Network::loadPeers() {
       std::cout << "ℹ️  [loadPeers] Using bootstrap peer list.\n";
     bool added = false;
     for (const auto &entry : bootstrap) {
+      if (!isNumericAddress(entry.host))
+        continue;
       if (isSelfEndpoint(entry.host, entry.port)) {
         recordSelfEndpoint(entry.host, entry.port);
         continue;
@@ -4355,6 +4375,8 @@ void Network::scanForPeers() {
   for (const auto &peer : potentialPeers) {
     std::string ip = peer.substr(0, peer.find(":"));
     int peerPort = std::stoi(peer.substr(peer.find(":") + 1));
+    if (!isNumericAddress(ip))
+      continue;
     if (isSelfEndpoint(ip, peerPort)) {
       recordSelfEndpoint(ip, peerPort);
       continue;
@@ -4406,6 +4428,8 @@ void Network::savePeers() {
     if (!isShareableAddress(endpoint.first))
       continue;
     if (isBlockedServicePort(endpoint.second))
+      continue;
+    if (isSelfEndpoint(endpoint.first, endpoint.second))
       continue;
     file << endpoint.first << ':' << endpoint.second << std::endl;
   }
@@ -4595,6 +4619,36 @@ void Network::recordEndpointFailure(const std::string &host, int port) {
   rec.nextDialAllowed = now + computeDialBackoff(rec.failureCount);
   if (rec.failureCount >= 3)
     rec.verified = false;
+}
+
+void Network::refreshLocalInterfaces() { refreshLocalInterfaceCache(); }
+
+void Network::setExternalAddress(const std::string &host, int port) {
+  if (host.empty() || port <= 0)
+    return;
+  std::string lowered = toLowerCopy(host);
+  {
+    std::lock_guard<std::mutex> lock(selfFilterMutex);
+    manualSelfAddrs.insert(lowered);
+    manualSelfAddrs.insert(host);
+    manualSelfEndpoints.insert(makeEndpointLabel(lowered, port));
+    manualSelfEndpoints.insert(makeEndpointLabel(host, port));
+  }
+  recordSelfEndpoint(host, port);
+}
+
+bool Network::isSelfNodeId(const std::string &peerId) const {
+  if (peerId.empty())
+    return false;
+  if (peerId == nodeId)
+    return true;
+  if (!publicPeerId.empty() && peerId == publicPeerId)
+    return true;
+  return false;
+}
+
+bool Network::isSelfNonce(uint64_t nonce) const {
+  return nonce != 0 && nonce == localHandshakeNonce;
 }
 
 void Network::recordSelfEndpoint(const std::string &host, int port) {
@@ -4887,7 +4941,8 @@ void Network::sendLatestBlock(const std::string &peerIP) {
   if (blockchain.getChain().empty())
     return;
   Block latestBlock = blockchain.getLatestBlock();
-  sendBlockToPeer(peerIP, latestBlock);
+  noteBlockRequested(peerIP, latestBlock.getHash());
+  sendBlockToPeer(peerIP, latestBlock, true);
 }
 
 void Network::sendInventory(const std::string &peer) {
