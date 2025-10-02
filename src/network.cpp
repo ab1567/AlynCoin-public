@@ -1890,6 +1890,22 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
   }
 
   // ── 2. refuse self-connects ─────────────────────────────────────────────
+  if (finalPort > 0) {
+    auto rejectSelf = [&](const std::string &ip) {
+      if (ip.empty())
+        return false;
+      if (!isSelfEndpoint(ip, finalPort))
+        return false;
+      std::cout << "🛑 Self-connect ignored (endpoint match) from " << ip
+                << ':' << finalPort << '\n';
+      recordSelfEndpoint(ip, finalPort);
+      transport->closeGraceful();
+      return true;
+    };
+    if (rejectSelf(canonicalIp) || rejectSelf(realPeerId))
+      return;
+  }
+
   if (claimedPeerId == selfIdentity || realPeerId == selfIdentity ||
       claimedPeerId == nodeId) {
     std::cout << "🛑 Self-connect ignored: " << claimedPeerId << '\n';
@@ -1968,6 +1984,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
         remoteSnap ? resolveSnapshotChunkSize(remoteSnapSize) : 0;
     std::copy(shared.begin(), shared.end(), entry.state->linkKey.begin());
     entry.state->remoteNonce = remoteNonce;
+    entry.state->handshakeComplete = true;
 
     if (peerManager) {
       if (peerManager->registerPeer(claimedPeerId)) {
@@ -2729,6 +2746,7 @@ void Network::recordExternalAddress(const std::string &ip, unsigned short portVa
   if (!configuredExternalExplicit)
     configuredExternalAddress = ip + ':' + std::to_string(portValue);
   setPublicPeerId(ip);
+  recordSelfEndpoint(ip, static_cast<int>(portValue));
   std::cout << "📣 [Network] Announcing reachable address " << ip << ':' << portValue
             << '\n';
 }
@@ -3464,6 +3482,7 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
           remoteSnap ? resolveSnapshotChunkSize(hs.snapshot_size()) : 0;
       st->frameRev = hs.frame_rev();
       st->version = hs.version();
+      st->handshakeComplete = true;
     }
     if (auto hints = parseConsensusHints(hs.capabilities());
         hints.hasDifficulty || hints.hasReward) {
@@ -4050,6 +4069,23 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
                   << publicPeerId << " from peer " << theirNodeId << '\n';
       }
     }
+
+    if (advertisedPort > 0) {
+      auto rejectSelf = [&](const std::string &ip, const std::string &label) {
+        if (ip.empty())
+          return false;
+        if (!isSelfEndpoint(ip, advertisedPort))
+          return false;
+        std::cout << "🛑 [connectToNode] self endpoint detected via " << label
+                  << " => " << ip << ':' << advertisedPort << '\n';
+        recordSelfEndpoint(ip, advertisedPort);
+        tx->close();
+        return true;
+      };
+      if (rejectSelf(canonicalIp, "canonical") ||
+          rejectSelf(socketIp, "observed") || rejectSelf(host, "dialed"))
+        return false;
+    }
     // ─── Compatibility gate ────────────────────────────
     remoteRev = rhs.frame_rev();
     if (remoteRev != 0 && remoteRev != kFrameRevision) {
@@ -4149,6 +4185,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
       if (rhs.pub_key().size() == 32)
         std::copy(shared.begin(), shared.end(), st->linkKey.begin());
       st->remoteNonce = remoteNonce;
+      st->handshakeComplete = true;
       if (peerManager) {
         if (peerManager->registerPeer(finalKey))
           peerManager->setPeerHeight(finalKey, theirHeight);
@@ -4629,6 +4666,71 @@ void Network::refreshLocalInterfaceCache() {
   localInterfaceAddrs = std::move(discovered);
 }
 
+bool Network::shouldServeHeavyData(const std::string &peerId,
+                                   int remoteHeightHint) {
+  if (peerId.empty())
+    return false;
+
+  if (isSelfPeer(peerId))
+    return false;
+
+  auto snapshot = getPeerSnapshot(peerId);
+  if (!snapshot.transport || !snapshot.transport->isOpen())
+    return false;
+
+  auto state = snapshot.state;
+  if (!state)
+    return false;
+
+  if (!state->handshakeComplete)
+    return false;
+
+  std::string host;
+  int portValue = 0;
+  {
+    std::lock_guard<std::timed_mutex> lk(peersMutex);
+    auto it = peerTransports.find(peerId);
+    if (it != peerTransports.end()) {
+      host = !it->second.observedIp.empty() ? it->second.observedIp
+                                            : it->second.ip;
+      portValue = it->second.observedPort > 0 ? it->second.observedPort
+                                              : it->second.port;
+    }
+  }
+
+  if (!host.empty() && portValue > 0 && isSelfEndpoint(host, portValue)) {
+    recordSelfEndpoint(host, portValue);
+    return false;
+  }
+
+  const int localHeight = Blockchain::getInstance().getHeight();
+  int remoteHeight = remoteHeightHint;
+  if (remoteHeight < 0 && peerManager)
+    remoteHeight = peerManager->getPeerHeight(peerId);
+
+  bool heightBehind = false;
+  if (remoteHeight >= 0)
+    heightBehind = remoteHeight < localHeight;
+
+  uint64_t localWork = 0;
+  uint64_t remoteWork = 0;
+  if (peerManager) {
+    localWork = peerManager->getLocalWork();
+    remoteWork = peerManager->getPeerWork(peerId);
+  }
+
+  bool workBehind = remoteWork < localWork;
+
+  if (!heightBehind) {
+    if (remoteHeight >= localHeight && localHeight >= 0 && !workBehind)
+      return false;
+    if (remoteHeight < 0 && localWork > 0 && !workBehind)
+      return false;
+  }
+
+  return true;
+}
+
 void Network::beginHeaderBridge(const std::string &peer) {
   auto snapshot = getPeerSnapshot(peer);
   if (!snapshot.state)
@@ -4986,6 +5088,12 @@ void Network::sendSnapshot(const std::string &peerId,
 
   auto ps = getPeerSnapshot(peerId).state;
 
+  if (!shouldServeHeavyData(peerId, upToHeight)) {
+    std::cerr << "⚠️ [Snapshot] Skipping serve to " << peerId
+              << " (endpoint not eligible)\n";
+    return;
+  }
+
   if (preferredChunk == 0 && ps)
     preferredChunk = ps->snapshotChunkPreference;
 
@@ -5090,6 +5198,15 @@ void Network::sendSnapshot(const std::string &peerId,
 
 void Network::sendTailBlocks(std::shared_ptr<Transport> transport,
                              int fromHeight, const std::string &peerId) {
+  if (!transport || !transport->isOpen())
+    return;
+
+  if (!shouldServeHeavyData(peerId, fromHeight)) {
+    std::cerr << "⚠️ [Tail] Skipping serve to " << peerId
+              << " (endpoint not eligible)\n";
+    return;
+  }
+
   Blockchain &bc = Blockchain::getInstance();
   const int myHeight = bc.getHeight();
   if (fromHeight < 0 || fromHeight >= myHeight)

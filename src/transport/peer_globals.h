@@ -55,6 +55,7 @@ struct PeerState {
   int headerBestCommonHeight{-1};
   std::string headerBestCommonHash;
   int headerLastBinaryProbe{-1};
+  bool handshakeComplete{false};
   std::mutex m;
 };
 
