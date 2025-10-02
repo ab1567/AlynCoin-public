@@ -905,7 +905,9 @@ alyncoin::net::Handshake Network::buildHandshake() const {
   auto work = bc.computeCumulativeDifficulty(bc.getChain());
   hs.set_total_work(safeUint64(work));
   hs.set_want_snapshot(false);
-  hs.set_snapshot_size(static_cast<uint32_t>(MAX_SNAPSHOT_CHUNK_SIZE));
+  hs.set_snapshot_size(static_cast<uint32_t>(
+      std::min<std::size_t>(MAX_SNAPSHOT_CHUNK_SIZE,
+                             SNAPSHOT_COMPAT_CHUNK_CAP)));
   hs.set_node_id(nodeId);
   hs.set_nonce(localHandshakeNonce);
   if (!announce.first.empty() && isShareableAddress(announce.first))
@@ -2004,7 +2006,9 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     alyncoin::net::Handshake hs_out = buildHandshake();
     hs_out.set_pub_key(
         std::string(reinterpret_cast<char *>(myPub.data()), myPub.size()));
-    hs_out.set_snapshot_size(static_cast<uint32_t>(MAX_SNAPSHOT_CHUNK_SIZE));
+    hs_out.set_snapshot_size(static_cast<uint32_t>(
+        std::min<std::size_t>(MAX_SNAPSHOT_CHUNK_SIZE,
+                               SNAPSHOT_COMPAT_CHUNK_CAP)));
     auto endpoint = determineAnnounceEndpoint();
     if (!endpoint.first.empty() && isShareableAddress(endpoint.first))
       hs_out.set_observed_ip(endpoint.first);
@@ -3273,7 +3277,9 @@ bool Network::finishOutboundHandshake(std::shared_ptr<Transport> tx,
   randombytes_buf(privOut.data(), privOut.size());
   crypto_scalarmult_curve25519_base(pub.data(), privOut.data());
   hs.set_pub_key(std::string(reinterpret_cast<char *>(pub.data()), pub.size()));
-  hs.set_snapshot_size(static_cast<uint32_t>(MAX_SNAPSHOT_CHUNK_SIZE));
+  hs.set_snapshot_size(static_cast<uint32_t>(
+      std::min<std::size_t>(MAX_SNAPSHOT_CHUNK_SIZE,
+                             SNAPSHOT_COMPAT_CHUNK_CAP)));
   alyncoin::net::Frame fr;
   *fr.mutable_handshake() = hs;
   std::string out;
@@ -5155,14 +5161,21 @@ void Network::sendSnapshot(const std::string &peerId,
   if (!snap.SerializeToString(&raw))
     return;
 
-  const size_t CHUNK_SIZE = resolveSnapshotChunkSize(preferredChunk);
+  const size_t negotiated = resolveSnapshotChunkSize(preferredChunk);
+  const size_t chunkSize =
+      std::min<std::size_t>(negotiated, SNAPSHOT_COMPAT_CHUNK_CAP);
+  if (chunkSize != negotiated) {
+    std::cerr << "ℹ️  [Snapshot] Downscaling chunk size for " << peerId
+              << " (negotiated=" << negotiated << " -> " << chunkSize
+              << " bytes) to satisfy compatibility cap\n";
+  }
   // --- Send metadata first ---
   alyncoin::net::Frame meta;
   meta.mutable_snapshot_meta()->set_height(height);
   meta.mutable_snapshot_meta()->set_root_hash(bc.getHeaderMerkleRoot());
   meta.mutable_snapshot_meta()->set_total_bytes(raw.size());
   meta.mutable_snapshot_meta()->set_chunk_size(
-      static_cast<uint32_t>(CHUNK_SIZE));
+      static_cast<uint32_t>(chunkSize));
   if (!sendFrame(transport, meta)) {
     std::cerr << "❌ [Snapshot] Failed to queue metadata for " << peerId
               << '\n';
@@ -5171,8 +5184,8 @@ void Network::sendSnapshot(const std::string &peerId,
 
   // --- Stream snapshot in bounded chunks ---
   uint32_t seq = 0;
-  for (size_t off = 0; off < raw.size(); off += CHUNK_SIZE) {
-    size_t len = std::min(CHUNK_SIZE, raw.size() - off);
+  for (size_t off = 0; off < raw.size(); off += chunkSize) {
+    size_t len = std::min(chunkSize, raw.size() - off);
     alyncoin::net::Frame fr;
     fr.mutable_snapshot_chunk()->set_data(raw.substr(off, len));
     if (!sendFrame(transport, fr)) {
@@ -5295,6 +5308,9 @@ void Network::handleSnapshotMeta(const std::string &peer,
   if (advertised > 0)
     limit = std::min<std::size_t>(advertised, MAX_WIRE_PAYLOAD);
   ps->snapshotChunkLimit = limit;
+  std::cerr << "ℹ️  [SNAPSHOT] Metadata from " << peer << " total="
+            << meta.total_bytes() << " bytes, advertised chunk=" << advertised
+            << " -> limit=" << limit << " bytes\n";
 }
 
 void Network::handleSnapshotAck(const std::string &peer, uint32_t /*seq*/) {
@@ -5322,7 +5338,9 @@ void Network::handleSnapshotChunk(const std::string &peer,
                                          MAX_WIRE_PAYLOAD);
   if (chunk.size() > hardCap) {
     std::cerr << "⚠️ [SNAPSHOT] Oversized chunk from " << peer << " ("
-              << chunk.size() << " bytes > " << hardCap
+              << chunk.size() << " bytes > hardCap=" << hardCap
+              << ", limit=" << limit
+              << ", tolerance=" << SNAPSHOT_CHUNK_TOLERANCE
               << ") – clearing buffer\n";
     ps->snapshotActive = false;
     ps->snapState = PeerState::SnapState::Idle;
