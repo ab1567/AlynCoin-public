@@ -86,8 +86,7 @@ public:
   void broadcastINV(const std::vector<std::string> &hashes);
   void broadcastHeight(uint32_t height);
   void broadcastHandshake();
-  void sendBlockToPeer(const std::string &peer, const Block &blk,
-                       bool requireRequest = true);
+  void sendBlockToPeer(const std::string &peer, const Block &blk);
   void sendInventory(const std::string &peer);
   PeerManager *getPeerManager();
   std::vector<std::string> discoverPeers();
@@ -131,10 +130,6 @@ public:
   bool peerSupportsAggProof(const std::string &peerId) const;
   bool isSelfPeer(const std::string &peer) const;
   bool isSelfEndpoint(const std::string &host, int port) const;
-  void refreshLocalInterfaces();
-  void setExternalAddress(const std::string &ip, int port);
-  bool isSelfNodeId(const std::string &peerId) const;
-  bool isSelfNonce(uint64_t nonce) const;
   std::string getSelfAddressAndPort() const;
   inline static bool isUninitialized() { return instancePtr == nullptr; }
   inline static Network *getExistingInstance() { return instancePtr; }
@@ -268,8 +263,6 @@ private:
   std::unordered_set<std::string> localInterfaceAddrs;
   std::unordered_set<std::string> selfObservedAddrs;
   std::unordered_set<std::string> selfObservedEndpoints;
-  std::unordered_set<std::string> manualSelfAddrs;
-  std::unordered_set<std::string> manualSelfEndpoints;
 
   // Helpers reused by handlePeer & connectToNode
   void startBinaryReadLoop(const std::string &peerId,
@@ -292,7 +285,6 @@ private:
                           int upToHeight);
   bool shouldServeHeavyData(const std::string &peerId,
                             int remoteHeightHint = -1);
-  void noteBlockRequested(const std::string &peer, const std::string &hash);
   void beginHeaderBridge(const std::string &peer);
   void handleHeaderResponse(
       const std::string &peer,
