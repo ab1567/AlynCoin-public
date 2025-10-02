@@ -2255,56 +2255,119 @@ void Network::autoSyncIfBehind() {
   if (pm)
     pm->setLocalWork(myWork);
 
+  enum class SyncActionType {
+    RequestTail,
+    RequestSnapshot,
+    RequestEpochHeaders,
+    RequestBlockByHash,
+    SendTail
+  };
+
+  struct SyncAction {
+    SyncActionType type;
+    std::string peer;
+    int heightParam{0};
+    std::string hash;
+    std::shared_ptr<Transport> transport;
+  };
+
+  std::vector<SyncAction> actions;
   bool behind = false;
 
-  std::lock_guard<std::timed_mutex> lock(peersMutex);
-  for (const auto &[peerAddr, entry] : peerTransports) {
-    auto tr = entry.tx;
-    if (!tr || !tr->isOpen())
-      continue;
+  {
+    std::lock_guard<std::timed_mutex> lock(peersMutex);
+    for (const auto &[peerAddr, entry] : peerTransports) {
+      auto tr = entry.tx;
+      if (!tr || !tr->isOpen())
+        continue;
 
-    alyncoin::net::Frame f1;
-    f1.mutable_height_req();
-    sendFrame(tr, f1);
-    alyncoin::net::Frame f2;
-    f2.mutable_tip_hash_req();
-    sendFrame(tr, f2);
-    // Advertise our own height information to avoid isolation
-    sendHeightProbe(tr);
+      alyncoin::net::Frame f1;
+      f1.mutable_height_req();
+      sendFrame(tr, f1);
+      alyncoin::net::Frame f2;
+      f2.mutable_tip_hash_req();
+      sendFrame(tr, f2);
+      // Advertise our own height information to avoid isolation
+      sendHeightProbe(tr);
 
-    if (!pm)
-      continue;
-    int peerHeight = pm->getPeerHeight(peerAddr);
-    std::string peerTip = pm->getPeerTipHash(peerAddr);
-    uint64_t peerWork = pm->getPeerWork(peerAddr);
+      if (!pm)
+        continue;
+      int peerHeight = pm->getPeerHeight(peerAddr);
+      std::string peerTip = pm->getPeerTipHash(peerAddr);
+      uint64_t peerWork = pm->getPeerWork(peerAddr);
 
-    std::cout << "[autoSync] peer=" << peerAddr << " height=" << peerHeight
-              << " | local=" << myHeight << '\n';
+      auto state = entry.state;
+      const bool supportsSnapshot = state && state->supportsSnapshot;
+      const bool supportsAggProof = state && state->supportsAggProof;
 
-    if (peerWork > myWork) {
-      behind = true;
-      int gap = peerHeight - static_cast<int>(myHeight);
-      if (gap <= TAIL_SYNC_THRESHOLD) {
-        std::cout << "  → requesting tail blocks\n";
-        requestTailBlocks(peerAddr, myHeight,
-                          Blockchain::getInstance().getLatestBlockHash());
-      } else if (peerSupportsSnapshot(peerAddr)) {
-        std::cout << "  → requesting snapshot sync\n";
-        requestSnapshotSync(peerAddr);
-      } else if (peerSupportsAggProof(peerAddr)) {
-        std::cout << "  → requesting epoch headers\n";
-        requestEpochHeaders(peerAddr);
+      std::cout << "[autoSync] peer=" << peerAddr << " height=" << peerHeight
+                << " | local=" << myHeight << '\n';
+
+      if (peerWork > myWork) {
+        behind = true;
+        int gap = peerHeight - static_cast<int>(myHeight);
+        if (gap <= TAIL_SYNC_THRESHOLD) {
+          std::cout << "  → requesting tail blocks\n";
+          SyncAction action;
+          action.type = SyncActionType::RequestTail;
+          action.peer = peerAddr;
+          action.heightParam = static_cast<int>(myHeight);
+          action.hash = myTip;
+          actions.push_back(std::move(action));
+        } else if (supportsSnapshot) {
+          std::cout << "  → requesting snapshot sync\n";
+          SyncAction action;
+          action.type = SyncActionType::RequestSnapshot;
+          action.peer = peerAddr;
+          actions.push_back(std::move(action));
+        } else if (supportsAggProof) {
+          std::cout << "  → requesting epoch headers\n";
+          SyncAction action;
+          action.type = SyncActionType::RequestEpochHeaders;
+          action.peer = peerAddr;
+          actions.push_back(std::move(action));
+        }
+      } else if (peerHeight == static_cast<int>(myHeight) && !peerTip.empty() &&
+                 peerTip != myTip && peerWork >= myWork) {
+        behind = true;
+        std::cout << "  → tip mismatch, requesting missing block\n";
+        SyncAction action;
+        action.type = SyncActionType::RequestBlockByHash;
+        action.peer = peerAddr;
+        action.hash = peerTip;
+        actions.push_back(std::move(action));
+      } else if (peerHeight < static_cast<int>(myHeight) &&
+                 peerWork < myWork) {
+        if (supportsSnapshot) {
+          std::cout << "  → sending tail blocks\n";
+          SyncAction action;
+          action.type = SyncActionType::SendTail;
+          action.peer = peerAddr;
+          action.heightParam = peerHeight;
+          action.transport = tr;
+          actions.push_back(std::move(action));
+        }
       }
-    } else if (peerHeight == static_cast<int>(myHeight) && !peerTip.empty() &&
-               peerTip != myTip && peerWork >= myWork) {
-      behind = true;
-      std::cout << "  → tip mismatch, requesting missing block\n";
-      requestBlockByHash(peerAddr, peerTip);
-    } else if (peerHeight < static_cast<int>(myHeight) && peerWork < myWork) {
-      if (peerSupportsSnapshot(peerAddr)) {
-        std::cout << "  → sending tail blocks\n";
-        sendTailBlocks(tr, peerHeight, peerAddr);
-      }
+    }
+  }
+
+  for (const auto &action : actions) {
+    switch (action.type) {
+    case SyncActionType::RequestTail:
+      requestTailBlocks(action.peer, action.heightParam, action.hash);
+      break;
+    case SyncActionType::RequestSnapshot:
+      requestSnapshotSync(action.peer);
+      break;
+    case SyncActionType::RequestEpochHeaders:
+      requestEpochHeaders(action.peer);
+      break;
+    case SyncActionType::RequestBlockByHash:
+      requestBlockByHash(action.peer, action.hash);
+      break;
+    case SyncActionType::SendTail:
+      sendTailBlocks(action.transport, action.heightParam, action.peer);
+      break;
     }
   }
 
