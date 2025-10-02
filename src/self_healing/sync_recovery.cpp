@@ -18,7 +18,26 @@ bool SyncRecovery::attemptRecovery(const std::string& expectedTipHash) {
     blockchain_->startRecovery();
     blockchain_->stopMining();
 
-    int rollbackHeight = findRollbackHeight(expectedTipHash);
+    std::string rollbackHash = expectedTipHash;
+    if (rollbackHash.empty() && peerManager_) {
+        rollbackHash = peerManager_->getConsensusCommonHash(blockchain_->getHeight());
+    }
+
+    int rollbackHeight = -1;
+    if (!rollbackHash.empty()) {
+        rollbackHeight = findRollbackHeight(rollbackHash);
+    }
+
+    if (rollbackHeight < 0 && peerManager_) {
+        std::string consensusHash = peerManager_->getConsensusCommonHash(blockchain_->getHeight());
+        if (!consensusHash.empty() && consensusHash != rollbackHash) {
+            Logger::warn("[🔧 Recovery] Falling back to consensus common hash "
+                         "for rollback.");
+            rollbackHash = consensusHash;
+            rollbackHeight = findRollbackHeight(rollbackHash);
+        }
+    }
+
     if (rollbackHeight < 0) {
         Logger::error("[❌ Recovery] Failed to find rollback point.");
         blockchain_->finishRecovery();
