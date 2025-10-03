@@ -111,9 +111,24 @@ class StatsTab(QWidget):
                         f"• Heights → local: {local_h} / network: {net_h}",
                         color="cyan",
                     )
-                peers = status.get("connected_peers")
-                if peers is not None:
-                    self.appendText(f"• Connected peers: {peers}", color="cyan")
+                local_peers = status.get("connected_peers")
+                network_peers = status.get("network_connected_peers")
+                if isinstance(local_peers, (int, float)):
+                    local_val = int(local_peers)
+                    if isinstance(network_peers, (int, float)):
+                        net_val = int(network_peers)
+                    else:
+                        net_val = local_val
+                    if net_val != local_val:
+                        self.appendText(
+                            f"• Peers → local: {local_val} / network: {net_val}",
+                            color="cyan",
+                        )
+                    else:
+                        self.appendText(
+                            f"• Connected peers: {local_val}",
+                            color="cyan",
+                        )
                 reason = status.get("reason")
                 if reason:
                     self.appendText(f"• Status: {reason}", color="orange")

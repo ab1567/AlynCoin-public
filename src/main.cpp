@@ -926,6 +926,8 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
                                       {"local_height", status.localHeight},
                                       {"network_height", status.networkHeight},
                                       {"connected_peers", status.connectedPeers},
+                                      {"network_connected_peers",
+                                       status.networkConnectedPeers},
                                       {"far_behind", status.farBehind},
                                       {"local_tip", status.localTipHash},
                                       {"expected_tip", status.expectedTipHash}};

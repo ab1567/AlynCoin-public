@@ -2491,6 +2491,11 @@ std::vector<std::string> Network::getPeers() {
   return peerList;
 }
 
+size_t Network::getTrackedEndpointCount() const {
+  std::lock_guard<std::mutex> guard(gossipMutex);
+  return knownPeerEndpoints.size();
+}
+
 //
 void Network::sendStateProof(std::shared_ptr<Transport> tr) {
   if (!tr || !tr->isOpen())

@@ -191,6 +191,7 @@ public:
   void sendHeightProbe(std::shared_ptr<Transport> tr);
   void sendTipHash(const std::string &peer);
   void sendPeerList(const std::string &peer);
+  size_t getTrackedEndpointCount() const;
   bool noteShareableEndpoint(const std::string &host, int port,
                              bool triggerBroadcast = true,
                              bool markVerified = false,
