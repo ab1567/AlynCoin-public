@@ -33,6 +33,8 @@ inline constexpr std::size_t MAX_SNAPSHOT_CHUNK_SIZE = 250 * 1024; // 250 KiB
 // advertising or transmitting snapshot chunks to remain compatible while still
 // benefiting newer peers that can stream larger frames.
 inline constexpr std::size_t SNAPSHOT_COMPAT_CHUNK_CAP = 64 * 1024; // 64 KiB
+// Leave a small buffer so chunk frames never brush against the hard payload cap
+inline constexpr std::size_t SNAPSHOT_FRAME_SAFETY_MARGIN = 1024; // 1 KiB wiggle room
 // Allow a little extra headroom for peers whose framing or encoding adds a
 // small amount of overhead on top of the advertised chunk size. Without this
 // tolerance the receiver may discard perfectly valid snapshot data that is only
