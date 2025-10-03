@@ -9,15 +9,16 @@ class PeerManager;
 class Blockchain;
 
 struct NodeHealthStatus {
-    bool isHealthy;
+    bool isHealthy{false};
     std::string reason;
-    uint64_t localHeight;
-    uint64_t networkHeight;
+    uint64_t localHeight{0};
+    uint64_t networkHeight{0};
     std::string localTipHash;
     std::string expectedTipHash;
     std::string consensusCommonHash;
-    size_t connectedPeers;
-    bool farBehind;
+    size_t connectedPeers{0};
+    size_t networkConnectedPeers{0};
+    bool farBehind{false};
 };
 
 class HealthMonitor {
@@ -32,6 +33,7 @@ private:
     Blockchain* blockchain_;
     PeerManager* peerManager_;
     std::chrono::time_point<std::chrono::steady_clock> lastCheckTime_;
+    std::chrono::time_point<std::chrono::steady_clock> lastPeerDialAttempt_;
 
     std::string getLocalTipHash() const;
     std::string getNetworkTipHash() const;

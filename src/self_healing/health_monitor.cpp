@@ -6,12 +6,16 @@
 #include "json/json.h"
 #include "constants.h"
 
+#include <algorithm>
 #include <iostream>
 #include <sstream>
 #include <iomanip>
 
 HealthMonitor::HealthMonitor(Blockchain* blockchain, PeerManager* peerManager)
-    : blockchain_(blockchain), peerManager_(peerManager), lastCheckTime_(std::chrono::steady_clock::now()) {}
+    : blockchain_(blockchain),
+      peerManager_(peerManager),
+      lastCheckTime_(std::chrono::steady_clock::now()),
+      lastPeerDialAttempt_(std::chrono::steady_clock::time_point::min()) {}
 
 NodeHealthStatus HealthMonitor::checkHealth() {
     NodeHealthStatus status;
@@ -25,6 +29,31 @@ NodeHealthStatus HealthMonitor::checkHealth() {
     if (status.expectedTipHash.empty())
         status.expectedTipHash = status.consensusCommonHash;
     status.connectedPeers = peerManager_->getPeerCount();
+    status.networkConnectedPeers = status.connectedPeers;
+    size_t trackedEndpoints = status.connectedPeers;
+    size_t discoveredCount = 0;
+    if (auto net = Network::getExistingInstance()) {
+        trackedEndpoints = net->getTrackedEndpointCount();
+        status.networkConnectedPeers = std::max(status.networkConnectedPeers, trackedEndpoints);
+        if (trackedEndpoints == 0) {
+            auto discovered = net->discoverPeers();
+            discoveredCount = discovered.size();
+            status.networkConnectedPeers = std::max(status.networkConnectedPeers, discoveredCount);
+        }
+
+        bool shouldDial = status.networkConnectedPeers > status.connectedPeers && status.networkConnectedPeers > 0;
+        if (!shouldDial && discoveredCount > status.connectedPeers && discoveredCount > 0) {
+            shouldDial = true;
+        }
+
+        if (shouldDial) {
+            auto now = std::chrono::steady_clock::now();
+            if (now - lastPeerDialAttempt_ > std::chrono::seconds(30)) {
+                net->connectToDiscoveredPeers();
+                lastPeerDialAttempt_ = now;
+            }
+        }
+    }
     auto localWorkBI = blockchain_->computeCumulativeDifficulty(blockchain_->getChain());
     uint64_t localWork = localWorkBI.convert_to<uint64_t>();
     uint64_t remoteWork = peerManager_->getMaxPeerWork();
@@ -96,7 +125,8 @@ void HealthMonitor::logStatus(const NodeHealthStatus& status) {
         << (status.isHealthy ? "✅ Healthy" : "⚠️ Unhealthy") << " - Reason: " << status.reason << "\n"
         << "  • Local Height: " << status.localHeight << "\n"
         << "  • Network Height: " << status.networkHeight << "\n"
-        << "  • Peers: " << status.connectedPeers << "\n"
+        << "  • Peers: local=" << status.connectedPeers
+        << " / network=" << status.networkConnectedPeers << "\n"
         << "  • Local Work: " << blockchain_->computeCumulativeDifficulty(blockchain_->getChain()).convert_to<uint64_t>() << "\n"
         << "  • Remote Work: " << peerManager_->getMaxPeerWork() << "\n"
         << "  • Local Tip Hash: " << status.localTipHash.substr(0, 10) << "...\n"

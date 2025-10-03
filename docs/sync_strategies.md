@@ -23,3 +23,9 @@
 - Integrate a beam-sync style mechanism where peers stream execution traces or state diffs as blocks arrive, reducing the need for full snapshots except on cold start.
 
 These approaches generally trade implementation complexity for reduced bandwidth / startup time. For short-term reliability, the current snapshot + tail-sync combination remains the lowest-risk baseline. Longer term, combining tail-sync with lighter-weight state proofs would move the protocol closer to market standards without abandoning the existing snapshot safety net.
+
+## Peer Connectivity Telemetry & Privacy
+
+- The health monitor now records two peer totals: direct connections reported by the local peer manager and the broader set of reachable endpoints that the gossip layer knows about. The public API (`selfheal` RPC) and desktop stats tab only expose the aggregated counts, not individual peer identifiers, mirroring the coarse telemetry surfaced by Bitcoin Core (`getnetworkinfo`) or Geth (`admin_peers`). This keeps the health diagnostics aligned with typical blockchain node tooling.
+- When the network-visible total exceeds the local connection count, the node will opportunistically redial discovered peers. Attempts are throttled to at most once every 30 seconds to avoid DDoS-style dialing loops and to respect remote nodes' inbound limits. This matches the "try the address book again if you're under-connected" pattern used by Bitcoin's addrman and libp2p-based clients.
+- No new peer data is broadcast outward as part of these checks—the node relies entirely on information it already obtained through standard gossip exchanges. Because only anonymized counts are logged and exported, the feature does not leak unique identifiers that could erode peer privacy. Operators who prefer to avoid even aggregate telemetry can disable health logging globally via the existing logging controls without affecting synchronization safety.
