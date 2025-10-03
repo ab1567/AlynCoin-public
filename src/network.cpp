@@ -5225,12 +5225,18 @@ void Network::sendSnapshot(const std::string &peerId,
     return;
 
   const size_t negotiated = resolveSnapshotChunkSize(preferredChunk);
-  const size_t chunkSize =
+  const size_t maxChunkByCompat =
       std::min<std::size_t>(negotiated, SNAPSHOT_COMPAT_CHUNK_CAP);
+  const size_t maxChunkByWire =
+      MAX_WIRE_PAYLOAD > SNAPSHOT_FRAME_SAFETY_MARGIN
+          ? MAX_WIRE_PAYLOAD - SNAPSHOT_FRAME_SAFETY_MARGIN
+          : MAX_WIRE_PAYLOAD;
+  size_t chunkSize =
+      std::max<std::size_t>(1, std::min(maxChunkByCompat, maxChunkByWire));
   if (chunkSize != negotiated) {
     std::cerr << "ℹ️  [Snapshot] Downscaling chunk size for " << peerId
               << " (negotiated=" << negotiated << " -> " << chunkSize
-              << " bytes) to satisfy compatibility cap\n";
+              << " bytes) to satisfy peer compatibility/payload limits\n";
   }
   // --- Send metadata first ---
   alyncoin::net::Frame meta;
@@ -5247,16 +5253,62 @@ void Network::sendSnapshot(const std::string &peerId,
 
   // --- Stream snapshot in bounded chunks ---
   uint32_t seq = 0;
-  for (size_t off = 0; off < raw.size(); off += chunkSize) {
+  for (size_t off = 0; off < raw.size();) {
     size_t len = std::min(chunkSize, raw.size() - off);
     alyncoin::net::Frame fr;
     fr.mutable_snapshot_chunk()->set_data(raw.substr(off, len));
+
+    auto ensureWithinCap = [&](size_t currentLen, alyncoin::net::Frame &frame) {
+      size_t frameSize = frame.ByteSizeLong();
+      if (frameSize <= MAX_WIRE_PAYLOAD)
+        return currentLen;
+
+      const size_t overhead = frameSize > currentLen ? frameSize - currentLen : 0;
+      size_t allowed = overhead >= MAX_WIRE_PAYLOAD
+                           ? 0
+                           : MAX_WIRE_PAYLOAD - overhead;
+      if (allowed == 0) {
+        std::cerr << "❌ [Snapshot] Unable to fit chunk frame within payload cap"
+                  << " (overhead=" << overhead << " bytes)" << '\n';
+        return static_cast<size_t>(0);
+      }
+      if (allowed < currentLen) {
+        std::cerr << "ℹ️  [Snapshot] Shrinking chunk for " << peerId << " from "
+                  << currentLen << " to " << allowed
+                  << " bytes to respect payload limit\n";
+        currentLen = allowed;
+        frame.mutable_snapshot_chunk()->set_data(raw.substr(off, currentLen));
+        frameSize = frame.ByteSizeLong();
+      }
+      while (frameSize > MAX_WIRE_PAYLOAD && currentLen > 1) {
+        const size_t delta = frameSize - MAX_WIRE_PAYLOAD;
+        const size_t shrink = std::max<std::size_t>(1, std::min(delta, currentLen / 2));
+        currentLen -= shrink;
+        frame.mutable_snapshot_chunk()->set_data(raw.substr(off, currentLen));
+        frameSize = frame.ByteSizeLong();
+      }
+      if (frameSize > MAX_WIRE_PAYLOAD) {
+        std::cerr << "❌ [Snapshot] Failed to clamp chunk within payload cap for "
+                  << peerId << " (size=" << frameSize << " bytes)" << '\n';
+        return static_cast<size_t>(0);
+      }
+      return currentLen;
+    };
+
+    len = ensureWithinCap(len, fr);
+    if (len == 0) {
+      std::cerr << "❌ [Snapshot] Aborting snapshot stream for " << peerId
+                << " due to oversized frame" << '\n';
+      return;
+    }
+
     if (!sendFrame(transport, fr)) {
       std::cerr << "❌ [Snapshot] Failed to queue chunk " << seq
                 << " for peer " << peerId << '\n';
       return;
     }
     ++seq;
+    off += len;
   }
   alyncoin::net::Frame end;
   end.mutable_snapshot_end();
