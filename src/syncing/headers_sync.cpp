@@ -27,6 +27,7 @@ void HeadersSync::handleHeaders(const std::string &peer, const alyncoin::net::He
             rec.hash = tmp.getHash();
             rec.previousHash = tmp.getPreviousHash();
             rec.index = tmp.getIndex();
+            rec.accumulatedWork = tmp.getAccumulatedWork();
             headers.emplace_back(std::move(rec));
         } catch (const std::exception &ex) {
             std::cerr << "⚠️ [HeadersSync] Failed to parse header from peer "

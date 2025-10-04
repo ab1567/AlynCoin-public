@@ -15,7 +15,6 @@ SyncRecovery::SyncRecovery(Blockchain* blockchain, PeerManager* peerManager)
 bool SyncRecovery::attemptRecovery(const std::string& expectedTipHash) {
     Logger::warn("[🔧 Recovery] Starting recovery process...");
 
-    blockchain_->startRecovery();
     blockchain_->stopMining();
 
     std::string rollbackHash = expectedTipHash;
@@ -40,7 +39,6 @@ bool SyncRecovery::attemptRecovery(const std::string& expectedTipHash) {
 
     if (rollbackHeight < 0) {
         Logger::error("[❌ Recovery] Failed to find rollback point.");
-        blockchain_->finishRecovery();
         return false;
     }
 
@@ -49,12 +47,10 @@ bool SyncRecovery::attemptRecovery(const std::string& expectedTipHash) {
 
     if (!fetchAndApplyBlocksFromHeight(rollbackHeight + 1)) {
         Logger::error("[❌ Recovery] Failed to resync blocks from peers.");
-        blockchain_->finishRecovery();
         return false;
     }
 
     Logger::success("[✅ Recovery] Self-healing complete. Node resynced successfully.");
-    blockchain_->finishRecovery();
     return true;
 }
 
@@ -109,7 +105,8 @@ bool SyncRecovery::fetchAndApplyBlocksFromHeight(int startHeight) {
         }
 
         try {
-            if (!blockchain_->addBlock(block)) {
+            auto addRes = blockchain_->addBlock(block);
+            if (addRes != Blockchain::BlockAddResult::Added) {
                 Logger::error("[❌ Add] Could not add block at height " + std::to_string(h));
                 return false;
             }

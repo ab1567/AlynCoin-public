@@ -16,7 +16,9 @@
 #include <boost/asio/ssl.hpp>
 #include <atomic>
 #include <boost/asio.hpp>
+#include <boost/multiprecision/cpp_int.hpp>
 #include <chrono>
+#include <deque>
 #include <fstream>
 #include <generated/net_frame.pb.h>
 #include <cstdint>
@@ -213,7 +215,6 @@ private:
   Blockchain *blockchain;
 
   std::atomic<bool> isRunning;
-  std::atomic<bool> syncing;
   std::mutex fileIOMutex;
 
   boost::asio::io_context ioContext;
@@ -287,5 +288,26 @@ private:
   void handleHeaderResponse(
       const std::string &peer,
       const std::vector<HeadersSync::HeaderRecord> &headers);
+  struct PeerSyncProgress {
+    enum class Mode { Idle, Headers, Blocks, Snapshot };
+    Mode mode{Mode::Idle};
+    std::deque<std::string> blockQueue;
+    std::unordered_set<std::string> requestedBlocks;
+    std::vector<HeadersSync::HeaderRecord> headers;
+    boost::multiprecision::cpp_int remoteWork{0};
+    std::string remoteTip;
+    std::chrono::steady_clock::time_point lastHeaderRequest{};
+    int headerFailures{0};
+  };
+  mutable std::mutex syncStateMutex;
+  std::unordered_map<std::string, PeerSyncProgress> peerSyncStates;
+  void resetPeerSyncState(const std::string &peer);
+  void setPeerSyncMode(const std::string &peer, PeerSyncProgress::Mode mode);
+  void applySyncModeToPeerState(const std::string &peer,
+                                PeerSyncProgress::Mode mode);
+  bool noteHeaderFailure(const std::string &peer, const std::string &reason);
+  void startHeaderSync(const std::string &peer);
+  void requestQueuedBlocks(const std::string &peer);
+  void onBlockAccepted(const std::string &hash);
 };
 #endif // NETWORK_H

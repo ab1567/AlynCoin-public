@@ -16,6 +16,13 @@ struct PeerState {
   std::string prefixBuf; // holds partial protocol prefix across chunks
   std::vector<Block> orphanBuf;
   std::string snapshotB64;
+  enum class SyncMode {
+    Idle,
+    Headers,
+    Blocks,
+    Snapshot
+  } syncMode{SyncMode::Idle};
+  bool recovering{false};
   enum class SnapState {
     Idle,
     WaitMeta,
@@ -28,6 +35,9 @@ struct PeerState {
   bool snapshotServing{false};
   size_t snapshotChunkPreference{0};
   size_t snapshotChunkLimit{0};
+  std::chrono::steady_clock::time_point nextSnapshotRequestAllowed{};
+  std::chrono::steady_clock::time_point lastSnapshotThrottleLog{};
+  int snapshotRequestStrikes{0};
   bool supportsAggProof{false};
   bool supportsSnapshot{false};
   bool supportsWhisper{false};

@@ -2,6 +2,7 @@
 #define HEADERS_SYNC_H
 
 #include <generated/net_frame.pb.h>
+#include <boost/multiprecision/cpp_int.hpp>
 #include <string>
 #include <vector>
 
@@ -11,6 +12,7 @@ public:
         std::string hash;
         std::string previousHash;
         int index{0};
+        boost::multiprecision::cpp_int accumulatedWork;
     };
 
     static void requestHeaders(const std::string &peer, const std::string &fromHash);
