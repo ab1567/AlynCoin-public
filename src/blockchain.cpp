@@ -142,7 +142,6 @@ std::string Blockchain::computeEpochRoot(size_t endIndex) const {
 }
 Blockchain &getBlockchain() { return Blockchain::getActiveInstance(); }
 std::atomic<bool> Blockchain::isMining{false};
-std::atomic<bool> Blockchain::isRecovering{false};
 
 Blockchain::Blockchain()
     : difficulty(0), miningReward(25.0), db(nullptr), totalBurnedSupply(0.0),
@@ -511,7 +510,7 @@ Block Blockchain::createGenesisBlock(bool force) {
   genesis.setZkProof({proof.begin(), proof.end()});
   /* ------------------------------------------------------------------ */
 
-  if (!addBlock(genesis)) {
+  if (addBlock(genesis) != BlockAddResult::Added) {
     std::cerr << "❌ Failed to insert Genesis block!\n";
     exit(1);
   }
@@ -564,7 +563,8 @@ bool Blockchain::importGenesisBlock(const std::string &path) {
       std::cerr << "⚠️ [importGenesisBlock] chain already has blocks\n";
       return false;
     }
-    return addBlock(blk);
+    auto res = addBlock(blk);
+    return res == BlockAddResult::Added || res == BlockAddResult::SideChain;
   } catch (const std::exception &e) {
     std::cerr << "⚠️ [importGenesisBlock] " << e.what() << "\n";
     return false;
@@ -572,7 +572,8 @@ bool Blockchain::importGenesisBlock(const std::string &path) {
 }
 
 // ✅ Adds block, applies smart burn, and broadcasts to peers
-bool Blockchain::addBlock(const Block &block, bool lockHeld) {
+Blockchain::BlockAddResult Blockchain::addBlock(const Block &block,
+                                                bool lockHeld) {
   std::unique_lock<std::recursive_mutex> lk(blockchainMutex, std::defer_lock);
   if (!lockHeld)
     lk.lock();
@@ -586,7 +587,7 @@ bool Blockchain::addBlock(const Block &block, bool lockHeld) {
   if (block.getZkProof().empty()) {
     std::cerr << "❌ [ERROR] Cannot add block with EMPTY zkProof! Block Hash: "
               << block.getHash() << "\n";
-    return false;
+    return BlockAddResult::Invalid;
   } else {
     std::cout << "[DEBUG] 🧩 addBlock() zkProof length: "
               << block.getZkProof().size() << " bytes\n";
@@ -598,29 +599,51 @@ bool Blockchain::addBlock(const Block &block, bool lockHeld) {
       std::cerr << "⚠️ [addBlock] Duplicate block hash detected (idx="
                 << block.getIndex() << ", hash=" << block.getHash()
                 << "). Skipping add.\n";
-      return true;
+      return BlockAddResult::Duplicate;
     }
   if (orphanHashes.count(block.getHash())) {
-    std::cerr << "⚠️ [addBlock] Block already buffered as orphan. Skipping.\n";
-    return true;
+    std::cerr << "ℹ️ [addBlock] Promoting previously orphaned block "
+              << block.getHash() << " for attachment.\n";
+    for (auto it = orphanBlocks.begin(); it != orphanBlocks.end();) {
+      auto &vec = it->second;
+      auto removeIt = std::remove_if(
+          vec.begin(), vec.end(),
+          [&](const Block &pending) { return pending.getHash() == block.getHash(); });
+      if (removeIt != vec.end()) {
+        vec.erase(removeIt, vec.end());
+        if (vec.empty())
+          it = orphanBlocks.erase(it);
+        else
+          ++it;
+        break;
+      } else {
+        ++it;
+      }
+    }
+    orphanHashes.erase(block.getHash());
+    requestedParents.erase(block.getHash());
   }
 
   // 3. Orphan / fork handling
   if (!chain.empty() && block.getPreviousHash() != chain.back().getHash()) {
-
-    // ⇢ NEW: parent exists → side branch → run fork logic
-    if (hasBlockHash(block.getPreviousHash())) {
-      std::vector<Block> candidate{block};
-      std::string cur = block.getPreviousHash();
-      Block p;
-      while (getBlockByHash(cur, p)) {
-        candidate.insert(candidate.begin(), p);
-        cur = p.getPreviousHash();
-        if (cur.empty())
-          break;
+    const bool parentInMain = hasBlockHash(block.getPreviousHash());
+    const bool parentInSide =
+        pendingForkChains.find(block.getPreviousHash()) != pendingForkChains.end();
+    if (parentInMain || parentInSide) {
+      if (orphanHashes.insert(block.getHash()).second) {
+        if (getOrphanPoolSize() >= MAX_ORPHAN_BLOCKS) {
+          std::cerr << "⚠️ [addBlock] Orphan pool limit reached ("
+                    << MAX_ORPHAN_BLOCKS
+                    << "). Dropping side-chain block idx=" << block.getIndex()
+                    << "\n";
+          orphanHashes.erase(block.getHash());
+          return BlockAddResult::Dropped;
+        }
+        orphanBlocks[block.getPreviousHash()].push_back(block);
       }
-      compareAndMergeChains(candidate); // may trigger re-org
-      return true;                      // no orphaning
+      registerSideChainBlockLocked(block);
+      evaluatePendingForksLocked();
+      return BlockAddResult::SideChain;
     }
     std::cerr
         << "⚠️ [addBlock] Received block before parent. Buffering as orphan.\n";
@@ -628,15 +651,15 @@ bool Blockchain::addBlock(const Block &block, bool lockHeld) {
       std::cerr << "⚠️ [addBlock] Orphan pool limit reached ("
                 << MAX_ORPHAN_BLOCKS
                 << "). Dropping block idx=" << block.getIndex() << "\n";
-      return false;
+      return BlockAddResult::Dropped;
     }
-    orphanBlocks[block.getPreviousHash()].push_back(block);
-    orphanHashes.insert(block.getHash());
+    if (orphanHashes.insert(block.getHash()).second)
+      orphanBlocks[block.getPreviousHash()].push_back(block);
 
     // === NEW LOGIC: Request missing parent only once ===
     requestMissingParent(block.getPreviousHash());
 
-    return true; // queued as orphan
+    return BlockAddResult::QueuedOrphan;
   }
 
   // 4. Index checks (genesis or expected)
@@ -647,20 +670,20 @@ bool Blockchain::addBlock(const Block &block, bool lockHeld) {
           << "⚠️ [addBlock] Block index already exists or is stale (Index: "
           << block.getIndex() << ", Tip: " << chain.back().getIndex()
           << "). Skipping add.\n";
-      return false;
+      return BlockAddResult::Stale;
     }
     if (block.getIndex() > expectedIndex) {
       std::cerr << "⚠️ [addBlock] Received future block. Index: "
                 << block.getIndex() << ", Expected: " << expectedIndex
                 << ". Buffering (futureBlocks).\n";
       this->futureBlocks[block.getIndex()] = block;
-      return false;
+      return BlockAddResult::Future;
     }
   } else {
     // Only the genesis block is allowed at index 0
     if (!block.isGenesisBlock() && block.getIndex() != 0) {
       std::cerr << "❌ [ERROR] First block must be genesis block (index 0).\n";
-      return false;
+      return BlockAddResult::Invalid;
     }
   }
 
@@ -670,39 +693,39 @@ bool Blockchain::addBlock(const Block &block, bool lockHeld) {
   } else if (!block.hasValidProofOfWork()) {
     std::cerr << "❌ [addBlock] Invalid PoW! Block hash " << block.getHash()
               << " does not meet difficulty " << block.getDifficulty() << "\n";
-    return false;
+    return BlockAddResult::Invalid;
   }
 
   if (!isValidNewBlock(block)) {
     std::cerr << "❌ [addBlock] Invalid block detected. Rejecting!\n";
-    return false;
+    return BlockAddResult::Invalid;
   }
 
   if (block.getDilithiumSignature().empty() ||
       block.getFalconSignature().empty()) {
     std::cerr << "❌ [addBlock] Block missing signature(s). Rejecting.\n";
-    return false;
+    return BlockAddResult::Invalid;
   }
   if (block.getPublicKeyDilithium().empty() ||
       block.getPublicKeyFalcon().empty()) {
     std::cerr << "❌ [addBlock] Block missing public key(s). Rejecting.\n";
-    return false;
+    return BlockAddResult::Invalid;
   }
   if (block.getPublicKeyFalcon().size() != FALCON_PUBLIC_KEY_BYTES) {
     std::cerr << "❌ [addBlock] Falcon public key length mismatch. Got: "
               << block.getPublicKeyFalcon().size()
               << ", Expected: " << FALCON_PUBLIC_KEY_BYTES << "\n";
-    return false;
+    return BlockAddResult::Invalid;
   }
   if (block.getDilithiumSignature().size() < 500 ||
       block.getPublicKeyDilithium().size() < 400) {
     std::cerr << "❌ [addBlock] Dilithium signature or public key too small. "
                  "Rejecting.\n";
-    return false;
+    return BlockAddResult::Invalid;
   }
   if (block.getFalconSignature().size() < 400) {
     std::cerr << "❌ [addBlock] Falcon signature too small. Rejecting.\n";
-    return false;
+    return BlockAddResult::Invalid;
   }
 
   double mintedTotal = 0.0;
@@ -733,7 +756,7 @@ bool Blockchain::addBlock(const Block &block, bool lockHeld) {
               << formatAmount(mintedTotal) << " expected "
               << formatAmount(expectedCoinbase) << " (height "
               << block.getIndex() << ")\n";
-    return false;
+    return BlockAddResult::Invalid;
   }
 
   // 6. Diagnostics
@@ -773,17 +796,17 @@ bool Blockchain::addBlock(const Block &block, bool lockHeld) {
   } catch (const std::exception &e) {
     std::cerr << "❌ [CRITICAL][addBlock] push_back failed: " << e.what()
               << "\n";
-    return false;
+    return BlockAddResult::Invalid;
   } catch (...) {
     std::cerr
         << "❌ [CRITICAL][addBlock] push_back triggered unknown fatal error.\n";
-    return false;
+    return BlockAddResult::Invalid;
   }
 
   if (chain.back().getHash() != block.getHash()) {
     std::cerr << "❌ [addBlock] After push_back, block hash mismatch. Possible "
                  "memory error.\n";
-    return false;
+    return BlockAddResult::Invalid;
   }
 
   // 8. Remove pending txs included in this block
@@ -809,7 +832,7 @@ bool Blockchain::addBlock(const Block &block, bool lockHeld) {
     std::string serializedBlock;
     if (!protoBlock.SerializeToString(&serializedBlock)) {
       std::cerr << "❌ [addBlock] Failed to serialize block using Protobuf.\n";
-      return false;
+      return BlockAddResult::Invalid;
     }
     std::string blockKeyByHeight =
         "block_height_" + std::to_string(block.getIndex());
@@ -818,7 +841,7 @@ bool Blockchain::addBlock(const Block &block, bool lockHeld) {
     if (!statusHeight.ok()) {
       std::cerr << "❌ [addBlock] Failed to save block by height: "
                 << statusHeight.ToString() << "\n";
-      return false;
+      return BlockAddResult::Invalid;
     }
     std::string blockKeyByHash = "block_" + block.getHash();
     rocksdb::Status statusHash =
@@ -826,12 +849,12 @@ bool Blockchain::addBlock(const Block &block, bool lockHeld) {
     if (!statusHash.ok()) {
       std::cerr << "❌ [addBlock] Failed to save block by hash: "
                 << statusHash.ToString() << "\n";
-      return false;
+      return BlockAddResult::Invalid;
     }
     if (!saveToDB()) {
       std::cerr << "❌ [addBlock] Failed to save blockchain to database after "
                    "adding block.\n";
-      return false;
+      return BlockAddResult::Invalid;
     }
     persistMiningCheckpoint(block);
     if (block.getIndex() % 1000 == 0)
@@ -861,9 +884,12 @@ bool Blockchain::addBlock(const Block &block, bool lockHeld) {
     nextIndex++;
   }
 
-  // 12. Try to attach any orphans waiting on this block
+  // 12. Try to attach any orphans waiting on this block. Since we now have the
+  //     block locally there is no need to keep it marked as "requested".
+  requestedParents.erase(block.getHash());
   tryAttachOrphans(block.getHash());
-  return true;
+  evaluatePendingForksLocked();
+  return BlockAddResult::Added;
 }
 
 bool Blockchain::tryAddBlock(const Block &block, ValidationResult &out) {
@@ -878,13 +904,19 @@ bool Blockchain::tryAddBlock(const Block &block, ValidationResult &out) {
     }
   }
 
-  bool ok = addBlock(block, true);
-  if (!ok) {
+  BlockAddResult res = addBlock(block, true);
+  switch (res) {
+  case BlockAddResult::Invalid:
     out = ValidationResult::Invalid;
     return false;
+  case BlockAddResult::Dropped:
+  case BlockAddResult::Stale:
+    out = ValidationResult::PrevHashMismatch;
+    return false;
+  default:
+    out = ValidationResult::Ok;
+    return true;
   }
-  out = ValidationResult::Ok;
-  return true;
 }
 
 // WARNING: This method is for manual testing or recovery only!
@@ -1314,14 +1346,19 @@ Block Blockchain::minePendingTransactions(
   (void)minerDilithiumPriv;
   (void)minerFalconPriv;
 
-  if (isRecoveringActive()) {
-    std::cout << "[DEBUG] Skipping mining while recovering..." << std::endl;
-    return Block();
-  }
   bool havePeers = false;
+  bool networkSyncing = false;
   if (!Network::isUninitialized()) {
-    if (auto *pm = Network::getInstance().getPeerManager())
+    auto &net = Network::getInstance();
+    if (auto *pm = net.getPeerManager())
       havePeers = pm->getPeerCount() > 0;
+    networkSyncing = net.isSyncing();
+  }
+
+  if (networkSyncing) {
+    std::cout << "[DEBUG] Skipping mining while synchronizing with peers..."
+              << std::endl;
+    return Block();
   }
   static bool soloWarned = false;
   if (!havePeers) {
@@ -1460,17 +1497,13 @@ Block Blockchain::minePendingTransactions(
   }
 
   std::cout << "[DEBUG] Attempting to addBlock()..." << std::endl;
-  if (!addBlock(newBlock, true)) {
+  if (addBlock(newBlock, true) != BlockAddResult::Added) {
     std::cerr << "❌ Error adding mined block to blockchain." << std::endl;
     return Block();
   }
 
   clearPendingTransactions();
   lock.unlock();
-  std::cout << "[DEBUG] About to serialize block with reward = "
-            << newBlock.getReward() << std::endl;
-  saveToDB();
-
   std::thread(
       [](Block blockCopy) {
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
@@ -1574,20 +1607,6 @@ void Blockchain::stopMining() {
   isMining.store(false);
   std::cout << "⛔ Mining stopped!\n";
 }
-
-// Begin recovery mode
-void Blockchain::startRecovery() {
-  isRecovering.store(true);
-  std::cout << "[DEBUG] Recovery mode started" << std::endl;
-}
-
-// End recovery mode
-void Blockchain::finishRecovery() {
-  isRecovering.store(false);
-  std::cout << "[DEBUG] Recovery mode finished" << std::endl;
-}
-
-bool Blockchain::isRecoveringActive() const { return isRecovering.load(); }
 
 // ✅ **Reload Blockchain State**
 void Blockchain::reloadBlockchainState() {
@@ -2110,7 +2129,7 @@ bool Blockchain::loadFromDB() {
             } else {
               std::cout << "📥 [loadFromDB] Importing embedded genesis ("
                         << alyn_assets::kEmbeddedGenesisSize << " bytes)\n";
-              if (addBlock(blk)) {
+              if (addBlock(blk) == BlockAddResult::Added) {
                 imported = true;
                 std::string genesisPath = DBPaths::getGenesisFile();
                 exportGenesisBlock(genesisPath);
@@ -2869,8 +2888,12 @@ Block Blockchain::createBlock(const std::string &minerDilithiumKey,
 Block Blockchain::mineBlock(const std::string &minerAddress) {
   std::cout << "[DEBUG] Entered mineBlock() for: " << minerAddress << "\n";
 
-  if (isRecoveringActive()) {
-    std::cerr << "⚠️ Node is recovering. Mining paused." << std::endl;
+  bool syncing = false;
+  if (!Network::isUninitialized())
+    syncing = Network::getInstance().isSyncing();
+
+  if (syncing) {
+    std::cerr << "⚠️ Node is synchronizing. Mining paused." << std::endl;
     return Block();
   }
 
@@ -4192,10 +4215,10 @@ void Blockchain::compareAndMergeChains(const std::vector<Block> &otherChain) {
               << reorgDepth << " checkpoint=" << checkpointHeight << std::endl;
     return;
   }
-  if (reorgDepth > 100 || newWork <= mainWork * cpp_int(101) / cpp_int(100)) {
-    std::cerr << "⚠️ [Fork] Rejected chain with work " << newWork
-              << " (local=" << mainWork << ", reorgDepth=" << reorgDepth << ")"
-              << std::endl;
+  if (newWork <= mainWork) {
+    std::cerr << "⚠️ [Fork] Rejected chain with insufficient work " << newWork
+              << " (local=" << mainWork << ", reorgDepth=" << reorgDepth
+              << ")" << std::endl;
     return;
   }
 
@@ -4211,7 +4234,7 @@ void Blockchain::compareAndMergeChains(const std::vector<Block> &otherChain) {
   if (isPrefix && otherChain.size() > chain.size()) {
     std::cout << "⏩ [Fork] Local chain is prefix. Appending blocks...\n";
     for (size_t i = chain.size(); i < otherChain.size(); ++i) {
-      if (!addBlock(otherChain[i])) {
+      if (addBlock(otherChain[i]) != BlockAddResult::Added) {
         std::cerr << "❌ [Fork] Failed to append block idx="
                   << otherChain[i].getIndex() << "\n";
         return;
@@ -4271,7 +4294,7 @@ void Blockchain::compareAndMergeChains(const std::vector<Block> &otherChain) {
   }
 
   for (size_t i = commonIndex + 1; i < otherChain.size(); ++i) {
-    if (!addBlock(otherChain[i])) {
+    if (addBlock(otherChain[i]) != BlockAddResult::Added) {
       std::cerr << "❌ [Fork] Failed to add block idx="
                 << otherChain[i].getIndex() << "\n";
       return;
@@ -4351,17 +4374,130 @@ bool Blockchain::deserializeBlockchainForkView(
 //
 void Blockchain::setPendingForkChain(const std::vector<Block> &fork) {
   std::lock_guard<std::recursive_mutex> lock(blockchainMutex);
-  pendingForkChain = fork;
+  for (const auto &blk : fork)
+    registerSideChainBlockLocked(blk);
+  evaluatePendingForksLocked();
 }
 
 void Blockchain::clearPendingForkChain() {
   std::lock_guard<std::recursive_mutex> lock(blockchainMutex);
-  pendingForkChain.clear();
+  pendingForkChains.clear();
 }
 
 std::vector<Block> Blockchain::getPendingForkChain() const {
   std::lock_guard<std::recursive_mutex> lock(blockchainMutex);
-  return pendingForkChain;
+  if (pendingForkChains.empty())
+    return {};
+
+  cpp_int bestWork = 0;
+  std::vector<Block> bestChain;
+  for (const auto &entry : pendingForkChains) {
+    const auto &candidate = entry.second;
+    if (candidate.empty())
+      continue;
+    cpp_int work = computeCumulativeDifficulty(candidate);
+    if (bestChain.empty() || work > bestWork) {
+      bestWork = work;
+      bestChain = candidate;
+    }
+  }
+  return bestChain;
+}
+
+void Blockchain::registerSideChainBlockLocked(const Block &block) {
+  if (block.getHash().empty())
+    return;
+  if (hasBlockHash(block.getHash()))
+    return;
+
+  // Extend an existing pending chain if the parent matches the current tip.
+  auto extendIt = pendingForkChains.find(block.getPreviousHash());
+  if (extendIt != pendingForkChains.end()) {
+    std::vector<Block> candidate = extendIt->second;
+    if (candidate.empty())
+      return;
+    cpp_int parentWork = candidate.back().getAccumulatedWork();
+    Block copy = block;
+    cpp_int thisWork = difficultyToWork(block.getDifficulty());
+    copy.setAccumulatedWork(parentWork + thisWork);
+    candidate.push_back(copy);
+    pendingForkChains.erase(extendIt);
+    pendingForkChains.emplace(copy.getHash(), std::move(candidate));
+    return;
+  }
+
+  // Otherwise, if the parent exists on the main chain, start a new side chain.
+  auto parentIt = std::find_if(chain.begin(), chain.end(), [&](const Block &b) {
+    return b.getHash() == block.getPreviousHash();
+  });
+  if (parentIt == chain.end())
+    return;
+
+  std::vector<Block> candidate(chain.begin(), std::next(parentIt));
+  if (candidate.empty())
+    return;
+  Block copy = block;
+  cpp_int parentWork = candidate.back().getAccumulatedWork();
+  cpp_int thisWork = difficultyToWork(block.getDifficulty());
+  copy.setAccumulatedWork(parentWork + thisWork);
+  candidate.push_back(copy);
+  pendingForkChains[copy.getHash()] = std::move(candidate);
+}
+
+void Blockchain::cleanupSideChainsLocked() {
+  for (auto it = pendingForkChains.begin(); it != pendingForkChains.end();) {
+    const auto &candidate = it->second;
+    if (candidate.empty() || chain.empty() ||
+        candidate.front().getHash() != chain.front().getHash() ||
+        hasBlockHash(it->first)) {
+      it = pendingForkChains.erase(it);
+    } else {
+      ++it;
+    }
+  }
+}
+
+void Blockchain::evaluatePendingForksLocked() {
+  if (evaluatingSideChains)
+    return;
+
+  struct ResetGuard {
+    Blockchain *bc;
+    explicit ResetGuard(Blockchain *ptr) : bc(ptr) {}
+    ~ResetGuard() {
+      if (bc)
+        bc->evaluatingSideChains = false;
+    }
+  } guard(this);
+
+  evaluatingSideChains = true;
+  cleanupSideChainsLocked();
+
+  if (pendingForkChains.empty())
+    return;
+
+  cpp_int mainWork = chain.empty() ? cpp_int(0) : computeCumulativeDifficulty(chain);
+  std::string bestTip;
+  cpp_int bestWork = mainWork;
+
+  for (const auto &entry : pendingForkChains) {
+    const auto &candidate = entry.second;
+    if (candidate.empty())
+      continue;
+    cpp_int candidateWork = computeCumulativeDifficulty(candidate);
+    if (candidateWork > bestWork) {
+      bestWork = candidateWork;
+      bestTip = entry.first;
+    }
+  }
+
+  if (!bestTip.empty()) {
+    auto it = pendingForkChains.find(bestTip);
+    if (it != pendingForkChains.end())
+      compareAndMergeChains(it->second);
+  }
+
+  cleanupSideChainsLocked();
 }
 //
 bool Blockchain::openDB(bool readOnly) {
@@ -4449,12 +4585,16 @@ void Blockchain::requestMissingParent(const std::string &parentHash) {
 // Attempt to attach any orphan blocks whose parent hash matches `parentHash`
 void Blockchain::tryAttachOrphans(const std::string &parentHash) {
   auto it = orphanBlocks.find(parentHash);
-  if (it == orphanBlocks.end())
+  if (it == orphanBlocks.end()) {
+    requestedParents.erase(parentHash);
     return;
+  }
 
   // copy children then erase to avoid iterator invalidation
   auto children = it->second;
   orphanBlocks.erase(it);
+
+  requestedParents.erase(parentHash);
 
   for (const Block &child : children) {
     std::cerr << "[addBlock] Now adding previously orphaned block idx="
@@ -4462,6 +4602,35 @@ void Blockchain::tryAttachOrphans(const std::string &parentHash) {
     orphanHashes.erase(child.getHash());
     addBlock(child, true);
   }
+}
+
+bool Blockchain::reattachOrphans() {
+  std::lock_guard<std::recursive_mutex> lk(blockchainMutex);
+  if (orphanBlocks.empty())
+    return false;
+
+  std::vector<std::string> readyParents;
+  readyParents.reserve(orphanBlocks.size());
+  for (const auto &entry : orphanBlocks) {
+    if (hasBlockHash(entry.first))
+      readyParents.push_back(entry.first);
+  }
+
+  if (readyParents.empty())
+    return false;
+
+  bool attached = false;
+  for (const auto &parentHash : readyParents) {
+    const size_t before = chain.size();
+    tryAttachOrphans(parentHash);
+    if (chain.size() > before)
+      attached = true;
+  }
+
+  if (attached)
+    evaluatePendingForksLocked();
+
+  return attached;
 }
 
 void Blockchain::applyConsensusHints(int remoteHeight, int hintedDifficulty,

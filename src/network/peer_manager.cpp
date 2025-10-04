@@ -345,6 +345,24 @@ uint64_t PeerManager::getMaxPeerWork() const {
     return maxW;
 }
 
+uint64_t PeerManager::getMedianPeerWork() const {
+    std::vector<uint64_t> works;
+    {
+        std::lock_guard<std::mutex> guard(peerMutex);
+        works.reserve(peerWorks.size());
+        for (const auto &kv : peerWorks) {
+            if (kv.second > 0)
+                works.push_back(kv.second);
+        }
+    }
+
+    if (works.empty())
+        return 0;
+
+    std::sort(works.begin(), works.end());
+    return works[works.size() / 2];
+}
+
 void PeerManager::setExternalAddress(const std::string &address) {
     std::lock_guard<std::mutex> guard(peerMutex);
     externalAddress_ = address;

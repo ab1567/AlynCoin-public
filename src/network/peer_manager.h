@@ -76,6 +76,7 @@ public:
     void setPeerWork(const std::string& peer, uint64_t work);
     uint64_t getPeerWork(const std::string& peer) const;
     uint64_t getMaxPeerWork() const;
+    uint64_t getMedianPeerWork() const;
 
     // --- New helpers for chain health ---------------------------------
     int getMaxPeerHeight() const;

@@ -66,7 +66,6 @@ private:
   std::unordered_set<std::string> pendingTxHashes;
   std::unordered_set<std::string> confirmedTxHashes;
   static std::atomic<bool> isMining;
-  static std::atomic<bool> isRecovering;
   double blockReward = BASE_BLOCK_REWARD;
   int difficulty;
   double miningReward;
@@ -87,6 +86,7 @@ private:
   std::unordered_map<std::string, uint64_t> nextNonceByAddress;
   int64_t lastPersistedHeight{-1};
   std::unordered_map<std::string, double> persistedBalancesCache;
+  bool evaluatingSideChains{false};
 
   // --- Vesting ---
   struct VestingInfo {
@@ -102,7 +102,7 @@ private:
     bool isActive;
   };
   VotingSession votingSession;
-  std::vector<Block> pendingForkChain;
+  std::unordered_map<std::string, std::vector<Block>> pendingForkChains;
 
   // --- Private Helper Functions ---
   void checkDevFundActivity();
@@ -121,6 +121,9 @@ private:
   void recordConfirmedNonce(const std::string &sender, uint64_t nonce,
                             bool lockHeld = false);
   void clearMiningCheckpoint() const;
+  void registerSideChainBlockLocked(const Block &block);
+  void evaluatePendingForksLocked();
+  void cleanupSideChainsLocked();
 
 public:
   static Blockchain &getInstance(unsigned short port,
@@ -180,9 +183,6 @@ public:
                    const std::string &minerDilithiumKey,
                    const std::string &minerFalconKey);
   void stopMining();
-  void startRecovery();
-  void finishRecovery();
-  bool isRecoveringActive() const;
   bool hasPendingTransactions() const;
   Block minePendingTransactions(const std::string &minerAddress,
                                 const std::vector<unsigned char> &minerDilithiumPriv,
@@ -198,7 +198,18 @@ public:
     Invalid
   };
 
-  bool addBlock(const Block &block, bool lockHeld = false);
+  enum class BlockAddResult {
+    Added = 0,
+    SideChain,
+    QueuedOrphan,
+    Duplicate,
+    Future,
+    Stale,
+    Dropped,
+    Invalid
+  };
+
+  BlockAddResult addBlock(const Block &block, bool lockHeld = false);
   bool tryAddBlock(const Block &block, ValidationResult &out);
   void loadPendingTransactionsFromDB();
   bool isValidNewBlock(const Block &newBlock) const;
@@ -304,6 +315,7 @@ public:
   bool getBlockByHash(const std::string& hash, Block& out) const;
   void requestMissingParent(const std::string& parentHash);
   void tryAttachOrphans(const std::string& parentHash);
+  bool reattachOrphans();
   size_t getOrphanPoolSize() const;
 
   std::map<uint64_t, Block> futureBlocks;

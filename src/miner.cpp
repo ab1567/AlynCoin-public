@@ -153,8 +153,8 @@ void Miner::startMiningProcess(const std::string &minerAddress) {
             std::cout << "[SIGN DEBUG] 🧬 Falcon PubKey (MINING): " << Crypto::toHex(falKey) << std::endl;
 
             // ✅ Only add and broadcast if block is valid
-            if (blockchain.addBlock(minedBlock)) {
-                blockchain.saveToDB();
+            if (blockchain.addBlock(minedBlock) ==
+                Blockchain::BlockAddResult::Added) {
 
                 if (!Network::isUninitialized()) {
                     Network::getInstance().broadcastBlock(minedBlock);
