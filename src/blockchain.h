@@ -15,7 +15,6 @@
 #include <cstdint>
 #include <ctime>
 #include "db/db_paths.h"
-#include <deque>
 #include <functional>
 #include <boost/multiprecision/cpp_int.hpp>
 #include <json/json.h>
@@ -25,6 +24,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <deque>
 #include <vector>
 #include <optional>
 #include "constants.h"
@@ -314,6 +314,7 @@ public:
 
   bool getBlockByHash(const std::string& hash, Block& out) const;
   void requestMissingParent(const std::string& parentHash);
+  void forgetRequestedParent(const std::string& parentHash);
   void tryAttachOrphans(const std::string& parentHash);
   bool reattachOrphans();
   size_t getOrphanPoolSize() const;
@@ -322,6 +323,7 @@ public:
 
   std::unordered_map<std::string, std::vector<Block>> orphanBlocks;
   std::unordered_set<std::string>            requestedParents;
+  std::deque<std::string>                    requestedParentQueue;
   std::unordered_set<std::string> orphanHashes;
 
   inline std::string getStateRoot() const {  // ✅ CORRECT
