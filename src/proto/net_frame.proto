@@ -75,11 +75,19 @@ message SnapshotMeta {
   string root_hash = 2;
   uint64 total_bytes = 3;
   uint32 chunk_size = 4;
+  bytes session_id = 5;
 }
 
-message SnapshotChunk { bytes data = 1; }
-message SnapshotAck { uint32 seq = 1; }
-message SnapshotEnd {}
+message SnapshotChunk {
+  bytes data = 1;
+  bytes session_id = 2;
+  uint64 offset = 3;
+}
+message SnapshotAck {
+  uint32 seq = 1;
+  bytes session_id = 2;
+}
+message SnapshotEnd { bytes session_id = 1; }
 message TailBlocks { repeated alyncoin.BlockProto blocks = 1; }
 message EpochProof { bytes data = 1; }
 message Inventory { repeated string hashes = 1; }
