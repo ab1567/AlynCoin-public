@@ -49,13 +49,8 @@ const size_t MAX_ORPHAN_BLOCKS = 5000;
 constexpr double AUTO_MINING_REWARD = 1e-10;
 constexpr std::time_t AUTO_MINING_GRACE_PERIOD = 60;
 
-namespace blockchain_internal {
-class DatabaseRebaseGuard;
-}
-
 class Blockchain {
   friend class Network;
-  friend class blockchain_internal::DatabaseRebaseGuard;
 
 private:
   Blockchain();
