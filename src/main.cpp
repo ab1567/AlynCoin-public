@@ -1,6 +1,7 @@
 #include "atomic_swaps/rocksdb_swap_store.h"
 #include "atomic_swaps/swap_manager.h"
 #include "blockchain.h"
+#include "constants.h"
 #include "cli/peer_blacklist_cli.h"
 #include "config.h"
 #include "crypto_utils.h"
@@ -46,7 +47,22 @@
 #include <unordered_set>
 #include <vector>
 
+#ifndef ALYNCOIN_BUILD_GIT_SHA
+#define ALYNCOIN_BUILD_GIT_SHA "unknown"
+#endif
+
+#ifndef ALYNCOIN_BUILD_TIMESTAMP
+#define ALYNCOIN_BUILD_TIMESTAMP "unknown"
+#endif
+
 namespace {
+
+void printBuildFingerprint(std::ostream &out) {
+  out << "[BUILD] commit=" << ALYNCOIN_BUILD_GIT_SHA
+      << " built=" << ALYNCOIN_BUILD_TIMESTAMP
+      << " chunk_cap=" << MAX_SNAPSHOT_CHUNK_SIZE
+      << " wire_cap=" << MAX_WIRE_PAYLOAD << std::endl;
+}
 
 std::mutex gCliOutputMutex;
 
@@ -1779,6 +1795,7 @@ static bool handleNodeMenuSelection(int choice, Blockchain &blockchain,
 
 int main(int argc, char *argv[]) {
   std::srand(std::time(nullptr));
+  printBuildFingerprint(std::cerr);
   loadConfigFile("config.ini");
   unsigned short port = DEFAULT_PORT;
   unsigned short rpcPort = 1567;
@@ -1795,6 +1812,9 @@ int main(int argc, char *argv[]) {
     std::string arg = argv[i];
     if (arg == "--help" || arg == "-h" || arg == "help") {
       print_usage();
+      return 0;
+    } else if (arg == "--version" || arg == "-V") {
+      printBuildFingerprint(std::cout);
       return 0;
     } else if (arg == "--port" && i + 1 < argc) {
       port = static_cast<unsigned short>(std::stoi(argv[++i]));

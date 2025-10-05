@@ -26,9 +26,9 @@ inline constexpr int DESYNC_THRESHOLD = 5000;
 
 // allow larger snapshot transfers for cold sync
 // Network stacks are happier with smaller writes, so cap snapshot chunks
-// at 256 KiB to avoid overrunning peer receive windows.
+// at 32 KiB to avoid overrunning peer receive windows.
 // Keeping below MAX_WIRE_PAYLOAD to account for frame overhead
-inline constexpr std::size_t MAX_SNAPSHOT_CHUNK_SIZE = 250 * 1024; // 250 KiB
+inline constexpr std::size_t MAX_SNAPSHOT_CHUNK_SIZE = 32 * 1024; // 32 KiB
 // Older peers silently drop frames that exceed ~64 KiB. Use this cap when
 // advertising or transmitting snapshot chunks to remain compatible while still
 // benefiting newer peers that can stream larger frames.
@@ -49,7 +49,7 @@ inline constexpr int SNAPSHOT_PROACTIVE_GAP = 16; // remote must be 16 blocks ah
 inline constexpr int TAIL_SYNC_THRESHOLD = 32;    // height gap for tail sync before snapshotting
 inline constexpr uint64_t SNAPSHOT_WORK_DELTA = 1024; // cumulative work delta to favour snapshots
 // Increased to support larger batch frames
-inline constexpr std::size_t MAX_WIRE_PAYLOAD = 1024 * 1024; // 1 MiB frame cap
+inline constexpr std::size_t MAX_WIRE_PAYLOAD = 512 * 1024; // 512 KiB frame cap
 inline constexpr std::size_t MAX_TAIL_PAYLOAD = 200 * 1024;  // safe tail chunk
 inline constexpr std::size_t MAX_INV_PER_MSG = 500; // inventory batch cap
 // Limit blocks included in a snapshot to avoid sending the full chain
