@@ -45,7 +45,9 @@ inline constexpr int MAX_TAIL_BLOCKS = 256; // limit tail block batches
 inline constexpr int FAST_SYNC_RECENT_BLOCKS = 256; // preview burst for lagging peers
 inline constexpr int FAST_SYNC_TRIGGER_GAP = 2048;  // require sizeable gap before preview
 // Peers will exchange up to 100 blocks directly before snapshotting.
-inline constexpr int TAIL_SYNC_THRESHOLD = 100; // height gap for tail sync
+inline constexpr int SNAPSHOT_PROACTIVE_GAP = 16; // remote must be 16 blocks ahead to force snapshot
+inline constexpr int TAIL_SYNC_THRESHOLD = 32;    // height gap for tail sync before snapshotting
+inline constexpr uint64_t SNAPSHOT_WORK_DELTA = 1024; // cumulative work delta to favour snapshots
 // Increased to support larger batch frames
 inline constexpr std::size_t MAX_WIRE_PAYLOAD = 1024 * 1024; // 1 MiB frame cap
 inline constexpr std::size_t MAX_TAIL_PAYLOAD = 200 * 1024;  // safe tail chunk

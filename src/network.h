@@ -286,7 +286,8 @@ private:
   void recordSelfEndpoint(const std::string &host, int port);
   void refreshLocalInterfaceCache();
   bool shouldServeHeavyData(const std::string &peerId,
-                            int remoteHeightHint = -1);
+                            int remoteHeightHint = -1,
+                            bool forSnapshot = false);
   void beginHeaderBridge(const std::string &peer);
   void handleHeaderResponse(
       const std::string &peer,
