@@ -652,6 +652,10 @@ Blockchain::BlockAddResult Blockchain::addBlock(const Block &block,
       std::cerr << "⚠️ [addBlock] Orphan pool limit reached ("
                 << MAX_ORPHAN_BLOCKS
                 << "). Dropping block idx=" << block.getIndex() << "\n";
+      // Even though we cannot buffer this block, make sure we still
+      // explicitly request its missing parent so the node can recover
+      // once the parent is delivered by peers.
+      requestMissingParent(block.getPreviousHash());
       return BlockAddResult::Dropped;
     }
     if (orphanHashes.insert(block.getHash()).second)
