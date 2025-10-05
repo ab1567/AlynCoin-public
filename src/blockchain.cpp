@@ -11,6 +11,7 @@
 #include "layer2/state_channel.h"
 #include "network.h"
 #include "config.h"
+#include <generated/sync_protos.pb.h>
 #include "rollup/proofs/proof_verifier.h"
 #include "rollup/rollup_block.h"
 #include "rpc/metrics.h"
@@ -19,6 +20,7 @@
 #include "json/json.h"
 #include "db/rocksdb_options_utils.h"
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <boost/multiprecision/cpp_int.hpp>
 #include <chrono>
@@ -82,6 +84,17 @@ std::string formatAmount(double amount) {
   return formatted;
 }
 
+} // namespace
+
+namespace {
+struct SnapshotReleaser {
+  rocksdb::DB *db{nullptr};
+  const rocksdb::Snapshot *snapshot{nullptr};
+  ~SnapshotReleaser() {
+    if (db && snapshot)
+      db->ReleaseSnapshot(snapshot);
+  }
+};
 } // namespace
 
 namespace {
@@ -1626,6 +1639,10 @@ void Blockchain::stopMining() {
 
 // ✅ **Reload Blockchain State**
 void Blockchain::reloadBlockchainState() {
+  {
+    std::lock_guard<std::mutex> guard(dbLoadMutex);
+    hasLoadedFromDB = false;
+  }
   loadFromDB();
   loadTransactionsFromDB();
   std::cout << "✅ Blockchain and transactions reloaded!\n";
@@ -2062,6 +2079,13 @@ bool Blockchain::saveToDB(bool forceFullSave) {
 
 // ✅ **Load Blockchain from RocksDB using Protobuf**
 bool Blockchain::loadFromDB() {
+  std::unique_lock<std::mutex> loadGuard(dbLoadMutex);
+  if (hasLoadedFromDB) {
+    std::cout
+        << "♻️ [loadFromDB] State already loaded — skipping redundant reload.\n";
+    return true;
+  }
+
   static bool skipProofVerification = true;
   std::cout << "[DEBUG] Attempting to load blockchain from DB..." << std::endl;
 
@@ -2321,6 +2345,7 @@ bool Blockchain::loadFromDB() {
                              ? -1
                              : static_cast<int64_t>(chain.back().getIndex());
   persistedBalancesCache = balances;
+  hasLoadedFromDB = true;
 
   return true;
 }
@@ -3776,6 +3801,11 @@ void Blockchain::clear(bool force) {
 
   std::cout << "🔁 Blockchain::clear() called — resetting state.\n";
 
+  {
+    std::lock_guard<std::mutex> guard(dbLoadMutex);
+    hasLoadedFromDB = false;
+  }
+
   chain.clear();
   pendingTransactions.clear();
   pendingTxHashes.clear();
@@ -4175,6 +4205,51 @@ std::vector<Block> Blockchain::getChainSlice(size_t startHeight,
 
   return std::vector<Block>(chain.begin() + startHeight,
                             chain.begin() + endHeight + 1);
+}
+
+std::optional<Blockchain::SnapshotImage>
+Blockchain::buildSnapshotImage(size_t startHeight, size_t endHeight) {
+  const rocksdb::Snapshot *dbSnapshot = db ? db->GetSnapshot() : nullptr;
+  SnapshotReleaser guard{db, dbSnapshot};
+
+  std::vector<Block> blocks;
+  {
+    std::lock_guard<std::recursive_mutex> lk(blockchainMutex);
+    if (chain.empty())
+      return std::nullopt;
+
+    if (endHeight >= chain.size())
+      endHeight = chain.size() - 1;
+    if (startHeight > endHeight)
+      startHeight = endHeight;
+
+    blocks.assign(chain.begin() + startHeight, chain.begin() + endHeight + 1);
+  }
+
+  if (blocks.empty())
+    return std::nullopt;
+
+  SnapshotProto snap;
+  for (const auto &blk : blocks)
+    *snap.add_blocks() = blk.toProtobuf();
+
+  SnapshotImage image;
+  image.height = blocks.back().getIndex();
+  image.merkleRoot = blocks.back().getMerkleRoot();
+  snap.set_height(image.height);
+  snap.set_merkle_root(image.merkleRoot);
+  if (!snap.SerializeToString(&image.data))
+    return std::nullopt;
+
+  blake3_hasher hasher;
+  blake3_hasher_init(&hasher);
+  blake3_hasher_update(&hasher, image.data.data(), image.data.size());
+  std::array<uint8_t, BLAKE3_OUT_LEN> digest{};
+  blake3_hasher_finalize(&hasher, digest.data(), digest.size());
+  std::vector<unsigned char> digestVec(digest.begin(), digest.end());
+  image.digestHex = Crypto::toHex(digestVec);
+
+  return image;
 }
 
 //

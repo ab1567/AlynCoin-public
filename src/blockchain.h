@@ -70,6 +70,8 @@ private:
   int difficulty;
   double miningReward;
   mutable std::recursive_mutex blockchainMutex;  // protects in-memory chain vector
+  mutable std::mutex dbLoadMutex;
+  bool hasLoadedFromDB{false};
   std::string minerAddress;
   Network *network;
   rocksdb::DB *db;
@@ -332,8 +334,16 @@ public:
   }
 
   // --- Snapshot/fast sync helpers ---
+  struct SnapshotImage {
+    int height{0};
+    std::string merkleRoot;
+    std::string data;
+    std::string digestHex;
+  };
   std::vector<Block> getChainUpTo(size_t height) const;
   std::vector<Block> getChainSlice(size_t startHeight, size_t endHeight) const;
+  std::optional<SnapshotImage> buildSnapshotImage(size_t startHeight,
+                                                  size_t endHeight);
   bool tryAppendBlock(const Block &blk);
 
 };

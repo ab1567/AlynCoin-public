@@ -1,4 +1,5 @@
 #include "network.h"
+#include "blake3.h"
 #include "blockchain.h"
 #include "config.h"
 #include "constants.h"
@@ -34,6 +35,7 @@
 #include <cstring>
 #include <ctime>
 #include <filesystem>
+#include <string_view>
 #include <generated/block_protos.pb.h>
 #include <generated/net_frame.pb.h>
 #include <generated/sync_protos.pb.h>
@@ -134,6 +136,36 @@ ConsensusHints parseConsensusHints(
   }
 
   return hints;
+}
+
+WireFrame classifyFrame(const alyncoin::net::Frame &fr) {
+  if (fr.has_handshake())
+    return WireFrame::HANDSHAKE;
+  if (fr.has_height_req() || fr.has_height_res() || fr.has_height_probe())
+    return WireFrame::HEIGHT;
+  if (fr.has_peer_list())
+    return WireFrame::PEER_LIST;
+  if (fr.has_block_broadcast())
+    return WireFrame::BLOCK;
+  if (fr.has_ping() || fr.has_pong())
+    return WireFrame::PING;
+  if (fr.has_snapshot_meta())
+    return WireFrame::SNAP_META;
+  if (fr.has_snapshot_chunk())
+    return WireFrame::SNAP_CHUNK;
+  if (fr.has_snapshot_end())
+    return WireFrame::SNAP_END;
+  return WireFrame::OTHER;
+}
+
+std::string computeSnapshotDigestHex(std::string_view data) {
+  blake3_hasher hasher;
+  blake3_hasher_init(&hasher);
+  blake3_hasher_update(&hasher, data.data(), data.size());
+  std::array<uint8_t, BLAKE3_OUT_LEN> digest{};
+  blake3_hasher_finalize(&hasher, digest.data(), digest.size());
+  std::vector<unsigned char> digestVec(digest.begin(), digest.end());
+  return Crypto::toHex(digestVec);
 }
 
 const char *describeBlockAddResult(Blockchain::BlockAddResult res) {
@@ -825,31 +857,28 @@ bool Network::sendFrame(std::shared_ptr<Transport> tr,
     return false;
   const alyncoin::net::Frame *fr =
       dynamic_cast<const alyncoin::net::Frame *>(&m);
+  WireFrame tag = WireFrame::OTHER;
+  bool isSnapshotChunk = false;
   if (fr) {
-    WireFrame tag = WireFrame::OTHER;
-    if (fr->has_handshake())
-      tag = WireFrame::HANDSHAKE;
-    else if (fr->has_height_req() || fr->has_height_res() ||
-             fr->has_height_probe())
-      tag = WireFrame::HEIGHT;
-    else if (fr->has_peer_list())
-      tag = WireFrame::PEER_LIST;
-    else if (fr->has_block_broadcast())
-      tag = WireFrame::BLOCK;
-    else if (fr->has_ping() || fr->has_pong())
-      tag = WireFrame::PING;
-    else if (fr->has_snapshot_meta())
-      tag = WireFrame::SNAP_META;
-    else if (fr->has_snapshot_chunk())
-      tag = WireFrame::SNAP_CHUNK;
-    else if (fr->has_snapshot_end())
-      tag = WireFrame::SNAP_END;
+    tag = classifyFrame(*fr);
+    isSnapshotChunk = fr->has_snapshot_chunk();
     std::cerr << "[>>] Outgoing Frame Type=" << static_cast<int>(tag) << "\n";
   }
   size_t sz = m.ByteSizeLong();
   if (sz == 0) {
     std::cerr << "[sendFrame] ❌ Attempting to send empty protobuf message!"
               << '\n';
+    return false;
+  }
+  if (!isSnapshotChunk && sz > MAX_NON_CHUNK_FRAME) {
+    std::cerr << "[sendFrame] ❌ Refusing to send oversized non-snapshot frame "
+              << static_cast<int>(tag) << " (" << sz
+              << " bytes > " << MAX_NON_CHUNK_FRAME << ")" << '\n';
+    return false;
+  }
+  if (tag == WireFrame::OTHER && sz > MAX_CONTROL_FRAME_SIZE) {
+    std::cerr << "[sendFrame] ❌ Control frame too large (" << sz
+              << " bytes > " << MAX_CONTROL_FRAME_SIZE << ")" << '\n';
     return false;
   }
   if (sz > MAX_WIRE_PAYLOAD) {
@@ -3910,31 +3939,36 @@ void Network::processFrame(const alyncoin::net::Frame &f,
     std::cerr << "[net] Uninitialized frame from " << peer << '\n';
     return;
   }
-  if (f.ByteSizeLong() == 0 || f.ByteSizeLong() > MAX_WIRE_PAYLOAD) {
+  const size_t frameSize = f.ByteSizeLong();
+  if (frameSize == 0 || frameSize > MAX_WIRE_PAYLOAD) {
     std::cerr << "[net] Invalid frame size from " << peer << '\n';
+    return;
+  }
+  WireFrame tag = classifyFrame(f);
+  const bool isSnapshotChunk = f.has_snapshot_chunk();
+  if (!isSnapshotChunk && frameSize > MAX_NON_CHUNK_FRAME) {
+    std::cerr << "❌ [net] Oversized frame type " << static_cast<int>(tag)
+              << " from " << peer << " (" << frameSize
+              << " bytes > " << MAX_NON_CHUNK_FRAME << ") – dropping peer\n";
+    if (peerManager)
+      peerManager->disconnectPeer(peer);
+    markPeerOffline(peer);
+    return;
+  }
+  if (tag == WireFrame::OTHER && frameSize > MAX_CONTROL_FRAME_SIZE) {
+    std::cerr << "❌ [net] Control frame from " << peer << " too large ("
+              << frameSize << " bytes > " << MAX_CONTROL_FRAME_SIZE
+              << ") – dropping peer\n";
+    if (peerManager)
+      peerManager->disconnectPeer(peer);
+    markPeerOffline(peer);
     return;
   }
   dispatch(f, peer);
 }
 
 void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
-  WireFrame tag = WireFrame::OTHER;
-  if (f.has_handshake())
-    tag = WireFrame::HANDSHAKE;
-  else if (f.has_height_req() || f.has_height_res() || f.has_height_probe())
-    tag = WireFrame::HEIGHT;
-  else if (f.has_peer_list())
-    tag = WireFrame::PEER_LIST;
-  else if (f.has_block_broadcast())
-    tag = WireFrame::BLOCK;
-  else if (f.has_ping() || f.has_pong())
-    tag = WireFrame::PING;
-  else if (f.has_snapshot_meta())
-    tag = WireFrame::SNAP_META;
-  else if (f.has_snapshot_chunk())
-    tag = WireFrame::SNAP_CHUNK;
-  else if (f.has_snapshot_end())
-    tag = WireFrame::SNAP_END;
+  WireFrame tag = classifyFrame(f);
   std::cerr << "[<<] Incoming Frame from " << peer
             << " Type=" << static_cast<int>(tag) << "\n";
   switch (f.kind_case()) {
@@ -5836,16 +5870,16 @@ void Network::sendSnapshot(const std::string &peerId,
       start = std::max(0, remoteHeightHint);
     }
   }
-  std::vector<Block> blocks = bc.getChainSlice(start, height);
-  SnapshotProto snap;
-  snap.set_height(height);
-  snap.set_merkle_root(bc.getHeaderMerkleRoot());
-  for (const auto &blk : blocks)
-    *snap.add_blocks() = blk.toProtobuf();
-
-  std::string raw;
-  if (!snap.SerializeToString(&raw))
+  auto imageOpt =
+      bc.buildSnapshotImage(static_cast<size_t>(start), static_cast<size_t>(height));
+  if (!imageOpt) {
+    std::cerr << "❌ [Snapshot] Failed to build frozen snapshot for " << peerId
+              << "\n";
     return;
+  }
+  const auto &image = *imageOpt;
+  const std::string &raw = image.data;
+  height = image.height;
 
   const size_t negotiated = resolveSnapshotChunkSize(preferredChunk);
   const size_t maxChunkByCompat =
@@ -5864,10 +5898,11 @@ void Network::sendSnapshot(const std::string &peerId,
   // --- Send metadata first ---
   alyncoin::net::Frame meta;
   meta.mutable_snapshot_meta()->set_height(height);
-  meta.mutable_snapshot_meta()->set_root_hash(bc.getHeaderMerkleRoot());
+  meta.mutable_snapshot_meta()->set_root_hash(image.merkleRoot);
   meta.mutable_snapshot_meta()->set_total_bytes(raw.size());
   meta.mutable_snapshot_meta()->set_chunk_size(
       static_cast<uint32_t>(chunkSize));
+  meta.mutable_snapshot_meta()->set_digest(image.digestHex);
   if (!sendFrame(transport, meta)) {
     std::cerr << "❌ [Snapshot] Failed to queue metadata for " << peerId
               << '\n';
@@ -6046,28 +6081,58 @@ void Network::handleSnapshotMeta(const std::string &peer,
   if (!snapshot.state)
     return;
   auto ps = snapshot.state;
+  bool dropPeer = false;
+  std::string dropReason;
   std::lock_guard<std::mutex> lk(ps->m);
-  const bool resumingImplicit =
-      ps->snapshotImplicitStart && ps->snapshotReceived > 0;
-  ps->snapshotExpectBytes = meta.total_bytes();
-  ps->snapshotRoot = meta.root_hash();
-  if (!resumingImplicit) {
-    ps->snapshotReceived = 0;
+  auto isHex = [](char c) {
+    return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') ||
+           (c >= 'A' && c <= 'F');
+  };
+  const std::string digestHex = meta.digest();
+  if (digestHex.empty() || digestHex.size() != 64 ||
+      !std::all_of(digestHex.begin(), digestHex.end(), isHex)) {
+    dropPeer = true;
+    dropReason = "invalid snapshot digest";
+    ps->snapshotActive = false;
+    ps->snapState = PeerState::SnapState::Idle;
     ps->snapshotB64.clear();
+    ps->snapshotDigest.clear();
+    ps->snapshotAckedBytes = 0;
+    ps->snapshotExpectBytes = 0;
+    ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
+  } else {
+    std::string normalizedDigest = digestHex;
+    std::transform(normalizedDigest.begin(), normalizedDigest.end(),
+                   normalizedDigest.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    ps->snapshotExpectBytes = meta.total_bytes();
+    ps->snapshotRoot = meta.root_hash();
+    ps->snapshotDigest = normalizedDigest;
+    ps->snapshotReceived = 0;
+    ps->snapshotAckedBytes = 0;
+    ps->snapshotB64.clear();
+    ps->snapState = PeerState::SnapState::WaitChunks;
+    size_t advertised = static_cast<size_t>(meta.chunk_size());
+    size_t limit = MAX_SNAPSHOT_CHUNK_SIZE;
+    if (advertised > 0)
+      limit = std::min<std::size_t>(advertised, MAX_WIRE_PAYLOAD);
+    ps->snapshotChunkLimit = limit;
+    ps->snapshotActive = true;
+    ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
+    std::cerr << "ℹ️  [SNAPSHOT] Metadata from " << peer << " total="
+              << meta.total_bytes() << " bytes, advertised chunk=" << advertised
+              << " -> limit=" << limit << " bytes digest=" << normalizedDigest
+              << "\n";
   }
-  ps->snapState = PeerState::SnapState::WaitChunks;
-  size_t advertised = static_cast<size_t>(meta.chunk_size());
-  size_t limit = MAX_SNAPSHOT_CHUNK_SIZE;
-  if (advertised > 0)
-    limit = std::min<std::size_t>(advertised, MAX_WIRE_PAYLOAD);
-  ps->snapshotChunkLimit = limit;
-  ps->snapshotActive = true;
-  ps->snapshotImplicitStart = false;
-  ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
-  std::cerr << "ℹ️  [SNAPSHOT] Metadata from " << peer << " total="
-            << meta.total_bytes() << " bytes, advertised chunk=" << advertised
-            << " -> limit=" << limit << " bytes"
-            << (resumingImplicit ? " (resuming buffered stream)" : "") << "\n";
+  if (dropPeer) {
+    std::cerr << "❌ [SNAPSHOT] " << dropReason << " from " << peer
+              << " – closing link\n";
+    if (peerManager)
+      peerManager->disconnectPeer(peer);
+    if (snapshot.transport && snapshot.transport->isOpen())
+      snapshot.transport->close();
+    markPeerOffline(peer);
+  }
 }
 
 void Network::handleSnapshotAck(const std::string &peer, uint32_t /*seq*/) {
@@ -6092,44 +6157,22 @@ void Network::handleSnapshotChunk(const std::string &peer,
   {
     std::lock_guard<std::mutex> lk(ps->m);
     if (ps->snapState != PeerState::SnapState::WaitChunks) {
-      const bool canImplicit =
-          ps->snapState == PeerState::SnapState::WaitMeta ||
-          ps->snapState == PeerState::SnapState::Idle;
-      if (canImplicit) {
-        if (!ps->snapshotImplicitStart) {
-          std::cerr << "ℹ️  [SNAPSHOT] Chunk before metadata from " << peer
-                    << "; starting implicit snapshot stream" << '\n';
-          ps->snapshotB64.clear();
-          ps->snapshotReceived = 0;
-          ps->snapshotExpectBytes = 0;
-        }
-        ps->snapState = PeerState::SnapState::WaitChunks;
-        ps->snapshotActive = true;
-        ps->snapshotImplicitStart = true;
-        if (ps->snapshotChunkLimit == 0)
-          ps->snapshotChunkLimit = MAX_SNAPSHOT_CHUNK_SIZE;
-        auto now = std::chrono::steady_clock::now();
-        if (transport && transport->isOpen() &&
-            now - ps->lastSnapshotRetry > std::chrono::seconds(2)) {
-          ps->lastSnapshotRetry = now;
-          shouldRetry = true;
-        }
-      } else {
-        std::cerr << "⚠️ [SNAPSHOT] Unexpected chunk from " << peer
-                  << "; requesting metadata retry" << '\n';
-        auto now = std::chrono::steady_clock::now();
-        ps->snapshotB64.clear();
-        ps->snapshotReceived = 0;
-        ps->snapshotExpectBytes = 0;
-        ps->snapState = PeerState::SnapState::WaitMeta;
-        ps->snapshotImplicitStart = false;
-        if (transport && transport->isOpen() &&
-            now - ps->lastSnapshotRetry > std::chrono::seconds(2)) {
-          ps->lastSnapshotRetry = now;
-          shouldRetry = true;
-        }
-        abort = true;
+      std::cerr << "⚠️ [SNAPSHOT] Dropping chunk from " << peer
+                << " without metadata; requesting retry" << '\n';
+      auto now = std::chrono::steady_clock::now();
+      ps->snapshotB64.clear();
+      ps->snapshotReceived = 0;
+      ps->snapshotAckedBytes = 0;
+      ps->snapshotExpectBytes = 0;
+      ps->snapshotActive = false;
+      ps->snapState = PeerState::SnapState::WaitMeta;
+      ps->snapshotDigest.clear();
+      if (transport && transport->isOpen() &&
+          now - ps->lastSnapshotRetry > std::chrono::seconds(2)) {
+        ps->lastSnapshotRetry = now;
+        shouldRetry = true;
       }
+      abort = true;
     }
     if (!abort) {
       size_t limit = ps->snapshotChunkLimit;
@@ -6146,16 +6189,27 @@ void Network::handleSnapshotChunk(const std::string &peer,
         ps->snapshotActive = false;
         ps->snapState = PeerState::SnapState::Idle;
         ps->snapshotB64.clear();
+        ps->snapshotReceived = 0;
+        ps->snapshotAckedBytes = 0;
         ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
-        ps->snapshotImplicitStart = false;
+        ps->snapshotDigest.clear();
         abort = true;
       } else {
         ps->snapshotB64 += chunk;
         ps->snapshotReceived += chunk.size();
         ps->snapshotActive = true;
         if (transport && transport->isOpen()) {
-          shouldAck = true;
-          ackSeq = static_cast<uint32_t>(ps->snapshotReceived);
+          size_t limitForAck = std::max(limit, SNAPSHOT_ACK_GRANULARITY);
+          bool reachedAckThreshold =
+              ps->snapshotReceived - ps->snapshotAckedBytes >= limitForAck;
+          bool completeTransfer =
+              ps->snapshotExpectBytes > 0 &&
+              ps->snapshotReceived >= ps->snapshotExpectBytes;
+          if (reachedAckThreshold || completeTransfer) {
+            shouldAck = true;
+            ackSeq = static_cast<uint32_t>(ps->snapshotReceived);
+            ps->snapshotAckedBytes = ps->snapshotReceived;
+          }
         }
       }
     }
@@ -6186,8 +6240,7 @@ void Network::handleSnapshotEnd(const std::string &peer) {
   if (!snapshot.state)
     return;
   auto ps = snapshot.state;
-  std::lock_guard<std::mutex> lk(ps->m);
-  ps->snapshotImplicitStart = false;
+  std::unique_lock<std::mutex> lk(ps->m);
   std::cerr << "[SNAPSHOT] 🔴 SnapshotEnd from " << peer
             << ", total buffered=" << ps->snapshotB64.size() << " bytes\n";
 
@@ -6196,7 +6249,9 @@ void Network::handleSnapshotEnd(const std::string &peer) {
     ps->snapshotB64.clear();
     ps->snapshotActive = false;
     ps->snapState = PeerState::SnapState::Idle;
+    ps->snapshotAckedBytes = 0;
     ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
+    ps->snapshotDigest.clear();
     return;
   }
   if (ps->snapshotExpectBytes > 0 &&
@@ -6207,7 +6262,9 @@ void Network::handleSnapshotEnd(const std::string &peer) {
     ps->snapshotB64.clear();
     ps->snapshotActive = false;
     ps->snapState = PeerState::SnapState::Idle;
+    ps->snapshotAckedBytes = 0;
     ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
+    ps->snapshotDigest.clear();
     return;
   }
   if (ps->snapshotExpectBytes == 0)
@@ -6226,6 +6283,28 @@ void Network::handleSnapshotEnd(const std::string &peer) {
         throw std::runtime_error("Bad snapshot");
       }
     }
+
+    std::string computedDigest = computeSnapshotDigestHex(raw);
+    const std::string expectedDigest = ps->snapshotDigest;
+    if (!expectedDigest.empty() && computedDigest != expectedDigest) {
+      std::cerr << "❌ [SNAPSHOT] Digest mismatch from " << peer
+                << " expected=" << expectedDigest
+                << " got=" << computedDigest << "\n";
+      ps->snapshotB64.clear();
+      ps->snapshotActive = false;
+      ps->snapState = PeerState::SnapState::Idle;
+      ps->snapshotAckedBytes = 0;
+      ps->snapshotDigest.clear();
+      ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
+      lk.unlock();
+      if (peerManager)
+        peerManager->disconnectPeer(peer);
+      if (snapshot.transport && snapshot.transport->isOpen())
+        snapshot.transport->close();
+      markPeerOffline(peer);
+      return;
+    }
+    ps->snapshotDigest.clear();
 
     Blockchain &chain = Blockchain::getInstance();
 
@@ -6292,6 +6371,7 @@ void Network::handleSnapshotEnd(const std::string &peer) {
         ps->snapshotB64.clear();
         ps->snapState = PeerState::SnapState::Idle;
         ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
+        ps->snapshotDigest.clear();
         setPeerSyncMode(peer, PeerSyncProgress::Mode::Idle);
         onBlockAccepted(b.getHash());
         if (peerManager) {
@@ -6347,6 +6427,7 @@ void Network::handleSnapshotEnd(const std::string &peer) {
       ps->snapshotActive = false;
       ps->snapshotB64.clear();
       ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
+      ps->snapshotDigest.clear();
       setPeerSyncMode(peer, PeerSyncProgress::Mode::Idle);
       return;
     }
@@ -6361,6 +6442,7 @@ void Network::handleSnapshotEnd(const std::string &peer) {
     ps->snapshotB64.clear();
     ps->snapState = PeerState::SnapState::Idle;
     ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
+    ps->snapshotDigest.clear();
 
     if (peerManager) {
       peerManager->setPeerHeight(peer, snap.height());
@@ -6381,6 +6463,7 @@ void Network::handleSnapshotEnd(const std::string &peer) {
     ps->snapshotB64.clear();
     ps->snapState = PeerState::SnapState::Idle;
     ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
+    ps->snapshotDigest.clear();
     setPeerSyncMode(peer, PeerSyncProgress::Mode::Idle);
   } catch (...) {
     std::cerr << "❌ [SNAPSHOT] Unknown error applying snapshot from peer "
@@ -6391,6 +6474,7 @@ void Network::handleSnapshotEnd(const std::string &peer) {
     ps->snapshotB64.clear();
     ps->snapState = PeerState::SnapState::Idle;
     ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
+    ps->snapshotDigest.clear();
     setPeerSyncMode(peer, PeerSyncProgress::Mode::Idle);
   }
 }
@@ -6599,6 +6683,7 @@ void Network::requestSnapshotSync(const std::string &peer) {
     ps->snapState = PeerState::SnapState::WaitMeta;
     ps->snapshotB64.clear();
     ps->snapshotReceived = 0;
+    ps->snapshotAckedBytes = 0;
     ps->snapshotExpectBytes = 0;
     ps->lastSnapshotRetry = std::chrono::steady_clock::now();
   }
