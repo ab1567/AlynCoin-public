@@ -622,7 +622,7 @@ Blockchain::BlockAddResult Blockchain::addBlock(const Block &block,
       }
     }
     orphanHashes.erase(block.getHash());
-    forgetRequestedParent(block.getHash());
+    requestedParents.erase(block.getHash());
   }
 
   // 3. Orphan / fork handling
@@ -652,10 +652,6 @@ Blockchain::BlockAddResult Blockchain::addBlock(const Block &block,
       std::cerr << "⚠️ [addBlock] Orphan pool limit reached ("
                 << MAX_ORPHAN_BLOCKS
                 << "). Dropping block idx=" << block.getIndex() << "\n";
-      // Even though we cannot buffer this block, make sure we still
-      // explicitly request its missing parent so the node can recover
-      // once the parent is delivered by peers.
-      requestMissingParent(block.getPreviousHash());
       return BlockAddResult::Dropped;
     }
     if (orphanHashes.insert(block.getHash()).second)
@@ -891,7 +887,7 @@ Blockchain::BlockAddResult Blockchain::addBlock(const Block &block,
 
   // 12. Try to attach any orphans waiting on this block. Since we now have the
   //     block locally there is no need to keep it marked as "requested".
-  forgetRequestedParent(block.getHash());
+  requestedParents.erase(block.getHash());
   tryAttachOrphans(block.getHash());
   evaluatePendingForksLocked();
   return BlockAddResult::Added;
@@ -4601,14 +4597,7 @@ bool Blockchain::getBlockByHash(const std::string &hash, Block &out) const {
 void Blockchain::requestMissingParent(const std::string &parentHash) {
   if (requestedParents.count(parentHash))
     return;
-  if (requestedParents.size() >= MAX_ORPHAN_BLOCKS && !requestedParentQueue.empty()) {
-    const auto &oldest = requestedParentQueue.front();
-    requestedParents.erase(oldest);
-    requestedParentQueue.pop_front();
-  }
-
   requestedParents.insert(parentHash);
-  requestedParentQueue.push_back(parentHash);
 
   if (!Network::isUninitialized()) {
     alyncoin::net::Frame fr;
@@ -4622,7 +4611,7 @@ void Blockchain::requestMissingParent(const std::string &parentHash) {
 void Blockchain::tryAttachOrphans(const std::string &parentHash) {
   auto it = orphanBlocks.find(parentHash);
   if (it == orphanBlocks.end()) {
-    forgetRequestedParent(parentHash);
+    requestedParents.erase(parentHash);
     return;
   }
 
@@ -4630,7 +4619,7 @@ void Blockchain::tryAttachOrphans(const std::string &parentHash) {
   auto children = it->second;
   orphanBlocks.erase(it);
 
-  forgetRequestedParent(parentHash);
+  requestedParents.erase(parentHash);
 
   for (const Block &child : children) {
     std::cerr << "[addBlock] Now adding previously orphaned block idx="
@@ -4638,15 +4627,6 @@ void Blockchain::tryAttachOrphans(const std::string &parentHash) {
     orphanHashes.erase(child.getHash());
     addBlock(child, true);
   }
-}
-
-void Blockchain::forgetRequestedParent(const std::string &parentHash) {
-  if (!requestedParents.erase(parentHash))
-    return;
-
-  auto it = std::find(requestedParentQueue.begin(), requestedParentQueue.end(), parentHash);
-  if (it != requestedParentQueue.end())
-    requestedParentQueue.erase(it);
 }
 
 bool Blockchain::reattachOrphans() {
