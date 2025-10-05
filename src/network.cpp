@@ -1469,11 +1469,14 @@ std::vector<std::string> fetchPeersFromDNS(const std::string &domain) {
               txt.find(" ") == std::string::npos &&
               txt.find(",") == std::string::npos) {
             auto candidate = parseEndpoint(txt, 15671);
-            if (!candidate.first.empty() && !Network::isUninitialized() &&
-                Network::getExistingInstance().
-                    isSelfEndpoint(candidate.first, candidate.second)) {
-              logNetworkDebug("[DNS] Ignoring self endpoint from seed: ", txt);
-              continue;
+            if (!candidate.first.empty() && !Network::isUninitialized()) {
+              if (auto *existing = Network::getExistingInstance(); existing &&
+                  existing->isSelfEndpoint(candidate.first,
+                                           candidate.second)) {
+                logNetworkDebug("[DNS] Ignoring self endpoint from seed: ",
+                                txt);
+                continue;
+              }
             }
             std::cout << "🌐 [DNS] Found peer TXT entry: " << txt << "\n";
             peers.push_back(txt);
@@ -1497,11 +1500,13 @@ std::vector<std::string> fetchPeersFromDNS(const std::string &domain) {
       if (endpoint.empty())
         return;
       auto parsed = parseEndpoint(endpoint, 15671);
-      if (!parsed.first.empty() && !Network::isUninitialized() &&
-          Network::getExistingInstance().
-              isSelfEndpoint(parsed.first, parsed.second)) {
-        logNetworkDebug("[DNS] Skipping fallback self endpoint ", endpoint);
-        return;
+      if (!parsed.first.empty() && !Network::isUninitialized()) {
+        if (auto *existing = Network::getExistingInstance(); existing &&
+            existing->isSelfEndpoint(parsed.first, parsed.second)) {
+          logNetworkDebug("[DNS] Skipping fallback self endpoint ",
+                          endpoint);
+          return;
+        }
       }
       auto lowered = toLowerCopy(endpoint);
       if (dedup.insert(lowered).second)
