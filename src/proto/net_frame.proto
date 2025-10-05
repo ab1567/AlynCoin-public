@@ -75,7 +75,6 @@ message SnapshotMeta {
   string root_hash = 2;
   uint64 total_bytes = 3;
   uint32 chunk_size = 4;
-  string digest = 5;
 }
 
 message SnapshotChunk { bytes data = 1; }
