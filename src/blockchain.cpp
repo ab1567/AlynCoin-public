@@ -98,7 +98,7 @@ struct SnapshotReleaser {
 };
 } // namespace
 
-namespace blockchain_internal {
+namespace {
 class DatabaseRebaseGuard {
 public:
   DatabaseRebaseGuard(Blockchain &bc, const std::string &reason);
@@ -119,9 +119,7 @@ private:
   bool cleanupBackup_{false};
   bool backupCreated_{false};
 };
-} // namespace blockchain_internal
-
-using blockchain_internal::DatabaseRebaseGuard;
+} // namespace
 
 DatabaseRebaseGuard::DatabaseRebaseGuard(Blockchain &bc,
                                          const std::string &reason)
@@ -384,7 +382,6 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath,
   loadCheckpointFromDB();
 
   std::string vestingMarker;
-  rocksdb::Status status;
   status =
       db->Get(rocksdb::ReadOptions(), "vesting_initialized", &vestingMarker);
 
@@ -4359,7 +4356,7 @@ Blockchain::buildSnapshotImage(size_t startHeight, size_t endHeight) {
   if (blocks.empty())
     return std::nullopt;
 
-  alyncoin::SnapshotProto snap;
+  SnapshotProto snap;
   for (const auto &blk : blocks)
     *snap.add_blocks() = blk.toProtobuf();
 
