@@ -4,6 +4,7 @@
 #include "constants.h"
 #include "crypto/sphinx.h"
 #include "crypto_utils.h"
+#include "base64.h"
 #include "httplib.h"
 #include "proto_utils.h"
 #include "protocol_codes.h"
@@ -6193,8 +6194,17 @@ void Network::handleSnapshotEnd(const std::string &peer) {
   try {
     std::string raw = ps->snapshotB64;
     SnapshotProto snap;
-    if (!snap.ParseFromString(raw))
-      throw std::runtime_error("Bad snapshot");
+    auto tryParse = [&](const std::string &payload) {
+      return snap.ParseFromString(payload);
+    };
+    if (!tryParse(raw)) {
+      std::string decoded = Base64::decode(raw);
+      if (!decoded.empty() && tryParse(decoded)) {
+        raw = std::move(decoded);
+      } else {
+        throw std::runtime_error("Bad snapshot");
+      }
+    }
 
     Blockchain &chain = Blockchain::getInstance();
 
