@@ -9,13 +9,16 @@
 #include <vector>
 #include <array>
 #include <chrono>
+#include <cstdint>
 
 // Per-peer state used during sync and message reassembly
 struct PeerState {
   std::string jsonBuf;
   std::string prefixBuf; // holds partial protocol prefix across chunks
   std::vector<Block> orphanBuf;
-  std::string snapshotB64;
+  std::vector<uint8_t> snapshotBuffer;
+  size_t snapshotHighestContiguous{0};
+  uint32_t snapshotChunksSinceAck{0};
   enum class SyncMode {
     Idle,
     Headers,
@@ -28,6 +31,18 @@ struct PeerState {
     WaitMeta,
     WaitChunks
   } snapState{SnapState::Idle};
+  enum class SyncRole {
+    Idle,
+    Sender,
+    Receiver,
+    Headers
+  } syncRole{SyncRole::Idle};
+  bool syncActionDispatched{false};
+  bool statusReceived{false};
+  int lastStatusHeight{-1};
+  uint64_t lastStatusWork{0};
+  bool remoteRequestedSnapshot{false};
+  uint64_t snapshotSessionId{0};
   std::string snapshotRoot;
   size_t snapshotExpectBytes{0};
   size_t snapshotReceived{0};

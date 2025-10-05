@@ -10,6 +10,7 @@
 #include "genesis.h"
 #include "layer2/state_channel.h"
 #include "network.h"
+#include "transport/peer_globals.h"
 #include "config.h"
 #include <generated/sync_protos.pb.h>
 #include "rollup/proofs/proof_verifier.h"
@@ -96,6 +97,148 @@ struct SnapshotReleaser {
   }
 };
 } // namespace
+
+namespace {
+class DatabaseRebaseGuard {
+public:
+  DatabaseRebaseGuard(Blockchain &bc, const std::string &reason);
+  ~DatabaseRebaseGuard();
+
+  bool ok() const { return ok_; }
+  void finalizeSuccess() { cleanupBackup_ = true; }
+
+private:
+  Blockchain &bc_;
+  std::string reason_;
+  std::optional<Network::DiscoveryPauseToken> discoveryPause_;
+  std::unique_lock<std::timed_mutex> peerLock_;
+  bool ok_{false};
+  bool resumeMining_{false};
+  std::optional<std::tuple<std::string, std::string, std::string>> miningConfig_;
+  std::string backupPath_;
+  bool cleanupBackup_{false};
+  bool backupCreated_{false};
+};
+} // namespace
+
+DatabaseRebaseGuard::DatabaseRebaseGuard(Blockchain &bc,
+                                         const std::string &reason)
+    : bc_(bc), reason_(reason), peerLock_(peersMutex, std::defer_lock) {
+  Network *netPtr = bc_.network;
+  if (!netPtr && !Network::isUninitialized()) {
+    try {
+      netPtr = &Network::getInstance();
+    } catch (const std::exception &) {
+      netPtr = nullptr;
+    }
+  }
+  if (netPtr) {
+    try {
+      discoveryPause_.emplace(netPtr->pauseForDatabaseReset());
+    } catch (const std::exception &ex) {
+      std::cerr << "⚠️ [DBRebase] Failed to pause network discovery: "
+                << ex.what() << "\n";
+    }
+  }
+
+  peerLock_.lock();
+  std::cout << "🔧 [DBRebase] Resetting RocksDB for " << reason_ << "..."
+            << std::endl;
+
+  resumeMining_ = bc_.isMining.load(std::memory_order_relaxed);
+  if (resumeMining_) {
+    miningConfig_ = bc_.activeMiningSession_;
+    bc_.stopMining();
+  }
+
+  bc_.closeDBHandles();
+
+  const auto now = std::chrono::system_clock::now();
+  const auto ts =
+      std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch())
+          .count();
+  backupPath_ = bc_.dbPath + ".old-" + std::to_string(ts);
+
+  std::error_code ec;
+  if (std::filesystem::exists(backupPath_)) {
+    std::filesystem::remove_all(backupPath_, ec);
+    if (ec) {
+      std::cerr << "⚠️ [DBRebase] Failed to clear prior backup '"
+                << backupPath_ << "': " << ec.message() << "\n";
+      ec.clear();
+    }
+  }
+
+  if (std::filesystem::exists(bc_.dbPath)) {
+    std::filesystem::rename(bc_.dbPath, backupPath_, ec);
+    if (ec) {
+      std::cerr << "❌ [DBRebase] Failed to rename RocksDB dir '"
+                << bc_.dbPath << "' to '" << backupPath_ << "': "
+                << ec.message() << "\n";
+      ec.clear();
+      std::filesystem::remove_all(bc_.dbPath, ec);
+      if (ec) {
+        std::cerr << "❌ [DBRebase] Failed to clear original DB path '"
+                  << bc_.dbPath << "': " << ec.message() << "\n";
+        return;
+      }
+    } else {
+      backupCreated_ = true;
+    }
+  }
+
+  std::filesystem::create_directories(bc_.dbPath, ec);
+  if (ec) {
+    std::cerr << "❌ [DBRebase] Failed to recreate DB path '" << bc_.dbPath
+              << "': " << ec.message() << "\n";
+    return;
+  }
+
+  if (!bc_.openDB(false)) {
+    std::cerr << "❌ [DBRebase] Failed to open fresh RocksDB instance.\n";
+    return;
+  }
+
+  bc_.hasLoadedFromDB = false;
+  bc_.persistedBalancesCache.clear();
+  bc_.lastPersistedHeight = -1;
+  bc_.chain.clear();
+  bc_.pendingTransactions.clear();
+  bc_.pendingTxHashes.clear();
+  bc_.confirmedTxHashes.clear();
+  bc_.nextNonceByAddress.clear();
+  bc_.balances.clear();
+  bc_.rollupChain.clear();
+  totalSupply = 0.0;
+  bc_.totalBurnedSupply = 0.0;
+  bc_.totalWork = 0;
+  ok_ = true;
+}
+
+DatabaseRebaseGuard::~DatabaseRebaseGuard() {
+  if (peerLock_.owns_lock())
+    peerLock_.unlock();
+
+  if (cleanupBackup_ && backupCreated_) {
+    std::error_code ec;
+    std::filesystem::remove_all(backupPath_, ec);
+    if (ec) {
+      std::cerr << "⚠️ [DBRebase] Failed to remove backup '" << backupPath_
+                << "': " << ec.message() << "\n";
+    }
+  }
+
+  if (resumeMining_) {
+    if (miningConfig_) {
+      const auto &[addr, dil, fal] = *miningConfig_;
+      if (!bc_.isMining.load(std::memory_order_relaxed))
+        bc_.startMining(addr, dil, fal);
+    } else {
+      std::cerr << "⚠️ [DBRebase] Continuous miner stopped for DB reset; "
+                   "restart mining manually if desired.\n";
+    }
+  }
+}
 
 namespace {
 struct FeeBreakdown {
@@ -213,53 +356,11 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath,
     }
   }
 
-  auto configureColumnFamily = []() {
-    rocksdb::ColumnFamilyOptions cfOptions;
-    alyn::db::ApplyCompactionDefaults(cfOptions);
-    return cfOptions;
-  };
-
-  rocksdb::Options options;
-  options.create_if_missing = true;
-  options.create_missing_column_families = true;
-  alyn::db::ApplyDatabaseDefaults(options);
-  std::cout << "🧱 RocksDB compression: "
-            << alyn::db::DescribeCompression(options.compression)
-            << ", write buffer = " << options.write_buffer_size / (1024 * 1024)
-            << " MiB, target file size = "
-            << options.target_file_size_base / (1024 * 1024) << " MiB\n";
-
-  std::vector<std::string> cfNames;
-  rocksdb::Status status =
-      rocksdb::DB::ListColumnFamilies(options, dbPathFinal, &cfNames);
-  bool hasCheck = false;
-  std::vector<rocksdb::ColumnFamilyDescriptor> cfDesc;
-  if (status.ok()) {
-    for (const auto &name : cfNames) {
-      if (name == "cfCheck")
-        hasCheck = true;
-      cfDesc.emplace_back(name, configureColumnFamily());
-    }
-  }
-  if (cfDesc.empty())
-    cfDesc.emplace_back(rocksdb::kDefaultColumnFamilyName,
-                        configureColumnFamily());
-  if (!hasCheck)
-    cfDesc.emplace_back("cfCheck", configureColumnFamily());
-
-  std::vector<rocksdb::ColumnFamilyHandle *> handles;
-  status = rocksdb::DB::Open(options, dbPathFinal, cfDesc, &handles, &db);
-  if (!status.ok()) {
-    std::cerr << "❌ [ERROR] Failed to open RocksDB: " << status.ToString()
-              << std::endl;
+  if (!openDB(false)) {
+    std::cerr << "❌ [ERROR] Failed to open RocksDB at '" << dbPathFinal
+              << "'\n";
     exit(1);
   }
-  for (size_t i = 0; i < cfDesc.size(); ++i) {
-    if (cfDesc[i].name == "cfCheck")
-      cfCheck = handles[i];
-  }
-  if (!g_dbWriter)
-    g_dbWriter = new DBWriter(db);
 
   std::cout << "[DEBUG] Attempting to load blockchain from DB...\n";
   bool found = loadFromDB();
@@ -296,13 +397,19 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath,
 
 // ✅ **Destructor: Close RocksDB**
 Blockchain::~Blockchain() {
+  closeDBHandles();
+}
+
+void Blockchain::closeDBHandles() {
   if (db) {
-    if (cfCheck) {
-      db->DestroyColumnFamilyHandle(cfCheck);
-      cfCheck = nullptr;
+    for (auto *handle : columnFamilyHandles_) {
+      if (handle)
+        db->DestroyColumnFamilyHandle(handle);
     }
+    columnFamilyHandles_.clear();
+    cfCheck = nullptr;
     delete db;
-    db = nullptr; // ✅ Prevent potential use-after-free issues
+    db = nullptr;
   }
   if (g_dbWriter) {
     delete g_dbWriter;
@@ -1594,6 +1701,8 @@ void Blockchain::startMining(const std::string &minerAddress,
     return;
   }
   isMining.store(true);
+  activeMiningSession_ =
+      std::make_tuple(minerAddress, minerDilithiumKey, minerFalconKey);
 
   // Convert the hex-encoded private keys once, outside the loop
   std::vector<unsigned char> dilithiumPriv = Crypto::fromHex(minerDilithiumKey);
@@ -1639,11 +1748,17 @@ void Blockchain::stopMining() {
 
 // ✅ **Reload Blockchain State**
 void Blockchain::reloadBlockchainState() {
-  {
-    std::lock_guard<std::mutex> guard(dbLoadMutex);
-    hasLoadedFromDB = false;
+  std::lock_guard<std::mutex> guard(dbLoadMutex);
+  if (!db) {
+    std::cerr << "⚠️ [reloadBlockchainState] RocksDB is not open; skipping." << std::endl;
+    return;
   }
-  loadFromDB();
+
+  if (!hasLoadedFromDB) {
+    loadFromDB();
+  } else {
+    std::cout << "♻️ [reloadBlockchainState] Using cached chain state; refreshing transactions only." << std::endl;
+  }
   loadTransactionsFromDB();
   std::cout << "✅ Blockchain and transactions reloaded!\n";
 }
@@ -2779,15 +2894,27 @@ bool Blockchain::replaceChainUpTo(const std::vector<Block> &blocks,
     return false;
   }
 
+  DatabaseRebaseGuard rebaseGuard(*this, "snapshot-rebase");
+  if (!rebaseGuard.ok()) {
+    std::cerr << "❌ [replaceChainUpTo] Failed to prepare database reset." << std::endl;
+    return false;
+  }
+
   // Truncate and replace local chain with the provided prefix
   chain.assign(blocks.begin(), blocks.end());
 
   recalculateBalancesFromChain();
   applyRollupDeltasToBalances();
   recomputeChainWork();
+  hasLoadedFromDB = true;
   lock.unlock();
-  saveToDB();
 
+  if (!saveToDB()) {
+    std::cerr << "❌ [replaceChainUpTo] Failed to persist snapshot rebase." << std::endl;
+    return false;
+  }
+
+  rebaseGuard.finalizeSuccess();
   std::cout << "✅ [replaceChainUpTo] Replaced chain up to height "
             << upToHeight << "\n";
   return true;
@@ -4603,57 +4730,85 @@ void Blockchain::evaluatePendingForksLocked() {
 bool Blockchain::openDB(bool readOnly) {
   if (db)
     return true;
+
+  auto configureColumnFamily = []() {
+    rocksdb::ColumnFamilyOptions cfOptions;
+    alyn::db::ApplyCompactionDefaults(cfOptions);
+    return cfOptions;
+  };
+
   rocksdb::Options options;
-  options.create_if_missing = true;
+  options.create_if_missing = !readOnly;
+  options.create_missing_column_families = !readOnly;
   alyn::db::ApplyDatabaseDefaults(options);
-  rocksdb::Status status;
+
+  std::cout << "🧱 RocksDB compression: "
+            << alyn::db::DescribeCompression(options.compression)
+            << ", write buffer = " << options.write_buffer_size / (1024 * 1024)
+            << " MiB, target file size = "
+            << options.target_file_size_base / (1024 * 1024) << " MiB\n";
+
+  std::vector<std::string> cfNames;
+  rocksdb::Status status =
+      rocksdb::DB::ListColumnFamilies(options, dbPath, &cfNames);
+  bool hasCheck = false;
+  std::vector<rocksdb::ColumnFamilyDescriptor> cfDesc;
+  if (status.ok()) {
+    for (const auto &name : cfNames) {
+      if (name == "cfCheck")
+        hasCheck = true;
+      cfDesc.emplace_back(name, configureColumnFamily());
+    }
+  }
+
+  if (cfDesc.empty()) {
+    cfDesc.emplace_back(rocksdb::kDefaultColumnFamilyName,
+                        configureColumnFamily());
+  }
+  if (!hasCheck)
+    cfDesc.emplace_back("cfCheck", configureColumnFamily());
+
+  std::vector<rocksdb::ColumnFamilyHandle *> handles;
   if (readOnly)
-    status = rocksdb::DB::OpenForReadOnly(options, dbPath, &db);
+    status =
+        rocksdb::DB::OpenForReadOnly(options, dbPath, cfDesc, &handles, &db);
   else
-    status = rocksdb::DB::Open(options, dbPath, &db);
+    status = rocksdb::DB::Open(options, dbPath, cfDesc, &handles, &db);
+
   if (!status.ok()) {
     std::cerr << "❌ [Blockchain] Failed to open RocksDB: " << status.ToString()
               << std::endl;
     db = nullptr;
     return false;
   }
+
+  columnFamilyHandles_.assign(handles.begin(), handles.end());
+  cfCheck = nullptr;
+  for (size_t i = 0; i < cfDesc.size(); ++i) {
+    if (cfDesc[i].name == "cfCheck")
+      cfCheck = columnFamilyHandles_[i];
+  }
+
+  if (!readOnly) {
+    if (g_dbWriter) {
+      delete g_dbWriter;
+      g_dbWriter = nullptr;
+    }
+    g_dbWriter = new DBWriter(db);
+  }
+
   return true;
 }
 //
 void Blockchain::purgeDataForResync() {
-  if (db) {
-    delete db;
-    db = nullptr;
+  std::unique_lock<std::recursive_mutex> lock(blockchainMutex);
+  DatabaseRebaseGuard guard(*this, "purgeDataForResync");
+  if (!guard.ok()) {
+    std::cerr << "❌ [Blockchain] Failed to prepare database purge." << std::endl;
+    return;
   }
-
-  rocksdb::Options opts;
-  alyn::db::ApplyDatabaseDefaults(opts);
-  rocksdb::Status st = rocksdb::DestroyDB(dbPath, opts);
-  if (!st.ok()) {
-    std::cerr << "[Blockchain] Warning: failed to destroy DB at '" << dbPath
-              << "': " << st.ToString() << std::endl;
-  }
-
-  std::filesystem::remove_all(dbPath);
-  {
-    std::error_code ec;
-    std::filesystem::create_directories(dbPath, ec);
-    if (ec) {
-      std::cerr << "❌ [ERROR] Failed to recreate DB path '" << dbPath
-                << "': " << ec.message() << "\n";
-    }
-  }
-
-  chain.clear();
-  pendingTransactions.clear();
-  pendingTxHashes.clear();
-  confirmedTxHashes.clear();
-  balances.clear();
-  rollupChain.clear();
-
-  if (!openDB(false)) {
-    std::cerr << "[Blockchain] Error reopening DB after purge" << std::endl;
-  }
+  guard.finalizeSuccess();
+  std::cout << "🧼 [Blockchain] RocksDB directory reset for resync." << std::endl;
 }
 //
 bool Blockchain::getBlockByHash(const std::string &hash, Block &out) const {

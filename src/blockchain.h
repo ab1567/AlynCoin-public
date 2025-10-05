@@ -27,6 +27,7 @@
 #include <unordered_set>
 #include <vector>
 #include <optional>
+#include <tuple>
 #include "constants.h"
 
 #define DEFAULT_PORT 15671
@@ -75,7 +76,8 @@ private:
   std::string minerAddress;
   Network *network;
   rocksdb::DB *db;
-  rocksdb::ColumnFamilyHandle* cfCheck{nullptr};
+  std::vector<rocksdb::ColumnFamilyHandle *> columnFamilyHandles_;
+  rocksdb::ColumnFamilyHandle *cfCheck{nullptr};
   int checkpointHeight{0};
   std::unordered_map<std::string, double> balances;
   std::vector<RollupBlock> rollupChain;
@@ -89,6 +91,8 @@ private:
   int64_t lastPersistedHeight{-1};
   std::unordered_map<std::string, double> persistedBalancesCache;
   bool evaluatingSideChains{false};
+  std::optional<std::tuple<std::string, std::string, std::string>>
+      activeMiningSession_;
 
   // --- Vesting ---
   struct VestingInfo {
@@ -126,6 +130,7 @@ private:
   void registerSideChainBlockLocked(const Block &block);
   void evaluatePendingForksLocked();
   void cleanupSideChainsLocked();
+  void closeDBHandles();
 
 public:
   static Blockchain &getInstance(unsigned short port,
