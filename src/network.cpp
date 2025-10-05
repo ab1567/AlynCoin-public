@@ -1169,8 +1169,9 @@ alyncoin::net::Handshake Network::buildHandshake() const {
   }
   hs.set_frame_rev(kFrameRevision);
   auto work = bc.computeCumulativeDifficulty(bc.getChain());
-  hs.set_total_work(safeUint64(work));
-  hs.set_want_snapshot(false);
+  auto totalWork = safeUint64(work);
+  hs.set_total_work(totalWork);
+  hs.set_want_snapshot(bc.getHeight() == 0);
   hs.set_snapshot_size(static_cast<uint32_t>(
       std::min<std::size_t>(MAX_SNAPSHOT_CHUNK_SIZE,
                              SNAPSHOT_COMPAT_CHUNK_CAP)));
@@ -1868,6 +1869,12 @@ void Network::intelligentSync() {
             << ", Network height: " << networkHeight << ". Sync needed.\n";
 
   const std::string localTip = blockchain->getLatestBlockHash();
+  uint64_t localWork = peerManager->getLocalWork();
+  if (localWork == 0) {
+    auto work = blockchain->computeCumulativeDifficulty(blockchain->getChain());
+    localWork = safeUint64(work);
+    peerManager->setLocalWork(localWork);
+  }
 
   /* pick the first suitable peer that is ahead */
   for (const auto &[peer, transport] : livePeers) {
@@ -1876,7 +1883,9 @@ void Network::intelligentSync() {
       continue;
 
     int gap = ph - localHeight;
-    if (gap <= TAIL_SYNC_THRESHOLD) {
+    uint64_t peerWork = peerManager->getPeerWork(peer);
+    if (gap <= TAIL_SYNC_THRESHOLD &&
+        peerWork + SNAPSHOT_WORK_DELTA >= localWork) {
       requestTailBlocks(peer, localHeight, localTip);
     } else if (peerSupportsSnapshot(peer)) {
       requestSnapshotSync(peer);
@@ -2408,19 +2417,35 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
   sendInitialRequests(claimedPeerId);
 
   // ── 6. immediate sync decision ─────────────────────────────────────────
-  const size_t myHeight = Blockchain::getInstance().getHeight();
+  Blockchain &chain = Blockchain::getInstance();
+  const size_t myHeight = chain.getHeight();
+  uint64_t myWork =
+      safeUint64(chain.computeCumulativeDifficulty(chain.getChain()));
   if (remoteHeight > static_cast<int>(myHeight)) {
     int gap = remoteHeight - static_cast<int>(myHeight);
-    if (gap <= TAIL_SYNC_THRESHOLD) {
-      requestTailBlocks(claimedPeerId, myHeight,
-                        Blockchain::getInstance().getLatestBlockHash());
+    if (gap <= TAIL_SYNC_THRESHOLD &&
+        remoteWork + SNAPSHOT_WORK_DELTA >= myWork) {
+      requestTailBlocks(claimedPeerId, myHeight, chain.getLatestBlockHash());
     } else if (remoteSnap) {
       requestSnapshotSync(claimedPeerId);
     } else if (remoteAgg) {
       requestEpochHeaders(claimedPeerId);
     }
   } else if (remoteHeight < static_cast<int>(myHeight) && remoteSnap) {
-    sendTailBlocks(transport, remoteHeight, claimedPeerId);
+    int gap = static_cast<int>(myHeight) - remoteHeight;
+    const bool allowTail =
+        gap > 0 && gap <= TAIL_SYNC_THRESHOLD &&
+        myWork <= remoteWork + SNAPSHOT_WORK_DELTA;
+    const bool eagerSnapshot =
+        remoteWantSnap &&
+        (gap >= SNAPSHOT_PROACTIVE_GAP ||
+         myWork > remoteWork + SNAPSHOT_WORK_DELTA);
+    if (eagerSnapshot) {
+      sendSnapshot(claimedPeerId, transport, -1,
+                   remoteSnapSize ? resolveSnapshotChunkSize(remoteSnapSize) : 0);
+    } else if (allowTail) {
+      sendTailBlocks(transport, remoteHeight, claimedPeerId);
+    }
   }
 
   autoSyncIfBehind();
@@ -2747,7 +2772,10 @@ void Network::autoSyncIfBehind() {
         actions.push_back(std::move(action));
       } else if (peerHeight < static_cast<int>(myHeight) &&
                  peerWork < myWork) {
-        if (supportsSnapshot) {
+        int gap = static_cast<int>(myHeight) - peerHeight;
+        bool allowTail = gap > 0 && gap <= TAIL_SYNC_THRESHOLD &&
+                         myWork <= peerWork + SNAPSHOT_WORK_DELTA;
+        if (supportsSnapshot && allowTail) {
           std::cout << "  → sending tail blocks\n";
           SyncAction action;
           action.type = SyncActionType::SendTail;
@@ -3615,9 +3643,17 @@ std::string Network::requestBlockchainSync(const std::string &peer) {
   std::string localTip = Blockchain::getInstance().getLatestBlockHash();
   uint64_t peerWork = peerManager ? peerManager->getPeerWork(peer) : 0;
   uint64_t localWork = peerManager ? peerManager->getLocalWork() : 0;
+  if (localWork == 0) {
+    auto work = Blockchain::getInstance().computeCumulativeDifficulty(
+        Blockchain::getInstance().getChain());
+    localWork = safeUint64(work);
+    if (peerManager)
+      peerManager->setLocalWork(localWork);
+  }
   if (peerHeight > localHeight) {
     int gap = peerHeight - localHeight;
-    if (gap <= TAIL_SYNC_THRESHOLD) {
+    if (gap <= TAIL_SYNC_THRESHOLD &&
+        peerWork + SNAPSHOT_WORK_DELTA >= localWork) {
       requestTailBlocks(peer, localHeight,
                         Blockchain::getInstance().getLatestBlockHash());
     } else if (peerSupportsSnapshot(peer)) {
@@ -4519,7 +4555,9 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     bool theirWhisper = false;
     bool theirTls = false;
     bool theirBanDecay = false;
+    bool theirWantSnapshot = false;
     int theirHeight = 0;
+    uint64_t theirWork = 0;
     uint32_t remoteRev = 0;
     alyncoin::net::Frame fr;
     if (blob.empty() || !fr.ParseFromString(blob) || !fr.has_handshake()) {
@@ -4540,6 +4578,8 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     }
     const auto &rhs = fr.handshake();
     theirHeight = static_cast<int>(rhs.height());
+    theirWork = rhs.total_work();
+    theirWantSnapshot = rhs.want_snapshot();
     std::string theirNodeId = rhs.node_id();
     if (theirNodeId.empty())
       theirNodeId = peerKey;
@@ -4691,8 +4731,9 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
       st->remoteNonce = remoteNonce;
       st->handshakeComplete = true;
       if (peerManager) {
-        if (peerManager->registerPeer(finalKey))
-          peerManager->setPeerHeight(finalKey, theirHeight);
+        peerManager->registerPeer(finalKey);
+        peerManager->setPeerHeight(finalKey, theirHeight);
+        peerManager->setPeerWork(finalKey, theirWork);
       }
     }
 
@@ -4712,19 +4753,38 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     noteShareableEndpoint(shareHost, advertisedPort, true, true, finalKey);
 
     /* pick correct sync action now */
-    const int localHeight = Blockchain::getInstance().getHeight();
+    Blockchain &chain = Blockchain::getInstance();
+    const int localHeight = chain.getHeight();
+    uint64_t localWork =
+        safeUint64(chain.computeCumulativeDifficulty(chain.getChain()));
     if (theirHeight > localHeight) {
       int gap = theirHeight - localHeight;
-      if (gap <= TAIL_SYNC_THRESHOLD) {
-        requestTailBlocks(finalKey, localHeight,
-                          Blockchain::getInstance().getLatestBlockHash());
+      if (gap <= TAIL_SYNC_THRESHOLD &&
+          theirWork + SNAPSHOT_WORK_DELTA >= localWork) {
+        requestTailBlocks(finalKey, localHeight, chain.getLatestBlockHash());
       } else if (theirSnap) {
         requestSnapshotSync(finalKey);
       } else if (theirAgg) {
         requestEpochHeaders(finalKey);
       }
-    } else if (theirHeight < localHeight && theirSnap)
-      sendTailBlocks(tx, theirHeight, finalKey);
+    } else if (theirHeight < localHeight && theirSnap) {
+      int gap = localHeight - theirHeight;
+      const bool allowTail =
+          gap > 0 && gap <= TAIL_SYNC_THRESHOLD &&
+          localWork <= theirWork + SNAPSHOT_WORK_DELTA;
+      const bool eagerSnapshot =
+          theirWantSnapshot &&
+          (gap >= SNAPSHOT_PROACTIVE_GAP ||
+           localWork > theirWork + SNAPSHOT_WORK_DELTA);
+      if (eagerSnapshot) {
+        sendSnapshot(finalKey, tx, -1,
+                     rhs.snapshot_size()
+                         ? resolveSnapshotChunkSize(rhs.snapshot_size())
+                         : 0);
+      } else if (allowTail) {
+        sendTailBlocks(tx, theirHeight, finalKey);
+      }
+    }
 
     startBinaryReadLoop(finalKey, tx);
     sendInitialRequests(finalKey);
@@ -5219,7 +5279,8 @@ void Network::refreshLocalInterfaceCache() {
 }
 
 bool Network::shouldServeHeavyData(const std::string &peerId,
-                                   int remoteHeightHint) {
+                                   int remoteHeightHint,
+                                   bool forSnapshot) {
   if (peerId.empty())
     return false;
 
@@ -5255,49 +5316,51 @@ bool Network::shouldServeHeavyData(const std::string &peerId,
     return false;
   }
 
-  const int localHeight = Blockchain::getInstance().getHeight();
+  Blockchain &bc = Blockchain::getInstance();
+  const int localHeight = bc.getHeight();
   int remoteHeight = remoteHeightHint;
   if (remoteHeight < 0 && peerManager)
     remoteHeight = peerManager->getPeerHeight(peerId);
 
-  bool heightBehind = false;
-  if (remoteHeight >= 0 && localHeight >= 0)
-    heightBehind = remoteHeight < localHeight;
+  auto work = bc.computeCumulativeDifficulty(bc.getChain());
+  uint64_t localWork = safeUint64(work);
+  if (peerManager && peerManager->getLocalWork() != localWork)
+    peerManager->setLocalWork(localWork);
 
-  uint64_t localWork = 0;
-  uint64_t remoteWork = 0;
-  if (peerManager) {
-    localWork = peerManager->getLocalWork();
-    remoteWork = peerManager->getPeerWork(peerId);
-  }
+  uint64_t remoteWork = peerManager ? peerManager->getPeerWork(peerId) : 0;
 
-  // If we definitively know the peer is ahead of us in height we should not
-  // stream heavy data. This also protects against mirror connections where the
-  // remote advertises a taller tip than ours.
-  if (remoteHeight >= 0 && localHeight >= 0 && remoteHeight > localHeight)
+  const bool remoteHeightKnown =
+      (remoteHeight >= 0 && localHeight >= 0);
+  const bool remoteAhead =
+      remoteHeightKnown && remoteHeight > localHeight;
+  const bool remoteHeavierWork =
+      remoteWork > localWork + SNAPSHOT_WORK_DELTA;
+
+  if (remoteAhead || remoteHeavierWork)
     return false;
 
-  // Serve snapshots when the peer is clearly behind in height or cumulative
-  // work. This covers the common cold-sync path where a brand new node
-  // advertises height/work of zero.
-  if (heightBehind)
-    return true;
-  if (remoteWork < localWork)
-    return true;
-  if (remoteWork == 0 && localWork > 0)
-    return true;
+  const bool remoteBehind =
+      remoteHeightKnown && remoteHeight < localHeight;
+  const int heightGap =
+      remoteBehind ? (localHeight - remoteHeight) : 0;
+  const bool localHeavierWork =
+      localWork > remoteWork + SNAPSHOT_WORK_DELTA;
 
-  // When both peers report the same height, only refuse the snapshot if the
-  // remote also reports work that is at least as heavy as ours. Any ambiguity
-  // (unknown height/work) breaks in favour of serving the data so cold peers
-  // can recover.
-  if (remoteHeight >= 0 && localHeight >= 0 && remoteHeight == localHeight) {
-    if (localWork > 0 && remoteWork >= localWork)
-      return false;
-    return true;
+  if (forSnapshot) {
+    if (remoteBehind && heightGap >= SNAPSHOT_PROACTIVE_GAP)
+      return true;
+    if (localHeavierWork)
+      return true;
+    if (!remoteHeightKnown && localWork > 0 && remoteWork == 0)
+      return true;
+    return remoteBehind;
   }
 
-  if (remoteHeight < 0 && localWork > 0 && remoteWork >= localWork)
+  if (!remoteBehind)
+    return false;
+  if (heightGap > TAIL_SYNC_THRESHOLD)
+    return false;
+  if (localHeavierWork)
     return false;
 
   return true;
@@ -5654,7 +5717,7 @@ void Network::sendSnapshot(const std::string &peerId,
 
   auto ps = getPeerSnapshot(peerId).state;
 
-  if (!shouldServeHeavyData(peerId, upToHeight)) {
+  if (!shouldServeHeavyData(peerId, upToHeight, true)) {
     std::cerr << "⚠️ [Snapshot] Skipping serve to " << peerId
               << " (endpoint not eligible)\n";
     return;
@@ -5862,7 +5925,7 @@ void Network::sendTailBlocks(std::shared_ptr<Transport> transport,
   if (!transport || !transport->isOpen())
     return;
 
-  if (!shouldServeHeavyData(peerId, fromHeight)) {
+  if (!shouldServeHeavyData(peerId, fromHeight, false)) {
     std::cerr << "⚠️ [Tail] Skipping serve to " << peerId
               << " (endpoint not eligible)\n";
     return;
