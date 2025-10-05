@@ -7,6 +7,7 @@
 #include "crypto_utils.h"
 #include "db/db_instance.h"
 #include "db/db_paths.h"
+#include "generated/build_info.h"
 #include "difficulty.h"
 #include "governance/dao.h"
 #include "governance/dao_storage.h"

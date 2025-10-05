@@ -1,0 +1,30 @@
+if(NOT DEFINED OUTPUT_FILE)
+  message(FATAL_ERROR "OUTPUT_FILE not provided")
+endif()
+
+if(NOT DEFINED SOURCE_DIR)
+  set(SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/..")
+endif()
+
+execute_process(
+  COMMAND git rev-parse --short HEAD
+  WORKING_DIRECTORY ${SOURCE_DIR}
+  OUTPUT_VARIABLE GIT_SHA
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+  ERROR_QUIET)
+if("${GIT_SHA}" STREQUAL "")
+  set(GIT_SHA "unknown")
+endif()
+
+string(TIMESTAMP BUILD_TS "%Y-%m-%dT%H:%M:%SZ" UTC)
+
+set(CONTENT "#pragma once\n\n#define ALYNCOIN_BUILD_GIT_SHA \"${GIT_SHA}\"\n#define ALYNCOIN_BUILD_TIMESTAMP \"${BUILD_TS}\"\n")
+if(EXISTS "${OUTPUT_FILE}")
+  file(READ "${OUTPUT_FILE}" CURRENT_CONTENT)
+else()
+  set(CURRENT_CONTENT "")
+endif()
+
+if(NOT CURRENT_CONTENT STREQUAL CONTENT)
+  file(WRITE "${OUTPUT_FILE}" "${CONTENT}")
+endif()
