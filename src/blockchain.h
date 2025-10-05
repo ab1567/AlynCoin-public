@@ -237,6 +237,7 @@ public:
                     const std::string &minerFalconKey);
   int getRecentTransactionCount() const;
   bool replaceChainUpTo(const std::vector<Block>& blocks, int upToHeight);
+  bool forceOverwriteChain(const std::vector<Block>& blocks);
   void updateTransactionHistory(int newTxCount);
   const std::vector<Block> &getChain() const;
   std::vector<Block> snapshot() const; // thread-safe copy of chain

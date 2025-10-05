@@ -1,5 +1,6 @@
 #pragma once
 #include "block.h"
+#include "blake3.h"
 #include "transport/transport.h"
 #include <memory>
 #include <mutex>
@@ -36,6 +37,15 @@ struct PeerState {
   size_t snapshotChunkPreference{0};
   size_t snapshotChunkLimit{0};
   bool snapshotImplicitStart{false};
+  uint64_t snapshotAdvertisedWork{0};
+  std::string snapshotTipHash;
+  std::string snapshotChainId;
+  std::string snapshotGenesisHash;
+  std::array<uint8_t, BLAKE3_OUT_LEN> snapshotExpectedDigest{};
+  bool snapshotHasExpectedDigest{false};
+  blake3_hasher snapshotHasher{};
+  bool snapshotHasherInitialized{false};
+  size_t snapshotChunksSinceAck{0};
   std::string lastSnapshotMetaFrame;
   std::chrono::steady_clock::time_point lastSnapshotMetaSent{};
   std::chrono::steady_clock::time_point nextSnapshotRequestAllowed{};

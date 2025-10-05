@@ -40,6 +40,7 @@ inline constexpr std::size_t SNAPSHOT_FRAME_SAFETY_MARGIN = 1024; // 1 KiB wiggl
 // tolerance the receiver may discard perfectly valid snapshot data that is only
 // a few bytes larger than the nominal limit.
 inline constexpr std::size_t SNAPSHOT_CHUNK_TOLERANCE = 16 * 1024; // 16 KiB
+inline constexpr std::size_t SNAPSHOT_ACK_WINDOW = 32;             // ACK every 32 chunks
 inline constexpr std::size_t MAX_PEERS = 32;                       // hard cap
 inline constexpr int MAX_TAIL_BLOCKS = 256; // limit tail block batches
 inline constexpr int FAST_SYNC_RECENT_BLOCKS = 256; // preview burst for lagging peers

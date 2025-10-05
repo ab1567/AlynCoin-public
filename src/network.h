@@ -163,7 +163,8 @@ public:
                           const alyncoin::net::SnapshotMeta &meta);
   void handleSnapshotChunk(const std::string &peer, const std::string &b64);
   void handleSnapshotAck(const std::string &peer, uint32_t seq);
-  void handleSnapshotEnd(const std::string &peer);
+  void handleSnapshotEnd(const std::string &peer,
+                         const alyncoin::net::SnapshotEnd &end);
   void handleTailRequest(const std::string &peer, int fromHeight);
   void handleTailBlocks(const std::string &peer, const std::string &b64);
   void handleHeaderBatch(const std::string &peer,

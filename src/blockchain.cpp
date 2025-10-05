@@ -2767,6 +2767,40 @@ bool Blockchain::replaceChainUpTo(const std::vector<Block> &blocks,
             << upToHeight << "\n";
   return true;
 }
+
+bool Blockchain::forceOverwriteChain(const std::vector<Block> &blocks) {
+  std::unique_lock<std::recursive_mutex> lock(blockchainMutex);
+
+  if (blocks.empty()) {
+    std::cerr << "❌ [forceOverwriteChain] Snapshot contained no blocks\n";
+    return false;
+  }
+
+  for (size_t i = 1; i < blocks.size(); ++i) {
+    if (blocks[i].getPreviousHash() != blocks[i - 1].getHash()) {
+      std::cerr << "❌ [forceOverwriteChain] Invalid block linkage at idx " << i
+                << "\n";
+      return false;
+    }
+    if (!blocks[i].isValid(blocks[i - 1].getHash(),
+                           blocks[i].getDifficulty())) {
+      std::cerr << "❌ [forceOverwriteChain] Block invalid at idx " << i << "\n";
+      return false;
+    }
+  }
+
+  chain.assign(blocks.begin(), blocks.end());
+
+  recalculateBalancesFromChain();
+  applyRollupDeltasToBalances();
+  recomputeChainWork();
+  lock.unlock();
+  saveToDB(true);
+
+  std::cout << "✅ [forceOverwriteChain] Overwrote chain up to height "
+            << blocks.back().getIndex() << "\n";
+  return true;
+}
 //
 bool Blockchain::isValidNewBlock(const Block &newBlock) const {
   if (chain.empty()) {

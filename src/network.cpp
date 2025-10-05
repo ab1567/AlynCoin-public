@@ -1,5 +1,6 @@
 #include "network.h"
 #include "blockchain.h"
+#include "blake3.h"
 #include "config.h"
 #include "constants.h"
 #include "crypto/sphinx.h"
@@ -488,12 +489,45 @@ static constexpr std::chrono::minutes ENDPOINT_RECENT_SUCCESS{30};
 #define PEERLIST_LOG(x)
 #endif
 
+static constexpr const char *kDefaultNetworkId = "mainnet";
+
 static uint64_t safeUint64(const boost::multiprecision::cpp_int &bi) {
   using boost::multiprecision::cpp_int;
   static const cpp_int max64 = cpp_int(std::numeric_limits<uint64_t>::max());
   if (bi > max64)
     return std::numeric_limits<uint64_t>::max();
   return bi.convert_to<uint64_t>();
+}
+
+static std::array<uint8_t, BLAKE3_OUT_LEN>
+computeSnapshotDigest(const std::string &data) {
+  std::array<uint8_t, BLAKE3_OUT_LEN> out{};
+  blake3_hasher hasher;
+  blake3_hasher_init(&hasher);
+  blake3_hasher_update(&hasher,
+                       reinterpret_cast<const uint8_t *>(data.data()),
+                       data.size());
+  blake3_hasher_finalize(&hasher, out.data(), out.size());
+  return out;
+}
+
+static std::string digestToString(
+    const std::array<uint8_t, BLAKE3_OUT_LEN> &digest) {
+  return std::string(reinterpret_cast<const char *>(digest.data()),
+                     digest.size());
+}
+
+static bool fillDigestArray(const std::string &bytes,
+                            std::array<uint8_t, BLAKE3_OUT_LEN> &out) {
+  if (bytes.size() != out.size())
+    return false;
+  std::memcpy(out.data(), bytes.data(), out.size());
+  return true;
+}
+
+static std::string digestToHex(
+    const std::array<uint8_t, BLAKE3_OUT_LEN> &digest) {
+  return Crypto::toHex(std::vector<unsigned char>(digest.begin(), digest.end()));
 }
 // TRACE-level lock diagnostics can overwhelm logs on busy nodes. They are now
 // compiled in only when ENABLE_LOCK_TRACING is defined at build time.
@@ -1144,7 +1178,7 @@ alyncoin::net::Handshake Network::buildHandshake() const {
   alyncoin::net::Handshake hs;
   Blockchain &bc = Blockchain::getInstance();
   hs.set_version("1.0.0");
-  hs.set_network_id("mainnet");
+  hs.set_network_id(kDefaultNetworkId);
   hs.set_height(bc.getHeight());
   auto announce = determineAnnounceEndpoint();
   if (announce.second == 0)
@@ -4079,7 +4113,7 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
     handleSnapshotAck(peer, f.snapshot_ack().seq());
     break;
   case alyncoin::net::Frame::kSnapshotEnd:
-    handleSnapshotEnd(peer);
+    handleSnapshotEnd(peer, f.snapshot_end());
     break;
   case alyncoin::net::Frame::kTailBlocks:
     handleTailBlocks(peer, f.tail_blocks().SerializeAsString());
@@ -5846,6 +5880,9 @@ void Network::sendSnapshot(const std::string &peerId,
   if (!snap.SerializeToString(&raw))
     return;
 
+  auto digest = computeSnapshotDigest(raw);
+  std::string digestStr = digestToString(digest);
+
   const size_t negotiated = resolveSnapshotChunkSize(preferredChunk);
   const size_t maxChunkByCompat =
       std::min<std::size_t>(negotiated, SNAPSHOT_COMPAT_CHUNK_CAP);
@@ -5867,6 +5904,15 @@ void Network::sendSnapshot(const std::string &peerId,
   meta.mutable_snapshot_meta()->set_total_bytes(raw.size());
   meta.mutable_snapshot_meta()->set_chunk_size(
       static_cast<uint32_t>(chunkSize));
+  meta.mutable_snapshot_meta()->set_chain_id(kDefaultNetworkId);
+  const auto &fullChain = bc.getChain();
+  if (!fullChain.empty())
+    meta.mutable_snapshot_meta()->set_genesis_hash(fullChain.front().getHash());
+  if (!blocks.empty())
+    meta.mutable_snapshot_meta()->set_tip_hash(blocks.back().getHash());
+  auto chainWork = bc.computeCumulativeDifficulty(fullChain);
+  meta.mutable_snapshot_meta()->set_total_work(safeUint64(chainWork));
+  meta.mutable_snapshot_meta()->set_digest(digestStr);
   if (!sendFrame(transport, meta)) {
     std::cerr << "❌ [Snapshot] Failed to queue metadata for " << peerId
               << '\n';
@@ -5938,7 +5984,9 @@ void Network::sendSnapshot(const std::string &peerId,
     off += len;
   }
   alyncoin::net::Frame end;
-  end.mutable_snapshot_end();
+  auto *endMsg = end.mutable_snapshot_end();
+  endMsg->set_total_bytes(raw.size());
+  endMsg->set_digest(digestStr);
   if (!sendFrame(transport, end)) {
     std::cerr << "❌ [Snapshot] Failed to queue completion signal for "
               << peerId << '\n';
@@ -6047,11 +6095,47 @@ void Network::handleSnapshotMeta(const std::string &peer,
   auto ps = snapshot.state;
   const bool resumingImplicit =
       ps->snapshotImplicitStart && ps->snapshotReceived > 0;
+  if (!meta.chain_id().empty() && meta.chain_id() != kDefaultNetworkId) {
+    std::cerr << "❌ [SNAPSHOT] Rejecting metadata from " << peer
+              << " – chain_id mismatch (" << meta.chain_id() << ")\n";
+    ps->snapshotActive = false;
+    ps->snapState = PeerState::SnapState::Idle;
+    ps->snapshotImplicitStart = false;
+    ps->snapshotHasherInitialized = false;
+    ps->snapshotHasExpectedDigest = false;
+    return;
+  }
   ps->snapshotExpectBytes = meta.total_bytes();
   ps->snapshotRoot = meta.root_hash();
+  ps->snapshotAdvertisedWork = meta.total_work();
+  ps->snapshotTipHash = meta.tip_hash();
+  ps->snapshotChainId = meta.chain_id();
+  ps->snapshotGenesisHash = meta.genesis_hash();
+  ps->snapshotHasExpectedDigest =
+      fillDigestArray(meta.digest(), ps->snapshotExpectedDigest);
+  if (!ps->snapshotHasExpectedDigest && !meta.digest().empty()) {
+    std::cerr << "⚠️ [SNAPSHOT] Metadata from " << peer
+              << " carried unexpected digest length=" << meta.digest().size()
+              << "\n";
+  }
   if (!resumingImplicit) {
     ps->snapshotReceived = 0;
     ps->snapshotB64.clear();
+    ps->snapshotChunksSinceAck = 0;
+    blake3_hasher_init(&ps->snapshotHasher);
+    ps->snapshotHasherInitialized = true;
+  } else {
+    ps->snapshotChunksSinceAck = 0;
+    if (!ps->snapshotHasherInitialized) {
+      blake3_hasher_init(&ps->snapshotHasher);
+      ps->snapshotHasherInitialized = true;
+      if (!ps->snapshotB64.empty()) {
+        blake3_hasher_update(&ps->snapshotHasher,
+                             reinterpret_cast<const uint8_t *>(
+                                 ps->snapshotB64.data()),
+                             ps->snapshotB64.size());
+      }
+    }
   }
   ps->snapState = PeerState::SnapState::WaitChunks;
   size_t advertised = static_cast<size_t>(meta.chunk_size());
@@ -6062,10 +6146,19 @@ void Network::handleSnapshotMeta(const std::string &peer,
   ps->snapshotActive = true;
   ps->snapshotImplicitStart = false;
   ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
+  std::string digestHex =
+      ps->snapshotHasExpectedDigest ? digestToHex(ps->snapshotExpectedDigest)
+                                    : std::string("<missing>");
+  std::string tipHex = meta.tip_hash().empty()
+                           ? std::string("<unset>")
+                           : Crypto::toHex(std::vector<unsigned char>(
+                                 meta.tip_hash().begin(), meta.tip_hash().end()));
   std::cerr << "ℹ️  [SNAPSHOT] Metadata from " << peer << " total="
             << meta.total_bytes() << " bytes, advertised chunk=" << advertised
             << " -> limit=" << limit << " bytes"
-            << (resumingImplicit ? " (resuming buffered stream)" : "") << "\n";
+            << (resumingImplicit ? " (resuming buffered stream)" : "")
+            << ", height=" << meta.height() << ", work=" << meta.total_work()
+            << ", tip=" << tipHex << ", digest=" << digestHex << "\n";
 }
 
 void Network::handleSnapshotAck(const std::string &peer, uint32_t /*seq*/) {
@@ -6116,6 +6209,9 @@ void Network::handleSnapshotChunk(const std::string &peer,
       ps->snapshotExpectBytes = 0;
       ps->snapState = PeerState::SnapState::WaitMeta;
       ps->snapshotImplicitStart = false;
+      ps->snapshotHasherInitialized = false;
+      ps->snapshotHasExpectedDigest = false;
+      ps->snapshotChunksSinceAck = 0;
       if (snapshot.transport && snapshot.transport->isOpen() &&
           now - ps->lastSnapshotRetry > std::chrono::seconds(2)) {
         ps->lastSnapshotRetry = now;
@@ -6142,15 +6238,41 @@ void Network::handleSnapshotChunk(const std::string &peer,
     ps->snapshotB64.clear();
     ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
     ps->snapshotImplicitStart = false;
+    ps->snapshotHasherInitialized = false;
+    ps->snapshotHasExpectedDigest = false;
+    ps->snapshotChunksSinceAck = 0;
     return;
+  }
+  if (!ps->snapshotHasherInitialized) {
+    blake3_hasher_init(&ps->snapshotHasher);
+    ps->snapshotHasherInitialized = true;
+    if (!ps->snapshotB64.empty()) {
+      blake3_hasher_update(&ps->snapshotHasher,
+                           reinterpret_cast<const uint8_t *>(
+                               ps->snapshotB64.data()),
+                           ps->snapshotB64.size());
+    }
   }
   ps->snapshotB64 += chunk;
   ps->snapshotReceived += chunk.size();
+  blake3_hasher_update(&ps->snapshotHasher,
+                       reinterpret_cast<const uint8_t *>(chunk.data()),
+                       chunk.size());
   ps->snapshotActive = true;
-  alyncoin::net::Frame ack;
-  ack.mutable_snapshot_ack()->set_seq(ps->snapshotReceived);
-  if (snapshot.transport && snapshot.transport->isOpen())
+  ++ps->snapshotChunksSinceAck;
+  bool shouldAck = ps->snapshotChunksSinceAck >= SNAPSHOT_ACK_WINDOW;
+  if (ps->snapshotExpectBytes > 0 &&
+      ps->snapshotReceived >= ps->snapshotExpectBytes)
+    shouldAck = true;
+  if (shouldAck && snapshot.transport && snapshot.transport->isOpen()) {
+    alyncoin::net::Frame ack;
+    ack.mutable_snapshot_ack()->set_seq(
+        static_cast<uint32_t>(
+            std::min<std::size_t>(ps->snapshotReceived,
+                                   std::numeric_limits<uint32_t>::max())));
     sendFrame(snapshot.transport, ack);
+    ps->snapshotChunksSinceAck = 0;
+  }
 }
 
 //
@@ -6160,7 +6282,8 @@ void Network::handleTailRequest(const std::string &peer, int fromHeight) {
     return;
   sendTailBlocks(snapshot.transport, fromHeight, peer);
 }
-void Network::handleSnapshotEnd(const std::string &peer) {
+void Network::handleSnapshotEnd(const std::string &peer,
+                                const alyncoin::net::SnapshotEnd &end) {
   auto snapshot = getPeerSnapshot(peer);
   if (!snapshot.state)
     return;
@@ -6169,12 +6292,25 @@ void Network::handleSnapshotEnd(const std::string &peer) {
   std::cerr << "[SNAPSHOT] 🔴 SnapshotEnd from " << peer
             << ", total buffered=" << ps->snapshotB64.size() << " bytes\n";
 
-  if (ps->snapState != PeerState::SnapState::WaitChunks) {
-    std::cerr << "⚠️ [SNAPSHOT] Unexpected end from " << peer << '\n';
-    ps->snapshotB64.clear();
+  auto resetState = [&]() {
     ps->snapshotActive = false;
     ps->snapState = PeerState::SnapState::Idle;
+    ps->snapshotB64.clear();
+    ps->snapshotReceived = 0;
+    ps->snapshotExpectBytes = 0;
     ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
+    ps->snapshotHasherInitialized = false;
+    ps->snapshotHasExpectedDigest = false;
+    ps->snapshotChunksSinceAck = 0;
+    ps->snapshotAdvertisedWork = 0;
+    ps->snapshotTipHash.clear();
+    ps->snapshotChainId.clear();
+    ps->snapshotGenesisHash.clear();
+  };
+
+  if (ps->snapState != PeerState::SnapState::WaitChunks) {
+    std::cerr << "⚠️ [SNAPSHOT] Unexpected end from " << peer << '\n';
+    resetState();
     return;
   }
   if (ps->snapshotExpectBytes > 0 &&
@@ -6182,14 +6318,62 @@ void Network::handleSnapshotEnd(const std::string &peer) {
     std::cerr << "⚠️ [SNAPSHOT] Size mismatch: expected "
               << ps->snapshotExpectBytes << " got " << ps->snapshotReceived
               << '\n';
-    ps->snapshotB64.clear();
-    ps->snapshotActive = false;
-    ps->snapState = PeerState::SnapState::Idle;
-    ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
+    resetState();
+    return;
+  }
+  if (end.total_bytes() > 0 &&
+      static_cast<size_t>(end.total_bytes()) != ps->snapshotReceived) {
+    std::cerr << "⚠️ [SNAPSHOT] Sender reported " << end.total_bytes()
+              << " bytes but receiver buffered " << ps->snapshotReceived
+              << '\n';
+    resetState();
     return;
   }
   if (ps->snapshotExpectBytes == 0)
     ps->snapshotExpectBytes = ps->snapshotReceived;
+
+  std::array<uint8_t, BLAKE3_OUT_LEN> computedDigest{};
+  bool computedDigestValid = false;
+  if (ps->snapshotHasherInitialized) {
+    auto hasherCopy = ps->snapshotHasher;
+    blake3_hasher_finalize(&hasherCopy, computedDigest.data(),
+                           computedDigest.size());
+    computedDigestValid = true;
+  }
+  ps->snapshotHasherInitialized = false;
+  ps->snapshotChunksSinceAck = 0;
+
+  std::array<uint8_t, BLAKE3_OUT_LEN> endDigest{};
+  bool endDigestValid = fillDigestArray(end.digest(), endDigest);
+  if (end.digest().size() > 0 && !endDigestValid) {
+    std::cerr << "⚠️ [SNAPSHOT] SnapshotEnd from " << peer
+              << " carried malformed digest length=" << end.digest().size()
+              << "\n";
+  }
+
+  if (computedDigestValid && ps->snapshotHasExpectedDigest &&
+      computedDigest != ps->snapshotExpectedDigest) {
+    std::cerr << "❌ [SNAPSHOT] Digest mismatch for stream from " << peer
+              << " (metadata digest=" << digestToHex(ps->snapshotExpectedDigest)
+              << ", computed=" << digestToHex(computedDigest) << ")\n";
+    resetState();
+    penalizePeer(peer, 20);
+    return;
+  }
+  if (computedDigestValid && endDigestValid &&
+      computedDigest != endDigest) {
+    std::cerr << "❌ [SNAPSHOT] Digest mismatch between payload and footer from "
+              << peer << " (footer=" << digestToHex(endDigest)
+              << ", computed=" << digestToHex(computedDigest) << ")\n";
+    resetState();
+    penalizePeer(peer, 20);
+    return;
+  }
+  if (!computedDigestValid &&
+      (ps->snapshotHasExpectedDigest || endDigestValid)) {
+    std::cerr << "⚠️ [SNAPSHOT] Unable to compute digest for stream from "
+              << peer << " (expected verification but digest unavailable)\n";
+  }
   try {
     std::string raw = ps->snapshotB64;
     SnapshotProto snap;
@@ -6213,14 +6397,25 @@ void Network::handleSnapshotEnd(const std::string &peer) {
       throw std::runtime_error("Snapshot contained no blocks");
 
     const int highestIndex = snapBlocks.back().getIndex();
-    if (highestIndex != snap.height())
-      throw std::runtime_error("Snapshot height mismatch");
+    if (highestIndex != snap.height()) {
+      std::cerr << "⚠️ [SNAPSHOT] Metadata height " << snap.height()
+                << " disagrees with payload height " << highestIndex << '\n';
+    }
+    int snapshotHeight = highestIndex;
 
     const int lowestIndex = snapBlocks.front().getIndex();
     if (lowestIndex < 0)
       throw std::runtime_error("Snapshot contained negative index");
     if (lowestIndex > highestIndex)
       throw std::runtime_error("Snapshot indices out of order");
+
+    if (lowestIndex != 0) {
+      std::cerr << "⚠️ [SNAPSHOT] Snapshot from " << peer
+                << " begins at index " << lowestIndex
+                << " – full rebase requires genesis block" << '\n';
+      resetState();
+      return;
+    }
 
     for (size_t i = 1; i < snapBlocks.size(); ++i) {
       const int expected = snapBlocks[i - 1].getIndex() + 1;
@@ -6239,10 +6434,7 @@ void Network::handleSnapshotEnd(const std::string &peer) {
       const Block &b = snapBlocks.front();
       auto addRes = chain.addBlock(b);
       if (addRes == Blockchain::BlockAddResult::Added) {
-        ps->snapshotActive = false;
-        ps->snapshotB64.clear();
-        ps->snapState = PeerState::SnapState::Idle;
-        ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
+        resetState();
         setPeerSyncMode(peer, PeerSyncProgress::Mode::Idle);
         onBlockAccepted(b.getHash());
         if (peerManager) {
@@ -6281,7 +6473,20 @@ void Network::handleSnapshotEnd(const std::string &peer) {
     std::string localTipHash = chain.getLatestBlockHash();
     std::string remoteTipHash =
         snapBlocks.empty() ? "" : snapBlocks.back().getHash();
-    int reorgDepth = std::max(0, localHeight - snap.height());
+    if (!ps->snapshotTipHash.empty() && !remoteTipHash.empty() &&
+        ps->snapshotTipHash != remoteTipHash) {
+      std::cerr << "⚠️ [SNAPSHOT] Tip hash mismatch for stream from " << peer
+                << " (meta=" << ps->snapshotTipHash
+                << " payload=" << remoteTipHash << ")" << '\n';
+    }
+    if (!ps->snapshotGenesisHash.empty() &&
+        ps->snapshotGenesisHash != snapBlocks.front().getHash()) {
+      std::cerr << "⚠️ [SNAPSHOT] Genesis hash mismatch from " << peer
+                << " (meta=" << ps->snapshotGenesisHash
+                << " payload=" << snapBlocks.front().getHash() << ")" << '\n';
+    }
+
+    int reorgDepth = std::max(0, localHeight - snapshotHeight);
     int chk = chain.getCheckpointHeight();
     int maxReorg = MAX_REORG;
     if (chk > 0)
@@ -6289,58 +6494,75 @@ void Network::handleSnapshotEnd(const std::string &peer) {
     bool accept = remoteTipHash != localTipHash &&
                   remoteW64 > localW64 * 1.01 && reorgDepth <= maxReorg;
 
-    if (!accept) {
+    bool applied = false;
+    bool forced = false;
+    bool genesisMismatch = !chain.getChain().empty() &&
+                           chain.getChain().front().getHash() !=
+                               snapBlocks.front().getHash();
+
+    if (accept) {
+      applied = chain.replaceChainUpTo(snapBlocks, snapshotHeight);
+    }
+
+    if (!applied) {
+      bool remoteDominates = remoteW64 > localW64 + SNAPSHOT_WORK_DELTA;
+      if (!accept && remoteTipHash == localTipHash &&
+          snapshotHeight <= localHeight) {
+        std::cerr << "ℹ️  [SNAPSHOT] Snapshot from " << peer
+                  << " matches current tip; nothing to apply\n";
+        resetState();
+        setPeerSyncMode(peer, PeerSyncProgress::Mode::Idle);
+        return;
+      }
+      if (genesisMismatch && remoteDominates) {
+        std::cerr << "⚠️ [SNAPSHOT] Forcing chain overwrite from " << peer
+                  << " (remote work=" << remoteW64
+                  << " local=" << localW64 << ")\n";
+        applied = chain.forceOverwriteChain(snapBlocks);
+        forced = applied;
+      }
+    }
+
+    if (!applied) {
       std::cerr << "⚠️ [SNAPSHOT] Rejected snapshot from " << peer << " (height "
-                << snap.height() << ", work " << remoteW64
+                << snapshotHeight << ", work " << remoteW64
                 << ") localHeight=" << localHeight << " localWork=" << localW64
                 << " reorgDepth=" << reorgDepth << "\n";
-      // No penalty for an honest peer whose chain simply has less work
-      ps->snapshotActive = false;
-      ps->snapshotB64.clear();
-      ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
+      resetState();
       setPeerSyncMode(peer, PeerSyncProgress::Mode::Idle);
       return;
     }
 
-    // Actually apply: truncate and replace local chain
-    chain.replaceChainUpTo(snapBlocks, snap.height());
-
-    std::cout << "✅ [SNAPSHOT] Applied snapshot from peer " << peer
-              << " at height " << snap.height() << "\n";
-    ps->snapshotActive = false;
-    ps->snapshotB64.clear();
-    ps->snapState = PeerState::SnapState::Idle;
-    ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
+    std::cout << "✅ [SNAPSHOT] "
+              << (forced ? "Force-applied" : "Applied") << " snapshot from "
+              << peer << " at height " << snapshotHeight
+              << " (digest="
+              << (computedDigestValid ? digestToHex(computedDigest)
+                                      : std::string("<unknown>"))
+              << ")\n";
+    resetState();
 
     if (peerManager) {
-      peerManager->setPeerHeight(peer, snap.height());
+      peerManager->setPeerHeight(peer, snapshotHeight);
       peerManager->setPeerWork(peer, remoteW64);
     }
     chain.broadcastNewTip();
 
     // Immediately request tail blocks for any missing blocks
     setPeerSyncMode(peer, PeerSyncProgress::Mode::Idle);
-    requestTailBlocks(peer, snap.height(), chain.getLatestBlockHash());
+    requestTailBlocks(peer, snapshotHeight, chain.getLatestBlockHash());
 
   } catch (const std::exception &ex) {
     std::cerr << "❌ [SNAPSHOT] Failed to apply snapshot from peer " << peer
               << ": " << ex.what() << "\n";
     penalizePeer(peer, 20);
-    // Do not immediately ban the peer; allow for resync attempts
-    ps->snapshotActive = false;
-    ps->snapshotB64.clear();
-    ps->snapState = PeerState::SnapState::Idle;
-    ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
+    resetState();
     setPeerSyncMode(peer, PeerSyncProgress::Mode::Idle);
   } catch (...) {
     std::cerr << "❌ [SNAPSHOT] Unknown error applying snapshot from peer "
               << peer << "\n";
     penalizePeer(peer, 20);
-    // Allow the peer another chance before any ban action
-    ps->snapshotActive = false;
-    ps->snapshotB64.clear();
-    ps->snapState = PeerState::SnapState::Idle;
-    ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
+    resetState();
     setPeerSyncMode(peer, PeerSyncProgress::Mode::Idle);
   }
 }
