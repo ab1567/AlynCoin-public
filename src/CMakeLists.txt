@@ -1,22 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 project(alyncoin LANGUAGES C CXX)
 
-execute_process(
-  COMMAND git rev-parse --short HEAD
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-  OUTPUT_VARIABLE ALYNCOIN_GIT_SHA
-  OUTPUT_STRIP_TRAILING_WHITESPACE
-  ERROR_QUIET)
-if(NOT ALYNCOIN_GIT_SHA)
-  set(ALYNCOIN_GIT_SHA "unknown")
-endif()
-
-string(TIMESTAMP ALYNCOIN_BUILD_TS "%Y-%m-%dT%H:%M:%SZ" UTC)
-
-add_compile_definitions(
-  ALYNCOIN_BUILD_GIT_SHA="${ALYNCOIN_GIT_SHA}"
-  ALYNCOIN_BUILD_TIMESTAMP="${ALYNCOIN_BUILD_TS}")
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(ALYN_ENABLE_NAT_TRAVERSAL "Enable NAT traversal via UPnP/NAT-PMP" ON)
@@ -79,6 +63,42 @@ endif()
 set(SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
 set(GENERATED_DIR ${CMAKE_BINARY_DIR}/generated)
 file(MAKE_DIRECTORY ${GENERATED_DIR})
+
+set(BUILD_INFO_HEADER ${GENERATED_DIR}/build_info.h)
+set(BUILD_INFO_DEPENDS ${CMAKE_SOURCE_DIR}/cmake/GenerateBuildInfo.cmake)
+execute_process(
+  COMMAND git rev-parse --git-dir
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  OUTPUT_VARIABLE ALYNCOIN_GIT_DIR
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+  ERROR_QUIET)
+if(ALYNCOIN_GIT_DIR)
+  if(NOT IS_ABSOLUTE ALYNCOIN_GIT_DIR)
+    set(ALYNCOIN_GIT_DIR "${CMAKE_SOURCE_DIR}/${ALYNCOIN_GIT_DIR}")
+  endif()
+  set(ALYNCOIN_GIT_HEAD "${ALYNCOIN_GIT_DIR}/HEAD")
+  if(EXISTS ${ALYNCOIN_GIT_HEAD})
+    list(APPEND BUILD_INFO_DEPENDS ${ALYNCOIN_GIT_HEAD})
+    file(READ ${ALYNCOIN_GIT_HEAD} ALYNCOIN_HEAD_CONTENT)
+    string(STRIP "${ALYNCOIN_HEAD_CONTENT}" ALYNCOIN_HEAD_CONTENT)
+    if(ALYNCOIN_HEAD_CONTENT MATCHES "^ref: (.+)$")
+      set(ALYNCOIN_BRANCH_HEAD "${ALYNCOIN_GIT_DIR}/${CMAKE_MATCH_1}")
+      if(EXISTS ${ALYNCOIN_BRANCH_HEAD})
+        list(APPEND BUILD_INFO_DEPENDS ${ALYNCOIN_BRANCH_HEAD})
+      endif()
+    endif()
+  endif()
+endif()
+list(REMOVE_DUPLICATES BUILD_INFO_DEPENDS)
+add_custom_target(generate_build_info ALL
+  COMMAND ${CMAKE_COMMAND}
+          -DOUTPUT_FILE=${BUILD_INFO_HEADER}
+          -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+          -P ${CMAKE_SOURCE_DIR}/cmake/GenerateBuildInfo.cmake
+  BYPRODUCTS ${BUILD_INFO_HEADER}
+  DEPENDS ${BUILD_INFO_DEPENDS}
+  COMMENT "Generating build fingerprint"
+  VERBATIM)
 
 # ---- Sources -----------------------------------------------------------------
 file(GLOB SOURCES
@@ -460,6 +480,7 @@ endif()
 
 # ---- Executables -------------------------------------------------------------
 add_executable(alyncoin ${MAIN_SOURCE})
+add_dependencies(alyncoin generate_build_info)
 add_executable(alyncoin-cli
   ${SOURCE_DIR}/cli.cpp
   ${SOURCE_DIR}/cli/peer_blacklist_ui.cpp
