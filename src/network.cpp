@@ -5754,12 +5754,14 @@ std::string generateSnapshotSessionId() {
 }
 
 void resetSnapshotReceptionLocked(PeerState &ps) {
-  ps.snapshotB64.clear();
+  ps.snapshotBuffer.clear();
+  ps.snapshotBuffer.shrink_to_fit();
   ps.snapshotReceived = 0;
   ps.snapshotExpectBytes = 0;
   ps.snapshotActive = false;
   ps.snapshotChunkLimit = 0;
   ps.snapshotSessionId.clear();
+  ps.snapshotLegacySessionId = false;
   ps.snapshotLastAcked = 0;
   ps.snapState = PeerState::SnapState::WaitMeta;
   ps.lastSnapshotRetry = std::chrono::steady_clock::time_point{};
@@ -6105,12 +6107,20 @@ void Network::handleSnapshotMeta(const std::string &peer,
   if (!snapshot.state)
     return;
   auto ps = snapshot.state;
-  if (meta.session_id().size() != SNAPSHOT_SESSION_ID_BYTES) {
+  const std::string &rawSession = meta.session_id();
+  if (rawSession.empty()) {
     std::cerr << "⚠️ [SNAPSHOT] Rejecting metadata from " << peer
-              << ": missing or invalid session id ("
-              << meta.session_id().size() << " bytes)\n";
+              << ": empty session id\n";
+    if (snapshot.transport && snapshot.transport->isOpen()) {
+      alyncoin::net::Frame retry;
+      retry.mutable_snapshot_req();
+      sendFrame(snapshot.transport, retry);
+    }
     return;
   }
+
+  const bool legacySession =
+      rawSession.size() != SNAPSHOT_SESSION_ID_BYTES;
 
   size_t advertised = static_cast<size_t>(meta.chunk_size());
   size_t limit = MAX_SNAPSHOT_CHUNK_SIZE;
@@ -6125,14 +6135,24 @@ void Network::handleSnapshotMeta(const std::string &peer,
     ps->snapshotChunkLimit = limit;
     ps->snapshotActive = true;
     ps->snapState = PeerState::SnapState::WaitChunks;
-    ps->snapshotSessionId = meta.session_id();
+    ps->snapshotSessionId = rawSession;
+    ps->snapshotLegacySessionId = legacySession;
     ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
+    ps->snapshotBuffer.clear();
+    if (ps->snapshotExpectBytes > 0)
+      ps->snapshotBuffer.reserve(ps->snapshotExpectBytes);
   }
 
   std::cerr << "ℹ️  [SNAPSHOT] Metadata from " << peer << " session="
-            << formatSessionId(meta.session_id()) << " total="
+            << formatSessionId(rawSession) << " total="
             << meta.total_bytes() << " bytes, advertised chunk=" << advertised
             << " -> limit=" << limit << " bytes\n";
+  if (legacySession) {
+    std::cerr << "ℹ️  [SNAPSHOT] Peer " << peer
+              << " is using a legacy snapshot session id length ("
+              << rawSession.size()
+              << " bytes). Accepting for backward compatibility.\n";
+  }
 }
 
 void Network::handleSnapshotAck(const std::string &peer,
@@ -6220,20 +6240,42 @@ void Network::handleSnapshotChunk(const std::string &peer,
           requestRestart = true;
         }
       } else {
-        ps->snapshotB64 += chunk.data();
-        ps->snapshotReceived += chunk.data().size();
-        ps->snapshotActive = true;
-        sessionId = ps->snapshotSessionId;
+        const std::string &chunkData = chunk.data();
+        const size_t offset = static_cast<size_t>(chunk.offset());
+        const size_t dataSize = chunkData.size();
+        const size_t newEnd = offset + dataSize;
+        if (ps->snapshotExpectBytes > 0 &&
+            newEnd > ps->snapshotExpectBytes) {
+          std::cerr << "⚠️ [SNAPSHOT] Chunk overflow from " << peer
+                    << " session=" << formatSessionId(ps->snapshotSessionId)
+                    << " offset " << offset << " size " << dataSize
+                    << " exceeds expected total " << ps->snapshotExpectBytes
+                    << '\n';
+          resetSnapshotReceptionLocked(*ps);
+          if (now - ps->lastSnapshotRetry > std::chrono::seconds(2)) {
+            ps->lastSnapshotRetry = now;
+            requestRestart = true;
+          }
+        } else {
+          if (ps->snapshotBuffer.size() < newEnd)
+            ps->snapshotBuffer.resize(newEnd);
+          std::copy(chunkData.begin(), chunkData.end(),
+                    ps->snapshotBuffer.begin() + offset);
+          ps->snapshotReceived = newEnd;
+          ps->snapshotActive = true;
+          sessionId = ps->snapshotSessionId;
 
-        const bool finalChunk =
-            ps->snapshotExpectBytes > 0 &&
-            ps->snapshotReceived >= ps->snapshotExpectBytes;
-        if (ps->snapshotReceived - ps->snapshotLastAcked >=
-                SNAPSHOT_ACK_WINDOW ||
-            (finalChunk && ps->snapshotLastAcked != ps->snapshotReceived)) {
-          shouldAck = true;
-          ps->snapshotLastAcked = ps->snapshotReceived;
-          ackSeq = ps->snapshotReceived;
+          const bool finalChunk =
+              ps->snapshotExpectBytes > 0 &&
+              ps->snapshotReceived >= ps->snapshotExpectBytes;
+          if (ps->snapshotReceived - ps->snapshotLastAcked >=
+                  SNAPSHOT_ACK_WINDOW ||
+              (finalChunk &&
+               ps->snapshotLastAcked != ps->snapshotReceived)) {
+            shouldAck = true;
+            ps->snapshotLastAcked = ps->snapshotReceived;
+            ackSeq = ps->snapshotReceived;
+          }
         }
       }
     }
@@ -6297,7 +6339,15 @@ void Network::handleSnapshotEnd(const std::string &peer,
     if (ps->snapshotExpectBytes == 0)
       ps->snapshotExpectBytes = ps->snapshotReceived;
     sessionId = ps->snapshotSessionId;
-    raw = ps->snapshotB64;
+    if (ps->snapshotBuffer.size() < ps->snapshotReceived) {
+      std::cerr << "⚠️ [SNAPSHOT] Snapshot buffer underflow for " << peer
+                << " expected " << ps->snapshotReceived << " bytes but buffer"
+                << " holds " << ps->snapshotBuffer.size() << '\n';
+      resetSnapshotReceptionLocked(*ps);
+      return;
+    }
+    raw.assign(reinterpret_cast<const char *>(ps->snapshotBuffer.data()),
+               ps->snapshotReceived);
   }
 
   std::cerr << "[SNAPSHOT] 🔴 SnapshotEnd from " << peer << " session="
@@ -6590,9 +6640,13 @@ void Network::handleTailBlocks(const std::string &peer,
     if (auto state = getPeerSnapshot(peer).state) {
       state->snapshotActive = false;
       state->snapState = PeerState::SnapState::Idle;
-      state->snapshotB64.clear();
+      state->snapshotBuffer.clear();
+      state->snapshotBuffer.shrink_to_fit();
+      state->snapshotSessionId.clear();
+      state->snapshotLegacySessionId = false;
       state->snapshotReceived = 0;
       state->snapshotExpectBytes = 0;
+      state->snapshotLastAcked = 0;
       {
         std::lock_guard<std::mutex> lk(state->m);
         state->headerBridgeActive = false;
@@ -6692,10 +6746,9 @@ void Network::requestSnapshotSync(const std::string &peer) {
     return;
   auto ps = snapshot.state;
   if (ps) {
+    std::lock_guard<std::mutex> lk(ps->m);
+    resetSnapshotReceptionLocked(*ps);
     ps->snapState = PeerState::SnapState::WaitMeta;
-    ps->snapshotB64.clear();
-    ps->snapshotReceived = 0;
-    ps->snapshotExpectBytes = 0;
     ps->lastSnapshotRetry = std::chrono::steady_clock::now();
   }
   setPeerSyncMode(peer, PeerSyncProgress::Mode::Snapshot);

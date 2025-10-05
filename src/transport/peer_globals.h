@@ -15,7 +15,7 @@ struct PeerState {
   std::string jsonBuf;
   std::string prefixBuf; // holds partial protocol prefix across chunks
   std::vector<Block> orphanBuf;
-  std::string snapshotB64;
+  std::vector<uint8_t> snapshotBuffer;
   enum class SyncMode {
     Idle,
     Headers,
@@ -36,6 +36,7 @@ struct PeerState {
   size_t snapshotChunkPreference{0};
   size_t snapshotChunkLimit{0};
   std::string snapshotSessionId;
+  bool snapshotLegacySessionId{false};
   size_t snapshotLastAcked{0};
   std::string servingSnapshotSessionId;
   std::string lastSnapshotMetaFrame;
