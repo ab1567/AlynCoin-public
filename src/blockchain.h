@@ -44,7 +44,7 @@ class Network;
 const double MAX_SUPPLY = 100000000.0;
 const size_t MAX_PENDING_TRANSACTIONS = 10000;
 const int EPOCH_SIZE = 64; // number of blocks per aggregated proof epoch
-const size_t MAX_ORPHAN_BLOCKS = 100;
+const size_t MAX_ORPHAN_BLOCKS = 5000;
 constexpr double AUTO_MINING_REWARD = 1e-10;
 constexpr std::time_t AUTO_MINING_GRACE_PERIOD = 60;
 
