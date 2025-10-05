@@ -5261,7 +5261,7 @@ bool Network::shouldServeHeavyData(const std::string &peerId,
     remoteHeight = peerManager->getPeerHeight(peerId);
 
   bool heightBehind = false;
-  if (remoteHeight >= 0)
+  if (remoteHeight >= 0 && localHeight >= 0)
     heightBehind = remoteHeight < localHeight;
 
   uint64_t localWork = 0;
@@ -5271,14 +5271,34 @@ bool Network::shouldServeHeavyData(const std::string &peerId,
     remoteWork = peerManager->getPeerWork(peerId);
   }
 
-  bool workBehind = remoteWork < localWork;
+  // If we definitively know the peer is ahead of us in height we should not
+  // stream heavy data. This also protects against mirror connections where the
+  // remote advertises a taller tip than ours.
+  if (remoteHeight >= 0 && localHeight >= 0 && remoteHeight > localHeight)
+    return false;
 
-  if (!heightBehind) {
-    if (remoteHeight >= localHeight && localHeight >= 0 && !workBehind)
+  // Serve snapshots when the peer is clearly behind in height or cumulative
+  // work. This covers the common cold-sync path where a brand new node
+  // advertises height/work of zero.
+  if (heightBehind)
+    return true;
+  if (remoteWork < localWork)
+    return true;
+  if (remoteWork == 0 && localWork > 0)
+    return true;
+
+  // When both peers report the same height, only refuse the snapshot if the
+  // remote also reports work that is at least as heavy as ours. Any ambiguity
+  // (unknown height/work) breaks in favour of serving the data so cold peers
+  // can recover.
+  if (remoteHeight >= 0 && localHeight >= 0 && remoteHeight == localHeight) {
+    if (localWork > 0 && remoteWork >= localWork)
       return false;
-    if (remoteHeight < 0 && localWork > 0 && !workBehind)
-      return false;
+    return true;
   }
+
+  if (remoteHeight < 0 && localWork > 0 && remoteWork >= localWork)
+    return false;
 
   return true;
 }
@@ -5956,7 +5976,23 @@ void Network::handleSnapshotChunk(const std::string &peer,
     return;
   }
   if (ps->snapState != PeerState::SnapState::WaitChunks) {
-    std::cerr << "⚠️ [SNAPSHOT] Unexpected chunk from " << peer << '\n';
+    std::cerr << "⚠️ [SNAPSHOT] Unexpected chunk from " << peer
+              << "; requesting metadata retry" << '\n';
+    auto now = std::chrono::steady_clock::now();
+    if (ps->snapState != PeerState::SnapState::WaitMeta) {
+      ps->snapshotB64.clear();
+      ps->snapshotReceived = 0;
+      ps->snapshotExpectBytes = 0;
+      ps->snapState = PeerState::SnapState::WaitMeta;
+    }
+    if (now - ps->lastSnapshotRetry > std::chrono::seconds(2)) {
+      ps->lastSnapshotRetry = now;
+      if (snapshot.transport && snapshot.transport->isOpen()) {
+        alyncoin::net::Frame retry;
+        retry.mutable_snapshot_req();
+        sendFrame(snapshot.transport, retry);
+      }
+    }
     return;
   }
   size_t limit = ps->snapshotChunkLimit;
@@ -5973,6 +6009,7 @@ void Network::handleSnapshotChunk(const std::string &peer,
     ps->snapshotActive = false;
     ps->snapState = PeerState::SnapState::Idle;
     ps->snapshotB64.clear();
+    ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
     return;
   }
   ps->snapshotB64 += chunk;
@@ -6004,6 +6041,7 @@ void Network::handleSnapshotEnd(const std::string &peer) {
     ps->snapshotB64.clear();
     ps->snapshotActive = false;
     ps->snapState = PeerState::SnapState::Idle;
+    ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
     return;
   }
   if (ps->snapshotReceived != ps->snapshotExpectBytes) {
@@ -6013,6 +6051,7 @@ void Network::handleSnapshotEnd(const std::string &peer) {
     ps->snapshotB64.clear();
     ps->snapshotActive = false;
     ps->snapState = PeerState::SnapState::Idle;
+    ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
     return;
   }
   try {
@@ -6051,6 +6090,7 @@ void Network::handleSnapshotEnd(const std::string &peer) {
         ps->snapshotActive = false;
         ps->snapshotB64.clear();
         ps->snapState = PeerState::SnapState::Idle;
+        ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
         setPeerSyncMode(peer, PeerSyncProgress::Mode::Idle);
         onBlockAccepted(b.getHash());
         if (peerManager) {
@@ -6105,6 +6145,7 @@ void Network::handleSnapshotEnd(const std::string &peer) {
       // No penalty for an honest peer whose chain simply has less work
       ps->snapshotActive = false;
       ps->snapshotB64.clear();
+      ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
       setPeerSyncMode(peer, PeerSyncProgress::Mode::Idle);
       return;
     }
@@ -6117,6 +6158,7 @@ void Network::handleSnapshotEnd(const std::string &peer) {
     ps->snapshotActive = false;
     ps->snapshotB64.clear();
     ps->snapState = PeerState::SnapState::Idle;
+    ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
 
     if (peerManager) {
       peerManager->setPeerHeight(peer, snap.height());
@@ -6136,6 +6178,7 @@ void Network::handleSnapshotEnd(const std::string &peer) {
     ps->snapshotActive = false;
     ps->snapshotB64.clear();
     ps->snapState = PeerState::SnapState::Idle;
+    ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
     setPeerSyncMode(peer, PeerSyncProgress::Mode::Idle);
   } catch (...) {
     std::cerr << "❌ [SNAPSHOT] Unknown error applying snapshot from peer "
@@ -6145,6 +6188,7 @@ void Network::handleSnapshotEnd(const std::string &peer) {
     ps->snapshotActive = false;
     ps->snapshotB64.clear();
     ps->snapState = PeerState::SnapState::Idle;
+    ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
     setPeerSyncMode(peer, PeerSyncProgress::Mode::Idle);
   }
 }
@@ -6354,6 +6398,7 @@ void Network::requestSnapshotSync(const std::string &peer) {
     ps->snapshotB64.clear();
     ps->snapshotReceived = 0;
     ps->snapshotExpectBytes = 0;
+    ps->lastSnapshotRetry = std::chrono::steady_clock::now();
   }
   setPeerSyncMode(peer, PeerSyncProgress::Mode::Snapshot);
   alyncoin::net::Frame fr;
