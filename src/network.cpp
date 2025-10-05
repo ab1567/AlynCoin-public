@@ -5826,6 +5826,15 @@ void Network::sendSnapshot(const std::string &peerId,
     height = 0;
   int start =
       height >= MAX_SNAPSHOT_BLOCKS ? height - MAX_SNAPSHOT_BLOCKS + 1 : 0;
+  if (peerManager) {
+    int remoteHeightHint = peerManager->getPeerHeight(peerId);
+    if (remoteHeightHint >= 0 && remoteHeightHint < start) {
+      std::cerr << "ℹ️  [Snapshot] Expanding range for " << peerId
+                << " to include blocks up to height " << remoteHeightHint
+                << " (previous start " << start << ")\n";
+      start = std::max(0, remoteHeightHint);
+    }
+  }
   std::vector<Block> blocks = bc.getChainSlice(start, height);
   SnapshotProto snap;
   snap.set_height(height);
@@ -6193,14 +6202,30 @@ void Network::handleSnapshotEnd(const std::string &peer) {
     // Accept a genesis-only snapshot (height can be 0)
     if (snap.height() < 0 || snap.blocks_size() == 0)
       throw std::runtime_error("Empty snapshot");
-    if (static_cast<size_t>(snap.height()) != snap.blocks_size() - 1) {
-      throw std::runtime_error("Snapshot height mismatch");
-    }
 
     // --- Replace local chain up to snapshot height ---
     std::vector<Block> snapBlocks;
     for (const auto &pb : snap.blocks()) {
       snapBlocks.push_back(Block::fromProto(pb, false));
+    }
+
+    if (snapBlocks.empty())
+      throw std::runtime_error("Snapshot contained no blocks");
+
+    const int highestIndex = snapBlocks.back().getIndex();
+    if (highestIndex != snap.height())
+      throw std::runtime_error("Snapshot height mismatch");
+
+    const int lowestIndex = snapBlocks.front().getIndex();
+    if (lowestIndex < 0)
+      throw std::runtime_error("Snapshot contained negative index");
+    if (lowestIndex > highestIndex)
+      throw std::runtime_error("Snapshot indices out of order");
+
+    for (size_t i = 1; i < snapBlocks.size(); ++i) {
+      const int expected = snapBlocks[i - 1].getIndex() + 1;
+      if (snapBlocks[i].getIndex() != expected)
+        throw std::runtime_error("Snapshot index gap detected");
     }
 
     for (const auto &b : snapBlocks) {
