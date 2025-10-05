@@ -4088,16 +4088,58 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
       }
     }
     if (startIdx >= 0 && static_cast<size_t>(startIdx) < ch.size()) {
+      auto snapshot = getPeerSnapshot(peer);
+      auto transport = snapshot.transport;
+      if (!transport || !transport->isOpen())
+        break;
+
       alyncoin::net::Frame out;
       auto *hdr = out.mutable_headers();
       constexpr size_t kMaxHeadersPerBatch = 2000;
+      bool sendError = false;
       size_t count = 0;
-      for (size_t i = static_cast<size_t>(startIdx); i < ch.size() &&
-                                               count < kMaxHeadersPerBatch;
-           ++i, ++count)
-        *hdr->add_headers() = ch[i].toProtobuf();
-      if (auto snapshot = getPeerSnapshot(peer); snapshot.transport)
-        sendFrame(snapshot.transport, out);
+
+      auto flush = [&]() {
+        if (hdr->headers_size() == 0)
+          return;
+        if (!sendFrame(transport, out))
+          sendError = true;
+        hdr->mutable_headers()->Clear();
+        count = 0;
+      };
+
+      auto tryAppend = [&](const alyncoin::BlockProto &proto) {
+        *hdr->add_headers() = proto;
+        ++count;
+        if (out.ByteSizeLong() <= MAX_WIRE_PAYLOAD)
+          return true;
+        hdr->mutable_headers()->RemoveLast();
+        --count;
+        return false;
+      };
+
+      for (size_t i = static_cast<size_t>(startIdx); i < ch.size() && !sendError;
+           ++i) {
+        alyncoin::BlockProto proto = ch[i].toProtobuf();
+        if (!tryAppend(proto)) {
+          flush();
+          if (sendError)
+            break;
+          if (!tryAppend(proto)) {
+            std::cerr << "⚠️ [Headers] Unable to fit block header "
+                      << ch[i].getHash().substr(0, 8)
+                      << " within payload cap (" << proto.ByteSizeLong()
+                      << " bytes)\n";
+            continue;
+          }
+        }
+        if (count >= kMaxHeadersPerBatch) {
+          flush();
+        }
+      }
+
+      if (!sendError)
+        flush();
     }
     break;
   }
