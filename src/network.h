@@ -172,22 +172,6 @@ public:
                         const alyncoin::net::BlockBatch &batch);
   void handleBlockchainSyncRequest(const std::string &peer,
                                    const alyncoin::BlockchainSyncProto &req);
-  class DiscoveryPauseToken {
-  public:
-    DiscoveryPauseToken();
-    DiscoveryPauseToken(DiscoveryPauseToken &&) noexcept;
-    DiscoveryPauseToken &operator=(DiscoveryPauseToken &&) noexcept;
-    ~DiscoveryPauseToken();
-    explicit operator bool() const { return net_ != nullptr; }
-
-  private:
-    friend class Network;
-    DiscoveryPauseToken(Network &net, bool restartLoops);
-    void reset();
-    Network *net_{nullptr};
-    bool restartLoops_{false};
-  };
-  DiscoveryPauseToken pauseForDatabaseReset();
   static unsigned short findAvailablePort(unsigned short startPort,
                                           int maxTries = 10);
   bool sendFrame(std::shared_ptr<Transport> tr,
@@ -308,10 +292,6 @@ private:
   void handleHeaderResponse(
       const std::string &peer,
       const std::vector<HeadersSync::HeaderRecord> &headers);
-  void evaluateSyncRole(const std::string &peer, int remoteHeight,
-                        uint64_t remoteWork, bool fromStatus);
-  PeerState::SyncRole determineSyncRole(uint64_t localWork,
-                                        uint64_t remoteWork) const;
   struct PeerSyncProgress {
     enum class Mode { Idle, Headers, Blocks, Snapshot };
     Mode mode{Mode::Idle};

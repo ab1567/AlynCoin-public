@@ -40,11 +40,9 @@ inline constexpr std::size_t SNAPSHOT_FRAME_SAFETY_MARGIN = 1024; // 1 KiB wiggl
 // tolerance the receiver may discard perfectly valid snapshot data that is only
 // a few bytes larger than the nominal limit.
 inline constexpr std::size_t SNAPSHOT_CHUNK_TOLERANCE = 16 * 1024; // 16 KiB
-// Acknowledge snapshot progress at most once per 32 chunks or 8 MiB to cut down
-// on tiny ACK frames while still giving the sender regular backpressure
-// signals.
-inline constexpr std::size_t SNAPSHOT_ACK_CHUNK_WINDOW = 32;
-inline constexpr std::size_t SNAPSHOT_ACK_BYTE_WINDOW = 8 * 1024 * 1024;
+// Acknowledge snapshot progress roughly every 128 KiB (or when chunk limits are
+// larger) to avoid per-chunk ACK chatter while still providing backpressure.
+inline constexpr std::size_t SNAPSHOT_ACK_GRANULARITY = 128 * 1024;
 // Maximum size for any non-snapshot-chunk frame. Payloads larger than this must
 // be streamed via dedicated chunk messages to avoid silent reinterpretation.
 inline constexpr std::size_t MAX_NON_CHUNK_FRAME = 64 * 1024; // 64 KiB
