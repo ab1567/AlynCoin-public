@@ -3,6 +3,7 @@
 #include "peer_manager.h"
 #include "block.h"
 #include "logger.h"
+#include "network.h"
 #include "zk/winterfell_stark.h"
 #include "zk/rust_bindings.h"
 #include "crypto_utils.h"
@@ -39,6 +40,28 @@ bool SyncRecovery::attemptRecovery(const std::string& expectedTipHash) {
 
     if (rollbackHeight < 0) {
         Logger::error("[❌ Recovery] Failed to find rollback point.");
+
+        Logger::warn(
+            "[🧹 Recovery] No common ancestor found. Purging local data and "
+            "requesting snapshot from peers...");
+
+        if (blockchain_) {
+            blockchain_->purgeDataForResync();
+        }
+
+        if (peerManager_) {
+            auto peers = peerManager_->getConnectedPeerIds();
+            if (!peers.empty()) {
+                if (auto net = Network::getExistingInstance()) {
+                    net->requestSnapshotSync(peers.front());
+                } else {
+                    Logger::warn("[🧹 Recovery] Network instance unavailable for snapshot request.");
+                }
+            } else {
+                Logger::warn("[🧹 Recovery] No connected peers to request snapshot from.");
+            }
+        }
+
         return false;
     }
 
