@@ -58,6 +58,7 @@
 #include <sodium.h>
 #include <sstream>
 #include <thread>
+#include <utility>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -297,6 +298,31 @@ static std::string toLowerCopy(const std::string &value) {
     lowered.push_back(static_cast<char>(
         std::tolower(static_cast<unsigned char>(c))));
   return lowered;
+}
+
+static std::vector<std::string> effectiveSeedHosts() {
+  auto seeds = getAppConfig().seed_hosts;
+  if (seeds.empty())
+    seeds.emplace_back("peers.alyncoin.com");
+
+  std::vector<std::string> normalized;
+  std::unordered_set<std::string> seen;
+  for (auto host : seeds) {
+    if (host.empty())
+      continue;
+    auto colon = host.find(':');
+    if (colon != std::string::npos)
+      host = host.substr(0, colon);
+    if (host.empty())
+      continue;
+    auto lowered = toLowerCopy(host);
+    if (seen.insert(lowered).second)
+      normalized.push_back(host);
+  }
+
+  if (normalized.empty())
+    normalized.emplace_back("peers.alyncoin.com");
+  return normalized;
 }
 
 static std::string normalizeHostForLabel(const std::string &host) {
@@ -975,6 +1001,8 @@ void Network::sendTipHash(const std::string &peer) {
 }
 
 void Network::sendPeerList(const std::string &peer) {
+  if (!getAppConfig().allow_peer_exchange)
+    return;
   std::shared_ptr<Transport> targetTx;
   std::vector<std::pair<std::string, int>> livePeers;
 
@@ -1207,9 +1235,11 @@ std::vector<PeerFileEntry> gatherBootstrapPeers() {
   for (const auto &seed : DEFAULT_DNS_PEERS)
     addCandidate(seed);
 
-  auto dnsPeers = fetchPeersFromDNS("peers.alyncoin.com");
-  for (const auto &seed : dnsPeers)
-    addCandidate(seed);
+  for (const auto &host : effectiveSeedHosts()) {
+    auto dnsPeers = fetchPeersFromDNS(host);
+    for (const auto &seed : dnsPeers)
+      addCandidate(seed);
+  }
 
   return peers;
 }
@@ -1259,7 +1289,20 @@ std::vector<std::string> fetchPeersFromDNS(const std::string &domain) {
   if (peers.empty()) {
     std::cerr << "⚠️ [DNS] No valid TXT peer records found at " << domain
               << "\n";
-    peers = DEFAULT_DNS_PEERS; // fallback to built-in peers
+    std::string fallback = domain;
+    if (fallback.find(':') == std::string::npos)
+      fallback += ":15671";
+    std::unordered_set<std::string> dedup;
+    auto pushUnique = [&](const std::string &endpoint) {
+      if (endpoint.empty())
+        return;
+      auto lowered = toLowerCopy(endpoint);
+      if (dedup.insert(lowered).second)
+        peers.push_back(endpoint);
+    };
+    pushUnique(fallback);
+    for (const auto &seed : DEFAULT_DNS_PEERS)
+      pushUnique(seed);
     if (!peers.empty()) {
       std::cerr << "ℹ️  [DNS] Using fallback peers list." << std::endl;
     }
@@ -1516,6 +1559,7 @@ Network::Network(unsigned short port, Blockchain *blockchain,
 
 Network::~Network() {
   try {
+    stopDiscoveryLoops();
     ioContext.stop();
     acceptor.close();
     for (auto &t : threads_)
@@ -1844,10 +1888,10 @@ void Network::intelligentSync() {
 }
 //
 void Network::connectToPeer(const std::string &ip, short port) {
-  std::string peerKey = ip;
+  const std::string peerKey = makeEndpointLabel(ip, port);
   if (isSelfEndpoint(ip, port)) {
     std::cerr << "⚠️ [connectToPeer] Skipping self connect: " << peerKey
-              << ':' << port << "\n";
+              << "\n";
     recordSelfEndpoint(ip, port);
     return;
   }
@@ -1857,6 +1901,8 @@ void Network::connectToPeer(const std::string &ip, short port) {
 
 // ✅ **Broadcast peer list to all connected nodes**
 void Network::broadcastPeerList(const std::string &excludePeer) {
+  if (!getAppConfig().allow_peer_exchange)
+    return;
   ScopedLockTracer tracer("broadcastPeerList");
   std::vector<std::pair<std::string, int>> livePeers;
   std::vector<std::pair<std::string, int>> cachedPeers;
@@ -1955,6 +2001,91 @@ void Network::broadcastPeerList(const std::string &excludePeer) {
 //
 PeerManager *Network::getPeerManager() { return peerManager.get(); }
 
+size_t Network::getConnectedPeerCount() const {
+  std::lock_guard<std::timed_mutex> lk(peersMutex);
+  size_t count = 0;
+  for (const auto &kv : peerTransports) {
+    if (kv.second.tx && kv.second.tx->isOpen())
+      ++count;
+  }
+  return count;
+}
+
+void Network::startDiscoveryLoops() {
+  const auto &cfg = getAppConfig();
+  if (!cfg.allow_dns_bootstrap && !cfg.allow_peer_exchange)
+    return;
+
+  bool alreadyRunning = loopsRunning_.exchange(true);
+  if (alreadyRunning)
+    return;
+
+  auto launch = [](std::thread &t, auto &&fn) {
+    if (t.joinable())
+      t.join();
+    t = std::thread(std::forward<decltype(fn)>(fn));
+  };
+
+  launch(bootstrapThread_, [this]() { bootstrapLoop(); });
+  launch(pexThread_, [this]() { pexLoop(); });
+}
+
+void Network::stopDiscoveryLoops() {
+  if (!loopsRunning_.exchange(false))
+    return;
+
+  if (bootstrapThread_.joinable())
+    bootstrapThread_.join();
+  if (pexThread_.joinable())
+    pexThread_.join();
+}
+
+void Network::bootstrapLoop() {
+  int backoff = 5;
+  while (loopsRunning_) {
+    const auto &cfg = getAppConfig();
+    if (!cfg.offline_mode && cfg.allow_dns_bootstrap &&
+        getConnectedPeerCount() == 0) {
+      scanForPeers();
+    }
+
+    bool havePeers = getConnectedPeerCount() > 0;
+    if (havePeers)
+      backoff = 15;
+    else
+      backoff = std::min(backoff * 2, 60);
+
+    int waitSeconds = backoff;
+    for (int elapsed = 0; loopsRunning_ && elapsed < waitSeconds; ++elapsed)
+      std::this_thread::sleep_for(std::chrono::seconds(1));
+  }
+}
+
+void Network::pexLoop() {
+  using namespace std::chrono_literals;
+  std::mt19937 rng(std::random_device{}());
+  std::uniform_int_distribution<int> jitter(60, 90);
+  int waitSeconds = 5;
+  while (loopsRunning_) {
+    const auto &cfg = getAppConfig();
+    if (!cfg.offline_mode && cfg.allow_peer_exchange) {
+      if (getConnectedPeerCount() > 0) {
+        requestPeerList();
+        broadcastPeerList();
+        waitSeconds = jitter(rng);
+      } else {
+        requestPeerList();
+        waitSeconds = 15;
+      }
+    } else {
+      waitSeconds = 30;
+    }
+
+    for (int elapsed = 0; loopsRunning_ && elapsed < waitSeconds; ++elapsed)
+      std::this_thread::sleep_for(1s);
+  }
+}
+
 Network::PeerSnapshot Network::getPeerSnapshot(const std::string &peer) const {
   PeerSnapshot snapshot;
   std::lock_guard<std::timed_mutex> lk(peersMutex);
@@ -1968,6 +2099,8 @@ Network::PeerSnapshot Network::getPeerSnapshot(const std::string &peer) const {
 
 // ✅ **Request peer list from connected nodes**
 void Network::requestPeerList() {
+  if (!getAppConfig().allow_peer_exchange)
+    return;
   std::vector<std::shared_ptr<Transport>> sinks;
   {
     std::lock_guard<std::timed_mutex> lk(peersMutex);
@@ -2302,49 +2435,65 @@ void Network::run() {
   startServer();
   std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
+  const auto &cfg = getAppConfig();
+
+  if (cfg.offline_mode) {
+    std::cout << "🛑 [Network] Offline mode enabled; skipping outbound peer discovery." << std::endl;
+    return;
+  }
+
   configureNatTraversal();
 
   loadPeers();
 
-  bool shouldDialDns = false;
-  {
-    std::lock_guard<std::timed_mutex> lock(peersMutex);
-    shouldDialDns = peerTransports.empty();
+  bool haveOpenSockets = getConnectedPeerCount() > 0;
+
+  if (!haveOpenSockets && cfg.allow_dns_bootstrap) {
+    std::unordered_set<std::string> attempted;
+    bool shareableAdded = false;
+    for (const auto &seedHost : effectiveSeedHosts()) {
+      auto dnsPeers = fetchPeersFromDNS(seedHost);
+      if (!dnsPeers.empty())
+        std::cout << "🌐 [DNS] Bootstrapping via " << seedHost << '\n';
+      for (const auto &peer : dnsPeers) {
+        auto colonPos = peer.rfind(':');
+        if (colonPos == std::string::npos)
+          continue;
+        std::string ip = peer.substr(0, colonPos);
+        std::string portStr = peer.substr(colonPos + 1);
+        int remotePort = 0;
+        try {
+          remotePort = std::stoi(portStr);
+        } catch (const std::exception &) {
+          continue;
+        }
+        std::string dedupKey = toLowerCopy(ip) + ':' + std::to_string(remotePort);
+        if (!attempted.insert(dedupKey).second)
+          continue;
+        if ((ip == "127.0.0.1" || ip == "localhost") && remotePort == this->port)
+          continue;
+        if (ip == "127.0.0.1" || ip == "localhost")
+          continue;
+        if (isSelfEndpoint(ip, remotePort)) {
+          recordSelfEndpoint(ip, remotePort);
+          continue;
+        }
+        if (noteShareableEndpoint(ip, remotePort, false))
+          shareableAdded = true;
+        connectToNode(ip, remotePort);
+      }
+    }
+    if (shareableAdded)
+      broadcastPeerList();
+    if (attempted.empty()) {
+      std::cout << "⚠️ [Network] DNS seeds produced no dialable peers; will keep retrying." << std::endl;
+    }
+  } else if (!haveOpenSockets) {
+    std::cout << "ℹ️  [Network] DNS bootstrap disabled by configuration; waiting for inbound peers." << std::endl;
+  } else {
+    std::cout << "ℹ️  [Network] Existing peers already connected; DNS bootstrap skipped.\n";
   }
 
-  if (shouldDialDns) {
-    std::vector<std::string> dnsPeers = fetchPeersFromDNS("peers.alyncoin.com");
-    bool added = false;
-    for (const std::string &peer : dnsPeers) {
-      size_t colonPos = peer.find(":");
-      if (colonPos == std::string::npos)
-        continue;
-      std::string ip = peer.substr(0, colonPos);
-      int p = std::stoi(peer.substr(colonPos + 1));
-      if ((ip == "127.0.0.1" || ip == "localhost") && p == this->port)
-        continue;
-      if (ip == "127.0.0.1" || ip == "localhost")
-        continue;
-      if (isSelfEndpoint(ip, p)) {
-        recordSelfEndpoint(ip, p);
-        continue;
-      }
-      if (noteShareableEndpoint(ip, p, false))
-        added = true;
-      connectToNode(ip, p);
-    }
-    if (added)
-      broadcastPeerList();
-  } else {
-    std::cout << "ℹ️  [Network] Existing peers from peers.txt; DNS bootstrap skipped.\n";
-  }
-  // After dialing DNS peers, share them with connected nodes so the mesh can
-  // survive even if DNS is unreachable later.
-  std::thread([this]() {
-    std::this_thread::sleep_for(std::chrono::seconds(5));
-    this->broadcastPeerList();
-    this->requestPeerList();
-  }).detach();
   if (autoMineEnabled)
     autoMineBlock();
 
@@ -2662,10 +2811,9 @@ void Network::connectToDiscoveredPeers() {
       continue;
     std::string ip = peer.substr(0, pos);
     int port = std::stoi(peer.substr(pos + 1));
-    std::string peerKey = ip;
+    std::string peerKey = makeEndpointLabel(ip, port);
     if (isSelfEndpoint(ip, port)) {
-      std::cout << "⚠️ Skipping self in discovered peers: " << peerKey << ':'
-                << port << "\n";
+      std::cout << "⚠️ Skipping self in discovered peers: " << peerKey << "\n";
       recordSelfEndpoint(ip, port);
       continue;
     }
@@ -3976,9 +4124,12 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
       peerManager->recordTipHash(peer, f.tip_hash_res().hash());
     break;
   case alyncoin::net::Frame::kPeerListReq:
-    sendPeerList(peer);
+    if (getAppConfig().allow_peer_exchange)
+      sendPeerList(peer);
     break;
   case alyncoin::net::Frame::kPeerList: {
+    if (!getAppConfig().allow_peer_exchange)
+      break;
     bool added = false;
     size_t processed = 0;
     for (const auto &p : f.peer_list().peers()) {
@@ -4124,6 +4275,11 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
 // Connect to Node
 
 bool Network::connectToNode(const std::string &host, int remotePort) {
+  if (getAppConfig().offline_mode) {
+    std::cout << "🛑 [connectToNode] Offline mode enabled; refusing outbound dial to "
+              << host << ':' << remotePort << '\n';
+    return false;
+  }
   if (remotePort <= 0 || remotePort > 65535) {
     std::cerr << "⚠️ [connectToNode] invalid port for " << host << ':' << remotePort
               << '\n';
@@ -4134,18 +4290,14 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
               << remotePort << '\n';
     return false;
   }
-  size_t currentPeers = 0;
-  {
-    std::lock_guard<std::timed_mutex> g(peersMutex);
-    currentPeers = peerTransports.size();
-  }
+  size_t currentPeers = getConnectedPeerCount();
   if (currentPeers >= MAX_PEERS) {
     std::cerr << "⚠️ [connectToNode] peer cap reached, skip " << host << ':'
               << remotePort << '\n';
     return false;
   }
 
-  const std::string peerKey = host;
+  const std::string peerKey = host + ':' + std::to_string(remotePort);
   if (isSelfEndpoint(host, remotePort)) {
     recordSelfEndpoint(host, remotePort);
     std::cout << "⚠️ [connectToNode] Skipping self endpoint " << host << ':'
@@ -4569,8 +4721,15 @@ void Network::handleReceivedBlockIndex(const std::string &peerIP,
 
 // ✅ **Fix Peer Saving & Loading**
 void Network::loadPeers() {
+  const auto &cfg = getAppConfig();
+  if (cfg.offline_mode) {
+    std::cout << "🛑 [loadPeers] Offline mode enabled; skipping peer bootstrap." << std::endl;
+    return;
+  }
+
   std::vector<PeerFileEntry> manualPeers;
-  {
+  bool attemptedManualDial = false;
+  if (cfg.allow_manual_peers) {
     std::lock_guard<std::mutex> lock(fileIOMutex);
     const auto path = peersFilePath();
     std::ifstream file(path);
@@ -4589,32 +4748,41 @@ void Network::loadPeers() {
         std::cout << "ℹ️  [loadPeers] " << path
                   << " contained no usable peers; falling back to bootstrap list.\n";
     }
+    attemptedManualDial = !manualPeers.empty();
+  } else {
+    std::cout << "ℹ️  [loadPeers] Manual peer sources disabled by configuration." << std::endl;
   }
 
   bool connected = false;
   bool manualAdded = false;
-  for (const auto &entry : manualPeers) {
-    if (isSelfEndpoint(entry.host, entry.port)) {
-      recordSelfEndpoint(entry.host, entry.port);
-      continue;
-    }
-    if (entry.host == "127.0.0.1" || entry.host == "localhost")
-      continue;
-    if (noteShareableEndpoint(entry.host, entry.port, false))
-      manualAdded = true;
-    if (connectToNode(entry.host, entry.port)) {
-      connected = true;
-      if (!entry.keyB64.empty()) {
-        std::string decoded = Crypto::base64Decode(entry.keyB64, false);
-        if (decoded.size() == 32) {
-          std::lock_guard<std::timed_mutex> lk(peersMutex);
-          auto it = std::find_if(peerTransports.begin(), peerTransports.end(),
-                                 [&](const auto &kv) {
-                                   return kv.second.ip == entry.host;
-                                 });
-          if (it != peerTransports.end() && it->second.state)
-            std::copy(decoded.begin(), decoded.end(),
-                      it->second.state->linkKey.begin());
+  if (cfg.allow_manual_peers) {
+    for (const auto &entry : manualPeers) {
+      if (isSelfEndpoint(entry.host, entry.port)) {
+        recordSelfEndpoint(entry.host, entry.port);
+        continue;
+      }
+      if (entry.host == "127.0.0.1" || entry.host == "localhost")
+        continue;
+      if (noteShareableEndpoint(entry.host, entry.port, false))
+        manualAdded = true;
+      if (connectToNode(entry.host, entry.port)) {
+        connected = true;
+        if (!entry.keyB64.empty()) {
+          std::string decoded = Crypto::base64Decode(entry.keyB64, false);
+          if (decoded.size() == 32) {
+            std::lock_guard<std::timed_mutex> lk(peersMutex);
+            const std::string desiredLabel =
+                makeEndpointLabel(entry.host, entry.port);
+            auto it = std::find_if(peerTransports.begin(), peerTransports.end(),
+                                   [&](const auto &kv) {
+                                     return makeEndpointLabel(kv.second.ip,
+                                                              kv.second.port) ==
+                                            desiredLabel;
+                                   });
+            if (it != peerTransports.end() && it->second.state)
+              std::copy(decoded.begin(), decoded.end(),
+                        it->second.state->linkKey.begin());
+          }
         }
       }
     }
@@ -4623,7 +4791,9 @@ void Network::loadPeers() {
   if (manualAdded)
     broadcastPeerList();
 
-  if (!connected) {
+  bool attemptedBootstrap = false;
+  if (!connected && cfg.allow_dns_bootstrap) {
+    attemptedBootstrap = true;
     auto bootstrap = gatherBootstrapPeers();
     if (!bootstrap.empty())
       std::cout << "ℹ️  [loadPeers] Using bootstrap peer list.\n";
@@ -4644,45 +4814,72 @@ void Network::loadPeers() {
     }
     if (added)
       broadcastPeerList();
+  } else if (!connected) {
+    std::cout << "ℹ️  [loadPeers] DNS bootstrap disabled; relying on peer exchange and inbound connections." << std::endl;
   }
 
   if (connected) {
     std::cout << "✅ [loadPeers] Peer bootstrap complete.\n";
+  } else if (!attemptedManualDial && !attemptedBootstrap) {
+    std::cout << "ℹ️  [loadPeers] No peer discovery sources enabled; waiting for inbound connections." << std::endl;
   } else {
-    std::cerr << "⚠️ [loadPeers] Unable to reach any peers from manual or bootstrap lists.\n";
+    std::cerr << "⚠️ [loadPeers] Unable to reach any peers from configured sources.\n";
   }
 }
 
 //
 void Network::scanForPeers() {
-  std::lock_guard<std::timed_mutex> lock(peersMutex);
-  if (!peerTransports.empty()) {
-    std::cout << "✅ [scanForPeers] Existing peer sockets present, skipping DNS scan.\n";
+  const auto &cfg = getAppConfig();
+  if (cfg.offline_mode) {
+    std::cout << "🛑 [scanForPeers] Offline mode enabled; skipping DNS discovery." << std::endl;
     return;
   }
-  std::vector<std::string> potentialPeers =
-      fetchPeersFromDNS("peers.alyncoin.com");
-  std::cout << "🔍 [DNS] Scanning for AlynCoin nodes..." << std::endl;
+  if (!cfg.allow_dns_bootstrap) {
+    std::cout << "ℹ️  [scanForPeers] DNS bootstrap disabled by configuration." << std::endl;
+    return;
+  }
 
-  bool added = false;
-  for (const auto &peer : potentialPeers) {
-    std::string ip = peer.substr(0, peer.find(":"));
-    int peerPort = std::stoi(peer.substr(peer.find(":") + 1));
-    if (isSelfEndpoint(ip, peerPort)) {
-      recordSelfEndpoint(ip, peerPort);
-      continue;
+  if (getConnectedPeerCount() > 0) {
+    std::cout << "✅ [scanForPeers] Active peer connections present, skipping DNS scan.\n";
+    return;
+  }
+
+  std::unordered_set<std::string> attempted;
+  bool shareableAdded = false;
+  for (const auto &seedHost : effectiveSeedHosts()) {
+    auto potentialPeers = fetchPeersFromDNS(seedHost);
+    if (!potentialPeers.empty())
+      std::cout << "🔍 [DNS] Scanning " << seedHost << " for peers..." << std::endl;
+    for (const auto &peer : potentialPeers) {
+      auto colonPos = peer.rfind(':');
+      if (colonPos == std::string::npos)
+        continue;
+      std::string ip = peer.substr(0, colonPos);
+      std::string portStr = peer.substr(colonPos + 1);
+      int peerPort = 0;
+      try {
+        peerPort = std::stoi(portStr);
+      } catch (const std::exception &) {
+        continue;
+      }
+      std::string dedupKey = toLowerCopy(ip) + ':' + std::to_string(peerPort);
+      if (!attempted.insert(dedupKey).second)
+        continue;
+      if (isSelfEndpoint(ip, peerPort)) {
+        recordSelfEndpoint(ip, peerPort);
+        continue;
+      }
+      if (ip == "127.0.0.1" || ip == "localhost")
+        continue;
+      if (noteShareableEndpoint(ip, peerPort, false))
+        shareableAdded = true;
+      connectToNode(ip, peerPort);
     }
-    if (ip == "127.0.0.1" || ip == "localhost")
-      continue;
-    if (noteShareableEndpoint(ip, peerPort, false))
-      added = true;
-    connectToNode(ip, peerPort);
   }
-  if (added)
+  if (shareableAdded)
     broadcastPeerList();
-  if (peerTransports.empty()) {
-    std::cout << "⚠️ No active peers found from DNS. Will retry if needed.\n";
-  }
+  if (getConnectedPeerCount() == 0)
+    std::cout << "⚠️ [scanForPeers] No active peers found from DNS. Will retry." << std::endl;
 }
 
 // ✅ **Ensure Peers are Saved Correctly & Safely**

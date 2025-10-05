@@ -2,6 +2,7 @@
 #include "miner.h"
 #include "blake3.h"
 #include "blockchain.h"
+#include "config.h"
 #include "crypto_utils.h"
 #include "mining.h"
 #include <atomic>
@@ -87,6 +88,19 @@ void Miner::startMiningProcess(const std::string &minerAddress) {
         Network *networkPtr = Network::isUninitialized() ? nullptr : &Network::getInstance();
         PeerManager *peerManager = networkPtr ? networkPtr->getPeerManager() : nullptr;
 
+        const auto &cfg = getAppConfig();
+        if (cfg.offline_mode) {
+            std::cerr << "⚠️ Mining is disabled while offline_mode=true.\n";
+            miningActive = false;
+            return;
+        }
+        size_t initialPeers = networkPtr ? networkPtr->getConnectedPeerCount() : 0;
+        if (cfg.require_peer_for_mining && initialPeers == 0) {
+            std::cerr << "⚠️ Mining requires at least one connected peer.\n";
+            miningActive = false;
+            return;
+        }
+
         if (auto checkpoint = blockchain.readMiningCheckpoint()) {
             std::cout << "⏮️  Last mining checkpoint height=" << checkpoint->height
                       << " hash=" << checkpoint->hash;
@@ -107,6 +121,17 @@ void Miner::startMiningProcess(const std::string &minerAddress) {
             } else {
                 networkPtr = nullptr;
                 peerManager = nullptr;
+            }
+
+            const auto &loopCfg = getAppConfig();
+            if (loopCfg.offline_mode) {
+                std::cerr << "⚠️ Stopping mining loop: offline mode enabled.\n";
+                break;
+            }
+            size_t peersNow = networkPtr ? networkPtr->getConnectedPeerCount() : 0;
+            if (loopCfg.require_peer_for_mining && peersNow == 0) {
+                std::cerr << "⚠️ Stopping mining loop: no connected peers.\n";
+                break;
             }
 
             if (peerManager && !chainCaughtUp(blockchain, peerManager, kMiningSyncTolerance)) {

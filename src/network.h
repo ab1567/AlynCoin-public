@@ -91,6 +91,7 @@ public:
   void sendBlockToPeer(const std::string &peer, const Block &blk);
   void sendInventory(const std::string &peer);
   PeerManager *getPeerManager();
+  size_t getConnectedPeerCount() const;
   std::vector<std::string> discoverPeers();
   void connectToDiscoveredPeers();
   std::string requestBlockchainSync(const std::string &peer);
@@ -198,6 +199,8 @@ public:
                              bool triggerBroadcast = true,
                              bool markVerified = false,
                              const std::string &originPeer = "");
+  void startDiscoveryLoops();
+  void stopDiscoveryLoops();
 
   // Expose frame processing for worker threads
   void processFrame(const alyncoin::net::Frame &f, const std::string &peer);
@@ -309,5 +312,10 @@ private:
   void startHeaderSync(const std::string &peer);
   void requestQueuedBlocks(const std::string &peer);
   void onBlockAccepted(const std::string &hash);
+  void bootstrapLoop();
+  void pexLoop();
+  std::thread bootstrapThread_;
+  std::thread pexThread_;
+  std::atomic<bool> loopsRunning_{false};
 };
 #endif // NETWORK_H

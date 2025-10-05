@@ -26,9 +26,28 @@ void loadConfigFile(const std::string &path) {
         return value == "1" || value == "true" || value == "yes" || value == "on";
     };
 
+    auto trim = [](std::string value) {
+        auto notSpace = [](int ch) { return std::isspace(ch) == 0; };
+        value.erase(value.begin(), std::find_if(value.begin(), value.end(), notSpace));
+        value.erase(std::find_if(value.rbegin(), value.rend(), notSpace).base(), value.end());
+        return value;
+    };
+
+    bool seedsReset = false;
+
     while (std::getline(in, line)) {
         if (line.rfind("ban_minutes=", 0) == 0) {
             cfg.ban_minutes = std::stoi(line.substr(12));
+        } else if (line.rfind("offline_mode=", 0) == 0) {
+            cfg.offline_mode = parseBool(line.substr(13));
+        } else if (line.rfind("allow_dns_bootstrap=", 0) == 0) {
+            cfg.allow_dns_bootstrap = parseBool(line.substr(20));
+        } else if (line.rfind("allow_peer_exchange=", 0) == 0) {
+            cfg.allow_peer_exchange = parseBool(line.substr(20));
+        } else if (line.rfind("allow_manual_peers=", 0) == 0) {
+            cfg.allow_manual_peers = parseBool(line.substr(19));
+        } else if (line.rfind("require_peer_for_mining=", 0) == 0) {
+            cfg.require_peer_for_mining = parseBool(line.substr(24));
         } else if (line.rfind("rpc_bind=", 0) == 0) {
             cfg.rpc_bind = line.substr(10);
         } else if (line.rfind("rpc_cors=", 0) == 0) {
@@ -47,8 +66,25 @@ void loadConfigFile(const std::string &path) {
             cfg.external_address = line.substr(17);
         } else if (line.rfind("hide_peer_endpoints=", 0) == 0) {
             cfg.hide_peer_endpoints = parseBool(line.substr(20));
+        } else if (line.rfind("seed=", 0) == 0) {
+            std::string host = trim(line.substr(5));
+            if (host.empty())
+                continue;
+            if (!seedsReset) {
+                cfg.seed_hosts.clear();
+                seedsReset = true;
+            }
+            auto exists = std::find_if(cfg.seed_hosts.begin(), cfg.seed_hosts.end(),
+                                       [&](const std::string &existing) {
+                                           return existing == host;
+                                       });
+            if (exists == cfg.seed_hosts.end())
+                cfg.seed_hosts.push_back(std::move(host));
         }
     }
+
+    if (seedsReset && cfg.seed_hosts.empty())
+        cfg.seed_hosts.push_back("peers.alyncoin.com");
 }
 
 void saveConfigValue(const std::string &path, const std::string &key,

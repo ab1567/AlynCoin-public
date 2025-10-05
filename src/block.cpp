@@ -9,9 +9,12 @@
 #include "rollup/rollup_block.h"
 #include "zk/winterfell_ffi.h"
 #include "zk/winterfell_stark.h"
+#include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstddef>
 #include <filesystem>
+#include <cstdlib>
 #include <fstream>
 #include <generated/block_protos.pb.h>
 #include <generated/transaction_protos.pb.h>
@@ -22,6 +25,23 @@
 #include <thread>
 
 namespace fs = std::filesystem;
+
+
+namespace {
+bool protobufDebugEnabled() {
+  static const bool enabled = []() {
+    const char *env = std::getenv("ALYN_DEBUG_PROTOBUF");
+    if (!env)
+      return false;
+    std::string value(env);
+    for (char &ch : value)
+      ch = static_cast<char>(
+          std::tolower(static_cast<unsigned char>(ch)));
+    return value == "1" || value == "true" || value == "yes" || value == "on";
+  }();
+  return enabled;
+}
+} // namespace
 
 
 void ensureRootConsistency(const Block &b, int idx) {
@@ -688,8 +708,10 @@ alyncoin::BlockProto Block::toProtobuf() const {
 
   proto.set_accumulated_work(accumulatedWork.convert_to<std::string>());
 
-  std::cerr << "[toProtobuf] index=" << index << " tx_merkle_root=" << txRoot
-            << std::endl;
+  if (protobufDebugEnabled()) {
+    std::cerr << "[toProtobuf] index=" << index
+              << " tx_merkle_root=" << txRoot << std::endl;
+  }
   return proto;
 }
 

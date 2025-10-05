@@ -1638,6 +1638,16 @@ static bool handleNodeMenuSelection(int choice, Blockchain &blockchain,
   }
 
   case 2: {
+    const auto &cfg = getAppConfig();
+    size_t peerCount = network ? network->getConnectedPeerCount() : 0;
+    if (cfg.offline_mode) {
+      std::cout << "⚠️ Offline mode enabled. Mining is disabled.\n";
+      return true;
+    }
+    if (cfg.require_peer_for_mining && peerCount == 0) {
+      std::cout << "⚠️ Connect to at least one peer before mining.\n";
+      return true;
+    }
     std::string minerAddress;
     std::cout << "Enter miner address: ";
     std::cin >> minerAddress;
@@ -1658,6 +1668,16 @@ static bool handleNodeMenuSelection(int choice, Blockchain &blockchain,
     return true;
 
   case 4: {
+    const auto &cfg = getAppConfig();
+    size_t peerCount = network ? network->getConnectedPeerCount() : 0;
+    if (cfg.offline_mode) {
+      std::cout << "⚠️ Offline mode enabled. Mining loop is disabled.\n";
+      return true;
+    }
+    if (cfg.require_peer_for_mining && peerCount == 0) {
+      std::cout << "⚠️ Connect to at least one peer before starting the mining loop.\n";
+      return true;
+    }
     std::string minerAddress;
     std::cout << "Enter miner address: ";
     std::cin >> minerAddress;
@@ -2486,6 +2506,20 @@ int main(int argc, char *argv[]) {
     auto dil = Crypto::loadDilithiumKeys(minerAddr);
     auto fal = Crypto::loadFalconKeys(minerAddr);
 
+    const auto &cfg = getAppConfig();
+    if (cfg.offline_mode) {
+      std::cerr << "⚠️ Mining is disabled while offline_mode=true.\n";
+      return 1;
+    }
+    size_t peerCount = 0;
+    if (!Network::isUninitialized()) {
+      peerCount = Network::getInstance().getConnectedPeerCount();
+    }
+    if (cfg.require_peer_for_mining && peerCount == 0) {
+      std::cerr << "⚠️ Mining requires at least one connected peer.\n";
+      return 1;
+    }
+
     Blockchain &b = Blockchain::getInstance();
     Block mined =
         b.minePendingTransactions(minerAddr, dil.privateKey, fal.privateKey);
@@ -2906,9 +2940,10 @@ int main(int argc, char *argv[]) {
   }
   if (network) {
     network->run();
+    network->startDiscoveryLoops();
   }
 
-  if (network && !connectIP.empty()) {
+  if (network && !connectIP.empty() && getAppConfig().allow_manual_peers) {
     std::string ip;
     short connectPort;
     if (connectIP.find(":") != std::string::npos) {
@@ -2950,6 +2985,9 @@ int main(int argc, char *argv[]) {
       blockchain.loadFromPeers();
     }
   } else if (network) {
+    if (!getAppConfig().allow_manual_peers && !connectIP.empty()) {
+      std::cout << "ℹ️  Manual peer connections are disabled by configuration." << std::endl;
+    }
     // No explicit --connect, still try syncing
     network->intelligentSync();
     if (blockchain.getHeight() <= 1) {

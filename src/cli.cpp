@@ -143,6 +143,7 @@ int main(int argc, char **argv) {
     std::ios::sync_with_stdio(true);
     std::cout.setf(std::ios::unitbuf);
     std::string keyDir = DBPaths::getKeyDir();
+    loadConfigFile("config.ini");
 
     // Helper to check command
     auto cmd = (argc >= 2) ? std::string(argv[1]) : "";
@@ -862,6 +863,10 @@ if (argc >= 3 && std::string(argv[1]) == "recursive-rollup") {
 }
 
    if (cmd.find(':') != std::string::npos && cmd.find('.') != std::string::npos && argc == 2) {
+        if (!getAppConfig().allow_manual_peers) {
+            std::cout << "ℹ️  Manual peer connections are disabled by configuration.\n";
+            return 0;
+        }
         std::string ip = cmd.substr(0, cmd.find(':'));
         int port = std::stoi(cmd.substr(cmd.find(':') + 1));
         Blockchain& b = getBlockchain();
@@ -930,6 +935,9 @@ int cliMain(int argc, char *argv[]) {
   }
 
   if (!connectPeer.empty()) {
+    if (!getAppConfig().allow_manual_peers) {
+      std::cout << "ℹ️  Manual peer connections are disabled by configuration." << std::endl;
+    } else if (network) {
     size_t colonPos = connectPeer.find(':');
     if (colonPos != std::string::npos) {
       std::string ip = connectPeer.substr(0, colonPos);
@@ -950,6 +958,7 @@ int cliMain(int argc, char *argv[]) {
         std::cout << "⏳ Connection attempt is continuing in the background."
                   << std::endl;
       }
+    }
     }
   }
 
