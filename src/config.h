@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <vector>
 
 struct AppConfig {
     bool enable_tls = false;
@@ -15,6 +16,12 @@ struct AppConfig {
     std::string proxy_host;
     int proxy_port = 0;
     int ban_minutes = 5;
+    bool offline_mode = false;              // disable outbound networking
+    bool allow_dns_bootstrap = true;        // seed peers via DNS/default list
+    bool allow_peer_exchange = true;        // accept peers learned from gossip
+    bool allow_manual_peers = false;        // ignore peers.txt/--connect overrides
+    std::vector<std::string> seed_hosts{"peers.alyncoin.com"};
+    bool require_peer_for_mining = true;    // enforce >=1 connected peer before mining
     // --- New RPC/PoR configuration ---
     std::string rpc_bind = "0.0.0.0:1567"; // host:port for RPC server
     std::string rpc_cors;                   // value for Access-Control-Allow-Origin

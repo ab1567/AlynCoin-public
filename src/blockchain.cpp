@@ -10,6 +10,7 @@
 #include "genesis.h"
 #include "layer2/state_channel.h"
 #include "network.h"
+#include "config.h"
 #include "rollup/proofs/proof_verifier.h"
 #include "rollup/rollup_block.h"
 #include "rpc/metrics.h"
@@ -1219,6 +1220,15 @@ uint64_t Blockchain::expectedNonceForSender(const std::string &sender,
 }
 
 bool Blockchain::shouldAutoMine() const {
+  const auto &cfg = getAppConfig();
+  if (cfg.offline_mode)
+    return false;
+  if (cfg.require_peer_for_mining) {
+    Network *net = Network::getExistingInstance();
+    const size_t peerCount = net ? net->getConnectedPeerCount() : 0;
+    if (peerCount == 0)
+      return false;
+  }
   const std::time_t now = std::time(nullptr);
   const std::time_t last = lastL1Seen.load(std::memory_order_relaxed);
   if (now == 0 || last == 0)
@@ -1345,14 +1355,20 @@ Block Blockchain::minePendingTransactions(
     bool forceAutoReward) {
   (void)minerDilithiumPriv;
   (void)minerFalconPriv;
+  (void)forceAutoReward;
 
   bool havePeers = false;
   bool networkSyncing = false;
   if (!Network::isUninitialized()) {
     auto &net = Network::getInstance();
-    if (auto *pm = net.getPeerManager())
-      havePeers = pm->getPeerCount() > 0;
+    havePeers = net.getConnectedPeerCount() > 0;
     networkSyncing = net.isSyncing();
+  }
+
+  const auto &cfg = getAppConfig();
+  if (cfg.offline_mode) {
+    std::cerr << "⚠️ Cannot mine while node is in offline mode." << std::endl;
+    return Block();
   }
 
   if (networkSyncing) {
@@ -1362,15 +1378,15 @@ Block Blockchain::minePendingTransactions(
   }
   static bool soloWarned = false;
   if (!havePeers) {
-    if (!forceAutoReward) {
-      std::cerr << "⚠️ Cannot mine without at least one connected peer. If error "
-                   "persists visit alyncoin.com"
-                << std::endl;
+    if (cfg.require_peer_for_mining) {
+      if (!soloWarned) {
+        std::cerr << "⚠️ Cannot mine without at least one connected peer." << std::endl;
+        soloWarned = true;
+      }
       return Block();
     }
     if (!soloWarned) {
-      std::cerr << "⚠️ Mining without connected peers; continuing in solo mode."
-                << std::endl;
+      std::cerr << "⚠️ Mining without connected peers; continuing in solo mode." << std::endl;
       soloWarned = true;
     }
   } else {
@@ -2888,6 +2904,11 @@ Block Blockchain::createBlock(const std::string &minerDilithiumKey,
 Block Blockchain::mineBlock(const std::string &minerAddress) {
   std::cout << "[DEBUG] Entered mineBlock() for: " << minerAddress << "\n";
 
+  if (getAppConfig().offline_mode) {
+    std::cerr << "⚠️ Cannot mine block while node is in offline mode." << std::endl;
+    return Block();
+  }
+
   bool syncing = false;
   if (!Network::isUninitialized())
     syncing = Network::getInstance().isSyncing();
@@ -2897,7 +2918,11 @@ Block Blockchain::mineBlock(const std::string &minerAddress) {
     return Block();
   }
 
-  if (getPeerCount() == 0) {
+  size_t connectedPeers = 0;
+  if (!Network::isUninitialized())
+    connectedPeers = Network::getInstance().getConnectedPeerCount();
+
+  if (getAppConfig().require_peer_for_mining && connectedPeers == 0) {
     std::cerr << "❌ Mining requires at least one connected peer.\n";
     return Block();
   }

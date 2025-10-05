@@ -1,5 +1,13 @@
 # Sample configuration for AlynCoin node
 ban_minutes=5
+offline_mode=false
+allow_dns_bootstrap=true
+allow_peer_exchange=true
+allow_manual_peers=false
+require_peer_for_mining=true
+seed=peers.alyncoin.com
+seed=seed1.alyncoin.com
+seed=seed2.alyncoin.com
 rpc_bind=127.0.0.1:1567
 rpc_cors=*
 self_heal_interval=600
