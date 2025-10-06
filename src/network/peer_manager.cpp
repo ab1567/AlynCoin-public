@@ -2,6 +2,7 @@
 #include "network.h"
 #include "blockchain.h"
 #include "config.h"
+#include "crypto_utils.h"
 #include "json/json.h"
 #include "transport/peer_globals.h"
 #include <algorithm>
@@ -507,7 +508,7 @@ std::string PeerManager::getPeerTipHash(const std::string& peer) const {
 
 void PeerManager::setPeerTipHash(const std::string& peer, const std::string& tipHash) {
     std::lock_guard<std::mutex> guard(peerMutex);
-    peerTipHashes[peer] = tipHash;
+    peerTipHashes[peer] = Crypto::normaliseHash(tipHash);
 }
 void PeerManager::recordTipHash(const std::string& peer, const std::string& tipHash) {
     setPeerTipHash(peer, tipHash);

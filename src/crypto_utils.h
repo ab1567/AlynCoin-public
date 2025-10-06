@@ -146,9 +146,10 @@ inline std::string normaliseHash(const std::string &hRaw)
     if (hRaw == "00000000000000000000000000000000")
         return std::string(64, '0');
 
-    // 4 ─ raw 20-byte binary buffer         ⇒  convert to hex
-    if (hRaw.size() == 20)                   // 20 bytes raw
+    // 4 ─ raw 20-byte or 32-byte binary buffer ⇒ convert to hex
+    if (hRaw.size() == 20 || hRaw.size() == 32) {
         return toHex(std::vector<unsigned char>(hRaw.begin(), hRaw.end()));
+    }
 
     // 5 ─ anything else is unexpected – keep it so the caller can see it
     std::cerr << "❌ [normaliseHash] Unexpected hash length=" << hRaw.size()
