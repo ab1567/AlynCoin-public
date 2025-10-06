@@ -248,6 +248,8 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath,
   columnFamilyHandles = handles;
   if (!g_dbWriter)
     g_dbWriter = new DBWriter(db);
+  else
+    g_dbWriter->setDatabase(db);
 
   std::cout << "[DEBUG] Attempting to load blockchain from DB...\n";
   bool found = loadFromDB();
@@ -283,13 +285,7 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath,
 }
 
 // ✅ **Destructor: Close RocksDB**
-Blockchain::~Blockchain() {
-  closeDB();
-  if (g_dbWriter) {
-    delete g_dbWriter;
-    g_dbWriter = nullptr;
-  }
-}
+Blockchain::~Blockchain() { closeDB(); }
 // ✅ **Validate a Transaction**
 bool Blockchain::isTransactionValid(const Transaction &tx) const {
   std::string sender = tx.getSender();
@@ -4536,10 +4532,20 @@ bool Blockchain::openDB(bool readOnly) {
     db = nullptr;
     return false;
   }
+  if (!readOnly) {
+    if (!g_dbWriter)
+      g_dbWriter = new DBWriter(db);
+    else
+      g_dbWriter->setDatabase(db);
+  }
   return true;
 }
 //
 void Blockchain::closeDB() {
+  if (g_dbWriter) {
+    delete g_dbWriter;
+    g_dbWriter = nullptr;
+  }
   if (!db)
     return;
   for (auto *handle : columnFamilyHandles) {
