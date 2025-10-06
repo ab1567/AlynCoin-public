@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <deque>
 #include <array>
 #include <chrono>
 #include <filesystem>
@@ -85,6 +86,10 @@ struct PeerState {
   int headerLastBinaryProbe{-1};
   bool handshakeComplete{false};
   std::mutex m;
+  std::deque<std::string> recentBlocksSent;
+  std::unordered_set<std::string> recentBlocksSentSet;
+  std::deque<std::string> recentBlocksReceived;
+  std::unordered_set<std::string> recentBlocksReceivedSet;
 };
 
 struct PeerEntry {
