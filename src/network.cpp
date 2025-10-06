@@ -1942,6 +1942,10 @@ bool Network::isSyncing() const {
   return false;
 }
 
+bool Network::isSnapshotActive() const {
+  return isSnapshotInProgress();
+}
+
 // ✅ **Broadcast a transaction to all peers**
 
 void Network::broadcastTransaction(const Transaction &tx) {

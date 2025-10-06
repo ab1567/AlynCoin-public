@@ -113,6 +113,7 @@ public:
   void broadcastPeerList(const std::string &excludePeer = "");
   void run();
   bool isSyncing() const;
+  bool isSnapshotActive() const;
   bool connectToNode(const std::string &ip, int remotePort);
   bool finishOutboundHandshake(std::shared_ptr<Transport> tx,
                                std::array<uint8_t, 32> &privOut);

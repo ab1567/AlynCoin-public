@@ -54,7 +54,7 @@ NodeHealthStatus SelfHealingNode::runHealthCheck(bool manualTrigger) {
     };
 
     Network *netPtr = Network::getExistingInstance();
-    const bool snapshotActive = netPtr && netPtr->isSnapshotInProgress();
+    const bool snapshotActive = netPtr && netPtr->isSnapshotActive();
 
     const bool freshBootstrap = !blockchain_->hasBlocks() &&
                                 status.localHeight == 0 &&
