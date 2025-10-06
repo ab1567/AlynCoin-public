@@ -9,13 +9,15 @@
 #include <vector>
 #include <array>
 #include <chrono>
+#include <filesystem>
+
+struct SnapshotFileSink;
 
 // Per-peer state used during sync and message reassembly
 struct PeerState {
   std::string jsonBuf;
   std::string prefixBuf; // holds partial protocol prefix across chunks
   std::vector<Block> orphanBuf;
-  std::vector<uint8_t> snapshotBuffer;
   enum class SyncMode {
     Idle,
     Headers,
@@ -26,7 +28,9 @@ struct PeerState {
   enum class SnapState {
     Idle,
     WaitMeta,
-    WaitChunks
+    WaitChunks,
+    Verifying,
+    Applying
   } snapState{SnapState::Idle};
   std::string snapshotRoot;
   size_t snapshotExpectBytes{0};
@@ -36,8 +40,14 @@ struct PeerState {
   size_t snapshotChunkPreference{0};
   size_t snapshotChunkLimit{0};
   std::string snapshotSessionId;
-  bool snapshotLegacySessionId{false};
   size_t snapshotLastAcked{0};
+  std::shared_ptr<SnapshotFileSink> snapshotSink;
+  std::filesystem::path snapshotTempPath;
+  bool snapshotMetaReceived{false};
+  bool snapshotRestartMetaSent{false};
+  size_t snapshotChunksSinceAck{0};
+  uint64_t snapshotChunksReceived{0};
+  std::chrono::steady_clock::time_point snapshotLastProgressLog{};
   std::string servingSnapshotSessionId;
   std::string lastSnapshotMetaFrame;
   std::chrono::steady_clock::time_point lastSnapshotMetaSent{};

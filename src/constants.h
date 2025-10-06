@@ -41,6 +41,7 @@ inline constexpr std::size_t SNAPSHOT_FRAME_SAFETY_MARGIN = 1024; // 1 KiB wiggl
 // a few bytes larger than the nominal limit.
 inline constexpr std::size_t SNAPSHOT_CHUNK_TOLERANCE = 16 * 1024; // 16 KiB
 inline constexpr std::size_t SNAPSHOT_ACK_WINDOW = 128 * 1024;      // Ack every 128 KiB
+inline constexpr std::size_t SNAPSHOT_ACK_CHUNK_WINDOW = 8;         // Ack every 8 chunks
 inline constexpr std::size_t SNAPSHOT_SESSION_ID_BYTES = 16;        // 128-bit token
 inline constexpr std::size_t MAX_PEERS = 32;                       // hard cap
 inline constexpr int MAX_TAIL_BLOCKS = 256; // limit tail block batches
@@ -56,4 +57,5 @@ inline constexpr std::size_t MAX_TAIL_PAYLOAD = 200 * 1024;  // safe tail chunk
 inline constexpr std::size_t MAX_INV_PER_MSG = 500; // inventory batch cap
 // Limit blocks included in a snapshot to avoid sending the full chain
 inline constexpr int MAX_SNAPSHOT_BLOCKS = 1000;
+inline constexpr uint32_t NETWORK_PROTO_VERSION = 3;
 #endif // ALYNCOIN_CONSTANTS_H
