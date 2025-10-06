@@ -245,6 +245,7 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath,
     if (cfDesc[i].name == "cfCheck")
       cfCheck = handles[i];
   }
+  columnFamilyHandles = handles;
   if (!g_dbWriter)
     g_dbWriter = new DBWriter(db);
 
@@ -4541,10 +4542,12 @@ bool Blockchain::openDB(bool readOnly) {
 void Blockchain::closeDB() {
   if (!db)
     return;
-  if (cfCheck) {
-    db->DestroyColumnFamilyHandle(cfCheck);
-    cfCheck = nullptr;
+  for (auto *handle : columnFamilyHandles) {
+    if (handle)
+      db->DestroyColumnFamilyHandle(handle);
   }
+  columnFamilyHandles.clear();
+  cfCheck = nullptr;
   delete db;
   db = nullptr;
 }
