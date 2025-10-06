@@ -8,7 +8,8 @@
 #include <vector>
 
 SelfHealingNode::SelfHealingNode(Blockchain* blockchain, PeerManager* peerManager)
-    : blockchain_(blockchain), peerManager_(peerManager), consecutiveFarBehind_(0) {
+    : blockchain_(blockchain), peerManager_(peerManager), consecutiveFarBehind_(0),
+      manualOverridePending_(false) {
     healthMonitor_ = std::make_unique<HealthMonitor>(blockchain, peerManager);
     syncRecovery_ = std::make_unique<SyncRecovery>(blockchain, peerManager);
 }
@@ -56,6 +57,20 @@ NodeHealthStatus SelfHealingNode::runHealthCheck(bool manualTrigger) {
     Network *netPtr = Network::getExistingInstance();
     const bool snapshotActive = netPtr && netPtr->isSnapshotActive();
 
+    if (manualTrigger)
+        manualOverridePending_ = true;
+
+    if (snapshotActive && !manualTrigger) {
+        if (!manualOverridePending_) {
+            Logger::info("🩺 [SelfHealer] Snapshot transfer in progress; deferring recovery.");
+            consecutiveFarBehind_ = 0;
+        } else {
+            Logger::info("🩺 [SelfHealer] Snapshot active; preserving manual override confirmations.");
+        }
+        ensureManualKick();
+        return status;
+    }
+
     const bool freshBootstrap = !blockchain_->hasBlocks() &&
                                 status.localHeight == 0 &&
                                 status.networkHeight > 0;
@@ -65,6 +80,7 @@ NodeHealthStatus SelfHealingNode::runHealthCheck(bool manualTrigger) {
             "🩺 [SelfHealer] Initial bootstrap detected; deferring recovery while "
             "waiting for snapshot/tail sync.");
         consecutiveFarBehind_ = 0;
+        manualOverridePending_ = false;
         if (!snapshotActive && netPtr) {
             Logger::info(
                 "🩺 [SelfHealer] No snapshot active yet — nudging network sync.");
@@ -91,6 +107,7 @@ NodeHealthStatus SelfHealingNode::runHealthCheck(bool manualTrigger) {
 
         Logger::warn("🚨 Node far behind confirmed. Purging local data and requesting snapshot...");
         consecutiveFarBehind_ = 0;
+        manualOverridePending_ = false;
 
         blockchain_->purgeDataForResync();
         std::vector<std::string> peerIds = peerManager_ ? peerManager_->getConnectedPeerIds() : std::vector<std::string>{};
@@ -106,6 +123,7 @@ NodeHealthStatus SelfHealingNode::runHealthCheck(bool manualTrigger) {
     }
 
     consecutiveFarBehind_ = 0;
+    manualOverridePending_ = false;
 
     if (!healthMonitor_->shouldTriggerRecovery(status)) {
         ensureManualKick();

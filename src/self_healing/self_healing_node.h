@@ -36,6 +36,7 @@ private:
     Blockchain* blockchain_;
     PeerManager* peerManager_;
     std::size_t consecutiveFarBehind_;
+    bool manualOverridePending_;
 
     NodeHealthStatus runHealthCheck(bool manualTrigger);
 };

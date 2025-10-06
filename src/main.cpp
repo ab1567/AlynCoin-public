@@ -36,6 +36,9 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <clocale>
+#include <exception>
+#include <locale>
 #include <json/json.h>
 #include <limits>
 #include <map>
@@ -48,6 +51,10 @@
 #include <unordered_set>
 #include <vector>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #ifndef ALYNCOIN_BUILD_GIT_SHA
 #define ALYNCOIN_BUILD_GIT_SHA "unknown"
 #endif
@@ -57,6 +64,27 @@
 #endif
 
 namespace {
+
+void configureConsoleEncoding() {
+#ifdef _WIN32
+  // Ensure the Windows console can render UTF-8 glyphs such as emoji that we
+  // emit throughout the logs. Without this, users see mojibake like "Ô£à".
+  if (GetConsoleOutputCP() != CP_UTF8)
+    SetConsoleOutputCP(CP_UTF8);
+  if (GetConsoleCP() != CP_UTF8)
+    SetConsoleCP(CP_UTF8);
+
+  std::setlocale(LC_ALL, ".UTF-8");
+  try {
+    const std::locale utf8Locale{".UTF-8"};
+    std::locale::global(utf8Locale);
+    std::cout.imbue(utf8Locale);
+    std::cerr.imbue(utf8Locale);
+  } catch (const std::exception &) {
+    // If the locale isn't available, continue with the default settings.
+  }
+#endif
+}
 
 void printBuildFingerprint(std::ostream &out) {
   out << "[BUILD] commit=" << ALYNCOIN_BUILD_GIT_SHA
@@ -1795,6 +1823,7 @@ static bool handleNodeMenuSelection(int choice, Blockchain &blockchain,
 }
 
 int main(int argc, char *argv[]) {
+  configureConsoleEncoding();
   std::srand(std::time(nullptr));
   printBuildFingerprint(std::cerr);
   loadConfigFile("config.ini");
