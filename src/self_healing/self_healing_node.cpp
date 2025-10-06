@@ -53,6 +53,28 @@ NodeHealthStatus SelfHealingNode::runHealthCheck(bool manualTrigger) {
         kickStalledSync();
     };
 
+    Network *netPtr = Network::getExistingInstance();
+    const bool snapshotActive = netPtr && netPtr->isSnapshotInProgress();
+
+    const bool freshBootstrap = !blockchain_->hasBlocks() &&
+                                status.localHeight == 0 &&
+                                status.networkHeight > 0;
+
+    if (freshBootstrap) {
+        Logger::info(
+            "🩺 [SelfHealer] Initial bootstrap detected; deferring recovery while "
+            "waiting for snapshot/tail sync.");
+        consecutiveFarBehind_ = 0;
+        if (!snapshotActive && netPtr) {
+            Logger::info(
+                "🩺 [SelfHealer] No snapshot active yet — nudging network sync.");
+            netPtr->autoSyncIfBehind();
+            netPtr->intelligentSync();
+        }
+        ensureManualKick();
+        return status;
+    }
+
     constexpr std::size_t FAR_BEHIND_CONFIRMATIONS = 3;
 
     if (status.farBehind) {
