@@ -87,58 +87,7 @@
 
 using namespace alyncoin;
 
-namespace {
-
-constexpr size_t MAX_TRACKED_ENDPOINTS = 1024;
-constexpr size_t MAX_UNVERIFIED_ENDPOINTS = 256;
-
-struct ConsensusHints {
-  bool hasDifficulty{false};
-  bool hasReward{false};
-  int difficulty{0};
-  double reward{0.0};
-};
-
-ConsensusHints parseConsensusHints(
-    const ::google::protobuf::RepeatedPtrField<std::string> &capabilities) {
-  static constexpr char kPrefix[] = "consensus:";
-  ConsensusHints hints;
-
-  for (const auto &cap : capabilities) {
-    if (cap.rfind(kPrefix, 0) != 0)
-      continue;
-
-    std::string body = cap.substr(sizeof(kPrefix) - 1);
-    std::stringstream ss(body);
-    std::string token;
-    while (std::getline(ss, token, ';')) {
-      auto eqPos = token.find('=');
-      if (eqPos == std::string::npos)
-        continue;
-
-      std::string key = token.substr(0, eqPos);
-      std::string value = token.substr(eqPos + 1);
-
-      if (key == "difficulty") {
-        try {
-          hints.difficulty = std::stoi(value);
-          hints.hasDifficulty = true;
-        } catch (const std::exception &) {
-        }
-      } else if (key == "reward") {
-        try {
-          hints.reward = std::stod(value);
-          hints.hasReward = true;
-        } catch (const std::exception &) {
-        }
-      }
-    }
-  }
-
-  return hints;
-}
-
-class SnapshotFileSink {
+struct SnapshotFileSink {
 public:
   bool open(const std::filesystem::path &path, std::uint64_t totalBytes) {
     close();
@@ -220,6 +169,57 @@ private:
   std::filesystem::path path_;
   std::uint64_t expected_{0};
 };
+
+namespace {
+
+constexpr size_t MAX_TRACKED_ENDPOINTS = 1024;
+constexpr size_t MAX_UNVERIFIED_ENDPOINTS = 256;
+
+struct ConsensusHints {
+  bool hasDifficulty{false};
+  bool hasReward{false};
+  int difficulty{0};
+  double reward{0.0};
+};
+
+ConsensusHints parseConsensusHints(
+    const ::google::protobuf::RepeatedPtrField<std::string> &capabilities) {
+  static constexpr char kPrefix[] = "consensus:";
+  ConsensusHints hints;
+
+  for (const auto &cap : capabilities) {
+    if (cap.rfind(kPrefix, 0) != 0)
+      continue;
+
+    std::string body = cap.substr(sizeof(kPrefix) - 1);
+    std::stringstream ss(body);
+    std::string token;
+    while (std::getline(ss, token, ';')) {
+      auto eqPos = token.find('=');
+      if (eqPos == std::string::npos)
+        continue;
+
+      std::string key = token.substr(0, eqPos);
+      std::string value = token.substr(eqPos + 1);
+
+      if (key == "difficulty") {
+        try {
+          hints.difficulty = std::stoi(value);
+          hints.hasDifficulty = true;
+        } catch (const std::exception &) {
+        }
+      } else if (key == "reward") {
+        try {
+          hints.reward = std::stod(value);
+          hints.hasReward = true;
+        } catch (const std::exception &) {
+        }
+      }
+    }
+  }
+
+  return hints;
+}
 
 const char *describeBlockAddResult(Blockchain::BlockAddResult res) {
   using Result = Blockchain::BlockAddResult;
