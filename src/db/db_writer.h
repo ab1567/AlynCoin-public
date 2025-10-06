@@ -1,12 +1,13 @@
 #pragma once
 #include <rocksdb/db.h>
 #include <rocksdb/write_batch.h>
-#include <queue>
-#include <mutex>
-#include <condition_variable>
-#include <future>
-#include <thread>
 #include <atomic>
+#include <condition_variable>
+#include <deque>
+#include <future>
+#include <memory>
+#include <mutex>
+#include <thread>
 
 struct DBTask {
     std::unique_ptr<rocksdb::WriteBatch> batch;
@@ -21,11 +22,13 @@ public:
 
     std::future<rocksdb::Status> enqueue(std::unique_ptr<rocksdb::WriteBatch> batch,
                                          const rocksdb::WriteOptions& wo = rocksdb::WriteOptions());
+    void stop();
+    void setDatabase(rocksdb::DB* db);
 
 private:
     void run();
-    rocksdb::DB* db_;
-    std::queue<DBTask*> queue_;
+    std::atomic<rocksdb::DB*> db_;
+    std::deque<std::unique_ptr<DBTask>> queue_;
     std::mutex mtx_;
     std::condition_variable cv_;
     std::thread worker_;

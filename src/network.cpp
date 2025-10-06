@@ -17,8 +17,11 @@
 #include "transport/ssl_transport.h"
 #include "wire/varint.h"
 #include "zk/winterfell_stark.h"
+#include <atomic>
 #include <algorithm>
 #include <array>
+#include <cstdint>
+#include <initializer_list>
 #include <boost/asio.hpp>
 #include <boost/asio/connect.hpp>
 #include <boost/asio/io_context.hpp>
@@ -5909,6 +5912,30 @@ std::string formatSessionId(const std::string &sessionId) {
   return oss.str();
 }
 
+class RateLimiter {
+public:
+  bool shouldLog(std::chrono::milliseconds period =
+                     std::chrono::milliseconds(3000)) {
+    auto now = std::chrono::steady_clock::now();
+    auto nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                     now.time_since_epoch())
+                     .count();
+    auto prev = lastMs_.load(std::memory_order_relaxed);
+    while (nowMs - prev >= period.count()) {
+      if (lastMs_.compare_exchange_weak(prev, nowMs,
+                                        std::memory_order_relaxed)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+private:
+  std::atomic<int64_t> lastMs_{0};
+};
+
+RateLimiter gSnapshotAckLogLimiter;
+
 std::string generateSnapshotSessionId() {
   std::array<uint8_t, SNAPSHOT_SESSION_ID_BYTES> buf{};
   std::random_device rd;
@@ -6085,8 +6112,9 @@ void Network::sendSnapshot(const std::string &peerId,
       MAX_WIRE_PAYLOAD > SNAPSHOT_FRAME_SAFETY_MARGIN
           ? MAX_WIRE_PAYLOAD - SNAPSHOT_FRAME_SAFETY_MARGIN
           : MAX_WIRE_PAYLOAD;
-  size_t chunkSize =
-      std::max<std::size_t>(1, std::min(maxChunkByCompat, maxChunkByWire));
+  size_t chunkSize = std::max<std::size_t>(
+      1, std::min({negotiated, maxChunkByCompat, maxChunkByWire,
+                    MAX_SNAPSHOT_CHUNK_SIZE}));
   if (chunkSize != negotiated) {
     std::cerr << "ℹ️  [Snapshot] Downscaling chunk size for " << peerId
               << " (negotiated=" << negotiated << " -> " << chunkSize
@@ -6420,10 +6448,9 @@ void Network::handleSnapshotAck(const std::string &peer,
   std::lock_guard<std::mutex> lk(ps->m);
   if (ps->servingSnapshotSessionId.empty() ||
       ack.session_id() != ps->servingSnapshotSessionId) {
-    if (!ack.session_id().empty()) {
-      std::cerr << "⚠️ [SNAPSHOT] Ignoring ack from " << peer
-                << " for stale session " << formatSessionId(ack.session_id())
-                << '\n';
+    if (!ack.session_id().empty() && gSnapshotAckLogLimiter.shouldLog()) {
+      std::cerr << "⚠️ [SNAPSHOT] Dropping stale ACK from " << peer
+                << " (sid=" << formatSessionId(ack.session_id()) << ")\n";
     }
     return;
   }

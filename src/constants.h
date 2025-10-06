@@ -40,7 +40,7 @@ inline constexpr std::size_t SNAPSHOT_FRAME_SAFETY_MARGIN = 1024; // 1 KiB wiggl
 // tolerance the receiver may discard perfectly valid snapshot data that is only
 // a few bytes larger than the nominal limit.
 inline constexpr std::size_t SNAPSHOT_CHUNK_TOLERANCE = 16 * 1024; // 16 KiB
-inline constexpr std::size_t SNAPSHOT_ACK_WINDOW = 128 * 1024;      // Ack every 128 KiB
+inline constexpr std::size_t SNAPSHOT_ACK_WINDOW = 256 * 1024;     // Ack every 256 KiB
 inline constexpr std::size_t SNAPSHOT_ACK_CHUNK_WINDOW = 8;         // Ack every 8 chunks
 inline constexpr std::size_t SNAPSHOT_SESSION_ID_BYTES = 16;        // 128-bit token
 inline constexpr std::size_t MAX_PEERS = 32;                       // hard cap
