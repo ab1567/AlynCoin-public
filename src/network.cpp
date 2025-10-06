@@ -32,6 +32,7 @@
 #include <condition_variable>
 #include <random>
 #include <queue>
+#include <deque>
 #include <cctype>
 #include <chrono>
 #include <exception>
@@ -605,6 +606,89 @@ static std::unordered_set<std::string> seenTxHashes;
 static std::mutex seenTxMutex;
 static std::unordered_set<std::string> seenBlockHashes;
 static std::mutex seenBlockMutex;
+static std::unordered_set<std::string> inflightBlockHashes;
+static std::mutex inflightBlockMutex;
+
+namespace {
+constexpr size_t kRecentBlocksPerPeer = 256;
+constexpr size_t kDuplicateLogWindow = 4096;
+
+struct DuplicateLogLimiter {
+  using Clock = std::chrono::steady_clock;
+  bool shouldLog(const std::string &hash) {
+    const auto now = Clock::now();
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = entries_.find(hash);
+    if (it != entries_.end()) {
+      if (now - it->second < std::chrono::seconds(5))
+        return false;
+      it->second = now;
+      order_.emplace_back(hash, now);
+      prune();
+      return true;
+    }
+    entries_.emplace(hash, now);
+    order_.emplace_back(hash, now);
+    prune();
+    return true;
+  }
+
+private:
+  void prune() {
+    while (order_.size() > kDuplicateLogWindow) {
+      auto [hash, ts] = order_.front();
+      order_.pop_front();
+      auto it = entries_.find(hash);
+      if (it != entries_.end() && it->second == ts)
+        entries_.erase(it);
+    }
+  }
+
+  std::mutex mutex_;
+  std::unordered_map<std::string, Clock::time_point> entries_;
+  std::deque<std::pair<std::string, Clock::time_point>> order_;
+} duplicateLogLimiter;
+
+class ScopedInflightHash {
+public:
+  ScopedInflightHash(std::mutex &mutex,
+                     std::unordered_set<std::string> &set,
+                     std::string hash)
+      : mutex_(mutex), set_(set), hash_(std::move(hash)), owns_(false) {}
+
+  bool try_lock() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto res = set_.insert(hash_);
+    owns_ = res.second;
+    return owns_;
+  }
+
+  ~ScopedInflightHash() {
+    if (!owns_)
+      return;
+    std::lock_guard<std::mutex> lock(mutex_);
+    set_.erase(hash_);
+  }
+
+private:
+  std::mutex &mutex_;
+  std::unordered_set<std::string> &set_;
+  std::string hash_;
+  bool owns_;
+};
+
+void rememberHash(std::deque<std::string> &fifo,
+                  std::unordered_set<std::string> &set,
+                  const std::string &hash) {
+  if (!set.insert(hash).second)
+    return;
+  fifo.push_back(hash);
+  if (fifo.size() > kRecentBlocksPerPeer) {
+    set.erase(fifo.front());
+    fifo.pop_front();
+  }
+}
+} // namespace
 
 struct EpochProofEntry {
   std::string root;
@@ -3061,7 +3145,8 @@ void Network::sendStateProof(std::shared_ptr<Transport> tr) {
 // ✅ **Handle Incoming Data with Protobuf Validation**
 
 // ✅ **Broadcast a mined block to all peers*
-void Network::broadcastBlock(const Block &block, bool /*force*/) {
+void Network::broadcastBlock(const Block &block, bool /*force*/,
+                             const std::string &excludePeer) {
   {
     std::lock_guard<std::mutex> lk(seenBlockMutex);
     if (seenBlockHashes.count(block.getHash()))
@@ -3093,11 +3178,19 @@ void Network::broadcastBlock(const Block &block, bool /*force*/) {
 
   std::set<std::shared_ptr<Transport>> seen;
   for (auto &[peerId, entry] : peersCopy) {
+    if (!excludePeer.empty() && peerId == excludePeer)
+      continue;
     auto transport = entry.tx;
     if (isSelfPeer(peerId) || !transport || !transport->isOpen())
       continue;
     if (!seen.insert(transport).second)
       continue;
+
+    if (entry.state) {
+      std::lock_guard<std::mutex> guard(entry.state->m);
+      if (entry.state->recentBlocksSentSet.count(block.getHash()))
+        continue;
+    }
 
     bool ok = sendFrameImmediate(transport, fr);
     if (!ok) {
@@ -3105,6 +3198,11 @@ void Network::broadcastBlock(const Block &block, bool /*force*/) {
                 << peerId << " – marking peer offline" << '\n';
       markPeerOffline(peerId);
       continue;
+    }
+    if (entry.state) {
+      std::lock_guard<std::mutex> guard(entry.state->m);
+      rememberHash(entry.state->recentBlocksSent,
+                   entry.state->recentBlocksSentSet, block.getHash());
     }
     std::cout << "✅ [broadcastBlock] Block " << block.getIndex() << " sent to "
               << peerId << '\n';
@@ -3474,6 +3572,49 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
   Blockchain &blockchain = Blockchain::getInstance();
   std::cerr << "[handleNewBlock] Attempting to add block idx="
             << newBlock.getIndex() << " hash=" << newBlock.getHash() << '\n';
+  const std::string blockHash = newBlock.getHash();
+
+  if (blockchain.hasBlockHash(blockHash)) {
+    if (duplicateLogLimiter.shouldLog(blockHash)) {
+      std::cout << "ℹ️ [Node] Duplicate block received (hash="
+                << blockHash.substr(0, 12) << "…).\n";
+    }
+    return;
+  }
+
+  std::shared_ptr<PeerState> senderState;
+  if (!sender.empty()) {
+    std::unique_lock<std::timed_mutex> lk(peersMutex, std::defer_lock);
+    if (lk.try_lock_for(std::chrono::milliseconds(50))) {
+      auto it = peerTransports.find(sender);
+      if (it != peerTransports.end())
+        senderState = it->second.state;
+    }
+  }
+
+  if (senderState) {
+    std::lock_guard<std::mutex> guard(senderState->m);
+    if (senderState->recentBlocksReceivedSet.count(blockHash)) {
+      if (duplicateLogLimiter.shouldLog(blockHash)) {
+        std::cout << "ℹ️ [Node] Duplicate block from peer " << sender
+                  << " ignored (hash=" << blockHash.substr(0, 12) << "…).\n";
+      }
+      return;
+    }
+    rememberHash(senderState->recentBlocksReceived,
+                 senderState->recentBlocksReceivedSet, blockHash);
+  }
+
+  ScopedInflightHash inflight(inflightBlockMutex, inflightBlockHashes,
+                              blockHash);
+  if (!inflight.try_lock()) {
+    if (duplicateLogLimiter.shouldLog(blockHash)) {
+      std::cout << "ℹ️ [Node] Block " << blockHash.substr(0, 12)
+                << "… already processing. Skipping duplicate verification.\n";
+    }
+    return;
+  }
+
   const int expectedIndex = blockchain.getLatestBlock().getIndex() + 1;
   auto punish = [&] {
     if (sender.empty())
@@ -3516,12 +3657,7 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
     return;
   }
 
-  // 2) Duplicate and side-chain detection
-  if (blockchain.hasBlockHash(newBlock.getHash())) {
-    std::cout << "ℹ️ [Node] Duplicate block received.\n";
-    return;
-  }
-
+  // 2) Side-chain detection
   if (!blockchain.getChain().empty()) {
     std::string localTipHash = blockchain.getLatestBlockHash();
     if (newBlock.getPreviousHash() != localTipHash) {
@@ -3558,7 +3694,7 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
       }
 
       onBlockAccepted(newBlock.getHash());
-      broadcastBlock(newBlock);
+      broadcastBlock(newBlock, false, sender);
       if (peerManager && !sender.empty()) {
         peerManager->setPeerHeight(sender, newBlock.getIndex());
         peerManager->setPeerTipHash(sender, newBlock.getHash());
@@ -3644,7 +3780,7 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
       return;
     }
 
-    broadcastBlock(newBlock);
+    broadcastBlock(newBlock, false, sender);
     // Update cached height and tip hash for the sending peer if provided
     if (peerManager && !sender.empty()) {
       peerManager->setPeerHeight(sender, newBlock.getIndex());
