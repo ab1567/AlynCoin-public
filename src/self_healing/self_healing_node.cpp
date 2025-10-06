@@ -75,6 +75,17 @@ NodeHealthStatus SelfHealingNode::runHealthCheck(bool manualTrigger) {
         return status;
     }
 
+    if (snapshotActive) {
+        if (!manualTrigger) {
+            Logger::info("🩺 [SelfHealer] Snapshot transfer in progress; deferring recovery.");
+            consecutiveFarBehind_ = 0;
+            ensureManualKick();
+            return status;
+        }
+
+        Logger::warn("🩺 [SelfHealer] Snapshot active but manual recovery requested; continuing per operator request.");
+    }
+
     constexpr std::size_t FAR_BEHIND_CONFIRMATIONS = 3;
 
     if (status.farBehind) {
