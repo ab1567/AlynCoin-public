@@ -44,6 +44,10 @@ message Handshake {
   // this when responding to a handshake so the remote peer learns which
   // address the network sees for it.
   string observed_ip = 14;
+
+  // Protocol version for snapshot and recovery features. Nodes must match
+  // before attempting a snapshot sync.
+  uint32 proto_version = 15;
 }
 
 message Ping {}

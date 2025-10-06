@@ -283,14 +283,7 @@ Blockchain::Blockchain(unsigned short port, const std::string &dbPath,
 
 // ✅ **Destructor: Close RocksDB**
 Blockchain::~Blockchain() {
-  if (db) {
-    if (cfCheck) {
-      db->DestroyColumnFamilyHandle(cfCheck);
-      cfCheck = nullptr;
-    }
-    delete db;
-    db = nullptr; // ✅ Prevent potential use-after-free issues
-  }
+  closeDB();
   if (g_dbWriter) {
     delete g_dbWriter;
     g_dbWriter = nullptr;
@@ -4545,11 +4538,19 @@ bool Blockchain::openDB(bool readOnly) {
   return true;
 }
 //
-void Blockchain::purgeDataForResync() {
-  if (db) {
-    delete db;
-    db = nullptr;
+void Blockchain::closeDB() {
+  if (!db)
+    return;
+  if (cfCheck) {
+    db->DestroyColumnFamilyHandle(cfCheck);
+    cfCheck = nullptr;
   }
+  delete db;
+  db = nullptr;
+}
+//
+void Blockchain::purgeDataForResync() {
+  closeDB();
 
   rocksdb::Options opts;
   alyn::db::ApplyDatabaseDefaults(opts);

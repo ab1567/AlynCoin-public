@@ -262,6 +262,7 @@ public:
   bool castVote(const std::string &voterAddress, const std::string &candidateAddress);
   std::vector<Transaction> getAllTransactionsForAddress(const std::string& address);
   bool openDB(bool readOnly = false);
+  void closeDB();
   rocksdb::DB* getRawDB();
   void setNetwork(Network* net) { network = net; }
   const std::string& getDBPath() const { return dbPath; }

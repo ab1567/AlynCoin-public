@@ -319,6 +319,7 @@ class Handshake final :
     kWantSnapshotFieldNumber = 10,
     kSnapshotSizeFieldNumber = 11,
     kNonceFieldNumber = 13,
+    kProtoVersionFieldNumber = 15,
   };
   // repeated string capabilities = 6;
   int capabilities_size() const;
@@ -491,6 +492,15 @@ class Handshake final :
   void _internal_set_nonce(uint64_t value);
   public:
 
+  // uint32 proto_version = 15;
+  void clear_proto_version();
+  uint32_t proto_version() const;
+  void set_proto_version(uint32_t value);
+  private:
+  uint32_t _internal_proto_version() const;
+  void _internal_set_proto_version(uint32_t value);
+  public:
+
   // @@protoc_insertion_point(class_scope:alyncoin.net.Handshake)
  private:
   class _Internal;
@@ -513,6 +523,7 @@ class Handshake final :
     bool want_snapshot_;
     uint32_t snapshot_size_;
     uint64_t nonce_;
+    uint32_t proto_version_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   };
   union { Impl_ _impl_; };
@@ -6317,6 +6328,26 @@ inline void Handshake::set_allocated_observed_ip(std::string* observed_ip) {
   }
 #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
   // @@protoc_insertion_point(field_set_allocated:alyncoin.net.Handshake.observed_ip)
+}
+
+// uint32 proto_version = 15;
+inline void Handshake::clear_proto_version() {
+  _impl_.proto_version_ = 0u;
+}
+inline uint32_t Handshake::_internal_proto_version() const {
+  return _impl_.proto_version_;
+}
+inline uint32_t Handshake::proto_version() const {
+  // @@protoc_insertion_point(field_get:alyncoin.net.Handshake.proto_version)
+  return _internal_proto_version();
+}
+inline void Handshake::_internal_set_proto_version(uint32_t value) {
+  
+  _impl_.proto_version_ = value;
+}
+inline void Handshake::set_proto_version(uint32_t value) {
+  _internal_set_proto_version(value);
+  // @@protoc_insertion_point(field_set:alyncoin.net.Handshake.proto_version)
 }
 
 // -------------------------------------------------------------------
