@@ -48,9 +48,32 @@ inline std::string getBlacklistDB() {
   return env ? std::string(env) : getBaseDir() + "/blacklist";
 }
 
+inline std::string ensureTrailingSeparator(const std::string &path) {
+  if (path.empty()) {
+    return path;
+  }
+
+  const char last = path.back();
+  if (last == '/' || last == '\\') {
+    return path;
+  }
+
+#ifdef _WIN32
+  return path + "\\";
+#else
+  return path + "/";
+#endif
+}
+
 inline std::string getKeyDir() {
+  namespace fs = std::filesystem;
+
   const char *env = std::getenv("ALYNCOIN_KEY_DIR");
-  return env ? std::string(env) : getBaseDir() + "/keys/";
+  fs::path keyDir = env ? fs::path(env) : fs::path(getBaseDir()) / "keys";
+
+  keyDir = keyDir.lexically_normal();
+
+  return ensureTrailingSeparator(keyDir.string());
 }
 
 inline std::string getKeyPath(const std::string &address) {
