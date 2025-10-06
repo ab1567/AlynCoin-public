@@ -74,6 +74,7 @@ private:
   Network *network;
   rocksdb::DB *db;
   rocksdb::ColumnFamilyHandle* cfCheck{nullptr};
+  std::vector<rocksdb::ColumnFamilyHandle*> columnFamilyHandles;
   int checkpointHeight{0};
   std::unordered_map<std::string, double> balances;
   std::vector<RollupBlock> rollupChain;
