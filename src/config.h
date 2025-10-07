@@ -30,6 +30,12 @@ struct AppConfig {
     double por_expected_walyn = 0.0;        // expected wrapped supply for PoR comparison
     std::string external_address;           // externally reachable <ip:port>
     bool hide_peer_endpoints = true;        // suppress peer IP/port details in UIs
+
+    // --- Sync/validation tuning ---
+    bool quiet_sync_logs = false;           // suppress per-block validation logs
+    bool fast_sync = false;                 // allow sampled validation during snapshot apply
+    double fast_sync_sample_rate = 0.10;    // fraction of blocks to fully verify in fast sync
+    int fast_sync_trailing_full = 12;       // always fully verify this many trailing blocks
 };
 
 AppConfig& getAppConfig();

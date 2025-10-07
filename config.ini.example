@@ -15,3 +15,9 @@ reserve_address=
 por_expected_walyn=0
 external_address=
 hide_peer_endpoints=true
+
+# Validation & sync tuning
+#quiet_sync_logs=true        # suppress per-block validation logging
+#fast_sync=true              # enable sampled validation during snapshot sync
+#fast_sync_sample_rate=0.10  # fraction of blocks to fully verify when fast_sync is enabled
+#fast_sync_trailing_full=12  # always deep-verify the last N blocks of the snapshot

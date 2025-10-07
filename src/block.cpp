@@ -2,6 +2,7 @@
 #include "blake3.h"
 #include "blockchain.h"
 #include "constants.h"
+#include "config.h"
 #include "crypto_utils.h"
 #include "db/db_paths.h"
 #include "keccak.h"
@@ -16,6 +17,7 @@
 #include <filesystem>
 #include <cstdlib>
 #include <fstream>
+#include <limits>
 #include <generated/block_protos.pb.h>
 #include <generated/transaction_protos.pb.h>
 #include <iomanip>
@@ -333,19 +335,61 @@ void Block::signBlock(const std::string &minerAddress) {
 }
 
 // ✅ Validate Block: Use raw binary, no Crypto::fromHex!
-bool Block::isValid(const std::string &prevHash, int expectedDifficulty) const {
+bool Block::isValid(const std::string &prevHash, int expectedDifficulty,
+                    bool forceFullValidation) const {
   ensureRootConsistency(*this, index);
+  const AppConfig &cfg = getAppConfig();
+  const bool quietLogs = cfg.quiet_sync_logs;
+
   if (index == 0) {
-    std::cout << "✅ Skipping full validation for Genesis block (index 0)\n";
+    if (!quietLogs) {
+      std::cout << "✅ Skipping full validation for Genesis block (index 0)\n";
+    }
     return true;
   }
 
+  const bool fastSyncCandidate = cfg.fast_sync && !forceFullValidation;
+  const double sampleRate = std::clamp(cfg.fast_sync_sample_rate, 0.0, 1.0);
+  bool performFullValidation = true;
+  if (fastSyncCandidate) {
+    if (index <= 1) {
+      performFullValidation = true;
+    } else if (sampleRate <= 0.0) {
+      performFullValidation = false;
+    } else if (sampleRate < 1.0) {
+      std::string sampleMaterial;
+      sampleMaterial.reserve(hash.size() + previousHash.size() + txRoot.size() +
+                             16);
+      sampleMaterial.append(hash);
+      sampleMaterial.append(previousHash);
+      sampleMaterial.append(txRoot);
+      sampleMaterial.append(std::to_string(index));
+      std::string digest = Crypto::blake3Hash(sampleMaterial);
+      if (digest.size() < sizeof(uint64_t)) {
+        performFullValidation = true;
+      } else {
+        uint64_t sampleValue = 0;
+        for (size_t i = 0; i < sizeof(uint64_t); ++i) {
+          sampleValue = (sampleValue << 8) |
+                        static_cast<uint64_t>(
+                            static_cast<unsigned char>(digest[i]));
+        }
+        const double threshold = static_cast<double>(sampleValue) /
+                                 static_cast<double>(
+                                     std::numeric_limits<uint64_t>::max());
+        performFullValidation = threshold < sampleRate;
+      }
+    }
+  }
+  const bool fastPathUsed = fastSyncCandidate && !performFullValidation;
+
 #ifdef LOG_DEBUG
-  std::cout << "\n🔍 Validating Block Index: " << index
-            << ", Miner: " << minerAddress << "\n";
+  if (!quietLogs) {
+    std::cout << "\n🔍 Validating Block Index: " << index
+              << ", Miner: " << minerAddress << "\n";
+  }
 #endif
 
-  // === Always use merkleRoot if set (including for empty blocks) ===
   std::string txRoot;
   if (!merkleRoot.empty()) {
     txRoot = merkleRoot;
@@ -360,8 +404,10 @@ bool Block::isValid(const std::string &prevHash, int expectedDifficulty) const {
       static_cast<long long>(nonce));
   std::string recomputedHash = Crypto::hybridHash(hashInput);
 
-  std::cout << "🔍 Recomputed Hash: " << recomputedHash << "\n";
-  std::cout << "🔍 Stored Hash:     " << hash << "\n";
+  if (!quietLogs) {
+    std::cout << "🔍 Recomputed Hash: " << recomputedHash << "\n";
+    std::cout << "🔍 Stored Hash:     " << hash << "\n";
+  }
 
   if (recomputedHash != hash) {
     std::cerr << "❌ Invalid Block Hash!\n";
@@ -394,53 +440,75 @@ bool Block::isValid(const std::string &prevHash, int expectedDifficulty) const {
     return false;
   }
 
-  // ✅ Dilithium
   if (publicKeyDilithium.empty() || dilithiumSignature.empty()) {
     std::cerr << "❌ Missing Dilithium key or signature!\n";
     return false;
   }
-  if (!Crypto::verifyWithDilithium(msgBytes, dilithiumSignature,
-                                   publicKeyDilithium)) {
-    std::cerr << "❌ Invalid Dilithium signature!\n";
-    return false;
-  }
-  std::cout << "✅ Dilithium Signature Verified.\n";
 
-  // ✅ Falcon
+  if (performFullValidation) {
+    if (!Crypto::verifyWithDilithium(msgBytes, dilithiumSignature,
+                                     publicKeyDilithium)) {
+      std::cerr << "❌ Invalid Dilithium signature!\n";
+      return false;
+    }
+    if (!quietLogs) {
+      std::cout << "✅ Dilithium Signature Verified.\n";
+    }
+  }
+
   if (publicKeyFalcon.empty() || falconSignature.empty()) {
     std::cerr << "❌ Missing Falcon key or signature!\n";
     return false;
   }
-  if (!Crypto::verifyWithFalcon(msgBytes, falconSignature, publicKeyFalcon)) {
-    std::cerr << "❌ Invalid Falcon signature!\n";
-    return false;
-  }
-  std::cout << "✅ Falcon Signature Verified.\n";
 
-  // ✅ Validate transactions
-  for (const auto &tx : transactions) {
-    if (!tx.isValid(tx.getSenderPublicKeyDilithium(),
-                    tx.getSenderPublicKeyFalcon())) {
-      std::cerr << "❌ Invalid transaction in block!\n";
+  if (performFullValidation) {
+    if (!Crypto::verifyWithFalcon(msgBytes, falconSignature, publicKeyFalcon)) {
+      std::cerr << "❌ Invalid Falcon signature!\n";
       return false;
+    }
+    if (!quietLogs) {
+      std::cout << "✅ Falcon Signature Verified.\n";
     }
   }
 
-  // ✅ Check parent hash
+  if (performFullValidation) {
+    for (const auto &tx : transactions) {
+      if (!tx.isValid(tx.getSenderPublicKeyDilithium(),
+                      tx.getSenderPublicKeyFalcon())) {
+        std::cerr << "❌ Invalid transaction in block!\n";
+        return false;
+      }
+    }
+  }
+
   if (previousHash != prevHash) {
     std::cerr << "❌ Previous Hash Mismatch! expected: " << prevHash
               << ", got: " << previousHash << "\n";
     return false;
   }
 
-  // ✅ zk-STARK Proof
-  if (!WinterfellStark::verifyProof(std::string(zkProof.begin(), zkProof.end()),
-                                    hash, previousHash, txRoot)) {
-    std::cerr << "❌ Invalid zk-STARK proof!\n";
+  if (zkProof.empty()) {
+    std::cerr << "❌ Missing zk-STARK proof!\n";
     return false;
   }
 
-  std::cout << "✅ Block Validated Successfully.\n";
+  if (performFullValidation) {
+    if (!WinterfellStark::verifyProof(
+            std::string(zkProof.begin(), zkProof.end()), hash, previousHash,
+            txRoot)) {
+      std::cerr << "❌ Invalid zk-STARK proof!\n";
+      return false;
+    }
+  }
+
+  if (!quietLogs) {
+    if (fastPathUsed) {
+      std::cout << "⚡ [FastSync] Block accepted with lightweight verification.\n";
+    } else {
+      std::cout << "✅ Block Validated Successfully.\n";
+    }
+  }
+
   return true;
 }
 
