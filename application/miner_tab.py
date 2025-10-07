@@ -6,7 +6,12 @@ from PyQt5.QtWidgets import (
     QTextEdit, QHBoxLayout, QFrame
 )
 
-from rpc_client import alyncoin_rpc, ensure_wallet_ready, fetch_peer_status
+from rpc_client import (
+    LONG_POLL_TIMEOUT,
+    alyncoin_rpc,
+    ensure_wallet_ready,
+    fetch_peer_status,
+)
 
 # ---------- helpers ----------------------------------------------------------
 
@@ -222,7 +227,7 @@ class MinerTab(QWidget):
 
         def _work():
             try:
-                return alyncoin_rpc(method, [wallet])
+                return alyncoin_rpc(method, [wallet], timeout=LONG_POLL_TIMEOUT)
             except Exception as e:
                 return {"error": f"{type(e).__name__}: {e}"}
 
@@ -286,7 +291,7 @@ class MinerTab(QWidget):
 
         def _work():
             try:
-                return alyncoin_rpc("mineonce", [wallet])
+                return alyncoin_rpc("mineonce", [wallet], timeout=LONG_POLL_TIMEOUT)
             except Exception as e:
                 return {"error": f"{type(e).__name__}: {e}"}
 

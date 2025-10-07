@@ -38,12 +38,15 @@ except ModuleNotFoundError:  # pragma: no cover
 
     class _SimpleSession:
         def post(self, url, headers=None, json=None, data=None, timeout=30):
+            normalized_timeout = _normalize_timeout(timeout)
+            if isinstance(normalized_timeout, tuple):
+                normalized_timeout = max(normalized_timeout)
             if json is not None:
                 data_bytes = json_module.dumps(json).encode()
             else:
                 data_bytes = data if isinstance(data, (bytes, bytearray)) else (data or "").encode()
             req = urllib.request.Request(url, data=data_bytes, headers=headers or {}, method="POST")
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
+            with urllib.request.urlopen(req, timeout=normalized_timeout) as resp:
                 return _SimpleResponse(resp.read(), resp.getcode())
 
     # ``requests`` not available — use the simple urllib-based session
@@ -82,11 +85,35 @@ else:
 
 RPC_PORT = int(RPC_PORT)
 
-# Mining a block can be slow at high difficulty — allow generous timeout.
-TIMEOUT_S = 300
+# Mining a block can be slow at high difficulty — allow generous timeout when requested.
 
 
-def alyncoin_rpc(method: str, params=None, id_: Optional[int] = None):
+DEFAULT_TIMEOUT = (0.75, 2.0)
+LONG_POLL_TIMEOUT = 300.0
+
+
+def _normalize_timeout(value):
+    if value is None:
+        return DEFAULT_TIMEOUT
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, (list, tuple)):
+        items = [float(v) for v in value if v is not None]
+        if not items:
+            return DEFAULT_TIMEOUT
+        if len(items) == 1:
+            return items[0]
+        return tuple(items[:2])  # type: ignore[return-value]
+    return DEFAULT_TIMEOUT
+
+
+def alyncoin_rpc(
+    method: str,
+    params=None,
+    id_: Optional[int] = None,
+    *,
+    timeout: Optional[float] = None,
+):
     """Call the AlynCoin JSON-RPC server and return the ``result`` value.
 
     Raises ``RuntimeError`` on RPC or HTTP failures.  When talking to older
@@ -102,15 +129,23 @@ def alyncoin_rpc(method: str, params=None, id_: Optional[int] = None):
         "params": params or [],
     }
 
+    request_timeout = _normalize_timeout(timeout)
+
     def _do_request(payload, use_json=True):
         try:
             if use_json:
                 resp = SESSION.post(
-                    RPC_URL, headers=headers, json=payload, timeout=TIMEOUT_S
+                    RPC_URL,
+                    headers=headers,
+                    json=payload,
+                    timeout=request_timeout,
                 )
             else:
                 resp = SESSION.post(
-                    RPC_URL, headers=headers, data=payload, timeout=TIMEOUT_S
+                    RPC_URL,
+                    headers=headers,
+                    data=payload,
+                    timeout=request_timeout,
                 )
         except Exception as e:
             raise RuntimeError(f"RPC request failed: {e}") from e
@@ -160,7 +195,7 @@ def wait_for_rpc_ready(timeout: float = 10.0, interval: float = 0.25) -> bool:
     last_error: Optional[Exception] = None
     while time.time() < deadline:
         try:
-            status = alyncoin_rpc("peerstatus", [])
+            status = alyncoin_rpc("peerstatus", [], timeout=DEFAULT_TIMEOUT)
             if isinstance(status, dict):
                 return True
         except RuntimeError as exc:
@@ -168,7 +203,7 @@ def wait_for_rpc_ready(timeout: float = 10.0, interval: float = 0.25) -> bool:
         except Exception as exc:  # pragma: no cover - defensive guard
             last_error = exc
         try:
-            alyncoin_rpc("peercount", [])
+            alyncoin_rpc("peercount", [], timeout=DEFAULT_TIMEOUT)
             return True
         except RuntimeError as exc:
             last_error = exc
@@ -189,7 +224,7 @@ def fetch_peer_status() -> dict:
     callers can surface an error message to the user.
     """
 
-    raw = alyncoin_rpc("peerstatus")
+    raw = alyncoin_rpc("peerstatus", timeout=DEFAULT_TIMEOUT)
     if not isinstance(raw, dict):
         return {"connected": 0, "state": "offline", "peers": []}
 
@@ -312,7 +347,13 @@ def ensure_wallet_ready(address: str, key_id: Optional[str] = None):
     return False, "Missing key files for wallet."
 
 
-def safe_alyncoin_rpc(method: str, params=None, id_: Optional[int] = None):
+def safe_alyncoin_rpc(
+    method: str,
+    params=None,
+    id_: Optional[int] = None,
+    *,
+    timeout: Optional[float] = None,
+):
     """Return RPC result or an ``{"error": str}`` mapping on failure.
 
     The desktop GUI triggers many RPC calls from Qt slots.  If a call raises a
@@ -323,7 +364,7 @@ def safe_alyncoin_rpc(method: str, params=None, id_: Optional[int] = None):
     """
 
     try:
-        return alyncoin_rpc(method, params, id_)
+        return alyncoin_rpc(method, params, id_, timeout=timeout)
     except RuntimeError as exc:
         return {"error": str(exc)}
     except Exception as exc:  # pragma: no cover - defensive guard
@@ -333,6 +374,8 @@ def safe_alyncoin_rpc(method: str, params=None, id_: Optional[int] = None):
 __all__ = [
     "alyncoin_rpc",
     "safe_alyncoin_rpc",
+    "DEFAULT_TIMEOUT",
+    "LONG_POLL_TIMEOUT",
     "RPC_URL",
     "RPC_HOST",
     "RPC_PORT",

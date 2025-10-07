@@ -7,6 +7,7 @@ import subprocess
 import time
 import platform
 import shutil
+from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
 # ``requests`` is optional on macOS; fall back to ``urllib`` if it's missing
@@ -149,16 +150,28 @@ def get_peer_count():
     return 0
 
 
+def _is_connection_refused(message: Optional[str]) -> bool:
+    if not message:
+        return False
+    lowered = message.lower()
+    return (
+        "winerror 10061" in lowered
+        or "connection refused" in lowered
+        or "errno 111" in lowered
+    )
+
+
 def rpc_peer_status():
-    """Return connection status via RPC or ``None`` when unavailable."""
+    """Return ``(status_dict, error_message)`` when querying ``peerstatus``."""
 
     try:
         status = fetch_peer_status()
     except RuntimeError as e:
+        message = str(e)
         print(f"⚠️  RPC 'peerstatus' failed: {e}")
-        return None
+        return None, message
 
-    return status
+    return status, None
 
 # ---- Data Directory Helpers ----
 def ensure_blockchain_db_dir():
@@ -416,6 +429,7 @@ def get_logo_path():
 
 class AlynCoinApp(QMainWindow):
     walletChanged = pyqtSignal(str)
+    peerStatusReady = pyqtSignal(str, str, int)
 
     def __init__(self):
         super().__init__()
@@ -425,6 +439,13 @@ class AlynCoinApp(QMainWindow):
         self.loadedKeyId = ""
         self.miningActive = False
         self._rpcReadyTimer = None
+        self._peer_executor = ThreadPoolExecutor(max_workers=1)
+        self._pending_peer_future = None
+        self._peer_poll_normal_ms = 3000
+        self._peer_poll_backoff_ms = 12000
+        self._peer_poll_error_ms = 6000
+
+        self.peerStatusReady.connect(self._apply_peer_status)
 
         # -- Use all discovered DNS peers
         self.dns_peers = get_peers_from_dns()
@@ -452,7 +473,7 @@ class AlynCoinApp(QMainWindow):
         layout.addWidget(logoLabel)
 
         # Display network status based on actual peer connections
-        peer_status, color = self._resolve_peer_banner()
+        peer_status, color, _ = self._resolve_peer_banner()
         self.peerBanner = QLabel(peer_status)
         self.peerBanner.setAlignment(Qt.AlignCenter)
         self.peerBanner.setStyleSheet(f"background-color: #191919; color: {color}; padding: 4px; font-weight: bold;")
@@ -460,7 +481,7 @@ class AlynCoinApp(QMainWindow):
 
         self.peerTimer = QTimer(self)
         self.peerTimer.timeout.connect(self.refreshPeerBanner)
-        self.peerTimer.start(10000)
+        self.peerTimer.start(self._peer_poll_normal_ms)
 
         self.statusBanner = QLabel("⚠️ Only one blockchain action can run at a time. Mining locks access.")
         self.statusBanner.setAlignment(Qt.AlignCenter)
@@ -620,32 +641,65 @@ class AlynCoinApp(QMainWindow):
         self.updateStatusBanner(msg, "#ff4444")
 
     def _resolve_peer_banner(self):
-        status = rpc_peer_status()
+        status, error_message = rpc_peer_status()
+        reason = None
+
+        if error_message:
+            reason = "refused" if _is_connection_refused(error_message) else "error"
+
         if status:
             state = (status.get("state") or "").lower()
             connected = status.get("connected", 0)
             if connected and connected > 0:
-                return "🌐 AlynCoin Network: Connected", "#44e"
+                return "🌐 AlynCoin Network: Connected", "#44e", reason
             if state == "connecting":
-                return "🌐 AlynCoin Network: Connecting…", "#ffaa00"
+                return "🌐 AlynCoin Network: Connecting…", "#ffaa00", reason
             if state == "offline":
-                return "🌐 AlynCoin Network: Offline", "#f44"
+                return "🌐 AlynCoin Network: Offline", "#f44", reason or "error"
 
         count = get_peer_count()
         if count > 0:
-            return "🌐 AlynCoin Network: Connected", "#44e"
+            return "🌐 AlynCoin Network: Connected", "#44e", reason
 
         if is_rpc_up():
-            return "🌐 AlynCoin Network: Connecting…", "#ffaa00"
+            return "🌐 AlynCoin Network: Connecting…", "#ffaa00", reason or "error"
 
-        return "🌐 AlynCoin Network: Offline", "#f44"
+        return "🌐 AlynCoin Network: Offline", "#f44", reason or "error"
 
     def refreshPeerBanner(self):
-        status, color = self._resolve_peer_banner()
+        if self._pending_peer_future and not self._pending_peer_future.done():
+            return
+
+        self._pending_peer_future = self._peer_executor.submit(self._resolve_peer_banner)
+        self._pending_peer_future.add_done_callback(self._on_peer_status_ready)
+
+    def _on_peer_status_ready(self, future):
+        try:
+            status, color, reason = future.result()
+        except Exception:
+            status, color, reason = (
+                "🌐 AlynCoin Network: Offline",
+                "#f44",
+                "error",
+            )
+        finally:
+            self._pending_peer_future = None
+
+        interval = self._peer_poll_normal_ms
+        if reason == "refused":
+            interval = self._peer_poll_backoff_ms
+        elif reason == "error":
+            interval = self._peer_poll_error_ms
+
+        self.peerStatusReady.emit(status, color, interval)
+
+    def _apply_peer_status(self, status, color, interval_ms):
         self.peerBanner.setText(status)
         self.peerBanner.setStyleSheet(
             f"background-color: #191919; color: {color}; padding: 4px; font-weight: bold;"
         )
+        if self.peerTimer.interval() != interval_ms:
+            self.peerTimer.setInterval(interval_ms)
 
     def lockUI(self):
         self.tabs.setEnabled(False)
@@ -663,6 +717,13 @@ class AlynCoinApp(QMainWindow):
         return ensure_alyncoin_node(block=True)
 
     def closeEvent(self, event):
+        if self._peer_executor:
+            try:
+                self._peer_executor.shutdown(wait=False)
+            except Exception:
+                pass
+            self._peer_executor = None
+            self._pending_peer_future = None
         terminate_alyncoin_node()
         super().closeEvent(event)
 
