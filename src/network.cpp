@@ -1943,41 +1943,7 @@ bool Network::isSyncing() const {
 }
 
 bool Network::isSnapshotActive() const {
-  if (isSnapshotInProgress())
-    return true;
-
-  std::lock_guard<std::timed_mutex> peersLock(peersMutex);
-  for (const auto &kv : peerTransports) {
-    const auto &entry = kv.second;
-    if (!entry.state)
-      continue;
-
-    std::unique_lock<std::mutex> stateLock(entry.state->m, std::try_to_lock);
-    if (!stateLock.owns_lock()) {
-      // Another thread is mutating the snapshot state right now; treat this as
-      // "active" so the self-healer does not compete with the in-flight sync.
-      return true;
-    }
-
-    using SnapState = PeerState::SnapState;
-    switch (entry.state->snapState) {
-    case SnapState::WaitMeta:
-    case SnapState::WaitChunks:
-    case SnapState::Verifying:
-    case SnapState::Applying:
-      return true;
-    case SnapState::Idle:
-      break;
-    }
-
-    if (entry.state->snapshotActive || entry.state->snapshotMetaReceived ||
-        !entry.state->snapshotSessionId.empty() ||
-        entry.state->snapshotReceived > 0) {
-      return true;
-    }
-  }
-
-  return false;
+  return isSnapshotInProgress();
 }
 
 // ✅ **Broadcast a transaction to all peers**
