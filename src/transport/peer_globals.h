@@ -53,6 +53,14 @@ struct PeerState {
   std::string servingSnapshotSessionId;
   std::string lastSnapshotMetaFrame;
   std::chrono::steady_clock::time_point lastSnapshotMetaSent{};
+  bool snapshotImplicitStart{false};
+  std::chrono::steady_clock::time_point snapshotImplicitSince{};
+  struct PendingChunk {
+    uint64_t offset{0};
+    std::string data;
+  };
+  std::vector<PendingChunk> snapshotPendingChunks;
+  size_t snapshotPendingBytes{0};
   std::chrono::steady_clock::time_point nextSnapshotRequestAllowed{};
   std::chrono::steady_clock::time_point lastSnapshotThrottleLog{};
   int snapshotRequestStrikes{0};

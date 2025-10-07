@@ -178,6 +178,9 @@ namespace {
 
 constexpr size_t MAX_TRACKED_ENDPOINTS = 1024;
 constexpr size_t MAX_UNVERIFIED_ENDPOINTS = 256;
+constexpr std::size_t SNAPSHOT_IMPLICIT_BUFFER_LIMIT =
+    MAX_WIRE_PAYLOAD * 4; // allow buffering a few frames worth of chunks
+constexpr auto SNAPSHOT_IMPLICIT_META_TIMEOUT = std::chrono::seconds(3);
 
 struct ConsensusHints {
   bool hasDifficulty{false};
@@ -4739,12 +4742,26 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
         auto now = std::chrono::steady_clock::now();
         if (ps->lastSnapshotMetaSent == std::chrono::steady_clock::time_point{} ||
             now - ps->lastSnapshotMetaSent > std::chrono::milliseconds(200)) {
-          std::cerr << "ℹ️  [Snapshot] Peer requested metadata restart; restarting stream to "
-                    << peer << '\n';
-          ps->lastSnapshotMetaSent = now;
-          ps->lastSnapshotMetaFrame.clear();
-          size_t preferred = ps ? ps->snapshotChunkPreference : 0;
-          sendSnapshot(peer, snapshot.transport, -1, preferred);
+          alyncoin::net::Frame cached;
+          if (cached.ParseFromString(ps->lastSnapshotMetaFrame)) {
+            std::cerr << "ℹ️  [Snapshot] Resending cached metadata to " << peer
+                      << " (retry request)\n";
+            if (sendFrame(snapshot.transport, cached)) {
+              ps->lastSnapshotMetaSent = now;
+            } else {
+              std::cerr << "⚠️ [Snapshot] Failed to resend cached metadata to "
+                        << peer << "; restarting snapshot stream" << '\n';
+              ps->lastSnapshotMetaFrame.clear();
+              size_t preferred = ps ? ps->snapshotChunkPreference : 0;
+              sendSnapshot(peer, snapshot.transport, -1, preferred);
+            }
+          } else {
+            std::cerr << "⚠️ [Snapshot] Failed to decode cached metadata for " << peer
+                      << "; restarting snapshot stream" << '\n';
+            ps->lastSnapshotMetaFrame.clear();
+            size_t preferred = ps ? ps->snapshotChunkPreference : 0;
+            sendSnapshot(peer, snapshot.transport, -1, preferred);
+          }
         } else {
           std::cerr << "ℹ️  [Snapshot] Ignoring rapid metadata retry from " << peer
                     << '\n';
@@ -6256,6 +6273,10 @@ std::string resetSnapshotReceptionLocked(
   ps.snapshotChunksReceived = 0;
   ps.snapshotLastProgressLog = std::chrono::steady_clock::time_point{};
   ps.staleSnapshotAckStrikes = 0;
+  ps.snapshotImplicitStart = false;
+  ps.snapshotImplicitSince = std::chrono::steady_clock::time_point{};
+  ps.snapshotPendingChunks.clear();
+  ps.snapshotPendingBytes = 0;
   ps.snapState = nextState;
   ps.lastSnapshotRetry =
       preserveRetryState ? lastRetry : std::chrono::steady_clock::time_point{};
@@ -6427,7 +6448,7 @@ void Network::sendSnapshot(const std::string &peerId,
   if (ps) {
     if (!meta.SerializeToString(&ps->lastSnapshotMetaFrame))
       ps->lastSnapshotMetaFrame.clear();
-    ps->lastSnapshotMetaSent = std::chrono::steady_clock::time_point{};
+    ps->lastSnapshotMetaSent = std::chrono::steady_clock::now();
   }
 
   // --- Stream snapshot in bounded chunks ---
@@ -6647,6 +6668,9 @@ void Network::handleSnapshotMeta(const std::string &peer,
   std::string sessionToRelease;
   std::string rawSessionCopy;
   bool sessionPrepared = false;
+  bool resumedImplicit = false;
+  size_t flushedBufferedBytes = 0;
+  size_t flushedBufferedChunks = 0;
   {
     std::lock_guard<std::mutex> lk(ps->m);
     const std::string &rawSession = meta.session_id();
@@ -6663,8 +6687,13 @@ void Network::handleSnapshotMeta(const std::string &peer,
       bailEarly = true;
     } else {
       sessionHex = formatSessionId(rawSession);
-      if (ps->snapState != PeerState::SnapState::WaitMeta ||
-          ps->snapshotSessionId != rawSession) {
+      const bool canResumeImplicit =
+          ps->snapshotImplicitStart &&
+          ps->snapState == PeerState::SnapState::WaitChunks &&
+          ps->snapshotSessionId == rawSession && ps->snapshotReceived > 0;
+      if (!canResumeImplicit &&
+          (ps->snapState != PeerState::SnapState::WaitMeta ||
+           ps->snapshotSessionId != rawSession)) {
         auto released = resetSnapshotReceptionLocked(*ps);
         if (!released.empty())
           sessionToRelease = released;
@@ -6696,15 +6725,60 @@ void Network::handleSnapshotMeta(const std::string &peer,
         ps->snapshotMetaReceived = true;
         ps->snapState = PeerState::SnapState::WaitChunks;
         ps->snapshotRestartMetaSent = false;
-        ps->snapshotReceived = 0;
-        ps->snapshotLastAcked = 0;
-        ps->snapshotChunksSinceAck = 0;
-        ps->snapshotChunksReceived = 0;
         ps->staleSnapshotAckStrikes = 0;
         ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
-        rawSessionCopy = rawSession;
-        sessionPrepared = true;
-        accepted = true;
+
+        if (canResumeImplicit) {
+          size_t pendingCount = ps->snapshotPendingChunks.size();
+          size_t pendingBytes = ps->snapshotPendingBytes;
+          bool flushError = false;
+          for (const auto &pending : ps->snapshotPendingChunks) {
+            if (!ps->snapshotSink->writeAt(pending.offset, pending.data)) {
+              std::cerr
+                  << "⚠️ [SNAPSHOT] Failed to persist buffered chunk for session "
+                  << sessionHex << " from " << peer << '\n';
+              flushError = true;
+              break;
+            }
+          }
+          if (flushError) {
+            auto released = resetSnapshotReceptionLocked(*ps);
+            if (!released.empty())
+              sessionToRelease = released;
+            if (!ps->snapshotRestartMetaSent) {
+              ps->snapshotRestartMetaSent = true;
+              ps->lastSnapshotRetry = now;
+            }
+            requestRestart = true;
+            restartReason = "io failure";
+            bailEarly = true;
+          } else {
+            flushedBufferedBytes = pendingBytes;
+            flushedBufferedChunks = pendingCount;
+            ps->snapshotPendingChunks.clear();
+            ps->snapshotPendingBytes = 0;
+            ps->snapshotImplicitStart = false;
+            ps->snapshotImplicitSince =
+                std::chrono::steady_clock::time_point{};
+            resumedImplicit = (pendingCount > 0);
+          }
+        } else {
+          ps->snapshotPendingChunks.clear();
+          ps->snapshotPendingBytes = 0;
+          ps->snapshotImplicitStart = false;
+          ps->snapshotImplicitSince =
+              std::chrono::steady_clock::time_point{};
+          ps->snapshotReceived = 0;
+          ps->snapshotLastAcked = 0;
+          ps->snapshotChunksSinceAck = 0;
+          ps->snapshotChunksReceived = 0;
+        }
+
+        if (!bailEarly) {
+          rawSessionCopy = rawSession;
+          sessionPrepared = true;
+          accepted = true;
+        }
       }
     }
   }
@@ -6743,7 +6817,12 @@ void Network::handleSnapshotMeta(const std::string &peer,
     std::cerr << "ℹ️  [SNAPSHOT] Metadata from " << peer << " session="
               << sessionHex << " total=" << meta.total_bytes()
               << " bytes, advertised chunk=" << advertised
-              << " -> limit=" << limit << " bytes\n";
+              << " -> limit=" << limit << " bytes";
+    if (resumedImplicit && flushedBufferedBytes > 0) {
+      std::cerr << " (resumed " << flushedBufferedChunks << " buffered chunks/"
+                << flushedBufferedBytes << " bytes)";
+    }
+    std::cerr << '\n';
   } else if (requestRestart && transport && transport->isOpen()) {
     alyncoin::net::Frame retry;
     retry.mutable_snapshot_req();
@@ -6814,6 +6893,8 @@ void Network::handleSnapshotChunk(const std::string &peer,
   const auto now = std::chrono::steady_clock::now();
 
   std::string releasedSession;
+  bool startedImplicit = false;
+  std::string implicitSessionId;
   {
     std::lock_guard<std::mutex> lk(ps->m);
     auto requestMetaRestart = [&](const char *reason) {
@@ -6824,6 +6905,37 @@ void Network::handleSnapshotChunk(const std::string &peer,
         requestRestart = true;
       }
     };
+
+    if (ps->snapState == PeerState::SnapState::WaitMeta &&
+        ps->snapshotReceived == 0 && chunk.offset() == 0) {
+      if (chunk.session_id().size() != SNAPSHOT_SESSION_ID_BYTES) {
+        std::cerr << "⚠️ [SNAPSHOT] Invalid session id on early chunk from "
+                  << peer << " (len=" << chunk.session_id().size()
+                  << ")\n";
+        requestMetaRestart("invalid session id");
+        auto released = resetSnapshotReceptionLocked(
+            *ps, PeerState::SnapState::WaitMeta, true);
+        if (!released.empty())
+          releasedSession = released;
+      } else {
+        ps->snapState = PeerState::SnapState::WaitChunks;
+        ps->snapshotImplicitStart = true;
+        ps->snapshotImplicitSince = now;
+        ps->snapshotRestartMetaSent = false;
+        ps->snapshotSessionId = chunk.session_id();
+        ps->snapshotChunkLimit = MAX_SNAPSHOT_CHUNK_SIZE;
+        ps->snapshotActive = true;
+        ps->snapshotMetaReceived = false;
+        ps->snapshotPendingChunks.clear();
+        ps->snapshotPendingBytes = 0;
+        ps->snapshotReceived = 0;
+        ps->snapshotLastAcked = 0;
+        ps->snapshotChunksSinceAck = 0;
+        ps->snapshotChunksReceived = 0;
+        startedImplicit = true;
+        implicitSessionId = formatSessionId(ps->snapshotSessionId);
+      }
+    }
 
     if (ps->snapState != PeerState::SnapState::WaitChunks) {
       std::cerr << "⚠️ [SNAPSHOT] Dropping chunk from " << peer
@@ -6882,6 +6994,44 @@ void Network::handleSnapshotChunk(const std::string &peer,
             *ps, PeerState::SnapState::WaitMeta, true);
         if (!released.empty())
           releasedSession = released;
+      } else if (!ps->snapshotMetaReceived) {
+        if (!ps->snapshotImplicitStart) {
+          requestMetaRestart("metadata missing");
+          auto released = resetSnapshotReceptionLocked(
+              *ps, PeerState::SnapState::WaitMeta, true);
+          if (!released.empty())
+            releasedSession = released;
+        } else if (ps->snapshotPendingBytes + chunk.data().size() >
+                   SNAPSHOT_IMPLICIT_BUFFER_LIMIT) {
+          std::cerr << "⚠️ [SNAPSHOT] Implicit snapshot buffer exhausted for "
+                    << peer << " session="
+                    << formatSessionId(ps->snapshotSessionId) << " ("
+                    << (ps->snapshotPendingBytes + chunk.data().size())
+                    << " bytes)\n";
+          requestMetaRestart("implicit buffer full");
+          auto released = resetSnapshotReceptionLocked(
+              *ps, PeerState::SnapState::WaitMeta, true);
+          if (!released.empty())
+            releasedSession = released;
+        } else {
+          ps->snapshotPendingChunks.push_back(
+              PeerState::PendingChunk{chunk.offset(), chunk.data()});
+          ps->snapshotPendingBytes += chunk.data().size();
+          ps->snapshotReceived =
+              static_cast<size_t>(chunk.offset() + chunk.data().size());
+          ps->snapshotActive = true;
+          ++ps->snapshotChunksReceived;
+          ++ps->snapshotChunksSinceAck;
+          if (!ps->snapshotRestartMetaSent &&
+              ps->snapshotImplicitSince !=
+                  std::chrono::steady_clock::time_point{} &&
+              now - ps->snapshotImplicitSince > SNAPSHOT_IMPLICIT_META_TIMEOUT) {
+            restartReason = "awaiting metadata";
+            ps->snapshotRestartMetaSent = true;
+            ps->lastSnapshotRetry = now;
+            requestRestart = true;
+          }
+        }
       } else if (!ps->snapshotSink ||
                  !ps->snapshotSink->writeAt(chunk.offset(), chunk.data())) {
         std::cerr << "⚠️ [SNAPSHOT] IO error persisting chunk from " << peer
@@ -6928,6 +7078,12 @@ void Network::handleSnapshotChunk(const std::string &peer,
       }
     }
 
+  }
+
+  if (startedImplicit) {
+    std::cerr << "ℹ️  [SNAPSHOT] Chunk before metadata from " << peer
+              << " session=" << implicitSessionId << " size="
+              << chunk.data().size() << " bytes; buffering until metadata arrives\n";
   }
 
   if (!releasedSession.empty())
