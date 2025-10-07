@@ -1,6 +1,7 @@
 #include "winterfell_stark.h"
 #include "rust_bindings.h"
 #include "winterfell_ffi.h"
+#include "config.h"
 #include "crypto_utils.h"
 #include "blockchain.h"
 #include "transaction.h"
@@ -32,13 +33,15 @@ std::string WinterfellStark::generateProof(const std::string& blockHash,
 
     std::string blakeSeed = Crypto::blake3(seed);
 
-    std::cout << "\n[zkSTARK] 📦 Block Proof Generation";
-    std::cout << "\n  - blockHash: " << blockHash;
-    std::cout << "\n  - prevHash:  " << prevHash;
-    std::cout << "\n  - txRoot:    " << txRoot;
-    std::cout << "\n  - Seed:      " << seed;
-    std::cout << "\n  - Seed len:  " << seed.size();
-    std::cout << "\n  - BLAKE3(seed): " << blakeSeed << "\n";
+    if (!getAppConfig().quiet_sync_logs) {
+        std::cout << "\n[zkSTARK] 📦 Block Proof Generation";
+        std::cout << "\n  - blockHash: " << blockHash;
+        std::cout << "\n  - prevHash:  " << prevHash;
+        std::cout << "\n  - txRoot:    " << txRoot;
+        std::cout << "\n  - Seed:      " << seed;
+        std::cout << "\n  - Seed len:  " << seed.size();
+        std::cout << "\n  - BLAKE3(seed): " << blakeSeed << "\n";
+    }
 
     char* proof_cstr = generate_proof_bytes(seed.c_str(), seed.size());
 
@@ -59,12 +62,14 @@ std::string WinterfellStark::generateProof(const std::string& blockHash,
         return fallback;
     }
 
-    std::cout << "[zkSTARK] ✅ zk-STARK proof generated. Size: " << proof.size() << " bytes\n";
-    std::cout << "[zkSTARK] 🔍 First 32 proof bytes (hex): ";
-    for (size_t i = 0; i < std::min<size_t>(32, proof.size()); ++i)
-        std::cout << std::hex << std::setw(2) << std::setfill('0')
-                  << (int)(unsigned char)proof[i];
-    std::cout << std::dec << "\n";
+    if (!getAppConfig().quiet_sync_logs) {
+        std::cout << "[zkSTARK] ✅ zk-STARK proof generated. Size: " << proof.size() << " bytes\n";
+        std::cout << "[zkSTARK] 🔍 First 32 proof bytes (hex): ";
+        for (size_t i = 0; i < std::min<size_t>(32, proof.size()); ++i)
+            std::cout << std::hex << std::setw(2) << std::setfill('0')
+                      << (int)(unsigned char)proof[i];
+        std::cout << std::dec << "\n";
+    }
 
     return proof;
 }
@@ -74,11 +79,13 @@ bool WinterfellStark::verifyProof(const std::string& proof,
                                    const std::string& blockHash,
                                    const std::string& prevHash,
                                    const std::string& txRoot) {
-    std::cout << "\n[zkSTARK][DEBUG] Verifying Inputs:";
-    std::cout << "\n  - proof.size():   " << proof.size();
-    std::cout << "\n  - blockHash:      " << (blockHash.empty() ? "(empty)" : blockHash);
-    std::cout << "\n  - prevHash:       " << (prevHash.empty() ? "(empty)" : prevHash);
-    std::cout << "\n  - txRoot:         " << (txRoot.empty() ? "(empty)" : txRoot) << "\n";
+    if (!getAppConfig().quiet_sync_logs) {
+        std::cout << "\n[zkSTARK][DEBUG] Verifying Inputs:";
+        std::cout << "\n  - proof.size():   " << proof.size();
+        std::cout << "\n  - blockHash:      " << (blockHash.empty() ? "(empty)" : blockHash);
+        std::cout << "\n  - prevHash:       " << (prevHash.empty() ? "(empty)" : prevHash);
+        std::cout << "\n  - txRoot:         " << (txRoot.empty() ? "(empty)" : txRoot) << "\n";
+    }
 
     if (proof.empty() || blockHash.empty() || prevHash.empty()) {
         std::cerr << "[zkSTARK] ❌ Invalid input for block zk-STARK proof verification.\n";
@@ -94,25 +101,27 @@ bool WinterfellStark::verifyProof(const std::string& proof,
     std::vector<unsigned char> resultHashVec = Crypto::fromHex(resultHashHex);
     std::string resultHash(reinterpret_cast<const char*>(resultHashVec.data()), resultHashVec.size());
 
-    std::cout << "\n[zkSTARK] 🧪 Block Proof Verification";
-    std::cout << "\n  - BlockHash:   " << blockHash;
-    std::cout << "\n  - PrevHash:    " << prevHash;
-    std::cout << "\n  - TxRoot:      " << txRoot;
-    std::cout << "\n  - Final Seed:  " << seed;
-    std::cout << "\n  - Seed Length: " << seed.size();
-    std::cout << "\n  - BLAKE3(seed): " << resultHashHex;
-    std::cout << "\n  - Proof Length: " << proof.size();
+    if (!getAppConfig().quiet_sync_logs) {
+        std::cout << "\n[zkSTARK] 🧪 Block Proof Verification";
+        std::cout << "\n  - BlockHash:   " << blockHash;
+        std::cout << "\n  - PrevHash:    " << prevHash;
+        std::cout << "\n  - TxRoot:      " << txRoot;
+        std::cout << "\n  - Final Seed:  " << seed;
+        std::cout << "\n  - Seed Length: " << seed.size();
+        std::cout << "\n  - BLAKE3(seed): " << resultHashHex;
+        std::cout << "\n  - Proof Length: " << proof.size();
 
-    std::cout << "\n  - Result Hash (raw bytes): ";
-    for (unsigned char c : resultHashVec)
-        std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)c;
-    std::cout << std::dec;
+        std::cout << "\n  - Result Hash (raw bytes): ";
+        for (unsigned char c : resultHashVec)
+            std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)c;
+        std::cout << std::dec;
 
-    std::cout << "\n  - Result Hash (printable): ";
-    for (unsigned char c : resultHashVec)
-        std::cout << ((c >= 32 && c <= 126) ? (char)c : '.');
+        std::cout << "\n  - Result Hash (printable): ";
+        for (unsigned char c : resultHashVec)
+            std::cout << ((c >= 32 && c <= 126) ? (char)c : '.');
 
-    std::cout << "\n[zkSTARK] 📤 Calling verify_winterfell_proof()...\n";
+        std::cout << "\n[zkSTARK] 📤 Calling verify_winterfell_proof()...\n";
+    }
 
     bool result = verify_winterfell_proof(
         proof.c_str(),
@@ -121,7 +130,9 @@ bool WinterfellStark::verifyProof(const std::string& proof,
         txRoot.c_str()
     );
 
-    std::cout << "[zkSTARK] 🔍 Block Proof Verification Result: " << (result ? "✅ Passed" : "❌ Failed") << "\n";
+    if (!getAppConfig().quiet_sync_logs) {
+        std::cout << "[zkSTARK] 🔍 Block Proof Verification Result: " << (result ? "✅ Passed" : "❌ Failed") << "\n";
+    }
     return result;
 }
 

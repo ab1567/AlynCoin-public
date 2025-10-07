@@ -1,6 +1,7 @@
 #include "config.h"
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 #include <fstream>
 #include <vector>
 
@@ -66,6 +67,24 @@ void loadConfigFile(const std::string &path) {
             cfg.external_address = line.substr(17);
         } else if (line.rfind("hide_peer_endpoints=", 0) == 0) {
             cfg.hide_peer_endpoints = parseBool(line.substr(20));
+        } else if (line.rfind("quiet_sync_logs=", 0) == 0) {
+            cfg.quiet_sync_logs = parseBool(line.substr(16));
+        } else if (line.rfind("fast_sync=", 0) == 0) {
+            cfg.fast_sync = parseBool(line.substr(10));
+        } else if (line.rfind("fast_sync_sample_rate=", 0) == 0) {
+            try {
+                double rate = std::stod(line.substr(22));
+                cfg.fast_sync_sample_rate = std::clamp(rate, 0.0, 1.0);
+            } catch (...) {
+                // ignore malformed value
+            }
+        } else if (line.rfind("fast_sync_trailing_full=", 0) == 0) {
+            try {
+                int trailing = std::stoi(line.substr(24));
+                cfg.fast_sync_trailing_full = std::max(0, trailing);
+            } catch (...) {
+                // ignore malformed value
+            }
         } else if (line.rfind("seed=", 0) == 0) {
             std::string host = trim(line.substr(5));
             if (host.empty())
@@ -85,6 +104,37 @@ void loadConfigFile(const std::string &path) {
 
     if (seedsReset && cfg.seed_hosts.empty())
         cfg.seed_hosts.push_back("peers.alyncoin.com");
+
+    auto applyEnvBool = [&](const char *name, bool &field) {
+        if (const char *env = std::getenv(name)) {
+            field = parseBool(env);
+        }
+    };
+    auto applyEnvDouble = [&](const char *name, double &field, double minVal, double maxVal) {
+        if (const char *env = std::getenv(name)) {
+            try {
+                double value = std::stod(env);
+                field = std::clamp(value, minVal, maxVal);
+            } catch (...) {
+                // ignore malformed value
+            }
+        }
+    };
+    auto applyEnvInt = [&](const char *name, int &field, int minVal) {
+        if (const char *env = std::getenv(name)) {
+            try {
+                int value = std::stoi(env);
+                field = std::max(minVal, value);
+            } catch (...) {
+                // ignore malformed value
+            }
+        }
+    };
+
+    applyEnvBool("ALYN_QUIET_SYNC", cfg.quiet_sync_logs);
+    applyEnvBool("ALYN_FAST_SYNC", cfg.fast_sync);
+    applyEnvDouble("ALYN_FAST_SYNC_SAMPLE", cfg.fast_sync_sample_rate, 0.0, 1.0);
+    applyEnvInt("ALYN_FAST_SYNC_TRAILING", cfg.fast_sync_trailing_full, 0);
 }
 
 void saveConfigValue(const std::string &path, const std::string &key,

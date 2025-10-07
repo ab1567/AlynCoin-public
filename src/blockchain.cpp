@@ -2709,6 +2709,12 @@ bool Blockchain::replaceChainUpTo(const std::vector<Block> &blocks,
     return false;
   }
 
+  const AppConfig &cfg = getAppConfig();
+  const bool fastSyncEnabled = cfg.fast_sync;
+  const int trailingFull = std::max(0, cfg.fast_sync_trailing_full);
+  size_t fastSyncEligible = 0;
+  size_t fastSyncForced = 0;
+
   // Validate linkage and block validity of the snapshot
   for (size_t i = 1; i < blocks.size(); ++i) {
     if (blocks[i].getPreviousHash() != blocks[i - 1].getHash()) {
@@ -2716,8 +2722,21 @@ bool Blockchain::replaceChainUpTo(const std::vector<Block> &blocks,
                 << "\n";
       return false;
     }
+    bool forceFull = true;
+    if (fastSyncEnabled) {
+      bool inTrailingWindow =
+          trailingFull > 0 &&
+          static_cast<int>(blocks.size() - 1 - i) < trailingFull;
+      bool isEarlyBlock = i <= 1;
+      forceFull = isEarlyBlock || inTrailingWindow;
+      if (forceFull) {
+        ++fastSyncForced;
+      } else {
+        ++fastSyncEligible;
+      }
+    }
     if (!blocks[i].isValid(blocks[i - 1].getHash(),
-                           blocks[i].getDifficulty())) {
+                           blocks[i].getDifficulty(), forceFull)) {
       std::cerr << "❌ [replaceChainUpTo] Block invalid at idx " << i << "\n";
       return false;
     }
@@ -2752,6 +2771,18 @@ bool Blockchain::replaceChainUpTo(const std::vector<Block> &blocks,
   recomputeChainWork();
   lock.unlock();
   saveToDB();
+
+  if (fastSyncEnabled && !cfg.quiet_sync_logs) {
+    std::ios::fmtflags oldFlags = std::cout.flags();
+    std::streamsize oldPrecision = std::cout.precision();
+    std::cout << std::fixed << std::setprecision(2)
+              << "⚡ [FastSync] Snapshot verification: " << fastSyncForced
+              << " blocks forced full, " << fastSyncEligible
+              << " eligible for sampling at "
+              << (cfg.fast_sync_sample_rate * 100.0) << "%\n";
+    std::cout.flags(oldFlags);
+    std::cout.precision(oldPrecision);
+  }
 
   std::cout << "✅ [replaceChainUpTo] Replaced chain up to height "
             << upToHeight << "\n";
