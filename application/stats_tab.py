@@ -1,4 +1,3 @@
-import re
 import threading
 
 from PyQt5.QtCore import pyqtSignal
@@ -9,11 +8,17 @@ from rpc_client import fetch_peer_status, safe_alyncoin_rpc
 
 class StatsTab(QWidget):
     restartFinished = pyqtSignal(bool, str)
+    statsFetched = pyqtSignal(object)
+    peersFetched = pyqtSignal(object)
+    syncFinished = pyqtSignal(object)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.main = parent
         self.restartFinished.connect(self.onRestartFinished)
+        self.statsFetched.connect(self.onStatsFetched)
+        self.peersFetched.connect(self.onPeersFetched)
+        self.syncFinished.connect(self.onSyncFinished)
         self.initUI()
         if hasattr(parent, 'walletChanged'):
             parent.walletChanged.connect(self.onWalletChanged)
@@ -56,7 +61,66 @@ class StatsTab(QWidget):
         self.appendText("⏳ Fetching stats...", color="orange")
         self.showStatsBtn.setEnabled(False)
 
-        result = safe_alyncoin_rpc("stats")
+        def worker():
+            result = safe_alyncoin_rpc("stats")
+            self.statsFetched.emit(result)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def triggerSync(self):
+        self.appendText("⏳ Initiating hard sync...", color="orange")
+        self.syncBtn.setEnabled(False)
+
+        def worker():
+            result = safe_alyncoin_rpc("selfheal")
+            self.syncFinished.emit(result)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def triggerRestart(self):
+        if not hasattr(self.main, "restart_node"):
+            self.appendText("❌ Node restart not supported in this build.", color="red")
+            return
+
+        self.appendText("⏳ Restarting local node...", color="orange")
+        self.syncBtn.setEnabled(False)
+        self.restartBtn.setEnabled(False)
+
+        def worker():
+            try:
+                ok = bool(self.main.restart_node())
+                self.restartFinished.emit(ok, "")
+            except Exception as exc:  # pragma: no cover - defensive guard
+                self.restartFinished.emit(False, str(exc))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def onRestartFinished(self, ok, error):
+        self.syncBtn.setEnabled(True)
+        self.restartBtn.setEnabled(True)
+        if ok:
+            self.appendText("✅ Node restarted. Waiting for sync status...", color="green")
+            if hasattr(self.main, "refreshPeerBanner"):
+                self.main.refreshPeerBanner()
+        else:
+            message = error or "Unknown restart failure"
+            self.appendText(f"❌ Node restart failed: {message}", color="red")
+
+    def fetchPeers(self):
+        self.outputBox.clear()
+        self.appendText("⏳ Fetching peer list...", color="orange")
+        self.peerBtn.setEnabled(False)
+
+        def worker():
+            try:
+                status = fetch_peer_status()
+            except RuntimeError as exc:
+                status = {"error": str(exc)}
+            self.peersFetched.emit(status)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def onStatsFetched(self, result):
         self.showStatsBtn.setEnabled(True)
 
         if isinstance(result, dict) and result.get("error"):
@@ -66,7 +130,6 @@ class StatsTab(QWidget):
             self.appendText("⚠️ Could not fetch stats from RPC server.", color="red")
             return
 
-        # Parse and color-code stats
         try:
             if "blocks" in result:
                 self.appendText(f"📦 Total Blocks: {result['blocks']}", color="cyan")
@@ -83,11 +146,9 @@ class StatsTab(QWidget):
         except Exception as e:
             self.appendText(f"❌ Error parsing stats: {e}", color="red")
 
-    def triggerSync(self):
-        self.appendText("⏳ Initiating hard sync...", color="orange")
-        self.syncBtn.setEnabled(False)
-        result = safe_alyncoin_rpc("selfheal")
+    def onSyncFinished(self, result):
         self.syncBtn.setEnabled(True)
+
         if isinstance(result, dict) and result.get("error"):
             self.appendText(f"❌ {result['error']}", color="red")
             return
@@ -133,44 +194,14 @@ class StatsTab(QWidget):
         else:
             self.appendText("✅ Hard sync triggered.", color="green")
 
-    def triggerRestart(self):
-        if not hasattr(self.main, "restart_node"):
-            self.appendText("❌ Node restart not supported in this build.", color="red")
+    def onPeersFetched(self, payload):
+        self.peerBtn.setEnabled(True)
+
+        if isinstance(payload, dict) and payload.get("error"):
+            self.appendText(f"⚠️ {payload['error']}", color="red")
             return
 
-        self.appendText("⏳ Restarting local node...", color="orange")
-        self.syncBtn.setEnabled(False)
-        self.restartBtn.setEnabled(False)
-
-        def worker():
-            try:
-                ok = bool(self.main.restart_node())
-                self.restartFinished.emit(ok, "")
-            except Exception as exc:  # pragma: no cover - defensive guard
-                self.restartFinished.emit(False, str(exc))
-
-        threading.Thread(target=worker, daemon=True).start()
-
-    def onRestartFinished(self, ok, error):
-        self.syncBtn.setEnabled(True)
-        self.restartBtn.setEnabled(True)
-        if ok:
-            self.appendText("✅ Node restarted. Waiting for sync status...", color="green")
-            if hasattr(self.main, "refreshPeerBanner"):
-                self.main.refreshPeerBanner()
-        else:
-            message = error or "Unknown restart failure"
-            self.appendText(f"❌ Node restart failed: {message}", color="red")
-
-    def fetchPeers(self):
-        self.outputBox.clear()
-        self.appendText("⏳ Fetching peer list...", color="orange")
-        try:
-            status = fetch_peer_status()
-        except RuntimeError as exc:
-            self.appendText(f"⚠️ {exc}", color="red")
-            return
-
+        status = payload or {}
         peers = status.get("peers", [])
         try:
             count = int(status.get("connected", len(peers)))

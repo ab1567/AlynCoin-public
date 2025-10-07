@@ -8,6 +8,8 @@ from urllib.parse import urlparse, urlunparse
 try:  # pragma: no cover - simple import guard
     import requests
     from requests.adapters import HTTPAdapter, Retry
+    from requests import exceptions as requests_exceptions
+    REQUESTS_BASE_EXCEPTION = requests_exceptions.RequestException
 
     # Shared session with retries for robustness
     SESSION = requests.Session()
@@ -43,11 +45,16 @@ except ModuleNotFoundError:  # pragma: no cover
             else:
                 data_bytes = data if isinstance(data, (bytes, bytearray)) else (data or "").encode()
             req = urllib.request.Request(url, data=data_bytes, headers=headers or {}, method="POST")
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
+            effective_timeout = timeout
+            if isinstance(timeout, tuple):
+                effective_timeout = sum(timeout)
+            with urllib.request.urlopen(req, timeout=effective_timeout) as resp:
                 return _SimpleResponse(resp.read(), resp.getcode())
 
     # ``requests`` not available — use the simple urllib-based session
     requests = None  # type: ignore
+    requests_exceptions = None  # type: ignore
+    REQUESTS_BASE_EXCEPTION = ()  # type: ignore
     SESSION = _SimpleSession()
 
 
@@ -82,8 +89,56 @@ else:
 
 RPC_PORT = int(RPC_PORT)
 
-# Mining a block can be slow at high difficulty — allow generous timeout.
-TIMEOUT_S = 300
+# Mining a block can be slow at high difficulty — allow generous timeout, but
+# keep the connection timeout short so the UI stays responsive when the node
+# is offline. ``TIMEOUT_S`` is kept for backward compatibility with older
+# imports.
+CONNECT_TIMEOUT_S = float(os.environ.get("ALYNCOIN_RPC_CONNECT_TIMEOUT", "3"))
+READ_TIMEOUT_S = float(os.environ.get("ALYNCOIN_RPC_TIMEOUT", "300"))
+TIMEOUT_S = READ_TIMEOUT_S
+REQUEST_TIMEOUT = (CONNECT_TIMEOUT_S, READ_TIMEOUT_S)
+
+
+def _format_rpc_exception(exc: Exception) -> str:
+    """Return a user-friendly message for RPC connection failures."""
+
+    detail = ""
+    if (
+        requests is not None
+        and REQUESTS_BASE_EXCEPTION
+        and isinstance(exc, REQUESTS_BASE_EXCEPTION)
+    ):
+        connect_timeout = getattr(requests_exceptions, "ConnectTimeout", ())
+        read_timeout = getattr(requests_exceptions, "ReadTimeout", ())
+        timeout = getattr(requests_exceptions, "Timeout", ())
+        conn_error = getattr(requests_exceptions, "ConnectionError", ())
+        if isinstance(exc, connect_timeout):
+            detail = "connection attempt timed out"
+        elif isinstance(exc, read_timeout):
+            detail = "RPC response timed out"
+        elif isinstance(exc, timeout):
+            detail = "request timed out"
+        elif isinstance(exc, conn_error):
+            inner = getattr(exc, "__cause__", None)
+            if inner and hasattr(inner, "strerror"):
+                detail = getattr(inner, "strerror") or str(inner)
+            elif inner:
+                detail = str(inner)
+            else:
+                detail = "connection failed"
+    elif isinstance(exc, (TimeoutError, OSError)):
+        if getattr(exc, "strerror", None):
+            detail = exc.strerror or ""
+        if not detail:
+            detail = str(exc)
+    else:
+        detail = str(exc)
+
+    detail = (detail or "").strip()
+    base = f"Unable to reach AlynCoin RPC at {RPC_HOST}:{RPC_PORT}"
+    if detail:
+        return f"{base} ({detail})"
+    return base
 
 
 def alyncoin_rpc(method: str, params=None, id_: Optional[int] = None):
@@ -106,14 +161,14 @@ def alyncoin_rpc(method: str, params=None, id_: Optional[int] = None):
         try:
             if use_json:
                 resp = SESSION.post(
-                    RPC_URL, headers=headers, json=payload, timeout=TIMEOUT_S
+                    RPC_URL, headers=headers, json=payload, timeout=REQUEST_TIMEOUT
                 )
             else:
                 resp = SESSION.post(
-                    RPC_URL, headers=headers, data=payload, timeout=TIMEOUT_S
+                    RPC_URL, headers=headers, data=payload, timeout=REQUEST_TIMEOUT
                 )
         except Exception as e:
-            raise RuntimeError(f"RPC request failed: {e}") from e
+            raise RuntimeError(_format_rpc_exception(e)) from e
 
         text = getattr(resp, "text", "")
         try:
