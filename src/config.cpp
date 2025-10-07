@@ -36,7 +36,22 @@ void loadConfigFile(const std::string &path) {
 
     bool seedsReset = false;
 
+    auto addStaticDeny = [&](std::string value) {
+        value = trim(std::move(value));
+        if (value.empty())
+            return;
+        auto exists = std::find_if(cfg.static_peer_deny.begin(), cfg.static_peer_deny.end(),
+                                   [&](const std::string &existing) {
+                                       return existing == value;
+                                   });
+        if (exists == cfg.static_peer_deny.end())
+            cfg.static_peer_deny.push_back(std::move(value));
+    };
+
     while (std::getline(in, line)) {
+        line = trim(line);
+        if (line.empty() || line[0] == '#')
+            continue;
         if (line.rfind("ban_minutes=", 0) == 0) {
             cfg.ban_minutes = std::stoi(line.substr(12));
         } else if (line.rfind("offline_mode=", 0) == 0) {
@@ -99,6 +114,17 @@ void loadConfigFile(const std::string &path) {
                                        });
             if (exists == cfg.seed_hosts.end())
                 cfg.seed_hosts.push_back(std::move(host));
+        } else if (line.rfind("no_self_dial=", 0) == 0) {
+            cfg.no_self_dial = parseBool(line.substr(13));
+        } else if (line.rfind("peer_blacklist", 0) == 0) {
+            auto pos = line.find("+=");
+            size_t valuePos = std::string::npos;
+            if (pos != std::string::npos)
+                valuePos = pos + 2;
+            else if ((pos = line.find('=')) != std::string::npos)
+                valuePos = pos + 1;
+            if (valuePos != std::string::npos && valuePos < line.size())
+                addStaticDeny(line.substr(valuePos));
         }
     }
 
@@ -135,6 +161,7 @@ void loadConfigFile(const std::string &path) {
     applyEnvBool("ALYN_FAST_SYNC", cfg.fast_sync);
     applyEnvDouble("ALYN_FAST_SYNC_SAMPLE", cfg.fast_sync_sample_rate, 0.0, 1.0);
     applyEnvInt("ALYN_FAST_SYNC_TRAILING", cfg.fast_sync_trailing_full, 0);
+    applyEnvBool("ALYN_NO_SELF_DIAL", cfg.no_self_dial);
 }
 
 void saveConfigValue(const std::string &path, const std::string &key,

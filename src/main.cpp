@@ -1837,6 +1837,20 @@ int main(int argc, char *argv[]) {
   bool autoMine = true;
   std::string externalAddress = getAppConfig().external_address;
   bool externalSpecified = false;
+  auto trimCopy = [](std::string value) {
+    auto notSpace = [](int ch) { return std::isspace(ch) == 0; };
+    value.erase(value.begin(), std::find_if(value.begin(), value.end(), notSpace));
+    value.erase(std::find_if(value.rbegin(), value.rend(), notSpace).base(), value.end());
+    return value;
+  };
+  auto appendStaticDeny = [&](std::string value) {
+    value = trimCopy(std::move(value));
+    if (value.empty())
+      return;
+    auto &list = getAppConfig().static_peer_deny;
+    if (std::find(list.begin(), list.end(), value) == list.end())
+      list.push_back(std::move(value));
+  };
 
   for (int i = 1; i < argc; ++i) {
     std::string arg = argv[i];
@@ -1892,6 +1906,12 @@ int main(int argc, char *argv[]) {
     } else if (arg == "--external_address" && i + 1 < argc) {
       externalAddress = argv[++i];
       externalSpecified = true;
+    } else if (arg == "--no-self-dial") {
+      getAppConfig().no_self_dial = true;
+    } else if (arg == "--allow-self-dial") {
+      getAppConfig().no_self_dial = false;
+    } else if (arg == "--blacklist-peer" && i + 1 < argc) {
+      appendStaticDeny(argv[++i]);
     }
   }
 

@@ -205,6 +205,7 @@ public:
                              bool triggerBroadcast = true,
                              bool markVerified = false,
                              const std::string &originPeer = "");
+  bool isStaticallyDeniedEndpoint(const std::string &host, int port) const;
   void startDiscoveryLoops();
   void stopDiscoveryLoops();
 

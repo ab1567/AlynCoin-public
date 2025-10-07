@@ -53,6 +53,9 @@ inline constexpr int TAIL_SYNC_THRESHOLD = 32;    // height gap for tail sync be
 inline constexpr uint64_t SNAPSHOT_WORK_DELTA = 1024; // cumulative work delta to favour snapshots
 // Increased to support larger batch frames
 inline constexpr std::size_t MAX_WIRE_PAYLOAD = 512 * 1024; // 512 KiB frame cap
+// Control frames (acks, requests, pings, etc.) should stay comfortably under
+// this limit so they never monopolize the wire or starve data transfers.
+inline constexpr std::size_t MAX_CONTROL_FRAME_PAYLOAD = 64 * 1024; // 64 KiB
 inline constexpr std::size_t MAX_TAIL_PAYLOAD = 200 * 1024;  // safe tail chunk
 inline constexpr std::size_t MAX_INV_PER_MSG = 500; // inventory batch cap
 // Limit blocks included in a snapshot to avoid sending the full chain
