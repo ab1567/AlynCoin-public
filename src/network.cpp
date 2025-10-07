@@ -3304,11 +3304,10 @@ void Network::broadcastBlock(const Block &block, bool /*force*/,
       // Skip broadcasting to peers that are still performing a recovery
       // synchronisation. GUI/light clients request large snapshots and would
       // immediately disconnect when we simultaneously push full block bodies.
-      const bool snapshotActive =
-          entry.state->syncMode == PeerState::SyncMode::Snapshot ||
-          entry.state->snapState != PeerState::SnapState::Idle ||
-          entry.state->recovering;
-      if (snapshotActive) {
+      const bool snapshotTransferActive =
+          entry.state->snapshotActive || entry.state->snapshotServing ||
+          !entry.state->servingSnapshotSessionId.empty();
+      if (snapshotTransferActive) {
         continue;
       }
       if (entry.state->recentBlocksSentSet.count(block.getHash()))
