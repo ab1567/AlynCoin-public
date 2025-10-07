@@ -21,7 +21,6 @@
 #include <iomanip>
 #include <iostream>
 #include <json/json.h>
-#include <sstream>
 #include <thread>
 
 namespace fs = std::filesystem;
@@ -40,6 +39,20 @@ bool protobufDebugEnabled() {
     return value == "1" || value == "true" || value == "yes" || value == "on";
   }();
   return enabled;
+}
+
+std::string buildHashInputString(int idx, const std::string &prevHash,
+                                 const std::string &txRoot,
+                                 long long timestampValue,
+                                 long long nonceValue) {
+  std::string material;
+  material.reserve(prevHash.size() + txRoot.size() + 64);
+  material += std::to_string(idx);
+  material += prevHash;
+  material += txRoot;
+  material += std::to_string(timestampValue);
+  material += std::to_string(nonceValue);
+  return material;
 }
 } // namespace
 
@@ -148,9 +161,10 @@ std::string Block::calculateHash() const {
   } else {
     txRoot = EMPTY_TX_ROOT_HASH;
   }
-  std::stringstream ss;
-  ss << index << previousHash << txRoot << timestamp << nonce;
-  return Crypto::hybridHash(ss.str());
+  std::string input = buildHashInputString(
+      index, previousHash, txRoot, static_cast<long long>(timestamp),
+      static_cast<long long>(nonce));
+  return Crypto::hybridHash(input);
 }
 
 // ✅ Mine Block with Protobuf and RocksDB Storage
@@ -182,9 +196,9 @@ bool Block::mineBlock(int difficulty) {
     }
 
     std::string txRoot = getTransactionsHash();
-    std::stringstream ss;
-    ss << index << previousHash << txRoot << timestamp << nonce;
-    hash = Crypto::hybridHash(ss.str());
+    hash = Crypto::hybridHash(buildHashInputString(
+        index, previousHash, txRoot, static_cast<long long>(timestamp),
+        static_cast<long long>(nonce)));
   } while (hash.substr(0, difficulty) != std::string(difficulty, '0'));
 
 #ifdef LOG_DEBUG
@@ -341,9 +355,10 @@ bool Block::isValid(const std::string &prevHash, int expectedDifficulty) const {
     txRoot = EMPTY_TX_ROOT_HASH;
   }
 
-  std::stringstream ss;
-  ss << index << previousHash << txRoot << timestamp << nonce;
-  std::string recomputedHash = Crypto::hybridHash(ss.str());
+  std::string hashInput = buildHashInputString(
+      index, previousHash, txRoot, static_cast<long long>(timestamp),
+      static_cast<long long>(nonce));
+  std::string recomputedHash = Crypto::hybridHash(hashInput);
 
   std::cout << "🔍 Recomputed Hash: " << recomputedHash << "\n";
   std::cout << "🔍 Stored Hash:     " << hash << "\n";
@@ -357,7 +372,7 @@ bool Block::isValid(const std::string &prevHash, int expectedDifficulty) const {
     std::cerr << "[DEBUG] transactionsHash: " << transactionsHash << "\n";
     std::cerr << "[DEBUG] timestamp: " << timestamp << "\n";
     std::cerr << "[DEBUG] nonce: " << nonce << "\n";
-    std::cerr << "[DEBUG] Full hash input: " << ss.str() << "\n";
+    std::cerr << "[DEBUG] Full hash input: " << hashInput << "\n";
     return false;
   }
 
