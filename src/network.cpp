@@ -588,8 +588,8 @@ static FrameDescriptor describeFrame(const alyncoin::net::Frame &f) {
   case alyncoin::net::Frame::kRollupBlock:
     desc = {WireFrame::BLOCK, "rollup_block", false};
     break;
-  case alyncoin::net::Frame::kEpochProof:
-    desc = {WireFrame::BLOCK, "epoch_proof", false};
+  case alyncoin::net::Frame::kAggProof:
+    desc = {WireFrame::BLOCK, "agg_proof", false};
     break;
   case alyncoin::net::Frame::kSnapshotMeta:
     desc = {WireFrame::SNAP_META, "snapshot_meta", true};
@@ -625,7 +625,7 @@ static FrameDescriptor describeFrame(const alyncoin::net::Frame &f) {
   case alyncoin::net::Frame::kStateProof:
     desc = {WireFrame::STATE, "state_proof", false};
     break;
-  case alyncoin::net::Frame::kTransactionBroadcast:
+  case alyncoin::net::Frame::kTxBroadcast:
     desc = {WireFrame::TX, "tx_broadcast", false};
     break;
   case alyncoin::net::Frame::kWhisper:
