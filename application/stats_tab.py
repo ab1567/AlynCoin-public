@@ -5,7 +5,7 @@ from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtGui import QFont, QColor
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QTextEdit, QPushButton
 
-from rpc_client import alyncoin_rpc, fetch_peer_status
+from rpc_client import fetch_peer_status, safe_alyncoin_rpc
 
 class StatsTab(QWidget):
     restartFinished = pyqtSignal(bool, str)
@@ -56,10 +56,10 @@ class StatsTab(QWidget):
         self.appendText("⏳ Fetching stats...", color="orange")
         self.showStatsBtn.setEnabled(False)
 
-        result = alyncoin_rpc("stats")
+        result = safe_alyncoin_rpc("stats")
         self.showStatsBtn.setEnabled(True)
 
-        if isinstance(result, dict) and "error" in result:
+        if isinstance(result, dict) and result.get("error"):
             self.appendText(f"❌ {result['error']}", color="red")
             return
         if not result or not isinstance(result, dict):
@@ -86,13 +86,11 @@ class StatsTab(QWidget):
     def triggerSync(self):
         self.appendText("⏳ Initiating hard sync...", color="orange")
         self.syncBtn.setEnabled(False)
-        try:
-            result = alyncoin_rpc("selfheal")
-        except RuntimeError as exc:
-            self.appendText(f"❌ {exc}", color="red")
-            self.syncBtn.setEnabled(True)
-            return
+        result = safe_alyncoin_rpc("selfheal")
         self.syncBtn.setEnabled(True)
+        if isinstance(result, dict) and result.get("error"):
+            self.appendText(f"❌ {result['error']}", color="red")
+            return
         if isinstance(result, dict):
             message = result.get("message", "Hard sync triggered")
             self.appendText(f"✅ {message}", color="green")

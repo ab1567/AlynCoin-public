@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import (
     QFormLayout, QLineEdit, QDialogButtonBox, QFileDialog
 )
 
-from rpc_client import alyncoin_rpc, ensure_wallet_ready
+from rpc_client import ensure_wallet_ready, safe_alyncoin_rpc
 
 class NFTTab(QWidget):
     def __init__(self, parent):
@@ -92,7 +92,7 @@ class NFTTab(QWidget):
                 return
             params = [addr, m, i]
             if idt: params.append(idt)
-            result = alyncoin_rpc("nft-mint", params)
+            result = safe_alyncoin_rpc("nft-mint", params)
             self.showResult(result)
 
     def mintMediaNFT(self):
@@ -130,7 +130,7 @@ class NFTTab(QWidget):
                 return
             params = [addr, m, sha256]
             if idt: params.append(idt)
-            result = alyncoin_rpc("nft-mint", params)
+            result = safe_alyncoin_rpc("nft-mint", params)
             self.showResult(result)
 
     def verifyMedia(self):
@@ -145,7 +145,7 @@ class NFTTab(QWidget):
         except Exception as e:
             self.parent.appendOutput(f"❌ Failed to hash file: {str(e)}")
             return
-        result = alyncoin_rpc("nft-verifyhash", [filePath])
+        result = safe_alyncoin_rpc("nft-verifyhash", [filePath])
         self.showResult(result)
 
     def transferNFT(self):
@@ -170,13 +170,13 @@ class NFTTab(QWidget):
             if not id or not owner:
                 self.parent.appendOutput("❌ Both fields required.")
                 return
-            result = alyncoin_rpc("nft-transfer", [id, owner, addr])
+            result = safe_alyncoin_rpc("nft-transfer", [id, owner, addr])
             self.showResult(result)
 
     def viewMyNFTs(self):
         addr = self.getAddress()
         if addr:
-            result = alyncoin_rpc("nft-my", [addr])
+            result = safe_alyncoin_rpc("nft-my", [addr])
             self.showResult(result)
 
     def remintNFT(self):
@@ -205,7 +205,7 @@ class NFTTab(QWidget):
             if not id or not meta or not why:
                 self.parent.appendOutput("❌ All fields required.")
                 return
-            result = alyncoin_rpc("nft-remint", [id, meta, why, addr])
+            result = safe_alyncoin_rpc("nft-remint", [id, meta, why, addr])
             self.showResult(result)
 
     def exportNFT(self):
@@ -224,11 +224,11 @@ class NFTTab(QWidget):
             if not id:
                 self.parent.appendOutput("❌ NFT ID is required.")
                 return
-            result = alyncoin_rpc("nft-export", [id])
+            result = safe_alyncoin_rpc("nft-export", [id])
             self.showResult(result)
 
     def showStats(self):
-        result = alyncoin_rpc("nft-stats")
+        result = safe_alyncoin_rpc("nft-stats")
         self.showResult(result)
 
     def encryptMetadata(self):
@@ -256,7 +256,7 @@ class NFTTab(QWidget):
             if not id or not d or not p:
                 self.parent.appendOutput("❌ All fields required.")
                 return
-            result = alyncoin_rpc("nft-encrypt", [id, d, p])
+            result = safe_alyncoin_rpc("nft-encrypt", [id, d, p])
             self.showResult(result)
 
     def decryptMetadata(self):
@@ -280,7 +280,7 @@ class NFTTab(QWidget):
             if not id or not p:
                 self.parent.appendOutput("❌ All fields required.")
                 return
-            result = alyncoin_rpc("nft-decrypt", [id, p])
+            result = safe_alyncoin_rpc("nft-decrypt", [id, p])
             self.showResult(result)
 
     def onWalletChanged(self, address):
