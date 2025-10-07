@@ -155,11 +155,14 @@ std::vector<unsigned char> Block::getSignatureMessage() const {
 // Calculate Hash
 std::string Block::calculateHash() const {
   // Use stored merkleRoot if set (even for empty blocks!)
-  const std::string txRoot = !merkleRoot.empty()
-                                ? merkleRoot
-                                : (!transactionsHash.empty()
-                                       ? transactionsHash
-                                       : EMPTY_TX_ROOT_HASH);
+  std::string txRoot;
+  if (!merkleRoot.empty()) {
+    txRoot = merkleRoot;
+  } else if (!transactionsHash.empty()) {
+    txRoot = transactionsHash;
+  } else {
+    txRoot = std::string(EMPTY_TX_ROOT_HASH);
+  }
   std::string input = buildHashInputString(
       index, previousHash, txRoot, static_cast<long long>(timestamp),
       static_cast<long long>(nonce));
@@ -345,11 +348,14 @@ bool Block::isValid(const std::string &prevHash, int expectedDifficulty,
     return true;
   }
 
-  const std::string txRoot = !merkleRoot.empty()
-                                ? merkleRoot
-                                : (!transactionsHash.empty()
-                                       ? transactionsHash
-                                       : EMPTY_TX_ROOT_HASH);
+  std::string txRoot;
+  if (!merkleRoot.empty()) {
+    txRoot = merkleRoot;
+  } else if (!transactionsHash.empty()) {
+    txRoot = transactionsHash;
+  } else {
+    txRoot = std::string(EMPTY_TX_ROOT_HASH);
+  }
 
   const bool fastSyncCandidate = cfg.fast_sync && !forceFullValidation;
   const double sampleRate = std::clamp(cfg.fast_sync_sample_rate, 0.0, 1.0);
