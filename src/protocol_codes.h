@@ -7,5 +7,9 @@ enum class WireFrame : uint8_t {
     SNAP_CHUNK  = 0x06,
     SNAP_END    = 0x07,
     PING        = 0x08,
+    SNAP_ACK    = 0x09,
+    SNAP_CTRL   = 0x0A,
+    TX          = 0x0B,
+    STATE       = 0x0C,
     OTHER       = 0xFF
 };

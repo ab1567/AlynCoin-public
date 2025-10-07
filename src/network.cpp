@@ -390,6 +390,20 @@ static std::string toLowerCopy(const std::string &value) {
   return lowered;
 }
 
+static bool addressesEqual(const std::string &lhs, const std::string &rhs) {
+  if (lhs.empty() || rhs.empty())
+    return false;
+  if (toLowerCopy(lhs) == toLowerCopy(rhs))
+    return true;
+  boost::system::error_code ec1;
+  boost::system::error_code ec2;
+  auto addr1 = boost::asio::ip::make_address(lhs, ec1);
+  auto addr2 = boost::asio::ip::make_address(rhs, ec2);
+  if (!ec1 && !ec2)
+    return addr1 == addr2;
+  return false;
+}
+
 static std::vector<std::string> effectiveSeedHosts() {
   auto seeds = getAppConfig().seed_hosts;
   if (seeds.empty())
@@ -521,6 +535,111 @@ selectReachableEndpoint(const PeerEntry &entry) {
   if (!entry.observedIp.empty())
     return {entry.observedIp, choosePort(entry.observedPort)};
   return {std::string(), 0};
+}
+
+struct FrameDescriptor {
+  WireFrame tag{WireFrame::OTHER};
+  const char *label{"unknown"};
+  bool isControl{true};
+};
+
+static FrameDescriptor describeFrame(const alyncoin::net::Frame &f) {
+  using Kind = alyncoin::net::Frame::KindCase;
+  FrameDescriptor desc;
+  switch (f.kind_case()) {
+  case alyncoin::net::Frame::kHandshake:
+    desc = {WireFrame::HANDSHAKE, "handshake", true};
+    break;
+  case alyncoin::net::Frame::kPing:
+    desc = {WireFrame::PING, "ping", true};
+    break;
+  case alyncoin::net::Frame::kPong:
+    desc = {WireFrame::PING, "pong", true};
+    break;
+  case alyncoin::net::Frame::kHeightReq:
+  case alyncoin::net::Frame::kHeightRes:
+  case alyncoin::net::Frame::kHeightProbe:
+    desc = {WireFrame::HEIGHT, "height", true};
+    break;
+  case alyncoin::net::Frame::kPeerListReq:
+    desc = {WireFrame::PEER_LIST, "peer_list_req", true};
+    break;
+  case alyncoin::net::Frame::kPeerList:
+    desc = {WireFrame::PEER_LIST, "peer_list", true};
+    break;
+  case alyncoin::net::Frame::kInv:
+    desc = {WireFrame::PEER_LIST, "inventory", true};
+    break;
+  case alyncoin::net::Frame::kBlockBroadcast:
+    desc = {WireFrame::BLOCK, "block_broadcast", false};
+    break;
+  case alyncoin::net::Frame::kBlockBatch:
+    desc = {WireFrame::BLOCK, "block_batch", false};
+    break;
+  case alyncoin::net::Frame::kBlockRequest:
+    desc = {WireFrame::BLOCK, "block_request", true};
+    break;
+  case alyncoin::net::Frame::kBlockResponse:
+    desc = {WireFrame::BLOCK, "block_response", false};
+    break;
+  case alyncoin::net::Frame::kTailBlocks:
+    desc = {WireFrame::BLOCK, "tail_blocks", false};
+    break;
+  case alyncoin::net::Frame::kRollupBlock:
+    desc = {WireFrame::BLOCK, "rollup_block", false};
+    break;
+  case alyncoin::net::Frame::kEpochProof:
+    desc = {WireFrame::BLOCK, "epoch_proof", false};
+    break;
+  case alyncoin::net::Frame::kSnapshotMeta:
+    desc = {WireFrame::SNAP_META, "snapshot_meta", true};
+    break;
+  case alyncoin::net::Frame::kSnapshotChunk:
+    desc = {WireFrame::SNAP_CHUNK, "snapshot_chunk", false};
+    break;
+  case alyncoin::net::Frame::kSnapshotEnd:
+    desc = {WireFrame::SNAP_END, "snapshot_end", true};
+    break;
+  case alyncoin::net::Frame::kSnapshotAck:
+    desc = {WireFrame::SNAP_ACK, "snapshot_ack", true};
+    break;
+  case alyncoin::net::Frame::kSnapshotReq:
+    desc = {WireFrame::SNAP_CTRL, "snapshot_req", true};
+    break;
+  case alyncoin::net::Frame::kTailReq:
+    desc = {WireFrame::SNAP_CTRL, "tail_req", true};
+    break;
+  case alyncoin::net::Frame::kTipHashReq:
+  case alyncoin::net::Frame::kTipHashRes:
+    desc = {WireFrame::SNAP_CTRL, "tip_hash", true};
+    break;
+  case alyncoin::net::Frame::kGetData:
+    desc = {WireFrame::SNAP_CTRL, "get_data", true};
+    break;
+  case alyncoin::net::Frame::kGetHeaders:
+    desc = {WireFrame::SNAP_CTRL, "get_headers", true};
+    break;
+  case alyncoin::net::Frame::kBlockchainSyncRequest:
+    desc = {WireFrame::SNAP_CTRL, "sync_request", true};
+    break;
+  case alyncoin::net::Frame::kStateProof:
+    desc = {WireFrame::STATE, "state_proof", false};
+    break;
+  case alyncoin::net::Frame::kTransactionBroadcast:
+    desc = {WireFrame::TX, "tx_broadcast", false};
+    break;
+  case alyncoin::net::Frame::kWhisper:
+    desc = {WireFrame::TX, "whisper", false};
+    break;
+  case alyncoin::net::Frame::kHeaders:
+    desc = {WireFrame::BLOCK, "headers", false};
+    break;
+  case Kind::KIND_NOT_SET:
+  default:
+    desc = {WireFrame::OTHER, "unknown", true};
+    break;
+  }
+  return desc;
 }
 
 namespace {
@@ -1010,25 +1129,15 @@ bool Network::sendFrame(std::shared_ptr<Transport> tr,
   const alyncoin::net::Frame *fr =
       dynamic_cast<const alyncoin::net::Frame *>(&m);
   if (fr) {
-    WireFrame tag = WireFrame::OTHER;
-    if (fr->has_handshake())
-      tag = WireFrame::HANDSHAKE;
-    else if (fr->has_height_req() || fr->has_height_res() ||
-             fr->has_height_probe())
-      tag = WireFrame::HEIGHT;
-    else if (fr->has_peer_list())
-      tag = WireFrame::PEER_LIST;
-    else if (fr->has_block_broadcast())
-      tag = WireFrame::BLOCK;
-    else if (fr->has_ping() || fr->has_pong())
-      tag = WireFrame::PING;
-    else if (fr->has_snapshot_meta())
-      tag = WireFrame::SNAP_META;
-    else if (fr->has_snapshot_chunk())
-      tag = WireFrame::SNAP_CHUNK;
-    else if (fr->has_snapshot_end())
-      tag = WireFrame::SNAP_END;
-    std::cerr << "[>>] Outgoing Frame Type=" << static_cast<int>(tag) << "\n";
+    auto desc = describeFrame(*fr);
+    std::cerr << "[>>] Outgoing Frame Type=" << static_cast<int>(desc.tag)
+              << " (" << desc.label << ") size=" << fr->ByteSizeLong() << '\n';
+    if (desc.isControl && fr->ByteSizeLong() > MAX_CONTROL_FRAME_PAYLOAD) {
+      std::cerr << "⚠️ [sendFrame] Refusing to send oversized control frame "
+                << desc.label << " (" << fr->ByteSizeLong() << " bytes, limit "
+                << MAX_CONTROL_FRAME_PAYLOAD << ")\n";
+      return false;
+    }
   }
   size_t sz = m.ByteSizeLong();
   if (sz == 0) {
@@ -3336,6 +3445,31 @@ bool Network::isSelfPeer(const std::string &p) const {
   return false;
 }
 
+bool Network::isStaticallyDeniedEndpoint(const std::string &host,
+                                         int remotePort) const {
+  if (host.empty() || remotePort <= 0)
+    return false;
+  const auto &cfg = getAppConfig();
+  if (cfg.static_peer_deny.empty())
+    return false;
+  const auto loweredHost = toLowerCopy(host);
+  for (const auto &entry : cfg.static_peer_deny) {
+    if (entry.empty())
+      continue;
+    auto parsed = parseEndpoint(entry, static_cast<unsigned short>(remotePort));
+    if (parsed.first.empty())
+      continue;
+    int parsedPort = static_cast<int>(parsed.second);
+    bool hostMatch = addressesEqual(parsed.first, host) ||
+                     toLowerCopy(parsed.first) == loweredHost;
+    if (!hostMatch)
+      continue;
+    if (parsedPort <= 0 || parsedPort == remotePort)
+      return true;
+  }
+  return false;
+}
+
 bool Network::isSelfEndpoint(const std::string &host, int remotePort) const {
   if (host.empty() || remotePort <= 0)
     return false;
@@ -4181,33 +4315,27 @@ void Network::processFrame(const alyncoin::net::Frame &f,
     std::cerr << "[net] Uninitialized frame from " << peer << '\n';
     return;
   }
-  if (f.ByteSizeLong() == 0 || f.ByteSizeLong() > MAX_WIRE_PAYLOAD) {
+  const auto frameSize = f.ByteSizeLong();
+  if (frameSize == 0 || frameSize > MAX_WIRE_PAYLOAD) {
     std::cerr << "[net] Invalid frame size from " << peer << '\n';
+    return;
+  }
+  auto desc = describeFrame(f);
+  if (desc.isControl && frameSize > MAX_CONTROL_FRAME_PAYLOAD) {
+    std::cerr << "⚠️ [net] Dropping oversized " << desc.label << " frame ("
+              << frameSize << " bytes, limit " << MAX_CONTROL_FRAME_PAYLOAD
+              << ") from " << peer << '\n';
+    penalizePeer(peer, 1);
     return;
   }
   dispatch(f, peer);
 }
 
 void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
-  WireFrame tag = WireFrame::OTHER;
-  if (f.has_handshake())
-    tag = WireFrame::HANDSHAKE;
-  else if (f.has_height_req() || f.has_height_res() || f.has_height_probe())
-    tag = WireFrame::HEIGHT;
-  else if (f.has_peer_list())
-    tag = WireFrame::PEER_LIST;
-  else if (f.has_block_broadcast())
-    tag = WireFrame::BLOCK;
-  else if (f.has_ping() || f.has_pong())
-    tag = WireFrame::PING;
-  else if (f.has_snapshot_meta())
-    tag = WireFrame::SNAP_META;
-  else if (f.has_snapshot_chunk())
-    tag = WireFrame::SNAP_CHUNK;
-  else if (f.has_snapshot_end())
-    tag = WireFrame::SNAP_END;
+  auto desc = describeFrame(f);
   std::cerr << "[<<] Incoming Frame from " << peer
-            << " Type=" << static_cast<int>(tag) << "\n";
+            << " Type=" << static_cast<int>(desc.tag) << " (" << desc.label
+            << ") size=" << f.ByteSizeLong() << '\n';
   switch (f.kind_case()) {
   case alyncoin::net::Frame::kHandshake: {
     const auto &hs = f.handshake();
@@ -4667,6 +4795,11 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
   }
 
   const std::string peerKey = host + ':' + std::to_string(remotePort);
+  if (isStaticallyDeniedEndpoint(host, remotePort)) {
+    std::cout << "🛑 [connectToNode] Static denylist blocked dial to " << host
+              << ':' << remotePort << '\n';
+    return false;
+  }
   if (isSelfEndpoint(host, remotePort)) {
     recordSelfEndpoint(host, remotePort);
     std::cout << "⚠️ [connectToNode] Skipping self endpoint " << host << ':'
@@ -6123,6 +6256,7 @@ std::string resetSnapshotReceptionLocked(
   ps.snapshotChunksSinceAck = 0;
   ps.snapshotChunksReceived = 0;
   ps.snapshotLastProgressLog = std::chrono::steady_clock::time_point{};
+  ps.staleSnapshotAckStrikes = 0;
   ps.snapState = nextState;
   ps.lastSnapshotRetry =
       preserveRetryState ? lastRetry : std::chrono::steady_clock::time_point{};
@@ -6567,6 +6701,7 @@ void Network::handleSnapshotMeta(const std::string &peer,
         ps->snapshotLastAcked = 0;
         ps->snapshotChunksSinceAck = 0;
         ps->snapshotChunksReceived = 0;
+        ps->staleSnapshotAckStrikes = 0;
         ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
         rawSessionCopy = rawSession;
         sessionPrepared = true;
@@ -6625,17 +6760,34 @@ void Network::handleSnapshotAck(const std::string &peer,
   if (!snapshot.state)
     return;
   auto ps = snapshot.state;
-  std::lock_guard<std::mutex> lk(ps->m);
-  if (ps->servingSnapshotSessionId.empty() ||
-      ack.session_id() != ps->servingSnapshotSessionId) {
-    if (!ack.session_id().empty() && gSnapshotAckLogLimiter.shouldLog()) {
-      std::cerr << "⚠️ [SNAPSHOT] Dropping stale ACK from " << peer
-                << " (sid=" << formatSessionId(ack.session_id()) << ")\n";
+  bool penalize = false;
+  bool dropAck = false;
+  {
+    std::lock_guard<std::mutex> lk(ps->m);
+    if (ps->servingSnapshotSessionId.empty() ||
+        ack.session_id() != ps->servingSnapshotSessionId) {
+      if (!ack.session_id().empty() && gSnapshotAckLogLimiter.shouldLog()) {
+        std::cerr << "⚠️ [SNAPSHOT] Dropping stale ACK from " << peer
+                  << " (sid=" << formatSessionId(ack.session_id()) << ")\n";
+      }
+      if (!ack.session_id().empty()) {
+        ++ps->staleSnapshotAckStrikes;
+        if (ps->staleSnapshotAckStrikes >= 8) {
+          penalize = true;
+          ps->staleSnapshotAckStrikes = 0;
+        }
+      }
+      dropAck = true;
     }
-    return;
+    if (!dropAck) {
+      ps->staleSnapshotAckStrikes = 0;
+      ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
+    }
   }
-  ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
-  (void)peer;
+  if (penalize)
+    penalizePeer(peer, 1);
+  if (dropAck)
+    return;
 }
 //
 void Network::handleSnapshotChunk(const std::string &peer,
