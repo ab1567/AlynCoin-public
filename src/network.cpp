@@ -4742,26 +4742,11 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
         auto now = std::chrono::steady_clock::now();
         if (ps->lastSnapshotMetaSent == std::chrono::steady_clock::time_point{} ||
             now - ps->lastSnapshotMetaSent > std::chrono::milliseconds(200)) {
-          alyncoin::net::Frame cached;
-          if (cached.ParseFromString(ps->lastSnapshotMetaFrame)) {
-            std::cerr << "ℹ️  [Snapshot] Resending cached metadata to " << peer
-                      << " (retry request)\n";
-            if (sendFrame(snapshot.transport, cached)) {
-              ps->lastSnapshotMetaSent = now;
-            } else {
-              std::cerr << "⚠️ [Snapshot] Failed to resend cached metadata to "
-                        << peer << "; restarting snapshot stream" << '\n';
-              ps->lastSnapshotMetaFrame.clear();
-              size_t preferred = ps ? ps->snapshotChunkPreference : 0;
-              sendSnapshot(peer, snapshot.transport, -1, preferred);
-            }
-          } else {
-            std::cerr << "⚠️ [Snapshot] Failed to decode cached metadata for " << peer
-                      << "; restarting snapshot stream" << '\n';
-            ps->lastSnapshotMetaFrame.clear();
-            size_t preferred = ps ? ps->snapshotChunkPreference : 0;
-            sendSnapshot(peer, snapshot.transport, -1, preferred);
-          }
+          std::cerr << "ℹ️  [Snapshot] Restarting snapshot stream for metadata retry from "
+                    << peer << '\n';
+          ps->lastSnapshotMetaFrame.clear();
+          size_t preferred = ps ? ps->snapshotChunkPreference : 0;
+          sendSnapshot(peer, snapshot.transport, -1, preferred);
         } else {
           std::cerr << "ℹ️  [Snapshot] Ignoring rapid metadata retry from " << peer
                     << '\n';
