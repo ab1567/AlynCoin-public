@@ -6457,7 +6457,7 @@ void Network::sendTailBlocks(std::shared_ptr<Transport> transport,
     previewStart = std::max(start, previewEnd - previewCount + 1);
     if (previewStart <= previewEnd) {
       sendRange(previewStart, previewEnd, false);
-      if (ps) {
+      if (ps && previewCount > 1) {
         ps->sentFastCatchup = true;
       }
       previewCoveredAll = (previewStart <= start);
