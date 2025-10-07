@@ -319,6 +319,8 @@ def ensure_alyncoin_node(block: bool = True) -> bool:
     use_wsl = os.environ.get("ALYNCOIN_USE_WSL", "0") == "1"
     log_file = open(os.devnull, "w")
 
+    node_dir = os.path.dirname(bin_path) or None
+
     try:
         if platform.system() == "Windows":
             if flavor == "win" and bin_path.lower().endswith(".exe") and not use_wsl:
@@ -327,7 +329,8 @@ def ensure_alyncoin_node(block: bool = True) -> bool:
                 node_process = subprocess.Popen(
                     [bin_path],
                     stdout=log_file, stderr=log_file, stdin=subprocess.DEVNULL,
-                    creationflags=flags
+                    creationflags=flags,
+                    cwd=node_dir,
                 )
                 print(f"🚀 Launched node: {bin_path} (PID={node_process.pid})")
             else:
@@ -355,7 +358,8 @@ def ensure_alyncoin_node(block: bool = True) -> bool:
             node_process = subprocess.Popen(
                 [bin_path],
                 stdout=log_file, stderr=log_file, stdin=subprocess.DEVNULL,
-                close_fds=True, start_new_session=True
+                close_fds=True, start_new_session=True,
+                cwd=node_dir,
             )
             print(f"🚀 Launched node: {bin_path} (PID={node_process.pid})")
 
