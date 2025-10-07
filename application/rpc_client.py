@@ -1,3 +1,4 @@
+import errno
 import json
 import os
 import time
@@ -8,6 +9,7 @@ from urllib.parse import urlparse, urlunparse
 try:  # pragma: no cover - simple import guard
     import requests
     from requests.adapters import HTTPAdapter, Retry
+    from requests import exceptions as requests_exceptions
 
     # Shared session with retries for robustness
     SESSION = requests.Session()
@@ -51,6 +53,7 @@ except ModuleNotFoundError:  # pragma: no cover
 
     # ``requests`` not available — use the simple urllib-based session
     requests = None  # type: ignore
+    requests_exceptions = None  # type: ignore
     SESSION = _SimpleSession()
 
 
@@ -92,6 +95,33 @@ DEFAULT_TIMEOUT = (0.75, 2.0)
 LONG_POLL_TIMEOUT = 300.0
 
 
+_CONNECTION_REFUSED_ERRNOS = {errno.ECONNREFUSED}
+_WIN_REFUSED = getattr(errno, "WSAECONNREFUSED", None)
+if _WIN_REFUSED is not None:
+    _CONNECTION_REFUSED_ERRNOS.add(_WIN_REFUSED)
+
+_TIMEOUT_ERRNOS = {errno.ETIMEDOUT}
+_WIN_TIMEOUT = getattr(errno, "WSAETIMEDOUT", None)
+if _WIN_TIMEOUT is not None:
+    _TIMEOUT_ERRNOS.add(_WIN_TIMEOUT)
+
+_CONNECTION_REFUSED_MARKERS = (
+    "connection refused",
+    "actively refused",
+    "target machine actively refused",
+    "failed to establish a new connection",
+    "errno 111",
+    "winerror 10061",
+)
+
+_TIMEOUT_MARKERS = (
+    "read timed out",
+    "connect timed out",
+    "timed out",
+    "timeout",
+)
+
+
 def _normalize_timeout(value):
     if value is None:
         return DEFAULT_TIMEOUT
@@ -105,6 +135,59 @@ def _normalize_timeout(value):
             return items[0]
         return tuple(items[:2])  # type: ignore[return-value]
     return DEFAULT_TIMEOUT
+
+
+def _iter_exception_chain(error):
+    seen = set()
+    current = error
+    while current is not None and id(current) not in seen:
+        yield current
+        seen.add(id(current))
+        current = getattr(current, "__cause__", None) or getattr(current, "__context__", None)
+
+
+def _is_connection_refused(error: Exception) -> bool:
+    for item in _iter_exception_chain(error):
+        errno_value = getattr(item, "errno", None)
+        winerror_value = getattr(item, "winerror", None)
+        if errno_value in _CONNECTION_REFUSED_ERRNOS:
+            return True
+        if winerror_value in _CONNECTION_REFUSED_ERRNOS or winerror_value == 10061:
+            return True
+        message = str(item).lower()
+        if any(marker in message for marker in _CONNECTION_REFUSED_MARKERS):
+            return True
+    return False
+
+
+def _is_timeout(error: Exception) -> bool:
+    if requests_exceptions is not None and isinstance(
+        error,
+        (
+            requests_exceptions.Timeout,
+            requests_exceptions.ConnectTimeout,
+            requests_exceptions.ReadTimeout,
+        ),
+    ):
+        return True
+
+    for item in _iter_exception_chain(error):
+        errno_value = getattr(item, "errno", None)
+        winerror_value = getattr(item, "winerror", None)
+        if errno_value in _TIMEOUT_ERRNOS or winerror_value in _TIMEOUT_ERRNOS:
+            return True
+        message = str(item).lower()
+        if any(marker in message for marker in _TIMEOUT_MARKERS):
+            return True
+    return False
+
+
+def _classify_rpc_exception(error: Exception) -> Optional[str]:
+    if _is_timeout(error):
+        return "timeout"
+    if _is_connection_refused(error):
+        return "refused"
+    return None
 
 
 def alyncoin_rpc(
@@ -131,6 +214,13 @@ def alyncoin_rpc(
 
     request_timeout = _normalize_timeout(timeout)
 
+    effective_timeout = request_timeout
+    if isinstance(effective_timeout, tuple):
+        try:
+            effective_timeout = max(v for v in effective_timeout if v is not None)
+        except ValueError:
+            effective_timeout = DEFAULT_TIMEOUT[-1] if isinstance(DEFAULT_TIMEOUT, tuple) else DEFAULT_TIMEOUT
+
     def _do_request(payload, use_json=True):
         try:
             if use_json:
@@ -148,6 +238,23 @@ def alyncoin_rpc(
                     timeout=request_timeout,
                 )
         except Exception as e:
+            category = _classify_rpc_exception(e)
+            if category == "timeout":
+                timeout_value = effective_timeout
+                if isinstance(timeout_value, tuple):
+                    timeout_value = max(timeout_value)
+                try:
+                    timeout_text = f"{float(timeout_value):g}"
+                except Exception:
+                    timeout_text = str(timeout_value)
+                raise RuntimeError(
+                    f"RPC request timed out after {timeout_text}s"
+                ) from e
+            if category == "refused":
+                raise RuntimeError(
+                    f"RPC connection to {RPC_HOST}:{RPC_PORT} was refused."
+                    " Ensure the node is running with RPC enabled."
+                ) from e
             raise RuntimeError(f"RPC request failed: {e}") from e
 
         text = getattr(resp, "text", "")
