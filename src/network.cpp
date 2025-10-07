@@ -3192,6 +3192,16 @@ void Network::broadcastBlock(const Block &block, bool /*force*/,
 
     if (entry.state) {
       std::lock_guard<std::mutex> guard(entry.state->m);
+      // Skip broadcasting to peers that are still performing a recovery
+      // synchronisation. GUI/light clients request large snapshots and would
+      // immediately disconnect when we simultaneously push full block bodies.
+      const bool snapshotActive =
+          entry.state->syncMode == PeerState::SyncMode::Snapshot ||
+          entry.state->snapState != PeerState::SnapState::Idle ||
+          entry.state->recovering;
+      if (snapshotActive) {
+        continue;
+      }
       if (entry.state->recentBlocksSentSet.count(block.getHash()))
         continue;
     }
