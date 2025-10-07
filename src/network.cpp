@@ -6087,7 +6087,10 @@ std::string generateSnapshotSessionId() {
 
 std::string resetSnapshotReceptionLocked(
     PeerState &ps,
-    PeerState::SnapState nextState = PeerState::SnapState::WaitMeta) {
+    PeerState::SnapState nextState = PeerState::SnapState::WaitMeta,
+    bool preserveRetryState = false) {
+  const bool hadRestartMetaSent = ps.snapshotRestartMetaSent;
+  const auto lastRetry = ps.lastSnapshotRetry;
   std::string previousSession = ps.snapshotSessionId;
   if (ps.snapshotSink) {
     ps.snapshotSink->close();
@@ -6106,12 +6109,13 @@ std::string resetSnapshotReceptionLocked(
   ps.snapshotSessionId.clear();
   ps.snapshotLastAcked = 0;
   ps.snapshotMetaReceived = false;
-  ps.snapshotRestartMetaSent = false;
+  ps.snapshotRestartMetaSent = preserveRetryState ? hadRestartMetaSent : false;
   ps.snapshotChunksSinceAck = 0;
   ps.snapshotChunksReceived = 0;
   ps.snapshotLastProgressLog = std::chrono::steady_clock::time_point{};
   ps.snapState = nextState;
-  ps.lastSnapshotRetry = std::chrono::steady_clock::time_point{};
+  ps.lastSnapshotRetry =
+      preserveRetryState ? lastRetry : std::chrono::steady_clock::time_point{};
   return previousSession;
 }
 } // namespace
@@ -6639,7 +6643,8 @@ void Network::handleSnapshotChunk(const std::string &peer,
                 << " while in state " << static_cast<int>(ps->snapState)
                 << '\n';
       requestMetaRestart("unexpected state");
-      auto released = resetSnapshotReceptionLocked(*ps);
+      auto released =
+          resetSnapshotReceptionLocked(*ps, PeerState::SnapState::WaitMeta, true);
       if (!released.empty())
         releasedSession = released;
     } else if (ps->snapshotSessionId.empty() ||
@@ -6648,7 +6653,8 @@ void Network::handleSnapshotChunk(const std::string &peer,
                 << " expected=" << formatSessionId(ps->snapshotSessionId)
                 << " got=" << formatSessionId(chunk.session_id()) << '\n';
       requestMetaRestart("session mismatch");
-      auto released = resetSnapshotReceptionLocked(*ps);
+      auto released =
+          resetSnapshotReceptionLocked(*ps, PeerState::SnapState::WaitMeta, true);
       if (!released.empty())
         releasedSession = released;
     } else {
@@ -6663,7 +6669,8 @@ void Network::handleSnapshotChunk(const std::string &peer,
                   << ", limit=" << limit
                   << ", tolerance=" << SNAPSHOT_CHUNK_TOLERANCE << ")\n";
         requestMetaRestart("oversized chunk");
-        auto released = resetSnapshotReceptionLocked(*ps);
+        auto released = resetSnapshotReceptionLocked(
+            *ps, PeerState::SnapState::WaitMeta, true);
         if (!released.empty())
           releasedSession = released;
       } else if (chunk.offset() != ps->snapshotReceived) {
@@ -6672,7 +6679,8 @@ void Network::handleSnapshotChunk(const std::string &peer,
                   << " expected offset " << ps->snapshotReceived << " got "
                   << chunk.offset() << '\n';
         requestMetaRestart("out of order");
-        auto released = resetSnapshotReceptionLocked(*ps);
+        auto released = resetSnapshotReceptionLocked(
+            *ps, PeerState::SnapState::WaitMeta, true);
         if (!released.empty())
           releasedSession = released;
       } else if (ps->snapshotExpectBytes > 0 &&
@@ -6683,7 +6691,8 @@ void Network::handleSnapshotChunk(const std::string &peer,
                   << chunk.data().size() << " exceeds expected total "
                   << ps->snapshotExpectBytes << '\n';
         requestMetaRestart("chunk overflow");
-        auto released = resetSnapshotReceptionLocked(*ps);
+        auto released = resetSnapshotReceptionLocked(
+            *ps, PeerState::SnapState::WaitMeta, true);
         if (!released.empty())
           releasedSession = released;
       } else if (!ps->snapshotSink ||
@@ -6692,7 +6701,8 @@ void Network::handleSnapshotChunk(const std::string &peer,
                   << " session=" << formatSessionId(ps->snapshotSessionId)
                   << '\n';
         requestMetaRestart("io failure");
-        auto released = resetSnapshotReceptionLocked(*ps);
+        auto released = resetSnapshotReceptionLocked(
+            *ps, PeerState::SnapState::WaitMeta, true);
         if (!released.empty())
           releasedSession = released;
       } else {
