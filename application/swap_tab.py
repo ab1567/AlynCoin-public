@@ -23,7 +23,7 @@ from PyQt5.QtWidgets import (
     QFormLayout, QDialogButtonBox
 )
 
-from rpc_client import alyncoin_rpc, ensure_wallet_ready
+from rpc_client import ensure_wallet_ready, safe_alyncoin_rpc
 
 
 class SwapTab(QWidget):
@@ -140,7 +140,7 @@ class SwapTab(QWidget):
             hashed = keccak.new(digest_bits=256, data=b3.encode()).hexdigest()
             self.parent.appendOutput(f"🧮 Local Secret Hash (preview): {hashed}")
             params = [addr, recv, amt, hashed, dur]
-            result = alyncoin_rpc("swap-initiate", params)
+            result = safe_alyncoin_rpc("swap-initiate", params)
             self.showResult(result)
 
     def redeemSwap(self):
@@ -150,7 +150,9 @@ class SwapTab(QWidget):
             "🧩 Redeem Swap",
             [("🆔 Swap ID", "id"), ("🧩 Secret Preimage", "secret")],
             lambda d: self.showResult(
-                alyncoin_rpc("swap-redeem", [d["id"], d["secret"]]) if d["secret"].strip() else {"error": "Secret cannot be empty"}
+                safe_alyncoin_rpc("swap-redeem", [d["id"], d["secret"]])
+                if d["secret"].strip()
+                else {"error": "Secret cannot be empty"}
             ),
         )
 
@@ -160,28 +162,28 @@ class SwapTab(QWidget):
         self._singleFieldDialog(
             "⏱ Refund Swap",
             "Swap ID",
-            lambda sid: self.showResult(alyncoin_rpc("swap-refund", [sid])),
+            lambda sid: self.showResult(safe_alyncoin_rpc("swap-refund", [sid])),
         )
 
     def getSwap(self):
         self._singleFieldDialog(
             "🔍 Get Swap Info",
             "Swap ID",
-            lambda sid: self.showResult(alyncoin_rpc("swap-get", [sid])),
+            lambda sid: self.showResult(safe_alyncoin_rpc("swap-get", [sid])),
         )
 
     def getState(self):
         self._singleFieldDialog(
             "📊 Swap State",
             "Swap ID",
-            lambda sid: self.showResult(alyncoin_rpc("swap-state", [sid])),
+            lambda sid: self.showResult(safe_alyncoin_rpc("swap-state", [sid])),
         )
 
     def verifySwap(self):
         self._singleFieldDialog(
             "🛡 Verify Swap Signature",
             "Swap ID",
-            lambda sid: self.showResult(alyncoin_rpc("swap-verify", [sid])),
+            lambda sid: self.showResult(safe_alyncoin_rpc("swap-verify", [sid])),
         )
 
     def _singleFieldDialog(self, title, label, callback):

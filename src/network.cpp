@@ -6438,20 +6438,46 @@ void Network::sendTailBlocks(std::shared_ptr<Transport> transport,
   };
 
   const int gap = myHeight - effectiveFrom;
-  if (ps && !ps->sentFastCatchup && gap > FAST_SYNC_TRIGGER_GAP && myHeight > 0) {
-    int previewEnd = myHeight;
-    int previewStart = std::max(effectiveFrom + 1,
-                                previewEnd - FAST_SYNC_RECENT_BLOCKS + 1);
+  if (gap <= 0)
+    return;
+
+  const int start = effectiveFrom + 1;
+
+  // Always send a small "preview" burst that includes the most recent block so
+  // lagging peers can render up-to-date heights immediately.  When the peer is
+  // significantly behind we reuse the existing fast-sync window, otherwise we
+  // just send the tip block before backfilling older history.
+  int previewCount = (gap > FAST_SYNC_TRIGGER_GAP) ? FAST_SYNC_RECENT_BLOCKS : 1;
+  previewCount = std::max(0, std::min(previewCount, gap));
+  const int previewEnd = myHeight;
+  int previewStart = previewEnd + 1; // default so tail covers up to previewEnd when no preview
+  bool previewCoveredAll = false;
+
+  if (previewCount > 0 && (!ps || !ps->sentFastCatchup) && myHeight > 0) {
+    previewStart = std::max(start, previewEnd - previewCount + 1);
     if (previewStart <= previewEnd) {
       sendRange(previewStart, previewEnd, false);
-      ps->sentFastCatchup = true;
+      if (ps) {
+        ps->sentFastCatchup = true;
+      }
+      previewCoveredAll = (previewStart <= start);
     }
   }
 
-  const int start = effectiveFrom + 1;
-  const int end =
-      std::min(myHeight, start + MAX_TAIL_BLOCKS - 1);
-  sendRange(start, end, true);
+  const int tailCeiling =
+      std::min(previewEnd, start + MAX_TAIL_BLOCKS - 1);
+  int tailEnd = std::min(previewStart - 1, tailCeiling);
+  if (previewCoveredAll) {
+    if (ps)
+      ps->lastTailHeight = std::max<int>(ps->lastTailHeight, previewEnd);
+    return;
+  }
+
+  if (start <= tailEnd) {
+    sendRange(start, tailEnd, true);
+  } else if (ps) {
+    ps->lastTailHeight = std::max<int>(ps->lastTailHeight, previewEnd);
+  }
 }
 
 void Network::handleSnapshotMeta(const std::string &peer,

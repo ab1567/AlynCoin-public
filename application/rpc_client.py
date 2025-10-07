@@ -312,8 +312,27 @@ def ensure_wallet_ready(address: str, key_id: Optional[str] = None):
     return False, "Missing key files for wallet."
 
 
+def safe_alyncoin_rpc(method: str, params=None, id_: Optional[int] = None):
+    """Return RPC result or an ``{"error": str}`` mapping on failure.
+
+    The desktop GUI triggers many RPC calls from Qt slots.  If a call raises a
+    ``RuntimeError`` (for example when the local node is still syncing or the
+    RPC service dropped), PyQt will propagate the exception to the event loop
+    and terminate the application.  Returning a structured error keeps the GUI
+    responsive while surfacing the failure to the user.
+    """
+
+    try:
+        return alyncoin_rpc(method, params, id_)
+    except RuntimeError as exc:
+        return {"error": str(exc)}
+    except Exception as exc:  # pragma: no cover - defensive guard
+        return {"error": f"{type(exc).__name__}: {exc}"}
+
+
 __all__ = [
     "alyncoin_rpc",
+    "safe_alyncoin_rpc",
     "RPC_URL",
     "RPC_HOST",
     "RPC_PORT",
