@@ -4,6 +4,7 @@ import sys
 import os
 import socket
 import subprocess
+import threading
 import time
 import platform
 import shutil
@@ -416,6 +417,8 @@ def get_logo_path():
 
 class AlynCoinApp(QMainWindow):
     walletChanged = pyqtSignal(str)
+    peerStatusReady = pyqtSignal(str, str, bool)
+    rpcReadyChecked = pyqtSignal(bool)
 
     def __init__(self):
         super().__init__()
@@ -425,6 +428,13 @@ class AlynCoinApp(QMainWindow):
         self.loadedKeyId = ""
         self.miningActive = False
         self._rpcReadyTimer = None
+        self._rpcReadyWorkerActive = False
+        self.peerStatusReady.connect(self._applyPeerBanner)
+        self.rpcReadyChecked.connect(self._onRpcReadyChecked)
+        self._peerWorkerActive = False
+        self._peerBackoffUntil = 0.0
+        self._peerNormalInterval = 3000
+        self._peerBackoffInterval = 12000
 
         # -- Use all discovered DNS peers
         self.dns_peers = get_peers_from_dns()
@@ -452,15 +462,18 @@ class AlynCoinApp(QMainWindow):
         layout.addWidget(logoLabel)
 
         # Display network status based on actual peer connections
-        peer_status, color = self._resolve_peer_banner()
-        self.peerBanner = QLabel(peer_status)
+        self.peerBanner = QLabel("🌐 AlynCoin Network: Checking…")
         self.peerBanner.setAlignment(Qt.AlignCenter)
-        self.peerBanner.setStyleSheet(f"background-color: #191919; color: {color}; padding: 4px; font-weight: bold;")
+        self.peerBanner.setStyleSheet(
+            "background-color: #191919; color: #ffaa00; padding: 4px; font-weight: bold;"
+        )
         layout.addWidget(self.peerBanner)
 
         self.peerTimer = QTimer(self)
-        self.peerTimer.timeout.connect(self.refreshPeerBanner)
-        self.peerTimer.start(10000)
+        self.peerTimer.setInterval(self._peerNormalInterval)
+        self.peerTimer.timeout.connect(self._schedulePeerBannerRefresh)
+        self.peerTimer.start()
+        self._schedulePeerBannerRefresh()
 
         self.statusBanner = QLabel("⚠️ Only one blockchain action can run at a time. Mining locks access.")
         self.statusBanner.setAlignment(Qt.AlignCenter)
@@ -625,27 +638,56 @@ class AlynCoinApp(QMainWindow):
             state = (status.get("state") or "").lower()
             connected = status.get("connected", 0)
             if connected and connected > 0:
-                return "🌐 AlynCoin Network: Connected", "#44e"
+                return "🌐 AlynCoin Network: Connected", "#44e", False
             if state == "connecting":
-                return "🌐 AlynCoin Network: Connecting…", "#ffaa00"
+                return "🌐 AlynCoin Network: Connecting…", "#ffaa00", False
             if state == "offline":
-                return "🌐 AlynCoin Network: Offline", "#f44"
+                return "🌐 AlynCoin Network: Offline", "#f44", True
 
         count = get_peer_count()
         if count > 0:
-            return "🌐 AlynCoin Network: Connected", "#44e"
+            return "🌐 AlynCoin Network: Connected", "#44e", False
 
         if is_rpc_up():
-            return "🌐 AlynCoin Network: Connecting…", "#ffaa00"
+            return "🌐 AlynCoin Network: Connecting…", "#ffaa00", False
 
-        return "🌐 AlynCoin Network: Offline", "#f44"
+        return "🌐 AlynCoin Network: Offline", "#f44", True
 
     def refreshPeerBanner(self):
-        status, color = self._resolve_peer_banner()
+        self._schedulePeerBannerRefresh()
+
+    def _schedulePeerBannerRefresh(self):
+        if self._peerWorkerActive:
+            return
+        now = time.monotonic()
+        if now < self._peerBackoffUntil:
+            return
+        self._peerWorkerActive = True
+
+        def worker():
+            offline = True
+            try:
+                status, color, offline = self._resolve_peer_banner()
+            except Exception:
+                status, color, offline = "🌐 AlynCoin Network: Offline", "#f44", True
+            finally:
+                self.peerStatusReady.emit(status, color, offline)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _applyPeerBanner(self, status, color, offline):
         self.peerBanner.setText(status)
         self.peerBanner.setStyleSheet(
             f"background-color: #191919; color: {color}; padding: 4px; font-weight: bold;"
         )
+        self._peerWorkerActive = False
+        if offline:
+            self._peerBackoffUntil = time.monotonic() + (self._peerBackoffInterval / 1000.0)
+            self.peerTimer.setInterval(self._peerBackoffInterval)
+        else:
+            self._peerBackoffUntil = 0.0
+            if self.peerTimer.interval() != self._peerNormalInterval:
+                self.peerTimer.setInterval(self._peerNormalInterval)
 
     def lockUI(self):
         self.tabs.setEnabled(False)
@@ -671,13 +713,30 @@ class AlynCoinApp(QMainWindow):
             return
         self._rpcReadyTimer = QTimer(self)
         self._rpcReadyTimer.setInterval(2000)
-        self._rpcReadyTimer.timeout.connect(self._checkRpcReady)
+        self._rpcReadyTimer.timeout.connect(self._scheduleRpcReadyCheck)
         self._rpcReadyTimer.start()
+        self._scheduleRpcReadyCheck()
 
-    def _checkRpcReady(self):
-        try:
-            alyncoin_rpc("peercount")
-        except Exception:
+    def _scheduleRpcReadyCheck(self):
+        if self._rpcReadyWorkerActive:
+            return
+
+        def worker():
+            ready = False
+            try:
+                alyncoin_rpc("peercount")
+                ready = True
+            except Exception:
+                ready = False
+            finally:
+                self.rpcReadyChecked.emit(ready)
+
+        self._rpcReadyWorkerActive = True
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _onRpcReadyChecked(self, ready: bool):
+        self._rpcReadyWorkerActive = False
+        if not ready:
             return
         if self._rpcReadyTimer:
             self._rpcReadyTimer.stop()

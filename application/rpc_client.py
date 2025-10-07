@@ -93,7 +93,7 @@ RPC_PORT = int(RPC_PORT)
 # keep the connection timeout short so the UI stays responsive when the node
 # is offline. ``TIMEOUT_S`` is kept for backward compatibility with older
 # imports.
-CONNECT_TIMEOUT_S = float(os.environ.get("ALYNCOIN_RPC_CONNECT_TIMEOUT", "3"))
+CONNECT_TIMEOUT_S = float(os.environ.get("ALYNCOIN_RPC_CONNECT_TIMEOUT", "0.75"))
 READ_TIMEOUT_S = float(os.environ.get("ALYNCOIN_RPC_TIMEOUT", "300"))
 TIMEOUT_S = READ_TIMEOUT_S
 REQUEST_TIMEOUT = (CONNECT_TIMEOUT_S, READ_TIMEOUT_S)
