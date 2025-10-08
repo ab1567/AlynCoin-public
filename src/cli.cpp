@@ -322,7 +322,8 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
     if (cmd == "stats" && argc >= 2) {
         std::cout << "\n=== Blockchain Stats ===\n";
         std::cout << "Total Blocks: " << b.getBlockCount() << "\n";
-        std::cout << "Difficulty: " << calculateSmartDifficulty(b) << "\n";
+        std::cout << "Difficulty: " << b.getCurrentDifficulty() << "\n";
+        std::cout << "Block Reward: " << b.getCurrentBlockReward() << " AlynCoin\n";
         std::cout << "Total Supply: " << b.getTotalSupply() << " AlynCoin\n";
         std::cout << "Total Burned Supply: " << b.getTotalBurnedSupply() << " AlynCoin\n";
         std::cout << "Dev Fund Balance: " << b.getBalance("DevFundWallet") << " AlynCoin\n";
