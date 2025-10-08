@@ -235,7 +235,7 @@ std::vector<std::string> PeerManager::getConnectedPeers() {
 
                 if (!displayHost.empty()) {
                     label << " (" << displayHost;
-                    if (port > 0)
+                    if (!hideEndpoints && port > 0)
                         label << ':' << port;
                     label << ')';
                 }
