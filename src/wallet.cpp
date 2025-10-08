@@ -98,7 +98,7 @@ Wallet::Wallet(const std::string& privateKeyPath, const std::string& keyDirector
     if (pos != std::string::npos)
         publicKeyPath.replace(pos, 12, "_public.pem");
 
-    if (!fs::exists(publicKeyPath)) {
+    if (!Crypto::ensureRsaPublicKey(walletName, privateKeyPath, publicKeyPath, passphrase)) {
         throw std::runtime_error("❌ Public key file not found: " + publicKeyPath);
     }
     publicKey = loadKeyFile(publicKeyPath);

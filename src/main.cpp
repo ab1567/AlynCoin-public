@@ -630,6 +630,34 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
             if (Crypto::sha256(pass) != stored) {
               output = {{"error", "Incorrect passphrase"}};
             } else {
+              std::string pub = DBPaths::getKeyDir() + keyId + "_public.pem";
+              if (!Crypto::ensureRsaPublicKey(keyId, priv, pub, pass)) {
+                output = {{"error",
+                           "Wallet load failed: unable to restore public key"}};
+              } else {
+                try {
+                  Wallet w(priv, DBPaths::getKeyDir(), keyId, pass);
+                  Crypto::rememberWalletKeyIdentifier(w.getAddress(), keyId);
+                  std::ofstream(DBPaths::getHomePath() +
+                                "/.alyncoin/current_wallet.txt")
+                      << w.getAddress();
+                  nlohmann::json walletInfo = {
+                      {"address", w.getAddress()},
+                      {"key_id", keyId},
+                  };
+                  output = {{"result", walletInfo}};
+                } catch (const std::exception &e) {
+                  output = {{"error", std::string("Wallet load failed: ") +
+                                       e.what()}};
+                }
+              }
+            }
+          } else {
+            std::string pub = DBPaths::getKeyDir() + keyId + "_public.pem";
+            if (!Crypto::ensureRsaPublicKey(keyId, priv, pub, pass)) {
+              output = {{"error",
+                         "Wallet load failed: unable to restore public key"}};
+            } else {
               try {
                 Wallet w(priv, DBPaths::getKeyDir(), keyId, pass);
                 Crypto::rememberWalletKeyIdentifier(w.getAddress(), keyId);
@@ -642,25 +670,9 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
                 };
                 output = {{"result", walletInfo}};
               } catch (const std::exception &e) {
-                output = {
-                    {"error", std::string("Wallet load failed: ") + e.what()}};
+                output = {{"error", std::string("Wallet load failed: ") +
+                                     e.what()}};
               }
-            }
-          } else {
-            try {
-              Wallet w(priv, DBPaths::getKeyDir(), keyId, pass);
-              Crypto::rememberWalletKeyIdentifier(w.getAddress(), keyId);
-              std::ofstream(DBPaths::getHomePath() +
-                            "/.alyncoin/current_wallet.txt")
-                  << w.getAddress();
-              nlohmann::json walletInfo = {
-                  {"address", w.getAddress()},
-                  {"key_id", keyId},
-              };
-              output = {{"result", walletInfo}};
-            } catch (const std::exception &e) {
-              output = {
-                  {"error", std::string("Wallet load failed: ") + e.what()}};
             }
           }
         }
@@ -2208,6 +2220,12 @@ int main(int argc, char *argv[]) {
         std::cerr << "❌ Incorrect passphrase\n";
         return 1;
       }
+    }
+    std::string pub = keyDir + name + "_public.pem";
+    if (!Crypto::ensureRsaPublicKey(name, priv, pub, pass)) {
+      std::cerr << "❌ Wallet load failed: Unable to restore public key at "
+                << pub << std::endl;
+      return 1;
     }
     try {
       Wallet w(priv, keyDir, name, pass);
