@@ -105,6 +105,7 @@ file(GLOB SOURCES
   ${SOURCE_DIR}/block.cpp
   ${SOURCE_DIR}/blockchain.cpp
   ${SOURCE_DIR}/transaction.cpp
+  ${SOURCE_DIR}/hash.cpp
   ${SOURCE_DIR}/network.cpp
   ${SOURCE_DIR}/crypto_utils.cpp
   ${SOURCE_DIR}/crypto/sphinx.cpp
