@@ -1865,6 +1865,26 @@ int main(int argc, char *argv[]) {
       list.push_back(std::move(value));
   };
 
+  auto applyPeerLogMode = [&](std::string mode) {
+    mode = trimCopy(std::move(mode));
+    if (mode.empty())
+      return;
+    std::transform(mode.begin(), mode.end(), mode.begin(), [](unsigned char c) {
+      return static_cast<char>(std::tolower(c));
+    });
+    if (mode != "off" && mode != "tag" && mode != "masked" && mode != "full") {
+      std::cout << "⚠️ Unknown peer log mode '" << mode
+                << "', defaulting to tag.\n";
+      mode = "tag";
+    }
+    getAppConfig().peer_log_mode = mode;
+    std::cout << "🛡️ Peer log mode: " << mode << std::endl;
+    if (mode == "full") {
+      std::cout << "⚠️ Full peer logging reveals IP addresses. Only enable for"
+                << " diagnostics and scrub logs before sharing.\n";
+    }
+  };
+
   for (int i = 1; i < argc; ++i) {
     std::string arg = argv[i];
     if (arg == "--help" || arg == "-h" || arg == "help") {
@@ -1919,6 +1939,15 @@ int main(int argc, char *argv[]) {
     } else if (arg == "--external_address" && i + 1 < argc) {
       externalAddress = argv[++i];
       externalSpecified = true;
+    } else if (arg == "--log-peer-addr" || arg == "--log-peer-address") {
+      if (i + 1 < argc)
+        applyPeerLogMode(argv[++i]);
+      else
+        std::cout << "⚠️ --log-peer-addr expects a value (off|tag|masked|full).\n";
+    } else if (arg.rfind("--log-peer-addr=", 0) == 0 ||
+               arg.rfind("--log-peer-address=", 0) == 0) {
+      auto pos = arg.find('=');
+      applyPeerLogMode(arg.substr(pos + 1));
     } else if (arg == "--no-self-dial") {
       getAppConfig().no_self_dial = true;
     } else if (arg == "--allow-self-dial") {

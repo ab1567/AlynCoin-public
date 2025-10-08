@@ -32,6 +32,7 @@ struct AppConfig {
     double por_expected_walyn = 0.0;        // expected wrapped supply for PoR comparison
     std::string external_address;           // externally reachable <ip:port>
     bool hide_peer_endpoints = true;        // suppress peer IP/port details in UIs
+    std::string peer_log_mode = "tag";      // off|tag|masked|full (controls log detail)
 
     // --- Sync/validation tuning ---
     bool quiet_sync_logs = false;           // suppress per-block validation logs
