@@ -11,6 +11,7 @@
 #include <array>
 #include <chrono>
 #include <filesystem>
+#include <map>
 
 struct SnapshotFileSink;
 
@@ -61,6 +62,9 @@ struct PeerState {
   };
   std::vector<PendingChunk> snapshotPendingChunks;
   size_t snapshotPendingBytes{0};
+  std::map<uint64_t, std::string> snapshotDeferredChunks;
+  size_t snapshotDeferredBytes{0};
+  std::chrono::steady_clock::time_point snapshotLastOutOfOrderAck{};
   std::chrono::steady_clock::time_point nextSnapshotRequestAllowed{};
   std::chrono::steady_clock::time_point lastSnapshotThrottleLog{};
   int snapshotRequestStrikes{0};
