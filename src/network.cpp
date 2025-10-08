@@ -6665,6 +6665,7 @@ void Network::handleSnapshotMeta(const std::string &peer,
   const auto now = std::chrono::steady_clock::now();
 
   std::string sessionToRelease;
+  bool sessionReleaseNeeded = false;
   std::string rawSessionCopy;
   bool sessionPrepared = false;
   bool resumedImplicit = false;
@@ -6700,8 +6701,8 @@ void Network::handleSnapshotMeta(const std::string &peer,
           (ps->snapState != PeerState::SnapState::WaitMeta ||
            ps->snapshotSessionId != rawSession)) {
         auto released = resetSnapshotReceptionLocked(*ps);
-        if (!released.empty())
-          sessionToRelease = released;
+        sessionToRelease = released;
+        sessionReleaseNeeded = true;
       }
 
       if (!ps->snapshotSink)
@@ -6713,8 +6714,8 @@ void Network::handleSnapshotMeta(const std::string &peer,
             << "⚠️ [SNAPSHOT] Failed to prepare snapshot sink for session "
             << sessionHex << " from " << peer << '\n';
         auto released = resetSnapshotReceptionLocked(*ps);
-        if (!released.empty())
-          sessionToRelease = released;
+        sessionToRelease = released;
+        sessionReleaseNeeded = true;
         if (!ps->snapshotRestartMetaSent) {
           ps->snapshotRestartMetaSent = true;
           ps->lastSnapshotRetry = now;
@@ -6748,8 +6749,8 @@ void Network::handleSnapshotMeta(const std::string &peer,
           }
           if (flushError) {
             auto released = resetSnapshotReceptionLocked(*ps);
-            if (!released.empty())
-              sessionToRelease = released;
+            sessionToRelease = released;
+            sessionReleaseNeeded = true;
             if (!ps->snapshotRestartMetaSent) {
               ps->snapshotRestartMetaSent = true;
               ps->lastSnapshotRetry = now;
@@ -6796,7 +6797,7 @@ void Network::handleSnapshotMeta(const std::string &peer,
     }
   }
 
-  if (!sessionToRelease.empty())
+  if (sessionReleaseNeeded)
     releaseSnapshotSession(peer, sessionToRelease);
 
   if (sessionPrepared) {
@@ -6806,11 +6807,13 @@ void Network::handleSnapshotMeta(const std::string &peer,
       restartReason = "snapshot already in progress";
       bailEarly = true;
       std::string releaseAfterClaim;
+      bool releaseAfterClaimNeeded = false;
       {
         std::lock_guard<std::mutex> lk(ps->m);
         releaseAfterClaim = resetSnapshotReceptionLocked(*ps);
+        releaseAfterClaimNeeded = true;
       }
-      if (!releaseAfterClaim.empty())
+      if (releaseAfterClaimNeeded)
         releaseSnapshotSession(peer, releaseAfterClaim);
     }
   }
@@ -6907,6 +6910,7 @@ void Network::handleSnapshotChunk(const std::string &peer,
   const auto now = std::chrono::steady_clock::now();
 
   std::string releasedSession;
+  bool releaseSessionNeeded = false;
   bool startedImplicit = false;
   std::string implicitSessionId;
   {
@@ -6930,8 +6934,8 @@ void Network::handleSnapshotChunk(const std::string &peer,
         requestMetaRestart("invalid session id");
         auto released = resetSnapshotReceptionLocked(
             *ps, PeerState::SnapState::WaitMeta, true);
-        if (!released.empty())
-          releasedSession = released;
+        releasedSession = released;
+        releaseSessionNeeded = true;
       } else {
         ps->snapState = PeerState::SnapState::WaitChunks;
         ps->snapshotImplicitStart = true;
@@ -6963,16 +6967,16 @@ void Network::handleSnapshotChunk(const std::string &peer,
       requestMetaRestart("unexpected state");
       auto released = resetSnapshotReceptionLocked(
           *ps, PeerState::SnapState::WaitMeta, true);
-      if (!released.empty())
-        releasedSession = released;
+      releasedSession = released;
+      releaseSessionNeeded = true;
     } else if (!isValidSnapshotSessionIdSize(chunk.session_id().size())) {
       std::cerr << "⚠️ [SNAPSHOT] Invalid session id length from " << peer
                 << " (len=" << chunk.session_id().size() << ")\n";
       requestMetaRestart("invalid session id");
       auto released = resetSnapshotReceptionLocked(
           *ps, PeerState::SnapState::WaitMeta, true);
-      if (!released.empty())
-        releasedSession = released;
+      releasedSession = released;
+      releaseSessionNeeded = true;
     } else if ((ps->snapshotSessionId.size() == SNAPSHOT_SESSION_ID_BYTES ||
                 chunk.session_id().size() == SNAPSHOT_SESSION_ID_BYTES) &&
                chunk.session_id() != ps->snapshotSessionId) {
@@ -6982,8 +6986,8 @@ void Network::handleSnapshotChunk(const std::string &peer,
       requestMetaRestart("session mismatch");
       auto released = resetSnapshotReceptionLocked(
           *ps, PeerState::SnapState::WaitMeta, true);
-      if (!released.empty())
-        releasedSession = released;
+      releasedSession = released;
+      releaseSessionNeeded = true;
     } else {
       size_t limit = ps->snapshotChunkLimit;
       if (limit == 0)
@@ -6999,8 +7003,8 @@ void Network::handleSnapshotChunk(const std::string &peer,
         requestMetaRestart("oversized chunk");
         auto released = resetSnapshotReceptionLocked(
             *ps, PeerState::SnapState::WaitMeta, true);
-        if (!released.empty())
-          releasedSession = released;
+        releasedSession = released;
+        releaseSessionNeeded = true;
       } else if (chunk.offset() != ps->snapshotReceived) {
         if (chunk.offset() < ps->snapshotReceived) {
           if (ps->snapshotLastOutOfOrderAck ==
@@ -7029,8 +7033,8 @@ void Network::handleSnapshotChunk(const std::string &peer,
             requestMetaRestart("out of order");
             auto released = resetSnapshotReceptionLocked(
                 *ps, PeerState::SnapState::WaitMeta, true);
-            if (!released.empty())
-              releasedSession = released;
+            releasedSession = released;
+            releaseSessionNeeded = true;
           } else {
             auto insertResult = ps->snapshotDeferredChunks.emplace(
                 chunk.offset(), chunk.data());
@@ -7074,15 +7078,15 @@ void Network::handleSnapshotChunk(const std::string &peer,
         requestMetaRestart("chunk overflow");
         auto released = resetSnapshotReceptionLocked(
             *ps, PeerState::SnapState::WaitMeta, true);
-        if (!released.empty())
-          releasedSession = released;
+        releasedSession = released;
+        releaseSessionNeeded = true;
       } else if (!ps->snapshotMetaReceived) {
         if (!ps->snapshotImplicitStart) {
           requestMetaRestart("metadata missing");
           auto released = resetSnapshotReceptionLocked(
               *ps, PeerState::SnapState::WaitMeta, true);
-          if (!released.empty())
-            releasedSession = released;
+          releasedSession = released;
+          releaseSessionNeeded = true;
         } else if (ps->snapshotPendingBytes + chunk.data().size() >
                    SNAPSHOT_IMPLICIT_BUFFER_LIMIT) {
           std::cerr << "⚠️ [SNAPSHOT] Implicit snapshot buffer exhausted for "
@@ -7093,8 +7097,8 @@ void Network::handleSnapshotChunk(const std::string &peer,
           requestMetaRestart("implicit buffer full");
           auto released = resetSnapshotReceptionLocked(
               *ps, PeerState::SnapState::WaitMeta, true);
-          if (!released.empty())
-            releasedSession = released;
+          releasedSession = released;
+          releaseSessionNeeded = true;
         } else {
           ps->snapshotPendingChunks.push_back(
               PeerState::PendingChunk{chunk.offset(), chunk.data()});
@@ -7139,8 +7143,8 @@ void Network::handleSnapshotChunk(const std::string &peer,
           requestMetaRestart("io failure");
           auto released = resetSnapshotReceptionLocked(
               *ps, PeerState::SnapState::WaitMeta, true);
-          if (!released.empty())
-            releasedSession = released;
+          releasedSession = released;
+          releaseSessionNeeded = true;
         } else {
           bool flushFailed = false;
           while (!ps->snapshotDeferredChunks.empty()) {
@@ -7162,8 +7166,8 @@ void Network::handleSnapshotChunk(const std::string &peer,
             requestMetaRestart("io failure");
             auto released = resetSnapshotReceptionLocked(
                 *ps, PeerState::SnapState::WaitMeta, true);
-            if (!released.empty())
-              releasedSession = released;
+            releasedSession = released;
+            releaseSessionNeeded = true;
           } else {
             if (ps->snapshotExpectBytes > 0 &&
                 ps->snapshotReceived >= ps->snapshotExpectBytes) {
@@ -7206,7 +7210,7 @@ void Network::handleSnapshotChunk(const std::string &peer,
               << " bytes; buffering until metadata arrives\n";
   }
 
-  if (!releasedSession.empty())
+  if (releaseSessionNeeded)
     releaseSnapshotSession(peer, releasedSession);
 
   if (requestRestart && transport && transport->isOpen()) {
@@ -7266,11 +7270,11 @@ void Network::handleSnapshotEnd(const std::string &peer,
       std::lock_guard<std::mutex> lk(ps->m);
       released = resetSnapshotReceptionLocked(*ps, nextState);
     }
-    if (!released.empty())
-      releaseSnapshotSession(peer, released);
+    releaseSnapshotSession(peer, released);
   };
   bool abortEarly = false;
   std::string releaseSession;
+  bool releaseSessionNeeded = false;
   {
     std::lock_guard<std::mutex> lk(ps->m);
     if (ps->snapState == PeerState::SnapState::WaitChunks &&
@@ -7280,15 +7284,15 @@ void Network::handleSnapshotEnd(const std::string &peer,
       std::cerr << "⚠️ [SNAPSHOT] Unexpected end from " << peer
                 << " while state=" << static_cast<int>(ps->snapState) << '\n';
       auto released = resetSnapshotReceptionLocked(*ps);
-      if (!released.empty())
-        releaseSession = released;
+      releaseSession = released;
+      releaseSessionNeeded = true;
       abortEarly = true;
     } else if (!isValidSnapshotSessionIdSize(end.session_id().size())) {
       std::cerr << "⚠️ [SNAPSHOT] End session id length invalid from " << peer
                 << " (len=" << end.session_id().size() << ")\n";
       auto released = resetSnapshotReceptionLocked(*ps);
-      if (!released.empty())
-        releaseSession = released;
+      releaseSession = released;
+      releaseSessionNeeded = true;
       abortEarly = true;
     } else if ((ps->snapshotSessionId.size() == SNAPSHOT_SESSION_ID_BYTES ||
                 end.session_id().size() == SNAPSHOT_SESSION_ID_BYTES) &&
@@ -7297,8 +7301,8 @@ void Network::handleSnapshotEnd(const std::string &peer,
                 << " expected=" << formatSessionId(ps->snapshotSessionId)
                 << " got=" << formatSessionId(end.session_id()) << '\n';
       auto released = resetSnapshotReceptionLocked(*ps);
-      if (!released.empty())
-        releaseSession = released;
+      releaseSession = released;
+      releaseSessionNeeded = true;
       abortEarly = true;
     } else if (ps->snapshotExpectBytes > 0 &&
                ps->snapshotReceived != ps->snapshotExpectBytes) {
@@ -7306,8 +7310,8 @@ void Network::handleSnapshotEnd(const std::string &peer,
                 << " expected " << ps->snapshotExpectBytes << " got "
                 << ps->snapshotReceived << '\n';
       auto released = resetSnapshotReceptionLocked(*ps);
-      if (!released.empty())
-        releaseSession = released;
+      releaseSession = released;
+      releaseSessionNeeded = true;
       abortEarly = true;
     } else {
       if (ps->snapshotExpectBytes == 0)
@@ -7319,8 +7323,8 @@ void Network::handleSnapshotEnd(const std::string &peer,
         std::cerr << "⚠️ [SNAPSHOT] Snapshot sink missing for peer " << peer
                   << '\n';
         auto released = resetSnapshotReceptionLocked(*ps);
-        if (!released.empty())
-          releaseSession = released;
+        releaseSession = released;
+        releaseSessionNeeded = true;
         abortEarly = true;
       } else {
         ps->snapState = PeerState::SnapState::Applying;
@@ -7328,7 +7332,7 @@ void Network::handleSnapshotEnd(const std::string &peer,
     }
   }
 
-  if (!releaseSession.empty())
+  if (releaseSessionNeeded)
     releaseSnapshotSession(peer, releaseSession);
 
   if (abortEarly)
@@ -7342,8 +7346,7 @@ void Network::handleSnapshotEnd(const std::string &peer,
       std::lock_guard<std::mutex> lk(ps->m);
       released = resetSnapshotReceptionLocked(*ps);
     }
-    if (!released.empty())
-      releaseSnapshotSession(peer, released);
+    releaseSnapshotSession(peer, released);
     return;
   }
 
@@ -7624,8 +7627,7 @@ void Network::handleTailBlocks(const std::string &peer,
         state->headerAnchorsRequested.clear();
         state->headerLastBinaryProbe = -1;
       }
-      if (!released.empty())
-        releaseSnapshotSession(peer, released);
+      releaseSnapshotSession(peer, released);
     }
 
     if (peerManager)
@@ -7726,6 +7728,7 @@ void Network::requestSnapshotSync(const std::string &peer) {
   bool skipRequest = false;
   std::string currentSession;
   std::string releasedSession;
+  bool releaseSessionNeeded = false;
   if (ps) {
     {
       std::lock_guard<std::mutex> lk(ps->m);
@@ -7736,13 +7739,13 @@ void Network::requestSnapshotSync(const std::string &peer) {
         skipRequest = true;
       } else {
         auto released = resetSnapshotReceptionLocked(*ps);
-        if (!released.empty())
-          releasedSession = released;
+        releasedSession = released;
+        releaseSessionNeeded = true;
         ps->snapState = PeerState::SnapState::WaitMeta;
         ps->lastSnapshotRetry = std::chrono::steady_clock::now();
       }
     }
-    if (!releasedSession.empty())
+    if (releaseSessionNeeded)
       releaseSnapshotSession(peer, releasedSession);
     if (skipRequest) {
       if (!currentSession.empty() && snapshotSessionMatches(peer, currentSession))
