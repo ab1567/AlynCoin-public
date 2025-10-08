@@ -6193,6 +6193,10 @@ bool Network::snapshotSessionMatches(const std::string &peer,
 }
 
 namespace {
+bool isValidSnapshotSessionIdSize(std::size_t size) {
+  return size == 0 || size == SNAPSHOT_SESSION_ID_BYTES;
+}
+
 std::string formatSessionId(const std::string &sessionId) {
   if (sessionId.empty())
     return "<none>";
@@ -6669,10 +6673,10 @@ void Network::handleSnapshotMeta(const std::string &peer,
   {
     std::lock_guard<std::mutex> lk(ps->m);
     const std::string &rawSession = meta.session_id();
-    if (rawSession.size() != SNAPSHOT_SESSION_ID_BYTES) {
+    if (!isValidSnapshotSessionIdSize(rawSession.size())) {
       std::cerr << "⚠️ [SNAPSHOT] Rejecting metadata from " << peer
                 << ": bad session id length (" << rawSession.size()
-                << ", expected " << SNAPSHOT_SESSION_ID_BYTES << ")\n";
+                << ", expected 0 or " << SNAPSHOT_SESSION_ID_BYTES << ")\n";
       if (!ps->snapshotRestartMetaSent) {
         ps->snapshotRestartMetaSent = true;
         ps->lastSnapshotRetry = now;
@@ -6681,7 +6685,13 @@ void Network::handleSnapshotMeta(const std::string &peer,
       }
       bailEarly = true;
     } else {
-      sessionHex = formatSessionId(rawSession);
+      std::string sessionHexForPath;
+      if (rawSession.empty()) {
+        sessionHex = "<none>";
+      } else {
+        sessionHex = formatSessionId(rawSession);
+        sessionHexForPath = sessionHex;
+      }
       const bool canResumeImplicit =
           ps->snapshotImplicitStart &&
           ps->snapState == PeerState::SnapState::WaitChunks &&
@@ -6697,7 +6707,7 @@ void Network::handleSnapshotMeta(const std::string &peer,
       if (!ps->snapshotSink)
         ps->snapshotSink = std::make_shared<SnapshotFileSink>();
 
-      ps->snapshotTempPath = snapshotTempPath(sessionHex);
+      ps->snapshotTempPath = snapshotTempPath(sessionHexForPath);
       if (!ps->snapshotSink->open(ps->snapshotTempPath, meta.total_bytes())) {
         std::cerr
             << "⚠️ [SNAPSHOT] Failed to prepare snapshot sink for session "
@@ -6913,7 +6923,7 @@ void Network::handleSnapshotChunk(const std::string &peer,
 
     if (ps->snapState == PeerState::SnapState::WaitMeta &&
         ps->snapshotReceived == 0 && chunk.offset() == 0) {
-      if (chunk.session_id().size() != SNAPSHOT_SESSION_ID_BYTES) {
+      if (!isValidSnapshotSessionIdSize(chunk.session_id().size())) {
         std::cerr << "⚠️ [SNAPSHOT] Invalid session id on early chunk from "
                   << peer << " (len=" << chunk.session_id().size()
                   << ")\n";
@@ -6955,7 +6965,16 @@ void Network::handleSnapshotChunk(const std::string &peer,
           *ps, PeerState::SnapState::WaitMeta, true);
       if (!released.empty())
         releasedSession = released;
-    } else if (ps->snapshotSessionId.empty() ||
+    } else if (!isValidSnapshotSessionIdSize(chunk.session_id().size())) {
+      std::cerr << "⚠️ [SNAPSHOT] Invalid session id length from " << peer
+                << " (len=" << chunk.session_id().size() << ")\n";
+      requestMetaRestart("invalid session id");
+      auto released = resetSnapshotReceptionLocked(
+          *ps, PeerState::SnapState::WaitMeta, true);
+      if (!released.empty())
+        releasedSession = released;
+    } else if ((ps->snapshotSessionId.size() == SNAPSHOT_SESSION_ID_BYTES ||
+                chunk.session_id().size() == SNAPSHOT_SESSION_ID_BYTES) &&
                chunk.session_id() != ps->snapshotSessionId) {
       std::cerr << "⚠️ [SNAPSHOT] Session mismatch from " << peer
                 << " expected=" << formatSessionId(ps->snapshotSessionId)
@@ -7198,7 +7217,7 @@ void Network::handleSnapshotChunk(const std::string &peer,
               << " (reason: " << restartReason << ")\n";
   }
 
-  if ((shouldAck || forceAck) && !sessionId.empty() && transport &&
+  if ((shouldAck || forceAck) && transport &&
       transport->isOpen()) {
     alyncoin::net::Frame ack;
     auto *ackMsg = ack.mutable_snapshot_ack();
@@ -7264,7 +7283,15 @@ void Network::handleSnapshotEnd(const std::string &peer,
       if (!released.empty())
         releaseSession = released;
       abortEarly = true;
-    } else if (ps->snapshotSessionId.empty() ||
+    } else if (!isValidSnapshotSessionIdSize(end.session_id().size())) {
+      std::cerr << "⚠️ [SNAPSHOT] End session id length invalid from " << peer
+                << " (len=" << end.session_id().size() << ")\n";
+      auto released = resetSnapshotReceptionLocked(*ps);
+      if (!released.empty())
+        releaseSession = released;
+      abortEarly = true;
+    } else if ((ps->snapshotSessionId.size() == SNAPSHOT_SESSION_ID_BYTES ||
+                end.session_id().size() == SNAPSHOT_SESSION_ID_BYTES) &&
                end.session_id() != ps->snapshotSessionId) {
       std::cerr << "⚠️ [SNAPSHOT] End session mismatch from " << peer
                 << " expected=" << formatSessionId(ps->snapshotSessionId)
