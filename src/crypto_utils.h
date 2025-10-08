@@ -64,6 +64,10 @@ void ensureUserKeys(const std::string &username);
 bool keysExist(const std::string &username);
 void ensureMinerKeys();
 std::string generateMinerAddress();
+bool ensureRsaPublicKey(const std::string &walletName,
+                        const std::string &privateKeyPath,
+                        const std::string &publicKeyPath,
+                        const std::string &passphrase = "");
 
 // Allow callers to resolve either a legacy wallet label or a canonical
 // post-quantum address to the key identifier used on disk.

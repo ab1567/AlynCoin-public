@@ -407,6 +407,12 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
                 return 1;
             }
         }
+        std::string pub = keyDir + keyId + "_public.pem";
+        if (!Crypto::ensureRsaPublicKey(keyId, priv, pub, pass)) {
+            std::cerr << "❌ Wallet load failed: Unable to restore public key at "
+                      << pub << "\n";
+            return 1;
+        }
         try {
             Wallet w(priv, keyDir, keyId, pass);
             Crypto::rememberWalletKeyIdentifier(w.getAddress(), keyId);

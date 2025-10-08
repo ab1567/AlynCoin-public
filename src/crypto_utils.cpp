@@ -32,6 +32,7 @@
 #ifdef _WIN32
 #include <io.h>
 #include <Windows.h>
+#include <cwchar>
 #else
 #include <unistd.h>
 #endif
@@ -49,6 +50,22 @@ extern "C" {
 #define falcon_crypto_sign_verify PQCLEAN_FALCON1024_CLEAN_crypto_sign_verify
 
 namespace fs = std::filesystem;
+
+namespace {
+
+FILE *portableFopen(const fs::path &path, const char *mode) {
+#ifdef _WIN32
+  std::wstring widenMode;
+  for (const char *cursor = mode; *cursor; ++cursor) {
+    widenMode.push_back(static_cast<wchar_t>(*cursor));
+  }
+  return _wfopen(path.c_str(), widenMode.c_str());
+#else
+  return ::fopen(path.c_str(), mode);
+#endif
+}
+
+} // namespace
 
 namespace Crypto {
 
@@ -283,7 +300,7 @@ EVPKeyPtr generateRsaKey(int bits) {
 
 void writePrivateKeyPem(const fs::path& path, EVP_PKEY* key, const std::string& passphrase) {
   ERR_clear_error();
-  std::unique_ptr<FILE, decltype(&::fclose)> file(::fopen(path.string().c_str(), "wb"), &::fclose);
+  std::unique_ptr<FILE, decltype(&::fclose)> file(portableFopen(path, "wb"), &::fclose);
   if (!file) {
     throw std::runtime_error("Failed to open private key file for writing: " + path.string());
   }
@@ -308,7 +325,7 @@ void writePrivateKeyPem(const fs::path& path, EVP_PKEY* key, const std::string& 
 
 void writePublicKeyPem(const fs::path& path, EVP_PKEY* key) {
   ERR_clear_error();
-  std::unique_ptr<FILE, decltype(&::fclose)> file(::fopen(path.string().c_str(), "wb"), &::fclose);
+  std::unique_ptr<FILE, decltype(&::fclose)> file(portableFopen(path, "wb"), &::fclose);
   if (!file) {
     throw std::runtime_error("Failed to open public key file for writing: " + path.string());
   }
@@ -1207,6 +1224,104 @@ bool keysExist(const std::string &username) {
     return fileExists(rsaPriv) && fileExists(rsaPub) &&
            fileExists(dilPriv) && fileExists(dilPub) &&
            fileExists(falPriv) && fileExists(falPub);
+}
+
+bool ensureRsaPublicKey(const std::string &walletName,
+                        const std::string &privateKeyPath,
+                        const std::string &publicKeyPath,
+                        const std::string &passphrase) {
+  const fs::path pubPath(publicKeyPath);
+  const fs::path privPath(privateKeyPath);
+  if (publicKeyPath.empty()) {
+    std::cerr << "⚠️ Public key destination path was empty for wallet '"
+              << walletName << "'.\n";
+    return false;
+  }
+
+  if (fs::exists(pubPath)) {
+    return true;
+  }
+
+  std::cerr << "⚠️ Public key file missing at " << pubPath
+            << ". Attempting regeneration...\n";
+
+  bool regenerated = false;
+
+  if (!privateKeyPath.empty() && fs::exists(privPath)) {
+    ERR_clear_error();
+    std::unique_ptr<FILE, decltype(&::fclose)> privFile(
+        portableFopen(privPath, "rb"), &::fclose);
+    if (privFile) {
+      std::string passCopy = passphrase;
+      void *password = passCopy.empty()
+                            ? nullptr
+                            : static_cast<void *>(const_cast<char *>(passCopy.c_str()));
+      EVP_PKEY *rawKey =
+          PEM_read_PrivateKey(privFile.get(), nullptr, nullptr, password);
+      if (rawKey) {
+        std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)> privateKeyHandle(
+            rawKey, &EVP_PKEY_free);
+        try {
+          if (!pubPath.parent_path().empty()) {
+            fs::create_directories(pubPath.parent_path());
+          }
+          writePublicKeyPem(pubPath, privateKeyHandle.get());
+          regenerated = true;
+        } catch (const std::exception &e) {
+          std::cerr << "⚠️ Failed to derive public key from private key: "
+                    << e.what() << "\n";
+        }
+      } else {
+        unsigned long err = ERR_get_error();
+        if (err != 0) {
+          char buffer[256];
+          ERR_error_string_n(err, buffer, sizeof(buffer));
+          std::cerr << "⚠️ Unable to parse private key '" << privateKeyPath
+                    << "': " << buffer << "\n";
+        } else {
+          std::cerr
+              << "⚠️ Unable to parse private key while regenerating public key"
+              << " for '" << walletName << "'.\n";
+        }
+      }
+    } else {
+      std::cerr << "⚠️ Unable to open private key file: " << privateKeyPath
+                << "\n";
+    }
+  } else if (!privateKeyPath.empty()) {
+    std::cerr << "⚠️ Private key missing when regenerating public key: "
+              << privateKeyPath << "\n";
+  }
+
+  if (!regenerated && !walletName.empty()) {
+    try {
+      std::string regeneratedPem = getPublicKey(walletName);
+      if (!regeneratedPem.empty()) {
+        if (!pubPath.parent_path().empty()) {
+          fs::create_directories(pubPath.parent_path());
+        }
+        std::ofstream out(pubPath, std::ios::binary);
+        if (out) {
+          out << regeneratedPem;
+          regenerated = true;
+        } else {
+          std::cerr << "⚠️ Unable to write regenerated public key to: "
+                    << pubPath << "\n";
+        }
+      }
+    } catch (const std::exception &e) {
+      std::cerr << "⚠️ Fallback public key regeneration failed: " << e.what()
+                << "\n";
+    }
+  }
+
+  if (!regenerated && !fs::exists(pubPath)) {
+    std::cerr << "❌ Public key file is still missing after regeneration attempts: "
+              << pubPath << "\n";
+    return false;
+  }
+
+  return true;
 }
 // ✅ Ensure Miner Keys Exist (Auto-Handling)
 void ensureMinerKeys() {
