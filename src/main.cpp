@@ -913,9 +913,9 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
       else if (method == "stats") {
         nlohmann::json stats = {
             {"blocks", blockchain->getBlockCount()},
-            {"difficulty", calculateSmartDifficulty(*blockchain)},
+            {"difficulty", blockchain->getCurrentDifficulty()},
             {"supply", blockchain->getTotalSupply()},
-            {"block_reward", blockchain->getBlockReward()},
+            {"block_reward", blockchain->getCurrentBlockReward()},
             {"burned", blockchain->getTotalBurnedSupply()},
             {"devfund", blockchain->getBalance("DevFundWallet")}};
         output = {{"result", stats}};
@@ -1671,8 +1671,9 @@ static bool handleNodeMenuSelection(int choice, Blockchain &blockchain,
   case 1: {
     std::cout << "\n=== Blockchain Stats ===\n";
     std::cout << "Total Blocks: " << blockchain.getBlockCount() << "\n";
-    std::cout << "Difficulty: " << calculateSmartDifficulty(blockchain)
-              << "\n";
+    std::cout << "Difficulty: " << blockchain.getCurrentDifficulty() << "\n";
+    std::cout << "Block Reward: " << blockchain.getCurrentBlockReward()
+              << " AlynCoin\n";
     std::cout << "Total Supply: " << blockchain.getTotalSupply()
               << " AlynCoin\n";
     std::cout << "Total Burned Supply: " << blockchain.getTotalBurnedSupply()
@@ -2139,7 +2140,9 @@ int main(int argc, char *argv[]) {
     Blockchain &b = Blockchain::getInstance();
     std::cout << "\n=== Blockchain Stats ===\n";
     std::cout << "Total Blocks: " << b.getBlockCount() << "\n";
-    std::cout << "Difficulty: " << calculateSmartDifficulty(b) << "\n";
+    std::cout << "Difficulty: " << b.getCurrentDifficulty() << "\n";
+    std::cout << "Block Reward: " << b.getCurrentBlockReward()
+              << " AlynCoin\n";
     std::cout << "Total Supply: " << b.getTotalSupply() << " AlynCoin\n";
     std::cout << "Total Burned Supply: " << b.getTotalBurnedSupply()
               << " AlynCoin\n";
