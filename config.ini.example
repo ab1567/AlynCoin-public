@@ -15,6 +15,7 @@ reserve_address=
 por_expected_walyn=0
 external_address=
 hide_peer_endpoints=true
+peer_log_mode=tag           # off|tag|masked|full (defaults to tag)
 
 # Validation & sync tuning
 #quiet_sync_logs=true        # suppress per-block validation logging

@@ -82,6 +82,13 @@ void loadConfigFile(const std::string &path) {
             cfg.external_address = line.substr(17);
         } else if (line.rfind("hide_peer_endpoints=", 0) == 0) {
             cfg.hide_peer_endpoints = parseBool(line.substr(20));
+        } else if (line.rfind("peer_log_mode=", 0) == 0) {
+            std::string mode = trim(line.substr(14));
+            std::transform(mode.begin(), mode.end(), mode.begin(), [](unsigned char c) {
+                return static_cast<char>(std::tolower(c));
+            });
+            if (!mode.empty())
+                cfg.peer_log_mode = std::move(mode);
         } else if (line.rfind("quiet_sync_logs=", 0) == 0) {
             cfg.quiet_sync_logs = parseBool(line.substr(16));
         } else if (line.rfind("fast_sync=", 0) == 0) {
@@ -156,6 +163,15 @@ void loadConfigFile(const std::string &path) {
             }
         }
     };
+
+    if (const char *env = std::getenv("ALYN_PEER_LOG_MODE")) {
+        std::string mode = trim(env);
+        std::transform(mode.begin(), mode.end(), mode.begin(), [](unsigned char c) {
+            return static_cast<char>(std::tolower(c));
+        });
+        if (!mode.empty())
+            cfg.peer_log_mode = std::move(mode);
+    }
 
     applyEnvBool("ALYN_QUIET_SYNC", cfg.quiet_sync_logs);
     applyEnvBool("ALYN_FAST_SYNC", cfg.fast_sync);
