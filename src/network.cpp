@@ -410,6 +410,26 @@ static bool isShareableAddress(const std::string &ip) {
   }
 }
 
+static bool isBlockedServicePort(int port) {
+  if (port <= 0 || port > 65535)
+    return true;
+
+  // Avoid connecting to privileged or well-known service ports. Nodes are
+  // expected to operate on high, unprivileged ports and gossiping standard
+  // service ports such as 22/80/443 is almost certainly the result of a
+  // misconfiguration or malicious advertisement.
+  if (port < 1024)
+    return true;
+
+  // A handful of additional ports are routinely bound by local network
+  // services (e.g. multicast discovery) that will never speak the alyncoin
+  // protocol and could generate noisy log spam if we attempt to dial them.
+  static const std::array<int, 6> kExtraBlockedPorts{1900, 3702, 5353, 5355,
+                                                     17500, 32414};
+  return std::find(kExtraBlockedPorts.begin(), kExtraBlockedPorts.end(), port) !=
+         kExtraBlockedPorts.end();
+}
+
 
 static bool addressesEqual(const std::string &lhs, const std::string &rhs) {
   if (lhs.empty() || rhs.empty())
