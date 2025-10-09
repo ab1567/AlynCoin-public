@@ -930,6 +930,18 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
             {"block_reward", blockchain->getCurrentBlockReward()},
             {"burned", blockchain->getTotalBurnedSupply()},
             {"devfund", blockchain->getBalance("DevFundWallet")}};
+        if (network) {
+          Network::NatStatus nat = network->getNatStatus();
+          nlohmann::json natJson = {{"attempted", nat.attempted},
+                                    {"success", nat.success},
+                                    {"upnp", nat.usedUpnp},
+                                    {"natpmp", nat.usedNatpmp}};
+          if (!nat.externalIp.empty())
+            natJson["external_ip"] = nat.externalIp;
+          if (!nat.error.empty())
+            natJson["error"] = nat.error;
+          stats["nat"] = std::move(natJson);
+        }
         output = {{"result", stats}};
       }
       //

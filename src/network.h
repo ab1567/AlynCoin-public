@@ -38,6 +38,14 @@ static_assert(alyncoin::net::Frame::kBlockBatch == 7,
 
 class Network {
 public:
+  struct NatStatus {
+    bool attempted{false};
+    bool success{false};
+    bool usedUpnp{false};
+    bool usedNatpmp{false};
+    std::string externalIp;
+    std::string error;
+  };
   friend class HeadersSync;
   // Singleton initialization
   inline static bool autoMineEnabled = true;
@@ -205,6 +213,7 @@ public:
                              bool triggerBroadcast = true,
                              bool markVerified = false,
                              const std::string &originPeer = "");
+  NatStatus getNatStatus() const;
   bool isStaticallyDeniedEndpoint(const std::string &host, int port) const;
   void startDiscoveryLoops();
   void stopDiscoveryLoops();
@@ -238,6 +247,8 @@ private:
   std::string configuredExternalAddress;
   bool configuredExternalExplicit{false};
   std::atomic<bool> hairpinCheckAttempted{false};
+  mutable std::mutex natStatusMutex;
+  NatStatus natStatus_;
   std::string nodeId; // stable identifier for this node
   uint64_t localHandshakeNonce{0};
   struct ActiveSnapshotSession {
@@ -282,6 +293,7 @@ private:
   mutable std::mutex gossipMutex;
   mutable std::mutex peerBroadcastMutex;
   std::chrono::steady_clock::time_point lastPeerRebroadcast{};
+  std::chrono::steady_clock::time_point lastGlobalPeerListBroadcast{};
   std::atomic<bool> peerFileLoaded{false};
   PeerBlacklist *blacklist;
   std::unordered_set<std::string> seenTxHashes;

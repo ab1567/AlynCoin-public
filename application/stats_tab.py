@@ -4,7 +4,7 @@ from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtGui import QFont, QColor
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QTextEdit, QPushButton
 
-from rpc_client import fetch_peer_status, safe_alyncoin_rpc
+from rpc_client import RPC_PORT, fetch_peer_status, safe_alyncoin_rpc
 
 class StatsTab(QWidget):
     restartFinished = pyqtSignal(bool, str)
@@ -143,6 +143,32 @@ class StatsTab(QWidget):
                 self.appendText(f"🔥 Total Burned: {result['burned']} AlynCoin", color="red")
             if "devfund" in result:
                 self.appendText(f"🏛️ Dev Fund Balance: {result['devfund']} AlynCoin", color="cyan")
+            nat = result.get("nat")
+            if isinstance(nat, dict):
+                attempted = bool(nat.get("attempted"))
+                success = bool(nat.get("success"))
+                method_bits = []
+                if nat.get("upnp"):
+                    method_bits.append("UPnP")
+                if nat.get("natpmp"):
+                    method_bits.append("NAT-PMP")
+                method = " / ".join(method_bits) if method_bits else "auto"
+                if success:
+                    ip = nat.get("external_ip") or "unknown"
+                    self.appendText(
+                        f"🌐 Port mapping active via {method} → {ip}:{RPC_PORT}",
+                        color="green",
+                    )
+                elif attempted:
+                    error = nat.get("error") or "automatic port mapping failed"
+                    self.appendText(
+                        f"⚠️ NAT traversal: {error}",
+                        color="orange",
+                    )
+                else:
+                    info = nat.get("error")
+                    if info:
+                        self.appendText(f"ℹ️ NAT traversal: {info}", color="orange")
         except Exception as e:
             self.appendText(f"❌ Error parsing stats: {e}", color="red")
 
