@@ -35,6 +35,7 @@ void loadConfigFile(const std::string &path) {
     };
 
     bool seedsReset = false;
+    bool staticSeedsReset = false;
 
     auto addStaticDeny = [&](std::string value) {
         value = trim(std::move(value));
@@ -121,6 +122,20 @@ void loadConfigFile(const std::string &path) {
                                        });
             if (exists == cfg.seed_hosts.end())
                 cfg.seed_hosts.push_back(std::move(host));
+        } else if (line.rfind("static_seed=", 0) == 0) {
+            std::string entry = trim(line.substr(12));
+            if (entry.empty())
+                continue;
+            if (!staticSeedsReset) {
+                cfg.static_seed_endpoints.clear();
+                staticSeedsReset = true;
+            }
+            auto exists = std::find_if(cfg.static_seed_endpoints.begin(), cfg.static_seed_endpoints.end(),
+                                       [&](const std::string &existing) {
+                                           return existing == entry;
+                                       });
+            if (exists == cfg.static_seed_endpoints.end())
+                cfg.static_seed_endpoints.push_back(std::move(entry));
         } else if (line.rfind("no_self_dial=", 0) == 0) {
             cfg.no_self_dial = parseBool(line.substr(13));
         } else if (line.rfind("peer_blacklist", 0) == 0) {

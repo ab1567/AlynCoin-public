@@ -21,6 +21,10 @@ struct AppConfig {
     bool allow_peer_exchange = true;        // accept peers learned from gossip
     bool allow_manual_peers = false;        // ignore peers.txt/--connect overrides
     std::vector<std::string> seed_hosts{"peers.alyncoin.com"};
+    std::vector<std::string> static_seed_endpoints{
+        "seed1.alyncoin.com:15671",
+        "seed2.alyncoin.com:15671",
+    };
     bool no_self_dial = true;               // guard against dialing our own endpoint
     std::vector<std::string> static_peer_deny; // host[:port] entries to skip outbound dials
     bool require_peer_for_mining = true;    // enforce >=1 connected peer before mining

@@ -445,7 +445,7 @@ class AlynCoinApp(QMainWindow):
         self.initUI(get_logo_path())
         self.applyDarkTheme()
         self.appendOutput(
-            "ℹ️ Peer connections are restored automatically from peers.txt. "
+            "ℹ️ Peer connections are restored automatically from known_peers.txt. "
             "Use the Stats tab to review current peers."
         )
 

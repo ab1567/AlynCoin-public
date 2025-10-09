@@ -298,76 +298,104 @@ static std::string ipPrefix(const std::string &ip) {
   return count == 3 ? out : std::string();
 }
 
-static bool isRoutableAddress(const std::string &ip) {
-  try {
-    const auto addr = boost::asio::ip::make_address(ip);
-    if (addr.is_unspecified() || addr.is_loopback() || addr.is_multicast())
-      return false;
-    if (addr.is_v4()) {
-      const auto bytes = addr.to_v4().to_bytes();
-      if (bytes[0] == 0)
-        return false;
-      if (bytes[0] == 10)
-        return false;
-      if (bytes[0] == 127)
-        return false;
-      if (bytes[0] == 169 && bytes[1] == 254)
-        return false; // 169.254.0.0/16 link-local
-      if (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31)
-        return false;
-      if (bytes[0] == 192 && bytes[1] == 168)
-        return false;
-      if (bytes[0] == 198 && (bytes[1] == 18 || bytes[1] == 19))
-        return false; // benchmarking
-      if (bytes[0] == 100 && bytes[1] >= 64 && bytes[1] <= 127)
-        return false; // carrier-grade NAT
+
+static std::string toLowerCopy(const std::string &value) {
+  std::string lowered;
+  lowered.reserve(value.size());
+  for (char c : value)
+    lowered.push_back(static_cast<char>(
+        std::tolower(static_cast<unsigned char>(c))));
+  return lowered;
+}
+
+static bool isPrivateOrReservedIPv4(const std::string &ip) {
+  boost::system::error_code ec;
+  auto address = boost::asio::ip::make_address_v4(ip, ec);
+  if (ec)
+    return false;
+  const auto bytes = address.to_bytes();
+  if (bytes[0] == 0)
+    return true;
+  if (bytes[0] == 10)
+    return true;
+  if (bytes[0] == 127)
+    return true;
+  if (bytes[0] == 169 && bytes[1] == 254)
+    return true;
+  if (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31)
+    return true;
+  if (bytes[0] == 192 && bytes[1] == 168)
+    return true;
+  if (bytes[0] == 198 && (bytes[1] == 18 || bytes[1] == 19))
+    return true;
+  if (bytes[0] == 100 && bytes[1] >= 64 && bytes[1] <= 127)
+    return true;
+  return false;
+}
+
+static bool isUnroutable(const std::string &ip) {
+  if (ip.empty())
+    return true;
+
+  const std::string lower = toLowerCopy(ip);
+  if (lower == "localhost" || lower == "127.0.0.1" || lower == "::1")
+    return true;
+
+  boost::system::error_code ec;
+  auto address = boost::asio::ip::make_address(ip, ec);
+  if (!ec) {
+    if (address.is_unspecified() || address.is_loopback() ||
+        address.is_multicast())
       return true;
-    }
-    const auto v6 = addr.to_v6();
+
+    if (address.is_v4())
+      return isPrivateOrReservedIPv4(ip);
+
+    const auto v6 = address.to_v6();
     if (v6.is_loopback() || v6.is_link_local() || v6.is_site_local())
-      return false;
+      return true;
+
     const auto bytes = v6.to_bytes();
     if ((bytes[0] & 0xFE) == 0xFC)
-      return false; // fc00::/7 unique local
+      return true; // fc00::/7 unique local
+    if (bytes[0] == 0xFE && (bytes[1] & 0xC0) == 0x80)
+      return true; // fe80::/10 link-local
+    return false;
+  }
+
+  if (lower.size() >= 6 && lower.rfind(".local") == lower.size() - 6)
     return true;
+  if (lower.size() >= 4 && lower.rfind(".lan") == lower.size() - 4)
+    return true;
+  if (lower.size() >= 5 && lower.rfind(".home") == lower.size() - 5)
+    return true;
+  if (lower.size() >= 9 && lower.rfind(".internal") == lower.size() - 9)
+    return true;
+  if (lower.find(' ') != std::string::npos)
+    return true;
+  return false;
+}
+
+static bool isRoutableAddress(const std::string &ip) {
+  if (isUnroutable(ip))
+    return false;
+  try {
+    const auto addr = boost::asio::ip::make_address(ip);
+    return !addr.is_unspecified() && !addr.is_multicast();
   } catch (const std::exception &) {
     return false;
   }
 }
 
-static bool isBlockedServicePort(int port) {
-  static const std::array<int, 11> blocked = {
-      0, 1, 7, 19, 25, 53, 123, 135, 137, 161, 3389};
-  return std::find(blocked.begin(), blocked.end(), port) != blocked.end();
-}
-
 static bool isShareableAddress(const std::string &ip) {
-  if (ip.empty())
+  if (isUnroutable(ip))
     return false;
   try {
     const auto addr = boost::asio::ip::make_address(ip);
-    if (addr.is_unspecified() || addr.is_loopback() || addr.is_multicast())
+    if (addr.is_unspecified() || addr.is_multicast())
       return false;
-    if (addr.is_v4()) {
-      const auto bytes = addr.to_v4().to_bytes();
-      if (bytes[0] == 0)
-        return false;
-      if (bytes[0] == 10)
-        return false;
-      if (bytes[0] == 127)
-        return false;
-      if (bytes[0] == 169 && bytes[1] == 254)
-        return false;
-      if (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31)
-        return false;
-      if (bytes[0] == 192 && bytes[1] == 168)
-        return false;
-      if (bytes[0] == 198 && (bytes[1] == 18 || bytes[1] == 19))
-        return false;
-      if (bytes[0] == 100 && bytes[1] >= 64 && bytes[1] <= 127)
-        return false;
-      return true;
-    }
+    if (addr.is_v4())
+      return !isPrivateOrReservedIPv4(ip);
     const auto v6 = addr.to_v6();
     if (v6.is_loopback() || v6.is_link_local() || v6.is_site_local())
       return false;
@@ -378,30 +406,10 @@ static bool isShareableAddress(const std::string &ip) {
       return false;
     return true;
   } catch (const std::exception &) {
-    std::string lower;
-    lower.reserve(ip.size());
-    for (char c : ip)
-      lower.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
-    if (lower.size() >= 6 && lower.rfind(".local") == lower.size() - 6)
-      return false;
-    if (lower.size() >= 4 && lower.rfind(".lan") == lower.size() - 4)
-      return false;
-    if (lower.size() >= 5 && lower.rfind(".home") == lower.size() - 5)
-      return false;
-    if (lower.size() >= 9 && lower.rfind(".internal") == lower.size() - 9)
-      return false;
-    return lower.find(' ') == std::string::npos;
+    return true;
   }
 }
 
-static std::string toLowerCopy(const std::string &value) {
-  std::string lowered;
-  lowered.reserve(value.size());
-  for (char c : value)
-    lowered.push_back(static_cast<char>(
-        std::tolower(static_cast<unsigned char>(c))));
-  return lowered;
-}
 
 static bool addressesEqual(const std::string &lhs, const std::string &rhs) {
   if (lhs.empty() || rhs.empty())
@@ -1672,6 +1680,16 @@ std::vector<PeerFileEntry> gatherBootstrapPeers() {
   for (const auto &seed : DEFAULT_DNS_PEERS)
     addCandidate(seed);
 
+  const auto &cfg = getAppConfig();
+  for (const auto &entry : cfg.static_seed_endpoints) {
+    auto parsed = parseEndpoint(entry, DEFAULT_PORT);
+    if (parsed.first.empty() || parsed.second == 0)
+      continue;
+    if (isUnroutable(parsed.first))
+      continue;
+    addCandidate(formatEndpointForWire(parsed.first, parsed.second));
+  }
+
   for (const auto &host : effectiveSeedHosts()) {
     auto dnsPeers = fetchPeersFromDNS(host);
     for (const auto &seed : dnsPeers)
@@ -2381,6 +2399,12 @@ void Network::broadcastPeerList(const std::string &excludePeer) {
 
   auto now = std::chrono::steady_clock::now();
   {
+    std::lock_guard<std::mutex> guard(peerBroadcastMutex);
+    if (lastGlobalPeerListBroadcast != std::chrono::steady_clock::time_point{} &&
+        now - lastGlobalPeerListBroadcast < PEERLIST_RATE_LIMIT)
+      return;
+  }
+  {
     std::lock_guard<std::mutex> gossipLock(gossipMutex);
     for (auto it = knownPeerEndpoints.begin(); it != knownPeerEndpoints.end();) {
       auto &rec = it->second;
@@ -2442,6 +2466,11 @@ void Network::broadcastPeerList(const std::string &excludePeer) {
 
   if (pl->peers_size() == 0)
     return;
+
+  {
+    std::lock_guard<std::mutex> guard(peerBroadcastMutex);
+    lastGlobalPeerListBroadcast = std::chrono::steady_clock::now();
+  }
 
   for (const auto &tx : sinks)
     sendFrame(tx, peerListFrame);
@@ -2848,8 +2877,17 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
 
   std::cout << "✅ Registered peer: " << claimedPeerId << '\n';
 
-  const std::string shareHost = canonicalIp.empty() ? realPeerId : canonicalIp;
-  noteShareableEndpoint(shareHost, finalPort, true, true, claimedPeerId);
+  std::string shareHost = canonicalIp;
+  if (!shareHost.empty() && !isShareableAddress(shareHost))
+    shareHost.clear();
+  if (shareHost.empty() && isShareableAddress(senderIP))
+    shareHost = senderIP;
+  if (shareHost.empty() && isShareableAddress(realPeerId))
+    shareHost = realPeerId;
+  if (!shareHost.empty()) {
+    noteShareableEndpoint(shareHost, finalPort, true, true, claimedPeerId);
+    rememberPeerEndpoint(shareHost, finalPort);
+  }
 
   // ── 4. push our handshake back ──────────────────────────────────────────
   {
@@ -2959,7 +2997,7 @@ void Network::run() {
           continue;
         if ((ip == "127.0.0.1" || ip == "localhost") && remotePort == this->port)
           continue;
-        if (ip == "127.0.0.1" || ip == "localhost")
+        if (isUnroutable(ip))
           continue;
         if (isSelfEndpoint(ip, remotePort)) {
           recordSelfEndpoint(ip, remotePort);
@@ -3085,6 +3123,18 @@ void Network::configureNatTraversal() {
 #if defined(ALYN_ENABLE_NAT_TRAVERSAL)
   AppConfig cfg = getAppConfig();
   if (!cfg.enable_upnp && !cfg.enable_natpmp) {
+    {
+      std::lock_guard<std::mutex> lock(natStatusMutex);
+      natStatus_.attempted = false;
+      natStatus_.success = false;
+      natStatus_.usedUpnp = false;
+      natStatus_.usedNatpmp = false;
+      natStatus_.externalIp.clear();
+      natStatus_.error =
+          configuredExternalExplicit
+              ? std::string()
+              : std::string("Automatic port mapping disabled by configuration");
+    }
     if (!configuredExternalExplicit)
       std::cout << "ℹ️  [Network] NAT traversal disabled by config; advertising "
                    "bound interfaces only.\n";
@@ -3092,38 +3142,93 @@ void Network::configureNatTraversal() {
   }
 
   std::thread([this, cfg]() {
+    const bool upnpEnabled = cfg.enable_upnp;
+    const bool natpmpEnabled = cfg.enable_natpmp;
     auto endpoint = determineAnnounceEndpoint();
-    if (!endpoint.first.empty() && isRoutableAddress(endpoint.first))
+    if (!endpoint.first.empty() && isRoutableAddress(endpoint.first)) {
+      std::lock_guard<std::mutex> lock(natStatusMutex);
+      natStatus_.attempted = false;
+      natStatus_.success = true;
+      natStatus_.usedUpnp = false;
+      natStatus_.usedNatpmp = false;
+      natStatus_.externalIp = endpoint.first;
+      natStatus_.error.clear();
       return;
-
+    }
+    {
+      std::lock_guard<std::mutex> lock(natStatusMutex);
+      natStatus_.attempted = upnpEnabled || natpmpEnabled;
+      natStatus_.success = false;
+      natStatus_.usedUpnp = false;
+      natStatus_.usedNatpmp = false;
+      natStatus_.externalIp.clear();
+      natStatus_.error.clear();
+    }
     auto deadline = std::chrono::steady_clock::now() +
                     std::chrono::seconds(1);
     std::optional<std::string> natAddress;
+    bool upnpSuccess = false;
+    bool natpmpSuccess = false;
 
 #if defined(HAVE_MINIUPNPC)
-    if (cfg.enable_upnp)
-      natAddress = tryUPnPPortMapping(this->port);
+    if (cfg.enable_upnp) {
+      auto mapped = tryUPnPPortMapping(this->port);
+      if (mapped && !mapped->empty()) {
+        natAddress = mapped;
+        upnpSuccess = true;
+      }
+    }
 #endif
 #if defined(HAVE_LIBNATPMP)
     if (cfg.enable_natpmp && (!natAddress || natAddress->empty()) &&
         std::chrono::steady_clock::now() < deadline) {
       auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
           deadline - std::chrono::steady_clock::now());
-      natAddress =
+      auto mapped =
           tryNATPMPPortMapping(this->port, static_cast<int>(remaining.count()));
+      if (mapped && !mapped->empty()) {
+        natAddress = mapped;
+        natpmpSuccess = true;
+      }
     }
 #endif
-    if (!configuredExternalExplicit && natAddress && !natAddress->empty()) {
+    const bool success = natAddress && !natAddress->empty();
+    {
+      std::lock_guard<std::mutex> lock(natStatusMutex);
+      natStatus_.attempted = upnpEnabled || natpmpEnabled;
+      natStatus_.success = success;
+      natStatus_.usedUpnp = upnpSuccess;
+      natStatus_.usedNatpmp = natpmpSuccess;
+      if (success) {
+        natStatus_.externalIp = *natAddress;
+        natStatus_.error.clear();
+      } else {
+        natStatus_.externalIp.clear();
+        if (natStatus_.attempted)
+          natStatus_.error =
+              "Automatic port mapping failed";
+      }
+    }
+    if (!configuredExternalExplicit && success) {
       recordExternalAddress(*natAddress, this->port);
       runHairpinCheck();
-    } else if ((!natAddress || natAddress->empty()) &&
-               !configuredExternalExplicit) {
-      std::cerr <<
-          "⚠️ [Network] NAT traversal failed; set external_address in config or "
-          "manually forward port." << std::endl;
+    } else if (!success && !configuredExternalExplicit) {
+      std::cerr << "⚠️ [Network] NAT traversal failed; set external_address in "
+                   "config or manually forward port." << std::endl;
     }
   }).detach();
 #else
+  {
+    std::lock_guard<std::mutex> lock(natStatusMutex);
+    natStatus_.attempted = false;
+    natStatus_.success = false;
+    natStatus_.usedUpnp = false;
+    natStatus_.usedNatpmp = false;
+    natStatus_.externalIp.clear();
+    natStatus_.error = configuredExternalExplicit
+                           ? std::string()
+                           : std::string("NAT traversal disabled at build time");
+  }
   if (!configuredExternalExplicit)
     std::cout << "ℹ️  [Network] NAT traversal disabled at compile time; "
                  "listening on bound interfaces only.\n";
@@ -3307,8 +3412,8 @@ void Network::connectToDiscoveredPeers() {
       recordSelfEndpoint(ip, port);
       continue;
     }
-    if (ip == "127.0.0.1" || ip == "localhost")
-      continue;
+        if (isUnroutable(ip))
+          continue;
     connectToNode(ip, port);
   }
 }
@@ -5313,7 +5418,13 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     resetPeerSyncState(finalKey);
     applySyncModeToPeerState(finalKey, PeerSyncProgress::Mode::Idle);
 
-    const std::string shareHost = canonicalIp.empty() ? host : canonicalIp;
+    std::string shareHost = canonicalIp;
+    if (!shareHost.empty() && !isShareableAddress(shareHost))
+      shareHost.clear();
+    if (shareHost.empty() && isShareableAddress(socketIp))
+      shareHost = socketIp;
+    if (shareHost.empty() && isShareableAddress(host))
+      shareHost = host;
     {
       std::lock_guard<std::mutex> gossipLock(gossipMutex);
       auto itDial = knownPeerEndpoints.find(makeEndpointLabel(host, remotePort));
@@ -5323,7 +5434,10 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
         itDial->second.lastSuccess = std::chrono::steady_clock::now();
       }
     }
-    noteShareableEndpoint(shareHost, advertisedPort, true, true, finalKey);
+    if (!shareHost.empty()) {
+      noteShareableEndpoint(shareHost, advertisedPort, true, true, finalKey);
+      rememberPeerEndpoint(shareHost, advertisedPort);
+    }
 
     /* pick correct sync action now */
     Blockchain &chain = Blockchain::getInstance();
@@ -5404,6 +5518,7 @@ void Network::loadPeers() {
 
   bool connected = false;
   bool attemptedCacheDial = false;
+  bool attemptedStaticDial = false;
   bool cacheAdded = false;
   std::vector<PeerFileEntry> cachedPeers;
   {
@@ -5449,7 +5564,7 @@ void Network::loadPeers() {
       recordSelfEndpoint(entry.host, entry.port);
       continue;
     }
-    if (entry.host == "127.0.0.1" || entry.host == "localhost")
+    if (isUnroutable(entry.host))
       continue;
     if (noteShareableEndpoint(entry.host, entry.port, false))
       cacheAdded = true;
@@ -5460,6 +5575,48 @@ void Network::loadPeers() {
   }
 
   if (cacheAdded)
+    broadcastPeerList();
+
+  std::vector<PeerFileEntry> staticSeeds;
+  {
+    std::unordered_set<std::string> added;
+    for (const auto &entry : cfg.static_seed_endpoints) {
+      auto parsed = parseEndpoint(entry, DEFAULT_PORT);
+      if (parsed.first.empty() || parsed.second <= 0)
+        continue;
+      std::string label = makeEndpointLabel(parsed.first, parsed.second);
+      if (!added.insert(label).second)
+        continue;
+      PeerFileEntry seed;
+      seed.host = parsed.first;
+      seed.port = parsed.second;
+      staticSeeds.push_back(std::move(seed));
+    }
+  }
+
+  attemptedStaticDial = !staticSeeds.empty();
+  if (attemptedStaticDial)
+    std::cout << "ℹ️  [loadPeers] Contacting " << staticSeeds.size()
+              << " static seed(s)." << std::endl;
+
+  bool staticAdded = false;
+  for (const auto &entry : staticSeeds) {
+    if (isSelfEndpoint(entry.host, entry.port)) {
+      recordSelfEndpoint(entry.host, entry.port);
+      continue;
+    }
+    if (isUnroutable(entry.host))
+      continue;
+    if (noteShareableEndpoint(entry.host, entry.port, false, false,
+                              "static_seed"))
+      staticAdded = true;
+    if (connectToNode(entry.host, entry.port)) {
+      connected = true;
+      rememberPeerEndpoint(entry.host, entry.port);
+    }
+  }
+
+  if (staticAdded)
     broadcastPeerList();
 
   std::vector<PeerFileEntry> manualPeers;
@@ -5495,7 +5652,7 @@ void Network::loadPeers() {
         recordSelfEndpoint(entry.host, entry.port);
         continue;
       }
-      if (entry.host == "127.0.0.1" || entry.host == "localhost")
+      if (isUnroutable(entry.host))
         continue;
       if (noteShareableEndpoint(entry.host, entry.port, false))
         manualAdded = true;
@@ -5537,7 +5694,7 @@ void Network::loadPeers() {
         recordSelfEndpoint(entry.host, entry.port);
         continue;
       }
-      if (entry.host == "127.0.0.1" || entry.host == "localhost")
+      if (isUnroutable(entry.host))
         continue;
       if (noteShareableEndpoint(entry.host, entry.port, false))
         added = true;
@@ -5560,7 +5717,7 @@ void Network::loadPeers() {
   if (attemptedCacheDial)
     std::cerr << "⚠️ [loadPeers] Cached peers were unreachable; falling back to discovery sources." << std::endl;
 
-  if (!attemptedManualDial && !attemptedBootstrap) {
+  if (!attemptedManualDial && !attemptedBootstrap && !attemptedStaticDial) {
     std::cout << "ℹ️  [loadPeers] No peer discovery sources enabled; waiting for inbound connections." << std::endl;
   } else {
     std::cerr << "⚠️ [loadPeers] Unable to reach any peers from configured sources.\n";
@@ -5609,7 +5766,7 @@ void Network::scanForPeers() {
         recordSelfEndpoint(ip, peerPort);
         continue;
       }
-      if (ip == "127.0.0.1" || ip == "localhost")
+      if (isUnroutable(ip))
         continue;
       if (noteShareableEndpoint(ip, peerPort, false))
         shareableAdded = true;
@@ -5715,6 +5872,8 @@ bool Network::noteShareableEndpoint(const std::string &host, int port,
     return false;
   if (isBlockedServicePort(port))
     return false;
+  if (isUnroutable(host))
+    return false;
   if (!isShareableAddress(host))
     return false;
 
@@ -5768,6 +5927,11 @@ bool Network::noteShareableEndpoint(const std::string &host, int port,
   }
 
   return inserted || promoted;
+}
+
+Network::NatStatus Network::getNatStatus() const {
+  std::lock_guard<std::mutex> lock(natStatusMutex);
+  return natStatus_;
 }
 
 bool Network::ensureEndpointCapacityLocked(bool incomingVerified) {
@@ -5837,7 +6001,7 @@ bool Network::ensureEndpointCapacityLocked(bool incomingVerified) {
 }
 
 void Network::rememberPeerEndpoint(const std::string &ip, int port) {
-  if (ip == "127.0.0.1" || ip == "localhost")
+  if (isUnroutable(ip))
     return;
   if (isSelfEndpoint(ip, port)) {
     recordSelfEndpoint(ip, port);
