@@ -625,6 +625,7 @@ static std::chrono::milliseconds randomBroadcastDelay() {
 
 static constexpr std::chrono::seconds MIN_DIAL_BACKOFF{5};
 static constexpr std::chrono::seconds MAX_DIAL_BACKOFF{std::chrono::minutes(10)};
+static constexpr std::size_t MAX_KNOWN_PEER_DIALS_PER_CYCLE{6};
 
 static std::chrono::seconds computeDialBackoff(int failures) {
   int capped = std::min(failures, 6);
@@ -2542,9 +2543,10 @@ void Network::bootstrapLoop() {
   int backoff = 5;
   while (loopsRunning_) {
     const auto &cfg = getAppConfig();
-    if (!cfg.offline_mode && cfg.allow_dns_bootstrap &&
-        getConnectedPeerCount() == 0) {
-      scanForPeers();
+    if (!cfg.offline_mode && getConnectedPeerCount() == 0) {
+      dialKnownPeers(MAX_KNOWN_PEER_DIALS_PER_CYCLE);
+      if (cfg.allow_dns_bootstrap)
+        scanForPeers();
     }
 
     bool havePeers = getConnectedPeerCount() > 0;
@@ -5745,6 +5747,95 @@ void Network::loadPeers() {
 }
 
 //
+bool Network::dialKnownPeers(std::size_t maxAttempts) {
+  if (maxAttempts == 0)
+    return false;
+
+  struct Candidate {
+    std::string host;
+    int port{0};
+    bool verified{false};
+    int failureCount{0};
+    std::chrono::steady_clock::time_point lastSuccess{};
+    std::chrono::steady_clock::time_point lastSeen{};
+  };
+
+  std::vector<Candidate> candidates;
+  candidates.reserve(knownPeerEndpoints.size());
+
+  auto now = std::chrono::steady_clock::now();
+  bool haveRecords = false;
+  static std::atomic<bool> noCacheWarned{false};
+  {
+    std::lock_guard<std::mutex> guard(gossipMutex);
+    for (const auto &kv : knownPeerEndpoints) {
+      const auto &rec = kv.second;
+      if (rec.host.empty() || rec.port <= 0)
+        continue;
+      haveRecords = true;
+      if (rec.nextDialAllowed != std::chrono::steady_clock::time_point{} &&
+          now < rec.nextDialAllowed)
+        continue;
+      Candidate cand;
+      cand.host = rec.host;
+      cand.port = rec.port;
+      cand.verified = rec.verified;
+      cand.failureCount = rec.failureCount;
+      cand.lastSuccess = rec.lastSuccess;
+      cand.lastSeen = rec.lastSeen;
+      candidates.push_back(std::move(cand));
+    }
+  }
+
+  if (haveRecords)
+    noCacheWarned.store(false);
+
+  if (candidates.empty()) {
+    if (!haveRecords) {
+      bool expected = false;
+      if (noCacheWarned.compare_exchange_strong(expected, true))
+        std::cout << "ℹ️  [bootstrap] No cached peers available for reconnect." << std::endl;
+    }
+    return false;
+  }
+
+  std::sort(candidates.begin(), candidates.end(), [](const Candidate &a,
+                                                     const Candidate &b) {
+    if (a.verified != b.verified)
+      return a.verified > b.verified;
+    if (a.failureCount != b.failureCount)
+      return a.failureCount < b.failureCount;
+    if (a.lastSuccess != b.lastSuccess)
+      return a.lastSuccess > b.lastSuccess;
+    return a.lastSeen > b.lastSeen;
+  });
+
+  std::vector<std::string> attempted;
+  attempted.reserve(std::min<std::size_t>(candidates.size(), maxAttempts));
+  for (const auto &cand : candidates) {
+    if (attempted.size() >= maxAttempts)
+      break;
+    if (isSelfEndpoint(cand.host, cand.port)) {
+      recordSelfEndpoint(cand.host, cand.port);
+      continue;
+    }
+    if (isUnroutable(cand.host))
+      continue;
+    if (isBlockedServicePort(cand.port))
+      continue;
+    attempted.push_back(makeEndpointLabel(cand.host, cand.port));
+    connectToNode(cand.host, cand.port);
+  }
+
+  if (attempted.empty())
+    return false;
+
+  std::cout << "🔁 [bootstrap] Retrying " << attempted.size()
+            << (attempted.size() == 1 ? " cached peer" : " cached peers")
+            << " from local history." << std::endl;
+  return true;
+}
+
 void Network::scanForPeers() {
   const auto &cfg = getAppConfig();
   if (cfg.offline_mode) {

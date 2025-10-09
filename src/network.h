@@ -318,6 +318,7 @@ private:
   void runHairpinCheck();
   void rememberPeerEndpoint(const std::string &ip, int port);
   void recordEndpointFailure(const std::string &host, int port);
+  bool dialKnownPeers(std::size_t maxAttempts);
   void recordSelfEndpoint(const std::string &host, int port);
   void refreshLocalInterfaceCache();
   bool shouldServeHeavyData(const std::string &peerId,
