@@ -68,6 +68,7 @@
 #include <sstream>
 #include <thread>
 #include <utility>
+#include <iterator>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -961,7 +962,15 @@ fs::path peerStorageDir() {
 
 fs::path peersFilePath() { return peerStorageDir() / "peers.txt"; }
 
-fs::path peersBackupPath() { return peerStorageDir() / "peers_backup.txt"; }
+fs::path knownPeersFilePath() { return peerStorageDir() / "known_peers.txt"; }
+
+std::string trimCopy(const std::string &input) {
+  auto start = input.find_first_not_of(" \t\r\n");
+  if (start == std::string::npos)
+    return "";
+  auto end = input.find_last_not_of(" \t\r\n");
+  return input.substr(start, end - start + 1);
+}
 
 fs::path snapshotTempDir() {
   fs::path dir = peerStorageDir() / "snapshots";
@@ -969,6 +978,8 @@ fs::path snapshotTempDir() {
   fs::create_directories(dir, ec);
   return dir;
 }
+
+constexpr std::size_t MAX_PERSISTED_PEERS = 256;
 
 fs::path snapshotTempPath(const std::string &sessionIdHex) {
   std::string base = sessionIdHex.empty() ? "unknown" : sessionIdHex;
@@ -5391,6 +5402,66 @@ void Network::loadPeers() {
     return;
   }
 
+  bool connected = false;
+  bool attemptedCacheDial = false;
+  bool cacheAdded = false;
+  std::vector<PeerFileEntry> cachedPeers;
+  {
+    std::lock_guard<std::mutex> lock(fileIOMutex);
+    const auto cachePath = knownPeersFilePath();
+    std::ifstream cache(cachePath);
+    if (cache.is_open()) {
+      std::string line;
+      while (std::getline(cache, line)) {
+        auto trimmed = trimCopy(line);
+        if (trimmed.empty() || trimmed[0] == '#')
+          continue;
+        auto parsed = parsePeerFileEntry(trimmed);
+        if (parsed)
+          cachedPeers.push_back(*parsed);
+      }
+    }
+
+    if (cachedPeers.empty()) {
+      const auto legacyPath = peersFilePath();
+      std::ifstream legacy(legacyPath);
+      if (legacy.is_open()) {
+        std::string line;
+        while (std::getline(legacy, line)) {
+          auto trimmed = trimCopy(line);
+          if (trimmed.empty() || trimmed[0] == '#')
+            continue;
+          auto parsed = parsePeerFileEntry(trimmed);
+          if (parsed && parsed->keyB64.empty())
+            cachedPeers.push_back(*parsed);
+        }
+      }
+    }
+  }
+
+  attemptedCacheDial = !cachedPeers.empty();
+  if (attemptedCacheDial)
+    std::cout << "ℹ️  [loadPeers] Attempting to reconnect using "
+              << cachedPeers.size() << " cached peer(s)." << std::endl;
+
+  for (const auto &entry : cachedPeers) {
+    if (isSelfEndpoint(entry.host, entry.port)) {
+      recordSelfEndpoint(entry.host, entry.port);
+      continue;
+    }
+    if (entry.host == "127.0.0.1" || entry.host == "localhost")
+      continue;
+    if (noteShareableEndpoint(entry.host, entry.port, false))
+      cacheAdded = true;
+    if (connectToNode(entry.host, entry.port)) {
+      connected = true;
+      rememberPeerEndpoint(entry.host, entry.port);
+    }
+  }
+
+  if (cacheAdded)
+    broadcastPeerList();
+
   std::vector<PeerFileEntry> manualPeers;
   bool attemptedManualDial = false;
   if (cfg.allow_manual_peers) {
@@ -5417,7 +5488,6 @@ void Network::loadPeers() {
     std::cout << "ℹ️  [loadPeers] Manual peer sources disabled by configuration." << std::endl;
   }
 
-  bool connected = false;
   bool manualAdded = false;
   if (cfg.allow_manual_peers) {
     for (const auto &entry : manualPeers) {
@@ -5457,8 +5527,8 @@ void Network::loadPeers() {
 
   bool attemptedBootstrap = false;
   if (!connected && cfg.allow_dns_bootstrap) {
-    attemptedBootstrap = true;
     auto bootstrap = gatherBootstrapPeers();
+    attemptedBootstrap = !bootstrap.empty();
     if (!bootstrap.empty())
       std::cout << "ℹ️  [loadPeers] Using bootstrap peer list.\n";
     bool added = false;
@@ -5484,7 +5554,13 @@ void Network::loadPeers() {
 
   if (connected) {
     std::cout << "✅ [loadPeers] Peer bootstrap complete.\n";
-  } else if (!attemptedManualDial && !attemptedBootstrap) {
+    return;
+  }
+
+  if (attemptedCacheDial)
+    std::cerr << "⚠️ [loadPeers] Cached peers were unreachable; falling back to discovery sources." << std::endl;
+
+  if (!attemptedManualDial && !attemptedBootstrap) {
     std::cout << "ℹ️  [loadPeers] No peer discovery sources enabled; waiting for inbound connections." << std::endl;
   } else {
     std::cerr << "⚠️ [loadPeers] Unable to reach any peers from configured sources.\n";
@@ -5548,28 +5624,42 @@ void Network::scanForPeers() {
 
 // ✅ **Ensure Peers are Saved Correctly & Safely**
 void Network::savePeers() {
-  std::lock_guard<std::mutex> lock(fileIOMutex); // 🔒 File IO Mutex lock
+  std::lock_guard<std::mutex> lock(fileIOMutex);
 
-  // Optional: Backup current peers.txt before overwrite
-  const auto path = peersFilePath();
-  const auto backup = peersBackupPath();
-  if (fs::exists(path)) {
-    try {
-      fs::copy_file(path, backup,
-                    fs::copy_options::overwrite_existing);
-      std::cout << "📋 Backup of peers.txt created at " << backup << "\n";
-    } catch (const std::exception &e) {
-      std::cerr << "⚠️ Warning: Failed to backup peers.txt: " << e.what()
-                << "\n";
+  const auto path = knownPeersFilePath();
+  const auto storageName = path.filename().string();
+
+  std::vector<std::string> entries;
+  std::unordered_set<std::string> seen;
+  {
+    std::ifstream existing(path);
+    if (existing.is_open()) {
+      std::string line;
+      while (std::getline(existing, line)) {
+        auto trimmed = trimCopy(line);
+        if (trimmed.empty() || trimmed[0] == '#')
+          continue;
+        if (seen.insert(trimmed).second)
+          entries.push_back(std::move(trimmed));
+      }
     }
   }
 
-  std::ofstream file(path, std::ios::trunc);
-  if (!file.is_open()) {
-    std::cerr << "❌ Error: Unable to open " << path << " for saving!"
-              << std::endl;
-    return;
-  }
+  auto promoteOrAppend = [&](const std::string &endpoint) {
+    if (endpoint.empty())
+      return;
+    auto it = seen.find(endpoint);
+    if (it == seen.end()) {
+      seen.insert(endpoint);
+      entries.push_back(endpoint);
+      return;
+    }
+    auto pos = std::find(entries.begin(), entries.end(), endpoint);
+    if (pos != entries.end() && std::next(pos) != entries.end()) {
+      entries.erase(pos);
+      entries.push_back(endpoint);
+    }
+  };
 
   for (const auto &[peerId, entry] : peerTransports) {
     if (!entry.state)
@@ -5581,12 +5671,41 @@ void Network::savePeers() {
       continue;
     if (isBlockedServicePort(endpoint.second))
       continue;
-    file << endpoint.first << ':' << endpoint.second << std::endl;
+    promoteOrAppend(endpoint.first + ':' + std::to_string(endpoint.second));
   }
 
-  file.close();
-  std::cout << "✅ Peer list saved successfully. Total peers: "
-            << peerTransports.size() << std::endl;
+  if (entries.size() > MAX_PERSISTED_PEERS) {
+    entries.erase(entries.begin(),
+                  entries.begin() + (entries.size() - MAX_PERSISTED_PEERS));
+  }
+
+  fs::path tmpPath = path;
+  tmpPath += ".tmp";
+  {
+    std::ofstream out(tmpPath, std::ios::trunc);
+    if (!out.is_open()) {
+      std::cerr << "⚠️ [" << storageName
+                << "] Unable to persist peer snapshot to " << tmpPath
+                << "\n";
+      return;
+    }
+    for (const auto &line : entries)
+      out << line << '\n';
+  }
+
+  std::error_code ec;
+  fs::rename(tmpPath, path, ec);
+  if (ec) {
+    std::cerr << "⚠️ [" << storageName
+              << "] Failed to refresh persistent peer cache: "
+              << ec.message() << "\n";
+    std::error_code cleanupEc;
+    fs::remove(tmpPath, cleanupEc);
+    return;
+  }
+
+  std::cout << "📝 [" << storageName << "] Persisted " << entries.size()
+            << " known peer(s) from active connections." << std::endl;
 }
 
 bool Network::noteShareableEndpoint(const std::string &host, int port,
@@ -5727,30 +5846,63 @@ void Network::rememberPeerEndpoint(const std::string &ip, int port) {
 
   std::string endpoint = ip + ":" + std::to_string(port);
   const std::string label = makeEndpointLabel(ip, port);
-  const auto path = peersFilePath();
+  const auto path = knownPeersFilePath();
+  const auto storageName = path.filename().string();
   std::lock_guard<std::mutex> lock(fileIOMutex);
 
+  std::vector<std::string> entries;
+  bool alreadyPresent = false;
   {
     std::ifstream file(path);
     if (file.is_open()) {
       std::string line;
       while (std::getline(file, line)) {
-        auto parsed = parsePeerFileEntry(line);
-        if (parsed && parsed->host == ip && parsed->port == port)
-          return; // Already persisted
+        auto trimmed = trimCopy(line);
+        if (trimmed.empty() || trimmed[0] == '#')
+          continue;
+        if (trimmed == endpoint) {
+          alreadyPresent = true;
+          break;
+        }
+        entries.push_back(trimmed);
       }
     }
   }
 
-  std::ofstream out(path, std::ios::app);
-  if (!out.is_open()) {
-    std::cerr << "⚠️ [peers.txt] Unable to append peer " << logPeer(label)
-              << " to " << path << "\n";
+  if (alreadyPresent)
+    return;
+
+  entries.push_back(endpoint);
+  if (entries.size() > MAX_PERSISTED_PEERS)
+    entries.erase(entries.begin(), entries.begin() +
+                                     (entries.size() - MAX_PERSISTED_PEERS));
+
+  fs::path tmpPath = path;
+  tmpPath += ".tmp";
+  {
+    std::ofstream out(tmpPath, std::ios::trunc);
+    if (!out.is_open()) {
+      std::cerr << "⚠️ [" << storageName << "] Unable to persist peer "
+                << logPeer(label) << " to " << tmpPath << "\n";
+      return;
+    }
+    for (const auto &line : entries)
+      out << line << '\n';
+  }
+
+  std::error_code ec;
+  fs::rename(tmpPath, path, ec);
+  if (ec) {
+    std::cerr << "⚠️ [" << storageName
+              << "] Failed to update persistent peer cache: "
+              << ec.message() << "\n";
+    std::error_code cleanupEc;
+    fs::remove(tmpPath, cleanupEc);
     return;
   }
-  out << endpoint << std::endl;
-  std::cout << "📝 [peers.txt] Remembering peer " << logPeer(label) << " in "
-            << path << std::endl;
+
+  std::cout << "📝 [" << storageName << "] Remembering peer "
+            << logPeer(label) << " in " << path << std::endl;
   noteShareableEndpoint(ip, port, false);
 }
 
