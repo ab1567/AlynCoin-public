@@ -5823,7 +5823,13 @@ bool Network::dialKnownPeers(std::size_t maxAttempts) {
       continue;
     if (isBlockedServicePort(cand.port))
       continue;
-    attempted.push_back(makeEndpointLabel(cand.host, cand.port));
+    const std::string label = makeEndpointLabel(cand.host, cand.port);
+    if (isBlacklisted(label))
+      continue;
+    const std::string peerKey = cand.host + ":" + std::to_string(cand.port);
+    if (peerKey != label && isBlacklisted(peerKey))
+      continue;
+    attempted.push_back(label);
     connectToNode(cand.host, cand.port);
   }
 
