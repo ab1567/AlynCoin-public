@@ -1872,7 +1872,8 @@ std::optional<std::string> tryUPnPPortMapping(int) { return std::nullopt; }
 #endif
 #if defined(ALYN_ENABLE_NAT_TRAVERSAL) && defined(HAVE_LIBNATPMP)
 namespace {
-std::optional<std::string> tryNATPMPPortMapping(int port, int max_wait_ms) {
+std::optional<std::string> tryNATPMPPortMappingImpl(int port,
+                                                    int max_wait_ms) {
   natpmp_t natpmp;
   natpmpresp_t response{};
   const int waitBudget = std::max(0, max_wait_ms);
@@ -1954,10 +1955,26 @@ std::optional<std::string> tryNATPMPPortMapping(int port, int max_wait_ms) {
 
 } // namespace
 
+std::optional<std::string> tryNATPMPPortMapping(int port, int max_wait_ms) {
+  return tryNATPMPPortMappingImpl(port, max_wait_ms);
+}
+#elif defined(ALYN_ENABLE_NAT_TRAVERSAL)
+std::optional<std::string> tryNATPMPPortMapping(int port, int) {
+  (void)port;
+  return std::nullopt;
+}
+#else
+std::optional<std::string> tryNATPMPPortMapping(int port, int) {
+  (void)port;
+  return std::nullopt;
+}
+#endif
+
+#if defined(ALYN_ENABLE_NAT_TRAVERSAL)
 std::optional<std::string> tryNATPMPPortMapping(int port) {
   return tryNATPMPPortMapping(port, 2000);
 }
-#elif defined(ALYN_ENABLE_NAT_TRAVERSAL)
+#else
 std::optional<std::string> tryNATPMPPortMapping(int) { return std::nullopt; }
 #endif
 
