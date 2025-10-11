@@ -192,6 +192,9 @@ constexpr uint64_t SNAPSHOT_OUT_OF_ORDER_MAX_GAP =
 constexpr auto SNAPSHOT_OUT_OF_ORDER_ACK_THROTTLE =
     std::chrono::milliseconds(200);
 
+constexpr auto NAT_REFRESH_SUCCESS_INTERVAL = std::chrono::minutes(20);
+constexpr auto NAT_REFRESH_RETRY_INTERVAL = std::chrono::minutes(5);
+
 struct ConsensusHints {
   bool hasDifficulty{false};
   bool hasReward{false};
@@ -625,7 +628,8 @@ static std::chrono::milliseconds randomBroadcastDelay() {
 
 static constexpr std::chrono::seconds MIN_DIAL_BACKOFF{5};
 static constexpr std::chrono::seconds MAX_DIAL_BACKOFF{std::chrono::minutes(10)};
-static constexpr std::size_t MAX_KNOWN_PEER_DIALS_PER_CYCLE{6};
+static constexpr std::size_t MAX_KNOWN_PEER_DIALS_PER_CYCLE{16};
+static constexpr std::size_t TARGET_OUTBOUND_PEERS{8};
 
 static std::chrono::seconds computeDialBackoff(int failures) {
   int capped = std::min(failures, 6);
@@ -2025,6 +2029,9 @@ Network::Network(unsigned short port, Blockchain *blockchain,
     listenerThread = std::thread(&Network::listenForConnections, this);
     threads_.push_back(std::move(listenerThread));
 
+    startDiscoveryLoops();
+    configureNatTraversal();
+
   } catch (const std::exception &ex) {
     std::cerr << "❌ [Network Exception] " << ex.what() << "\n";
     throw;
@@ -2035,6 +2042,7 @@ Network::Network(unsigned short port, Blockchain *blockchain,
 
 Network::~Network() {
   try {
+    stopNatMaintenanceThread();
     stopDiscoveryLoops();
     ioContext.stop();
     acceptor.close();
@@ -2510,6 +2518,16 @@ size_t Network::getConnectedPeerCount() const {
   return count;
 }
 
+size_t Network::getOutboundPeerCount() const {
+  std::lock_guard<std::timed_mutex> lk(peersMutex);
+  size_t count = 0;
+  for (const auto &kv : peerTransports) {
+    if (kv.second.initiatedByUs && kv.second.tx && kv.second.tx->isOpen())
+      ++count;
+  }
+  return count;
+}
+
 void Network::startDiscoveryLoops() {
   const auto &cfg = getAppConfig();
   if (!cfg.allow_dns_bootstrap && !cfg.allow_peer_exchange)
@@ -2540,24 +2558,45 @@ void Network::stopDiscoveryLoops() {
 }
 
 void Network::bootstrapLoop() {
-  int backoff = 5;
+  using namespace std::chrono_literals;
   while (loopsRunning_) {
     const auto &cfg = getAppConfig();
-    if (!cfg.offline_mode && getConnectedPeerCount() == 0) {
-      dialKnownPeers(MAX_KNOWN_PEER_DIALS_PER_CYCLE);
-      if (cfg.allow_dns_bootstrap)
+    if (cfg.offline_mode) {
+      for (int elapsed = 0; loopsRunning_ && elapsed < 30; ++elapsed)
+        std::this_thread::sleep_for(1s);
+      continue;
+    }
+
+    size_t outbound = getOutboundPeerCount();
+    size_t total = getConnectedPeerCount();
+    const bool needOutbound = outbound < TARGET_OUTBOUND_PEERS;
+
+    if (needOutbound) {
+      bool dialed = dialKnownPeers(MAX_KNOWN_PEER_DIALS_PER_CYCLE);
+      connectToDiscoveredPeers();
+      outbound = getOutboundPeerCount();
+      total = getConnectedPeerCount();
+      if (!dialed && outbound < TARGET_OUTBOUND_PEERS && total == 0 &&
+          cfg.allow_dns_bootstrap)
         scanForPeers();
     }
 
-    bool havePeers = getConnectedPeerCount() > 0;
-    if (havePeers)
-      backoff = 15;
-    else
-      backoff = std::min(backoff * 2, 60);
+    if (cfg.allow_peer_exchange && total > 0)
+      broadcastPeerList();
 
-    int waitSeconds = backoff;
+    total = getConnectedPeerCount();
+    outbound = getOutboundPeerCount();
+
+    int waitSeconds = 5;
+    if (total == 0)
+      waitSeconds = 5;
+    else if (outbound < TARGET_OUTBOUND_PEERS)
+      waitSeconds = 15;
+    else
+      waitSeconds = 45;
+
     for (int elapsed = 0; loopsRunning_ && elapsed < waitSeconds; ++elapsed)
-      std::this_thread::sleep_for(std::chrono::seconds(1));
+      std::this_thread::sleep_for(1s);
   }
 }
 
@@ -2572,9 +2611,11 @@ void Network::pexLoop() {
       if (getConnectedPeerCount() > 0) {
         requestPeerList();
         broadcastPeerList();
+        connectToDiscoveredPeers();
         waitSeconds = jitter(rng);
       } else {
         requestPeerList();
+        connectToDiscoveredPeers();
         waitSeconds = 15;
       }
     } else {
@@ -2897,6 +2938,8 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     }
   }
 
+  noteInboundConnectivitySuccess(senderIP);
+
   std::cout << "✅ Registered peer: " << claimedPeerId << '\n';
 
   std::string shareHost = canonicalIp;
@@ -2988,8 +3031,6 @@ void Network::run() {
     std::cout << "🛑 [Network] Offline mode enabled; skipping outbound peer discovery." << std::endl;
     return;
   }
-
-  configureNatTraversal();
 
   loadPeers();
 
@@ -3144,7 +3185,11 @@ void Network::run() {
 void Network::configureNatTraversal() {
 #if defined(ALYN_ENABLE_NAT_TRAVERSAL)
   AppConfig cfg = getAppConfig();
-  if (!cfg.enable_upnp && !cfg.enable_natpmp) {
+  const bool upnpEnabled = cfg.enable_upnp;
+  const bool natpmpEnabled = cfg.enable_natpmp;
+
+  if (!upnpEnabled && !natpmpEnabled) {
+    stopNatMaintenanceThread();
     {
       std::lock_guard<std::mutex> lock(natStatusMutex);
       natStatus_.attempted = false;
@@ -3163,9 +3208,9 @@ void Network::configureNatTraversal() {
     return;
   }
 
-  std::thread([this, cfg]() {
-    const bool upnpEnabled = cfg.enable_upnp;
-    const bool natpmpEnabled = cfg.enable_natpmp;
+  stopNatMaintenanceThread();
+
+  std::thread([this, upnpEnabled, natpmpEnabled]() {
     auto endpoint = determineAnnounceEndpoint();
     if (!endpoint.first.empty() && isRoutableAddress(endpoint.first)) {
       std::lock_guard<std::mutex> lock(natStatusMutex);
@@ -3186,60 +3231,18 @@ void Network::configureNatTraversal() {
       natStatus_.externalIp.clear();
       natStatus_.error.clear();
     }
-    auto deadline = std::chrono::steady_clock::now() +
-                    std::chrono::seconds(1);
-    std::optional<std::string> natAddress;
-    bool upnpSuccess = false;
-    bool natpmpSuccess = false;
-
-#if defined(HAVE_MINIUPNPC)
-    if (cfg.enable_upnp) {
-      auto mapped = tryUPnPPortMapping(this->port);
-      if (mapped && !mapped->empty()) {
-        natAddress = mapped;
-        upnpSuccess = true;
-      }
-    }
-#endif
-#if defined(HAVE_LIBNATPMP)
-    if (cfg.enable_natpmp && (!natAddress || natAddress->empty()) &&
-        std::chrono::steady_clock::now() < deadline) {
-      auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
-          deadline - std::chrono::steady_clock::now());
-      auto mapped =
-          tryNATPMPPortMapping(this->port, static_cast<int>(remaining.count()));
-      if (mapped && !mapped->empty()) {
-        natAddress = mapped;
-        natpmpSuccess = true;
-      }
-    }
-#endif
-    const bool success = natAddress && !natAddress->empty();
-    {
-      std::lock_guard<std::mutex> lock(natStatusMutex);
-      natStatus_.attempted = upnpEnabled || natpmpEnabled;
-      natStatus_.success = success;
-      natStatus_.usedUpnp = upnpSuccess;
-      natStatus_.usedNatpmp = natpmpSuccess;
-      if (success) {
-        natStatus_.externalIp = *natAddress;
-        natStatus_.error.clear();
-      } else {
-        natStatus_.externalIp.clear();
-        if (natStatus_.attempted)
-          natStatus_.error =
-              "Automatic port mapping failed";
-      }
-    }
-    if (!configuredExternalExplicit && success) {
-      recordExternalAddress(*natAddress, this->port);
-      runHairpinCheck();
-    } else if (!success && !configuredExternalExplicit) {
+    bool success = attemptNatTraversalOnce(upnpEnabled, natpmpEnabled,
+                                           std::chrono::milliseconds(2000),
+                                           false);
+    if (!success && !configuredExternalExplicit) {
       std::cerr << "⚠️ [Network] NAT traversal failed; set external_address in "
                    "config or manually forward port." << std::endl;
     }
+    if (!configuredExternalExplicit)
+      startNatMaintenanceThread(upnpEnabled, natpmpEnabled);
   }).detach();
 #else
+  stopNatMaintenanceThread();
   {
     std::lock_guard<std::mutex> lock(natStatusMutex);
     natStatus_.attempted = false;
@@ -3254,6 +3257,169 @@ void Network::configureNatTraversal() {
   if (!configuredExternalExplicit)
     std::cout << "ℹ️  [Network] NAT traversal disabled at compile time; "
                  "listening on bound interfaces only.\n";
+#endif
+}
+
+bool Network::attemptNatTraversalOnce(bool upnpEnabled, bool natpmpEnabled,
+                                      std::chrono::milliseconds maxWait,
+                                      bool backgroundRefresh) {
+#if defined(ALYN_ENABLE_NAT_TRAVERSAL)
+  if (!upnpEnabled && !natpmpEnabled)
+    return false;
+
+  auto deadline = std::chrono::steady_clock::now() + maxWait;
+  std::optional<std::string> natAddress;
+  bool upnpSuccess = false;
+  bool natpmpSuccess = false;
+
+  if (upnpEnabled) {
+    auto mapped = tryUPnPPortMapping(this->port);
+    if (mapped && !mapped->empty()) {
+      natAddress = mapped;
+      upnpSuccess = true;
+    }
+  }
+
+  if (natpmpEnabled && (!natAddress || natAddress->empty())) {
+    auto now = std::chrono::steady_clock::now();
+    auto remaining = deadline > now
+                         ? std::chrono::duration_cast<std::chrono::milliseconds>(
+                               deadline - now)
+                         : std::chrono::milliseconds(0);
+    auto mapped = tryNATPMPPortMapping(
+        this->port,
+        static_cast<int>(std::max<long long>(remaining.count(), 0LL)));
+    if (mapped && !mapped->empty()) {
+      natAddress = mapped;
+      natpmpSuccess = true;
+    }
+  }
+
+  const bool success = natAddress && !natAddress->empty();
+  {
+    std::lock_guard<std::mutex> lock(natStatusMutex);
+    const bool prevSuccess = natStatus_.success;
+    const bool prevUsedUpnp = natStatus_.usedUpnp;
+    const bool prevUsedNatpmp = natStatus_.usedNatpmp;
+    if (upnpEnabled || natpmpEnabled)
+      natStatus_.attempted = true;
+
+    if (success) {
+      natStatus_.success = true;
+      natStatus_.usedUpnp = upnpSuccess;
+      natStatus_.usedNatpmp = natpmpSuccess;
+      natStatus_.externalIp = *natAddress;
+      natStatus_.error.clear();
+    } else {
+      if (!backgroundRefresh || prevUsedUpnp || prevUsedNatpmp || !prevSuccess)
+        natStatus_.success = false;
+      natStatus_.usedUpnp = upnpSuccess;
+      natStatus_.usedNatpmp = natpmpSuccess;
+      if (!configuredExternalExplicit && (!prevSuccess || prevUsedUpnp ||
+                                          prevUsedNatpmp))
+        natStatus_.externalIp.clear();
+      if (upnpEnabled || natpmpEnabled) {
+        if (!configuredExternalExplicit)
+          natStatus_.error = "Automatic port mapping failed";
+        else
+          natStatus_.error.clear();
+      }
+    }
+  }
+
+  if (success) {
+    recordExternalAddress(*natAddress, this->port);
+    if (!configuredExternalExplicit)
+      runHairpinCheck();
+  }
+
+  return success;
+#else
+  (void)upnpEnabled;
+  (void)natpmpEnabled;
+  (void)maxWait;
+  (void)backgroundRefresh;
+  return false;
+#endif
+}
+
+void Network::startNatMaintenanceThread(bool upnpEnabled, bool natpmpEnabled) {
+#if defined(ALYN_ENABLE_NAT_TRAVERSAL)
+  if (!upnpEnabled && !natpmpEnabled)
+    return;
+
+  bool alreadyRunning = natMaintenanceStarted_.exchange(true);
+  if (alreadyRunning)
+    return;
+
+  natMaintenanceStop_.store(false);
+  if (natMaintenanceThread_.joinable())
+    natMaintenanceThread_.join();
+
+  natMaintenanceThread_ = std::thread([this, upnpEnabled, natpmpEnabled]() {
+    while (!natMaintenanceStop_.load()) {
+      auto status = getNatStatus();
+      auto interval = status.success ? NAT_REFRESH_SUCCESS_INTERVAL
+                                     : NAT_REFRESH_RETRY_INTERVAL;
+      auto deadline = std::chrono::steady_clock::now() + interval;
+      while (!natMaintenanceStop_.load() &&
+             std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+      }
+      if (natMaintenanceStop_.load())
+        break;
+      attemptNatTraversalOnce(upnpEnabled, natpmpEnabled,
+                              std::chrono::milliseconds(2000), true);
+    }
+    natMaintenanceStarted_.store(false);
+  });
+#else
+  (void)upnpEnabled;
+  (void)natpmpEnabled;
+#endif
+}
+
+void Network::stopNatMaintenanceThread() {
+#if defined(ALYN_ENABLE_NAT_TRAVERSAL)
+  natMaintenanceStop_.store(true);
+  if (natMaintenanceThread_.joinable())
+    natMaintenanceThread_.join();
+  natMaintenanceThread_ = std::thread();
+  natMaintenanceStop_.store(false);
+  natMaintenanceStarted_.store(false);
+#endif
+}
+
+void Network::noteInboundConnectivitySuccess(const std::string &remoteIp) {
+#if defined(ALYN_ENABLE_NAT_TRAVERSAL)
+  if (remoteIp.empty() || !isRoutableAddress(remoteIp))
+    return;
+
+  bool shouldLog = false;
+  {
+    std::lock_guard<std::mutex> lock(natStatusMutex);
+    const bool prevSuccess = natStatus_.success;
+    const bool prevUsedUpnp = natStatus_.usedUpnp;
+    const bool prevUsedNatpmp = natStatus_.usedNatpmp;
+    if (!prevSuccess || prevUsedUpnp || prevUsedNatpmp) {
+      natStatus_.success = true;
+      natStatus_.usedUpnp = false;
+      natStatus_.usedNatpmp = false;
+      natStatus_.attempted = true;
+      natStatus_.error.clear();
+      auto announce = determineAnnounceEndpoint();
+      if (!announce.first.empty())
+        natStatus_.externalIp = announce.first;
+    }
+    shouldLog = !inboundNatLogged_.exchange(true);
+  }
+
+  if (shouldLog) {
+    std::cout << "📶 [NAT] Inbound connectivity confirmed by peer "
+              << logPeer(remoteIp) << '\n';
+  }
+#else
+  (void)remoteIp;
 #endif
 }
 
@@ -3408,35 +3574,107 @@ void Network::waitForInitialSync(int timeoutSeconds) {
 
 // ✅ Auto-Discover Peers Instead of Manually Adding Nodes
 std::vector<std::string> Network::discoverPeers() {
-  std::vector<std::string> peers;
-  std::vector<std::string> dnsPeers = fetchPeersFromDNS("peers.alyncoin.com");
-  for (const auto &peer : dnsPeers) {
-    if (!peer.empty()) {
-      std::cout << "🌐 [DNS] Found peer: " << logPeer(peer) << "\n";
-      peers.push_back(peer);
+  std::vector<std::pair<std::string, EndpointRecord>> snapshot;
+  {
+    std::lock_guard<std::mutex> guard(gossipMutex);
+    snapshot.reserve(knownPeerEndpoints.size());
+    for (const auto &kv : knownPeerEndpoints) {
+      const auto &rec = kv.second;
+      if (rec.host.empty() || rec.port <= 0)
+        continue;
+      snapshot.emplace_back(kv.first, rec);
     }
   }
+
+  std::sort(snapshot.begin(), snapshot.end(), [](const auto &a, const auto &b) {
+    const auto &lhs = a.second;
+    const auto &rhs = b.second;
+    if (lhs.verified != rhs.verified)
+      return lhs.verified && !rhs.verified;
+    if (lhs.lastSuccess != rhs.lastSuccess)
+      return lhs.lastSuccess > rhs.lastSuccess;
+    if (lhs.lastSeen != rhs.lastSeen)
+      return lhs.lastSeen > rhs.lastSeen;
+    return a.first < b.first;
+  });
+
+  std::vector<std::string> peers;
+  peers.reserve(snapshot.size());
+  std::unordered_set<std::string> seen;
+  seen.reserve(snapshot.size());
+  for (const auto &entry : snapshot) {
+    const auto &rec = entry.second;
+    std::string label = makeEndpointLabel(rec.host, rec.port);
+    std::string lowered = toLowerCopy(label);
+    if (seen.insert(lowered).second)
+      peers.push_back(std::move(label));
+  }
+
+  const auto &cfg = getAppConfig();
+  if (peers.empty() && !cfg.offline_mode && cfg.allow_dns_bootstrap) {
+    std::vector<std::string> dnsPeers = fetchPeersFromDNS("peers.alyncoin.com");
+    for (const auto &peer : dnsPeers) {
+      if (peer.empty())
+        continue;
+      std::string lowered = toLowerCopy(peer);
+      if (seen.insert(lowered).second) {
+        std::cout << "🌐 [DNS] Found peer: " << logPeer(peer) << "\n";
+        peers.push_back(peer);
+      }
+    }
+  }
+
   return peers;
 }
 
 //
 void Network::connectToDiscoveredPeers() {
   std::vector<std::string> peers = discoverPeers();
+  if (peers.empty())
+    return;
+
+  std::size_t attempts = 0;
+  const std::size_t maxAttempts = MAX_KNOWN_PEER_DIALS_PER_CYCLE;
+  std::size_t outbound = getOutboundPeerCount();
+
+  if (outbound >= TARGET_OUTBOUND_PEERS)
+    return;
+
   for (const std::string &peer : peers) {
-    size_t pos = peer.find(":");
+    if (maxAttempts > 0 && attempts >= maxAttempts)
+      break;
+    if (outbound >= TARGET_OUTBOUND_PEERS)
+      break;
+
+    size_t pos = peer.find(':');
     if (pos == std::string::npos)
       continue;
     std::string ip = peer.substr(0, pos);
-    int port = std::stoi(peer.substr(pos + 1));
+    int port = 0;
+    try {
+      port = std::stoi(peer.substr(pos + 1));
+    } catch (const std::exception &) {
+      continue;
+    }
+    if (port <= 0 || port > 65535)
+      continue;
+
     std::string peerKey = makeEndpointLabel(ip, port);
     if (isSelfEndpoint(ip, port)) {
-      std::cout << "⚠️ Skipping self in discovered peers: " << logPeer(peerKey) << "\n";
+      std::cout << "⚠️ Skipping self in discovered peers: " << logPeer(peerKey)
+                << "\n";
       recordSelfEndpoint(ip, port);
       continue;
     }
-        if (isUnroutable(ip))
-          continue;
-    connectToNode(ip, port);
+    if (isUnroutable(ip)) {
+      std::cout << "↪︎ Skipping unroutable candidate " << logPeer(peerKey)
+                << "\n";
+      continue;
+    }
+    if (connectToNode(ip, port)) {
+      ++attempts;
+      outbound = getOutboundPeerCount();
+    }
   }
 }
 
@@ -5751,6 +5989,10 @@ bool Network::dialKnownPeers(std::size_t maxAttempts) {
   if (maxAttempts == 0)
     return false;
 
+  std::size_t outbound = getOutboundPeerCount();
+  if (outbound >= TARGET_OUTBOUND_PEERS)
+    return false;
+
   struct Candidate {
     std::string host;
     int port{0};
@@ -5815,6 +6057,8 @@ bool Network::dialKnownPeers(std::size_t maxAttempts) {
   for (const auto &cand : candidates) {
     if (attempted.size() >= maxAttempts)
       break;
+    if (outbound >= TARGET_OUTBOUND_PEERS)
+      break;
     if (isSelfEndpoint(cand.host, cand.port)) {
       recordSelfEndpoint(cand.host, cand.port);
       continue;
@@ -5830,7 +6074,8 @@ bool Network::dialKnownPeers(std::size_t maxAttempts) {
     if (peerKey != label && isBlacklisted(peerKey))
       continue;
     attempted.push_back(label);
-    connectToNode(cand.host, cand.port);
+    if (connectToNode(cand.host, cand.port))
+      outbound = getOutboundPeerCount();
   }
 
   if (attempted.empty())
