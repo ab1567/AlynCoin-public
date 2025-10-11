@@ -142,6 +142,7 @@ public:
   void blacklistPeer(const std::string &peer);
   bool isBlacklisted(const std::string &peer);
   void cleanupPeers();
+  size_t clearOfflinePeers();
   bool peerSupportsAggProof(const std::string &peerId) const;
   bool isSelfPeer(const std::string &peer) const;
   bool isSelfEndpoint(const std::string &host, int port) const;

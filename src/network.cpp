@@ -1596,6 +1596,155 @@ void Network::markPeerOffline(const std::string &peerId) {
   // trigger automatic connection churn that misreports the live peer count.
 }
 
+size_t Network::clearOfflinePeers() {
+  std::unordered_set<std::string> activeLabels;
+  {
+    std::lock_guard<std::timed_mutex> lk(peersMutex);
+    for (const auto &kv : peerTransports) {
+      const auto &entry = kv.second;
+      if (!entry.tx || !entry.tx->isOpen())
+        continue;
+      if (!entry.ip.empty() && entry.port > 0)
+        activeLabels.insert(makeEndpointLabel(entry.ip, entry.port));
+      if (!entry.observedIp.empty() && entry.observedPort > 0)
+        activeLabels.insert(
+            makeEndpointLabel(entry.observedIp, entry.observedPort));
+    }
+  }
+
+  auto now = std::chrono::steady_clock::now();
+  std::vector<std::string> removedLabels;
+  std::vector<std::string> removedEndpoints;
+  std::vector<std::string> sampleLabels;
+
+  constexpr auto kStaleNeverDialedCutoff = std::chrono::hours{24 * 3};
+
+  {
+    std::lock_guard<std::mutex> gossipLock(gossipMutex);
+    for (auto it = knownPeerEndpoints.begin(); it != knownPeerEndpoints.end();) {
+      const std::string label = it->first;
+      const auto &rec = it->second;
+      const bool active = activeLabels.count(label) > 0;
+      const bool neverSucceeded = rec.failureCount > 0 && rec.successCount == 0;
+      const bool staleSuccess =
+          rec.failureCount > 0 &&
+          rec.lastSuccess != std::chrono::steady_clock::time_point{} &&
+          now - rec.lastSuccess > std::chrono::hours{6};
+      const bool neverDialedStale =
+          rec.failureCount == 0 && rec.successCount == 0 &&
+          rec.lastSeen != std::chrono::steady_clock::time_point{} &&
+          now - rec.lastSeen > kStaleNeverDialedCutoff;
+
+      if (!active && (neverSucceeded || staleSuccess || neverDialedStale)) {
+        if (!rec.host.empty() && rec.port > 0)
+          removedEndpoints.push_back(rec.host + ":" +
+                                     std::to_string(rec.port));
+        if (sampleLabels.size() < 5)
+          sampleLabels.push_back(label);
+        removedLabels.push_back(label);
+        it = knownPeerEndpoints.erase(it);
+      } else {
+        ++it;
+      }
+    }
+  }
+
+  if (removedLabels.empty()) {
+    std::cout << "ℹ️  [peers] No offline peer entries to clear." << '\n';
+    return 0;
+  }
+
+  std::unordered_set<std::string> removalSet(removedEndpoints.begin(),
+                                             removedEndpoints.end());
+
+  auto pruneFile = [&](const fs::path &path) {
+    std::ifstream in(path);
+    if (!in.is_open())
+      return;
+
+    std::vector<std::string> kept;
+    kept.reserve(64);
+    std::string line;
+    bool modified = false;
+    while (std::getline(in, line)) {
+      std::string trimmed = trimCopy(line);
+      if (trimmed.empty() || trimmed[0] == '#') {
+        kept.push_back(line);
+        continue;
+      }
+      auto parsed = parsePeerFileEntry(trimmed);
+      if (parsed) {
+        std::string key = parsed->host + ":" + std::to_string(parsed->port);
+        if (removalSet.count(key)) {
+          modified = true;
+          continue;
+        }
+      }
+      kept.push_back(line);
+    }
+
+    if (!modified)
+      return;
+
+    fs::path tmpPath = path;
+    tmpPath += ".tmp";
+    const std::string storageName = path.filename().string();
+
+    {
+      std::ofstream out(tmpPath, std::ios::trunc);
+      if (!out.is_open()) {
+        std::cerr << "⚠️ [" << storageName
+                  << "] Unable to refresh peer cache at " << tmpPath << '\n';
+        return;
+      }
+      for (const auto &ln : kept)
+        out << ln << '\n';
+      out.flush();
+      if (!out) {
+        std::cerr << "⚠️ [" << storageName
+                  << "] Failed while writing peer cache to " << tmpPath
+                  << '\n';
+        return;
+      }
+    }
+
+    std::error_code ec;
+    fs::rename(tmpPath, path, ec);
+    if (ec) {
+      std::cerr << "⚠️ [" << storageName
+                << "] Failed to refresh peer cache: " << ec.message() << '\n';
+      std::error_code cleanupEc;
+      fs::remove(tmpPath, cleanupEc);
+    }
+  };
+
+  {
+    std::lock_guard<std::mutex> lock(fileIOMutex);
+    pruneFile(knownPeersFilePath());
+    pruneFile(peersFilePath());
+  }
+
+  std::ostringstream summary;
+  summary << "🧹 [peers] Cleared " << removedLabels.size()
+          << (removedLabels.size() == 1 ? " offline peer entry"
+                                        : " offline peer entries");
+  if (!sampleLabels.empty()) {
+    summary << " (";
+    for (size_t i = 0; i < sampleLabels.size(); ++i) {
+      if (i > 0)
+        summary << ", ";
+      summary << logPeer(sampleLabels[i]);
+    }
+    if (removedLabels.size() > sampleLabels.size())
+      summary << ", …";
+    summary << ')';
+  }
+  summary << '.';
+  std::cout << summary.str() << '\n';
+
+  return removedLabels.size();
+}
+
 void Network::penalizePeer(const std::string &peer, int points) {
   std::lock_guard<std::timed_mutex> lk(peersMutex);
   auto it = peerTransports.find(peer);

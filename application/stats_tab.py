@@ -2,15 +2,17 @@ import threading
 
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtGui import QFont, QColor
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QTextEdit, QPushButton
+from PyQt5.QtWidgets import QLabel, QPushButton, QTextEdit, QVBoxLayout, QWidget
 
 from rpc_client import RPC_PORT, fetch_peer_status, safe_alyncoin_rpc
+
 
 class StatsTab(QWidget):
     restartFinished = pyqtSignal(bool, str)
     statsFetched = pyqtSignal(object)
     peersFetched = pyqtSignal(object)
     syncFinished = pyqtSignal(object)
+    clearPeersFinished = pyqtSignal(object)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -19,8 +21,9 @@ class StatsTab(QWidget):
         self.statsFetched.connect(self.onStatsFetched)
         self.peersFetched.connect(self.onPeersFetched)
         self.syncFinished.connect(self.onSyncFinished)
+        self.clearPeersFinished.connect(self.onClearPeersFinished)
         self.initUI()
-        if hasattr(parent, 'walletChanged'):
+        if hasattr(parent, "walletChanged"):
             parent.walletChanged.connect(self.onWalletChanged)
 
     def initUI(self):
@@ -44,6 +47,14 @@ class StatsTab(QWidget):
         self.peerBtn.clicked.connect(self.fetchPeers)
         layout.addWidget(self.peerBtn)
 
+        self.clearPeersBtn = QPushButton("🧹 Clear Offline Peer Cache")
+        self.clearPeersBtn.setStyleSheet("padding: 10px; font-weight: bold;")
+        self.clearPeersBtn.setToolTip(
+            "Remove cached peer addresses that repeatedly failed to connect."
+        )
+        self.clearPeersBtn.clicked.connect(self.triggerClearPeers)
+        layout.addWidget(self.clearPeersBtn)
+
         self.syncBtn = QPushButton("🔄 Hard Sync")
         self.syncBtn.setStyleSheet("padding: 10px; font-weight: bold;")
         self.syncBtn.clicked.connect(self.triggerSync)
@@ -56,6 +67,24 @@ class StatsTab(QWidget):
 
         self.setLayout(layout)
 
+    def appendText(self, text, color="white"):
+        color_map = {
+            "red": QColor(255, 80, 80),
+            "green": QColor(80, 255, 80),
+            "cyan": QColor(80, 255, 255),
+            "orange": QColor(255, 165, 0),
+            "white": QColor(255, 255, 255),
+        }
+        self.outputBox.setTextColor(color_map.get(color, QColor(255, 255, 255)))
+        self.outputBox.append(text)
+
+    def _unwrap(self, payload):
+        if isinstance(payload, dict) and "result" in payload:
+            nested = payload["result"]
+            if isinstance(nested, dict):
+                return nested
+        return payload
+
     def fetchStats(self):
         self.outputBox.clear()
         self.appendText("⏳ Fetching stats...", color="orange")
@@ -67,6 +96,20 @@ class StatsTab(QWidget):
 
         threading.Thread(target=worker, daemon=True).start()
 
+    def fetchPeers(self):
+        self.outputBox.clear()
+        self.appendText("⏳ Fetching peer list...", color="orange")
+        self.peerBtn.setEnabled(False)
+
+        def worker():
+            try:
+                status = fetch_peer_status()
+            except RuntimeError as exc:
+                status = {"error": str(exc)}
+            self.peersFetched.emit(status)
+
+        threading.Thread(target=worker, daemon=True).start()
+
     def triggerSync(self):
         self.appendText("⏳ Initiating hard sync...", color="orange")
         self.syncBtn.setEnabled(False)
@@ -74,6 +117,16 @@ class StatsTab(QWidget):
         def worker():
             result = safe_alyncoin_rpc("selfheal")
             self.syncFinished.emit(result)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def triggerClearPeers(self):
+        self.appendText("⏳ Clearing offline peer cache...", color="orange")
+        self.clearPeersBtn.setEnabled(False)
+
+        def worker():
+            result = safe_alyncoin_rpc("clearpeers")
+            self.clearPeersFinished.emit(result)
 
         threading.Thread(target=worker, daemon=True).start()
 
@@ -106,23 +159,13 @@ class StatsTab(QWidget):
             message = error or "Unknown restart failure"
             self.appendText(f"❌ Node restart failed: {message}", color="red")
 
-    def fetchPeers(self):
-        self.outputBox.clear()
-        self.appendText("⏳ Fetching peer list...", color="orange")
-        self.peerBtn.setEnabled(False)
+    def onWalletChanged(self, *_):
+        self.fetchStats()
 
-        def worker():
-            try:
-                status = fetch_peer_status()
-            except RuntimeError as exc:
-                status = {"error": str(exc)}
-            self.peersFetched.emit(status)
-
-        threading.Thread(target=worker, daemon=True).start()
-
-    def onStatsFetched(self, result):
+    def onStatsFetched(self, payload):
         self.showStatsBtn.setEnabled(True)
 
+        result = self._unwrap(payload)
         if isinstance(result, dict) and result.get("error"):
             self.appendText(f"❌ {result['error']}", color="red")
             return
@@ -169,12 +212,13 @@ class StatsTab(QWidget):
                     info = nat.get("error")
                     if info:
                         self.appendText(f"ℹ️ NAT traversal: {info}", color="orange")
-        except Exception as e:
-            self.appendText(f"❌ Error parsing stats: {e}", color="red")
+        except Exception as exc:  # pragma: no cover - defensive guard
+            self.appendText(f"❌ Error parsing stats: {exc}", color="red")
 
-    def onSyncFinished(self, result):
+    def onSyncFinished(self, payload):
         self.syncBtn.setEnabled(True)
 
+        result = self._unwrap(payload)
         if isinstance(result, dict) and result.get("error"):
             self.appendText(f"❌ {result['error']}", color="red")
             return
@@ -220,6 +264,25 @@ class StatsTab(QWidget):
         else:
             self.appendText("✅ Hard sync triggered.", color="green")
 
+    def onClearPeersFinished(self, payload):
+        self.clearPeersBtn.setEnabled(True)
+
+        if isinstance(payload, dict) and payload.get("error"):
+            self.appendText(f"❌ {payload['error']}", color="red")
+            return
+
+        result = self._unwrap(payload)
+        if isinstance(result, dict):
+            removed = result.get("removed")
+            message = result.get("message")
+            if isinstance(message, str):
+                color = "green" if (isinstance(removed, (int, float)) and removed) else "cyan"
+                self.appendText(f"✅ {message}", color=color)
+            else:
+                self.appendText("✅ Offline peer cache refreshed.", color="green")
+        else:
+            self.appendText("✅ Offline peer cache refreshed.", color="green")
+
     def onPeersFetched(self, payload):
         self.peerBtn.setEnabled(True)
 
@@ -244,18 +307,3 @@ class StatsTab(QWidget):
                 self.appendText(f"- {p}")
         else:
             self.appendText("No peers connected.", color="orange")
-
-    def appendText(self, text, color="white"):
-        color_map = {
-            "red": QColor(255, 80, 80),
-            "green": QColor(80, 255, 80),
-            "cyan": QColor(80, 255, 255),
-            "orange": QColor(255, 165, 0),
-            "white": QColor(255, 255, 255)
-        }
-        self.outputBox.setTextColor(color_map.get(color, QColor(255, 255, 255)))
-        self.outputBox.append(text)
-
-    def onWalletChanged(self, address):
-        # Optional: clear stats or refresh when wallet changes
-        pass
