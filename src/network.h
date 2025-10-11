@@ -102,6 +102,7 @@ public:
   void sendInventory(const std::string &peer);
   PeerManager *getPeerManager();
   size_t getConnectedPeerCount() const;
+  size_t getOutboundPeerCount() const;
   std::vector<std::string> discoverPeers();
   void connectToDiscoveredPeers();
   std::string requestBlockchainSync(const std::string &peer);
@@ -229,6 +230,12 @@ private:
   // and supported feature list.
   alyncoin::net::Handshake buildHandshake() const;
   void configureNatTraversal();
+  bool attemptNatTraversalOnce(bool upnpEnabled, bool natpmpEnabled,
+                               std::chrono::milliseconds maxWait,
+                               bool backgroundRefresh);
+  void startNatMaintenanceThread(bool upnpEnabled, bool natpmpEnabled);
+  void stopNatMaintenanceThread();
+  void noteInboundConnectivitySuccess(const std::string &remoteIp);
 
   unsigned short port;
   Blockchain *blockchain;
@@ -249,6 +256,10 @@ private:
   std::atomic<bool> hairpinCheckAttempted{false};
   mutable std::mutex natStatusMutex;
   NatStatus natStatus_;
+  std::atomic<bool> natMaintenanceStarted_{false};
+  std::atomic<bool> natMaintenanceStop_{false};
+  std::thread natMaintenanceThread_;
+  std::atomic<bool> inboundNatLogged_{false};
   std::string nodeId; // stable identifier for this node
   uint64_t localHandshakeNonce{0};
   struct ActiveSnapshotSession {
