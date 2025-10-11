@@ -1006,6 +1006,19 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
         } else {
           output = {{"error", "Healer unavailable"}};
         }
+      } else if (method == "clearpeers") {
+        if (!network) {
+          output = {{"error", "Network subsystem unavailable"}};
+        } else {
+          size_t removed = network->clearOfflinePeers();
+          std::string message =
+              removed == 0
+                  ? "No offline peers to clear"
+                  : (removed == 1 ? "Removed 1 offline peer entry"
+                                  : "Removed " + std::to_string(removed) +
+                                        " offline peer entries");
+          output = {{"result", {{"removed", removed}, {"message", message}}}};
+        }
       }
       // Send L1 Transaction
       else if (method == "sendl1" || method == "sendl2") {
@@ -1812,6 +1825,23 @@ static bool handleNodeMenuSelection(int choice, Blockchain &blockchain,
     std::cout << "🩺 Manually triggering self-healing check...\n";
     healer.monitorAndHeal();
     return true;
+
+  case 11: {
+    if (!network) {
+      std::cout << "⚠️ Network subsystem is not available.\n";
+      return true;
+    }
+    size_t removed = network->clearOfflinePeers();
+    if (removed == 0) {
+      std::cout << "ℹ️  No offline peers to clear.\n";
+    } else {
+      std::cout << "🧹 Cleared " << removed
+                << (removed == 1 ? " offline peer entry."
+                                 : " offline peer entries.")
+                << "\n";
+    }
+    return true;
+  }
 
   case 12: {
     std::string name;
@@ -3143,6 +3173,7 @@ int main(int argc, char *argv[]) {
     std::cout << "8. Generate Rollup Block\n";
     std::cout << "9. Exit\n";
     std::cout << "10. Run Self-Heal Now 🩺\n";
+    std::cout << "11. Clear Offline Peer Cache\n";
     std::cout << "12. Export Wallet\n";
     std::cout << "13. Import Wallet\n";
     std::cout << "Choose an option: ";
