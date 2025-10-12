@@ -1596,6 +1596,12 @@ void Network::markPeerOffline(const std::string &peerId) {
   // trigger automatic connection churn that misreports the live peer count.
 }
 
+struct PeerFileEntry {
+  std::string host;
+  int port{0};
+  std::string keyB64;
+};
+
 std::optional<PeerFileEntry> parsePeerFileEntry(const std::string &line) {
   std::istringstream iss(line);
   std::string endpoint;
@@ -1831,14 +1837,6 @@ static const std::vector<std::string> DEFAULT_DNS_PEERS = {
     "peers.alyncoin.com:15671"};
 
 std::vector<std::string> fetchPeersFromDNS(const std::string &domain);
-
-struct PeerFileEntry {
-  std::string host;
-  int port{0};
-  std::string keyB64;
-};
-
-std::optional<PeerFileEntry> parsePeerFileEntry(const std::string &line);
 
 std::vector<PeerFileEntry> gatherBootstrapPeers() {
   std::set<std::string> seen;
