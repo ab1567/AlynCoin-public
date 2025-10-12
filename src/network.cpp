@@ -1596,6 +1596,31 @@ void Network::markPeerOffline(const std::string &peerId) {
   // trigger automatic connection churn that misreports the live peer count.
 }
 
+std::optional<PeerFileEntry> parsePeerFileEntry(const std::string &line) {
+  std::istringstream iss(line);
+  std::string endpoint;
+  if (!(iss >> endpoint))
+    return std::nullopt;
+
+  auto colon = endpoint.find(':');
+  if (colon == std::string::npos)
+    return std::nullopt;
+
+  PeerFileEntry entry;
+  entry.host = endpoint.substr(0, colon);
+  std::string portStr = endpoint.substr(colon + 1);
+  try {
+    entry.port = std::stoi(portStr);
+  } catch (const std::exception &) {
+    return std::nullopt;
+  }
+  if (entry.port <= 0 || entry.port > 65535)
+    return std::nullopt;
+
+  iss >> entry.keyB64;
+  return entry;
+}
+
 size_t Network::clearOfflinePeers() {
   std::unordered_set<std::string> activeLabels;
   {
@@ -1813,30 +1838,7 @@ struct PeerFileEntry {
   std::string keyB64;
 };
 
-std::optional<PeerFileEntry> parsePeerFileEntry(const std::string &line) {
-  std::istringstream iss(line);
-  std::string endpoint;
-  if (!(iss >> endpoint))
-    return std::nullopt;
-
-  auto colon = endpoint.find(':');
-  if (colon == std::string::npos)
-    return std::nullopt;
-
-  PeerFileEntry entry;
-  entry.host = endpoint.substr(0, colon);
-  std::string portStr = endpoint.substr(colon + 1);
-  try {
-    entry.port = std::stoi(portStr);
-  } catch (const std::exception &) {
-    return std::nullopt;
-  }
-  if (entry.port <= 0 || entry.port > 65535)
-    return std::nullopt;
-
-  iss >> entry.keyB64;
-  return entry;
-}
+std::optional<PeerFileEntry> parsePeerFileEntry(const std::string &line);
 
 std::vector<PeerFileEntry> gatherBootstrapPeers() {
   std::set<std::string> seen;
