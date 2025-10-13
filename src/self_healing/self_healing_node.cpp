@@ -91,6 +91,24 @@ NodeHealthStatus SelfHealingNode::runHealthCheck(bool manualTrigger) {
         return status;
     }
 
+    if (status.awaitingParentBlocks || status.awaitingBufferedChainData) {
+        std::string waitingOn = "buffered chain data";
+        if (status.awaitingParentBlocks && status.hasFutureBlocks) {
+            waitingOn = "parent and future blocks";
+        } else if (status.awaitingParentBlocks) {
+            waitingOn = "parent blocks";
+        } else if (status.hasFutureBlocks) {
+            waitingOn = "buffered future blocks";
+        }
+
+        Logger::info("🩺 [SelfHealer] Awaiting " + waitingOn + "; deferring recovery actions.");
+        consecutiveFarBehind_ = 0;
+        manualOverridePending_ = manualTrigger;
+        kickStalledSync();
+        ensureManualKick();
+        return status;
+    }
+
     if (snapshotActive) {
         if (!manualTrigger) {
             Logger::info("🩺 [SelfHealer] Snapshot transfer in progress; deferring recovery.");

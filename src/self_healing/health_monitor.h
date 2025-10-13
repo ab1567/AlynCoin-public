@@ -19,6 +19,11 @@ struct NodeHealthStatus {
     size_t connectedPeers{0};
     size_t networkConnectedPeers{0};
     bool farBehind{false};
+    size_t orphanPoolSize{0};
+    bool awaitingParentBlocks{false};
+    size_t futureBlockBufferSize{0};
+    bool hasFutureBlocks{false};
+    bool awaitingBufferedChainData{false};
 };
 
 class HealthMonitor {

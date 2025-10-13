@@ -319,6 +319,7 @@ public:
   void tryAttachOrphans(const std::string& parentHash);
   bool reattachOrphans();
   size_t getOrphanPoolSize() const;
+  size_t getFutureBlockCount() const;
 
   std::map<uint64_t, Block> futureBlocks;
 
