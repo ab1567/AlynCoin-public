@@ -8848,7 +8848,9 @@ void Network::requestSnapshotSync(const std::string &peer) {
     if (releaseSessionNeeded)
       releaseSnapshotSession(peer, releasedSession);
     if (skipRequest) {
-      if (!currentSession.empty() && snapshotSessionMatches(peer, currentSession))
+      if (currentSession.empty())
+        return;
+      if (snapshotSessionMatches(peer, currentSession))
         return;
       if (isSnapshotInProgress() && !isSnapshotOwnedBy(peer))
         return;
