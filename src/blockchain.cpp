@@ -4836,6 +4836,10 @@ size_t Blockchain::getOrphanPoolSize() const {
   return total;
 }
 
+size_t Blockchain::getFutureBlockCount() const {
+  return futureBlocks.size();
+}
+
 void Blockchain::broadcastNewTip() {
   if (!network)
     return;

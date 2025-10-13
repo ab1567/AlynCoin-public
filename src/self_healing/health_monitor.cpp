@@ -30,6 +30,10 @@ NodeHealthStatus HealthMonitor::checkHealth() {
         status.expectedTipHash = status.consensusCommonHash;
     status.connectedPeers = peerManager_->getPeerCount();
     status.networkConnectedPeers = status.connectedPeers;
+    status.orphanPoolSize = blockchain_->getOrphanPoolSize();
+    status.awaitingParentBlocks = status.orphanPoolSize > 0;
+    status.futureBlockBufferSize = blockchain_->getFutureBlockCount();
+    status.hasFutureBlocks = status.futureBlockBufferSize > 0;
     size_t trackedEndpoints = status.connectedPeers;
     size_t discoveredCount = 0;
     if (auto net = Network::getExistingInstance()) {
@@ -68,6 +72,27 @@ NodeHealthStatus HealthMonitor::checkHealth() {
         }
     }
     status.farBehind = false;
+
+    const size_t bufferedBlockCount = status.orphanPoolSize + status.futureBlockBufferSize;
+    const bool tipMismatch =
+        status.expectedTipHash.empty() || status.localTipHash != status.expectedTipHash;
+    const bool networkWithinBufferedWindow =
+        status.networkHeight <= status.localHeight + bufferedBlockCount + 1;
+
+    status.awaitingBufferedChainData =
+        bufferedBlockCount > 0 && tipMismatch && networkWithinBufferedWindow;
+
+    if (status.awaitingBufferedChainData) {
+        status.isHealthy = false;
+        if (!status.awaitingParentBlocks && status.hasFutureBlocks) {
+            status.reason = "Awaiting buffered future blocks";
+        } else if (status.hasFutureBlocks) {
+            status.reason = "Awaiting parent/future blocks";
+        } else {
+            status.reason = "Awaiting parent blocks";
+        }
+        return status;
+    }
 
     if (remoteWork > localWork && status.networkHeight >= status.localHeight) {
         status.isHealthy = false;
@@ -130,7 +155,22 @@ void HealthMonitor::logStatus(const NodeHealthStatus& status) {
         << "  • Local Work: " << blockchain_->computeCumulativeDifficulty(blockchain_->getChain()).convert_to<uint64_t>() << "\n"
         << "  • Remote Work: " << peerManager_->getMaxPeerWork() << "\n"
         << "  • Local Tip Hash: " << status.localTipHash.substr(0, 10) << "...\n"
-        << "  • Expected Tip Hash: " << status.expectedTipHash.substr(0, 10) << "...";
+        << "  • Expected Tip Hash: " << status.expectedTipHash.substr(0, 10) << "...\n"
+        << "  • Orphan Pool: " << status.orphanPoolSize << "\n"
+        << "  • Future Block Buffer: " << status.futureBlockBufferSize;
+
+    if (status.awaitingParentBlocks) {
+        log << " (awaiting parents)";
+    }
+
+    if (status.awaitingBufferedChainData) {
+        log << "\n  • Waiting on buffered chain data";
+        if (!status.awaitingParentBlocks && status.hasFutureBlocks) {
+            log << " (future blocks)";
+        } else if (status.hasFutureBlocks) {
+            log << " (parents + future blocks)";
+        }
+    }
 
     if (!status.consensusCommonHash.empty()) {
         log << "\n  • Consensus Common Hash: "
