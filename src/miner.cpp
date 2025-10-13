@@ -60,6 +60,65 @@ bool waitForCatchup(Blockchain &blockchain, PeerManager *pm, Network *net,
     return true;
 }
 
+const char *miningStatusCodeToString(Blockchain::MiningStatusCode code) {
+    switch (code) {
+    case Blockchain::MiningStatusCode::Success:
+        return "SUCCESS";
+    case Blockchain::MiningStatusCode::InProgress:
+        return "IN_PROGRESS";
+    case Blockchain::MiningStatusCode::OfflineMode:
+        return "OFFLINE_MODE";
+    case Blockchain::MiningStatusCode::Syncing:
+        return "SYNCING";
+    case Blockchain::MiningStatusCode::RequirePeer:
+        return "REQUIRE_PEER";
+    case Blockchain::MiningStatusCode::MissingMinerKeys:
+        return "MISSING_MINER_KEYS";
+    case Blockchain::MiningStatusCode::KeyLoadFailure:
+        return "KEY_LOAD_FAILURE";
+    case Blockchain::MiningStatusCode::ProofMissing:
+        return "PROOF_MISSING";
+    case Blockchain::MiningStatusCode::BlockRejected:
+        return "BLOCK_REJECTED";
+    case Blockchain::MiningStatusCode::EmptyResult:
+        return "EMPTY_RESULT";
+    case Blockchain::MiningStatusCode::Unknown:
+    default:
+        return "UNKNOWN";
+    }
+}
+
+std::string describeMiningStatus(const Blockchain::MiningStatus &status) {
+    if (!status.message.empty())
+        return status.message;
+
+    switch (status.code) {
+    case Blockchain::MiningStatusCode::Success:
+        return "Block mined successfully.";
+    case Blockchain::MiningStatusCode::InProgress:
+        return "Mining job is in progress.";
+    case Blockchain::MiningStatusCode::OfflineMode:
+        return "Node is in offline mode.";
+    case Blockchain::MiningStatusCode::Syncing:
+        return "Node is synchronizing with peers.";
+    case Blockchain::MiningStatusCode::RequirePeer:
+        return "Connect to at least one peer before mining.";
+    case Blockchain::MiningStatusCode::MissingMinerKeys:
+        return "Miner signing keys are missing.";
+    case Blockchain::MiningStatusCode::KeyLoadFailure:
+        return "Failed to load miner signing keys.";
+    case Blockchain::MiningStatusCode::ProofMissing:
+        return "Mined block is missing zk-proof data.";
+    case Blockchain::MiningStatusCode::BlockRejected:
+        return "Mined block was rejected by consensus.";
+    case Blockchain::MiningStatusCode::EmptyResult:
+        return "Mining did not produce a valid block.";
+    case Blockchain::MiningStatusCode::Unknown:
+    default:
+        return "Mining failed for an unknown reason.";
+    }
+}
+
 } // namespace
 
 bool containsValidTransaction(const std::vector<Transaction> &transactions) {
@@ -147,9 +206,11 @@ void Miner::startMiningProcess(const std::string &minerAddress) {
             warnedBehind = false;
 
             Block minedBlock = blockchain.mineBlock(minerAddress);
+            Blockchain::MiningStatus status = blockchain.getLastMiningStatus();
 
             if (minedBlock.getHash().empty()) {
-                std::cerr << "❌ Mining failed. No valid hash generated.\n";
+                std::cerr << "❌ Mining failed: " << describeMiningStatus(status)
+                          << " (" << miningStatusCodeToString(status.code) << ")\n";
                 miningActive = false;
                 break;
             }

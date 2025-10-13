@@ -51,6 +51,26 @@ constexpr std::time_t AUTO_MINING_GRACE_PERIOD = 60;
 class Blockchain {
   friend class Network;
 
+public:
+  enum class MiningStatusCode {
+    Success = 0,
+    InProgress,
+    OfflineMode,
+    Syncing,
+    RequirePeer,
+    MissingMinerKeys,
+    KeyLoadFailure,
+    ProofMissing,
+    BlockRejected,
+    EmptyResult,
+    Unknown
+  };
+
+  struct MiningStatus {
+    MiningStatusCode code;
+    std::string message;
+  };
+
 private:
   Blockchain();
   Blockchain(unsigned short port, const std::string &dbPath = DBPaths::getBlockchainDB(),
@@ -70,6 +90,7 @@ private:
   int difficulty;
   double miningReward;
   mutable std::recursive_mutex blockchainMutex;  // protects in-memory chain vector
+  mutable std::mutex miningStatusMutex;
   std::string minerAddress;
   Network *network;
   rocksdb::DB *db;
@@ -88,6 +109,7 @@ private:
   int64_t lastPersistedHeight{-1};
   std::unordered_map<std::string, double> persistedBalancesCache;
   bool evaluatingSideChains{false};
+  MiningStatus lastMiningStatus{MiningStatusCode::Success, ""};
 
   // --- Vesting ---
   struct VestingInfo {
@@ -115,6 +137,7 @@ private:
   void loadCheckpointFromDB();
   void saveCheckpoint(int height, const std::string& hash);
   void noteNewL1(std::time_t timestamp);
+  void setMiningStatus(MiningStatusCode code, const std::string &message);
   void refreshRewardFromTip();
   bool shouldAutoMine() const;
   uint64_t expectedNonceForSender(const std::string &sender,
@@ -258,6 +281,7 @@ public:
   std::string getTipHashHex() const;   // hex string of tip hash
   uint64_t getTotalWork() const { return totalWork; } // cumulative work
   uint32_t getPeerCount() const;       // connected peers
+  MiningStatus getLastMiningStatus() const;
   int getBlockCount() const { return static_cast<int>(chain.size()); }
   void addVestingForEarlySupporter(const std::string &address, double initialAmount);
   bool castVote(const std::string &voterAddress, const std::string &candidateAddress);
