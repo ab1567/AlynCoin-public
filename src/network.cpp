@@ -320,6 +320,12 @@ static std::string toLowerCopy(const std::string &value) {
   return lowered;
 }
 
+static std::string canonicalEndpointLabel(const std::string &host, int port) {
+  if (host.empty() || port <= 0)
+    return std::string();
+  return makeEndpointLabel(toLowerCopy(host), port);
+}
+
 static bool isPrivateOrReservedIPv4(const std::string &ip) {
   boost::system::error_code ec;
   auto address = boost::asio::ip::make_address_v4(ip, ec);
@@ -5535,6 +5541,27 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     std::cerr << "⚠️ [connectToNode] suspicious service port for " << logPeer(label)
               << '\n';
     return false;
+  }
+  const std::string normalizedTarget = canonicalEndpointLabel(host, remotePort);
+  if (!normalizedTarget.empty()) {
+    std::lock_guard<std::timed_mutex> guard(peersMutex);
+    auto matchesEndpoint = [&](const std::string &ip, int port) {
+      if (ip.empty() || port <= 0)
+        return false;
+      return canonicalEndpointLabel(ip, port) == normalizedTarget;
+    };
+    for (const auto &kv : peerTransports) {
+      const auto &entry = kv.second;
+      if (!entry.tx || !entry.tx->isOpen())
+        continue;
+      if (matchesEndpoint(entry.ip, entry.port) ||
+          matchesEndpoint(entry.observedIp, entry.observedPort)) {
+        std::cout << "⚠️ [connectToNode] Skipping duplicate dial to "
+                  << logPeer(normalizedTarget) << " (already connected via "
+                  << logPeer(kv.first) << ")" << '\n';
+        return false;
+      }
+    }
   }
   size_t currentPeers = getConnectedPeerCount();
   if (currentPeers >= MAX_PEERS) {
