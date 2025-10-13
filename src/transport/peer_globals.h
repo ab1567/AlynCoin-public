@@ -12,6 +12,81 @@
 #include <chrono>
 #include <filesystem>
 #include <map>
+#include <algorithm>
+#include <cstring>
+
+#include "constants.h"
+
+struct SnapshotSessionId {
+  std::array<uint8_t, SNAPSHOT_SESSION_ID_BYTES> bytes{};
+  bool hasValue{false};
+
+  static SnapshotSessionId fromRaw(const std::string &raw) {
+    SnapshotSessionId sid;
+    if (raw.size() == SNAPSHOT_SESSION_ID_BYTES) {
+      std::copy(reinterpret_cast<const uint8_t *>(raw.data()),
+                reinterpret_cast<const uint8_t *>(raw.data()) +
+                    SNAPSHOT_SESSION_ID_BYTES,
+                sid.bytes.begin());
+      sid.hasValue = true;
+    } else if (!raw.empty()) {
+      sid.clear();
+    }
+    return sid;
+  }
+
+  std::string toRaw() const {
+    if (!hasValue)
+      return {};
+    return std::string(reinterpret_cast<const char *>(bytes.data()),
+                       bytes.size());
+  }
+
+  void clear() {
+    bytes.fill(0);
+    hasValue = false;
+  }
+
+  bool empty() const { return !hasValue; }
+
+  bool matchesRaw(const std::string &raw) const {
+    if (raw.empty())
+      return !hasValue;
+    if (!hasValue || raw.size() != SNAPSHOT_SESSION_ID_BYTES)
+      return false;
+    return std::memcmp(bytes.data(), raw.data(), SNAPSHOT_SESSION_ID_BYTES) == 0;
+  }
+};
+
+inline bool operator==(const SnapshotSessionId &lhs,
+                       const SnapshotSessionId &rhs) {
+  if (lhs.hasValue != rhs.hasValue)
+    return false;
+  if (!lhs.hasValue)
+    return true;
+  return lhs.bytes == rhs.bytes;
+}
+
+inline bool operator!=(const SnapshotSessionId &lhs,
+                       const SnapshotSessionId &rhs) {
+  return !(lhs == rhs);
+}
+
+inline bool operator==(const SnapshotSessionId &lhs, const std::string &rhs) {
+  return lhs.matchesRaw(rhs);
+}
+
+inline bool operator==(const std::string &lhs, const SnapshotSessionId &rhs) {
+  return rhs.matchesRaw(lhs);
+}
+
+inline bool operator!=(const SnapshotSessionId &lhs, const std::string &rhs) {
+  return !(lhs == rhs);
+}
+
+inline bool operator!=(const std::string &lhs, const SnapshotSessionId &rhs) {
+  return !(lhs == rhs);
+}
 
 struct SnapshotFileSink;
 
@@ -41,7 +116,7 @@ struct PeerState {
   bool snapshotServing{false};
   size_t snapshotChunkPreference{0};
   size_t snapshotChunkLimit{0};
-  std::string snapshotSessionId;
+  SnapshotSessionId snapshotSessionId;
   size_t snapshotLastAcked{0};
   std::shared_ptr<SnapshotFileSink> snapshotSink;
   std::filesystem::path snapshotTempPath;
@@ -51,7 +126,7 @@ struct PeerState {
   uint64_t snapshotChunksReceived{0};
   std::chrono::steady_clock::time_point snapshotLastProgressLog{};
   int staleSnapshotAckStrikes{0};
-  std::string servingSnapshotSessionId;
+  SnapshotSessionId servingSnapshotSessionId;
   std::string lastSnapshotMetaFrame;
   std::chrono::steady_clock::time_point lastSnapshotMetaSent{};
   bool snapshotImplicitStart{false};
