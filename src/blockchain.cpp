@@ -4830,6 +4830,7 @@ void Blockchain::applyConsensusHints(int remoteHeight, int hintedDifficulty,
 }
 
 size_t Blockchain::getOrphanPoolSize() const {
+  std::lock_guard<std::recursive_mutex> lock(blockchainMutex);
   size_t total = 0;
   for (const auto &[_, vec] : orphanBlocks)
     total += vec.size();
@@ -4837,6 +4838,7 @@ size_t Blockchain::getOrphanPoolSize() const {
 }
 
 size_t Blockchain::getFutureBlockCount() const {
+  std::lock_guard<std::recursive_mutex> lock(blockchainMutex);
   return futureBlocks.size();
 }
 
