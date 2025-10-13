@@ -5694,6 +5694,39 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     std::cerr << "[connectToNode] raw handshake bytes size=" << blob.size()
               << " first32=" << dumpHex(blob.data(), blob.size()) << '\n';
 
+    if (blob.empty()) {
+      // Some environments (notably hairpin NAT) will instantly tear down the
+      // outbound connection after we send our handshake because the listener
+      // simultaneously rejected the loopback attempt. In that scenario the
+      // inbound handler already marked the endpoint as "self", so re-check the
+      // filter to avoid treating it as a protocol error and spamming retries.
+      if (isSelfEndpoint(host, remotePort) ||
+          isSelfEndpoint(socketIp, socketPort) ||
+          (socketPort > 0 && isSelfEndpoint(socketIp, remotePort))) {
+        std::cout
+            << "🛑 [connectToNode] remote closed before handshake; treating "
+            << "as self endpoint " << logPeer(peerKey) << '\n';
+        recordSelfEndpoint(host, remotePort);
+        recordSelfEndpoint(socketIp, socketPort);
+        recordSelfEndpoint(socketIp, remotePort);
+      } else {
+        std::cerr << "⚠️ [connectToNode] invalid handshake from "
+                  << logPeer(peerKey) << '\n';
+      }
+      std::lock_guard<std::timed_mutex> g(peersMutex);
+      auto it = peerTransports.find(peerKey);
+      if (it != peerTransports.end() && it->second.tx &&
+          it->second.tx->isOpen()) {
+        if (auto tcp = std::dynamic_pointer_cast<TcpTransport>(tx))
+          tcp->close();
+        else if (auto ssl = std::dynamic_pointer_cast<SslTransport>(tx))
+          ssl->close();
+      } else {
+        peerTransports.erase(peerKey);
+      }
+      return false;
+    }
+
     bool theirAgg = false;
     bool theirSnap = false;
     bool theirWhisper = false;
@@ -5704,7 +5737,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     uint64_t theirWork = 0;
     uint32_t remoteRev = 0;
     alyncoin::net::Frame fr;
-    if (blob.empty() || !fr.ParseFromString(blob) || !fr.has_handshake()) {
+    if (!fr.ParseFromString(blob) || !fr.has_handshake()) {
       std::cerr << "⚠️ [connectToNode] invalid handshake from " << logPeer(peerKey)
                 << '\n';
       std::lock_guard<std::timed_mutex> g(peersMutex);
