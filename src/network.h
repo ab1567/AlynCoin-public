@@ -265,20 +265,21 @@ private:
   uint64_t localHandshakeNonce{0};
   struct ActiveSnapshotSession {
     std::string peer;
-    std::string sessionId;
+    SnapshotSessionId sessionId;
   };
   mutable std::mutex snapshotSessionMutex;
   std::optional<ActiveSnapshotSession> activeSnapshotSession;
 
   bool beginSnapshotSession(const std::string &peer,
-                            const std::string &sessionId);
+                            const SnapshotSessionId &sessionId);
   void releaseSnapshotSession(const std::string &peer,
-                              const std::string &sessionId);
+                              const SnapshotSessionId &sessionId =
+                                  SnapshotSessionId{});
   void releaseSnapshotSessionForPeer(const std::string &peer);
   bool isSnapshotInProgress() const;
   bool isSnapshotOwnedBy(const std::string &peer) const;
   bool snapshotSessionMatches(const std::string &peer,
-                              const std::string &sessionId) const;
+                              const SnapshotSessionId &sessionId) const;
   struct BanEntry {
     uint64_t until{0};
     int strikes{0};
