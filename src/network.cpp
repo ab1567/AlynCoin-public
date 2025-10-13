@@ -192,6 +192,15 @@ constexpr uint64_t SNAPSHOT_OUT_OF_ORDER_MAX_GAP =
 constexpr auto SNAPSHOT_OUT_OF_ORDER_ACK_THROTTLE =
     std::chrono::milliseconds(200);
 
+bool snapshotsAllowed() {
+  return !getAppConfig().disable_snapshot;
+}
+
+int effectiveTailSyncThreshold() {
+  return snapshotsAllowed() ? TAIL_SYNC_THRESHOLD
+                            : std::numeric_limits<int>::max();
+}
+
 constexpr auto NAT_REFRESH_SUCCESS_INTERVAL = std::chrono::minutes(20);
 constexpr auto NAT_REFRESH_RETRY_INTERVAL = std::chrono::minutes(5);
 
@@ -1803,7 +1812,8 @@ alyncoin::net::Handshake Network::buildHandshake() const {
   hs.add_capabilities("full");
   hs.add_capabilities("miner");
   hs.add_capabilities("agg_proof_v1");
-  hs.add_capabilities("snapshot_v1");
+  if (snapshotsAllowed())
+    hs.add_capabilities("snapshot_v1");
   hs.add_capabilities("binary_v1");
   hs.add_capabilities("whisper_v1");
   hs.add_capabilities("tls_v1");
@@ -1820,10 +1830,14 @@ alyncoin::net::Handshake Network::buildHandshake() const {
   auto work = bc.computeCumulativeDifficulty(bc.getChain());
   auto totalWork = safeUint64(work);
   hs.set_total_work(totalWork);
-  hs.set_want_snapshot(bc.getHeight() == 0);
-  hs.set_snapshot_size(static_cast<uint32_t>(
-      std::min<std::size_t>(MAX_SNAPSHOT_CHUNK_SIZE,
-                             SNAPSHOT_COMPAT_CHUNK_CAP)));
+  hs.set_want_snapshot(snapshotsAllowed() && bc.getHeight() == 0);
+  if (snapshotsAllowed()) {
+    hs.set_snapshot_size(static_cast<uint32_t>(
+        std::min<std::size_t>(MAX_SNAPSHOT_CHUNK_SIZE,
+                               SNAPSHOT_COMPAT_CHUNK_CAP)));
+  } else {
+    hs.set_snapshot_size(0);
+  }
   hs.set_node_id(nodeId);
   hs.set_nonce(localHandshakeNonce);
   if (!announce.first.empty() && isShareableAddress(announce.first))
@@ -2582,7 +2596,7 @@ void Network::intelligentSync() {
 
     int gap = ph - localHeight;
     uint64_t peerWork = peerManager->getPeerWork(peer);
-    if (gap <= TAIL_SYNC_THRESHOLD &&
+    if (gap <= effectiveTailSyncThreshold() &&
         peerWork + SNAPSHOT_WORK_DELTA >= localWork) {
       requestTailBlocks(peer, localHeight, localTip);
     } else if (peerSupportsSnapshot(peer)) {
@@ -2951,8 +2965,8 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     claimedNetwork = hs.network_id();
     remoteHeight = static_cast<int>(hs.height());
     remoteWork = hs.total_work();
-    remoteWantSnap = hs.want_snapshot();
-    remoteSnapSize = hs.snapshot_size();
+    remoteWantSnap = hs.want_snapshot() && snapshotsAllowed();
+    remoteSnapSize = snapshotsAllowed() ? hs.snapshot_size() : 0;
 
     // ─── Compatibility gate ────────────────────
     remoteRev = hs.frame_rev();
@@ -2967,7 +2981,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     for (const auto &cap : hs.capabilities()) {
       if (cap == "agg_proof_v1")
         remoteAgg = true;
-      if (cap == "snapshot_v1")
+      if (cap == "snapshot_v1" && snapshotsAllowed())
         remoteSnap = true;
       if (cap == "whisper_v1")
         remoteWhisper = true;
@@ -2978,6 +2992,9 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
       if (cap == "binary_v1")
         gotBinary = true;
     }
+    if (!snapshotsAllowed())
+      remoteSnap = false;
+
     if (auto hints = parseConsensusHints(hs.capabilities());
         hints.hasDifficulty || hints.hasReward) {
       Blockchain::getInstance().applyConsensusHints(
@@ -3125,7 +3142,8 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
       grace = BAN_GRACE_MAX;
     entry.state->graceUntil = entry.state->connectedAt + grace;
     entry.state->supportsAggProof = remoteAgg;
-    entry.state->supportsSnapshot = remoteSnap && protoCompatible;
+    entry.state->supportsSnapshot =
+        snapshotsAllowed() && remoteSnap && protoCompatible;
     entry.state->supportsWhisper = remoteWhisper;
     entry.state->supportsTls = remoteTls;
     entry.state->supportsBanDecay = remoteBanDecay;
@@ -3170,15 +3188,17 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     alyncoin::net::Handshake hs_out = buildHandshake();
     hs_out.set_pub_key(
         std::string(reinterpret_cast<char *>(myPub.data()), myPub.size()));
-    hs_out.set_snapshot_size(static_cast<uint32_t>(
-        std::min<std::size_t>(MAX_SNAPSHOT_CHUNK_SIZE,
-                               SNAPSHOT_COMPAT_CHUNK_CAP)));
+    hs_out.set_snapshot_size(snapshotsAllowed()
+                                 ? static_cast<uint32_t>(std::min<std::size_t>(
+                                       MAX_SNAPSHOT_CHUNK_SIZE,
+                                       SNAPSHOT_COMPAT_CHUNK_CAP))
+                                 : 0);
     auto endpoint = determineAnnounceEndpoint();
     if (!endpoint.first.empty() && isShareableAddress(endpoint.first))
       hs_out.set_observed_ip(endpoint.first);
     else
       hs_out.set_observed_ip(realPeerId);
-    if (remoteWantSnap && protoCompatible)
+    if (remoteWantSnap && protoCompatible && snapshotsAllowed())
       hs_out.set_want_snapshot(true);
     alyncoin::net::Frame out;
     *out.mutable_handshake() = hs_out;
@@ -3198,22 +3218,22 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
       safeUint64(chain.computeCumulativeDifficulty(chain.getChain()));
   if (remoteHeight > static_cast<int>(myHeight)) {
     int gap = remoteHeight - static_cast<int>(myHeight);
-    if (gap <= TAIL_SYNC_THRESHOLD &&
+    if (gap <= effectiveTailSyncThreshold() &&
         remoteWork + SNAPSHOT_WORK_DELTA >= myWork) {
       requestTailBlocks(claimedPeerId, myHeight, chain.getLatestBlockHash());
-    } else if (remoteSnap && protoCompatible) {
+    } else if (remoteSnap && protoCompatible && snapshotsAllowed()) {
       requestSnapshotSync(claimedPeerId);
     } else if (remoteAgg) {
       requestEpochHeaders(claimedPeerId);
     }
   } else if (remoteHeight < static_cast<int>(myHeight) &&
-             remoteSnap && protoCompatible) {
+             remoteSnap && protoCompatible && snapshotsAllowed()) {
     int gap = static_cast<int>(myHeight) - remoteHeight;
     const bool allowTail =
-        gap > 0 && gap <= TAIL_SYNC_THRESHOLD &&
+        gap > 0 && gap <= effectiveTailSyncThreshold() &&
         myWork <= remoteWork + SNAPSHOT_WORK_DELTA;
     const bool eagerSnapshot =
-        (remoteWantSnap && protoCompatible) &&
+        (remoteWantSnap && protoCompatible && snapshotsAllowed()) &&
         (gap >= SNAPSHOT_PROACTIVE_GAP ||
          myWork > remoteWork + SNAPSHOT_WORK_DELTA);
     if (eagerSnapshot) {
@@ -3717,7 +3737,8 @@ void Network::autoSyncIfBehind() {
       uint64_t peerWork = pm->getPeerWork(peerAddr);
 
       auto state = entry.state;
-      const bool supportsSnapshot = state && state->supportsSnapshot;
+      const bool supportsSnapshot =
+          snapshotsAllowed() && state && state->supportsSnapshot;
 
       std::cout << "[autoSync] peer=" << logPeer(peerAddr) << " height=" << peerHeight
                 << " | local=" << myHeight;
@@ -3739,7 +3760,7 @@ void Network::autoSyncIfBehind() {
       } else if (peerHeight < static_cast<int>(myHeight) &&
                  peerWork < myWork) {
         int gap = static_cast<int>(myHeight) - peerHeight;
-        bool allowTail = gap > 0 && gap <= TAIL_SYNC_THRESHOLD &&
+        bool allowTail = gap > 0 && gap <= effectiveTailSyncThreshold() &&
                          myWork <= peerWork + SNAPSHOT_WORK_DELTA;
         if (supportsSnapshot && allowTail) {
           std::cout << "  → sending tail blocks\n";
@@ -4779,7 +4800,7 @@ std::string Network::requestBlockchainSync(const std::string &peer) {
   }
   if (peerHeight > localHeight) {
     int gap = peerHeight - localHeight;
-    if (gap <= TAIL_SYNC_THRESHOLD &&
+    if (gap <= effectiveTailSyncThreshold() &&
         peerWork + SNAPSHOT_WORK_DELTA >= localWork) {
       requestTailBlocks(peer, localHeight,
                         Blockchain::getInstance().getLatestBlockHash());
@@ -5076,7 +5097,7 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
         if (cap == "agg_proof_v1")
           remoteAgg = true;
         else if (cap == "snapshot_v1")
-          remoteSnap = true;
+          remoteSnap = snapshotsAllowed();
         else if (cap == "whisper_v1")
           remoteWhisper = true;
         else if (cap == "tls_v1")
@@ -5085,12 +5106,14 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
           remoteBanDecay = true;
       }
       st->supportsAggProof = remoteAgg;
-      st->supportsSnapshot = remoteSnap;
+      st->supportsSnapshot = snapshotsAllowed() && remoteSnap;
       st->supportsWhisper = remoteWhisper;
       st->supportsTls = remoteTls;
       st->supportsBanDecay = remoteBanDecay;
       st->snapshotChunkPreference =
-          remoteSnap ? resolveSnapshotChunkSize(hs.snapshot_size()) : 0;
+          (snapshotsAllowed() && remoteSnap)
+              ? resolveSnapshotChunkSize(hs.snapshot_size())
+              : 0;
       st->frameRev = hs.frame_rev();
       st->version = hs.version();
       st->handshakeComplete = true;
@@ -5451,6 +5474,11 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
     break;
   }
   case alyncoin::net::Frame::kSnapshotReq: {
+    if (!snapshotsAllowed()) {
+      std::cerr << "ℹ️  [Snapshot] Ignoring snapshot request from " << logPeer(peer)
+                << " because snapshots are disabled." << '\n';
+      break;
+    }
     if (auto snapshot = getPeerSnapshot(peer);
         snapshot.transport && snapshot.transport->isOpen()) {
       const auto &req = f.snapshot_req();
@@ -5643,6 +5671,15 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     std::string socketIp = tx->getRemoteIP();
     int socketPort = tx->getRemotePort();
 
+    if (isSelfEndpoint(socketIp, socketPort)) {
+      recordSelfEndpoint(socketIp, socketPort);
+      std::cout << "🛑 [connectToNode] Detected self endpoint after dial "
+                << logPeer(makeEndpointLabel(socketIp, socketPort))
+                << "; closing connection." << '\n';
+      tx->close();
+      return false;
+    }
+
     {
       ScopedLockTracer _t("connectToNode");
       // no pre-handshake duplicate check since peers are keyed by node_id
@@ -5792,7 +5829,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
       if (c == "agg_proof_v1")
         theirAgg = true;
       if (c == "snapshot_v1")
-        theirSnap = true;
+        theirSnap = snapshotsAllowed();
       if (c == "whisper_v1")
         theirWhisper = true;
       if (c == "tls_v1")
@@ -5867,7 +5904,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
       st->connectedAt = std::chrono::steady_clock::now();
       st->graceUntil = st->connectedAt + BAN_GRACE_BASE;
       st->supportsAggProof = theirAgg;
-      st->supportsSnapshot = theirSnap;
+      st->supportsSnapshot = snapshotsAllowed() && theirSnap;
       st->supportsWhisper = theirWhisper;
       st->supportsTls = theirTls;
       st->supportsBanDecay = theirBanDecay;
@@ -5917,21 +5954,21 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
         safeUint64(chain.computeCumulativeDifficulty(chain.getChain()));
     if (theirHeight > localHeight) {
       int gap = theirHeight - localHeight;
-      if (gap <= TAIL_SYNC_THRESHOLD &&
+      if (gap <= effectiveTailSyncThreshold() &&
           theirWork + SNAPSHOT_WORK_DELTA >= localWork) {
         requestTailBlocks(finalKey, localHeight, chain.getLatestBlockHash());
-      } else if (theirSnap) {
+      } else if (theirSnap && snapshotsAllowed()) {
         requestSnapshotSync(finalKey);
       } else if (theirAgg) {
         requestEpochHeaders(finalKey);
       }
-    } else if (theirHeight < localHeight && theirSnap) {
+    } else if (theirHeight < localHeight && theirSnap && snapshotsAllowed()) {
       int gap = localHeight - theirHeight;
       const bool allowTail =
-          gap > 0 && gap <= TAIL_SYNC_THRESHOLD &&
+          gap > 0 && gap <= effectiveTailSyncThreshold() &&
           localWork <= theirWork + SNAPSHOT_WORK_DELTA;
       const bool eagerSnapshot =
-          theirWantSnapshot &&
+          (theirWantSnapshot && snapshotsAllowed()) &&
           (gap >= SNAPSHOT_PROACTIVE_GAP ||
            localWork > theirWork + SNAPSHOT_WORK_DELTA);
       if (eagerSnapshot) {
@@ -6810,7 +6847,7 @@ bool Network::shouldServeHeavyData(const std::string &peerId,
 
   if (!remoteBehind)
     return false;
-  if (heightGap > TAIL_SYNC_THRESHOLD)
+  if (heightGap > effectiveTailSyncThreshold())
     return false;
   if (localHeavierWork)
     return false;
@@ -7145,6 +7182,8 @@ bool Network::peerSupportsAggProof(const std::string &peerId) const {
 }
 //
 bool Network::peerSupportsSnapshot(const std::string &peerId) const {
+  if (!snapshotsAllowed())
+    return false;
   if (auto snapshot = getPeerSnapshot(peerId); snapshot.state)
     return snapshot.state->supportsSnapshot;
   return false;
@@ -7164,6 +7203,8 @@ bool Network::peerSupportsTls(const std::string &peerId) const {
 
 bool Network::beginSnapshotSession(const std::string &peer,
                                    const std::string &sessionId) {
+  if (!snapshotsAllowed())
+    return false;
   std::lock_guard<std::mutex> lk(snapshotSessionMutex);
   if (activeSnapshotSession) {
     if (activeSnapshotSession->peer == peer &&
@@ -8737,6 +8778,8 @@ void Network::handleBlockBatch(const std::string &peer,
 
 //
 void Network::requestSnapshotSync(const std::string &peer) {
+  if (!snapshotsAllowed())
+    return;
   auto snapshot = getPeerSnapshot(peer);
   if (!snapshot.transport || !snapshot.transport->isOpen())
     return;

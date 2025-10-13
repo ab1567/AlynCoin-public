@@ -2096,6 +2096,12 @@ int main(int argc, char *argv[]) {
       getAppConfig().no_self_dial = true;
     } else if (arg == "--allow-self-dial") {
       getAppConfig().no_self_dial = false;
+    } else if (arg == "--no-snapshot") {
+      getAppConfig().disable_snapshot = true;
+      std::cout << "🚫 Snapshot sync disabled; falling back to tail-only mode.\n";
+    } else if (arg == "--allow-snapshot") {
+      getAppConfig().disable_snapshot = false;
+      std::cout << "📦 Snapshot sync re-enabled.\n";
     } else if (arg == "--blacklist-peer" && i + 1 < argc) {
       appendStaticDeny(argv[++i]);
     }

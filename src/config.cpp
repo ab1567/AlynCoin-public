@@ -108,6 +108,10 @@ void loadConfigFile(const std::string &path) {
             } catch (...) {
                 // ignore malformed value
             }
+        } else if (line.rfind("disable_snapshot=", 0) == 0) {
+            cfg.disable_snapshot = parseBool(line.substr(17));
+        } else if (line.rfind("no_snapshot=", 0) == 0) {
+            cfg.disable_snapshot = parseBool(line.substr(12));
         } else if (line.rfind("seed=", 0) == 0) {
             std::string host = trim(line.substr(5));
             if (host.empty())
@@ -193,6 +197,7 @@ void loadConfigFile(const std::string &path) {
     applyEnvDouble("ALYN_FAST_SYNC_SAMPLE", cfg.fast_sync_sample_rate, 0.0, 1.0);
     applyEnvInt("ALYN_FAST_SYNC_TRAILING", cfg.fast_sync_trailing_full, 0);
     applyEnvBool("ALYN_NO_SELF_DIAL", cfg.no_self_dial);
+    applyEnvBool("ALYN_DISABLE_SNAPSHOT", cfg.disable_snapshot);
 }
 
 void saveConfigValue(const std::string &path, const std::string &key,
