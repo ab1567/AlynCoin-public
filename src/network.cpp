@@ -2396,11 +2396,41 @@ void Network::autoMineBlock() {
 //
 // ✅ **Getter function for syncing status**
 bool Network::isSyncing() const {
-  std::lock_guard<std::mutex> lk(syncStateMutex);
-  for (const auto &kv : peerSyncStates) {
-    if (kv.second.mode != PeerSyncProgress::Mode::Idle)
+  const auto hasOutstandingWork = [](const PeerSyncProgress &state) {
+    if (state.mode == PeerSyncProgress::Mode::Snapshot)
+      return true;
+    if (!state.blockQueue.empty() || !state.requestedBlocks.empty() ||
+        !state.headers.empty())
+      return true;
+    return false;
+  };
+
+  {
+    std::lock_guard<std::mutex> lk(syncStateMutex);
+    for (const auto &kv : peerSyncStates) {
+      if (hasOutstandingWork(kv.second))
+        return true;
+    }
+  }
+
+  if (!blockchain)
+    return false;
+
+  PeerManager *pm = peerManager.get();
+  if (!pm)
+    return false;
+
+  const int peerMaxHeight = pm->getMaxPeerHeight();
+  if (peerMaxHeight > SYNC_HEIGHT_TOLERANCE) {
+    const int localHeight = blockchain->getHeight();
+    if (localHeight < peerMaxHeight - SYNC_HEIGHT_TOLERANCE)
       return true;
   }
+
+  const uint64_t peerWork = pm->getMaxPeerWork();
+  if (peerWork > 0 && blockchain->getTotalWork() < peerWork)
+    return true;
+
   return false;
 }
 
@@ -2515,6 +2545,21 @@ void Network::intelligentSync() {
   if (networkHeight <= localHeight) {
     std::cout
         << "✅ [Smart Sync] Local blockchain is up-to-date. No sync needed.\n";
+    std::vector<std::string> peersToReset;
+    {
+      std::lock_guard<std::mutex> lk(syncStateMutex);
+      peersToReset.reserve(peerSyncStates.size());
+      for (const auto &kv : peerSyncStates) {
+        const auto &state = kv.second;
+        if (state.mode != PeerSyncProgress::Mode::Idle ||
+            !state.blockQueue.empty() || !state.requestedBlocks.empty() ||
+            !state.headers.empty()) {
+          peersToReset.push_back(kv.first);
+        }
+      }
+    }
+    for (const auto &peer : peersToReset)
+      resetPeerSyncState(peer);
     return;
   }
 
