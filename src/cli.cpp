@@ -93,6 +93,65 @@ ConnectOutcome connectPeerWithFeedback(Network &network, const std::string &ip,
     return state->success ? ConnectOutcome::Success : ConnectOutcome::Failure;
 }
 
+const char *miningStatusCodeToString(Blockchain::MiningStatusCode code) {
+    switch (code) {
+    case Blockchain::MiningStatusCode::Success:
+        return "SUCCESS";
+    case Blockchain::MiningStatusCode::InProgress:
+        return "IN_PROGRESS";
+    case Blockchain::MiningStatusCode::OfflineMode:
+        return "OFFLINE_MODE";
+    case Blockchain::MiningStatusCode::Syncing:
+        return "SYNCING";
+    case Blockchain::MiningStatusCode::RequirePeer:
+        return "REQUIRE_PEER";
+    case Blockchain::MiningStatusCode::MissingMinerKeys:
+        return "MISSING_MINER_KEYS";
+    case Blockchain::MiningStatusCode::KeyLoadFailure:
+        return "KEY_LOAD_FAILURE";
+    case Blockchain::MiningStatusCode::ProofMissing:
+        return "PROOF_MISSING";
+    case Blockchain::MiningStatusCode::BlockRejected:
+        return "BLOCK_REJECTED";
+    case Blockchain::MiningStatusCode::EmptyResult:
+        return "EMPTY_RESULT";
+    case Blockchain::MiningStatusCode::Unknown:
+    default:
+        return "UNKNOWN";
+    }
+}
+
+std::string describeMiningStatus(const Blockchain::MiningStatus &status) {
+    if (!status.message.empty())
+        return status.message;
+
+    switch (status.code) {
+    case Blockchain::MiningStatusCode::Success:
+        return "Block mined successfully.";
+    case Blockchain::MiningStatusCode::InProgress:
+        return "Mining job is in progress.";
+    case Blockchain::MiningStatusCode::OfflineMode:
+        return "Node is in offline mode.";
+    case Blockchain::MiningStatusCode::Syncing:
+        return "Node is synchronizing with peers.";
+    case Blockchain::MiningStatusCode::RequirePeer:
+        return "Connect to at least one peer before mining.";
+    case Blockchain::MiningStatusCode::MissingMinerKeys:
+        return "Miner signing keys are missing.";
+    case Blockchain::MiningStatusCode::KeyLoadFailure:
+        return "Failed to load miner signing keys.";
+    case Blockchain::MiningStatusCode::ProofMissing:
+        return "Mined block is missing zk-proof data.";
+    case Blockchain::MiningStatusCode::BlockRejected:
+        return "Mined block was rejected by consensus.";
+    case Blockchain::MiningStatusCode::EmptyResult:
+        return "Mining did not produce a valid block.";
+    case Blockchain::MiningStatusCode::Unknown:
+    default:
+        return "Mining failed for an unknown reason.";
+    }
+}
+
 } // namespace
 
 std::string getCurrentWallet() {
@@ -250,6 +309,7 @@ if (argc >= 3 && std::string(argv[1]) == "mineonce") {
     b.loadPendingTransactionsFromDB();
     std::cout << "⛏️ Mining single block for: " << minerAddress << "\n";
     Block minedBlock = b.mineBlock(minerAddress);
+    Blockchain::MiningStatus status = b.getLastMiningStatus();
 
     if (!minedBlock.getHash().empty()) {
         b.saveToDB();
@@ -261,7 +321,8 @@ if (argc >= 3 && std::string(argv[1]) == "mineonce") {
                   << "🧱 Block Hash: " << minedBlock.getHash() << "\n"
                   << "✅ Block added to chain.\n";
     } else {
-        std::cerr << "⚠️ Mining failed.\n";
+        std::cerr << "⚠️ Mining failed: " << describeMiningStatus(status)
+                  << " (" << miningStatusCodeToString(status.code) << ")\n";
     }
 
     return 0;
@@ -280,6 +341,7 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
     while (true) {
         b.loadPendingTransactionsFromDB();
         Block minedBlock = b.mineBlock(minerAddress);
+        Blockchain::MiningStatus status = b.getLastMiningStatus();
 
         if (!minedBlock.getHash().empty()) {
             b.saveToDB();
@@ -296,7 +358,8 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
             std::cout << "✅ Block mined by: " << minerAddress << "\n"
                       << "🧱 Block Hash: " << minedBlock.getHash() << "\n";
         } else {
-            std::cerr << "⚠️ Mining failed or no valid transactions.\n";
+            std::cerr << "⚠️ Mining failed: " << describeMiningStatus(status)
+                      << " (" << miningStatusCodeToString(status.code) << ")\n";
         }
 
         std::this_thread::sleep_for(std::chrono::seconds(2));
@@ -760,9 +823,11 @@ if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == 
 
      Blockchain &b = getBlockchain();
      Block mined = b.minePendingTransactions(minerAddr, dil.privateKey, fal.privateKey);
+     Blockchain::MiningStatus status = b.getLastMiningStatus();
 
      if (mined.getHash().empty()) {
-         std::cerr << "❌ Mining failed or returned empty block.\n";
+         std::cerr << "❌ Mining failed: " << describeMiningStatus(status)
+                   << " (" << miningStatusCodeToString(status.code) << ")\n";
          return 1;
      }
 
@@ -1304,14 +1369,16 @@ int cliMain(int argc, char *argv[]) {
       std::cout << "Starting mining with address: " << addr << std::endl;
       Block mined = blockchain.minePendingTransactions(addr, dilKeys.privateKey,
                                                        falKeys.privateKey);
+      Blockchain::MiningStatus status = blockchain.getLastMiningStatus();
 
       if (mined.getHash().empty()) {
-        std::cout << "❌ Mining failed or returned empty block.\n";
+        std::cout << "❌ Mining failed: " << describeMiningStatus(status)
+                  << " (" << miningStatusCodeToString(status.code) << ")\n";
       } else {
         blockchain.saveToDB();
         if (network) {
- 	   network->broadcastBlock(mined);
-	}
+           network->broadcastBlock(mined);
+        }
 	std::cout << "✅ Block mined! Hash: " << mined.getHash() << std::endl;
       }
       break;

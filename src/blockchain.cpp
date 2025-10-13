@@ -82,6 +82,28 @@ std::string formatAmount(double amount) {
   return formatted;
 }
 
+std::string describeBlockAddResult(Blockchain::BlockAddResult result) {
+  switch (result) {
+  case Blockchain::BlockAddResult::Added:
+    return "block accepted";
+  case Blockchain::BlockAddResult::SideChain:
+    return "block extended a side chain";
+  case Blockchain::BlockAddResult::QueuedOrphan:
+    return "block queued as orphan";
+  case Blockchain::BlockAddResult::Duplicate:
+    return "duplicate block";
+  case Blockchain::BlockAddResult::Future:
+    return "block timestamp is in the future";
+  case Blockchain::BlockAddResult::Stale:
+    return "stale block";
+  case Blockchain::BlockAddResult::Dropped:
+    return "block dropped by policy";
+  case Blockchain::BlockAddResult::Invalid:
+    return "block failed validation";
+  }
+  return "unknown rejection";
+}
+
 } // namespace
 
 namespace {
@@ -126,6 +148,17 @@ double getGenesisPremineTotal() {
   return total;
 }
 } // namespace
+
+void Blockchain::setMiningStatus(MiningStatusCode code,
+                                 const std::string &message) {
+  std::lock_guard<std::mutex> lock(miningStatusMutex);
+  lastMiningStatus = {code, message};
+}
+
+Blockchain::MiningStatus Blockchain::getLastMiningStatus() const {
+  std::lock_guard<std::mutex> lock(miningStatusMutex);
+  return lastMiningStatus;
+}
 
 // --- helper ---------------------------------------------------------------
 // Compute BLAKE3 hash of concatenated block hashes for the epoch ending at
@@ -1347,6 +1380,9 @@ Block Blockchain::minePendingTransactions(
   (void)minerFalconPriv;
   (void)forceAutoReward;
 
+  setMiningStatus(MiningStatusCode::InProgress,
+                  "Preparing pending transactions for mining");
+
   bool havePeers = false;
   bool networkSyncing = false;
   if (!Network::isUninitialized()) {
@@ -1358,12 +1394,16 @@ Block Blockchain::minePendingTransactions(
   const auto &cfg = getAppConfig();
   if (cfg.offline_mode) {
     std::cerr << "⚠️ Cannot mine while node is in offline mode." << std::endl;
+    setMiningStatus(MiningStatusCode::OfflineMode,
+                    "Cannot mine while node is in offline mode");
     return Block();
   }
 
   if (networkSyncing) {
     std::cout << "[DEBUG] Skipping mining while synchronizing with peers..."
               << std::endl;
+    setMiningStatus(MiningStatusCode::Syncing,
+                    "Node is synchronizing with peers");
     return Block();
   }
   static bool soloWarned = false;
@@ -1373,6 +1413,8 @@ Block Blockchain::minePendingTransactions(
         std::cerr << "⚠️ Cannot mine without at least one connected peer." << std::endl;
         soloWarned = true;
       }
+      setMiningStatus(MiningStatusCode::RequirePeer,
+                      "Mining requires at least one connected peer");
       return Block();
     }
     if (!soloWarned) {
@@ -1479,6 +1521,8 @@ Block Blockchain::minePendingTransactions(
   lock.unlock();
   if (!newBlock.mineBlock(difficulty)) {
     std::cerr << "❌ Mining process returned false!" << std::endl;
+    setMiningStatus(MiningStatusCode::EmptyResult,
+                    "Proof-of-work search did not produce a valid hash");
     return Block();
   }
   lock.lock();
@@ -1499,12 +1543,17 @@ Block Blockchain::minePendingTransactions(
   if (newBlock.getZkProof().empty()) {
     std::cerr << "❌ [ERROR] Mined block has empty zkProof! Aborting mining."
               << std::endl;
+    setMiningStatus(MiningStatusCode::ProofMissing,
+                    "Mined block is missing zk-proof data");
     return Block();
   }
 
   std::cout << "[DEBUG] Attempting to addBlock()..." << std::endl;
-  if (addBlock(newBlock, true) != BlockAddResult::Added) {
+  BlockAddResult addResult = addBlock(newBlock, true);
+  if (addResult != BlockAddResult::Added) {
     std::cerr << "❌ Error adding mined block to blockchain." << std::endl;
+    setMiningStatus(MiningStatusCode::BlockRejected,
+                    "Block rejected: " + describeBlockAddResult(addResult));
     return Block();
   }
 
@@ -1526,6 +1575,8 @@ Block Blockchain::minePendingTransactions(
       newBlock)
       .detach();
 
+  setMiningStatus(MiningStatusCode::Success,
+                  "Block mined and added successfully");
   std::cout << "✅ Block mined and added successfully. Total burned supply: "
             << totalBurnedSupply << std::endl;
   return newBlock;
@@ -2925,8 +2976,12 @@ Block Blockchain::createBlock(const std::string &minerDilithiumKey,
 Block Blockchain::mineBlock(const std::string &minerAddress) {
   std::cout << "[DEBUG] Entered mineBlock() for: " << minerAddress << "\n";
 
+  setMiningStatus(MiningStatusCode::InProgress, "Preparing mining job");
+
   if (getAppConfig().offline_mode) {
     std::cerr << "⚠️ Cannot mine block while node is in offline mode." << std::endl;
+    setMiningStatus(MiningStatusCode::OfflineMode,
+                    "Cannot mine block while node is in offline mode");
     return Block();
   }
 
@@ -2936,6 +2991,8 @@ Block Blockchain::mineBlock(const std::string &minerAddress) {
 
   if (syncing) {
     std::cerr << "⚠️ Node is synchronizing. Mining paused." << std::endl;
+    setMiningStatus(MiningStatusCode::Syncing,
+                    "Node is synchronizing with peers");
     return Block();
   }
 
@@ -2945,6 +3002,8 @@ Block Blockchain::mineBlock(const std::string &minerAddress) {
 
   if (getAppConfig().require_peer_for_mining && connectedPeers == 0) {
     std::cerr << "❌ Mining requires at least one connected peer.\n";
+    setMiningStatus(MiningStatusCode::RequirePeer,
+                    "Mining requires at least one connected peer");
     return Block();
   }
 
@@ -2960,6 +3019,8 @@ Block Blockchain::mineBlock(const std::string &minerAddress) {
       !Crypto::fileExists(falconKeyPath)) {
     std::cerr << "❌ Miner key(s) not found for identifier: " << minerKeyId
               << " (address: " << minerAddress << ")\n";
+    setMiningStatus(MiningStatusCode::MissingMinerKeys,
+                    "Miner signing keys were not found for the requested address");
     return Block();
   }
 
@@ -2971,6 +3032,8 @@ Block Blockchain::mineBlock(const std::string &minerAddress) {
   if (dilPriv.empty() || falPriv.empty()) {
     std::cerr << "❌ Failed to load miner keys for identifier: " << minerKeyId
               << " (address: " << minerAddress << ")\n";
+    setMiningStatus(MiningStatusCode::KeyLoadFailure,
+                    "Failed to load miner signing keys from disk");
     return Block();
   }
 
@@ -2979,6 +3042,20 @@ Block Blockchain::mineBlock(const std::string &minerAddress) {
   if (newBlock.getHash().empty()) {
     std::cerr << "⚠️ Mining returned an empty block. Possibly no valid "
                  "transactions.\n";
+    MiningStatus status = getLastMiningStatus();
+    if (status.code == MiningStatusCode::InProgress ||
+        status.code == MiningStatusCode::Success) {
+      setMiningStatus(MiningStatusCode::EmptyResult,
+                      "Mining returned no block (possibly rejected by consensus)");
+    }
+  }
+
+  if (!newBlock.getHash().empty()) {
+    MiningStatus status = getLastMiningStatus();
+    if (status.code != MiningStatusCode::Success) {
+      setMiningStatus(MiningStatusCode::Success,
+                      "Block mined and added successfully");
+    }
   }
 
   std::cout << "[DEBUG] Updating transaction history...\n";
