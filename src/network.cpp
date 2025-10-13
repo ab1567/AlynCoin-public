@@ -320,6 +320,8 @@ static std::string toLowerCopy(const std::string &value) {
   return lowered;
 }
 
+static std::string makeEndpointLabel(const std::string &host, int port);
+
 static std::string canonicalEndpointLabel(const std::string &host, int port) {
   if (host.empty() || port <= 0)
     return std::string();
