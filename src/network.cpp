@@ -4581,9 +4581,9 @@ void Network::handleGetData(const std::string &peer,
 
 void Network::handleDataFrame(const std::string &peer,
                               const alyncoin::net::Data &data) {
-  using Kind = alyncoin::net::Data::Kind;
+  using DataMessage = alyncoin::net::Data;
   switch (data.kind()) {
-  case Kind::BLOCK: {
+  case DataMessage::BLOCK: {
     if (!data.has_block())
       break;
     Block blk = Block::fromProto(data.block());
@@ -4607,7 +4607,7 @@ void Network::handleDataFrame(const std::string &peer,
     requestQueuedBlocks(peer);
     break;
   }
-  case Kind::TX: {
+  case DataMessage::TX: {
     if (!data.has_tx())
       break;
     Transaction tx = Transaction::fromProto(data.tx());
@@ -4616,7 +4616,7 @@ void Network::handleDataFrame(const std::string &peer,
     receiveTransaction(tx);
     break;
   }
-  case Kind::KIND_UNKNOWN:
+  case DataMessage::KIND_UNKNOWN:
   default:
     std::cerr << "⚠️  [data] Unknown payload from " << logPeer(peer) << '\n';
     break;
