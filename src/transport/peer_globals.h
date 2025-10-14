@@ -1,6 +1,7 @@
 #pragma once
 #include "block.h"
 #include "transport/transport.h"
+#include <condition_variable>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -132,6 +133,16 @@ struct PeerState {
   std::chrono::steady_clock::time_point lastSnapshotMetaSent{};
   std::chrono::steady_clock::time_point servingSnapshotSessionStarted{};
   std::chrono::steady_clock::time_point previousSnapshotSessionValidUntil{};
+  struct OutgoingChunk {
+    uint64_t offset{0};
+    std::size_t length{0};
+    std::chrono::steady_clock::time_point lastSent{};
+    int retries{0};
+  };
+  std::deque<OutgoingChunk> snapshotOutstandingChunks;
+  uint64_t snapshotAckedThrough{0};
+  bool snapshotAbortFlag{false};
+  std::condition_variable snapshotAckCv;
   bool snapshotImplicitStart{false};
   std::chrono::steady_clock::time_point snapshotImplicitSince{};
   struct PendingChunk {
