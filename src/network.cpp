@@ -48,6 +48,7 @@
 #include <google/protobuf/util/json_util.h>
 #include <iomanip>
 #include <iostream>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -97,6 +98,14 @@ using namespace alyncoin;
 namespace {
 std::string formatSessionId(const SnapshotSessionId &sessionId);
 std::string formatSessionId(const std::string &sessionId);
+PeerState::SyncRole getWireMode(const std::shared_ptr<PeerState> &state);
+void setWireMode(const std::shared_ptr<PeerState> &state,
+                 PeerState::SyncRole role);
+bool frameAllowedForRole(PeerState::SyncRole role,
+                         alyncoin::net::Frame::KindCase kind);
+bool markHeadersFingerprint(const std::shared_ptr<PeerState> &state,
+                            std::size_t fp);
+const char *describeSyncRole(PeerState::SyncRole role);
 }
 
 struct SnapshotFileSink {
@@ -1062,18 +1071,22 @@ void Network::applySyncModeToPeerState(const std::string &peer,
   case PeerSyncProgress::Mode::Idle:
     snapshot.state->syncMode = PeerState::SyncMode::Idle;
     snapshot.state->recovering = false;
+    setWireMode(snapshot.state, PeerState::SyncRole::Idle);
     break;
   case PeerSyncProgress::Mode::Headers:
     snapshot.state->syncMode = PeerState::SyncMode::Headers;
     snapshot.state->recovering = false;
+    setWireMode(snapshot.state, PeerState::SyncRole::DownloadingHeaders);
     break;
   case PeerSyncProgress::Mode::Blocks:
     snapshot.state->syncMode = PeerState::SyncMode::Blocks;
     snapshot.state->recovering = false;
+    setWireMode(snapshot.state, PeerState::SyncRole::DownloadingHeaders);
     break;
   case PeerSyncProgress::Mode::Snapshot:
     snapshot.state->syncMode = PeerState::SyncMode::Snapshot;
     snapshot.state->recovering = true;
+    setWireMode(snapshot.state, PeerState::SyncRole::DownloadingSnapshot);
     break;
   }
 }
@@ -5091,6 +5104,17 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
   std::cerr << "[<<] Incoming Frame from " << logPeer(peer)
             << " Type=" << static_cast<int>(desc.tag) << " (" << desc.label
             << ") size=" << f.ByteSizeLong() << '\n';
+  if (auto snapshot = getPeerSnapshot(peer); snapshot.state) {
+    auto role = getWireMode(snapshot.state);
+    if (!frameAllowedForRole(role, f.kind_case())) {
+      if (gModeMismatchLogLimiter.shouldLog()) {
+        std::cerr << "⚠️  [mode] Dropping " << desc.label << " from "
+                  << logPeer(peer) << " while role=" << describeSyncRole(role)
+                  << '\n';
+      }
+      return;
+    }
+  }
   switch (f.kind_case()) {
   case alyncoin::net::Frame::kHandshake: {
     const auto &hs = f.handshake();
@@ -5290,7 +5314,8 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
       auto *hdr = out.mutable_headers();
       constexpr size_t kMaxHeadersPerBatch = 2000;
       constexpr size_t kSnapshotHeadersPerBatch = 400;
-      constexpr size_t kSnapshotHeadersPayloadCap = 256 * 1024;
+      constexpr size_t kHeadersPayloadCap = 128 * 1024;
+      constexpr size_t kSnapshotHeadersPayloadCap = 64 * 1024;
       bool sendError = false;
       size_t count = 0;
 
@@ -5301,15 +5326,37 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
       const size_t payloadCap = snapshotBusy
                                     ? std::min<std::size_t>(MAX_WIRE_PAYLOAD,
                                                             kSnapshotHeadersPayloadCap)
-                                    : MAX_WIRE_PAYLOAD;
+                                    : std::min<std::size_t>(MAX_WIRE_PAYLOAD,
+                                                            kHeadersPayloadCap);
       const size_t batchCap = snapshotBusy
                                   ? std::min<std::size_t>(kMaxHeadersPerBatch,
                                                           kSnapshotHeadersPerBatch)
                                   : kMaxHeadersPerBatch;
 
+      auto ps = snapshot.state;
+      auto previousRole = getWireMode(ps);
+      setWireMode(ps, PeerState::SyncRole::ServingHeaders);
+
       auto flush = [&]() {
         if (hdr->headers_size() == 0)
           return;
+        std::string payload;
+        if (!out.SerializeToString(&payload)) {
+          hdr->mutable_headers()->Clear();
+          count = 0;
+          return;
+        }
+        const std::size_t fp = std::hash<std::string>{}(payload);
+        if (markHeadersFingerprint(ps, fp)) {
+          if (gHeaderDupLogLimiter.shouldLog()) {
+            std::cerr << "⚠️  [Headers] Suppressing duplicate batch to "
+                      << logPeer(peer) << " (" << hdr->headers_size()
+                      << " headers, " << payload.size() << " bytes)\n";
+          }
+          hdr->mutable_headers()->Clear();
+          count = 0;
+          return;
+        }
         if (!sendFrame(transport, out))
           sendError = true;
         hdr->mutable_headers()->Clear();
@@ -5348,6 +5395,8 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
 
       if (!sendError)
         flush();
+
+      setWireMode(ps, previousRole);
     }
     break;
   }
@@ -7376,6 +7425,8 @@ private:
 };
 
 RateLimiter gSnapshotAckLogLimiter;
+RateLimiter gModeMismatchLogLimiter;
+RateLimiter gHeaderDupLogLimiter;
 
 SnapshotSessionId generateSnapshotSessionId() {
   SnapshotSessionId sid;
@@ -7385,6 +7436,99 @@ SnapshotSessionId generateSnapshotSessionId() {
   }
   sid.hasValue = true;
   return sid;
+}
+
+const char *describeSyncRole(PeerState::SyncRole role) {
+  switch (role) {
+  case PeerState::SyncRole::Idle:
+    return "idle";
+  case PeerState::SyncRole::ServingHeaders:
+    return "serving-headers";
+  case PeerState::SyncRole::ServingSnapshot:
+    return "serving-snapshot";
+  case PeerState::SyncRole::DownloadingHeaders:
+    return "downloading-headers";
+  case PeerState::SyncRole::DownloadingSnapshot:
+    return "downloading-snapshot";
+  }
+  return "unknown";
+}
+
+inline bool isSnapshotDataFrame(alyncoin::net::Frame::KindCase kind) {
+  using Kind = alyncoin::net::Frame::KindCase;
+  return kind == Kind::kSnapshotMeta || kind == Kind::kSnapshotChunk ||
+         kind == Kind::kSnapshotEnd;
+}
+
+inline bool isSnapshotControlFrame(alyncoin::net::Frame::KindCase kind) {
+  using Kind = alyncoin::net::Frame::KindCase;
+  return kind == Kind::kSnapshotAck || kind == Kind::kSnapshotReq;
+}
+
+inline bool isHeaderFlowFrame(alyncoin::net::Frame::KindCase kind) {
+  using Kind = alyncoin::net::Frame::KindCase;
+  return kind == Kind::kGetHeaders || kind == Kind::kHeaders;
+}
+
+inline bool isTailFlowFrame(alyncoin::net::Frame::KindCase kind) {
+  using Kind = alyncoin::net::Frame::KindCase;
+  return kind == Kind::kTailBlocks || kind == Kind::kTailReq;
+}
+
+bool frameAllowedForRole(PeerState::SyncRole role,
+                         alyncoin::net::Frame::KindCase kind) {
+  switch (role) {
+  case PeerState::SyncRole::Idle:
+    return true;
+  case PeerState::SyncRole::ServingHeaders:
+    return !isSnapshotDataFrame(kind) && !isSnapshotControlFrame(kind);
+  case PeerState::SyncRole::ServingSnapshot:
+    if (isSnapshotDataFrame(kind))
+      return false;
+    if (isHeaderFlowFrame(kind) || isTailFlowFrame(kind))
+      return false;
+    return true;
+  case PeerState::SyncRole::DownloadingHeaders:
+    if (isSnapshotDataFrame(kind) || isSnapshotControlFrame(kind))
+      return false;
+    return true;
+  case PeerState::SyncRole::DownloadingSnapshot:
+    if (isHeaderFlowFrame(kind) || isTailFlowFrame(kind))
+      return false;
+    if (kind == alyncoin::net::Frame::KindCase::kSnapshotAck)
+      return false;
+    return true;
+  }
+  return true;
+}
+
+PeerState::SyncRole getWireMode(const std::shared_ptr<PeerState> &state) {
+  if (!state)
+    return PeerState::SyncRole::Idle;
+  std::lock_guard<std::mutex> lk(state->m);
+  return state->wireMode;
+}
+
+void setWireMode(const std::shared_ptr<PeerState> &state,
+                 PeerState::SyncRole role) {
+  if (!state)
+    return;
+  std::lock_guard<std::mutex> lk(state->m);
+  state->wireMode = role;
+}
+
+bool markHeadersFingerprint(const std::shared_ptr<PeerState> &state,
+                            std::size_t fp) {
+  if (!state)
+    return false;
+  std::lock_guard<std::mutex> lk(state->m);
+  auto &recent = state->recentHeadersFingerprints;
+  if (std::find(recent.begin(), recent.end(), fp) != recent.end())
+    return true;
+  recent.push_back(fp);
+  while (recent.size() > 3)
+    recent.pop_front();
+  return false;
 }
 
 SnapshotSessionId resetSnapshotReceptionLocked(
@@ -7460,6 +7604,7 @@ void Network::sendSnapshot(const std::string &peerId,
         sessionStart + std::chrono::seconds(5);
     ps->servingSnapshotSessionId = sessionId;
     ps->servingSnapshotSessionStarted = sessionStart;
+    ps->wireMode = PeerState::SyncRole::ServingSnapshot;
   }
   auto clearServingSession = [&]() {
     if (!ps)
@@ -7470,6 +7615,7 @@ void Network::sendSnapshot(const std::string &peerId,
         std::chrono::steady_clock::now() + std::chrono::seconds(5);
     ps->servingSnapshotSessionId.clear();
     ps->servingSnapshotSessionStarted = std::chrono::steady_clock::time_point{};
+    ps->wireMode = PeerState::SyncRole::Idle;
   };
 
   const auto now = std::chrono::steady_clock::now();
@@ -8081,6 +8227,7 @@ void Network::handleSnapshotMeta(const std::string &peer,
         if (!bailEarly) {
           sessionPrepared = true;
           accepted = true;
+          ps->wireMode = PeerState::SyncRole::DownloadingSnapshot;
         }
       }
     }
