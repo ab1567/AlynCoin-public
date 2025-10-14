@@ -40,10 +40,13 @@ inline constexpr std::size_t SNAPSHOT_FRAME_SAFETY_MARGIN = 1024; // 1 KiB wiggl
 // tolerance the receiver may discard perfectly valid snapshot data that is only
 // a few bytes larger than the nominal limit.
 inline constexpr std::size_t SNAPSHOT_CHUNK_TOLERANCE = 16 * 1024; // 16 KiB
-inline constexpr std::size_t SNAPSHOT_ACK_WINDOW = 256 * 1024;     // Ack every 256 KiB
-inline constexpr std::size_t SNAPSHOT_ACK_CHUNK_WINDOW = 8;         // Ack every 8 chunks
-inline constexpr std::size_t SNAPSHOT_SESSION_ID_BYTES = 16;        // 128-bit token
-inline constexpr std::size_t SNAPSHOT_SEND_WINDOW = 4;              // max in-flight chunks
+inline constexpr std::size_t SNAPSHOT_SEND_WINDOW = 4;             // max in-flight chunks
+// Keep the ACK cadence aligned with the send window so the sender never blocks
+// waiting for acknowledgements that can only be triggered by additional chunks
+// it is no longer allowed to dispatch.
+inline constexpr std::size_t SNAPSHOT_ACK_CHUNK_WINDOW = SNAPSHOT_SEND_WINDOW; // Ack once per window
+inline constexpr std::size_t SNAPSHOT_ACK_WINDOW = 256 * 1024; // Ack every 256 KiB
+inline constexpr std::size_t SNAPSHOT_SESSION_ID_BYTES = 16;   // 128-bit token
 inline constexpr int SNAPSHOT_ACK_TIMEOUT_MS = 2000;                // ack wait timeout
 inline constexpr int SNAPSHOT_MAX_RETRIES = 3;                      // resend attempts
 inline constexpr std::size_t MAX_PEERS = 32;                       // hard cap
