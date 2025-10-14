@@ -811,6 +811,9 @@ static FrameDescriptor describeFrame(const alyncoin::net::Frame &f) {
   case alyncoin::net::Frame::kGetData:
     desc = {WireFrame::SNAP_CTRL, "get_data", true};
     break;
+  case alyncoin::net::Frame::kData:
+    desc = {WireFrame::BLOCK, "data", false};
+    break;
   case alyncoin::net::Frame::kGetHeaders:
     desc = {WireFrame::SNAP_CTRL, "get_headers", true};
     break;
@@ -856,12 +859,14 @@ std::string dumpHex(const void *data, size_t len) {
 // snapshot or header sync progress directly via peerTransports.
 // Protocol frame revision. Bumped whenever the on-wire format or required
 // capabilities change.
-// Revision 5 adds header and block batch mini-protocols
-static constexpr uint32_t kFrameRevision = 5;
+// Revision 6 splits block responses from broadcasts.
+static constexpr uint32_t kFrameRevision = 6;
 static_assert(alyncoin::net::Frame::kBlockBroadcast == 6,
               "Frame field-numbers changed \u2013 bump kFrameRevision !");
 static_assert(alyncoin::net::Frame::kBlockRequest == 29 &&
                   alyncoin::net::Frame::kBlockResponse == 30,
+              "Frame field-numbers changed \u2013 bump kFrameRevision !");
+static_assert(alyncoin::net::Frame::kData == 32,
               "Frame field-numbers changed \u2013 bump kFrameRevision !");
 static constexpr uint64_t FRAME_LIMIT_MIN = 200;
 static constexpr uint64_t BYTE_LIMIT_MIN = 1 << 20;
@@ -1058,6 +1063,8 @@ void Network::resetPeerSyncState(const std::string &peer) {
   state.mode = PeerSyncProgress::Mode::Idle;
   state.blockQueue.clear();
   state.requestedBlocks.clear();
+  state.blockRequestTimes.clear();
+  state.lastBlockRequest = std::chrono::steady_clock::time_point{};
   state.headers.clear();
   state.remoteTip.clear();
   state.remoteWork = 0;
@@ -1101,6 +1108,8 @@ void Network::setPeerSyncMode(const std::string &peer,
     if (mode == PeerSyncProgress::Mode::Idle) {
       state.blockQueue.clear();
       state.requestedBlocks.clear();
+      state.blockRequestTimes.clear();
+      state.lastBlockRequest = std::chrono::steady_clock::time_point{};
       state.headers.clear();
       state.remoteTip.clear();
       state.remoteWork = 0;
@@ -1187,21 +1196,44 @@ void Network::requestQueuedBlocks(const std::string &peer) {
     if (it == peerSyncStates.end())
       return;
     auto &state = it->second;
-    constexpr size_t kMaxPerRequest = 128;
+    constexpr size_t kMaxPerRequest = 32;
+    constexpr auto kRequestTimeout = std::chrono::seconds(5);
+    const auto now = std::chrono::steady_clock::now();
+
+    std::vector<std::string> stale;
+    stale.reserve(state.requestedBlocks.size());
+    for (const auto &kv : state.blockRequestTimes) {
+      if (state.requestedBlocks.count(kv.first) == 0)
+        continue;
+      if (now - kv.second > kRequestTimeout)
+        stale.push_back(kv.first);
+    }
+    for (const auto &hash : stale) {
+      state.blockRequestTimes.erase(hash);
+      state.requestedBlocks.erase(hash);
+      if (std::find(state.blockQueue.begin(), state.blockQueue.end(), hash) ==
+          state.blockQueue.end()) {
+        state.blockQueue.push_front(hash);
+      }
+    }
+
     while (!state.blockQueue.empty() && toFetch.size() < kMaxPerRequest) {
       std::string hash = state.blockQueue.front();
       state.blockQueue.pop_front();
       if (blockchain && blockchain->hasBlockHash(hash)) {
         state.requestedBlocks.erase(hash);
+        state.blockRequestTimes.erase(hash);
         continue;
       }
       if (!state.requestedBlocks.insert(hash).second)
         continue;
+      state.blockRequestTimes[hash] = now;
       toFetch.push_back(hash);
     }
-    if (!toFetch.empty())
+    if (!toFetch.empty()) {
       state.mode = PeerSyncProgress::Mode::Blocks;
-    else if (state.blockQueue.empty() && state.requestedBlocks.empty()) {
+      state.lastBlockRequest = now;
+    } else if (state.blockQueue.empty() && state.requestedBlocks.empty()) {
       state.mode = PeerSyncProgress::Mode::Idle;
       shouldIdle = true;
     }
@@ -1220,8 +1252,10 @@ void Network::requestQueuedBlocks(const std::string &peer) {
       std::lock_guard<std::mutex> lk(syncStateMutex);
       auto it = peerSyncStates.find(peer);
       if (it != peerSyncStates.end()) {
-        for (const auto &h : toFetch)
+        for (const auto &h : toFetch) {
           it->second.requestedBlocks.erase(h);
+          it->second.blockRequestTimes.erase(h);
+        }
         if (it->second.blockQueue.empty() && it->second.requestedBlocks.empty()) {
           it->second.mode = PeerSyncProgress::Mode::Idle;
           idleAfterClose = true;
@@ -1238,6 +1272,10 @@ void Network::requestQueuedBlocks(const std::string &peer) {
   for (const auto &h : toFetch)
     gd->add_hashes(h);
   sendFrame(snapshot.transport, req);
+  std::cerr << "[sync] requested blocks: " << toFetch.size()
+            << " first=" << (toFetch.empty() ? std::string{"<none>"}
+                                               : toFetch.front().substr(0, 12))
+            << " from " << logPeer(peer) << '\n';
   applySyncModeToPeerState(peer, PeerSyncProgress::Mode::Blocks);
 }
 
@@ -1247,6 +1285,7 @@ void Network::onBlockAccepted(const std::string &hash) {
     std::lock_guard<std::mutex> lk(syncStateMutex);
     for (auto &[peer, state] : peerSyncStates) {
       if (state.requestedBlocks.erase(hash) > 0) {
+        state.blockRequestTimes.erase(hash);
         peers.push_back(peer);
         if (state.blockQueue.empty() && state.requestedBlocks.empty())
           state.mode = PeerSyncProgress::Mode::Idle;
@@ -4220,6 +4259,35 @@ void Network::sendBlockToPeer(const std::string &peer, const Block &blk) {
   if (snapshot.state)
     snapshot.state->highestSeen = blk.getIndex();
 }
+
+void Network::sendBlockData(const std::string &peer, const Block &blk) {
+  alyncoin::BlockProto proto = blk.toProtobuf();
+  std::string raw;
+  if (!proto.SerializeToString(&raw) || raw.empty())
+    return;
+
+  auto snapshot = getPeerSnapshot(peer);
+  if (!snapshot.transport || !snapshot.transport->isOpen())
+    return;
+
+  const uint32_t remoteRev = snapshot.state ? snapshot.state->frameRev : 0;
+  if (remoteRev == kFrameRevision) {
+    alyncoin::net::Frame fr;
+    auto *data = fr.mutable_data();
+    data->set_kind(alyncoin::net::Data::BLOCK);
+    *data->mutable_block() = proto;
+
+    sendFrame(snapshot.transport, fr);
+    return;
+  }
+
+  // Fallback for legacy peers that do not advertise the current frame
+  // revision (frame_rev == 0). These nodes do not understand the dedicated
+  // Data frame, so respond with the older block_broadcast payload instead.
+  alyncoin::net::Frame legacyFr;
+  *legacyFr.mutable_block_broadcast()->mutable_block() = proto;
+  sendFrame(snapshot.transport, legacyFr);
+}
 //
 bool Network::isSelfPeer(const std::string &p) const {
   if (p == nodeId)
@@ -4489,14 +4557,69 @@ void Network::runHairpinCheck() {
 
 void Network::handleGetData(const std::string &peer,
                             const std::vector<std::string> &hashes) {
+  constexpr std::size_t kMaxGetDataItems = 64;
+  if (hashes.empty())
+    return;
+  if (hashes.size() > kMaxGetDataItems) {
+    std::cerr << "⚠️  [get_data] Oversized request (" << hashes.size()
+              << " items) from " << logPeer(peer) << '\n';
+    penalizePeer(peer, 1);
+    return;
+  }
   Blockchain &bc = Blockchain::getInstance();
+  size_t served = 0;
   for (const auto &h : hashes) {
-    for (const auto &blk : bc.getChain()) {
-      if (blk.getHash() == h) {
-        sendBlockToPeer(peer, blk);
-        break;
+    Block blk;
+    if (!bc.getBlockByHash(h, blk))
+      continue;
+    sendBlockData(peer, blk);
+    ++served;
+  }
+  std::cerr << "[get_data] served=" << served << "/" << hashes.size()
+            << " to " << logPeer(peer) << '\n';
+}
+
+void Network::handleDataFrame(const std::string &peer,
+                              const alyncoin::net::Data &data) {
+  using Kind = alyncoin::net::Data::Kind;
+  switch (data.kind()) {
+  case Kind::BLOCK: {
+    if (!data.has_block())
+      break;
+    Block blk = Block::fromProto(data.block());
+    const std::string hash = blk.getHash();
+    const auto bytes = static_cast<std::size_t>(data.block().ByteSizeLong());
+    {
+      std::lock_guard<std::mutex> lk(syncStateMutex);
+      auto it = peerSyncStates.find(peer);
+      if (it != peerSyncStates.end()) {
+        it->second.blockRequestTimes.erase(hash);
+        if (it->second.requestedBlocks.erase(hash) > 0 &&
+            it->second.blockQueue.empty() &&
+            it->second.requestedBlocks.empty()) {
+          it->second.mode = PeerSyncProgress::Mode::Idle;
+        }
       }
     }
+    std::cerr << "[sync] got block " << hash.substr(0, 12)
+              << " bytes=" << bytes << " from " << logPeer(peer) << '\n';
+    handleNewBlock(blk, peer);
+    requestQueuedBlocks(peer);
+    break;
+  }
+  case Kind::TX: {
+    if (!data.has_tx())
+      break;
+    Transaction tx = Transaction::fromProto(data.tx());
+    std::cerr << "[sync] got tx " << tx.getHash().substr(0, 12)
+              << " from " << logPeer(peer) << '\n';
+    receiveTransaction(tx);
+    break;
+  }
+  case Kind::KIND_UNKNOWN:
+  default:
+    std::cerr << "⚠️  [data] Unknown payload from " << logPeer(peer) << '\n';
+    break;
   }
 }
 
@@ -5365,6 +5488,10 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
     for (const auto &h : f.get_data().hashes())
       hashes.push_back(h);
     handleGetData(peer, hashes);
+    break;
+  }
+  case alyncoin::net::Frame::kData: {
+    handleDataFrame(peer, f.data());
     break;
   }
   case alyncoin::net::Frame::kGetHeaders: {

@@ -106,6 +106,17 @@ message TailBlocksRequest {
   string anchor_hash = 2; // tip hash when request was sent
 }
 message GetData { repeated string hashes = 1; }
+message Data {
+  enum Kind {
+    KIND_UNKNOWN = 0;
+    BLOCK = 1;
+    TX = 2;
+  }
+
+  Kind kind = 1;
+  alyncoin.BlockProto block = 2;
+  alyncoin.TransactionProto tx = 3;
+}
 message GetHeaders { string from_hash = 1; }
 message Headers { repeated alyncoin.BlockProto headers = 1; }
 message StateProof { alyncoin.StateProofProto proof = 1; }
@@ -140,6 +151,7 @@ message Frame {
     TailBlocksRequest tail_req = 21;
     StateProof state_proof = 22;
     GetData get_data = 23;
+    Data data = 32;
     BlockchainSyncProto blockchain_sync_request = 24;
     TransactionBroadcast tx_broadcast = 25;
     Whisper whisper = 26;

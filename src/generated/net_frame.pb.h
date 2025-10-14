@@ -30,6 +30,7 @@
 #include <google/protobuf/message.h>
 #include <google/protobuf/repeated_field.h>  // IWYU pragma: export
 #include <google/protobuf/extension_set.h>  // IWYU pragma: export
+#include <google/protobuf/generated_enum_reflection.h>
 #include <google/protobuf/unknown_field_set.h>
 #include "block_protos.pb.h"
 #include "blockchain_protos.pb.h"
@@ -63,6 +64,9 @@ extern BlockRequestDefaultTypeInternal _BlockRequest_default_instance_;
 class BlockResponse;
 struct BlockResponseDefaultTypeInternal;
 extern BlockResponseDefaultTypeInternal _BlockResponse_default_instance_;
+class Data;
+struct DataDefaultTypeInternal;
+extern DataDefaultTypeInternal _Data_default_instance_;
 class EpochProof;
 struct EpochProofDefaultTypeInternal;
 extern EpochProofDefaultTypeInternal _EpochProof_default_instance_;
@@ -151,6 +155,7 @@ template<> ::alyncoin::net::BlockBatch* Arena::CreateMaybeMessage<::alyncoin::ne
 template<> ::alyncoin::net::BlockBroadcast* Arena::CreateMaybeMessage<::alyncoin::net::BlockBroadcast>(Arena*);
 template<> ::alyncoin::net::BlockRequest* Arena::CreateMaybeMessage<::alyncoin::net::BlockRequest>(Arena*);
 template<> ::alyncoin::net::BlockResponse* Arena::CreateMaybeMessage<::alyncoin::net::BlockResponse>(Arena*);
+template<> ::alyncoin::net::Data* Arena::CreateMaybeMessage<::alyncoin::net::Data>(Arena*);
 template<> ::alyncoin::net::EpochProof* Arena::CreateMaybeMessage<::alyncoin::net::EpochProof>(Arena*);
 template<> ::alyncoin::net::Frame* Arena::CreateMaybeMessage<::alyncoin::net::Frame>(Arena*);
 template<> ::alyncoin::net::GetData* Arena::CreateMaybeMessage<::alyncoin::net::GetData>(Arena*);
@@ -182,6 +187,32 @@ PROTOBUF_NAMESPACE_CLOSE
 namespace alyncoin {
 namespace net {
 
+enum Data_Kind : int {
+  Data_Kind_KIND_UNKNOWN = 0,
+  Data_Kind_BLOCK = 1,
+  Data_Kind_TX = 2,
+  Data_Kind_Data_Kind_INT_MIN_SENTINEL_DO_NOT_USE_ = std::numeric_limits<int32_t>::min(),
+  Data_Kind_Data_Kind_INT_MAX_SENTINEL_DO_NOT_USE_ = std::numeric_limits<int32_t>::max()
+};
+bool Data_Kind_IsValid(int value);
+constexpr Data_Kind Data_Kind_Kind_MIN = Data_Kind_KIND_UNKNOWN;
+constexpr Data_Kind Data_Kind_Kind_MAX = Data_Kind_TX;
+constexpr int Data_Kind_Kind_ARRAYSIZE = Data_Kind_Kind_MAX + 1;
+
+const ::PROTOBUF_NAMESPACE_ID::EnumDescriptor* Data_Kind_descriptor();
+template<typename T>
+inline const std::string& Data_Kind_Name(T enum_t_value) {
+  static_assert(::std::is_same<T, Data_Kind>::value ||
+    ::std::is_integral<T>::value,
+    "Incorrect type passed to function Data_Kind_Name.");
+  return ::PROTOBUF_NAMESPACE_ID::internal::NameOfEnum(
+    Data_Kind_descriptor(), enum_t_value);
+}
+inline bool Data_Kind_Parse(
+    ::PROTOBUF_NAMESPACE_ID::ConstStringParam name, Data_Kind* value) {
+  return ::PROTOBUF_NAMESPACE_ID::internal::ParseNamedEnum<Data_Kind>(
+    Data_Kind_descriptor(), name, value);
+}
 // ===================================================================
 
 class Handshake final :
@@ -4195,6 +4226,226 @@ class GetData final :
 };
 // -------------------------------------------------------------------
 
+class Data final :
+    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:alyncoin.net.Data) */ {
+ public:
+  inline Data() : Data(nullptr) {}
+  ~Data() override;
+  explicit PROTOBUF_CONSTEXPR Data(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+
+  Data(const Data& from);
+  Data(Data&& from) noexcept
+    : Data() {
+    *this = ::std::move(from);
+  }
+
+  inline Data& operator=(const Data& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline Data& operator=(Data&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetOwningArena() == from.GetOwningArena()
+  #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetOwningArena() != nullptr
+  #endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const Data& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const Data* internal_default_instance() {
+    return reinterpret_cast<const Data*>(
+               &_Data_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    25;
+
+  friend void swap(Data& a, Data& b) {
+    a.Swap(&b);
+  }
+  inline void Swap(Data* other) {
+    if (other == this) return;
+  #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() != nullptr &&
+        GetOwningArena() == other->GetOwningArena()) {
+   #else  // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() == other->GetOwningArena()) {
+  #endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(Data* other) {
+    if (other == this) return;
+    GOOGLE_DCHECK(GetOwningArena() == other->GetOwningArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  Data* New(::PROTOBUF_NAMESPACE_ID::Arena* arena = nullptr) const final {
+    return CreateMaybeMessage<Data>(arena);
+  }
+  using ::PROTOBUF_NAMESPACE_ID::Message::CopyFrom;
+  void CopyFrom(const Data& from);
+  using ::PROTOBUF_NAMESPACE_ID::Message::MergeFrom;
+  void MergeFrom( const Data& from) {
+    Data::MergeImpl(*this, from);
+  }
+  private:
+  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg);
+  public:
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
+  uint8_t* _InternalSerialize(
+      uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const final { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena* arena, bool is_message_owned);
+  void SharedDtor();
+  void SetCachedSize(int size) const final;
+  void InternalSwap(Data* other);
+
+  private:
+  friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
+  static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
+    return "alyncoin.net.Data";
+  }
+  protected:
+  explicit Data(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                       bool is_message_owned = false);
+  public:
+
+  static const ClassData _class_data_;
+  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*GetClassData() const final;
+
+  ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  typedef Data_Kind Kind;
+  static constexpr Kind KIND_UNKNOWN =
+    Data_Kind_KIND_UNKNOWN;
+  static constexpr Kind BLOCK =
+    Data_Kind_BLOCK;
+  static constexpr Kind TX =
+    Data_Kind_TX;
+  static inline bool Kind_IsValid(int value) {
+    return Data_Kind_IsValid(value);
+  }
+  static constexpr Kind Kind_MIN =
+    Data_Kind_Kind_MIN;
+  static constexpr Kind Kind_MAX =
+    Data_Kind_Kind_MAX;
+  static constexpr int Kind_ARRAYSIZE =
+    Data_Kind_Kind_ARRAYSIZE;
+  static inline const ::PROTOBUF_NAMESPACE_ID::EnumDescriptor*
+  Kind_descriptor() {
+    return Data_Kind_descriptor();
+  }
+  template<typename T>
+  static inline const std::string& Kind_Name(T enum_t_value) {
+    static_assert(::std::is_same<T, Kind>::value ||
+      ::std::is_integral<T>::value,
+      "Incorrect type passed to function Kind_Name.");
+    return Data_Kind_Name(enum_t_value);
+  }
+  static inline bool Kind_Parse(::PROTOBUF_NAMESPACE_ID::ConstStringParam name,
+      Kind* value) {
+    return Data_Kind_Parse(name, value);
+  }
+
+  // accessors -------------------------------------------------------
+
+  enum : int {
+    kBlockFieldNumber = 2,
+    kTxFieldNumber = 3,
+    kKindFieldNumber = 1,
+  };
+  // .alyncoin.BlockProto block = 2;
+  bool has_block() const;
+  private:
+  bool _internal_has_block() const;
+  public:
+  void clear_block();
+  const ::alyncoin::BlockProto& block() const;
+  PROTOBUF_NODISCARD ::alyncoin::BlockProto* release_block();
+  ::alyncoin::BlockProto* mutable_block();
+  void set_allocated_block(::alyncoin::BlockProto* block);
+  private:
+  const ::alyncoin::BlockProto& _internal_block() const;
+  ::alyncoin::BlockProto* _internal_mutable_block();
+  public:
+  void unsafe_arena_set_allocated_block(
+      ::alyncoin::BlockProto* block);
+  ::alyncoin::BlockProto* unsafe_arena_release_block();
+
+  // .alyncoin.TransactionProto tx = 3;
+  bool has_tx() const;
+  private:
+  bool _internal_has_tx() const;
+  public:
+  void clear_tx();
+  const ::alyncoin::TransactionProto& tx() const;
+  PROTOBUF_NODISCARD ::alyncoin::TransactionProto* release_tx();
+  ::alyncoin::TransactionProto* mutable_tx();
+  void set_allocated_tx(::alyncoin::TransactionProto* tx);
+  private:
+  const ::alyncoin::TransactionProto& _internal_tx() const;
+  ::alyncoin::TransactionProto* _internal_mutable_tx();
+  public:
+  void unsafe_arena_set_allocated_tx(
+      ::alyncoin::TransactionProto* tx);
+  ::alyncoin::TransactionProto* unsafe_arena_release_tx();
+
+  // .alyncoin.net.Data.Kind kind = 1;
+  void clear_kind();
+  ::alyncoin::net::Data_Kind kind() const;
+  void set_kind(::alyncoin::net::Data_Kind value);
+  private:
+  ::alyncoin::net::Data_Kind _internal_kind() const;
+  void _internal_set_kind(::alyncoin::net::Data_Kind value);
+  public:
+
+  // @@protoc_insertion_point(class_scope:alyncoin.net.Data)
+ private:
+  class _Internal;
+
+  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
+  typedef void InternalArenaConstructable_;
+  typedef void DestructorSkippable_;
+  struct Impl_ {
+    ::alyncoin::BlockProto* block_;
+    ::alyncoin::TransactionProto* tx_;
+    int kind_;
+    mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_net_5fframe_2eproto;
+};
+// -------------------------------------------------------------------
+
 class GetHeaders final :
     public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:alyncoin.net.GetHeaders) */ {
  public:
@@ -4243,7 +4494,7 @@ class GetHeaders final :
                &_GetHeaders_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    25;
+    26;
 
   friend void swap(GetHeaders& a, GetHeaders& b) {
     a.Swap(&b);
@@ -4396,7 +4647,7 @@ class Headers final :
                &_Headers_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    26;
+    27;
 
   friend void swap(Headers& a, Headers& b) {
     a.Swap(&b);
@@ -4553,7 +4804,7 @@ class StateProof final :
                &_StateProof_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    27;
+    28;
 
   friend void swap(StateProof& a, StateProof& b) {
     a.Swap(&b);
@@ -4710,7 +4961,7 @@ class TransactionBroadcast final :
                &_TransactionBroadcast_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    28;
+    29;
 
   friend void swap(TransactionBroadcast& a, TransactionBroadcast& b) {
     a.Swap(&b);
@@ -4867,7 +5118,7 @@ class Whisper final :
                &_Whisper_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    29;
+    30;
 
   friend void swap(Whisper& a, Whisper& b) {
     a.Swap(&b);
@@ -5042,6 +5293,7 @@ class Frame final :
     kTailReq = 21,
     kStateProof = 22,
     kGetData = 23,
+    kData = 32,
     kBlockchainSyncRequest = 24,
     kTxBroadcast = 25,
     kWhisper = 26,
@@ -5055,7 +5307,7 @@ class Frame final :
                &_Frame_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    30;
+    31;
 
   friend void swap(Frame& a, Frame& b) {
     a.Swap(&b);
@@ -5154,6 +5406,7 @@ class Frame final :
     kTailReqFieldNumber = 21,
     kStateProofFieldNumber = 22,
     kGetDataFieldNumber = 23,
+    kDataFieldNumber = 32,
     kBlockchainSyncRequestFieldNumber = 24,
     kTxBroadcastFieldNumber = 25,
     kWhisperFieldNumber = 26,
@@ -5628,6 +5881,24 @@ class Frame final :
       ::alyncoin::net::GetData* get_data);
   ::alyncoin::net::GetData* unsafe_arena_release_get_data();
 
+  // .alyncoin.net.Data data = 32;
+  bool has_data() const;
+  private:
+  bool _internal_has_data() const;
+  public:
+  void clear_data();
+  const ::alyncoin::net::Data& data() const;
+  PROTOBUF_NODISCARD ::alyncoin::net::Data* release_data();
+  ::alyncoin::net::Data* mutable_data();
+  void set_allocated_data(::alyncoin::net::Data* data);
+  private:
+  const ::alyncoin::net::Data& _internal_data() const;
+  ::alyncoin::net::Data* _internal_mutable_data();
+  public:
+  void unsafe_arena_set_allocated_data(
+      ::alyncoin::net::Data* data);
+  ::alyncoin::net::Data* unsafe_arena_release_data();
+
   // .alyncoin.BlockchainSyncProto blockchain_sync_request = 24;
   bool has_blockchain_sync_request() const;
   private:
@@ -5749,6 +6020,7 @@ class Frame final :
   void set_has_tail_req();
   void set_has_state_proof();
   void set_has_get_data();
+  void set_has_data();
   void set_has_blockchain_sync_request();
   void set_has_tx_broadcast();
   void set_has_whisper();
@@ -5791,6 +6063,7 @@ class Frame final :
       ::alyncoin::net::TailBlocksRequest* tail_req_;
       ::alyncoin::net::StateProof* state_proof_;
       ::alyncoin::net::GetData* get_data_;
+      ::alyncoin::net::Data* data_;
       ::alyncoin::BlockchainSyncProto* blockchain_sync_request_;
       ::alyncoin::net::TransactionBroadcast* tx_broadcast_;
       ::alyncoin::net::Whisper* whisper_;
@@ -7781,6 +8054,200 @@ inline ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>*
 GetData::mutable_hashes() {
   // @@protoc_insertion_point(field_mutable_list:alyncoin.net.GetData.hashes)
   return &_impl_.hashes_;
+}
+
+// -------------------------------------------------------------------
+
+// Data
+
+// .alyncoin.net.Data.Kind kind = 1;
+inline void Data::clear_kind() {
+  _impl_.kind_ = 0;
+}
+inline ::alyncoin::net::Data_Kind Data::_internal_kind() const {
+  return static_cast< ::alyncoin::net::Data_Kind >(_impl_.kind_);
+}
+inline ::alyncoin::net::Data_Kind Data::kind() const {
+  // @@protoc_insertion_point(field_get:alyncoin.net.Data.kind)
+  return _internal_kind();
+}
+inline void Data::_internal_set_kind(::alyncoin::net::Data_Kind value) {
+  
+  _impl_.kind_ = value;
+}
+inline void Data::set_kind(::alyncoin::net::Data_Kind value) {
+  _internal_set_kind(value);
+  // @@protoc_insertion_point(field_set:alyncoin.net.Data.kind)
+}
+
+// .alyncoin.BlockProto block = 2;
+inline bool Data::_internal_has_block() const {
+  return this != internal_default_instance() && _impl_.block_ != nullptr;
+}
+inline bool Data::has_block() const {
+  return _internal_has_block();
+}
+inline const ::alyncoin::BlockProto& Data::_internal_block() const {
+  const ::alyncoin::BlockProto* p = _impl_.block_;
+  return p != nullptr ? *p : reinterpret_cast<const ::alyncoin::BlockProto&>(
+      ::alyncoin::_BlockProto_default_instance_);
+}
+inline const ::alyncoin::BlockProto& Data::block() const {
+  // @@protoc_insertion_point(field_get:alyncoin.net.Data.block)
+  return _internal_block();
+}
+inline void Data::unsafe_arena_set_allocated_block(
+    ::alyncoin::BlockProto* block) {
+  if (GetArenaForAllocation() == nullptr) {
+    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(_impl_.block_);
+  }
+  _impl_.block_ = block;
+  if (block) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:alyncoin.net.Data.block)
+}
+inline ::alyncoin::BlockProto* Data::release_block() {
+  
+  ::alyncoin::BlockProto* temp = _impl_.block_;
+  _impl_.block_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old =  reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(temp);
+  temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
+  if (GetArenaForAllocation() == nullptr) { delete old; }
+#else  // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArenaForAllocation() != nullptr) {
+    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return temp;
+}
+inline ::alyncoin::BlockProto* Data::unsafe_arena_release_block() {
+  // @@protoc_insertion_point(field_release:alyncoin.net.Data.block)
+  
+  ::alyncoin::BlockProto* temp = _impl_.block_;
+  _impl_.block_ = nullptr;
+  return temp;
+}
+inline ::alyncoin::BlockProto* Data::_internal_mutable_block() {
+  
+  if (_impl_.block_ == nullptr) {
+    auto* p = CreateMaybeMessage<::alyncoin::BlockProto>(GetArenaForAllocation());
+    _impl_.block_ = p;
+  }
+  return _impl_.block_;
+}
+inline ::alyncoin::BlockProto* Data::mutable_block() {
+  ::alyncoin::BlockProto* _msg = _internal_mutable_block();
+  // @@protoc_insertion_point(field_mutable:alyncoin.net.Data.block)
+  return _msg;
+}
+inline void Data::set_allocated_block(::alyncoin::BlockProto* block) {
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
+  if (message_arena == nullptr) {
+    delete reinterpret_cast< ::PROTOBUF_NAMESPACE_ID::MessageLite*>(_impl_.block_);
+  }
+  if (block) {
+    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
+        ::PROTOBUF_NAMESPACE_ID::Arena::InternalGetOwningArena(
+                reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(block));
+    if (message_arena != submessage_arena) {
+      block = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
+          message_arena, block, submessage_arena);
+    }
+    
+  } else {
+    
+  }
+  _impl_.block_ = block;
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.net.Data.block)
+}
+
+// .alyncoin.TransactionProto tx = 3;
+inline bool Data::_internal_has_tx() const {
+  return this != internal_default_instance() && _impl_.tx_ != nullptr;
+}
+inline bool Data::has_tx() const {
+  return _internal_has_tx();
+}
+inline const ::alyncoin::TransactionProto& Data::_internal_tx() const {
+  const ::alyncoin::TransactionProto* p = _impl_.tx_;
+  return p != nullptr ? *p : reinterpret_cast<const ::alyncoin::TransactionProto&>(
+      ::alyncoin::_TransactionProto_default_instance_);
+}
+inline const ::alyncoin::TransactionProto& Data::tx() const {
+  // @@protoc_insertion_point(field_get:alyncoin.net.Data.tx)
+  return _internal_tx();
+}
+inline void Data::unsafe_arena_set_allocated_tx(
+    ::alyncoin::TransactionProto* tx) {
+  if (GetArenaForAllocation() == nullptr) {
+    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(_impl_.tx_);
+  }
+  _impl_.tx_ = tx;
+  if (tx) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:alyncoin.net.Data.tx)
+}
+inline ::alyncoin::TransactionProto* Data::release_tx() {
+  
+  ::alyncoin::TransactionProto* temp = _impl_.tx_;
+  _impl_.tx_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old =  reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(temp);
+  temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
+  if (GetArenaForAllocation() == nullptr) { delete old; }
+#else  // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArenaForAllocation() != nullptr) {
+    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return temp;
+}
+inline ::alyncoin::TransactionProto* Data::unsafe_arena_release_tx() {
+  // @@protoc_insertion_point(field_release:alyncoin.net.Data.tx)
+  
+  ::alyncoin::TransactionProto* temp = _impl_.tx_;
+  _impl_.tx_ = nullptr;
+  return temp;
+}
+inline ::alyncoin::TransactionProto* Data::_internal_mutable_tx() {
+  
+  if (_impl_.tx_ == nullptr) {
+    auto* p = CreateMaybeMessage<::alyncoin::TransactionProto>(GetArenaForAllocation());
+    _impl_.tx_ = p;
+  }
+  return _impl_.tx_;
+}
+inline ::alyncoin::TransactionProto* Data::mutable_tx() {
+  ::alyncoin::TransactionProto* _msg = _internal_mutable_tx();
+  // @@protoc_insertion_point(field_mutable:alyncoin.net.Data.tx)
+  return _msg;
+}
+inline void Data::set_allocated_tx(::alyncoin::TransactionProto* tx) {
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
+  if (message_arena == nullptr) {
+    delete reinterpret_cast< ::PROTOBUF_NAMESPACE_ID::MessageLite*>(_impl_.tx_);
+  }
+  if (tx) {
+    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
+        ::PROTOBUF_NAMESPACE_ID::Arena::InternalGetOwningArena(
+                reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(tx));
+    if (message_arena != submessage_arena) {
+      tx = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
+          message_arena, tx, submessage_arena);
+    }
+    
+  } else {
+    
+  }
+  _impl_.tx_ = tx;
+  // @@protoc_insertion_point(field_set_allocated:alyncoin.net.Data.tx)
 }
 
 // -------------------------------------------------------------------
@@ -10038,6 +10505,80 @@ inline ::alyncoin::net::GetData* Frame::mutable_get_data() {
   return _msg;
 }
 
+// .alyncoin.net.Data data = 32;
+inline bool Frame::_internal_has_data() const {
+  return kind_case() == kData;
+}
+inline bool Frame::has_data() const {
+  return _internal_has_data();
+}
+inline void Frame::set_has_data() {
+  _impl_._oneof_case_[0] = kData;
+}
+inline void Frame::clear_data() {
+  if (_internal_has_data()) {
+    if (GetArenaForAllocation() == nullptr) {
+      delete _impl_.kind_.data_;
+    }
+    clear_has_kind();
+  }
+}
+inline ::alyncoin::net::Data* Frame::release_data() {
+  // @@protoc_insertion_point(field_release:alyncoin.net.Frame.data)
+  if (_internal_has_data()) {
+    clear_has_kind();
+    ::alyncoin::net::Data* temp = _impl_.kind_.data_;
+    if (GetArenaForAllocation() != nullptr) {
+      temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.kind_.data_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::alyncoin::net::Data& Frame::_internal_data() const {
+  return _internal_has_data()
+      ? *_impl_.kind_.data_
+      : reinterpret_cast< ::alyncoin::net::Data&>(::alyncoin::net::_Data_default_instance_);
+}
+inline const ::alyncoin::net::Data& Frame::data() const {
+  // @@protoc_insertion_point(field_get:alyncoin.net.Frame.data)
+  return _internal_data();
+}
+inline ::alyncoin::net::Data* Frame::unsafe_arena_release_data() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:alyncoin.net.Frame.data)
+  if (_internal_has_data()) {
+    clear_has_kind();
+    ::alyncoin::net::Data* temp = _impl_.kind_.data_;
+    _impl_.kind_.data_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void Frame::unsafe_arena_set_allocated_data(::alyncoin::net::Data* data) {
+  clear_kind();
+  if (data) {
+    set_has_data();
+    _impl_.kind_.data_ = data;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:alyncoin.net.Frame.data)
+}
+inline ::alyncoin::net::Data* Frame::_internal_mutable_data() {
+  if (!_internal_has_data()) {
+    clear_kind();
+    set_has_data();
+    _impl_.kind_.data_ = CreateMaybeMessage< ::alyncoin::net::Data >(GetArenaForAllocation());
+  }
+  return _impl_.kind_.data_;
+}
+inline ::alyncoin::net::Data* Frame::mutable_data() {
+  ::alyncoin::net::Data* _msg = _internal_mutable_data();
+  // @@protoc_insertion_point(field_mutable:alyncoin.net.Frame.data)
+  return _msg;
+}
+
 // .alyncoin.BlockchainSyncProto blockchain_sync_request = 24;
 inline bool Frame::_internal_has_blockchain_sync_request() const {
   return kind_case() == kBlockchainSyncRequest;
@@ -10472,11 +11013,23 @@ inline Frame::KindCase Frame::kind_case() const {
 
 // -------------------------------------------------------------------
 
+// -------------------------------------------------------------------
+
 
 // @@protoc_insertion_point(namespace_scope)
 
 }  // namespace net
 }  // namespace alyncoin
+
+PROTOBUF_NAMESPACE_OPEN
+
+template <> struct is_proto_enum< ::alyncoin::net::Data_Kind> : ::std::true_type {};
+template <>
+inline const EnumDescriptor* GetEnumDescriptor< ::alyncoin::net::Data_Kind>() {
+  return ::alyncoin::net::Data_Kind_descriptor();
+}
+
+PROTOBUF_NAMESPACE_CLOSE
 
 // @@protoc_insertion_point(global_scope)
 
