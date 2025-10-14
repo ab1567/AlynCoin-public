@@ -1084,12 +1084,20 @@ void Network::applySyncModeToPeerState(const std::string &peer,
   case PeerSyncProgress::Mode::Headers:
     snapshot.state->syncMode = PeerState::SyncMode::Headers;
     snapshot.state->recovering = false;
-    setWireMode(snapshot.state, PeerState::SyncRole::DownloadingHeaders);
+    if (isSnapshotDownloadActive(snapshot.state)) {
+      setWireMode(snapshot.state, PeerState::SyncRole::DownloadingSnapshot);
+    } else {
+      setWireMode(snapshot.state, PeerState::SyncRole::DownloadingHeaders);
+    }
     break;
   case PeerSyncProgress::Mode::Blocks:
     snapshot.state->syncMode = PeerState::SyncMode::Blocks;
     snapshot.state->recovering = false;
-    setWireMode(snapshot.state, PeerState::SyncRole::DownloadingHeaders);
+    if (isSnapshotDownloadActive(snapshot.state)) {
+      setWireMode(snapshot.state, PeerState::SyncRole::DownloadingSnapshot);
+    } else {
+      setWireMode(snapshot.state, PeerState::SyncRole::DownloadingHeaders);
+    }
     break;
   case PeerSyncProgress::Mode::Snapshot:
     snapshot.state->syncMode = PeerState::SyncMode::Snapshot;
@@ -5265,6 +5273,10 @@ std::string sessionIdPrefix(const SnapshotSessionId &sessionId,
 extern RateLimiter gModeMismatchLogLimiter;
 extern RateLimiter gHeaderDupLogLimiter;
 extern RateLimiter gSnapshotAckLogLimiter;
+extern RateLimiter gSnapshotBusyLogLimiter;
+
+bool snapshotDownloadActiveLocked(const PeerState &state);
+bool isSnapshotDownloadActive(const std::shared_ptr<PeerState> &state);
 } // namespace
 
 void Network::processFrame(const alyncoin::net::Frame &f,
@@ -5514,6 +5526,13 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
         break;
 
       auto ps = snapshot.state;
+      if (isSnapshotDownloadActive(ps)) {
+        if (gSnapshotBusyLogLimiter.shouldLog()) {
+          std::cerr << "ℹ️  [Headers] Deferring request from " << logPeer(peer)
+                    << " while snapshot download is active" << '\n';
+        }
+        break;
+      }
       const auto now = std::chrono::steady_clock::now();
       bool duplicateLocator = false;
       const std::string locatorKey =
@@ -7692,6 +7711,7 @@ std::string formatSessionId(const std::string &sessionId) {
 RateLimiter gSnapshotAckLogLimiter;
 RateLimiter gModeMismatchLogLimiter;
 RateLimiter gHeaderDupLogLimiter;
+RateLimiter gSnapshotBusyLogLimiter;
 
 SnapshotSessionId generateSnapshotSessionId() {
   SnapshotSessionId sid;
@@ -7717,6 +7737,21 @@ const char *describeSyncRole(PeerState::SyncRole role) {
     return "downloading-snapshot";
   }
   return "unknown";
+}
+
+bool snapshotDownloadActiveLocked(const PeerState &state) {
+  using SnapState = PeerState::SnapState;
+  return state.wireMode == PeerState::SyncRole::DownloadingSnapshot ||
+         state.snapshotActive || state.snapState == SnapState::WaitChunks ||
+         state.snapState == SnapState::Verifying ||
+         state.snapState == SnapState::Applying;
+}
+
+bool isSnapshotDownloadActive(const std::shared_ptr<PeerState> &state) {
+  if (!state)
+    return false;
+  std::lock_guard<std::mutex> lk(state->m);
+  return snapshotDownloadActiveLocked(*state);
 }
 
 inline bool isSnapshotDataFrame(alyncoin::net::Frame::KindCase kind) {
