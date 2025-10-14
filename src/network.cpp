@@ -4270,12 +4270,23 @@ void Network::sendBlockData(const std::string &peer, const Block &blk) {
   if (!snapshot.transport || !snapshot.transport->isOpen())
     return;
 
-  alyncoin::net::Frame fr;
-  auto *data = fr.mutable_data();
-  data->set_kind(alyncoin::net::Data::BLOCK);
-  *data->mutable_block() = proto;
+  const uint32_t remoteRev = snapshot.state ? snapshot.state->frameRev : 0;
+  if (remoteRev == kFrameRevision) {
+    alyncoin::net::Frame fr;
+    auto *data = fr.mutable_data();
+    data->set_kind(alyncoin::net::Data::BLOCK);
+    *data->mutable_block() = proto;
 
-  sendFrame(snapshot.transport, fr);
+    sendFrame(snapshot.transport, fr);
+    return;
+  }
+
+  // Fallback for legacy peers that do not advertise the current frame
+  // revision (frame_rev == 0). These nodes do not understand the dedicated
+  // Data frame, so respond with the older block_broadcast payload instead.
+  alyncoin::net::Frame legacyFr;
+  *legacyFr.mutable_block_broadcast()->mutable_block() = proto;
+  sendFrame(snapshot.transport, legacyFr);
 }
 //
 bool Network::isSelfPeer(const std::string &p) const {
