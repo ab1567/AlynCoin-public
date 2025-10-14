@@ -43,7 +43,8 @@ struct AppConfig {
     bool fast_sync = false;                 // allow sampled validation during snapshot apply
     double fast_sync_sample_rate = 0.10;    // fraction of blocks to fully verify in fast sync
     int fast_sync_trailing_full = 12;       // always fully verify this many trailing blocks
-    bool disable_snapshot = false;          // force tail-sync only, never request/serve snapshots
+    bool disable_snapshot = true;           // force tail-sync only, never request/serve snapshots
+    bool enable_nat_checks = false;         // run hairpin/NAT reachability diagnostics
 };
 
 AppConfig& getAppConfig();

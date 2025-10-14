@@ -2102,6 +2102,12 @@ int main(int argc, char *argv[]) {
     } else if (arg == "--allow-snapshot") {
       getAppConfig().disable_snapshot = false;
       std::cout << "📦 Snapshot sync re-enabled.\n";
+    } else if (arg == "--enable-nat-checks") {
+      getAppConfig().enable_nat_checks = true;
+      std::cout << "🌐 NAT diagnostics enabled (hairpin test will run).\n";
+    } else if (arg == "--disable-nat-checks") {
+      getAppConfig().enable_nat_checks = false;
+      std::cout << "🌐 NAT diagnostics disabled.\n";
     } else if (arg == "--blacklist-peer" && i + 1 < argc) {
       appendStaticDeny(argv[++i]);
     }

@@ -776,11 +776,26 @@ Blockchain::BlockAddResult Blockchain::addBlock(const Block &block,
       isGenesisBlock ? getGenesisPremineTotal() : expectedSubsidy + computedFees;
   const double rewardTolerance = 5e-5;
   if (std::abs(mintedTotal - expectedCoinbase) > rewardTolerance) {
-    std::cerr << "❌ [addBlock] Coinbase mismatch. Minted "
-              << formatAmount(mintedTotal) << " expected "
-              << formatAmount(expectedCoinbase) << " (height "
-              << block.getIndex() << ")\n";
-    return BlockAddResult::Invalid;
+    const bool mintedLessThanExpected =
+        mintedTotal + rewardTolerance < expectedCoinbase &&
+        mintedTotal + rewardTolerance >= computedFees;
+    if (mintedLessThanExpected) {
+      const double observedSubsidy =
+          std::max(0.0, mintedTotal - computedFees);
+      std::cerr << "⚠️ [consensus] Observed smaller coinbase at height "
+                << block.getIndex() << ": minted "
+                << formatAmount(mintedTotal) << " vs expected "
+                << formatAmount(expectedCoinbase)
+                << ". Aligning local reward schedule to "
+                << formatAmount(observedSubsidy) << "\n";
+      applyRewardOverrideLocked(observedSubsidy, true, "observed");
+    } else {
+      std::cerr << "❌ [addBlock] Coinbase mismatch. Minted "
+                << formatAmount(mintedTotal) << " expected "
+                << formatAmount(expectedCoinbase) << " (height "
+                << block.getIndex() << ")\n";
+      return BlockAddResult::Invalid;
+    }
   }
 
   // 6. Diagnostics
@@ -1201,9 +1216,54 @@ void Blockchain::refreshRewardFromTip() {
   std::uint64_t nextHeight = 0;
   if (!chain.empty())
     nextHeight = static_cast<std::uint64_t>(chain.back().getIndex()) + 1ULL;
+  const double remaining = std::max(0.0, MAX_SUPPLY - totalSupply);
+  if (rewardOverrideActive) {
+    blockReward = std::min(rewardOverrideValue, remaining);
+    return;
+  }
   double subsidy =
       consensus::calculateBlockSubsidy(*this, nextHeight, totalSupply, std::time(nullptr));
-  blockReward = std::min(subsidy, std::max(0.0, MAX_SUPPLY - totalSupply));
+  blockReward = std::min(subsidy, remaining);
+}
+
+void Blockchain::persistBlockRewardLocked(const char *context) {
+  if (!db)
+    return;
+  rocksdb::WriteOptions opts;
+  const double persisted = rewardOverrideActive ? rewardOverrideValue : blockReward;
+  std::string contextLabel;
+  if (context)
+    contextLabel = std::string{" ("} + context + ")";
+  rocksdb::Status st =
+      db->Put(opts, "last_reward", formatAmount(persisted));
+  if (!st.ok()) {
+    std::cerr << "⚠️ [consensus] Failed to persist last_reward" << contextLabel
+              << ": " << st.ToString() << "\n";
+  }
+}
+
+void Blockchain::applyRewardOverrideLocked(double reward, bool persist,
+                                           const char *context) {
+  if (reward < 0.0) {
+    clearRewardOverrideLocked();
+    if (persist) {
+      blockReward = consensus::calculateBlockSubsidy(*this);
+      persistBlockRewardLocked(context);
+    }
+    return;
+  }
+
+  rewardOverrideActive = true;
+  rewardOverrideValue = reward;
+  const double remaining = std::max(0.0, MAX_SUPPLY - totalSupply);
+  blockReward = std::min(rewardOverrideValue, remaining);
+  if (persist)
+    persistBlockRewardLocked(context);
+}
+
+void Blockchain::clearRewardOverrideLocked() {
+  rewardOverrideActive = false;
+  rewardOverrideValue = 0.0;
 }
 
 void Blockchain::recordConfirmedNonce(const std::string &sender, uint64_t nonce,
@@ -2282,8 +2342,11 @@ bool Blockchain::loadFromDB() {
 
   if (persistedBlockReward > 0.0) {
     blockReward = persistedBlockReward;
+    rewardOverrideActive = true;
+    rewardOverrideValue = persistedBlockReward;
   } else {
     blockReward = consensus::calculateBlockSubsidy(*this);
+    clearRewardOverrideLocked();
   }
 
   uint64_t computedDifficulty = calculateSmartDifficulty(*this);
@@ -3619,11 +3682,12 @@ double Blockchain::calculateBlockReward() {
   const uint64_t nextHeight = chain.empty()
                                    ? 0
                                    : static_cast<uint64_t>(chain.back().getIndex()) + 1ULL;
-  double reward = consensus::calculateBlockSubsidy(
-      *this, nextHeight, totalSupply, std::time(nullptr));
-  if (blockReward > 0.0)
-    reward = std::min(reward, blockReward);
-  blockReward = std::min(reward, std::max(0.0, MAX_SUPPLY - totalSupply));
+  double reward = rewardOverrideActive
+                      ? rewardOverrideValue
+                      : consensus::calculateBlockSubsidy(
+                            *this, nextHeight, totalSupply, std::time(nullptr));
+  blockReward =
+      std::min(reward, std::max(0.0, MAX_SUPPLY - totalSupply));
   return blockReward;
 }
 
@@ -4802,7 +4866,7 @@ void Blockchain::applyConsensusHints(int remoteHeight, int hintedDifficulty,
     std::cout << "🛰️ [consensus] Updating reward from network hint "
               << formatAmount(blockReward) << " → "
               << formatAmount(hintedReward) << "\n";
-    blockReward = hintedReward;
+    applyRewardOverrideLocked(hintedReward, false, "hint");
     rewardChanged = true;
   }
 
@@ -4820,13 +4884,8 @@ void Blockchain::applyConsensusHints(int remoteHeight, int hintedDifficulty,
     }
   }
 
-  if (rewardChanged) {
-    rocksdb::Status st = db->Put(opts, "last_reward", formatAmount(blockReward));
-    if (!st.ok()) {
-      std::cerr << "⚠️ [consensus] Failed to persist last_reward: "
-                << st.ToString() << "\n";
-    }
-  }
+  if (rewardChanged)
+    persistBlockRewardLocked("hint");
 }
 
 size_t Blockchain::getOrphanPoolSize() const {

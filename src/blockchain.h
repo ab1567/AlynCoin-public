@@ -87,6 +87,12 @@ private:
   std::unordered_set<std::string> confirmedTxHashes;
   static std::atomic<bool> isMining;
   double blockReward = BASE_BLOCK_REWARD;
+  bool rewardOverrideActive{false};
+  double rewardOverrideValue{0.0};
+  void persistBlockRewardLocked(const char *context = nullptr);
+  void applyRewardOverrideLocked(double reward, bool persist,
+                                 const char *context = nullptr);
+  void clearRewardOverrideLocked();
   int difficulty;
   double miningReward;
   mutable std::recursive_mutex blockchainMutex;  // protects in-memory chain vector
