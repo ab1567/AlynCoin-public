@@ -94,6 +94,11 @@
 
 using namespace alyncoin;
 
+namespace {
+std::string formatSessionId(const SnapshotSessionId &sessionId);
+std::string formatSessionId(const std::string &sessionId);
+}
+
 struct SnapshotFileSink {
 public:
   bool open(const std::filesystem::path &path, std::uint64_t totalBytes) {
