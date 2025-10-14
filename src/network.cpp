@@ -5078,9 +5078,32 @@ void Network::startBinaryReadLoop(const std::string &peerId,
 }
 
 namespace {
-class RateLimiter;
+class RateLimiter {
+public:
+  bool shouldLog(std::chrono::milliseconds period =
+                     std::chrono::milliseconds(3000)) {
+    auto now = std::chrono::steady_clock::now();
+    auto nowMs =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            now.time_since_epoch())
+            .count();
+    auto prev = lastMs_.load(std::memory_order_relaxed);
+    while (nowMs - prev >= period.count()) {
+      if (lastMs_.compare_exchange_weak(prev, nowMs,
+                                        std::memory_order_relaxed)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+private:
+  std::atomic<int64_t> lastMs_{0};
+};
+
 extern RateLimiter gModeMismatchLogLimiter;
 extern RateLimiter gHeaderDupLogLimiter;
+extern RateLimiter gSnapshotAckLogLimiter;
 } // namespace
 
 void Network::processFrame(const alyncoin::net::Frame &f,
@@ -7407,28 +7430,6 @@ std::string formatSessionId(const SnapshotSessionId &sessionId) {
 std::string formatSessionId(const std::string &sessionId) {
   return formatSessionId(SnapshotSessionId::fromRaw(sessionId));
 }
-
-class RateLimiter {
-public:
-  bool shouldLog(std::chrono::milliseconds period =
-                     std::chrono::milliseconds(3000)) {
-    auto now = std::chrono::steady_clock::now();
-    auto nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
-                     now.time_since_epoch())
-                     .count();
-    auto prev = lastMs_.load(std::memory_order_relaxed);
-    while (nowMs - prev >= period.count()) {
-      if (lastMs_.compare_exchange_weak(prev, nowMs,
-                                        std::memory_order_relaxed)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-private:
-  std::atomic<int64_t> lastMs_{0};
-};
 
 RateLimiter gSnapshotAckLogLimiter;
 RateLimiter gModeMismatchLogLimiter;
