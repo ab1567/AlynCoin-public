@@ -840,20 +840,6 @@ static FrameDescriptor describeFrame(const alyncoin::net::Frame &f) {
   return desc;
 }
 
-static bool isSnapshotFrameKind(alyncoin::net::Frame::KindCase kind) {
-  using Kind = alyncoin::net::Frame::KindCase;
-  switch (kind) {
-  case Kind::kSnapshotMeta:
-  case Kind::kSnapshotChunk:
-  case Kind::kSnapshotAck:
-  case Kind::kSnapshotEnd:
-  case Kind::kSnapshotReq:
-    return true;
-  default:
-    return false;
-  }
-}
-
 namespace {
 std::string dumpHex(const void *data, size_t len) {
   const uint8_t *b = static_cast<const uint8_t *>(data);
@@ -1086,8 +1072,6 @@ void Network::resetPeerSyncState(const std::string &peer) {
 
 void Network::applySyncModeToPeerState(const std::string &peer,
                                        PeerSyncProgress::Mode mode) {
-  if (mode == PeerSyncProgress::Mode::Snapshot && !snapshotsAllowed())
-    mode = PeerSyncProgress::Mode::Headers;
   auto snapshot = getPeerSnapshot(peer);
   if (!snapshot.state)
     return;
@@ -1117,8 +1101,6 @@ void Network::applySyncModeToPeerState(const std::string &peer,
 
 void Network::setPeerSyncMode(const std::string &peer,
                               PeerSyncProgress::Mode mode) {
-  if (mode == PeerSyncProgress::Mode::Snapshot && !snapshotsAllowed())
-    mode = PeerSyncProgress::Mode::Headers;
   {
     std::lock_guard<std::mutex> lk(syncStateMutex);
     auto &state = peerSyncStates[peer];
@@ -2996,7 +2978,6 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
   std::string senderIP;
   std::string canonicalIp;
   int observedPort = 0;
-  const bool snapshotsEnabled = snapshotsAllowed();
 
   /* what *we* look like to the outside world */
   const std::string selfIdentity = getSelfAddressAndPort();
@@ -3056,8 +3037,8 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     claimedNetwork = hs.network_id();
     remoteHeight = static_cast<int>(hs.height());
     remoteWork = hs.total_work();
-    remoteWantSnap = hs.want_snapshot() && snapshotsEnabled;
-    remoteSnapSize = snapshotsEnabled ? hs.snapshot_size() : 0;
+    remoteWantSnap = hs.want_snapshot() && snapshotsAllowed();
+    remoteSnapSize = snapshotsAllowed() ? hs.snapshot_size() : 0;
 
     // ─── Compatibility gate ────────────────────
     remoteRev = hs.frame_rev();
@@ -3072,7 +3053,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     for (const auto &cap : hs.capabilities()) {
       if (cap == "agg_proof_v1")
         remoteAgg = true;
-      if (cap == "snapshot_v1" && snapshotsEnabled)
+      if (cap == "snapshot_v1" && snapshotsAllowed())
         remoteSnap = true;
       if (cap == "whisper_v1")
         remoteWhisper = true;
@@ -3083,7 +3064,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
       if (cap == "binary_v1")
         gotBinary = true;
     }
-    if (!snapshotsEnabled)
+    if (!snapshotsAllowed())
       remoteSnap = false;
 
     if (auto hints = parseConsensusHints(hs.capabilities());
@@ -3234,14 +3215,14 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     entry.state->graceUntil = entry.state->connectedAt + grace;
     entry.state->supportsAggProof = remoteAgg;
     entry.state->supportsSnapshot =
-        snapshotsEnabled && remoteSnap && protoCompatible;
+        snapshotsAllowed() && remoteSnap && protoCompatible;
     entry.state->supportsWhisper = remoteWhisper;
     entry.state->supportsTls = remoteTls;
     entry.state->supportsBanDecay = remoteBanDecay;
     entry.state->frameRev = remoteRev;
     entry.state->version = claimedVersion;
     entry.state->snapshotChunkPreference =
-        (snapshotsEnabled && remoteSnap && protoCompatible)
+        (remoteSnap && protoCompatible)
             ? resolveSnapshotChunkSize(remoteSnapSize)
             : 0;
     std::copy(shared.begin(), shared.end(), entry.state->linkKey.begin());
@@ -3279,19 +3260,17 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     alyncoin::net::Handshake hs_out = buildHandshake();
     hs_out.set_pub_key(
         std::string(reinterpret_cast<char *>(myPub.data()), myPub.size()));
-    if (snapshotsEnabled) {
-      hs_out.set_snapshot_size(static_cast<uint32_t>(
-          std::min<std::size_t>(MAX_SNAPSHOT_CHUNK_SIZE,
-                                 SNAPSHOT_COMPAT_CHUNK_CAP)));
-    } else {
-      hs_out.set_snapshot_size(0);
-    }
+    hs_out.set_snapshot_size(snapshotsAllowed()
+                                 ? static_cast<uint32_t>(std::min<std::size_t>(
+                                       MAX_SNAPSHOT_CHUNK_SIZE,
+                                       SNAPSHOT_COMPAT_CHUNK_CAP))
+                                 : 0);
     auto endpoint = determineAnnounceEndpoint();
     if (!endpoint.first.empty() && isShareableAddress(endpoint.first))
       hs_out.set_observed_ip(endpoint.first);
     else
       hs_out.set_observed_ip(realPeerId);
-    if (snapshotsEnabled && remoteWantSnap && protoCompatible)
+    if (remoteWantSnap && protoCompatible && snapshotsAllowed())
       hs_out.set_want_snapshot(true);
     alyncoin::net::Frame out;
     *out.mutable_handshake() = hs_out;
@@ -3312,31 +3291,31 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
   bool planSendTail = false;
   bool planStartHeaders = false;
 
-    if (remoteHeight > static_cast<int>(myHeight)) {
-      int gap = remoteHeight - static_cast<int>(myHeight);
-      if (gap <= effectiveTailSyncThreshold() &&
-          remoteWork + SNAPSHOT_WORK_DELTA >= myWork) {
-        planRequestTail = true;
-      } else if (snapshotsEnabled && remoteSnap && protoCompatible) {
-        planRequestSnapshot = true;
-      } else if (remoteAgg) {
-        planRequestEpoch = true;
-      } else {
-        planStartHeaders = true;
-      }
-    } else if (snapshotsEnabled && remoteHeight < static_cast<int>(myHeight) &&
-               remoteSnap && protoCompatible) {
-      int gap = static_cast<int>(myHeight) - remoteHeight;
-      const bool allowTail =
-          gap > 0 && gap <= effectiveTailSyncThreshold() &&
-          myWork <= remoteWork + SNAPSHOT_WORK_DELTA;
-      const bool eagerSnapshot =
-          (snapshotsEnabled && remoteWantSnap && protoCompatible) &&
-          (gap >= SNAPSHOT_PROACTIVE_GAP ||
-           myWork > remoteWork + SNAPSHOT_WORK_DELTA);
-      if (eagerSnapshot) {
-        planSendSnapshot = true;
-      } else if (allowTail) {
+  if (remoteHeight > static_cast<int>(myHeight)) {
+    int gap = remoteHeight - static_cast<int>(myHeight);
+    if (gap <= effectiveTailSyncThreshold() &&
+        remoteWork + SNAPSHOT_WORK_DELTA >= myWork) {
+      planRequestTail = true;
+    } else if (remoteSnap && protoCompatible && snapshotsAllowed()) {
+      planRequestSnapshot = true;
+    } else if (remoteAgg) {
+      planRequestEpoch = true;
+    } else {
+      planStartHeaders = true;
+    }
+  } else if (remoteHeight < static_cast<int>(myHeight) &&
+             remoteSnap && protoCompatible && snapshotsAllowed()) {
+    int gap = static_cast<int>(myHeight) - remoteHeight;
+    const bool allowTail =
+        gap > 0 && gap <= effectiveTailSyncThreshold() &&
+        myWork <= remoteWork + SNAPSHOT_WORK_DELTA;
+    const bool eagerSnapshot =
+        (remoteWantSnap && protoCompatible && snapshotsAllowed()) &&
+        (gap >= SNAPSHOT_PROACTIVE_GAP ||
+         myWork > remoteWork + SNAPSHOT_WORK_DELTA);
+    if (eagerSnapshot) {
+      planSendSnapshot = true;
+    } else if (allowTail) {
       planSendTail = true;
     }
   } else if (remoteHeight >= static_cast<int>(myHeight)) {
@@ -3356,9 +3335,8 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
   }
 
   if (planSendSnapshot) {
-    if (snapshotsEnabled)
-      sendSnapshot(claimedPeerId, transport, -1,
-                   remoteSnapSize ? resolveSnapshotChunkSize(remoteSnapSize) : 0);
+    sendSnapshot(claimedPeerId, transport, -1,
+                 remoteSnapSize ? resolveSnapshotChunkSize(remoteSnapSize) : 0);
   } else if (planSendTail) {
     sendTailBlocks(transport, remoteHeight, claimedPeerId);
   }
@@ -4511,9 +4489,6 @@ void cancelTimer(Timer &timer) {
 } // namespace
 
 void Network::runHairpinCheck() {
-  if (!getAppConfig().enable_nat_checks)
-    return;
-
   bool expected = false;
   if (!hairpinCheckAttempted.compare_exchange_strong(expected, true))
     return;
@@ -4582,7 +4557,7 @@ void Network::runHairpinCheck() {
 
 void Network::handleGetData(const std::string &peer,
                             const std::vector<std::string> &hashes) {
-  constexpr std::size_t kMaxGetDataItems = 32;
+  constexpr std::size_t kMaxGetDataItems = 64;
   if (hashes.empty())
     return;
   if (hashes.size() > kMaxGetDataItems) {
@@ -5312,22 +5287,13 @@ void Network::processFrame(const alyncoin::net::Frame &f,
     return;
   }
   if (desc.tag == WireFrame::HEIGHT) {
-    constexpr std::size_t kMaxHeightFrameSize = 128;
+    constexpr std::size_t kMaxHeightFrameSize = 32;
     if (frameSize > kMaxHeightFrameSize) {
       std::cerr << "⚠️ [net] Dropping overlong height frame (" << frameSize
                 << " bytes) from " << logPeer(peer) << '\n';
       penalizePeer(peer, 1);
       return;
     }
-  }
-  if (!snapshotsAllowed() && isSnapshotFrameKind(f.kind_case())) {
-    static RateLimiter snapshotDropLimiter;
-    if (snapshotDropLimiter.shouldLog()) {
-      std::cerr << "ℹ️  [net] Ignoring snapshot frame (" << desc.label
-                << ") from " << logPeer(peer)
-                << " because snapshots are disabled" << '\n';
-    }
-    return;
   }
   dispatch(f, peer);
 }
@@ -6151,7 +6117,6 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     int theirHeight = 0;
     uint64_t theirWork = 0;
     uint32_t remoteRev = 0;
-    const bool snapshotsEnabled = snapshotsAllowed();
     alyncoin::net::Frame fr;
     if (blob.empty() || !fr.ParseFromString(blob) || !fr.has_handshake()) {
       std::cerr << "⚠️ [connectToNode] invalid handshake from " << logPeer(peerKey)
@@ -6172,7 +6137,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     const auto &rhs = fr.handshake();
     theirHeight = static_cast<int>(rhs.height());
     theirWork = rhs.total_work();
-    theirWantSnapshot = snapshotsEnabled && rhs.want_snapshot();
+    theirWantSnapshot = rhs.want_snapshot();
     std::string theirNodeId = rhs.node_id();
     if (theirNodeId.empty())
       theirNodeId = peerKey;
@@ -6240,8 +6205,8 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     for (const auto &c : rhs.capabilities()) {
       if (c == "agg_proof_v1")
         theirAgg = true;
-      if (c == "snapshot_v1" && snapshotsEnabled)
-        theirSnap = true;
+      if (c == "snapshot_v1")
+        theirSnap = snapshotsAllowed();
       if (c == "whisper_v1")
         theirWhisper = true;
       if (c == "tls_v1")
@@ -6316,7 +6281,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
       st->connectedAt = std::chrono::steady_clock::now();
       st->graceUntil = st->connectedAt + BAN_GRACE_BASE;
       st->supportsAggProof = theirAgg;
-      st->supportsSnapshot = snapshotsEnabled && theirSnap;
+      st->supportsSnapshot = snapshotsAllowed() && theirSnap;
       st->supportsWhisper = theirWhisper;
       st->supportsTls = theirTls;
       st->supportsBanDecay = theirBanDecay;
@@ -6377,20 +6342,20 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
       if (gap <= effectiveTailSyncThreshold() &&
           theirWork + SNAPSHOT_WORK_DELTA >= localWork) {
         planRequestTail = true;
-      } else if (snapshotsEnabled && theirSnap) {
+      } else if (theirSnap && snapshotsAllowed()) {
         planRequestSnapshot = true;
       } else if (theirAgg) {
         planRequestEpoch = true;
       } else {
         planStartHeaders = true;
       }
-    } else if (snapshotsEnabled && theirHeight < localHeight && theirSnap) {
+    } else if (theirHeight < localHeight && theirSnap && snapshotsAllowed()) {
       int gap = localHeight - theirHeight;
       const bool allowTail =
           gap > 0 && gap <= effectiveTailSyncThreshold() &&
           localWork <= theirWork + SNAPSHOT_WORK_DELTA;
       const bool eagerSnapshot =
-          (snapshotsEnabled && theirWantSnapshot) &&
+          (theirWantSnapshot && snapshotsAllowed()) &&
           (gap >= SNAPSHOT_PROACTIVE_GAP ||
            localWork > theirWork + SNAPSHOT_WORK_DELTA);
       if (eagerSnapshot) {
@@ -6410,7 +6375,7 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
       requestEpochHeaders(finalKey);
     }
 
-    if (planSendSnapshot && snapshotsEnabled) {
+    if (planSendSnapshot) {
       sendSnapshot(finalKey, tx, -1,
                    rhs.snapshot_size()
                        ? resolveSnapshotChunkSize(rhs.snapshot_size())
@@ -7881,8 +7846,6 @@ SnapshotSessionId resetSnapshotReceptionLocked(
 void Network::sendSnapshot(const std::string &peerId,
                            std::shared_ptr<Transport> transport,
                            int upToHeight, size_t preferredChunk) {
-  if (!snapshotsAllowed())
-    return;
   if (!transport)
     return;
 
@@ -8384,8 +8347,6 @@ void Network::sendTailBlocks(std::shared_ptr<Transport> transport,
 
 void Network::handleSnapshotMeta(const std::string &peer,
                                  const alyncoin::net::SnapshotMeta &meta) {
-  if (!snapshotsAllowed())
-    return;
   auto snapshot = getPeerSnapshot(peer);
   if (!snapshot.state)
     return;
@@ -8590,8 +8551,6 @@ void Network::handleSnapshotMeta(const std::string &peer,
 
 void Network::handleSnapshotAck(const std::string &peer,
                                 const alyncoin::net::SnapshotAck &ack) {
-  if (!snapshotsAllowed())
-    return;
   auto snapshot = getPeerSnapshot(peer);
   if (!snapshot.state)
     return;
@@ -8683,8 +8642,6 @@ void Network::handleSnapshotAck(const std::string &peer,
 //
 void Network::handleSnapshotChunk(const std::string &peer,
                                   const alyncoin::net::SnapshotChunk &chunk) {
-  if (!snapshotsAllowed())
-    return;
   auto snapshot = getPeerSnapshot(peer);
   if (!snapshot.state)
     return;
@@ -9067,8 +9024,6 @@ void Network::handleTailRequest(const std::string &peer, int fromHeight) {
 }
 void Network::handleSnapshotEnd(const std::string &peer,
                                 const alyncoin::net::SnapshotEnd &end) {
-  if (!snapshotsAllowed())
-    return;
   auto snapshot = getPeerSnapshot(peer);
   if (!snapshot.state)
     return;
@@ -9604,8 +9559,6 @@ void Network::requestBlockByHash(const std::string &peer,
 //
 void Network::sendForkRecoveryRequest(const std::string &peer,
                                       const std::string &tip) {
-  if (!snapshotsAllowed())
-    return;
   auto snapshot = getPeerSnapshot(peer);
   if (!snapshot.transport || !snapshot.transport->isOpen())
     return;
@@ -9623,12 +9576,6 @@ void Network::handleBlockchainSyncRequest(
             << " type: " << request.request_type() << "\n";
 
   if (request.request_type() == "snapshot") {
-    if (!snapshotsAllowed()) {
-      std::cerr << "ℹ️  [Snapshot] Ignoring RPC snapshot request from "
-                << logPeer(peer)
-                << " because snapshots are disabled." << '\n';
-      return;
-    }
     auto it = peerTransports.find(peer);
     if (it != peerTransports.end() && it->second.tx) {
       size_t preferred =

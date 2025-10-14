@@ -24,5 +24,4 @@ peer_log_mode=tag           # off|tag|masked|full (defaults to tag)
 #fast_sync=true              # enable sampled validation during snapshot sync
 #fast_sync_sample_rate=0.10  # fraction of blocks to fully verify when fast_sync is enabled
 #fast_sync_trailing_full=12  # always deep-verify the last N blocks of the snapshot
-#disable_snapshot=false      # opt back into snapshot sync (disabled by default)
-#enable_nat_checks=true      # run NAT hairpin tests on startup
+#disable_snapshot=true       # force tail-sync; never request or serve snapshots
