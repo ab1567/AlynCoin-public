@@ -145,6 +145,8 @@ struct PeerState {
   std::condition_variable snapshotAckCv;
   bool snapshotImplicitStart{false};
   std::chrono::steady_clock::time_point snapshotImplicitSince{};
+  int snapshotMetaRestartStrikes{0};
+  std::chrono::steady_clock::time_point snapshotLastMetaRestart{};
   struct PendingChunk {
     uint64_t offset{0};
     std::string data;
