@@ -5284,8 +5284,23 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
       alyncoin::net::Frame out;
       auto *hdr = out.mutable_headers();
       constexpr size_t kMaxHeadersPerBatch = 2000;
+      constexpr size_t kSnapshotHeadersPerBatch = 400;
+      constexpr size_t kSnapshotHeadersPayloadCap = 256 * 1024;
       bool sendError = false;
       size_t count = 0;
+
+      const bool snapshotBusy =
+          snapshot.state && (snapshot.state->snapshotActive ||
+                              snapshot.state->snapshotServing ||
+                              !snapshot.state->servingSnapshotSessionId.empty());
+      const size_t payloadCap = snapshotBusy
+                                    ? std::min<std::size_t>(MAX_WIRE_PAYLOAD,
+                                                            kSnapshotHeadersPayloadCap)
+                                    : MAX_WIRE_PAYLOAD;
+      const size_t batchCap = snapshotBusy
+                                  ? std::min<std::size_t>(kMaxHeadersPerBatch,
+                                                          kSnapshotHeadersPerBatch)
+                                  : kMaxHeadersPerBatch;
 
       auto flush = [&]() {
         if (hdr->headers_size() == 0)
@@ -5299,7 +5314,7 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
       auto tryAppend = [&](const alyncoin::BlockProto &proto) {
         *hdr->add_headers() = proto;
         ++count;
-        if (out.ByteSizeLong() <= MAX_WIRE_PAYLOAD)
+        if (out.ByteSizeLong() <= payloadCap)
           return true;
         hdr->mutable_headers()->RemoveLast();
         --count;
@@ -5321,7 +5336,7 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
             continue;
           }
         }
-        if (count >= kMaxHeadersPerBatch) {
+        if (count >= batchCap) {
           flush();
         }
       }
@@ -5497,11 +5512,39 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
         auto now = std::chrono::steady_clock::now();
         if (ps->lastSnapshotMetaSent == std::chrono::steady_clock::time_point{} ||
             now - ps->lastSnapshotMetaSent > std::chrono::milliseconds(200)) {
-          std::cerr << "ℹ️  [Snapshot] Restarting snapshot stream for metadata retry from "
-                    << logPeer(peer) << '\n';
-          ps->lastSnapshotMetaFrame.clear();
-          size_t preferred = ps ? ps->snapshotChunkPreference : 0;
-          sendSnapshot(peer, snapshot.transport, -1, preferred);
+          if (!ps->lastSnapshotMetaFrame.empty()) {
+            alyncoin::net::Frame cached;
+            if (cached.ParseFromString(ps->lastSnapshotMetaFrame)) {
+              std::string sidLog;
+              {
+                std::lock_guard<std::mutex> lk(ps->m);
+                sidLog = formatSessionId(ps->servingSnapshotSessionId);
+              }
+              if (!sendFrame(snapshot.transport, cached)) {
+                std::cerr
+                    << "⚠️ [Snapshot] Failed to resend cached metadata to "
+                    << logPeer(peer) << "; restarting stream\n";
+                ps->lastSnapshotMetaFrame.clear();
+                size_t preferred = ps ? ps->snapshotChunkPreference : 0;
+                sendSnapshot(peer, snapshot.transport, -1, preferred);
+              } else {
+                ps->lastSnapshotMetaSent = now;
+                std::cerr << "ℹ️  [Snapshot] Re-sent cached metadata for session "
+                          << (sidLog.empty() ? std::string{"<pending>"} : sidLog)
+                          << " to " << logPeer(peer) << '\n';
+              }
+            } else {
+              std::cerr
+                  << "⚠️ [Snapshot] Cached metadata frame was corrupt; restarting stream"
+                  << " for " << logPeer(peer) << '\n';
+              ps->lastSnapshotMetaFrame.clear();
+              size_t preferred = ps ? ps->snapshotChunkPreference : 0;
+              sendSnapshot(peer, snapshot.transport, -1, preferred);
+            }
+          } else {
+            size_t preferred = ps ? ps->snapshotChunkPreference : 0;
+            sendSnapshot(peer, snapshot.transport, -1, preferred);
+          }
         } else {
           std::cerr << "ℹ️  [Snapshot] Ignoring rapid metadata retry from " << logPeer(peer)
                     << '\n';
@@ -7399,16 +7442,25 @@ void Network::sendSnapshot(const std::string &peerId,
   if (preferredChunk == 0 && ps)
     preferredChunk = ps->snapshotChunkPreference;
 
+  const auto sessionStart = std::chrono::steady_clock::now();
   const SnapshotSessionId sessionId = generateSnapshotSessionId();
   if (ps) {
     std::lock_guard<std::mutex> lk(ps->m);
+    ps->previousServingSnapshotSessionId = ps->servingSnapshotSessionId;
+    ps->previousSnapshotSessionValidUntil =
+        sessionStart + std::chrono::seconds(5);
     ps->servingSnapshotSessionId = sessionId;
+    ps->servingSnapshotSessionStarted = sessionStart;
   }
   auto clearServingSession = [&]() {
     if (!ps)
       return;
     std::lock_guard<std::mutex> lk(ps->m);
+    ps->previousServingSnapshotSessionId = ps->servingSnapshotSessionId;
+    ps->previousSnapshotSessionValidUntil =
+        std::chrono::steady_clock::now() + std::chrono::seconds(5);
     ps->servingSnapshotSessionId.clear();
+    ps->servingSnapshotSessionStarted = std::chrono::steady_clock::time_point{};
   };
 
   const auto now = std::chrono::steady_clock::now();
@@ -7953,22 +8005,49 @@ void Network::handleSnapshotAck(const std::string &peer,
   auto ps = snapshot.state;
   bool penalize = false;
   bool dropAck = false;
+  const auto now = std::chrono::steady_clock::now();
+  SnapshotSessionId activeSession;
+  SnapshotSessionId previousSession;
+  std::chrono::steady_clock::time_point previousValidUntil{};
   {
     std::lock_guard<std::mutex> lk(ps->m);
-    if (ps->servingSnapshotSessionId.empty() ||
-        ack.session_id() != ps->servingSnapshotSessionId) {
-      if (!ack.session_id().empty() && gSnapshotAckLogLimiter.shouldLog()) {
-        std::cerr << "⚠️ [SNAPSHOT] Dropping stale ACK from " << logPeer(peer)
-                  << " (sid=" << formatSessionId(ack.session_id()) << ")\n";
-      }
-      if (!ack.session_id().empty()) {
-        ++ps->staleSnapshotAckStrikes;
-        if (ps->staleSnapshotAckStrikes >= 8) {
-          penalize = true;
-          ps->staleSnapshotAckStrikes = 0;
+    activeSession = ps->servingSnapshotSessionId;
+    previousSession = ps->previousServingSnapshotSessionId;
+    previousValidUntil = ps->previousSnapshotSessionValidUntil;
+  }
+  if (!isValidSnapshotSessionIdSize(ack.session_id().size())) {
+    if (gSnapshotAckLogLimiter.shouldLog()) {
+      std::cerr << "⚠️ [SNAPSHOT] Dropping malformed ACK from " << logPeer(peer)
+                << " (len=" << ack.session_id().size() << ")\n";
+    }
+    return;
+  }
+  SnapshotSessionId ackSession = SnapshotSessionId::fromRaw(ack.session_id());
+  const bool hasAckSession = ack.session_id().size() == 0 ? false : ackSession.hasValue;
+  const bool matchesActive = hasAckSession && !activeSession.empty() &&
+                             ackSession == activeSession;
+  const bool matchesPrevious = hasAckSession && !previousSession.empty() &&
+                               now <= previousValidUntil &&
+                               ackSession == previousSession;
+  {
+    std::lock_guard<std::mutex> lk(ps->m);
+    if (!matchesActive) {
+      if (matchesPrevious) {
+        dropAck = true;
+      } else {
+        if (hasAckSession && gSnapshotAckLogLimiter.shouldLog()) {
+          std::cerr << "⚠️ [SNAPSHOT] Dropping stale ACK from " << logPeer(peer)
+                    << " (sid=" << formatSessionId(ack.session_id()) << ")\n";
         }
+        if (hasAckSession) {
+          ++ps->staleSnapshotAckStrikes;
+          if (ps->staleSnapshotAckStrikes >= 8) {
+            penalize = true;
+            ps->staleSnapshotAckStrikes = 0;
+          }
+        }
+        dropAck = true;
       }
-      dropAck = true;
     }
     if (!dropAck) {
       ps->staleSnapshotAckStrikes = 0;

@@ -127,8 +127,11 @@ struct PeerState {
   std::chrono::steady_clock::time_point snapshotLastProgressLog{};
   int staleSnapshotAckStrikes{0};
   SnapshotSessionId servingSnapshotSessionId;
+  SnapshotSessionId previousServingSnapshotSessionId;
   std::string lastSnapshotMetaFrame;
   std::chrono::steady_clock::time_point lastSnapshotMetaSent{};
+  std::chrono::steady_clock::time_point servingSnapshotSessionStarted{};
+  std::chrono::steady_clock::time_point previousSnapshotSessionValidUntil{};
   bool snapshotImplicitStart{false};
   std::chrono::steady_clock::time_point snapshotImplicitSince{};
   struct PendingChunk {
