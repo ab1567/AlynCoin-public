@@ -200,6 +200,8 @@ struct PeerState {
   std::deque<std::string> recentBlocksReceived;
   std::unordered_set<std::string> recentBlocksReceivedSet;
   std::deque<std::size_t> recentHeadersFingerprints;
+  std::string lastHeadersLocator;
+  std::chrono::steady_clock::time_point lastHeadersServed{};
 };
 
 struct PeerEntry {

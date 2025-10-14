@@ -11,5 +11,6 @@ enum class WireFrame : uint8_t {
     SNAP_CTRL   = 0x0A,
     TX          = 0x0B,
     STATE       = 0x0C,
+    HEADERS     = 0x0D,
     OTHER       = 0xFF
 };

@@ -38,6 +38,7 @@
 #include <chrono>
 #include <exception>
 #include <cstring>
+#include <limits>
 #include <ctime>
 #include <filesystem>
 #include <generated/block_protos.pb.h>
@@ -826,7 +827,7 @@ static FrameDescriptor describeFrame(const alyncoin::net::Frame &f) {
     desc = {WireFrame::TX, "whisper", false};
     break;
   case alyncoin::net::Frame::kHeaders:
-    desc = {WireFrame::BLOCK, "headers", false};
+    desc = {WireFrame::HEADERS, "headers", false};
     break;
   case Kind::KIND_NOT_SET:
   default:
@@ -1467,7 +1468,10 @@ void Network::sendHeight(const std::string &peer) {
   alyncoin::net::Frame fr;
   Blockchain &bc = Blockchain::getInstance();
   auto *hr = fr.mutable_height_res();
-  hr->set_height(bc.getHeight());
+  uint64_t height64 = static_cast<uint64_t>(std::max(0, bc.getHeight()));
+  uint32_t clampedHeight = static_cast<uint32_t>(
+      std::min<uint64_t>(height64, std::numeric_limits<uint32_t>::max()));
+  hr->set_height(clampedHeight);
   auto work = bc.computeCumulativeDifficulty(bc.getChain());
   uint64_t w64 = safeUint64(work);
   if (peerManager)
@@ -1482,7 +1486,10 @@ void Network::sendHeightProbe(std::shared_ptr<Transport> tr) {
   Blockchain &bc = Blockchain::getInstance();
   alyncoin::net::Frame fr;
   auto *hp = fr.mutable_height_probe();
-  hp->set_height(bc.getHeight());
+  uint64_t height64 = static_cast<uint64_t>(std::max(0, bc.getHeight()));
+  uint32_t clampedHeight = static_cast<uint32_t>(
+      std::min<uint64_t>(height64, std::numeric_limits<uint32_t>::max()));
+  hp->set_height(clampedHeight);
   hp->set_tip_hash(bc.getLatestBlockHash());
   auto work = bc.computeCumulativeDifficulty(bc.getChain());
   uint64_t w64 = safeUint64(work);
@@ -3233,24 +3240,29 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
   }
 
   // ── 5. arm read loop + initial requests ────────────────────────────────
-  startBinaryReadLoop(claimedPeerId, transport);
-
-  sendInitialRequests(claimedPeerId);
-
-  // ── 6. immediate sync decision ─────────────────────────────────────────
   Blockchain &chain = Blockchain::getInstance();
   const size_t myHeight = chain.getHeight();
   uint64_t myWork =
       safeUint64(chain.computeCumulativeDifficulty(chain.getChain()));
+
+  bool planRequestTail = false;
+  bool planRequestSnapshot = false;
+  bool planRequestEpoch = false;
+  bool planSendSnapshot = false;
+  bool planSendTail = false;
+  bool planStartHeaders = false;
+
   if (remoteHeight > static_cast<int>(myHeight)) {
     int gap = remoteHeight - static_cast<int>(myHeight);
     if (gap <= effectiveTailSyncThreshold() &&
         remoteWork + SNAPSHOT_WORK_DELTA >= myWork) {
-      requestTailBlocks(claimedPeerId, myHeight, chain.getLatestBlockHash());
+      planRequestTail = true;
     } else if (remoteSnap && protoCompatible && snapshotsAllowed()) {
-      requestSnapshotSync(claimedPeerId);
+      planRequestSnapshot = true;
     } else if (remoteAgg) {
-      requestEpochHeaders(claimedPeerId);
+      planRequestEpoch = true;
+    } else {
+      planStartHeaders = true;
     }
   } else if (remoteHeight < static_cast<int>(myHeight) &&
              remoteSnap && protoCompatible && snapshotsAllowed()) {
@@ -3263,11 +3275,31 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
         (gap >= SNAPSHOT_PROACTIVE_GAP ||
          myWork > remoteWork + SNAPSHOT_WORK_DELTA);
     if (eagerSnapshot) {
-      sendSnapshot(claimedPeerId, transport, -1,
-                   remoteSnapSize ? resolveSnapshotChunkSize(remoteSnapSize) : 0);
+      planSendSnapshot = true;
     } else if (allowTail) {
-      sendTailBlocks(transport, remoteHeight, claimedPeerId);
+      planSendTail = true;
     }
+  } else if (remoteHeight >= static_cast<int>(myHeight)) {
+    planStartHeaders = true;
+  }
+
+  startBinaryReadLoop(claimedPeerId, transport);
+
+  sendInitialRequests(claimedPeerId, planStartHeaders);
+
+  if (planRequestTail) {
+    requestTailBlocks(claimedPeerId, myHeight, chain.getLatestBlockHash());
+  } else if (planRequestSnapshot) {
+    requestSnapshotSync(claimedPeerId);
+  } else if (planRequestEpoch) {
+    requestEpochHeaders(claimedPeerId);
+  }
+
+  if (planSendSnapshot) {
+    sendSnapshot(claimedPeerId, transport, -1,
+                 remoteSnapSize ? resolveSnapshotChunkSize(remoteSnapSize) : 0);
+  } else if (planSendTail) {
+    sendTailBlocks(transport, remoteHeight, claimedPeerId);
   }
 
   autoSyncIfBehind();
@@ -4965,7 +4997,8 @@ bool Network::finishOutboundHandshake(std::shared_ptr<Transport> tx,
 // ------------------------------------------------------------------
 //  Helper: send the three “kick-off” messages after a connection
 // ------------------------------------------------------------------
-void Network::sendInitialRequests(const std::string &peerId) {
+void Network::sendInitialRequests(const std::string &peerId,
+                                  bool startHeaders) {
   auto it = peerTransports.find(peerId);
   if (it == peerTransports.end() || !it->second.tx)
     return;
@@ -4984,8 +5017,10 @@ void Network::sendInitialRequests(const std::string &peerId) {
 
   int peerHeight = peerManager ? peerManager->getPeerHeight(peerId) : -1;
   int localHeight = Blockchain::getInstance().getHeight();
-  if (peerHeight >= localHeight)
-    startHeaderSync(peerId);
+  if (startHeaders) {
+    if (peerHeight < 0 || peerHeight >= localHeight)
+      startHeaderSync(peerId);
+  }
 
   sendInventory(peerId);
 }
@@ -5124,6 +5159,15 @@ void Network::processFrame(const alyncoin::net::Frame &f,
               << ") from " << logPeer(peer) << '\n';
     penalizePeer(peer, 1);
     return;
+  }
+  if (desc.tag == WireFrame::HEIGHT) {
+    constexpr std::size_t kMaxHeightFrameSize = 32;
+    if (frameSize > kMaxHeightFrameSize) {
+      std::cerr << "⚠️ [net] Dropping overlong height frame (" << frameSize
+                << " bytes) from " << logPeer(peer) << '\n';
+      penalizePeer(peer, 1);
+      return;
+    }
   }
   dispatch(f, peer);
 }
@@ -5339,6 +5383,30 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
       if (!transport || !transport->isOpen())
         break;
 
+      auto ps = snapshot.state;
+      const auto now = std::chrono::steady_clock::now();
+      bool duplicateLocator = false;
+      const std::string locatorKey =
+          start.empty() ? std::string{"<tip>"} : start;
+      if (ps) {
+        std::lock_guard<std::mutex> lk(ps->m);
+        if (ps->lastHeadersServed != std::chrono::steady_clock::time_point{} &&
+            ps->lastHeadersLocator == locatorKey &&
+            now - ps->lastHeadersServed < std::chrono::seconds(2)) {
+          duplicateLocator = true;
+        } else {
+          ps->lastHeadersLocator = locatorKey;
+          ps->lastHeadersServed = now;
+        }
+      }
+      if (duplicateLocator) {
+        if (gHeaderDupLogLimiter.shouldLog()) {
+          std::cerr << "⚠️  [Headers] Ignoring duplicate locator from "
+                    << logPeer(peer) << " (" << locatorKey << ")\n";
+        }
+        break;
+      }
+
       alyncoin::net::Frame out;
       auto *hdr = out.mutable_headers();
       constexpr size_t kMaxHeadersPerBatch = 2000;
@@ -5362,7 +5430,6 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
                                                           kSnapshotHeadersPerBatch)
                                   : kMaxHeadersPerBatch;
 
-      auto ps = snapshot.state;
       auto previousRole = getWireMode(ps);
       setWireMode(ps, PeerState::SyncRole::ServingHeaders);
 
@@ -5598,23 +5665,48 @@ void Network::dispatch(const alyncoin::net::Frame &f, const std::string &peer) {
           if (!ps->lastSnapshotMetaFrame.empty()) {
             alyncoin::net::Frame cached;
             if (cached.ParseFromString(ps->lastSnapshotMetaFrame)) {
-              std::string sidLog;
+              SnapshotSessionId cachedSession =
+                  SnapshotSessionId::fromRaw(
+                      cached.snapshot_meta().session_id());
+              SnapshotSessionId activeSession;
               {
                 std::lock_guard<std::mutex> lk(ps->m);
-                sidLog = formatSessionId(ps->servingSnapshotSessionId);
+                activeSession = ps->servingSnapshotSessionId;
               }
-              if (!sendFrame(snapshot.transport, cached)) {
-                std::cerr
-                    << "⚠️ [Snapshot] Failed to resend cached metadata to "
-                    << logPeer(peer) << "; restarting stream\n";
+              bool restart = false;
+              std::string restartReason;
+              if (cachedSession.empty()) {
+                restart = true;
+                restartReason = "missing session id";
+              } else if (activeSession.empty()) {
+                restart = true;
+                restartReason = "no active session";
+              } else if (activeSession != cachedSession) {
+                restart = true;
+                restartReason = "session mismatch";
+              }
+              size_t preferred = ps ? ps->snapshotChunkPreference : 0;
+              if (restart) {
+                std::cerr << "⚠️ [Snapshot] Cached metadata for "
+                          << logPeer(peer)
+                          << " is invalid (" << restartReason
+                          << "); restarting stream\n";
                 ps->lastSnapshotMetaFrame.clear();
-                size_t preferred = ps ? ps->snapshotChunkPreference : 0;
                 sendSnapshot(peer, snapshot.transport, -1, preferred);
               } else {
-                ps->lastSnapshotMetaSent = now;
-                std::cerr << "ℹ️  [Snapshot] Re-sent cached metadata for session "
-                          << (sidLog.empty() ? std::string{"<pending>"} : sidLog)
-                          << " to " << logPeer(peer) << '\n';
+                bool ok = sendFrame(snapshot.transport, cached);
+                if (!ok) {
+                  std::cerr
+                      << "⚠️ [Snapshot] Failed to resend cached metadata to "
+                      << logPeer(peer) << "; restarting stream\n";
+                  ps->lastSnapshotMetaFrame.clear();
+                  sendSnapshot(peer, snapshot.transport, -1, preferred);
+                } else {
+                  ps->lastSnapshotMetaSent = now;
+                  std::cerr << "ℹ️  [Snapshot] Re-sent cached metadata for session "
+                            << sessionIdPrefix(cachedSession)
+                            << " to " << logPeer(peer) << '\n';
+                }
               }
             } else {
               std::cerr
@@ -6107,15 +6199,25 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     const int localHeight = chain.getHeight();
     uint64_t localWork =
         safeUint64(chain.computeCumulativeDifficulty(chain.getChain()));
+
+    bool planRequestTail = false;
+    bool planRequestSnapshot = false;
+    bool planRequestEpoch = false;
+    bool planSendSnapshot = false;
+    bool planSendTail = false;
+    bool planStartHeaders = false;
+
     if (theirHeight > localHeight) {
       int gap = theirHeight - localHeight;
       if (gap <= effectiveTailSyncThreshold() &&
           theirWork + SNAPSHOT_WORK_DELTA >= localWork) {
-        requestTailBlocks(finalKey, localHeight, chain.getLatestBlockHash());
+        planRequestTail = true;
       } else if (theirSnap && snapshotsAllowed()) {
-        requestSnapshotSync(finalKey);
+        planRequestSnapshot = true;
       } else if (theirAgg) {
-        requestEpochHeaders(finalKey);
+        planRequestEpoch = true;
+      } else {
+        planStartHeaders = true;
       }
     } else if (theirHeight < localHeight && theirSnap && snapshotsAllowed()) {
       int gap = localHeight - theirHeight;
@@ -6127,17 +6229,33 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
           (gap >= SNAPSHOT_PROACTIVE_GAP ||
            localWork > theirWork + SNAPSHOT_WORK_DELTA);
       if (eagerSnapshot) {
-        sendSnapshot(finalKey, tx, -1,
-                     rhs.snapshot_size()
-                         ? resolveSnapshotChunkSize(rhs.snapshot_size())
-                         : 0);
+        planSendSnapshot = true;
       } else if (allowTail) {
-        sendTailBlocks(tx, theirHeight, finalKey);
+        planSendTail = true;
       }
+    } else if (theirHeight >= localHeight) {
+      planStartHeaders = true;
+    }
+
+    if (planRequestTail) {
+      requestTailBlocks(finalKey, localHeight, chain.getLatestBlockHash());
+    } else if (planRequestSnapshot) {
+      requestSnapshotSync(finalKey);
+    } else if (planRequestEpoch) {
+      requestEpochHeaders(finalKey);
+    }
+
+    if (planSendSnapshot) {
+      sendSnapshot(finalKey, tx, -1,
+                   rhs.snapshot_size()
+                       ? resolveSnapshotChunkSize(rhs.snapshot_size())
+                       : 0);
+    } else if (planSendTail) {
+      sendTailBlocks(tx, theirHeight, finalKey);
     }
 
     startBinaryReadLoop(finalKey, tx);
-    sendInitialRequests(finalKey);
+    sendInitialRequests(finalKey, planStartHeaders);
 
     autoSyncIfBehind();
     intelligentSync();
@@ -7427,6 +7545,16 @@ std::string formatSessionId(const SnapshotSessionId &sessionId) {
   return out;
 }
 
+std::string sessionIdPrefix(const SnapshotSessionId &sessionId,
+                            std::size_t prefix = 8) {
+  if (sessionId.empty())
+    return std::string{"<none>"};
+  std::string hex = formatSessionId(sessionId);
+  if (hex.size() > prefix)
+    hex.resize(prefix);
+  return hex;
+}
+
 std::string formatSessionId(const std::string &sessionId) {
   return formatSessionId(SnapshotSessionId::fromRaw(sessionId));
 }
@@ -8303,6 +8431,9 @@ void Network::handleSnapshotAck(const std::string &peer,
   SnapshotSessionId activeSession;
   SnapshotSessionId previousSession;
   std::chrono::steady_clock::time_point previousValidUntil{};
+  bool logAccepted = false;
+  uint64_t loggedSeq = 0;
+  std::size_t remainingChunks = 0;
   {
     std::lock_guard<std::mutex> lk(ps->m);
     activeSession = ps->servingSnapshotSessionId;
@@ -8362,12 +8493,21 @@ void Network::handleSnapshotAck(const std::string &peer,
       }
       if (progress)
         ps->snapshotAckCv.notify_all();
+      logAccepted = true;
+      loggedSeq = ps->snapshotAckedThrough;
+      remainingChunks = ps->snapshotOutstandingChunks.size();
     }
   }
   if (penalize)
     penalizePeer(peer, 1);
   if (dropAck)
     return;
+  if (logAccepted) {
+    std::cerr << "✅ [Snapshot] ACK from " << logPeer(peer)
+              << " sid=" << sessionIdPrefix(ackSession)
+              << " seq=" << loggedSeq << " pending=" << remainingChunks
+              << '\n';
+  }
 }
 //
 void Network::handleSnapshotChunk(const std::string &peer,
@@ -8709,13 +8849,24 @@ void Network::handleSnapshotChunk(const std::string &peer,
 
   if ((shouldAck || forceAck) && transport &&
       transport->isOpen()) {
-    alyncoin::net::Frame ack;
-    auto *ackMsg = ack.mutable_snapshot_ack();
-    uint64_t clamped = std::min<uint64_t>(
-        ackSeq, static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()));
-    ackMsg->set_seq(static_cast<uint32_t>(clamped));
-    ackMsg->set_session_id(sessionId.toRaw());
-    sendFrame(transport, ack);
+    if (sessionId.empty()) {
+      std::cerr << "⚠️ [Snapshot] Suppressing ACK without session id for "
+                << logPeer(peer) << '\n';
+    } else {
+      alyncoin::net::Frame ack;
+      auto *ackMsg = ack.mutable_snapshot_ack();
+      uint64_t clamped = std::min<uint64_t>(
+          ackSeq, static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()));
+      ackMsg->set_seq(static_cast<uint32_t>(clamped));
+      ackMsg->set_session_id(sessionId.toRaw());
+      bool sent = sendFrame(transport, ack);
+      std::cerr << "↩️  [Snapshot] Sent ACK to " << logPeer(peer)
+                << " sid=" << sessionIdPrefix(sessionId)
+                << " seq=" << ackMsg->seq();
+      if (!sent)
+        std::cerr << " (queue failed)";
+      std::cerr << '\n';
+    }
   }
 
   if (logProgress) {
