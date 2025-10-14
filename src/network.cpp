@@ -5136,6 +5136,9 @@ private:
   std::atomic<int64_t> lastMs_{0};
 };
 
+std::string sessionIdPrefix(const SnapshotSessionId &sessionId,
+                            std::size_t prefix = 8);
+
 extern RateLimiter gModeMismatchLogLimiter;
 extern RateLimiter gHeaderDupLogLimiter;
 extern RateLimiter gSnapshotAckLogLimiter;
@@ -7546,7 +7549,7 @@ std::string formatSessionId(const SnapshotSessionId &sessionId) {
 }
 
 std::string sessionIdPrefix(const SnapshotSessionId &sessionId,
-                            std::size_t prefix = 8) {
+                            std::size_t prefix) {
   if (sessionId.empty())
     return std::string{"<none>"};
   std::string hex = formatSessionId(sessionId);
