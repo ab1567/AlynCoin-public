@@ -5077,6 +5077,12 @@ void Network::startBinaryReadLoop(const std::string &peerId,
   std::cout << "🔄 Binary read-loop armed for " << logPeer(peerId) << '\n';
 }
 
+namespace {
+class RateLimiter;
+extern RateLimiter gModeMismatchLogLimiter;
+extern RateLimiter gHeaderDupLogLimiter;
+} // namespace
+
 void Network::processFrame(const alyncoin::net::Frame &f,
                            const std::string &peer) {
   if (!f.IsInitialized()) {
