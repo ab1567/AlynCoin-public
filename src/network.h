@@ -99,6 +99,7 @@ public:
   void broadcastHeight(uint32_t height);
   void broadcastHandshake();
   void sendBlockToPeer(const std::string &peer, const Block &blk);
+  void sendBlockData(const std::string &peer, const Block &blk);
   void sendInventory(const std::string &peer);
   PeerManager *getPeerManager();
   size_t getConnectedPeerCount() const;
@@ -159,6 +160,8 @@ public:
   void waitForInitialSync(int timeoutSeconds = 10);
   void handleGetData(const std::string &peer,
                      const std::vector<std::string> &hashes);
+  void handleDataFrame(const std::string &peer,
+                       const alyncoin::net::Data &data);
   void sendStateProof(std::shared_ptr<Transport> tr);
   bool peerSupportsSnapshot(const std::string &peerId) const;
   bool peerSupportsWhisper(const std::string &peerId) const;
@@ -347,6 +350,9 @@ private:
     Mode mode{Mode::Idle};
     std::deque<std::string> blockQueue;
     std::unordered_set<std::string> requestedBlocks;
+    std::unordered_map<std::string, std::chrono::steady_clock::time_point>
+        blockRequestTimes;
+    std::chrono::steady_clock::time_point lastBlockRequest{};
     std::vector<HeadersSync::HeaderRecord> headers;
     boost::multiprecision::cpp_int remoteWork{0};
     std::string remoteTip;
