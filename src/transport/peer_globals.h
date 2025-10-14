@@ -102,6 +102,13 @@ struct PeerState {
     Blocks,
     Snapshot
   } syncMode{SyncMode::Idle};
+  enum class SyncRole {
+    Idle,
+    ServingHeaders,
+    ServingSnapshot,
+    DownloadingHeaders,
+    DownloadingSnapshot
+  } wireMode{SyncRole::Idle};
   bool recovering{false};
   enum class SnapState {
     Idle,
@@ -192,6 +199,7 @@ struct PeerState {
   std::unordered_set<std::string> recentBlocksSentSet;
   std::deque<std::string> recentBlocksReceived;
   std::unordered_set<std::string> recentBlocksReceivedSet;
+  std::deque<std::size_t> recentHeadersFingerprints;
 };
 
 struct PeerEntry {
