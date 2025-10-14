@@ -104,6 +104,7 @@ void setWireMode(const std::shared_ptr<PeerState> &state,
                  PeerState::SyncRole role);
 bool frameAllowedForRole(PeerState::SyncRole role,
                          alyncoin::net::Frame::KindCase kind);
+bool isSnapshotDownloadActive(const std::shared_ptr<PeerState> &state);
 bool markHeadersFingerprint(const std::shared_ptr<PeerState> &state,
                             std::size_t fp);
 const char *describeSyncRole(PeerState::SyncRole role);
@@ -5276,7 +5277,6 @@ extern RateLimiter gSnapshotAckLogLimiter;
 extern RateLimiter gSnapshotBusyLogLimiter;
 
 bool snapshotDownloadActiveLocked(const PeerState &state);
-bool isSnapshotDownloadActive(const std::shared_ptr<PeerState> &state);
 } // namespace
 
 void Network::processFrame(const alyncoin::net::Frame &f,
