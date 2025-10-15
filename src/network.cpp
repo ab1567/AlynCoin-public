@@ -2944,12 +2944,26 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     claimedPeerId = hs.node_id().empty() ? realPeerId : hs.node_id();
     remoteNonce = hs.nonce();
     if (remoteNonce != 0 && remoteNonce == localHandshakeNonce) {
-      std::cout << "🛑 Self-connect ignored (nonce match) from " << realPeerId
-                << '\n';
-      recordSelfEndpoint(realPeerId, finalPort);
-      recordSelfEndpoint(canonicalIp, finalPort);
-      transport->closeGraceful();
-      return;
+      bool definitelySelf = false;
+      if (!claimedPeerId.empty() &&
+          (claimedPeerId == nodeId || claimedPeerId == selfIdentity))
+        definitelySelf = true;
+      if (!canonicalIp.empty() && isSelfEndpoint(canonicalIp, finalPort))
+        definitelySelf = true;
+      if (isSelfEndpoint(realPeerId, finalPort))
+        definitelySelf = true;
+
+      if (definitelySelf) {
+        std::cout << "🛑 Self-connect ignored (nonce match) from " << realPeerId
+                  << '\n';
+        recordSelfEndpoint(realPeerId, finalPort);
+        recordSelfEndpoint(canonicalIp, finalPort);
+        transport->closeGraceful();
+        return;
+      }
+
+      std::cerr << "⚠️  [handlePeer] nonce collision with " << claimedPeerId
+                << " — continuing handshake." << '\n';
     }
 
     std::string myGenesis;
@@ -5695,13 +5709,28 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     std::string canonicalIp = socketIp.empty() ? host : socketIp;
     const uint64_t remoteNonce = rhs.nonce();
     if (remoteNonce != 0 && remoteNonce == localHandshakeNonce) {
-      std::cout << "🛑 Self-connect ignored (nonce match) while dialing "
-                << logPeer(peerKey) << '\n';
-      recordSelfEndpoint(host, remotePort);
-      if (!canonicalIp.empty())
-        recordSelfEndpoint(canonicalIp, advertisedPort);
-      tx->close();
-      return false;
+      bool definitelySelf = false;
+      if (!theirNodeId.empty() && theirNodeId == nodeId)
+        definitelySelf = true;
+      if (!canonicalIp.empty() && isSelfEndpoint(canonicalIp, advertisedPort))
+        definitelySelf = true;
+      if (isSelfEndpoint(host, remotePort))
+        definitelySelf = true;
+
+      if (definitelySelf) {
+        std::cout << "🛑 Self-connect ignored (nonce match) while dialing "
+                  << logPeer(peerKey) << '\n';
+        recordSelfEndpoint(host, remotePort);
+        if (!canonicalIp.empty())
+          recordSelfEndpoint(canonicalIp, advertisedPort);
+        tx->close();
+        return false;
+      }
+
+      std::cerr << "⚠️ [connectToNode] nonce collision with " << logPeer(peerKey)
+                << " (remote node id="
+                << (theirNodeId.empty() ? "<unknown>" : theirNodeId)
+                << ") — allowing connection." << '\n';
     }
     if (!rhs.observed_ip().empty() && isRoutableAddress(rhs.observed_ip()) &&
         !configuredExternalExplicit) {
