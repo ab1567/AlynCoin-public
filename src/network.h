@@ -172,7 +172,8 @@ public:
   void requestBlockByHash(const std::string &peer, const std::string &hash);
   void sendForkRecoveryRequest(const std::string &peer, const std::string &tip);
   void sendSnapshot(const std::string &peerId, std::shared_ptr<Transport> tr,
-                    int upToHeight = -1, size_t preferredChunk = 0);
+                    int upToHeight = -1, size_t preferredChunk = 0,
+                    const std::string &untilHash = "");
   void sendTailBlocks(std::shared_ptr<Transport> tr, int fromHeight,
                       const std::string &peerId);
   void handleSnapshotMeta(const std::string &peer,

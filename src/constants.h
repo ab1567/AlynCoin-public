@@ -68,5 +68,6 @@ inline constexpr std::size_t MAX_TAIL_PAYLOAD = 200 * 1024;  // safe tail chunk
 inline constexpr std::size_t MAX_INV_PER_MSG = 500; // inventory batch cap
 // Limit blocks included in a snapshot to avoid sending the full chain
 inline constexpr int MAX_SNAPSHOT_BLOCKS = 1000;
+inline constexpr int SNAPSHOT_PREFIX_GRACE = 32; // extra historical blocks to include for validation overlap
 inline constexpr uint32_t NETWORK_PROTO_VERSION = 3;
 #endif // ALYNCOIN_CONSTANTS_H

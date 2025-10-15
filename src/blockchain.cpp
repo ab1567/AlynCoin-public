@@ -3104,6 +3104,16 @@ bool Blockchain::hasBlockHash(const std::string &hash) const {
   }
   return false;
 }
+
+std::optional<int> Blockchain::findBlockIndexByHash(
+    const std::string &hash) const {
+  std::lock_guard<std::recursive_mutex> lk(blockchainMutex);
+  for (size_t i = 0; i < chain.size(); ++i) {
+    if (chain[i].getHash() == hash)
+      return static_cast<int>(i);
+  }
+  return std::nullopt;
+}
 // ✅ Get pending transactions
 std::vector<Transaction> Blockchain::getPendingTransactions() const {
   return pendingTransactions;
