@@ -1255,22 +1255,34 @@ void Network::requestQueuedBlocks(const std::string &peer) {
   }
 
   auto snapshot = getPeerSnapshot(peer);
+  auto releasePending = [&](bool &idleAfter) {
+    std::lock_guard<std::mutex> lk(syncStateMutex);
+    auto it = peerSyncStates.find(peer);
+    if (it == peerSyncStates.end())
+      return;
+    for (const auto &h : toFetch) {
+      it->second.requestedBlocks.erase(h);
+      it->second.blockRequestTimes.erase(h);
+    }
+    if (it->second.blockQueue.empty() && it->second.requestedBlocks.empty()) {
+      it->second.mode = PeerSyncProgress::Mode::Idle;
+      idleAfter = true;
+    }
+  };
+
+  if (snapshot.state && isSnapshotDownloadActive(snapshot.state)) {
+    bool idleAfterSnapshot = false;
+    releasePending(idleAfterSnapshot);
+    if (idleAfterSnapshot)
+      applySyncModeToPeerState(peer, PeerSyncProgress::Mode::Idle);
+    std::cerr << "ℹ️  [sync] Deferring block fetch from " << logPeer(peer)
+              << " while snapshot download is active\n";
+    return;
+  }
+
   if (!snapshot.transport || !snapshot.transport->isOpen()) {
     bool idleAfterClose = false;
-    {
-      std::lock_guard<std::mutex> lk(syncStateMutex);
-      auto it = peerSyncStates.find(peer);
-      if (it != peerSyncStates.end()) {
-        for (const auto &h : toFetch) {
-          it->second.requestedBlocks.erase(h);
-          it->second.blockRequestTimes.erase(h);
-        }
-        if (it->second.blockQueue.empty() && it->second.requestedBlocks.empty()) {
-          it->second.mode = PeerSyncProgress::Mode::Idle;
-          idleAfterClose = true;
-        }
-      }
-    }
+    releasePending(idleAfterClose);
     if (idleAfterClose)
       applySyncModeToPeerState(peer, PeerSyncProgress::Mode::Idle);
     return;
@@ -5299,7 +5311,7 @@ void Network::processFrame(const alyncoin::net::Frame &f,
     return;
   }
   if (desc.tag == WireFrame::HEIGHT) {
-    constexpr std::size_t kMaxHeightFrameSize = 32;
+    constexpr std::size_t kMaxHeightFrameSize = 160;
     if (frameSize > kMaxHeightFrameSize) {
       std::cerr << "⚠️ [net] Dropping overlong height frame (" << frameSize
                 << " bytes) from " << logPeer(peer) << '\n';
@@ -7775,6 +7787,27 @@ inline bool isTailFlowFrame(alyncoin::net::Frame::KindCase kind) {
   return kind == Kind::kTailBlocks || kind == Kind::kTailReq;
 }
 
+inline bool isBulkChainFrame(alyncoin::net::Frame::KindCase kind) {
+  using Kind = alyncoin::net::Frame::KindCase;
+  switch (kind) {
+  case Kind::kBlockBroadcast:
+  case Kind::kBlockBatch:
+  case Kind::kBlockRequest:
+  case Kind::kBlockResponse:
+  case Kind::kTailBlocks:
+  case Kind::kRollupBlock:
+  case Kind::kAggProof:
+  case Kind::kInv:
+  case Kind::kGetData:
+  case Kind::kData:
+  case Kind::kTxBroadcast:
+  case Kind::kStateProof:
+    return true;
+  default:
+    return false;
+  }
+}
+
 bool frameAllowedForRole(PeerState::SyncRole role,
                          alyncoin::net::Frame::KindCase kind) {
   switch (role) {
@@ -7787,6 +7820,8 @@ bool frameAllowedForRole(PeerState::SyncRole role,
       return false;
     if (isHeaderFlowFrame(kind) || isTailFlowFrame(kind))
       return false;
+    if (isBulkChainFrame(kind))
+      return false;
     return true;
   case PeerState::SyncRole::DownloadingHeaders:
     if (isSnapshotDataFrame(kind) || isSnapshotControlFrame(kind))
@@ -7794,6 +7829,8 @@ bool frameAllowedForRole(PeerState::SyncRole role,
     return true;
   case PeerState::SyncRole::DownloadingSnapshot:
     if (isHeaderFlowFrame(kind) || isTailFlowFrame(kind))
+      return false;
+    if (isBulkChainFrame(kind))
       return false;
     if (kind == alyncoin::net::Frame::KindCase::kSnapshotAck)
       return false;
