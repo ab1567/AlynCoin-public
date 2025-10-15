@@ -133,9 +133,6 @@ struct PeerState {
   size_t snapshotChunksSinceAck{0};
   uint64_t snapshotChunksReceived{0};
   std::chrono::steady_clock::time_point snapshotLastProgressLog{};
-  std::chrono::steady_clock::time_point snapshotLastProgress{};
-  int snapshotRestartStrikes{0};
-  int snapshotDuplicateStrikes{0};
   int staleSnapshotAckStrikes{0};
   SnapshotSessionId servingSnapshotSessionId;
   SnapshotSessionId previousServingSnapshotSessionId;
