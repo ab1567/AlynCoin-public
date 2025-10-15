@@ -43,7 +43,10 @@ inline constexpr std::size_t SNAPSHOT_CHUNK_TOLERANCE = 16 * 1024; // 16 KiB
 inline constexpr std::size_t SNAPSHOT_ACK_WINDOW = 256 * 1024;     // Ack every 256 KiB
 inline constexpr std::size_t SNAPSHOT_ACK_CHUNK_WINDOW = 8;         // Ack every 8 chunks
 inline constexpr std::size_t SNAPSHOT_SESSION_ID_BYTES = 16;        // 128-bit token
-inline constexpr std::size_t SNAPSHOT_SEND_WINDOW = 4;              // max in-flight chunks
+// Keep the send window at least as large as the ACK cadence so the server never
+// stalls waiting for acknowledgements that the receiver won't emit until more
+// chunks arrive.
+inline constexpr std::size_t SNAPSHOT_SEND_WINDOW = 8;              // max in-flight chunks
 inline constexpr int SNAPSHOT_ACK_TIMEOUT_MS = 2000;                // ack wait timeout
 inline constexpr int SNAPSHOT_MAX_RETRIES = 3;                      // resend attempts
 inline constexpr std::size_t MAX_PEERS = 32;                       // hard cap
@@ -56,6 +59,8 @@ inline constexpr int TAIL_SYNC_THRESHOLD = 32;    // height gap for tail sync be
 inline constexpr uint64_t SNAPSHOT_WORK_DELTA = 1024; // cumulative work delta to favour snapshots
 // Increased to support larger batch frames
 inline constexpr std::size_t MAX_WIRE_PAYLOAD = 512 * 1024; // 512 KiB frame cap
+static_assert(SNAPSHOT_SEND_WINDOW >= SNAPSHOT_ACK_CHUNK_WINDOW,
+              "snapshot send window must be >= ack chunk window to prevent stalls");
 // Control frames (acks, requests, pings, etc.) should stay comfortably under
 // this limit so they never monopolize the wire or starve data transfers.
 inline constexpr std::size_t MAX_CONTROL_FRAME_PAYLOAD = 64 * 1024; // 64 KiB
