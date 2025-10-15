@@ -52,6 +52,7 @@ struct PeerState {
   std::chrono::steady_clock::time_point snapshotLastProgressLog{};
   int staleSnapshotAckStrikes{0};
   std::string servingSnapshotSessionId;
+  std::deque<std::string> recentSnapshotSessionIds;
   std::string lastSnapshotMetaFrame;
   std::chrono::steady_clock::time_point lastSnapshotMetaSent{};
   bool snapshotImplicitStart{false};
