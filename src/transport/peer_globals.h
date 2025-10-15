@@ -76,6 +76,7 @@ struct PeerState {
   uint64_t frameCountMin{0};
   uint64_t byteCountMin{0};
   int limitStrikes{0};
+  bool limitWindowTripped{false};
   int misScore{0};
   int parseFailCount{0};
   uint32_t frameRev{0};

@@ -3328,16 +3328,23 @@ void Network::run() {
           auto st = kv.second.state;
           if (!st)
             continue;
-          if (st->frameCountMin > FRAME_LIMIT_MIN ||
-              st->byteCountMin > BYTE_LIMIT_MIN) {
+          const bool overLimit =
+              st->frameCountMin > FRAME_LIMIT_MIN ||
+              st->byteCountMin > BYTE_LIMIT_MIN;
+          if (overLimit) {
             st->misScore += 5;
-          } else if (st->misScore > 0) {
-            st->misScore -= 2;
-            if (st->misScore < 0)
-              st->misScore = 0;
+          } else {
+            if (st->misScore > 0) {
+              st->misScore -= 2;
+              if (st->misScore < 0)
+                st->misScore = 0;
+            }
+            if (st->limitStrikes > 0)
+              --st->limitStrikes;
           }
           st->frameCountMin = 0;
           st->byteCountMin = 0;
+          st->limitWindowTripped = false;
           if (st->misScore >= 100)
             banList.push_back(kv.first);
         }
@@ -4927,21 +4934,48 @@ void Network::startBinaryReadLoop(const std::string &peerId,
       return;
     }
 
+    alyncoin::net::Frame f;
+    bool parsed = f.ParseFromString(blob);
+    bool snapshotExempt = false;
+    if (parsed) {
+      switch (f.msg_case()) {
+      case alyncoin::net::Frame::kSnapshotMeta:
+      case alyncoin::net::Frame::kSnapshotChunk:
+      case alyncoin::net::Frame::kSnapshotAck:
+      case alyncoin::net::Frame::kSnapshotEnd:
+      case alyncoin::net::Frame::kSnapshotReq:
+        snapshotExempt = true;
+        break;
+      default:
+        break;
+      }
+    }
+
     {
       // Serialize access to peerTransports while updating per-peer counters
       std::lock_guard<std::timed_mutex> lk(peersMutex);
       auto it = peerTransports.find(peerId);
       if (it != peerTransports.end() && it->second.state) {
         auto &st = *it->second.state;
-        st.frameCountMin++;
-        st.byteCountMin += blob.size();
+        if (!snapshotExempt) {
+          st.frameCountMin++;
+          st.byteCountMin += blob.size();
+        }
+        bool overLimit =
+            !snapshotExempt &&
+            (st.frameCountMin > FRAME_LIMIT_MIN ||
+             st.byteCountMin > BYTE_LIMIT_MIN);
         if (!anchorPeers.count(peerId)) {
-          if (st.frameCountMin > FRAME_LIMIT_MIN ||
-              st.byteCountMin > BYTE_LIMIT_MIN) {
-            st.limitStrikes++;
-            st.misScore += 5;
-            if (st.limitStrikes >= 3)
-              blacklistPeer(peerId);
+          if (overLimit) {
+            if (!st.limitWindowTripped) {
+              st.limitStrikes++;
+              st.misScore += 5;
+              st.limitWindowTripped = true;
+              if (st.limitStrikes >= 3)
+                blacklistPeer(peerId);
+            }
+          } else {
+            st.limitWindowTripped = false;
           }
           if (st.misScore >= BAN_THRESHOLD)
             blacklistPeer(peerId);
@@ -4949,8 +4983,7 @@ void Network::startBinaryReadLoop(const std::string &peerId,
       }
     }
 
-    alyncoin::net::Frame f;
-    if (f.ParseFromString(blob)) {
+    if (parsed) {
       std::cerr << "[readLoop] ✅ Parsed frame successfully from peer: "
                 << logPeer(peerId) << '\n';
       {
