@@ -47,8 +47,8 @@ inline constexpr std::size_t SNAPSHOT_SESSION_ID_BYTES = 16;        // 128-bit t
 // stalls waiting for acknowledgements that the receiver won't emit until more
 // chunks arrive.
 inline constexpr std::size_t SNAPSHOT_SEND_WINDOW = 8;              // max in-flight chunks
-inline constexpr int SNAPSHOT_ACK_TIMEOUT_MS = 2000;                // ack wait timeout
-inline constexpr int SNAPSHOT_MAX_RETRIES = 3;                      // resend attempts
+inline constexpr int SNAPSHOT_ACK_TIMEOUT_MS = 5000;                // ack wait timeout
+inline constexpr int SNAPSHOT_MAX_RETRIES = 6;                      // resend attempts
 inline constexpr std::size_t MAX_PEERS = 32;                       // hard cap
 inline constexpr int MAX_TAIL_BLOCKS = 256; // limit tail block batches
 inline constexpr int FAST_SYNC_RECENT_BLOCKS = 256; // preview burst for lagging peers
