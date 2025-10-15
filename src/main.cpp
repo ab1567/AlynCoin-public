@@ -38,6 +38,13 @@
 #include <iostream>
 #include <clocale>
 #include <exception>
+#include <csignal>
+#include <cstdio>
+#if defined(_WIN32)
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
 #include <locale>
 #include <json/json.h>
 #include <limits>
@@ -54,6 +61,22 @@
 #ifdef _WIN32
 #include <windows.h>
 #endif
+
+namespace {
+std::atomic<bool> g_exitRequested{false};
+
+void handleShutdownSignal(int /*signal*/) {
+  g_exitRequested.store(true);
+}
+
+bool stdinIsInteractive() {
+#if defined(_WIN32)
+  return _isatty(_fileno(stdin)) != 0;
+#else
+  return ::isatty(fileno(stdin)) != 0;
+#endif
+}
+} // namespace
 
 #ifndef ALYNCOIN_BUILD_GIT_SHA
 #define ALYNCOIN_BUILD_GIT_SHA "unknown"
@@ -271,6 +294,8 @@ void print_usage() {
       << "  rollup <address>                     Generate rollup block\n"
       << "  recursive-rollup <address>          Generate recursive rollup "
          "block\n"
+      << "  --no-cli                           Disable interactive CLI menu\n"
+      << "  --force-cli                        Force menu even if stdin is not a TTY\n"
       << "  --help                              Show this message\n";
 }
 
@@ -1980,6 +2005,9 @@ static bool handleNodeMenuSelection(int choice, Blockchain &blockchain,
 }
 
 int main(int argc, char *argv[]) {
+  std::signal(SIGINT, handleShutdownSignal);
+  std::signal(SIGTERM, handleShutdownSignal);
+
   configureConsoleEncoding();
   std::srand(std::time(nullptr));
   printBuildFingerprint(std::cerr);
@@ -1992,6 +2020,8 @@ int main(int argc, char *argv[]) {
   std::string connectIP = "";
   std::string keyDir = DBPaths::getKeyDir();
   bool autoMine = true;
+  bool cliEnabled = true;
+  bool forceCli = false;
   std::string externalAddress = getAppConfig().external_address;
   bool externalSpecified = false;
   auto trimCopy = [](std::string value) {
@@ -2078,6 +2108,11 @@ int main(int argc, char *argv[]) {
         keyDir += '/';
     } else if (arg == "--no-auto-mine") {
       autoMine = false;
+    } else if (arg == "--no-cli") {
+      cliEnabled = false;
+    } else if (arg == "--force-cli") {
+      cliEnabled = true;
+      forceCli = true;
     } else if (arg == "--banminutes" && i + 1 < argc) {
       getAppConfig().ban_minutes = std::stoi(argv[++i]);
     } else if (arg == "--external_address" && i + 1 < argc) {
@@ -3273,9 +3308,30 @@ int main(int argc, char *argv[]) {
   }
   std::this_thread::sleep_for(std::chrono::seconds(2));
 
+  const bool stdinInteractive = stdinIsInteractive();
+  const bool shouldRunCli = cliEnabled && (forceCli || stdinInteractive);
+
+  if (!shouldRunCli) {
+    if (!cliEnabled) {
+      std::cout << "ℹ️  Interactive CLI disabled via --no-cli. Running headless."
+                << std::endl;
+    } else if (!stdinInteractive && !forceCli) {
+      std::cout << "ℹ️  Standard input is not a TTY; running without interactive CLI."
+                << std::endl
+                << "    Use --force-cli to override if you really need the menu." << std::endl;
+    }
+
+    while (!g_exitRequested.load()) {
+      std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+
+    std::cout << "\n🛑 Shutdown requested. Exiting.\n";
+    return 0;
+  }
+
   bool running = true;
 
-  while (running) {
+  while (running && !g_exitRequested.load()) {
     std::cout << "\n=== AlynCoin Node CLI ===\n";
     std::cout << "1. View Blockchain Stats\n";
     std::cout << "2. Mine Block\n";
@@ -3294,12 +3350,26 @@ int main(int argc, char *argv[]) {
 
     int choice;
     std::cin >> choice;
-    if (std::cin.fail()) {
+
+    if (!std::cin.good()) {
+      if (std::cin.eof() || g_exitRequested.load()) {
+        std::cout << "\n🛑 Input stream closed. Shutting down.\n";
+        break;
+      }
       clearInputBuffer();
       std::cout << "Invalid input!\n";
       continue;
     }
+
+    if (g_exitRequested.load()) {
+      break;
+    }
+
     running = handleNodeMenuSelection(choice, blockchain, network, healer, keyDir);
+  }
+
+  if (g_exitRequested.load()) {
+    std::cout << "\n🛑 Shutdown requested. Exiting.\n";
   }
 
   return 0;
