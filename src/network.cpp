@@ -7245,6 +7245,20 @@ std::string formatSessionId(const std::string &sessionId) {
   return oss.str();
 }
 
+constexpr std::size_t MAX_TRACKED_SNAPSHOT_SESSIONS = 4;
+
+void rememberSnapshotSessionLocked(PeerState &ps,
+                                   const std::string &sessionId) {
+  if (sessionId.empty())
+    return;
+  auto &recent = ps.recentSnapshotSessionIds;
+  recent.erase(std::remove(recent.begin(), recent.end(), sessionId),
+               recent.end());
+  recent.push_back(sessionId);
+  while (recent.size() > MAX_TRACKED_SNAPSHOT_SESSIONS)
+    recent.pop_front();
+}
+
 class RateLimiter {
 public:
   bool shouldLog(std::chrono::milliseconds period =
@@ -7347,6 +7361,8 @@ void Network::sendSnapshot(const std::string &peerId,
     if (!ps)
       return;
     std::lock_guard<std::mutex> lk(ps->m);
+    if (!ps->servingSnapshotSessionId.empty())
+      rememberSnapshotSessionLocked(*ps, ps->servingSnapshotSessionId);
     ps->servingSnapshotSessionId.clear();
   };
 
@@ -7537,7 +7553,8 @@ void Network::sendSnapshot(const std::string &peerId,
 
     len = ensureWithinCap(len, fr);
     if (len == 0) {
-      std::cerr << "❌ [Snapshot] Aborting snapshot stream for " << logPeer(peerId)
+      std::cerr << "❌ [Snapshot] Aborting session "
+                << formatSessionId(sessionId) << " for " << logPeer(peerId)
                 << " due to oversized frame" << '\n';
       clearServingSession();
       return;
@@ -7561,8 +7578,11 @@ void Network::sendSnapshot(const std::string &peerId,
     return;
   }
 
+  clearServingSession();
+
   if (ps) {
     auto servedAt = std::chrono::steady_clock::now();
+    std::lock_guard<std::mutex> lk(ps->m);
     ps->lastSnapshotServed = servedAt;
     ps->nextSnapshotRequestAllowed = servedAt + SNAPSHOT_RESEND_COOLDOWN;
     ps->snapshotRequestStrikes = 0;
@@ -7896,21 +7916,36 @@ void Network::handleSnapshotAck(const std::string &peer,
   bool dropAck = false;
   {
     std::lock_guard<std::mutex> lk(ps->m);
-    if (ps->servingSnapshotSessionId.empty() ||
-        ack.session_id() != ps->servingSnapshotSessionId) {
-      if (!ack.session_id().empty() && gSnapshotAckLogLimiter.shouldLog()) {
-        std::cerr << "⚠️ [SNAPSHOT] Dropping stale ACK from " << logPeer(peer)
-                  << " (sid=" << formatSessionId(ack.session_id()) << ")\n";
-      }
-      if (!ack.session_id().empty()) {
-        ++ps->staleSnapshotAckStrikes;
-        if (ps->staleSnapshotAckStrikes >= 8) {
-          penalize = true;
-          ps->staleSnapshotAckStrikes = 0;
+    const std::string sid = ack.session_id();
+    const bool hasServingSession = !ps->servingSnapshotSessionId.empty();
+    const bool matchesServingSession =
+        hasServingSession && sid == ps->servingSnapshotSessionId;
+
+    if (!matchesServingSession) {
+      dropAck = true;
+
+      const auto &recent = ps->recentSnapshotSessionIds;
+      const bool matchesKnownSession =
+          !sid.empty() &&
+          std::find(recent.begin(), recent.end(), sid) != recent.end();
+
+      if (matchesKnownSession) {
+        ps->staleSnapshotAckStrikes = 0;
+      } else {
+        if (!sid.empty() && gSnapshotAckLogLimiter.shouldLog()) {
+          std::cerr << "⚠️ [SNAPSHOT] Dropping stale ACK from " << logPeer(peer)
+                    << " (sid=" << formatSessionId(sid) << ")\n";
+        }
+        if (!sid.empty()) {
+          ++ps->staleSnapshotAckStrikes;
+          if (ps->staleSnapshotAckStrikes >= 8) {
+            penalize = true;
+            ps->staleSnapshotAckStrikes = 0;
+          }
         }
       }
-      dropAck = true;
     }
+
     if (!dropAck) {
       ps->staleSnapshotAckStrikes = 0;
       ps->lastSnapshotRetry = std::chrono::steady_clock::time_point{};
