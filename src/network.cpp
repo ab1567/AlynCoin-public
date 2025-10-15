@@ -4938,7 +4938,7 @@ void Network::startBinaryReadLoop(const std::string &peerId,
     bool parsed = f.ParseFromString(blob);
     bool snapshotExempt = false;
     if (parsed) {
-      switch (f.msg_case()) {
+      switch (f.kind_case()) {
       case alyncoin::net::Frame::kSnapshotMeta:
       case alyncoin::net::Frame::kSnapshotChunk:
       case alyncoin::net::Frame::kSnapshotAck:
