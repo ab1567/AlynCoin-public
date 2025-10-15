@@ -9003,9 +9003,13 @@ void Network::handleSnapshotChunk(const std::string &peer,
               finalChunk = true;
             }
 
+            const std::size_t chunkAckThreshold = std::max<std::size_t>(
+                1, std::min<std::size_t>(SNAPSHOT_ACK_CHUNK_WINDOW,
+                                         SNAPSHOT_SEND_WINDOW));
+
             if (ps->snapshotReceived - ps->snapshotLastAcked >=
                     SNAPSHOT_ACK_WINDOW ||
-                ps->snapshotChunksSinceAck >= SNAPSHOT_ACK_CHUNK_WINDOW ||
+                ps->snapshotChunksSinceAck >= chunkAckThreshold ||
                 (finalChunk &&
                  ps->snapshotLastAcked != ps->snapshotReceived)) {
               shouldAck = true;
