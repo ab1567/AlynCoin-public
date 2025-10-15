@@ -7366,15 +7366,39 @@ void Network::sendSnapshot(const std::string &peerId,
     height = 0;
   int start =
       height >= MAX_SNAPSHOT_BLOCKS ? height - MAX_SNAPSHOT_BLOCKS + 1 : 0;
-  if (peerManager) {
-    int remoteHeightHint = peerManager->getPeerHeight(peerId);
-    if (remoteHeightHint >= 0 && remoteHeightHint < start) {
+  int remoteHeightHint = -1;
+  bool haveStateHint = false;
+
+  auto considerRangeHint = [&](int hint, const char *source) {
+    if (hint < 0)
+      return;
+    int clamped = std::max(0, std::min(hint, height));
+    if (clamped < start) {
       std::cerr << "ℹ️  [Snapshot] Expanding range for " << logPeer(peerId)
-                << " to include blocks up to height " << remoteHeightHint
+                << " using " << source << " hint " << clamped
                 << " (previous start " << start << ")\n";
-      start = std::max(0, remoteHeightHint);
+      start = clamped;
     }
+  };
+
+  if (peerManager) {
+    remoteHeightHint = peerManager->getPeerHeight(peerId);
+    considerRangeHint(remoteHeightHint, "peer height");
   }
+
+  if (ps && ps->handshakeComplete) {
+    haveStateHint = true;
+    considerRangeHint(static_cast<int>(ps->highestSeen), "highest-seen");
+  }
+
+  if (start > 0 && remoteHeightHint < 0 && !haveStateHint) {
+    std::cerr << "ℹ️  [Snapshot] No remote height hint for " << logPeer(peerId)
+              << "; defaulting to full snapshot\n";
+    start = 0;
+  }
+
+  if (start > height)
+    start = height;
   std::vector<Block> blocks = bc.getChainSlice(start, height);
   SnapshotProto snap;
   snap.set_height(height);
