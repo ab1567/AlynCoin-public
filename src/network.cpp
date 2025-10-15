@@ -207,6 +207,11 @@ constexpr uint64_t SNAPSHOT_OUT_OF_ORDER_MAX_GAP =
     MAX_WIRE_PAYLOAD * SNAPSHOT_OUT_OF_ORDER_MAX_CHUNKS;
 constexpr auto SNAPSHOT_OUT_OF_ORDER_ACK_THROTTLE =
     std::chrono::milliseconds(200);
+constexpr auto SNAPSHOT_STALL_TIMEOUT = std::chrono::seconds(20);
+constexpr int SNAPSHOT_STALL_STRIKE_LIMIT = 3;
+constexpr int SNAPSHOT_DUPLICATE_STRIKE_LIMIT = 4;
+constexpr std::size_t SNAPSHOT_MIN_ADAPTIVE_CHUNK = 8 * 1024;
+constexpr auto SNAPSHOT_FALLBACK_BACKOFF = std::chrono::seconds(90);
 
 bool snapshotsAllowed() {
   return !getAppConfig().disable_snapshot;
@@ -7896,6 +7901,10 @@ SnapshotSessionId resetSnapshotReceptionLocked(
   ps.snapshotChunksSinceAck = 0;
   ps.snapshotChunksReceived = 0;
   ps.snapshotLastProgressLog = std::chrono::steady_clock::time_point{};
+  ps.snapshotLastProgress = std::chrono::steady_clock::time_point{};
+  ps.snapshotDuplicateStrikes = 0;
+  if (!preserveRetryState)
+    ps.snapshotRestartStrikes = 0;
   ps.staleSnapshotAckStrikes = 0;
   ps.snapshotImplicitStart = false;
   ps.snapshotImplicitSince = std::chrono::steady_clock::time_point{};
@@ -8495,6 +8504,15 @@ void Network::handleSnapshotMeta(const std::string &peer,
           restartReason = "io setup failure";
         }
       } else {
+        if (ps->snapshotRestartStrikes > 0) {
+          size_t adaptive = MAX_SNAPSHOT_CHUNK_SIZE;
+          int strikes = std::min(ps->snapshotRestartStrikes, 3);
+          adaptive >>= strikes;
+          if (adaptive < SNAPSHOT_MIN_ADAPTIVE_CHUNK)
+            adaptive = SNAPSHOT_MIN_ADAPTIVE_CHUNK;
+          limit = std::min(limit, adaptive);
+        }
+
         ps->snapshotSessionId = incomingSession;
         ps->snapshotRoot = meta.root_hash();
         ps->snapshotExpectBytes = meta.total_bytes();
@@ -8543,6 +8561,8 @@ void Network::handleSnapshotMeta(const std::string &peer,
             ps->snapshotImplicitStart = false;
             ps->snapshotImplicitSince =
                 std::chrono::steady_clock::time_point{};
+            ps->snapshotLastProgress = now;
+            ps->snapshotDuplicateStrikes = 0;
             resumedImplicit = (pendingCount > 0);
           }
         } else {
@@ -8741,6 +8761,8 @@ void Network::handleSnapshotChunk(const std::string &peer,
   bool releaseSessionNeeded = false;
   bool startedImplicit = false;
   std::string implicitSessionId;
+  bool triggerTailFallback = false;
+  std::string fallbackReason;
   {
     std::lock_guard<std::mutex> lk(ps->m);
     auto requestMetaRestart = [&](const char *reason) {
@@ -8751,6 +8773,14 @@ void Network::handleSnapshotChunk(const std::string &peer,
         requestRestart = true;
       }
       forceAck = false;
+      ps->snapshotDuplicateStrikes = 0;
+      ++ps->snapshotRestartStrikes;
+      if (!triggerTailFallback &&
+          ps->snapshotRestartStrikes >= SNAPSHOT_STALL_STRIKE_LIMIT) {
+        triggerTailFallback = true;
+        fallbackReason = reason ? reason : "restart-limit";
+        ps->snapshotRestartStrikes = 0;
+      }
     };
 
     if (ps->snapState == PeerState::SnapState::WaitMeta &&
@@ -8835,10 +8865,18 @@ void Network::handleSnapshotChunk(const std::string &peer,
         releaseSessionNeeded = true;
       } else if (chunk.offset() != ps->snapshotReceived) {
         if (chunk.offset() < ps->snapshotReceived) {
-          if (ps->snapshotLastOutOfOrderAck ==
-                  std::chrono::steady_clock::time_point{} ||
-              now - ps->snapshotLastOutOfOrderAck >=
-                  SNAPSHOT_OUT_OF_ORDER_ACK_THROTTLE) {
+          ++ps->snapshotDuplicateStrikes;
+          bool stalled =
+              ps->snapshotLastProgress != std::chrono::steady_clock::time_point{} &&
+              now - ps->snapshotLastProgress >= SNAPSHOT_STALL_TIMEOUT;
+          if (ps->snapshotDuplicateStrikes >= SNAPSHOT_DUPLICATE_STRIKE_LIMIT ||
+              stalled) {
+            requestMetaRestart("duplicate-stall");
+            ps->snapshotDuplicateStrikes = 0;
+          } else if (ps->snapshotLastOutOfOrderAck ==
+                         std::chrono::steady_clock::time_point{} ||
+                     now - ps->snapshotLastOutOfOrderAck >=
+                         SNAPSHOT_OUT_OF_ORDER_ACK_THROTTLE) {
             sessionId = ps->snapshotSessionId;
             ackSeq = ps->snapshotReceived;
             forceAck = true;
@@ -8893,6 +8931,11 @@ void Network::handleSnapshotChunk(const std::string &peer,
                         << " size=" << chunk.data().size()
                         << " buffered=" << ps->snapshotDeferredBytes << '\n';
             }
+            if (ps->snapshotLastProgress !=
+                    std::chrono::steady_clock::time_point{} &&
+                now - ps->snapshotLastProgress >= SNAPSHOT_STALL_TIMEOUT) {
+              requestMetaRestart("buffered-stall");
+            }
           }
         }
       } else if (ps->snapshotExpectBytes > 0 &&
@@ -8936,6 +8979,8 @@ void Network::handleSnapshotChunk(const std::string &peer,
           ps->snapshotActive = true;
           ++ps->snapshotChunksReceived;
           ++ps->snapshotChunksSinceAck;
+          ps->snapshotLastProgress = now;
+          ps->snapshotDuplicateStrikes = 0;
           if (!ps->snapshotRestartMetaSent &&
               ps->snapshotImplicitSince !=
                   std::chrono::steady_clock::time_point{} &&
@@ -8962,6 +9007,8 @@ void Network::handleSnapshotChunk(const std::string &peer,
           ps->snapshotActive = true;
           ++ps->snapshotChunksReceived;
           ++ps->snapshotChunksSinceAck;
+          ps->snapshotLastProgress = now;
+          ps->snapshotDuplicateStrikes = 0;
           sessionId = ps->snapshotSessionId;
           ackSeq = ps->snapshotReceived;
           return true;
@@ -9045,6 +9092,9 @@ void Network::handleSnapshotChunk(const std::string &peer,
   if (releaseSessionNeeded)
     releaseSnapshotSession(peer, releasedSession);
 
+  if (triggerTailFallback)
+    requestRestart = false;
+
   if (requestRestart && transport && transport->isOpen()) {
     alyncoin::net::Frame retry;
     retry.mutable_snapshot_req();
@@ -9089,6 +9139,36 @@ void Network::handleSnapshotChunk(const std::string &peer,
       std::cerr << '/' << logTotal << " (" << prog.str() << "%)";
     std::cerr << '\n';
   }
+
+  if (triggerTailFallback)
+    fallbackToTailSync(peer, fallbackReason);
+}
+
+//
+void Network::fallbackToTailSync(const std::string &peer,
+                                 const std::string &reason) {
+  auto snapshot = getPeerSnapshot(peer);
+  if (!snapshot.state)
+    return;
+  auto ps = snapshot.state;
+  SnapshotSessionId released;
+  {
+    std::lock_guard<std::mutex> lk(ps->m);
+    released = resetSnapshotReceptionLocked(*ps, PeerState::SnapState::WaitMeta);
+    ps->snapshotRestartStrikes = 0;
+    ps->snapshotDuplicateStrikes = 0;
+    ps->snapshotLastProgress = std::chrono::steady_clock::time_point{};
+    ps->nextSnapshotRequestAllowed =
+        std::chrono::steady_clock::now() + SNAPSHOT_FALLBACK_BACKOFF;
+  }
+  releaseSnapshotSession(peer, released);
+  std::cerr << "⚠️ [Snapshot] Falling back to tail sync for " << logPeer(peer);
+  if (!reason.empty())
+    std::cerr << " (reason: " << reason << ")";
+  std::cerr << '\n';
+  Blockchain &chain = Blockchain::getInstance();
+  setPeerSyncMode(peer, PeerSyncProgress::Mode::Blocks);
+  requestTailBlocks(peer, chain.getHeight(), chain.getLatestBlockHash());
 }
 
 //

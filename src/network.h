@@ -179,6 +179,7 @@ public:
                           const alyncoin::net::SnapshotMeta &meta);
   void handleSnapshotChunk(const std::string &peer,
                            const alyncoin::net::SnapshotChunk &chunk);
+  void fallbackToTailSync(const std::string &peer, const std::string &reason);
   void handleSnapshotAck(const std::string &peer,
                          const alyncoin::net::SnapshotAck &ack);
   void handleSnapshotEnd(const std::string &peer,
