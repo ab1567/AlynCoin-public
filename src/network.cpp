@@ -340,40 +340,44 @@ static bool isUnroutable(const std::string &ip) {
   if (ip.empty())
     return true;
 
+  const bool allowLocal = getAppConfig().allow_local_addresses;
+
   const std::string lower = toLowerCopy(ip);
   if (lower == "localhost" || lower == "127.0.0.1" || lower == "::1")
-    return true;
+    return !allowLocal;
 
   boost::system::error_code ec;
   auto address = boost::asio::ip::make_address(ip, ec);
   if (!ec) {
-    if (address.is_unspecified() || address.is_loopback() ||
-        address.is_multicast())
+    if (address.is_unspecified() || address.is_multicast())
       return true;
 
+    if (address.is_loopback())
+      return !allowLocal;
+
     if (address.is_v4())
-      return isPrivateOrReservedIPv4(ip);
+      return !allowLocal && isPrivateOrReservedIPv4(ip);
 
     const auto v6 = address.to_v6();
     if (v6.is_loopback() || v6.is_link_local() || v6.is_site_local())
-      return true;
+      return !allowLocal;
 
     const auto bytes = v6.to_bytes();
     if ((bytes[0] & 0xFE) == 0xFC)
-      return true; // fc00::/7 unique local
+      return !allowLocal; // fc00::/7 unique local
     if (bytes[0] == 0xFE && (bytes[1] & 0xC0) == 0x80)
-      return true; // fe80::/10 link-local
+      return !allowLocal; // fe80::/10 link-local
     return false;
   }
 
   if (lower.size() >= 6 && lower.rfind(".local") == lower.size() - 6)
-    return true;
+    return !allowLocal;
   if (lower.size() >= 4 && lower.rfind(".lan") == lower.size() - 4)
-    return true;
+    return !allowLocal;
   if (lower.size() >= 5 && lower.rfind(".home") == lower.size() - 5)
-    return true;
+    return !allowLocal;
   if (lower.size() >= 9 && lower.rfind(".internal") == lower.size() - 9)
-    return true;
+    return !allowLocal;
   if (lower.find(' ') != std::string::npos)
     return true;
   return false;
@@ -628,8 +632,18 @@ static std::chrono::milliseconds randomBroadcastDelay() {
 
 static constexpr std::chrono::seconds MIN_DIAL_BACKOFF{5};
 static constexpr std::chrono::seconds MAX_DIAL_BACKOFF{std::chrono::minutes(10)};
-static constexpr std::size_t MAX_KNOWN_PEER_DIALS_PER_CYCLE{16};
-static constexpr std::size_t TARGET_OUTBOUND_PEERS{8};
+static constexpr std::size_t MAX_KNOWN_PEER_DIALS_PER_CYCLE{32};
+static constexpr std::size_t TARGET_OUTBOUND_PEERS{16};
+
+static std::size_t dialBurstBudget(std::size_t outboundCount) {
+  if (outboundCount >= TARGET_OUTBOUND_PEERS)
+    return 0;
+  const std::size_t missing = TARGET_OUTBOUND_PEERS - outboundCount;
+  const std::size_t scaled = std::min<std::size_t>(
+      MAX_KNOWN_PEER_DIALS_PER_CYCLE,
+      std::max<std::size_t>(missing * 3, missing));
+  return std::max<std::size_t>(scaled, std::size_t{1});
+}
 
 static std::chrono::seconds computeDialBackoff(int failures) {
   int capped = std::min(failures, 6);
@@ -2738,7 +2752,8 @@ void Network::bootstrapLoop() {
     const bool needOutbound = outbound < TARGET_OUTBOUND_PEERS;
 
     if (needOutbound) {
-      bool dialed = dialKnownPeers(MAX_KNOWN_PEER_DIALS_PER_CYCLE);
+      const auto dialBudget = dialBurstBudget(outbound);
+      bool dialed = dialBudget > 0 ? dialKnownPeers(dialBudget) : false;
       connectToDiscoveredPeers();
       outbound = getOutboundPeerCount();
       total = getConnectedPeerCount();
@@ -2774,21 +2789,24 @@ void Network::pexLoop() {
   while (loopsRunning_) {
     const auto &cfg = getAppConfig();
     if (!cfg.offline_mode && cfg.allow_peer_exchange) {
-      if (getConnectedPeerCount() > 0) {
+      const auto totalPeers = getConnectedPeerCount();
+      const auto outboundPeers = getOutboundPeerCount();
+      const bool needOutbound = outboundPeers < TARGET_OUTBOUND_PEERS;
+
+      if (needOutbound || totalPeers == 0)
         requestPeerList();
+
+      if (totalPeers > 0)
         broadcastPeerList();
-        connectToDiscoveredPeers();
-        waitSeconds = jitter(rng);
-      } else {
-        requestPeerList();
-        connectToDiscoveredPeers();
-        waitSeconds = 15;
-      }
+
+      connectToDiscoveredPeers();
+
+      waitSeconds = needOutbound ? jitter(rng) : 90;
     } else {
       waitSeconds = 30;
     }
 
-    for (int elapsed = 0; loopsRunning_ && elapsed < waitSeconds; ++elapsed)
+    for (int t = 0; loopsRunning_ && t < waitSeconds; ++t)
       std::this_thread::sleep_for(1s);
   }
 }
@@ -3214,9 +3232,17 @@ void Network::run() {
 
   loadPeers();
 
-  bool haveOpenSockets = getConnectedPeerCount() > 0;
+  const auto initialConnections = getConnectedPeerCount();
+  const auto initialOutbound = getOutboundPeerCount();
+  const bool haveOpenSockets = initialConnections > 0;
 
-  if (!haveOpenSockets && cfg.allow_dns_bootstrap) {
+  if (cfg.allow_dns_bootstrap && !cfg.offline_mode &&
+      initialOutbound < TARGET_OUTBOUND_PEERS) {
+    if (haveOpenSockets) {
+      std::cout << "ℹ️  [Network] Outbound peers (" << initialOutbound << '/'
+                << TARGET_OUTBOUND_PEERS
+                << ") below target; querying DNS seeds for more." << std::endl;
+    }
     std::unordered_set<std::string> attempted;
     bool shareableAdded = false;
     for (const auto &seedHost : effectiveSeedHosts()) {
@@ -3256,10 +3282,13 @@ void Network::run() {
     if (attempted.empty()) {
       std::cout << "⚠️ [Network] DNS seeds produced no dialable peers; will keep retrying." << std::endl;
     }
-  } else if (!haveOpenSockets) {
-    std::cout << "ℹ️  [Network] DNS bootstrap disabled by configuration; waiting for inbound peers." << std::endl;
+  } else if (!cfg.allow_dns_bootstrap) {
+    if (haveOpenSockets)
+      std::cout << "ℹ️  [Network] DNS bootstrap disabled; continuing with existing peers." << std::endl;
+    else
+      std::cout << "ℹ️  [Network] DNS bootstrap disabled; waiting for inbound peers." << std::endl;
   } else {
-    std::cout << "ℹ️  [Network] Existing peers already connected; DNS bootstrap skipped.\n";
+    std::cout << "ℹ️  [Network] Outbound target already met; DNS bootstrap skipped." << std::endl;
   }
 
   if (autoMineEnabled)
@@ -3296,8 +3325,28 @@ void Network::run() {
 
   std::thread([this]() {
     while (true) {
+      std::this_thread::sleep_for(std::chrono::seconds(60));
+      const auto &cfg = getAppConfig();
+      if (!cfg.allow_dns_bootstrap || cfg.offline_mode)
+        continue;
+      if (getOutboundPeerCount() < TARGET_OUTBOUND_PEERS)
+        scanForPeers();
+    }
+  }).detach();
+
+  std::thread([this]() {
+    while (true) {
       std::this_thread::sleep_for(PEERLIST_INTERVAL);
-      size_t active = 0;
+      const auto &cfg = getAppConfig();
+      if (cfg.offline_mode || !cfg.allow_peer_exchange)
+        continue;
+
+      if (getOutboundPeerCount() < TARGET_OUTBOUND_PEERS) {
+        requestPeerList();
+        continue;
+      }
+
+      std::size_t active = 0;
       {
         std::lock_guard<std::timed_mutex> lk(peersMutex);
         for (const auto &kv : peerTransports) {
@@ -3306,7 +3355,7 @@ void Network::run() {
         }
       }
       if (active < MIN_CONNECTED_PEERS)
-        this->requestPeerList();
+        requestPeerList();
     }
   }).detach();
 
@@ -3799,15 +3848,28 @@ std::vector<std::string> Network::discoverPeers() {
 
   const auto &cfg = getAppConfig();
   if (peers.empty() && !cfg.offline_mode && cfg.allow_dns_bootstrap) {
-    std::vector<std::string> dnsPeers = fetchPeersFromDNS("peers.alyncoin.com");
-    for (const auto &peer : dnsPeers) {
-      if (peer.empty())
+    for (const auto &seedHost : effectiveSeedHosts()) {
+      auto dnsPeers = fetchPeersFromDNS(seedHost);
+      if (dnsPeers.empty())
         continue;
-      std::string lowered = toLowerCopy(peer);
-      if (seen.insert(lowered).second) {
-        std::cout << "🌐 [DNS] Found peer: " << logPeer(peer) << "\n";
+
+      std::cout << "🌐 [DNS] Found " << dnsPeers.size()
+                << (dnsPeers.size() == 1 ? " peer" : " peers")
+                << " via " << seedHost << std::endl;
+
+      for (const auto &peer : dnsPeers) {
+        if (peer.empty())
+          continue;
+
+        std::string lowered = toLowerCopy(peer);
+        if (!seen.insert(lowered).second)
+          continue;
+
         peers.push_back(peer);
       }
+
+      if (!peers.empty())
+        break;
     }
   }
 
@@ -3820,22 +3882,24 @@ void Network::connectToDiscoveredPeers() {
   if (peers.empty())
     return;
 
-  std::size_t attempts = 0;
-  const std::size_t maxAttempts = MAX_KNOWN_PEER_DIALS_PER_CYCLE;
   std::size_t outbound = getOutboundPeerCount();
-
   if (outbound >= TARGET_OUTBOUND_PEERS)
     return;
 
+  const std::size_t maxAttempts = dialBurstBudget(outbound);
+  if (maxAttempts == 0)
+    return;
+
+  std::size_t attempts = 0;
+
   for (const std::string &peer : peers) {
-    if (maxAttempts > 0 && attempts >= maxAttempts)
-      break;
-    if (outbound >= TARGET_OUTBOUND_PEERS)
+    if (attempts >= maxAttempts || outbound >= TARGET_OUTBOUND_PEERS)
       break;
 
-    size_t pos = peer.find(':');
+    const auto pos = peer.find(':');
     if (pos == std::string::npos)
       continue;
+
     std::string ip = peer.substr(0, pos);
     int port = 0;
     try {
@@ -3846,18 +3910,19 @@ void Network::connectToDiscoveredPeers() {
     if (port <= 0 || port > 65535)
       continue;
 
-    std::string peerKey = makeEndpointLabel(ip, port);
+    const std::string peerKey = makeEndpointLabel(ip, port);
     if (isSelfEndpoint(ip, port)) {
       std::cout << "⚠️ Skipping self in discovered peers: " << logPeer(peerKey)
-                << "\n";
+                << std::endl;
       recordSelfEndpoint(ip, port);
       continue;
     }
     if (isUnroutable(ip)) {
       std::cout << "↪︎ Skipping unroutable candidate " << logPeer(peerKey)
-                << "\n";
+                << std::endl;
       continue;
     }
+
     if (connectToNode(ip, port)) {
       ++attempts;
       outbound = getOutboundPeerCount();
@@ -6326,9 +6391,18 @@ void Network::scanForPeers() {
     return;
   }
 
-  if (getConnectedPeerCount() > 0) {
-    std::cout << "✅ [scanForPeers] Active peer connections present, skipping DNS scan.\n";
+  const auto connected = getConnectedPeerCount();
+  if (connected >= TARGET_OUTBOUND_PEERS) {
+    std::cout << "✅ [scanForPeers] Peer target met (" << connected << "/"
+              << TARGET_OUTBOUND_PEERS
+              << "); skipping DNS scan." << std::endl;
     return;
+  }
+
+  if (connected > 0) {
+    std::cout << "ℹ️  [scanForPeers] Connected peers below target ("
+              << connected << "/" << TARGET_OUTBOUND_PEERS
+              << "); continuing DNS discovery." << std::endl;
   }
 
   std::unordered_set<std::string> attempted;

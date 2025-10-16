@@ -2,6 +2,8 @@
 ban_minutes=5
 offline_mode=false
 allow_dns_bootstrap=true
+# Allow private/LAN peer addresses when testing locally
+allow_local_addresses=false
 allow_peer_exchange=true
 allow_manual_peers=false
 require_peer_for_mining=true
