@@ -19,6 +19,7 @@ struct AppConfig {
     bool offline_mode = false;              // disable outbound networking
     bool allow_dns_bootstrap = true;        // seed peers via DNS/default list
     bool allow_peer_exchange = true;        // accept peers learned from gossip
+    bool allow_local_addresses = false;     // permit private/LAN peers
     bool allow_manual_peers = false;        // ignore peers.txt/--connect overrides
     std::vector<std::string> seed_hosts{"peers.alyncoin.com"};
     std::vector<std::string> static_seed_endpoints{

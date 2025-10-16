@@ -61,6 +61,8 @@ void loadConfigFile(const std::string &path) {
             cfg.allow_dns_bootstrap = parseBool(line.substr(20));
         } else if (line.rfind("allow_peer_exchange=", 0) == 0) {
             cfg.allow_peer_exchange = parseBool(line.substr(20));
+        } else if (line.rfind("allow_local_addresses=", 0) == 0) {
+            cfg.allow_local_addresses = parseBool(line.substr(21));
         } else if (line.rfind("allow_manual_peers=", 0) == 0) {
             cfg.allow_manual_peers = parseBool(line.substr(19));
         } else if (line.rfind("require_peer_for_mining=", 0) == 0) {
@@ -193,6 +195,7 @@ void loadConfigFile(const std::string &path) {
     applyEnvDouble("ALYN_FAST_SYNC_SAMPLE", cfg.fast_sync_sample_rate, 0.0, 1.0);
     applyEnvInt("ALYN_FAST_SYNC_TRAILING", cfg.fast_sync_trailing_full, 0);
     applyEnvBool("ALYN_NO_SELF_DIAL", cfg.no_self_dial);
+    applyEnvBool("ALYN_ALLOW_LOCAL_PEERS", cfg.allow_local_addresses);
 }
 
 void saveConfigValue(const std::string &path, const std::string &key,
