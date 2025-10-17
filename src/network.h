@@ -150,6 +150,7 @@ public:
   inline static bool isUninitialized() { return instancePtr == nullptr; }
   inline static Network *getExistingInstance() { return instancePtr; }
   void autoSyncIfBehind();
+  int getBestKnownHeight() const;
   const auto &getPeerTable() const { return peerTransports; }
   struct PeerSnapshot {
     std::shared_ptr<Transport> transport;
@@ -354,6 +355,7 @@ private:
   mutable std::mutex syncStateMutex;
   std::unordered_map<std::string, PeerSyncProgress> peerSyncStates;
   void resetPeerSyncState(const std::string &peer);
+  void markAllPeersIdle();
   void setPeerSyncMode(const std::string &peer, PeerSyncProgress::Mode mode);
   void applySyncModeToPeerState(const std::string &peer,
                                 PeerSyncProgress::Mode mode);

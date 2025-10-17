@@ -1045,6 +1045,28 @@ void Network::resetPeerSyncState(const std::string &peer) {
   state.remoteWork = 0;
 }
 
+void Network::markAllPeersIdle() {
+  std::vector<std::string> peersToReset;
+  {
+    std::lock_guard<std::mutex> lk(syncStateMutex);
+    peersToReset.reserve(peerSyncStates.size());
+    for (auto &[peer, state] : peerSyncStates) {
+      if (state.mode == PeerSyncProgress::Mode::Idle)
+        continue;
+      state.mode = PeerSyncProgress::Mode::Idle;
+      state.blockQueue.clear();
+      state.requestedBlocks.clear();
+      state.headers.clear();
+      state.remoteTip.clear();
+      state.remoteWork = 0;
+      peersToReset.push_back(peer);
+    }
+  }
+
+  for (const auto &peer : peersToReset)
+    applySyncModeToPeerState(peer, PeerSyncProgress::Mode::Idle);
+}
+
 void Network::applySyncModeToPeerState(const std::string &peer,
                                        PeerSyncProgress::Mode mode) {
   auto snapshot = getPeerSnapshot(peer);
@@ -2487,10 +2509,32 @@ void Network::broadcastTransactionToAllExcept(const Transaction &tx,
 
 // ✅ New smart sync method
 void Network::intelligentSync() {
+  static std::atomic<int64_t> lastRunMs{0};
+  const auto now = std::chrono::steady_clock::now();
+  const int64_t nowMs =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          now.time_since_epoch())
+          .count();
+
+  int64_t previous = lastRunMs.load(std::memory_order_relaxed);
+  while (true) {
+    if (previous != 0 && nowMs - previous < 10000) {
+      return;
+    }
+    if (lastRunMs.compare_exchange_weak(previous, nowMs,
+                                        std::memory_order_relaxed,
+                                        std::memory_order_relaxed)) {
+      break;
+    }
+  }
+
   std::cout << "🔄 [Smart Sync] Starting intelligent sync process...\n";
+
+  auto clearSyncFlag = [this]() { markAllPeersIdle(); };
 
   if (!peerManager) {
     std::cerr << "⚠️ [Smart Sync] No PeerManager. Skipping sync.\n";
+    clearSyncFlag();
     return;
   }
 
@@ -2499,6 +2543,7 @@ void Network::intelligentSync() {
     std::lock_guard<std::timed_mutex> lk(peersMutex);
     if (peerTransports.empty()) {
       std::cerr << "⚠️ [Smart Sync] No peers connected. Skipping sync.\n";
+      clearSyncFlag();
       return;
     }
     for (const auto &kv : peerTransports) {
@@ -2510,6 +2555,7 @@ void Network::intelligentSync() {
 
   if (livePeers.empty()) {
     std::cerr << "⚠️ [Smart Sync] No live transports available. Skipping sync.\n";
+    clearSyncFlag();
     return;
   }
 
@@ -2524,11 +2570,14 @@ void Network::intelligentSync() {
   std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
   const int localHeight = blockchain->getHeight();
-  const int networkHeight = peerManager->getMedianNetworkHeight();
+  int networkHeight = peerManager->getMedianNetworkHeight();
+  if (networkHeight <= 0)
+    networkHeight = peerManager->getMaxPeerHeight();
 
   if (networkHeight <= localHeight) {
     std::cout
         << "✅ [Smart Sync] Local blockchain is up-to-date. No sync needed.\n";
+    clearSyncFlag();
     return;
   }
 
@@ -2543,6 +2592,8 @@ void Network::intelligentSync() {
     peerManager->setLocalWork(localWork);
   }
 
+  bool launchedSync = false;
+
   /* pick the first suitable peer that is ahead */
   for (const auto &[peer, transport] : livePeers) {
     int ph = peerManager->getPeerHeight(peer);
@@ -2554,13 +2605,20 @@ void Network::intelligentSync() {
     if (gap <= TAIL_SYNC_THRESHOLD &&
         peerWork + SNAPSHOT_WORK_DELTA >= localWork) {
       requestTailBlocks(peer, localHeight, localTip);
+      launchedSync = true;
     } else if (peerSupportsSnapshot(peer)) {
       requestSnapshotSync(peer);
+      launchedSync = true;
     } else if (peerSupportsAggProof(peer)) {
       requestEpochHeaders(peer);
+      launchedSync = true;
     }
-    break; // one good peer is enough
+    if (launchedSync)
+      break; // one good peer is enough
   }
+
+  if (!launchedSync)
+    clearSyncFlag();
 }
 //
 void Network::connectToPeer(const std::string &ip, short port) {
@@ -2696,6 +2754,17 @@ size_t Network::getConnectedPeerCount() const {
       ++count;
   }
   return count;
+}
+
+int Network::getBestKnownHeight() const {
+  if (!peerManager)
+    return 0;
+
+  int best = peerManager->getMedianNetworkHeight();
+  int maxHeight = peerManager->getMaxPeerHeight();
+  if (maxHeight > best)
+    best = maxHeight;
+  return best;
 }
 
 size_t Network::getOutboundPeerCount() const {
@@ -3669,11 +3738,18 @@ void Network::autoSyncIfBehind() {
 
   PeerManager *pm = peerManager.get();
   int medianHeight = 0;
+  int bestKnownHeight = 0;
   uint64_t medianWork = 0;
   if (pm) {
     pm->setLocalWork(myWork);
     medianHeight = static_cast<int>(pm->getMedianNetworkHeight());
     medianWork = pm->getMedianPeerWork();
+    bestKnownHeight = std::max(medianHeight, pm->getMaxPeerHeight());
+  }
+
+  if (bestKnownHeight > 0 && static_cast<int>(myHeight) >= bestKnownHeight) {
+    markAllPeersIdle();
+    return;
   }
 
   bool behindMedian =
