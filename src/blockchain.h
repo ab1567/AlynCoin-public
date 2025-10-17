@@ -125,6 +125,8 @@ private:
   void registerSideChainBlockLocked(const Block &block);
   void evaluatePendingForksLocked();
   void cleanupSideChainsLocked();
+  std::optional<std::time_t>
+  medianTimePastForParent(const std::string &parentHash) const;
 
 public:
   static Blockchain &getInstance(unsigned short port,

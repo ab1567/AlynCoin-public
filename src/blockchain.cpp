@@ -61,6 +61,9 @@ constexpr const char kMiningCheckpointHeightKey[] = "mining_checkpoint_height";
 constexpr const char kMiningCheckpointHashKey[] = "mining_checkpoint_hash";
 constexpr const char kMiningCheckpointTimeKey[] = "mining_checkpoint_time";
 
+constexpr size_t kMaxReorgDepth = 100;
+constexpr std::time_t kMaxFutureDriftFromMtp = 2 * 60 * 60; // 2 hours
+
 std::string formatAmount(double amount) {
   std::ostringstream oss;
   oss << std::fixed << std::setprecision(12) << amount;
@@ -613,6 +616,40 @@ Blockchain::BlockAddResult Blockchain::addBlock(const Block &block,
     }
     orphanHashes.erase(block.getHash());
     requestedParents.erase(block.getHash());
+  }
+
+  const bool hasTip = !chain.empty();
+  const Block *tipPtr = hasTip ? &chain.back() : nullptr;
+  std::optional<std::time_t> parentMtp;
+  if (!block.isGenesisBlock())
+    parentMtp = medianTimePastForParent(block.getPreviousHash());
+
+  if (hasTip) {
+    const uint64_t tipIndex = tipPtr->getIndex();
+
+    if (block.getIndex() == tipIndex && tipIndex > 0 && chain.size() >= 2) {
+      const std::string &canonicalParentHash = chain[chain.size() - 2].getHash();
+      if (block.getPreviousHash() == canonicalParentHash) {
+        std::cerr << "⚠️ [addBlock] Same-height block detected (idx="
+                  << block.getIndex()
+                  << "). Marking as stale to preserve deterministic winner.\n";
+        return BlockAddResult::Stale;
+      }
+    }
+  }
+
+  if (parentMtp) {
+    if (block.getTimestamp() <= *parentMtp) {
+      std::cerr << "❌ [addBlock] Block timestamp " << block.getTimestamp()
+                << " is not greater than parent MTP " << *parentMtp
+                << ". Rejecting.\n";
+      return BlockAddResult::Invalid;
+    }
+    if (block.getTimestamp() > *parentMtp + kMaxFutureDriftFromMtp) {
+      std::cerr << "❌ [addBlock] Block timestamp " << block.getTimestamp()
+                << " exceeds MTP+drift window. Rejecting.\n";
+      return BlockAddResult::Invalid;
+    }
   }
 
   // 3. Orphan / fork handling
@@ -3269,6 +3306,43 @@ std::time_t Blockchain::medianTimePast(size_t height) const {
   return times[count / 2];
 }
 
+std::optional<std::time_t>
+Blockchain::medianTimePastForParent(const std::string &parentHash) const {
+  if (parentHash.empty())
+    return std::nullopt;
+
+  for (size_t i = 0; i < chain.size(); ++i) {
+    if (chain[i].getHash() == parentHash)
+      return medianTimePast(i);
+  }
+
+  const size_t window = 11;
+  for (const auto &entry : pendingForkChains) {
+    const auto &candidate = entry.second;
+    if (candidate.empty())
+      continue;
+
+    auto it = std::find_if(candidate.begin(), candidate.end(),
+                           [&](const Block &blk) {
+                             return blk.getHash() == parentHash;
+                           });
+    if (it == candidate.end())
+      continue;
+
+    size_t index = static_cast<size_t>(std::distance(candidate.begin(), it));
+    size_t count = std::min(window, index + 1);
+    std::vector<std::time_t> times;
+    times.reserve(count);
+    for (size_t offset = 0; offset < count; ++offset) {
+      times.push_back(candidate[index - offset].getTimestamp());
+    }
+    std::sort(times.begin(), times.end());
+    return times[count / 2];
+  }
+
+  return std::nullopt;
+}
+
 // castVote
 bool Blockchain::castVote(const std::string &voterAddress,
                           const std::string &candidateAddress) {
@@ -4310,6 +4384,12 @@ void Blockchain::compareAndMergeChains(const std::vector<Block> &otherChain) {
       commonIdxTmp == -1 ? chain.size() : chain.size() - commonIdxTmp - 1;
   metrics::reorg_depth.value = reorgDepth;
   int localHeight = getHeight();
+  if (reorgDepth > static_cast<int>(kMaxReorgDepth)) {
+    std::cerr << "⚠️ [Fork] Reorg depth " << reorgDepth
+              << " exceeds safety limit (" << kMaxReorgDepth
+              << "). Ignoring fork." << std::endl;
+    return;
+  }
   if (checkpointHeight > 0 && localHeight - reorgDepth < checkpointHeight - 2) {
     std::cerr << "⚠️ [Fork] Reorg past checkpoint disallowed. depth="
               << reorgDepth << " checkpoint=" << checkpointHeight << std::endl;

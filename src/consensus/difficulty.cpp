@@ -46,15 +46,23 @@ cpp_int difficultyToWork(int diff)
 }
 
 // ─────────────────────────────────────────────
-//   Logistic difficulty floor 5 → 40
+//   Logistic difficulty floor with soft tail
 // ─────────────────────────────────────────────
 static long double logisticFloor(long double s)
 {
     constexpr long double base = 5.0L;
-    constexpr long double maxExtra = 35.0L;     // tops at 40
+    constexpr long double logisticSpan = 35.0L;     // smooth growth up to midpoint
     constexpr long double k  = 6.0L / 100'000'000.0L;
-    constexpr long double s0 = 50'000'000.0L;   // midpoint
-    return base + maxExtra / (1.0L + std::exp(-k * (s - s0)));
+    constexpr long double s0 = 50'000'000.0L;       // midpoint
+
+    const long double logisticComponent =
+        logisticSpan / (1.0L + std::exp(-k * (s - s0)));
+
+    const long double tailBase =
+        std::max<long double>(0.0L, (s - s0) / 5'000'000.0L);
+    const long double tailComponent = std::log1p(tailBase);
+
+    return base + logisticComponent + tailComponent;
 }
 
 // ─────────────────────────────────────────────
@@ -65,18 +73,17 @@ uint64_t calculateSmartDifficulty(const Blockchain& chain)
     /*  Design targets ———————————————————————
         • 120-second blocks
         • 720-block LWMA window  ≈ 24 h
-        • Very soft ± limits (×1.5 / ÷ 3)
-        • Extra Digishield dampening 0.25
+        • Wider +100 % / −66 % bounds
+        • Reduced Digishield dampening (40 % delta)
         • Small peer-count bonus, capped +15 %
     ------------------------------------------------*/
     constexpr int         LWMA_N      = 720;
     constexpr long double TARGET      = 120.0L;      // seconds / block
-    constexpr long double MAX_UP      = 1.5L;        // at most +50 %
+    constexpr long double MAX_UP      = 2.0L;        // at most +100 %
     constexpr long double MAX_DOWN    = 1.0L/3.0L;   // at most one-third
-    constexpr long double DAMPING     = 0.25L;       // apply 25 % of delta
+    constexpr long double DAMPING     = 0.40L;       // apply 40 % of delta
     constexpr uint64_t    GENESIS_DIFF   = 5;      // block #0 and #1
-    constexpr long double ABSOLUTE_FLOOR = 5.0L;   // hard floor
-    constexpr size_t      LOCK_HEIGHT    = 60;     // first 60 blocks locked
+    constexpr size_t      LOCK_HEIGHT    = 2;      // genesis + first mined block
 
     const size_t height = chain.getBlockCount();
     if (height < 2)               // genesis or first mined block
@@ -88,16 +95,17 @@ uint64_t calculateSmartDifficulty(const Blockchain& chain)
     if (tip.getTimestamp() > now + 3600 || tip.getTimestamp() < now - 3600)
         return tip.getDifficulty();
 
-    // ── Fixed bootstrap: keep first 60 blocks at diff-5 ────────
+    // ── Fixed bootstrap: keep genesis and block #1 at diff-5 ────────
     if (height < LOCK_HEIGHT)
         return GENESIS_DIFF;
 
     // ── Difficulty floor considering recent hash rate ────────────
     const long double supply = static_cast<long double>(chain.getTotalSupply());
+    const long double minFloor = logisticFloor(0.0L);
     const long double supplyFloor = logisticFloor(supply);
     const long double avgDiff = static_cast<long double>(chain.getAverageDifficulty(100));
-    const long double hashFloor = std::max<long double>(ABSOLUTE_FLOOR, avgDiff * 0.5L);
-    const long double floor  = std::min<long double>(supplyFloor, hashFloor);
+    const long double hashFloor = std::max<long double>(minFloor, avgDiff * 0.4L);
+    const long double floor  = std::max<long double>(supplyFloor, hashFloor);
 
     // ── LWMA-720 with harmonic weighting ──────────
     const int N = std::min<int>(LWMA_N, height - 1);
@@ -128,8 +136,21 @@ uint64_t calculateSmartDifficulty(const Blockchain& chain)
     factor             = 1.0L + (factor - 1.0L) * DAMPING;
 
     // ── Peer-count bonus (much weaker) ────────────
-    const double minerBonus = std::min(1.15,          // +15 % cap
-                              1.0 + 0.001 * getActiveMinerCount(chain));
+    const long double rawBonus = std::min<long double>(1.15L,
+                                             1.0L + 0.005L * getActiveMinerCount(chain));
+
+    // Smooth miner-count swings so peers churning connections don't cause
+    // block-to-block oscillations. Allow at most ±2 % change per block.
+    static long double previousBonus = 1.0L;
+    constexpr long double MAX_BONUS_STEP = 0.02L;
+
+    long double minerBonus = rawBonus;
+    if (minerBonus > previousBonus + MAX_BONUS_STEP)
+        minerBonus = previousBonus + MAX_BONUS_STEP;
+    else if (minerBonus < previousBonus - MAX_BONUS_STEP)
+        minerBonus = previousBonus - MAX_BONUS_STEP;
+
+    previousBonus = minerBonus;
 
     // ── Apply ────────────────────────────────────────────────────
     long double nextRaw   = chain.getLatestBlock().difficulty * factor;
@@ -137,8 +158,8 @@ uint64_t calculateSmartDifficulty(const Blockchain& chain)
 
     const long double nextFloor = std::max<long double>(floor, nextRaw);
 
-    long double nextDiff  =
-        std::max<long double>(ABSOLUTE_FLOOR, nextFloor * minerBonus);
+    long double nextDiff  = std::max<long double>(minFloor,
+                                                 nextFloor * minerBonus);
 
     // ── Grace mode for severe hashrate collapse ───────────────
     static int slowCounter = 0;
@@ -149,7 +170,7 @@ uint64_t calculateSmartDifficulty(const Blockchain& chain)
         slowCounter = std::max(0, slowCounter - 1);
 
     if (slowCounter > 30)
-        nextDiff = std::max<long double>(ABSOLUTE_FLOOR,
+        nextDiff = std::max<long double>(minFloor,
                                          (nextFloor / 2.0L) * minerBonus);
 
     return static_cast<uint64_t>(std::llround(nextDiff));
