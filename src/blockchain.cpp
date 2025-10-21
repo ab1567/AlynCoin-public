@@ -623,20 +623,17 @@ Blockchain::BlockAddResult Blockchain::addBlock(const Block &block,
     const auto &tip = chain.back();
     const uint64_t tipIndex = tip.getIndex();
 
-    // Enforce a deterministic winner for the current height: once we have a
-    // canonical block at this index, competing blocks that reference the same
-    // parent are immediately marked stale instead of being tracked as
-    // side-chain candidates. This preserves the "one block per height"
-    // behaviour the operator requested while still allowing forks that diverge
-    // deeper in history to be registered and evaluated normally.
-    if (block.getIndex() == tipIndex && chain.size() >= 2) {
-      const std::string &canonicalParentHash = chain[chain.size() - 2].getHash();
-      if (block.getPreviousHash() == canonicalParentHash) {
-        std::cerr << "⚠️ [addBlock] Same-height block detected (idx="
-                  << block.getIndex()
-                  << "). Marking as stale to preserve deterministic winner.\n";
-        return BlockAddResult::Stale;
-      }
+    // Enforce a strict "one winner per height" policy: once a block has been
+    // accepted at a given index, any subsequent block at that height (or
+    // earlier) is immediately marked stale instead of being tracked as a
+    // side-chain candidate. This keeps tip-level forks from churning while
+    // still allowing genuinely longer branches with higher cumulative work to
+    // proceed through the fork-handling flow.
+    if (block.getIndex() <= tipIndex) {
+      std::cerr << "⚠️ [addBlock] Duplicate/old height (" << block.getIndex()
+                << " <= " << tipIndex
+                << "). Marking as stale to preserve deterministic winner.\n";
+      return BlockAddResult::Stale;
     }
   }
 
