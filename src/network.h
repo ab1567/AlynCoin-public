@@ -321,7 +321,7 @@ private:
   void startBinaryReadLoop(const std::string &peerId,
                            std::shared_ptr<Transport> transport);
   void dispatch(const alyncoin::net::Frame &f, const std::string &peerId);
-  void sendInitialRequests(const std::string &peerId);
+  bool sendInitialRequests(const std::string &peerId);
   void handlePeer(std::shared_ptr<Transport> transport);
   bool validateBlockSignatures(const Block &blk);
   void penalizePeer(const std::string &peer, int points);
