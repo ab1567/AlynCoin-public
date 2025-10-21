@@ -628,20 +628,26 @@ Blockchain::BlockAddResult Blockchain::addBlock(const Block &block,
     const auto &tip = chain.back();
     const uint64_t tipIndex = tip.getIndex();
 
-    // Enforce a strict "one winner per height" policy: once a block has been
-    // accepted at a given index, any subsequent block at that height (or
-    // earlier) is immediately marked stale instead of being tracked as a
-    // side-chain candidate. This keeps tip-level forks from churning while
-    // still allowing genuinely longer branches with higher cumulative work to
-    // proceed through the fork-handling flow.
-    if (block.getIndex() <= tipIndex) {
-      if (block.getIndex() == tipIndex)
-        cacheTipStaleBlock(block);
-      std::cerr << "⚠️ [addBlock] Duplicate/old height (" << block.getIndex()
-                << " <= " << tipIndex
-                << "). Marking as stale to preserve deterministic winner.\n";
-      return BlockAddResult::Stale;
+    // Only mark a block stale if it competes off the canonical parent at the
+    // same height. Blocks with a different parent at the same height or a
+    // lower height should still be considered for orphan/fork handling.
+    if (block.getIndex() == tipIndex) {
+      if (chain.size() >= 2) {
+        const std::string &canonicalParentHash = chain[chain.size() - 2].getHash();
+        if (block.getPreviousHash() == canonicalParentHash) {
+          cacheTipStaleBlock(block);
+          std::cerr << "⚠️ [addBlock] Competing same-height block detected (idx="
+                    << block.getIndex()
+                    << "). Marking as stale to preserve deterministic winner.\n";
+          return BlockAddResult::Stale;
+        }
+      }
     }
+    // Note: do not reject blocks with index < tipIndex outright. Such blocks
+    // could be part of a fork that eventually overtakes the main chain and
+    // should be handled by the orphan/fork logic below. Dropping them here
+    // prevents reorgs from ever happening and leads to endless snapshot
+    // requests when syncing.
   }
 
   std::optional<std::time_t> parentMtp;

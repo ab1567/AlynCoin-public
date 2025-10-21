@@ -2,6 +2,7 @@
 #include "blockchain.h"
 #include "config.h"
 #include "constants.h"
+#include "blake3.h"
 #include "crypto/sphinx.h"
 #include "crypto_utils.h"
 #include "hash.h"
@@ -192,6 +193,155 @@ constexpr uint64_t SNAPSHOT_OUT_OF_ORDER_MAX_GAP =
 constexpr auto SNAPSHOT_OUT_OF_ORDER_ACK_THROTTLE =
     std::chrono::milliseconds(200);
 
+constexpr auto FRAME_LOG_DEBOUNCE = std::chrono::seconds(1);
+constexpr auto GET_HEADERS_DEBOUNCE = std::chrono::milliseconds(300);
+
+std::array<uint8_t, 32> blake3Digest(const uint8_t *data, size_t len) {
+  blake3_hasher hasher;
+  blake3_hasher_init(&hasher);
+  if (len > 0)
+    blake3_hasher_update(&hasher, data, len);
+  std::array<uint8_t, 32> out{};
+  blake3_hasher_finalize(&hasher, out.data(), out.size());
+  return out;
+}
+
+std::array<uint8_t, 32>
+blake3DigestStrings(const std::vector<std::string> &parts) {
+  blake3_hasher hasher;
+  blake3_hasher_init(&hasher);
+  for (const auto &piece : parts) {
+    if (!piece.empty())
+      blake3_hasher_update(&hasher, piece.data(), piece.size());
+  }
+  std::array<uint8_t, 32> out{};
+  blake3_hasher_finalize(&hasher, out.data(), out.size());
+  return out;
+}
+
+std::array<uint8_t, 8> digestPrefix(const std::array<uint8_t, 32> &digest) {
+  std::array<uint8_t, 8> out{};
+  std::copy_n(digest.begin(), out.size(), out.begin());
+  return out;
+}
+
+std::string fingerprintHex(const std::array<uint8_t, 8> &fp,
+                           std::size_t bytes = 7) {
+  std::ostringstream oss;
+  oss << std::hex << std::setfill('0');
+  bytes = std::min(bytes, fp.size());
+  for (std::size_t i = 0; i < bytes; ++i)
+    oss << std::setw(2) << static_cast<int>(fp[i]);
+  return oss.str();
+}
+
+struct FrameLogKey {
+  const void *transport{nullptr};
+  int tag{-1};
+  bool operator==(const FrameLogKey &other) const {
+    return transport == other.transport && tag == other.tag;
+  }
+};
+
+struct FrameLogKeyHash {
+  std::size_t operator()(const FrameLogKey &key) const noexcept {
+    return std::hash<const void *>{}(key.transport) ^
+           (std::hash<int>{}(key.tag) << 1);
+  }
+};
+
+struct FrameLogEntry {
+  std::array<uint8_t, 8> fingerprint{};
+  bool hasFingerprint{false};
+  std::chrono::steady_clock::time_point lastLog{};
+};
+
+std::mutex frameLogMutex;
+std::unordered_map<FrameLogKey, FrameLogEntry, FrameLogKeyHash> frameLog;
+
+void forgetFrameLogsForTransport(const void *transport) {
+  if (!transport)
+    return;
+  std::lock_guard<std::mutex> lk(frameLogMutex);
+  for (auto it = frameLog.begin(); it != frameLog.end();) {
+    if (it->first.transport == transport) {
+      it = frameLog.erase(it);
+    } else {
+      ++it;
+    }
+  }
+}
+
+bool shouldLogFrameSend(const void *transport, int tag,
+                        const std::array<uint8_t, 8> &fingerprint) {
+  std::lock_guard<std::mutex> lk(frameLogMutex);
+  FrameLogKey key{transport, tag};
+  auto &entry = frameLog[key];
+  auto now = std::chrono::steady_clock::now();
+  if (entry.hasFingerprint && entry.fingerprint == fingerprint &&
+      now - entry.lastLog < FRAME_LOG_DEBOUNCE) {
+    return false;
+  }
+  entry.fingerprint = fingerprint;
+  entry.hasFingerprint = true;
+  entry.lastLog = now;
+  return true;
+}
+
+bool isPrimaryTransport(const PeerState &state,
+                        const std::shared_ptr<Transport> &transport) {
+  if (!transport || !state.isPrimary)
+    return false;
+  const auto token = reinterpret_cast<uintptr_t>(transport.get());
+  return state.primaryTransportToken != 0 &&
+         state.primaryTransportToken == token;
+}
+
+void resetSendGuards(PeerState &state,
+                     const std::shared_ptr<Transport> &transport,
+                     bool makePrimary) {
+  state.sentInitialSync = false;
+  state.hasLastTipHashSent = false;
+  state.lastTipHashSent.clear();
+  state.hasLastHeightSent = false;
+  state.lastHeightSent = 0;
+  state.hasLastInventoryDigest = false;
+  state.lastInventoryDigest.fill(0);
+  state.lastInventorySent = {};
+  state.hasLastHeadersRequest = false;
+  state.lastHeadersRequest = {};
+  state.lastHeadersSent = {};
+  const auto token = transport
+                         ? reinterpret_cast<uintptr_t>(transport.get())
+                         : static_cast<uintptr_t>(0);
+  if (makePrimary) {
+    state.isPrimary = transport != nullptr;
+    state.primaryTransportToken = state.isPrimary ? token : 0;
+  } else if (state.primaryTransportToken == 0 && transport) {
+    state.isPrimary = true;
+    state.primaryTransportToken = token;
+  } else {
+    state.isPrimary = transport && state.primaryTransportToken == token;
+  }
+}
+
+bool shouldSendHeadersRequest(PeerState &state, const std::string &locatorTip,
+                              const std::string &stopHash) {
+  auto now = std::chrono::steady_clock::now();
+  if (state.hasLastHeadersRequest &&
+      state.lastHeadersRequest.locatorTip == locatorTip &&
+      state.lastHeadersRequest.stopHash == stopHash &&
+      now - state.lastHeadersSent < GET_HEADERS_DEBOUNCE) {
+    return false;
+  }
+  state.lastHeadersRequest.locatorTip = locatorTip;
+  state.lastHeadersRequest.stopHash = stopHash;
+  state.hasLastHeadersRequest = true;
+  state.lastHeadersSent = now;
+  return true;
+}
+
+} // namespace
 constexpr auto NAT_REFRESH_SUCCESS_INTERVAL = std::chrono::minutes(20);
 constexpr auto NAT_REFRESH_RETRY_INTERVAL = std::chrono::minutes(5);
 
@@ -1173,6 +1323,10 @@ void Network::startHeaderSync(const std::string &peer) {
   std::string fromHash;
   if (blockchain && !blockchain->getChain().empty())
     fromHash = blockchain->getLatestBlockHash();
+  if (snapshot.state) {
+    if (!shouldSendHeadersRequest(*snapshot.state, fromHash, std::string()))
+      return;
+  }
   alyncoin::net::Frame fr;
   fr.mutable_get_headers()->set_from_hash(fromHash);
   sendFrame(snapshot.transport, fr);
@@ -1337,10 +1491,9 @@ bool Network::sendFrame(std::shared_ptr<Transport> tr,
     return false;
   const alyncoin::net::Frame *fr =
       dynamic_cast<const alyncoin::net::Frame *>(&m);
+  FrameDescriptor desc;
   if (fr) {
-    auto desc = describeFrame(*fr);
-    std::cerr << "[>>] Outgoing Frame Type=" << static_cast<int>(desc.tag)
-              << " (" << desc.label << ") size=" << fr->ByteSizeLong() << '\n';
+    desc = describeFrame(*fr);
     if (desc.isControl && fr->ByteSizeLong() > MAX_CONTROL_FRAME_PAYLOAD) {
       std::cerr << "⚠️ [sendFrame] Refusing to send oversized control frame "
                 << desc.label << " (" << fr->ByteSizeLong() << " bytes, limit "
@@ -1364,12 +1517,23 @@ bool Network::sendFrame(std::shared_ptr<Transport> tr,
     std::cerr << "[sendFrame] ❌ SerializeToArray failed" << '\n';
     return false;
   }
+  auto digest = blake3Digest(buf.data(), buf.size());
+  auto fp = digestPrefix(digest);
+  int tag = fr ? static_cast<int>(desc.tag) : -1;
+  if (shouldLogFrameSend(tr.get(), tag, fp)) {
+    if (fr) {
+      std::cerr << "[>>] Outgoing Frame Type=" << static_cast<int>(desc.tag)
+                << " (" << desc.label << ") size=" << sz
+                << " fp=" << fingerprintHex(fp) << '\n';
+    } else {
+      std::cerr << "[>>] Outgoing message size=" << sz
+                << " fp=" << fingerprintHex(fp) << '\n';
+    }
+  }
   uint8_t var[10];
   size_t n = encodeVarInt(sz, var);
   std::string out(reinterpret_cast<char *>(var), n);
   out.append(reinterpret_cast<const char *>(buf.data()), sz);
-  std::cerr << "[sendFrame] Sending frame, payload size: " << sz << " bytes"
-            << '\n';
   if (immediate) {
     if (auto tcp = std::dynamic_pointer_cast<TcpTransport>(tr))
       return tcp->writeBinaryLocked(out);
@@ -1468,7 +1632,15 @@ void Network::sendHeight(const std::string &peer) {
   alyncoin::net::Frame fr;
   Blockchain &bc = Blockchain::getInstance();
   auto *hr = fr.mutable_height_res();
-  hr->set_height(bc.getHeight());
+  uint32_t height = bc.getHeight();
+  if (snapshot.state) {
+    if (snapshot.state->hasLastHeightSent &&
+        snapshot.state->lastHeightSent == height)
+      return;
+    snapshot.state->lastHeightSent = height;
+    snapshot.state->hasLastHeightSent = true;
+  }
+  hr->set_height(height);
   auto work = bc.computeCumulativeDifficulty(bc.getChain());
   uint64_t w64 = safeUint64(work);
   if (peerManager)
@@ -1498,8 +1670,15 @@ void Network::sendTipHash(const std::string &peer) {
   if (!snapshot.transport || !snapshot.transport->isOpen())
     return;
   alyncoin::net::Frame fr;
-  fr.mutable_tip_hash_res()->set_hash(
-      Blockchain::getInstance().getLatestBlockHash());
+  std::string tip = Blockchain::getInstance().getLatestBlockHash();
+  if (snapshot.state) {
+    if (snapshot.state->hasLastTipHashSent &&
+        snapshot.state->lastTipHashSent == tip)
+      return;
+    snapshot.state->lastTipHashSent = tip;
+    snapshot.state->hasLastTipHashSent = true;
+  }
+  fr.mutable_tip_hash_res()->set_hash(tip);
   sendFrame(snapshot.transport, fr);
 }
 
@@ -1610,8 +1789,10 @@ void Network::markPeerOffline(const std::string &peerId) {
     std::lock_guard<std::timed_mutex> lk(peersMutex);
     auto it = peerTransports.find(peerId);
     if (it != peerTransports.end()) {
-      if (it->second.tx)
+      if (it->second.tx) {
+        forgetFrameLogsForTransport(it->second.tx.get());
         it->second.tx->close();
+      }
       peerTransports.erase(it);
     }
     anchorPeers.erase(peerId);
@@ -3139,23 +3320,29 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
       }
       if (replaceExisting) {
         std::cout << "🔁 replacing connection for " << claimedPeerId << "\n";
-        if (itExisting->second.tx)
+        if (itExisting->second.tx) {
+          forgetFrameLogsForTransport(itExisting->second.tx.get());
           itExisting->second.tx->closeGraceful();
+        }
         itExisting->second.tx = transport;
         itExisting->second.initiatedByUs = false;
         itExisting->second.port = finalPort;
         itExisting->second.ip = canonicalIp.empty() ? realPeerId : canonicalIp;
         itExisting->second.observedIp = senderIP;
         itExisting->second.observedPort = observedPort;
-        if (itExisting->second.state)
+        if (itExisting->second.state) {
           itExisting->second.state->remoteNonce = remoteNonce;
+          resetSendGuards(*itExisting->second.state, transport, true);
+        }
       } else {
         std::cout << "🔁 duplicate connection from " << claimedPeerId
                   << " closed\n";
         if (itExisting->second.state && existingNonce == 0 && remoteNonce != 0)
           itExisting->second.state->remoteNonce = remoteNonce;
-        if (transport)
+        if (transport) {
+          forgetFrameLogsForTransport(transport.get());
           transport->closeGraceful();
+        }
         return;
       }
     }
@@ -3170,6 +3357,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     knownPeers.insert(claimedPeerId);
     if (!entry.state)
       entry.state = std::make_shared<PeerState>();
+    resetSendGuards(*entry.state, entry.tx, true);
     resetPeerSyncState(claimedPeerId);
     entry.state->connectedAt = std::chrono::steady_clock::now();
     int localHeight = static_cast<int>(Blockchain::getInstance().getHeight());
@@ -3245,7 +3433,7 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
   // ── 5. arm read loop + initial requests ────────────────────────────────
   startBinaryReadLoop(claimedPeerId, transport);
 
-  sendInitialRequests(claimedPeerId);
+  bool kicked = sendInitialRequests(claimedPeerId);
 
   // ── 6. immediate sync decision ─────────────────────────────────────────
   Blockchain &chain = Blockchain::getInstance();
@@ -3280,8 +3468,10 @@ void Network::handlePeer(std::shared_ptr<Transport> transport) {
     }
   }
 
-  autoSyncIfBehind();
-  intelligentSync();
+  if (kicked) {
+    autoSyncIfBehind();
+    intelligentSync();
+  }
 
   // ── 7. optional reverse connect removed for binary protocol ──
 }
@@ -5035,22 +5225,35 @@ bool Network::finishOutboundHandshake(std::shared_ptr<Transport> tx,
 // ------------------------------------------------------------------
 //  Helper: send the three “kick-off” messages after a connection
 // ------------------------------------------------------------------
-void Network::sendInitialRequests(const std::string &peerId) {
+bool Network::sendInitialRequests(const std::string &peerId) {
   auto it = peerTransports.find(peerId);
-  if (it == peerTransports.end() || !it->second.tx)
-    return;
+  if (it == peerTransports.end())
+    return false;
+
+  auto tx = it->second.tx;
+  if (!tx || !tx->isOpen())
+    return false;
+
+  auto state = it->second.state;
+  if (state) {
+    if (!isPrimaryTransport(*state, tx))
+      return false;
+    if (state->sentInitialSync)
+      return false;
+    state->sentInitialSync = true;
+  }
 
   alyncoin::net::Frame f1;
   f1.mutable_height_req();
-  sendFrame(it->second.tx, f1);
+  sendFrame(tx, f1);
 
   alyncoin::net::Frame f2;
   f2.mutable_tip_hash_req();
-  sendFrame(it->second.tx, f2);
+  sendFrame(tx, f2);
 
   alyncoin::net::Frame f3;
   f3.mutable_peer_list_req();
-  sendFrame(it->second.tx, f3);
+  sendFrame(tx, f3);
 
   int peerHeight = peerManager ? peerManager->getPeerHeight(peerId) : -1;
   int localHeight = Blockchain::getInstance().getHeight();
@@ -5058,6 +5261,7 @@ void Network::sendInitialRequests(const std::string &peerId) {
     startHeaderSync(peerId);
 
   sendInventory(peerId);
+  return true;
 }
 // ------------------------------------------------------------------
 //  Helper: set up an endless async-read loop for a socket
@@ -5989,22 +6193,29 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
         }
         if (replaceExisting) {
           std::cout << "🔁 replacing connection to " << finalKey << '\n';
-          itExisting->second.tx->closeGraceful();
+          if (itExisting->second.tx) {
+            forgetFrameLogsForTransport(itExisting->second.tx.get());
+            itExisting->second.tx->closeGraceful();
+          }
           itExisting->second.tx = tx;
           itExisting->second.initiatedByUs = true;
           itExisting->second.port = advertisedPort;
           itExisting->second.ip = canonicalIp;
           itExisting->second.observedIp = socketIp.empty() ? host : socketIp;
           itExisting->second.observedPort = socketPort;
-          if (itExisting->second.state)
+          if (itExisting->second.state) {
             itExisting->second.state->remoteNonce = remoteNonce;
+            resetSendGuards(*itExisting->second.state, tx, true);
+          }
         } else {
           std::cout << "🔁 already connected to " << finalKey << '\n';
           if (itExisting->second.state && existingNonce == 0 &&
               remoteNonce != 0)
             itExisting->second.state->remoteNonce = remoteNonce;
-          if (tx)
+          if (tx) {
+            forgetFrameLogsForTransport(tx.get());
             tx->closeGraceful();
+          }
           return false;
         }
       } else {
@@ -6021,7 +6232,9 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
       knownPeers.insert(finalKey);
       if (anchorPeers.size() < 2)
         anchorPeers.insert(finalKey);
-      auto st = peerTransports[finalKey].state;
+      auto &entry = peerTransports[finalKey];
+      auto st = entry.state;
+      resetSendGuards(*st, entry.tx, true);
       st->connectedAt = std::chrono::steady_clock::now();
       st->graceUntil = st->connectedAt + BAN_GRACE_BASE;
       st->supportsAggProof = theirAgg;
@@ -6103,10 +6316,12 @@ bool Network::connectToNode(const std::string &host, int remotePort) {
     }
 
     startBinaryReadLoop(finalKey, tx);
-    sendInitialRequests(finalKey);
+    bool kicked = sendInitialRequests(finalKey);
 
-    autoSyncIfBehind();
-    intelligentSync();
+    if (kicked) {
+      autoSyncIfBehind();
+      intelligentSync();
+    }
     attemptGuard.success = true;
     return true;
   } catch (const std::exception &e) {
@@ -7147,11 +7362,33 @@ void Network::sendInventory(const std::string &peer) {
   if (snapshot.state)
     start = snapshot.state->highestSeen + 1;
   const auto &chain = bc.getChain();
-  for (size_t i = start; i < chain.size(); i += MAX_INV_PER_MSG) {
+  size_t startIdx =
+      std::min<std::size_t>(static_cast<std::size_t>(start), chain.size());
+  if (startIdx >= chain.size())
+    return;
+
+  std::vector<std::string> hashes;
+  hashes.reserve(chain.size() - startIdx);
+  for (size_t i = startIdx; i < chain.size(); ++i)
+    hashes.push_back(chain[i].getHash());
+  if (hashes.empty())
+    return;
+
+  if (snapshot.state) {
+    auto digest = blake3DigestStrings(hashes);
+    if (snapshot.state->hasLastInventoryDigest &&
+        snapshot.state->lastInventoryDigest == digest)
+      return;
+    snapshot.state->lastInventoryDigest = digest;
+    snapshot.state->hasLastInventoryDigest = true;
+    snapshot.state->lastInventorySent = std::chrono::steady_clock::now();
+  }
+
+  for (size_t i = 0; i < hashes.size(); i += MAX_INV_PER_MSG) {
     alyncoin::net::Frame fr;
     auto *inv = fr.mutable_inv();
-    for (size_t j = i; j < chain.size() && j < i + MAX_INV_PER_MSG; ++j)
-      inv->add_hashes(chain[j].getHash());
+    for (size_t j = i; j < hashes.size() && j < i + MAX_INV_PER_MSG; ++j)
+      inv->add_hashes(hashes[j]);
     sendFrame(snapshot.transport, fr);
   }
 }

@@ -1,6 +1,7 @@
 #pragma once
 #include "block.h"
 #include "transport/transport.h"
+#include <cstdint>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -105,6 +106,22 @@ struct PeerState {
   std::unordered_set<std::string> recentBlocksSentSet;
   std::deque<std::string> recentBlocksReceived;
   std::unordered_set<std::string> recentBlocksReceivedSet;
+  bool isPrimary{false};
+  bool sentInitialSync{false};
+  bool hasLastTipHashSent{false};
+  std::string lastTipHashSent;
+  bool hasLastHeightSent{false};
+  uint32_t lastHeightSent{0};
+  bool hasLastInventoryDigest{false};
+  std::array<uint8_t, 32> lastInventoryDigest{};
+  std::chrono::steady_clock::time_point lastInventorySent{};
+  struct LastHeadersRequest {
+    std::string locatorTip;
+    std::string stopHash;
+  } lastHeadersRequest{};
+  bool hasLastHeadersRequest{false};
+  std::chrono::steady_clock::time_point lastHeadersSent{};
+  uintptr_t primaryTransportToken{0};
 };
 
 struct PeerEntry {
