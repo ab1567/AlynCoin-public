@@ -141,16 +141,21 @@ uint64_t calculateSmartDifficulty(const Blockchain& chain)
 
     // Smooth miner-count swings so peers churning connections don't cause
     // block-to-block oscillations. Allow at most ±2 % change per block.
+    static std::mutex bonusMutex;
     static long double previousBonus = 1.0L;
     constexpr long double MAX_BONUS_STEP = 0.02L;
 
     long double minerBonus = rawBonus;
-    if (minerBonus > previousBonus + MAX_BONUS_STEP)
-        minerBonus = previousBonus + MAX_BONUS_STEP;
-    else if (minerBonus < previousBonus - MAX_BONUS_STEP)
-        minerBonus = previousBonus - MAX_BONUS_STEP;
+    {
+        std::lock_guard<std::mutex> guard(bonusMutex);
 
-    previousBonus = minerBonus;
+        if (minerBonus > previousBonus + MAX_BONUS_STEP)
+            minerBonus = previousBonus + MAX_BONUS_STEP;
+        else if (minerBonus < previousBonus - MAX_BONUS_STEP)
+            minerBonus = previousBonus - MAX_BONUS_STEP;
+
+        previousBonus = minerBonus;
+    }
 
     // ── Apply ────────────────────────────────────────────────────
     long double nextRaw   = chain.getLatestBlock().difficulty * factor;
