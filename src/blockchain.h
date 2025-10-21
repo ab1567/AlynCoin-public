@@ -322,6 +322,9 @@ public:
   void tryAttachOrphans(const std::string& parentHash);
   bool reattachOrphans();
   size_t getOrphanPoolSize() const;
+  void cacheTipStaleBlock(const Block& block);
+  void pruneStaleTipCache(std::time_t now);
+  bool promoteStaleTipParent(const std::string& parentHash);
 
   std::map<uint64_t, Block> futureBlocks;
 
@@ -329,6 +332,8 @@ public:
   std::unordered_set<std::string>            requestedParents;
   std::unordered_set<std::string> orphanHashes;
   std::unordered_map<std::string, std::time_t> orphanReceivedAt;
+  std::unordered_map<std::string, Block>      tipStaleCache;
+  std::unordered_map<std::string, std::time_t> tipStaleReceivedAt;
 
   inline std::string getStateRoot() const {  // ✅ CORRECT
       return RollupUtils::calculateStateRoot(getCurrentState());

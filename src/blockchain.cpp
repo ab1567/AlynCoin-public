@@ -64,6 +64,8 @@ constexpr const char kMiningCheckpointTimeKey[] = "mining_checkpoint_time";
 constexpr size_t kMaxReorgDepth = 100;
 constexpr std::time_t kMaxFutureDriftFromMtp = 2 * 60 * 60; // 2 hours
 constexpr std::time_t kMaxOrphanAge = 60 * 60;              // 1 hour retention
+constexpr std::time_t kTipStaleCacheTtl = 5 * 60;           // cache stale tip races 5 minutes
+constexpr size_t kMaxTipStaleCache = 128;
 
 std::string formatAmount(double amount) {
   std::ostringstream oss;
@@ -634,6 +636,8 @@ Blockchain::BlockAddResult Blockchain::addBlock(const Block &block,
     // still allowing genuinely longer branches with higher cumulative work to
     // proceed through the fork-handling flow.
     if (block.getIndex() <= tipIndex) {
+      if (block.getIndex() == tipIndex)
+        cacheTipStaleBlock(block);
       std::cerr << "⚠️ [addBlock] Duplicate/old height (" << block.getIndex()
                 << " <= " << tipIndex
                 << "). Marking as stale to preserve deterministic winner.\n";
@@ -663,10 +667,17 @@ Blockchain::BlockAddResult Blockchain::addBlock(const Block &block,
   if (!chain.empty() && block.getPreviousHash() != chain.back().getHash()) {
     const std::time_t now = std::time(nullptr);
     pruneStaleOrphans(now);
+    pruneStaleTipCache(now);
 
-    const bool parentInMain = hasBlockHash(block.getPreviousHash());
-    const bool parentInSide =
+    bool parentInMain = hasBlockHash(block.getPreviousHash());
+    bool parentInSide =
         pendingForkChains.find(block.getPreviousHash()) != pendingForkChains.end();
+    if (!parentInMain && !parentInSide) {
+      if (promoteStaleTipParent(block.getPreviousHash())) {
+        parentInSide =
+            pendingForkChains.find(block.getPreviousHash()) != pendingForkChains.end();
+      }
+    }
     if (parentInMain || parentInSide) {
       if (orphanHashes.insert(block.getHash()).second) {
         if (getOrphanPoolSize() >= MAX_ORPHAN_BLOCKS) {
@@ -3950,6 +3961,13 @@ void Blockchain::clear(bool force) {
   balances.clear();
   persistedBalancesCache.clear();
   lastPersistedHeight = -1;
+  pendingForkChains.clear();
+  orphanBlocks.clear();
+  orphanHashes.clear();
+  orphanReceivedAt.clear();
+  requestedParents.clear();
+  tipStaleCache.clear();
+  tipStaleReceivedAt.clear();
   vestingMap.clear();
   recentTransactionCounts.clear();
   lastL1Seen.store(std::time(nullptr), std::memory_order_relaxed);
@@ -4690,6 +4708,80 @@ void Blockchain::pruneStaleOrphans(std::time_t now) {
       }
     }
   }
+}
+
+void Blockchain::pruneStaleTipCache(std::time_t now) {
+  if (tipStaleReceivedAt.empty())
+    return;
+
+  const std::time_t cutoff = now - kTipStaleCacheTtl;
+  std::vector<std::string> expired;
+  expired.reserve(tipStaleReceivedAt.size());
+
+  for (const auto &[hash, received] : tipStaleReceivedAt) {
+    if (received < cutoff)
+      expired.push_back(hash);
+  }
+
+  if (expired.empty())
+    return;
+
+  for (const auto &hash : expired) {
+    tipStaleReceivedAt.erase(hash);
+    tipStaleCache.erase(hash);
+  }
+}
+
+void Blockchain::cacheTipStaleBlock(const Block &block) {
+  const std::time_t now = std::time(nullptr);
+  pruneStaleTipCache(now);
+
+  if (tipStaleCache.size() >= kMaxTipStaleCache) {
+    auto oldest = std::min_element(
+        tipStaleReceivedAt.begin(), tipStaleReceivedAt.end(),
+        [](const auto &lhs, const auto &rhs) { return lhs.second < rhs.second; });
+    if (oldest != tipStaleReceivedAt.end()) {
+      tipStaleCache.erase(oldest->first);
+      tipStaleReceivedAt.erase(oldest);
+    }
+  }
+
+  tipStaleCache[block.getHash()] = block;
+  tipStaleReceivedAt[block.getHash()] = now;
+  std::cerr << "ℹ️ [addBlock] Cached tip-level stale block idx=" << block.getIndex()
+            << " (hash=" << block.getHash() << ") for up to "
+            << kTipStaleCacheTtl / 60 << " minutes.\n";
+}
+
+bool Blockchain::promoteStaleTipParent(const std::string &parentHash) {
+  const std::time_t now = std::time(nullptr);
+  pruneStaleTipCache(now);
+
+  auto it = tipStaleCache.find(parentHash);
+  if (it == tipStaleCache.end())
+    return false;
+
+  Block parentCopy = it->second;
+  tipStaleCache.erase(it);
+  tipStaleReceivedAt.erase(parentHash);
+  requestedParents.erase(parentHash);
+
+  if (getOrphanPoolSize() >= MAX_ORPHAN_BLOCKS) {
+    std::cerr << "⚠️ [addBlock] Tip-stale cache full: orphan pool limit reached, "
+                 "dropping cached parent "
+              << parentHash << "\n";
+    return false;
+  }
+
+  if (orphanHashes.insert(parentCopy.getHash()).second) {
+    orphanBlocks[parentCopy.getPreviousHash()].push_back(parentCopy);
+    orphanReceivedAt[parentCopy.getHash()] = now;
+  }
+
+  registerSideChainBlockLocked(parentCopy);
+  std::cerr << "ℹ️ [addBlock] Promoted cached tip-stale parent " << parentHash
+            << " to side-chain candidate for fork assembly.\n";
+  return true;
 }
 
 void Blockchain::evaluatePendingForksLocked() {
