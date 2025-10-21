@@ -413,8 +413,6 @@ const char *describeBlockAddResult(Blockchain::BlockAddResult res) {
   }
   return "unknown";
 }
-} // namespace
-
 constexpr auto SNAPSHOT_RESEND_COOLDOWN = std::chrono::seconds(45);
 
 static size_t resolveSnapshotChunkSize(size_t preferred) {
