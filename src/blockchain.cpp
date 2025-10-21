@@ -624,8 +624,7 @@ Blockchain::BlockAddResult Blockchain::addBlock(const Block &block,
 
   pruneStaleOrphans(std::time(nullptr));
 
-  const bool hasTip = !chain.empty();
-  if (hasTip) {
+  if (!chain.empty()) {
     const auto &tip = chain.back();
     const uint64_t tipIndex = tip.getIndex();
 
@@ -707,8 +706,6 @@ Blockchain::BlockAddResult Blockchain::addBlock(const Block &block,
       orphanBlocks[block.getPreviousHash()].push_back(block);
       orphanReceivedAt[block.getHash()] = now;
     }
-
-    // === NEW LOGIC: Request missing parent only once ===
     requestMissingParent(block.getPreviousHash());
 
     return BlockAddResult::QueuedOrphan;
