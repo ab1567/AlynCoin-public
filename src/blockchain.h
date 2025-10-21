@@ -125,6 +125,7 @@ private:
   void registerSideChainBlockLocked(const Block &block);
   void evaluatePendingForksLocked();
   void cleanupSideChainsLocked();
+  void pruneStaleOrphans(std::time_t now);
   std::optional<std::time_t>
   medianTimePastForParent(const std::string &parentHash) const;
 
@@ -327,6 +328,7 @@ public:
   std::unordered_map<std::string, std::vector<Block>> orphanBlocks;
   std::unordered_set<std::string>            requestedParents;
   std::unordered_set<std::string> orphanHashes;
+  std::unordered_map<std::string, std::time_t> orphanReceivedAt;
 
   inline std::string getStateRoot() const {  // ✅ CORRECT
       return RollupUtils::calculateStateRoot(getCurrentState());

@@ -63,6 +63,7 @@ constexpr const char kMiningCheckpointTimeKey[] = "mining_checkpoint_time";
 
 constexpr size_t kMaxReorgDepth = 100;
 constexpr std::time_t kMaxFutureDriftFromMtp = 2 * 60 * 60; // 2 hours
+constexpr std::time_t kMaxOrphanAge = 60 * 60;              // 1 hour retention
 
 std::string formatAmount(double amount) {
   std::ostringstream oss;
@@ -615,8 +616,11 @@ Blockchain::BlockAddResult Blockchain::addBlock(const Block &block,
       }
     }
     orphanHashes.erase(block.getHash());
+    orphanReceivedAt.erase(block.getHash());
     requestedParents.erase(block.getHash());
   }
+
+  pruneStaleOrphans(std::time(nullptr));
 
   const bool hasTip = !chain.empty();
   if (hasTip) {
@@ -657,6 +661,9 @@ Blockchain::BlockAddResult Blockchain::addBlock(const Block &block,
 
   // 3. Orphan / fork handling
   if (!chain.empty() && block.getPreviousHash() != chain.back().getHash()) {
+    const std::time_t now = std::time(nullptr);
+    pruneStaleOrphans(now);
+
     const bool parentInMain = hasBlockHash(block.getPreviousHash());
     const bool parentInSide =
         pendingForkChains.find(block.getPreviousHash()) != pendingForkChains.end();
@@ -671,6 +678,7 @@ Blockchain::BlockAddResult Blockchain::addBlock(const Block &block,
           return BlockAddResult::Dropped;
         }
         orphanBlocks[block.getPreviousHash()].push_back(block);
+        orphanReceivedAt[block.getHash()] = now;
       }
       registerSideChainBlockLocked(block);
       evaluatePendingForksLocked();
@@ -684,8 +692,10 @@ Blockchain::BlockAddResult Blockchain::addBlock(const Block &block,
                 << "). Dropping block idx=" << block.getIndex() << "\n";
       return BlockAddResult::Dropped;
     }
-    if (orphanHashes.insert(block.getHash()).second)
+    if (orphanHashes.insert(block.getHash()).second) {
       orphanBlocks[block.getPreviousHash()].push_back(block);
+      orphanReceivedAt[block.getHash()] = now;
+    }
 
     // === NEW LOGIC: Request missing parent only once ===
     requestMissingParent(block.getPreviousHash());
@@ -4606,6 +4616,7 @@ void Blockchain::registerSideChainBlockLocked(const Block &block) {
     candidate.push_back(copy);
     pendingForkChains.erase(extendIt);
     pendingForkChains.emplace(copy.getHash(), std::move(candidate));
+    tryAttachOrphans(copy.getHash());
     return;
   }
 
@@ -4625,6 +4636,7 @@ void Blockchain::registerSideChainBlockLocked(const Block &block) {
   copy.setAccumulatedWork(parentWork + thisWork);
   candidate.push_back(copy);
   pendingForkChains[copy.getHash()] = std::move(candidate);
+  tryAttachOrphans(copy.getHash());
 }
 
 void Blockchain::cleanupSideChainsLocked() {
@@ -4636,6 +4648,46 @@ void Blockchain::cleanupSideChainsLocked() {
       it = pendingForkChains.erase(it);
     } else {
       ++it;
+    }
+  }
+}
+
+void Blockchain::pruneStaleOrphans(std::time_t now) {
+  if (orphanReceivedAt.empty())
+    return;
+
+  const std::time_t cutoff = now - kMaxOrphanAge;
+  std::vector<std::string> expired;
+  expired.reserve(orphanReceivedAt.size());
+
+  for (const auto &[hash, receivedAt] : orphanReceivedAt) {
+    if (receivedAt < cutoff)
+      expired.push_back(hash);
+  }
+
+  if (expired.empty())
+    return;
+
+  for (const auto &hash : expired) {
+    orphanReceivedAt.erase(hash);
+    orphanHashes.erase(hash);
+
+    for (auto it = orphanBlocks.begin(); it != orphanBlocks.end();) {
+      auto &vec = it->second;
+      auto removeIt = std::remove_if(vec.begin(), vec.end(), [&](const Block &blk) {
+        return blk.getHash() == hash;
+      });
+
+      if (removeIt != vec.end()) {
+        vec.erase(removeIt, vec.end());
+        if (vec.empty())
+          it = orphanBlocks.erase(it);
+        else
+          ++it;
+        break;
+      } else {
+        ++it;
+      }
     }
   }
 }
@@ -4803,6 +4855,7 @@ void Blockchain::tryAttachOrphans(const std::string &parentHash) {
     std::cerr << "[addBlock] Now adding previously orphaned block idx="
               << child.getIndex() << "\n";
     orphanHashes.erase(child.getHash());
+    orphanReceivedAt.erase(child.getHash());
     addBlock(child, true);
   }
 }
