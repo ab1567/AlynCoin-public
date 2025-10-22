@@ -5065,5 +5065,4 @@ void Blockchain::broadcastNewTip() {
   if (!network)
     return;
   network->broadcastHeight(chain.back().getIndex());
-  network->broadcastHandshake();
 }
