@@ -1472,6 +1472,24 @@ Block Blockchain::minePendingTransactions(
   std::cout << "[DEBUG] Validating and preparing transactions...\n";
 
   std::time_t timestamp = std::time(nullptr);
+  const Block &lastBlock = getLatestBlock();
+
+  if (!chain.empty()) {
+    if (auto parentMtp = medianTimePastForParent(lastBlock.getHash())) {
+      std::time_t minAllowed = *parentMtp + 1;
+      if (timestamp <= *parentMtp) {
+        std::cout << "[DEBUG] Adjusting mining timestamp up to MTP window.\n";
+        timestamp = minAllowed;
+      }
+
+      std::time_t maxAllowed = *parentMtp + kMaxFutureDriftFromMtp;
+      if (timestamp > maxAllowed) {
+        std::cout << "[DEBUG] Clamping mining timestamp to drift window ("
+                  << maxAllowed << ").\n";
+        timestamp = maxAllowed;
+      }
+    }
+  }
   double totalFeesCollected = 0.0;
 
   for (const auto &tx : pendingTransactions) {
@@ -1532,7 +1550,6 @@ Block Blockchain::minePendingTransactions(
               << '\n';
   }
 
-  Block lastBlock = getLatestBlock();
   std::cout << "[DEBUG] Last block hash: " << lastBlock.getHash() << '\n';
   adjustDifficulty();
   std::cout << "⚙️ Difficulty set to: " << difficulty << '\n';
