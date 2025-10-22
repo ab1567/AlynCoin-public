@@ -300,13 +300,17 @@ private:
   std::unordered_set<std::string> knownPeers;
   std::unordered_set<std::string> anchorPeers;
   std::unordered_map<std::string, EndpointRecord> knownPeerEndpoints;
-  std::unordered_map<std::string, std::chrono::steady_clock::time_point>
-      peerListLastSent;
+  struct PeerListSendState {
+    std::chrono::steady_clock::time_point lastSent{};
+    std::string lastDigest;
+  };
+  std::unordered_map<std::string, PeerListSendState> peerListSendState;
   std::atomic<int> activeOutboundDials{0};
   mutable std::mutex gossipMutex;
   mutable std::mutex peerBroadcastMutex;
   std::chrono::steady_clock::time_point lastPeerRebroadcast{};
   std::chrono::steady_clock::time_point lastGlobalPeerListBroadcast{};
+  std::string lastGlobalPeerListDigest;
   std::atomic<bool> peerFileLoaded{false};
   PeerBlacklist *blacklist;
   std::unordered_set<std::string> seenTxHashes;

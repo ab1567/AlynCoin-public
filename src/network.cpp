@@ -1710,13 +1710,17 @@ void Network::sendPeerList(const std::string &peer) {
 
   auto now = std::chrono::steady_clock::now();
   std::vector<std::pair<std::string, int>> cachedPeers;
+  std::chrono::steady_clock::time_point prevSent{};
+  std::string prevDigest;
+  bool havePrevState = false;
   {
     std::lock_guard<std::mutex> gossipLock(gossipMutex);
-    auto itLast = peerListLastSent.find(peer);
-    if (itLast != peerListLastSent.end() &&
-        now - itLast->second < PEERLIST_RATE_LIMIT)
-      return;
-    peerListLastSent[peer] = now;
+    auto itState = peerListSendState.find(peer);
+    if (itState != peerListSendState.end()) {
+      prevSent = itState->second.lastSent;
+      prevDigest = itState->second.lastDigest;
+      havePrevState = true;
+    }
 
     for (auto it = knownPeerEndpoints.begin(); it != knownPeerEndpoints.end();) {
       auto &rec = it->second;
@@ -1747,6 +1751,7 @@ void Network::sendPeerList(const std::string &peer) {
   std::unordered_set<std::string> seen;
   alyncoin::net::Frame peerListFrame;
   auto *pl = peerListFrame.mutable_peer_list();
+  std::vector<std::string> digestPeers;
 
   auto appendEndpoint = [&](const std::pair<std::string, int> &ep) {
     if (pl->peers_size() >= static_cast<int>(MAX_GOSSIP_PEERS))
@@ -1754,7 +1759,9 @@ void Network::sendPeerList(const std::string &peer) {
     const std::string label = makeEndpointLabel(ep.first, ep.second);
     if (!seen.insert(label).second)
       return true;
-    pl->add_peers(formatEndpointForWire(ep.first, ep.second));
+    const std::string formatted = formatEndpointForWire(ep.first, ep.second);
+    pl->add_peers(formatted);
+    digestPeers.push_back(formatted);
     return true;
   };
 
@@ -1773,12 +1780,41 @@ void Network::sendPeerList(const std::string &peer) {
       !isBlockedServicePort(announce.second) &&
       pl->peers_size() < static_cast<int>(MAX_GOSSIP_PEERS)) {
     const std::string label = makeEndpointLabel(announce.first, announce.second);
-    if (seen.insert(label).second)
-      pl->add_peers(formatEndpointForWire(announce.first, announce.second));
+    if (seen.insert(label).second) {
+      const std::string formatted =
+          formatEndpointForWire(announce.first, announce.second);
+      pl->add_peers(formatted);
+      digestPeers.push_back(formatted);
+    }
   }
 
   if (pl->peers_size() == 0)
     return;
+  std::string digest;
+  {
+    std::ostringstream oss;
+    for (size_t i = 0; i < digestPeers.size(); ++i) {
+      if (i > 0)
+        oss << '|';
+      oss << digestPeers[i];
+    }
+    digest = oss.str();
+  }
+
+  if (havePrevState && digest == prevDigest)
+    return;
+
+  if (havePrevState && prevSent != std::chrono::steady_clock::time_point{} &&
+      now - prevSent < PEERLIST_RATE_LIMIT)
+    return;
+
+  {
+    std::lock_guard<std::mutex> gossipLock(gossipMutex);
+    auto &state = peerListSendState[peer];
+    state.lastSent = now;
+    state.lastDigest = digest;
+  }
+
   sendFrame(targetTx, peerListFrame);
 }
 
@@ -1804,7 +1840,7 @@ void Network::markPeerOffline(const std::string &peerId) {
     peerManager->disconnectPeer(peerId);
   {
     std::lock_guard<std::mutex> gossipLock(gossipMutex);
-    peerListLastSent.erase(peerId);
+    peerListSendState.erase(peerId);
   }
   releaseSnapshotSessionForPeer(peerId);
   // Allow the peer manager to reconcile naturally; removing a peer should not
@@ -2844,11 +2880,12 @@ void Network::broadcastPeerList(const std::string &excludePeer) {
     return;
 
   auto now = std::chrono::steady_clock::now();
+  std::chrono::steady_clock::time_point prevBroadcast{};
+  std::string prevDigest;
   {
     std::lock_guard<std::mutex> guard(peerBroadcastMutex);
-    if (lastGlobalPeerListBroadcast != std::chrono::steady_clock::time_point{} &&
-        now - lastGlobalPeerListBroadcast < PEERLIST_RATE_LIMIT)
-      return;
+    prevBroadcast = lastGlobalPeerListBroadcast;
+    prevDigest = lastGlobalPeerListDigest;
   }
   {
     std::lock_guard<std::mutex> gossipLock(gossipMutex);
@@ -2881,13 +2918,16 @@ void Network::broadcastPeerList(const std::string &excludePeer) {
   std::unordered_set<std::string> seen;
   alyncoin::net::Frame peerListFrame;
   auto *pl = peerListFrame.mutable_peer_list();
+  std::vector<std::string> digestPeers;
   auto appendEndpoint = [&](const std::pair<std::string, int> &ep) {
     if (pl->peers_size() >= static_cast<int>(MAX_GOSSIP_PEERS))
       return false;
     const std::string label = makeEndpointLabel(ep.first, ep.second);
     if (!seen.insert(label).second)
       return true;
-    pl->add_peers(formatEndpointForWire(ep.first, ep.second));
+    const std::string formatted = formatEndpointForWire(ep.first, ep.second);
+    pl->add_peers(formatted);
+    digestPeers.push_back(formatted);
     return true;
   };
 
@@ -2906,16 +2946,39 @@ void Network::broadcastPeerList(const std::string &excludePeer) {
       !isBlockedServicePort(announce.second) &&
       pl->peers_size() < static_cast<int>(MAX_GOSSIP_PEERS)) {
     const std::string label = makeEndpointLabel(announce.first, announce.second);
-    if (seen.insert(label).second)
-      pl->add_peers(formatEndpointForWire(announce.first, announce.second));
+    if (seen.insert(label).second) {
+      const std::string formatted =
+          formatEndpointForWire(announce.first, announce.second);
+      pl->add_peers(formatted);
+      digestPeers.push_back(formatted);
+    }
   }
 
   if (pl->peers_size() == 0)
     return;
 
+  std::string digest;
+  {
+    std::ostringstream oss;
+    for (size_t i = 0; i < digestPeers.size(); ++i) {
+      if (i > 0)
+        oss << '|';
+      oss << digestPeers[i];
+    }
+    digest = oss.str();
+  }
+
+  if (digest == prevDigest)
+    return;
+
+  if (prevBroadcast != std::chrono::steady_clock::time_point{} &&
+      now - prevBroadcast < PEERLIST_RATE_LIMIT)
+    return;
+
   {
     std::lock_guard<std::mutex> guard(peerBroadcastMutex);
-    lastGlobalPeerListBroadcast = std::chrono::steady_clock::now();
+    lastGlobalPeerListBroadcast = now;
+    lastGlobalPeerListDigest = digest;
   }
 
   for (const auto &tx : sinks)
