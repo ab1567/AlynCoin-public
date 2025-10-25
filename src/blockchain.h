@@ -66,6 +66,7 @@ private:
   std::unordered_set<std::string> pendingTxHashes;
   std::unordered_set<std::string> confirmedTxHashes;
   static std::atomic<bool> isMining;
+  std::string lastMiningError_;
   double blockReward = BASE_BLOCK_REWARD;
   int difficulty;
   double miningReward;
@@ -181,6 +182,7 @@ public:
   std::string getLatestBlockHash() const;
   std::vector<Block> getAllBlocks();
   Block mineBlock(const std::string &minerAddress);
+  const std::string &getLastMiningError() const { return lastMiningError_; }
   bool deserializeBlockchainBase64(const std::string &base64Data);
   bool loadFromProto(const alyncoin::BlockchainProto &protoChain);
   bool hasBlockHash(const std::string &hash) const;
@@ -199,7 +201,8 @@ public:
   Block minePendingTransactions(const std::string &minerAddress,
                                 const std::vector<unsigned char> &minerDilithiumPriv,
                                 const std::vector<unsigned char> &minerFalconPriv,
-                                bool forceAutoReward = false);
+                                bool forceAutoReward = false,
+                                std::string *errorOut = nullptr);
   void setPendingTransactions(const std::vector<Transaction> &transactions);
   double getAverageBlockTime(int recentCount) const;
   double getAverageDifficulty(int recentCount) const;

@@ -891,7 +891,10 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
                 blockchain->reloadBlockchainState();
                 output = {{"result", mined.getHash()}};
               } else {
-                output = {{"error", "Mining failed"}};
+                std::string reason = blockchain->getLastMiningError();
+                if (reason.empty())
+                  reason = "Mining failed for an unknown reason";
+                output = {{"error", reason}};
               }
             }
           }
@@ -2163,7 +2166,10 @@ int main(int argc, char *argv[]) {
                 << "🧱 Block Hash: " << minedBlock.getHash() << "\n"
                 << "✅ Block added to chain.\n";
     } else {
-      std::cerr << "⚠️ Mining failed.\n";
+      std::string reason = b.getLastMiningError();
+      if (reason.empty())
+        reason = "Unknown mining error";
+      std::cerr << "⚠️ Mining failed: " << reason << "\n";
     }
 
     return 0;
@@ -2200,7 +2206,10 @@ int main(int argc, char *argv[]) {
         std::cout << "✅ Block mined by: " << minerAddress << "\n"
                   << "🧱 Block Hash: " << minedBlock.getHash() << "\n";
       } else {
-        std::cerr << "⚠️ Mining failed or no valid transactions.\n";
+        std::string reason = b.getLastMiningError();
+        if (reason.empty())
+          reason = "Unknown mining error";
+        std::cerr << "⚠️ Mining failed: " << reason << "\n";
       }
 
       std::this_thread::sleep_for(std::chrono::seconds(2));
@@ -2692,7 +2701,10 @@ int main(int argc, char *argv[]) {
         b.minePendingTransactions(minerAddr, dil.privateKey, fal.privateKey);
 
     if (mined.getHash().empty()) {
-      std::cerr << "❌ Mining failed or returned empty block.\n";
+      std::string reason = b.getLastMiningError();
+      if (reason.empty())
+        reason = "Unknown mining error";
+      std::cerr << "❌ Mining failed: " << reason << "\n";
       return 1;
     }
 

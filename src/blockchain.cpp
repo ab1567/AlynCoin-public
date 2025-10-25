@@ -1406,10 +1406,19 @@ Block Blockchain::minePendingTransactions(
     const std::string &minerAddress,
     const std::vector<unsigned char> &minerDilithiumPriv,
     const std::vector<unsigned char> &minerFalconPriv,
-    bool forceAutoReward) {
+    bool forceAutoReward,
+    std::string *errorOut) {
   (void)minerDilithiumPriv;
   (void)minerFalconPriv;
   (void)forceAutoReward;
+
+  std::string *errorPtr = errorOut ? errorOut : &lastMiningError_;
+  if (errorPtr)
+    errorPtr->clear();
+  const auto recordError = [errorPtr](const std::string &message) {
+    if (errorPtr)
+      *errorPtr = message;
+  };
 
   const int localHeight = getHeight();
   bool havePeers = false;
@@ -1429,6 +1438,7 @@ Block Blockchain::minePendingTransactions(
   const auto &cfg = getAppConfig();
   if (cfg.offline_mode) {
     std::cerr << "⚠️ Cannot mine while node is in offline mode.\n";
+    recordError("Node is running in offline mode");
     return Block();
   }
 
@@ -1436,6 +1446,7 @@ Block Blockchain::minePendingTransactions(
     std::cout << "[DEBUG] Skipping mining while synchronizing with peers ("
               << lag << " block" << (lag == 1 ? "" : "s")
               << " behind)...\n";
+    recordError("Node is synchronizing with the network");
     return Block();
   }
 
@@ -1451,6 +1462,7 @@ Block Blockchain::minePendingTransactions(
         std::cerr << "⚠️ Cannot mine without at least one connected peer.\n";
         soloWarned.store(true, std::memory_order_relaxed);
       }
+      recordError("No peers connected (require_peer_for_mining is enabled)");
       return Block();
     }
     if (!warned) {
@@ -1564,6 +1576,7 @@ Block Blockchain::minePendingTransactions(
   lock.unlock();
   if (!newBlock.mineBlock(difficulty)) {
     std::cerr << "❌ Mining process returned false!\n";
+    recordError("Proof-of-work search exhausted without success");
     return Block();
   }
   lock.lock();
@@ -1583,12 +1596,14 @@ Block Blockchain::minePendingTransactions(
 
   if (newBlock.getZkProof().empty()) {
     std::cerr << "❌ [ERROR] Mined block has empty zkProof! Aborting mining.\n";
+    recordError("Generated block is missing zk-STARK proof data");
     return Block();
   }
 
   std::cout << "[DEBUG] Attempting to addBlock()...\n";
   if (addBlock(newBlock, true) != BlockAddResult::Added) {
     std::cerr << "❌ Error adding mined block to blockchain.\n";
+    recordError("Locally mined block was rejected by the chain");
     return Block();
   }
 
@@ -1609,6 +1624,9 @@ Block Blockchain::minePendingTransactions(
       },
       newBlock)
       .detach();
+
+  if (errorPtr)
+    errorPtr->clear();
 
   std::cout << "✅ Block mined and added successfully. Total burned supply: "
             << totalBurnedSupply << std::endl;
@@ -3068,8 +3086,14 @@ Block Blockchain::createBlock(const std::string &minerDilithiumKey,
 Block Blockchain::mineBlock(const std::string &minerAddress) {
   std::cout << "[DEBUG] Entered mineBlock() for: " << minerAddress << "\n";
 
+  lastMiningError_.clear();
+  auto assignError = [this](const std::string &message) {
+    lastMiningError_ = message;
+  };
+
   if (getAppConfig().offline_mode) {
     std::cerr << "⚠️ Cannot mine block while node is in offline mode.\n";
+    assignError("Node is running in offline mode");
     return Block();
   }
 
@@ -3095,6 +3119,7 @@ Block Blockchain::mineBlock(const std::string &minerAddress) {
 
   if (getAppConfig().require_peer_for_mining && connectedPeers == 0) {
     std::cerr << "⚠️ No connected peers; mining paused.\n";
+    assignError("No peers connected (require_peer_for_mining is enabled)");
     return Block();
   }
 
@@ -3102,6 +3127,7 @@ Block Blockchain::mineBlock(const std::string &minerAddress) {
     std::cerr << "⚠️ Node is synchronizing (" << lag
               << " block" << (lag == 1 ? "" : "s")
               << " behind). Mining paused.\n";
+    assignError("Node is synchronizing with the network");
     return Block();
   }
 
@@ -3121,6 +3147,7 @@ Block Blockchain::mineBlock(const std::string &minerAddress) {
       !Crypto::fileExists(falconKeyPath)) {
     std::cerr << "❌ Miner key(s) not found for identifier: " << minerKeyId
               << " (address: " << minerAddress << ")\n";
+    assignError("Missing PQ key files for miner identifier " + minerKeyId);
     return Block();
   }
 
@@ -3130,19 +3157,26 @@ Block Blockchain::mineBlock(const std::string &minerAddress) {
   if (dilKeys.privateKey.empty() || falKeys.privateKey.empty()) {
     std::cerr << "❌ Failed to load miner keys for identifier: " << minerKeyId
               << " (address: " << minerAddress << ")\n";
+    assignError("Unable to load private keys for miner identifier " + minerKeyId);
     return Block();
   }
 
   Block newBlock =
-      minePendingTransactions(minerAddress, dilKeys.privateKey, falKeys.privateKey);
+      minePendingTransactions(minerAddress, dilKeys.privateKey, falKeys.privateKey,
+                              false, &lastMiningError_);
 
   if (newBlock.getHash().empty()) {
     std::cerr << "⚠️ Mining returned an empty block. Possibly no valid "
                  "transactions.\n";
+    if (lastMiningError_.empty())
+      assignError("Mining returned an empty block");
   }
 
   std::cout << "[DEBUG] Updating transaction history...\n";
   updateTransactionHistory(newBlock.getTransactions().size());
+
+  if (!newBlock.getHash().empty())
+    lastMiningError_.clear();
 
   return newBlock;
 }
