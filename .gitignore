@@ -1,22 +1,43 @@
-# Ignore build artifacts and temporary files
-
-# Build directories
-build/
-*/build/
-keys/
-
-# Compiled object files and libraries
+# Build output
+/target/
+/build/
+/dist/
+/*.exe
+/*.dll
+/*.so
+/*.dylib
 *.o
-*.so
-*.a
+*.obj
 
-# Keys and temporary data
-keys/
-temp_rocks/
+# Python artefacts
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
 
-# Other temporary files
+# Node and package managers (if applicable)
+node_modules/
+*.lock
+
+# Rust incremental / metadata
+**/Cargo.lock
+**/target/
+
+# OS / editor files
+.DS_Store
+Thumbs.db
+
+# Logs and temporary files
 *.log
+*.tmp
 
-# Python cache
-**/__pycache__/
-src/rust/target/
+# PyInstaller / packaging output
+application/alyncoin
+application/alyncoin.exe
+
+# Third‑party libraries you don’t maintain
+openssl-1.1.1/
+
+# Other large dependencies shipped by vendors
+*.tar.gz
+*.zip
