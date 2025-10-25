@@ -261,7 +261,11 @@ if (argc >= 3 && std::string(argv[1]) == "mineonce") {
                   << "🧱 Block Hash: " << minedBlock.getHash() << "\n"
                   << "✅ Block added to chain.\n";
     } else {
-        std::cerr << "⚠️ Mining failed.\n";
+        std::string reason = b.getLastMiningError();
+        if (reason.empty()) {
+            reason = "Unknown mining error";
+        }
+        std::cerr << "⚠️ Mining failed: " << reason << "\n";
     }
 
     return 0;
@@ -296,7 +300,11 @@ if (argc >= 3 && std::string(argv[1]) == "mineloop") {
             std::cout << "✅ Block mined by: " << minerAddress << "\n"
                       << "🧱 Block Hash: " << minedBlock.getHash() << "\n";
         } else {
-            std::cerr << "⚠️ Mining failed or no valid transactions.\n";
+            std::string reason = b.getLastMiningError();
+            if (reason.empty()) {
+                reason = "Unknown mining error";
+            }
+            std::cerr << "⚠️ Mining failed: " << reason << "\n";
         }
 
         std::this_thread::sleep_for(std::chrono::seconds(2));
@@ -762,7 +770,11 @@ if ((argc >= 6) && (std::string(argv[1]) == "sendl1" || std::string(argv[1]) == 
      Block mined = b.minePendingTransactions(minerAddr, dil.privateKey, fal.privateKey);
 
      if (mined.getHash().empty()) {
-         std::cerr << "❌ Mining failed or returned empty block.\n";
+         std::string reason = b.getLastMiningError();
+         if (reason.empty()) {
+             reason = "Unknown mining error";
+         }
+         std::cerr << "❌ Mining failed: " << reason << "\n";
          return 1;
      }
 
@@ -1306,12 +1318,16 @@ int cliMain(int argc, char *argv[]) {
                                                        falKeys.privateKey);
 
       if (mined.getHash().empty()) {
-        std::cout << "❌ Mining failed or returned empty block.\n";
+        std::string reason = blockchain.getLastMiningError();
+        if (reason.empty()) {
+          reason = "Unknown mining error";
+        }
+        std::cout << "❌ Mining failed: " << reason << "\n";
       } else {
         blockchain.saveToDB();
         if (network) {
- 	   network->broadcastBlock(mined);
-	}
+          network->broadcastBlock(mined);
+        }
 	std::cout << "✅ Block mined! Hash: " << mined.getHash() << std::endl;
       }
       break;
