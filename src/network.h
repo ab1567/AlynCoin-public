@@ -139,6 +139,8 @@ public:
   // The optional sender argument is the peer ID that relayed the block.
   // When provided we will update our cached height for that peer.
   void handleNewBlock(const Block &newBlock, const std::string &sender = "");
+  bool reserveBlockProcessing(const std::string &hash);
+  void releaseBlockProcessing(const std::string &hash);
   void blacklistPeer(const std::string &peer);
   bool isBlacklisted(const std::string &peer);
   void cleanupPeers();

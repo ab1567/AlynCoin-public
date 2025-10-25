@@ -13,12 +13,18 @@ struct NodeHealthStatus {
     std::string reason;
     uint64_t localHeight{0};
     uint64_t networkHeight{0};
+    uint64_t localWork{0};
+    uint64_t remoteWork{0};
+    uint64_t heightGap{0};
     std::string localTipHash;
     std::string expectedTipHash;
     std::string consensusCommonHash;
     size_t connectedPeers{0};
     size_t networkConnectedPeers{0};
     bool farBehind{false};
+    bool remoteStronger{false};
+    bool remoteAhead{false};
+    bool tipMismatch{false};
 };
 
 class HealthMonitor {

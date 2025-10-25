@@ -1095,28 +1095,28 @@ private:
 
 class ScopedInflightHash {
 public:
-  ScopedInflightHash(std::mutex &mutex,
-                     std::unordered_set<std::string> &set,
-                     std::string hash)
-      : mutex_(mutex), set_(set), hash_(std::move(hash)), owns_(false) {}
+  ScopedInflightHash(Network &network, std::string hash)
+      : network_(network), hash_(std::move(hash)), owns_(false) {}
 
-  bool try_lock() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    auto res = set_.insert(hash_);
-    owns_ = res.second;
+  ScopedInflightHash(const ScopedInflightHash &) = delete;
+  ScopedInflightHash &operator=(const ScopedInflightHash &) = delete;
+  ScopedInflightHash(ScopedInflightHash &&) = delete;
+  ScopedInflightHash &operator=(ScopedInflightHash &&) = delete;
+
+  [[nodiscard]] bool try_lock() {
+    if (owns_)
+      return true;
+    owns_ = network_.reserveBlockProcessing(hash_);
     return owns_;
   }
 
-  ~ScopedInflightHash() {
-    if (!owns_)
-      return;
-    std::lock_guard<std::mutex> lock(mutex_);
-    set_.erase(hash_);
+  ~ScopedInflightHash() noexcept {
+    if (owns_)
+      network_.releaseBlockProcessing(hash_);
   }
 
 private:
-  std::mutex &mutex_;
-  std::unordered_set<std::string> &set_;
+  Network &network_;
   std::string hash_;
   bool owns_;
 };
@@ -4709,6 +4709,16 @@ void cancelTimer(Timer &timer) {
 
 } // namespace
 
+bool Network::reserveBlockProcessing(const std::string &hash) {
+  std::lock_guard<std::mutex> lock(inflightBlockMutex);
+  return inflightBlockHashes.insert(hash).second;
+}
+
+void Network::releaseBlockProcessing(const std::string &hash) {
+  std::lock_guard<std::mutex> lock(inflightBlockMutex);
+  inflightBlockHashes.erase(hash);
+}
+
 void Network::runHairpinCheck() {
   bool expected = false;
   if (!hairpinCheckAttempted.compare_exchange_strong(expected, true))
@@ -4842,8 +4852,7 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
                  senderState->recentBlocksReceivedSet, blockHash);
   }
 
-  ScopedInflightHash inflight(inflightBlockMutex, inflightBlockHashes,
-                              blockHash);
+  ScopedInflightHash inflight(*this, blockHash);
   if (!inflight.try_lock()) {
     if (duplicateLogLimiter.shouldLog(blockHash)) {
       std::cout << "ℹ️ [Node] Block " << blockHash.substr(0, 12)

@@ -71,6 +71,12 @@ private:
   double miningReward;
   mutable std::recursive_mutex blockchainMutex;  // protects in-memory chain vector
   std::string minerAddress;
+  struct MiningSessionConfig {
+    std::string address;
+    std::string dilithiumKey;
+    std::string falconKey;
+  };
+  std::optional<MiningSessionConfig> lastMiningSession_;
   Network *network;
   rocksdb::DB *db;
   rocksdb::ColumnFamilyHandle* cfCheck{nullptr};
@@ -187,6 +193,8 @@ public:
                    const std::string &minerDilithiumKey,
                    const std::string &minerFalconKey);
   void stopMining();
+  bool isMiningActive() const;
+  bool resumeMiningFromLastConfig();
   bool hasPendingTransactions() const;
   Block minePendingTransactions(const std::string &minerAddress,
                                 const std::vector<unsigned char> &minerDilithiumPriv,
