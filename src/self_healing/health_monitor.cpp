@@ -58,6 +58,9 @@ NodeHealthStatus HealthMonitor::checkHealth() {
     uint64_t localWork = localWorkBI.convert_to<uint64_t>();
     uint64_t remoteWork = peerManager_->getMaxPeerWork();
 
+    status.localWork = localWork;
+    status.remoteWork = remoteWork;
+
     const uint64_t THRESHOLD = 1'000'000ULL;
     bool useHeightOnly = false;
 
@@ -67,25 +70,43 @@ NodeHealthStatus HealthMonitor::checkHealth() {
             useHeightOnly = true;
         }
     }
-    status.farBehind = false;
 
-    if (remoteWork > localWork && status.networkHeight >= status.localHeight) {
-        status.isHealthy = false;
-        status.reason = "Out of sync";
-        return status;
-    } else if (remoteWork > localWork) {
-        status.isHealthy = true;
-        status.reason = "Local height higher";
-    }
+    status.remoteAhead = status.networkHeight > status.localHeight;
+    status.heightGap = status.remoteAhead
+                       ? (status.networkHeight - status.localHeight)
+                       : 0;
+    status.tipMismatch = !status.expectedTipHash.empty() &&
+                         status.localTipHash != status.expectedTipHash;
 
     bool stronger = useHeightOnly
-                    ? (status.networkHeight > status.localHeight)
+                    ? status.remoteAhead
                     : (remoteWork > localWork);
+    status.remoteStronger = stronger;
+    status.farBehind = false;
 
-    if (!stronger) {
-        status.isHealthy = true;
-        status.reason = "Local chain heavier";
-    } else if (status.localHeight > status.networkHeight + 3) {
+    status.isHealthy = true;
+    status.reason = "Local chain heavier";
+
+    if (stronger) {
+        status.isHealthy = false;
+        if (status.heightGap > 1) {
+            status.reason = "Out of sync";
+        } else if (status.tipMismatch) {
+            status.reason = "Tip hash mismatch with stronger chain";
+        } else if (status.heightGap == 1) {
+            status.reason = "Catching up to stronger chain";
+        } else {
+            status.reason = "Remote chain has more work";
+        }
+    } else {
+        if (status.tipMismatch && status.remoteAhead) {
+            status.reason = "Tip mismatch but we are heavier";
+        } else if (status.remoteAhead) {
+            status.reason = "Local height higher";
+        }
+    }
+
+    if (!status.remoteStronger && status.localHeight > status.networkHeight + 3) {
         Logger::warn("[🩺 NODE HEALTH] ⚠ Out of sync – forcing re-probe");
         if (auto net = Network::getExistingInstance()) {
             alyncoin::net::Frame fr; fr.mutable_height_req();
@@ -94,18 +115,15 @@ NodeHealthStatus HealthMonitor::checkHealth() {
         status.isHealthy = false;
         status.reason = "Out of sync";
         return status;
-    } else {
-        status.isHealthy = true;
-        status.reason = "Healthy";
     }
 
     if (status.localHeight + 5 < status.networkHeight) {
         status.isHealthy = false;
         status.reason = "Node is behind the network";
-    } else if (stronger && status.localTipHash != status.expectedTipHash) {
+    } else if (status.remoteStronger && status.tipMismatch) {
         status.isHealthy = false;
         status.reason = "Tip hash mismatch with stronger chain";
-    } else if (status.localTipHash != status.expectedTipHash) {
+    } else if (status.tipMismatch) {
         status.isHealthy = true;
         status.reason = "Tip mismatch but we are heavier";
     }
@@ -127,8 +145,9 @@ void HealthMonitor::logStatus(const NodeHealthStatus& status) {
         << "  • Network Height: " << status.networkHeight << "\n"
         << "  • Peers: local=" << status.connectedPeers
         << " / network=" << status.networkConnectedPeers << "\n"
-        << "  • Local Work: " << blockchain_->computeCumulativeDifficulty(blockchain_->getChain()).convert_to<uint64_t>() << "\n"
-        << "  • Remote Work: " << peerManager_->getMaxPeerWork() << "\n"
+        << "  • Local Work: " << status.localWork << "\n"
+        << "  • Remote Work: " << status.remoteWork << "\n"
+        << "  • Height Gap: " << status.heightGap << "\n"
         << "  • Local Tip Hash: " << status.localTipHash.substr(0, 10) << "...\n"
         << "  • Expected Tip Hash: " << status.expectedTipHash.substr(0, 10) << "...";
 
@@ -136,6 +155,9 @@ void HealthMonitor::logStatus(const NodeHealthStatus& status) {
         log << "\n  • Consensus Common Hash: "
             << status.consensusCommonHash.substr(0, 10) << "...";
     }
+
+    log << "\n  • Tip Mismatch: " << (status.tipMismatch ? "yes" : "no");
+    log << "\n  • Remote Stronger: " << (status.remoteStronger ? "yes" : "no");
 
     if (status.farBehind) {
         log << "\n  • Desync Gap: " << (status.networkHeight - status.localHeight);
@@ -145,7 +167,20 @@ void HealthMonitor::logStatus(const NodeHealthStatus& status) {
 }
 
 bool HealthMonitor::shouldTriggerRecovery(const NodeHealthStatus& status) {
-    return !status.isHealthy || status.farBehind;
+    if (status.farBehind) {
+        return true;
+    }
+
+    if (!status.isHealthy) {
+        if (status.heightGap > 1) {
+            return true;
+        }
+        if (status.remoteStronger && status.tipMismatch) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 std::string HealthMonitor::getLocalTipHash() const {

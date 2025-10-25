@@ -13,10 +13,52 @@
 SyncRecovery::SyncRecovery(Blockchain* blockchain, PeerManager* peerManager)
     : blockchain_(blockchain), peerManager_(peerManager) {}
 
+bool SyncRecovery::markBlockInFlight(const std::string& hash) {
+    Network* net = Network::getExistingInstance();
+    bool reservedNetwork = false;
+    if (net) {
+        reservedNetwork = net->reserveBlockProcessing(hash);
+        if (!reservedNetwork) {
+            return false;
+        }
+    }
+
+    std::lock_guard<std::mutex> lock(inflightMutex_);
+    auto inserted = inflightBlocks_.insert(hash);
+    if (!inserted.second) {
+        if (reservedNetwork && net) {
+            net->releaseBlockProcessing(hash);
+        }
+        return false;
+    }
+    return true;
+}
+
+void SyncRecovery::unmarkBlockInFlight(const std::string& hash) {
+    {
+        std::lock_guard<std::mutex> lock(inflightMutex_);
+        inflightBlocks_.erase(hash);
+    }
+
+    if (auto net = Network::getExistingInstance()) {
+        net->releaseBlockProcessing(hash);
+    }
+}
+
 bool SyncRecovery::attemptRecovery(const std::string& expectedTipHash) {
     Logger::warn("[🔧 Recovery] Starting recovery process...");
 
-    blockchain_->stopMining();
+    bool wasMining = false;
+    if (blockchain_) {
+        wasMining = blockchain_->isMiningActive();
+        blockchain_->stopMining();
+    }
+
+    auto reportMiningPaused = [&]() {
+        if (wasMining) {
+            Logger::warn("[🔧 Recovery] Mining remains paused because recovery did not complete.");
+        }
+    };
 
     std::string rollbackHash = expectedTipHash;
     if (rollbackHash.empty() && peerManager_) {
@@ -62,6 +104,7 @@ bool SyncRecovery::attemptRecovery(const std::string& expectedTipHash) {
             }
         }
 
+        reportMiningPaused();
         return false;
     }
 
@@ -70,10 +113,15 @@ bool SyncRecovery::attemptRecovery(const std::string& expectedTipHash) {
 
     if (!fetchAndApplyBlocksFromHeight(rollbackHeight + 1)) {
         Logger::error("[❌ Recovery] Failed to resync blocks from peers.");
+        reportMiningPaused();
         return false;
     }
 
     Logger::success("[✅ Recovery] Self-healing complete. Node resynced successfully.");
+
+    if (wasMining && blockchain_ && !blockchain_->resumeMiningFromLastConfig()) {
+        Logger::warn("[🔧 Recovery] Mining was active before recovery but could not be resumed automatically.");
+    }
     return true;
 }
 
@@ -122,29 +170,70 @@ bool SyncRecovery::fetchAndApplyBlocksFromHeight(int startHeight) {
             return false;
         }
 
+        const std::string blockHash = block.getHash();
+        if (blockHash.empty()) {
+            Logger::error("[❌ Validate] Received block with empty hash at height " + std::to_string(h));
+            return false;
+        }
+
+        if (blockchain_->hasBlockHash(blockHash)) {
+            Logger::info("[📥 Apply] Block " + std::to_string(h) + " already present. Skipping.");
+            continue;
+        }
+
+        if (!markBlockInFlight(blockHash)) {
+            Logger::info("[📥 Apply] Block " + blockHash + " is already being processed. Skipping duplicate download.");
+            continue;
+        }
+
+        auto releaseInFlight = [&]() { unmarkBlockInFlight(blockHash); };
+
         if (!validateBlock(block)) {
+            releaseInFlight();
             Logger::error("[❌ Validate] Invalid block at height " + std::to_string(h));
             return false;
         }
 
+        if (blockchain_->hasBlockHash(blockHash)) {
+            releaseInFlight();
+            Logger::info("[📥 Apply] Block " + std::to_string(h) + " became available during validation. Skipping.");
+            continue;
+        }
+
         try {
             auto addRes = blockchain_->addBlock(block);
-            if (addRes != Blockchain::BlockAddResult::Added) {
-                Logger::error("[❌ Add] Could not add block at height " + std::to_string(h));
-                return false;
+            if (addRes == Blockchain::BlockAddResult::Added) {
+                releaseInFlight();
+                Logger::info("[📥 Apply] Block " + std::to_string(h) + " applied successfully.");
+                continue;
             }
+
+            if (addRes == Blockchain::BlockAddResult::Duplicate ||
+                addRes == Blockchain::BlockAddResult::Stale) {
+                releaseInFlight();
+                Logger::info("[📥 Apply] Block " + std::to_string(h) + " already processed via network path. Continuing.");
+                continue;
+            }
+
+            releaseInFlight();
+            Logger::error("[❌ Add] Could not add block at height " + std::to_string(h));
+            return false;
         } catch (const std::exception& ex) {
+            releaseInFlight();
             Logger::error("[❌ Exception] addBlock threw: " + std::string(ex.what()));
             return false;
         }
-
-        Logger::info("[📥 Apply] Block " + std::to_string(h) + " applied successfully.");
     }
 
     return true;
 }
 
 bool SyncRecovery::validateBlock(const Block& block) {
+    if (blockchain_ && blockchain_->hasBlockHash(block.getHash())) {
+        Logger::info("[🔁 Recovery] Block already exists locally. Skipping validation for " + block.getHash());
+        return true;
+    }
+
     if (!blockchain_->isValidNewBlock(block)) {
         Logger::error("[❌ Block] Structural validation failed for block.");
         return false;

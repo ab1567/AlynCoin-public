@@ -1656,6 +1656,9 @@ void Blockchain::startMining(const std::string &minerAddress,
   }
   isMining.store(true);
 
+  lastMiningSession_ = MiningSessionConfig{minerAddress, minerDilithiumKey, minerFalconKey};
+  this->minerAddress = minerAddress;
+
   // Convert the hex-encoded private keys once, outside the loop
   std::vector<unsigned char> dilithiumPriv = Crypto::fromHex(minerDilithiumKey);
   std::vector<unsigned char> falconPriv = Crypto::fromHex(minerFalconKey);
@@ -1698,11 +1701,33 @@ void Blockchain::stopMining() {
   std::cout << "⛔ Mining stopped!\n";
 }
 
+bool Blockchain::isMiningActive() const { return isMining.load(); }
+
+bool Blockchain::resumeMiningFromLastConfig() {
+  if (isMining.load())
+    return true;
+
+  if (!lastMiningSession_) {
+    std::cout << "⚠️ [Recovery] No stored mining session to resume.\n";
+    return false;
+  }
+
+  const auto &session = *lastMiningSession_;
+  if (session.address.empty() || session.dilithiumKey.empty() ||
+      session.falconKey.empty()) {
+    std::cout << "⚠️ [Recovery] Stored mining session incomplete. Please restart mining manually.\n";
+    return false;
+  }
+
+  std::cout << "🔄 Resuming mining for: " << session.address << "\n";
+  startMining(session.address, session.dilithiumKey, session.falconKey);
+  return true;
+}
+
 // ✅ **Reload Blockchain State**
 void Blockchain::reloadBlockchainState() {
   loadFromDB();
   loadTransactionsFromDB();
-  std::cout << "✅ Blockchain and transactions reloaded!\n";
 }
 
 // ✅ **Print Blockchain**
