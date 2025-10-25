@@ -1,43 +1,80 @@
-# Build output
-/target/
-/build/
-/dist/
-/*.exe
-/*.dll
-/*.so
-/*.dylib
-*.o
-*.obj
+# ---- Build trees (keep sources clean) ----
+# C/C++/Rust/Python/Qt packaging outputs
+application/dist/
+application/build/
+build/
+dist/
+out/
+bin/
+obj/
+data/
+cache/
+tmp/
+application/__pycache__/
 
-# Python artefacts
-__pycache__/
-*.pyc
-*.pyo
-*.egg-info/
+# ---- Binaries & installers (anywhere) ----
+**/*.exe
+**/*.dll
+**/*.so
+**/*.dylib
+**/*.lib
+**/*.a
+**/*.pdb
+**/*.exp
+**/*.ilk
+**/*.pkg
+**/*.msi
+**/*.dmg
+**/*.deb
+**/*.rpm
+**/*.AppImage
 
-# Node and package managers (if applicable)
-node_modules/
-*.lock
+# ---- Archives / bundles ----
+**/*.tar
+**/*.tar.gz
+**/*.tgz
+**/*.zip
 
-# Rust incremental / metadata
-**/Cargo.lock
+# ---- Rust ----
+# Always ignore build output
 **/target/
 
-# OS / editor files
-.DS_Store
-Thumbs.db
+# Keep Cargo.lock if present (recommended for apps); do NOT blanket-ignore *.lock
 
-# Logs and temporary files
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+*.spec
+.Python
+.venv/
+venv/
+env/
+
+# ---- Node (if any UI tools/scripts) ----
+node_modules/
+
+# ---- Logs / temp ----
 *.log
 *.tmp
 
-# PyInstaller / packaging output
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ---- PyInstaller artifacts you might drop next to app ----
 application/alyncoin
 application/alyncoin.exe
 
-# Third‑party libraries you don’t maintain
+# ---- Vendored/3rd-party sources to exclude from public repo ----
 openssl-1.1.1/
+crypto/**/PQClean/**
 
-# Other large dependencies shipped by vendors
-*.tar.gz
-*.zip
+# ---- Optional: ignore local configs not meant for source control ----
+*.local.json
+*.env
+*.env.*
