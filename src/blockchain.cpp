@@ -4209,9 +4209,18 @@ uint64_t Blockchain::getBalanceOf(const std::string &address) const {
   return 0;
 }
 
-int Blockchain::getHeight() const {
+int Blockchain::getHeight() const { return getHeightSigned(); }
+
+int Blockchain::getHeightSigned() const {
   std::lock_guard<std::recursive_mutex> lock(blockchainMutex);
   return static_cast<int>(chain.size()) - 1;
+}
+
+uint64_t Blockchain::getHeightClamped() const {
+  std::lock_guard<std::recursive_mutex> lock(blockchainMutex);
+  if (chain.empty())
+    return 0ULL;
+  return static_cast<uint64_t>(chain.size() - 1);
 }
 
 std::string Blockchain::getTipHashHex() const {

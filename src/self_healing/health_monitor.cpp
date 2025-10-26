@@ -10,6 +10,7 @@
 #include <iostream>
 #include <sstream>
 #include <iomanip>
+#include <limits>
 
 HealthMonitor::HealthMonitor(Blockchain* blockchain, PeerManager* peerManager)
     : blockchain_(blockchain),
@@ -19,13 +20,20 @@ HealthMonitor::HealthMonitor(Blockchain* blockchain, PeerManager* peerManager)
 
 NodeHealthStatus HealthMonitor::checkHealth() {
     NodeHealthStatus status;
-    status.localHeight = blockchain_->getHeight();
+    const int rawLocalHeight = blockchain_->getHeight();
+    int64_t localHeightSigned = static_cast<int64_t>(rawLocalHeight);
+    if (localHeightSigned < 0) {
+        localHeightSigned = 0;
+    }
+    status.localHeight = static_cast<uint64_t>(localHeightSigned);
     status.networkHeight = getNetworkHeight();
     status.localTipHash = getLocalTipHash();
+    const int queryHeight = static_cast<int>(std::min<int64_t>(
+        localHeightSigned, static_cast<int64_t>(std::numeric_limits<int>::max())));
     status.consensusCommonHash =
-        peerManager_->getConsensusCommonHash(status.localHeight);
+        peerManager_->getConsensusCommonHash(queryHeight);
     status.expectedTipHash =
-        peerManager_->getConsensusTipHash(status.localHeight);
+        peerManager_->getConsensusTipHash(queryHeight);
     if (status.expectedTipHash.empty())
         status.expectedTipHash = status.consensusCommonHash;
     status.connectedPeers = peerManager_->getPeerCount();
@@ -114,7 +122,6 @@ NodeHealthStatus HealthMonitor::checkHealth() {
         }
         status.isHealthy = false;
         status.reason = "Out of sync";
-        return status;
     }
 
     if (status.localHeight + 5 < status.networkHeight) {

@@ -949,7 +949,7 @@ void start_rpc_server(Blockchain *blockchain, Network *network,
       }
       //
       else if (method == "syncstatus") {
-        uint64_t localHeight = blockchain->getHeight();
+        uint64_t localHeight = blockchain->getHeightClamped();
         uint64_t networkHeight = 0;
         bool synced = false;
         if (network && network->getPeerManager()) {
