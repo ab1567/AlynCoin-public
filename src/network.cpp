@@ -4823,8 +4823,8 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
 
   if (blockchain.hasBlockHash(blockHash)) {
     if (duplicateLogLimiter.shouldLog(blockHash)) {
-      std::cout << "ℹ️ [Node] Duplicate block received (hash="
-                << blockHash.substr(0, 12) << "…).\n";
+      std::cout << "ℹ️ [Node] Block " << blockHash.substr(0, 12)
+                << "… already in chain. Skipping.\n";
     }
     return;
   }
@@ -4861,7 +4861,10 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
     return;
   }
 
-  const int expectedIndex = blockchain.getLatestBlock().getIndex() + 1;
+  int expectedIndex = 0;
+  if (!blockchain.getChain().empty()) {
+    expectedIndex = blockchain.getLatestBlock().getIndex() + 1;
+  }
   auto punish = [&] {
     if (sender.empty())
       return;
@@ -4879,6 +4882,19 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
     if (ban)
       blacklistPeer(sender);
   };
+
+  if (newBlock.getIndex() < 0) {
+    std::cerr << "❌ [Node] Dropping block with negative index from "
+              << (sender.empty() ? "local" : logPeer(sender)) << "\n";
+    punish();
+    return;
+  }
+  if (newBlock.getIndex() == 0 && !newBlock.getPreviousHash().empty()) {
+    std::cerr << "❌ [Node] Rejecting malformed genesis block from "
+              << (sender.empty() ? "local" : logPeer(sender)) << "\n";
+    punish();
+    return;
+  }
 
   // 1) PoW and zk-STARK check
   if (!newBlock.hasValidProofOfWork()) {
@@ -5042,6 +5058,14 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
 
     std::cout << "✅ Block added successfully! Index: " << newBlock.getIndex()
               << "\n";
+
+    const int signedHeight = blockchain.getHeight();
+    const auto &chainRef = blockchain.getChain();
+    if (signedHeight >= 0 &&
+        static_cast<std::size_t>(signedHeight + 1) != chainRef.size()) {
+      std::cerr << "⚠️ [Invariant] Height/chain size mismatch detected after block"
+                << " " << newBlock.getIndex() << "\n";
+    }
 
   } catch (const std::exception &ex) {
     std::cerr << "❌ [EXCEPTION] Block add/save failed: " << ex.what() << "\n";
@@ -9066,6 +9090,15 @@ void Network::handleTailBlocks(const std::string &peer,
       return;
     }
 
+    if (!chain.hasBlocks()) {
+      std::cerr << "⚠️ [TAIL_BLOCKS] Local chain empty; requesting snapshot from "
+                << logPeer(peer) << "\n";
+      resetSnapshotState();
+      requestSnapshotSync(peer);
+      setPeerSyncMode(peer, PeerSyncProgress::Mode::Snapshot);
+      return;
+    }
+
     // Convert proto to vector of blocks
     std::vector<Block> blocks;
     blocks.reserve(proto.blocks_size());
@@ -9242,6 +9275,34 @@ void Network::handleBlockBatch(const std::string &peer,
   }
   chain.broadcastNewTip();
   setPeerSyncMode(peer, PeerSyncProgress::Mode::Idle);
+}
+
+//
+void Network::resetSnapshotState() {
+  std::vector<std::pair<std::string, std::string>> sessionsToRelease;
+  {
+    std::lock_guard<std::timed_mutex> lk(peersMutex);
+    for (auto &entry : peerTransports) {
+      auto state = entry.second.state;
+      if (!state)
+        continue;
+      std::lock_guard<std::mutex> stateLock(state->m);
+      const std::string released =
+          resetSnapshotReceptionLocked(*state, PeerState::SnapState::WaitMeta);
+      state->snapshotActive = false;
+      state->snapshotMetaReceived = false;
+      state->snapshotRestartMetaSent = false;
+      if (!released.empty())
+        sessionsToRelease.emplace_back(entry.first, released);
+    }
+  }
+  {
+    std::lock_guard<std::mutex> lk(snapshotSessionMutex);
+    activeSnapshotSession.reset();
+  }
+  for (const auto &rel : sessionsToRelease) {
+    releaseSnapshotSession(rel.first, rel.second);
+  }
 }
 
 //

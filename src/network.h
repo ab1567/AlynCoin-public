@@ -167,6 +167,7 @@ public:
   bool peerSupportsWhisper(const std::string &peerId) const;
   bool peerSupportsTls(const std::string &peerId) const;
   void requestSnapshotSync(const std::string &peer);
+  void resetSnapshotState();
   void requestTailBlocks(const std::string &peer, int fromHeight,
                          const std::string &anchorHash);
   void requestBlockByHash(const std::string &peer, const std::string &hash);

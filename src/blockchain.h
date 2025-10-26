@@ -269,6 +269,8 @@ public:
   SupplyInfo getSupplyInfo() const;
   uint64_t getBalanceOf(const std::string& address) const;
   int getHeight() const;               // chain height (last index)
+  int getHeightSigned() const;
+  uint64_t getHeightClamped() const;
   std::string getTipHashHex() const;   // hex string of tip hash
   uint64_t getTotalWork() const { return totalWork; } // cumulative work
   uint32_t getPeerCount() const;       // connected peers

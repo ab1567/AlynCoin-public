@@ -87,15 +87,20 @@ bool SyncRecovery::attemptRecovery(const std::string& expectedTipHash) {
             "[🧹 Recovery] No common ancestor found. Purging local data and "
             "requesting snapshot from peers...");
 
+        Network* netInstance = Network::getExistingInstance();
         if (blockchain_) {
             blockchain_->purgeDataForResync();
+        }
+
+        if (netInstance) {
+            netInstance->resetSnapshotState();
         }
 
         if (peerManager_) {
             auto peers = peerManager_->getConnectedPeerIds();
             if (!peers.empty()) {
-                if (auto net = Network::getExistingInstance()) {
-                    net->requestSnapshotSync(peers.front());
+                if (netInstance) {
+                    netInstance->requestSnapshotSync(peers.front());
                 } else {
                     Logger::warn("[🧹 Recovery] Network instance unavailable for snapshot request.");
                 }
