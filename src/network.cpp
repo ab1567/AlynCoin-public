@@ -762,6 +762,15 @@ static std::ostream &operator<<(std::ostream &os, const PeerLogProxy &proxy) {
 
 static PeerLogProxy logPeer(const std::string &peerKey) { return PeerLogProxy{peerKey}; }
 
+static std::ostream &logSource(std::ostream &os, const std::string &sender) {
+  if (sender.empty()) {
+    os << "local";
+  } else {
+    os << logPeer(sender);
+  }
+  return os;
+}
+
 static std::string formatEndpointForWire(const std::string &host, int port) {
   if (host.find(':') != std::string::npos && host.front() != '[')
     return '[' + host + "]:" + std::to_string(port);
@@ -4884,14 +4893,16 @@ void Network::handleNewBlock(const Block &newBlock, const std::string &sender) {
   };
 
   if (newBlock.getIndex() < 0) {
-    std::cerr << "❌ [Node] Dropping block with negative index from "
-              << (sender.empty() ? "local" : logPeer(sender)) << "\n";
+    logSource(std::cerr << "❌ [Node] Dropping block with negative index from ",
+              sender)
+        << "\n";
     punish();
     return;
   }
   if (newBlock.getIndex() == 0 && !newBlock.getPreviousHash().empty()) {
-    std::cerr << "❌ [Node] Rejecting malformed genesis block from "
-              << (sender.empty() ? "local" : logPeer(sender)) << "\n";
+    logSource(std::cerr << "❌ [Node] Rejecting malformed genesis block from ",
+              sender)
+        << "\n";
     punish();
     return;
   }
